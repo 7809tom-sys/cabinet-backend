@@ -47,6 +47,7 @@ const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
+const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
@@ -349,6 +350,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <PriceShop />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/bundles">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <BundleDeals />
             </Suspense>
           </AppLayout>
         </Route>

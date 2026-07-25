@@ -1,15 +1,34 @@
 import { z } from "zod";
-import { eq, and, inArray } from "drizzle-orm";
-import { publicProcedure, router } from "../_core/trpc";
+import { eq, and, inArray, desc } from "drizzle-orm";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import {
   cabinets,
   distributors,
   doorStyles,
   distributorSkus,
+  priceShopSnapshots,
+  bundleDeals,
 } from "../../drizzle/schema";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
+import { TRPCError } from "@trpc/server";
+
+// ─── 10×10 Kitchen Layout ────────────────────────────────────────────────────
+// Industry-standard 10×10 kitchen benchmark (120" × 120").
+// Excludes trim, crown molding, and lazy Susan blind corners.
+// Uses standard 30" wall cabinets. No shipping included.
+const LAYOUT_ITEMS_10x10 = [
+  { masterCodes: ["W-30-30"], label: "Wall 30×30", qty: 2 },
+  { masterCodes: ["W-36-30"], label: "Wall 36×30", qty: 1 },
+  { masterCodes: ["W-12-30"], label: "Wall 12×30", qty: 1 },
+  { masterCodes: ["W-18-30"], label: "Wall 18×30", qty: 1 },
+  { masterCodes: ["B-36"], label: "Base 36\"", qty: 1 },
+  { masterCodes: ["B-18"], label: "Base 18\"", qty: 1 },
+  { masterCodes: ["B-30"], label: "Base 30\"", qty: 1 },
+  { masterCodes: ["SB-36"], label: "Sink Base 36\"", qty: 1 },
+  { masterCodes: ["DB-18-3"], label: "Drawer Base 18\" (3-drawer)", qty: 1 },
+] as const;
 
 // ─── 19'L Kitchen Layout ─────────────────────────────────────────────────────
 // Standard layout from the Cardell Designer Collection showroom card.
@@ -296,4 +315,270 @@ export const priceShopRouter = router({
         return pa - pb;
       });
   }),
+
+  // ─── 10×10 Layout Pricing ────────────────────────────────────────────────────
+  get10x10Layout: publicProcedure.query(() => {
+    return {
+      name: "The 10×10",
+      description: "Industry-standard 10×10 kitchen benchmark (120\" × 120\"). No trim, crown, or lazy Susan. Standard 30\" wall cabinets. Shipping not included.",
+      totalLinearFeet: 20,
+      items: LAYOUT_ITEMS_10x10.map((i) => ({
+        masterCode: i.masterCodes[0],
+        label: i.label,
+        qty: i.qty,
+      })),
+    };
+  }),
+
+  price10x10Styles: publicProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    const viewerTier = resolveStorefrontTier(ctx.user);
+    const isAdmin = ctx.user?.role === "admin";
+    const ps = await getPricingSettings();
+
+    const allMasterCodes = LAYOUT_ITEMS_10x10.flatMap((i) => [...i.masterCodes]);
+    const cabinetRows = await db
+      .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+      .from(cabinets)
+      .where(and(inArray(cabinets.masterCode, allMasterCodes), eq(cabinets.isActive, true)));
+    const codeToId = new Map<string, number>();
+    for (const r of cabinetRows) codeToId.set(r.masterCode, r.id);
+    const itemCabinetIds: number[][] = LAYOUT_ITEMS_10x10.map((item) =>
+      item.masterCodes.map((c) => codeToId.get(c)).filter((id): id is number => id != null)
+    );
+    const cabinetIds = Array.from(codeToId.values());
+    if (cabinetIds.length === 0) return [];
+
+    const skuRows = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        styleId: distributorSkus.styleId,
+        listPrice: distributorSkus.listPrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        wholesalePrice: distributorSkus.wholesalePrice,
+        contractorPrice: distributorSkus.contractorPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        yourCost: distributorSkus.yourCost,
+      })
+      .from(distributorSkus)
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+      .where(and(
+        inArray(distributorSkus.cabinetId, cabinetIds),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        eq(distributors.isActive, true),
+        notInConflict()
+      ));
+
+    const bestPerPair = new Map<string, (typeof skuRows)[number]>();
+    for (const r of skuRows) {
+      const key = `${r.cabinetId}:${r.styleId}`;
+      const cur = bestPerPair.get(key);
+      if (!cur) { bestPerPair.set(key, r); continue; }
+      const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+      const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+      if (a < b) bestPerPair.set(key, r);
+    }
+
+    const allStyleIds = Array.from(new Set(skuRows.map((r) => r.styleId)));
+    if (allStyleIds.length === 0) return [];
+    const styleRows = await db
+      .select({
+        id: doorStyles.id,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        doorStyle: doorStyles.doorStyle,
+        finish: doorStyles.finish,
+        color: doorStyles.color,
+        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+      })
+      .from(doorStyles)
+      .where(and(inArray(doorStyles.id, allStyleIds), eq(doorStyles.isActive, true)));
+
+    type BreakdownItem = { masterCode: string; label: string; qty: number; unitPrice: string | null; lineTotal: string | null; unitCost: string | null; lineCost: string | null; available: boolean; };
+    type StyleResult = { styleId: number; styleCode: string | null; name: string | null; doorStyle: string | null; finish: string | null; color: string | null; thumbnailImageUrl: string | null; doorSampleImageUrl: string | null; totalPrice: string | null; totalCost: string | null; breakdown: BreakdownItem[]; completeness: number; };
+
+    const results: StyleResult[] = [];
+    const totalItems = LAYOUT_ITEMS_10x10.reduce((s, i) => s + i.qty, 0);
+
+    for (const style of styleRows) {
+      let total = 0, totalCost = 0, itemsAvailable = 0;
+      const breakdown: BreakdownItem[] = [];
+      for (let idx = 0; idx < LAYOUT_ITEMS_10x10.length; idx++) {
+        const item = LAYOUT_ITEMS_10x10[idx];
+        const cabIds = itemCabinetIds[idx];
+        if (cabIds.length === 0) { breakdown.push({ masterCode: item.masterCodes[0], label: item.label, qty: item.qty, unitPrice: null, lineTotal: null, unitCost: null, lineCost: null, available: false }); continue; }
+        let row: (typeof skuRows)[number] | undefined;
+        for (const cabId of cabIds) {
+          const candidate = bestPerPair.get(`${cabId}:${style.id}`);
+          if (candidate) { if (!row) { row = candidate; } else { const a = Number(candidate.contractorPrice ?? candidate.wholesalePrice ?? Infinity); const b = Number(row.contractorPrice ?? row.wholesalePrice ?? Infinity); if (a < b) row = candidate; } }
+        }
+        if (!row) { breakdown.push({ masterCode: item.masterCodes[0], label: item.label, qty: item.qty, unitPrice: null, lineTotal: null, unitCost: null, lineCost: null, available: false }); continue; }
+        const costRow = { wholesalePrice: row.wholesalePrice, adjustedListPrice: row.adjustedListPrice, yourCost: row.yourCost, listPrice: row.listPrice };
+        const displayPrice = sellPriceForTier(costRow, ps, viewerTier === "homeowner" || !viewerTier ? "homeowner" : viewerTier === "contractor" ? "contractor" : "wholesale");
+        const unitCost = row.yourCost ? Number(row.yourCost) : null;
+        if (displayPrice != null) {
+          const lineTotal = displayPrice * item.qty;
+          total += lineTotal;
+          if (unitCost != null) totalCost += unitCost * item.qty;
+          itemsAvailable += item.qty;
+          breakdown.push({ masterCode: item.masterCodes[0], label: item.label, qty: item.qty, unitPrice: displayPrice.toFixed(2), lineTotal: lineTotal.toFixed(2), unitCost: isAdmin && unitCost != null ? unitCost.toFixed(2) : null, lineCost: isAdmin && unitCost != null ? (unitCost * item.qty).toFixed(2) : null, available: true });
+        } else {
+          breakdown.push({ masterCode: item.masterCodes[0], label: item.label, qty: item.qty, unitPrice: null, lineTotal: null, unitCost: null, lineCost: null, available: false });
+        }
+      }
+      results.push({ styleId: style.id, styleCode: style.styleCode, name: style.ourName, doorStyle: style.doorStyle, finish: style.finish, color: style.color, thumbnailImageUrl: style.thumbnailImageUrl, doorSampleImageUrl: style.doorSampleImageUrl, totalPrice: itemsAvailable > 0 ? total.toFixed(2) : null, totalCost: isAdmin && totalCost > 0 ? totalCost.toFixed(2) : null, breakdown, completeness: totalItems > 0 ? itemsAvailable / totalItems : 0 });
+    }
+    return results.filter((r) => r.completeness > 0).sort((a, b) => {
+      if (a.completeness === 1 && b.completeness < 1) return -1;
+      if (b.completeness === 1 && a.completeness < 1) return 1;
+      return Number(a.totalPrice ?? Infinity) - Number(b.totalPrice ?? Infinity);
+    });
+  }),
+
+  // ─── Price Shop Snapshots ─────────────────────────────────────────────────────
+  saveSnapshot: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1).max(200),
+      layoutType: z.enum(["10x10", "19L"]).default("10x10"),
+      data: z.array(z.any()),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.insert(priceShopSnapshots).values({
+        name: input.name,
+        layoutType: input.layoutType,
+        snapshotData: input.data,
+        totalStyles: input.data.length,
+        createdBy: ctx.user.id,
+      });
+      return { ok: true };
+    }),
+
+  listSnapshots: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const db = await getDb();
+    if (!db) return [];
+    return db.select().from(priceShopSnapshots).orderBy(desc(priceShopSnapshots.createdAt));
+  }),
+
+  deleteSnapshot: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(priceShopSnapshots).where(eq(priceShopSnapshots.id, input.id));
+      return { ok: true };
+    }),
+
+  // ─── Bundle Deals ─────────────────────────────────────────────────────────────
+  saveBundleDeal: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1).max(200),
+      description: z.string().optional(),
+      designSnapshot: z.any(),
+      styleId: z.number().optional(),
+      styleName: z.string().optional(),
+      homeownerPrice: z.number().optional(),
+      yourCost: z.number().optional(),
+      roomWidthInches: z.number().optional(),
+      roomDepthInches: z.number().optional(),
+      cabinetCount: z.number().default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [result] = await db.insert(bundleDeals).values({
+        name: input.name,
+        description: input.description,
+        designSnapshot: input.designSnapshot,
+        styleId: input.styleId,
+        styleName: input.styleName,
+        homeownerPrice: input.homeownerPrice?.toFixed(2),
+        yourCost: input.yourCost?.toFixed(2),
+        roomWidthInches: input.roomWidthInches,
+        roomDepthInches: input.roomDepthInches,
+        cabinetCount: input.cabinetCount,
+        createdBy: ctx.user.id,
+      });
+      return { ok: true, id: (result as any).insertId };
+    }),
+
+  listBundleDeals: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({
+      id: bundleDeals.id,
+      name: bundleDeals.name,
+      description: bundleDeals.description,
+      styleName: bundleDeals.styleName,
+      homeownerPrice: bundleDeals.homeownerPrice,
+      yourCost: bundleDeals.yourCost,
+      cabinetCount: bundleDeals.cabinetCount,
+      isPublished: bundleDeals.isPublished,
+      heroImageUrl: bundleDeals.heroImageUrl,
+      sortOrder: bundleDeals.sortOrder,
+      createdAt: bundleDeals.createdAt,
+    }).from(bundleDeals).orderBy(desc(bundleDeals.createdAt));
+  }),
+
+  toggleBundlePublished: protectedProcedure
+    .input(z.object({ id: z.number(), published: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(bundleDeals).set({ isPublished: input.published }).where(eq(bundleDeals.id, input.id));
+      return { ok: true };
+    }),
+
+  deleteBundleDeal: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(bundleDeals).where(eq(bundleDeals.id, input.id));
+      return { ok: true };
+    }),
+
+  // Public: list all published bundles for the storefront
+  listPublishedBundles: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select({
+      id: bundleDeals.id,
+      name: bundleDeals.name,
+      description: bundleDeals.description,
+      styleName: bundleDeals.styleName,
+      homeownerPrice: bundleDeals.homeownerPrice,
+      cabinetCount: bundleDeals.cabinetCount,
+      heroImageUrl: bundleDeals.heroImageUrl,
+      sortOrder: bundleDeals.sortOrder,
+      createdAt: bundleDeals.createdAt,
+    }).from(bundleDeals)
+      .where(eq(bundleDeals.isPublished, true))
+      .orderBy(bundleDeals.sortOrder, desc(bundleDeals.createdAt));
+  }),
+
+  // Public: get a single bundle's full snapshot for loading into the designer
+  getBundleDeal: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [row] = await db.select().from(bundleDeals)
+        .where(and(eq(bundleDeals.id, input.id), eq(bundleDeals.isPublished, true)))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      return row;
+    }),
 });

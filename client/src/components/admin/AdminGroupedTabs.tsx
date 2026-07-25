@@ -71,6 +71,8 @@ import { BannerAdmin } from "@/components/admin/BannerAdmin";
 import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
 import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
 import PendingReviewAdmin from "@/components/admin/PendingReviewAdmin";
+import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
+import PriceShop10x10 from "@/pages/PriceShop10x10";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -120,6 +122,8 @@ const GROUPS = [
       { value: "cabinet-config", label: "Cabinet Config" },
       { value: "categories", label: "Categories" },
       { value: "pending-review", label: "⏳ Pending Review" },
+      { value: "bundle-deals", label: "📦 Bundle Deals" },
+      { value: "price-shop-10x10", label: "10×10 Price Shop" },
     ],
   },
   {
@@ -474,6 +478,8 @@ export default function AdminGroupedTabs() {
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /><div className="mt-8 border-t border-border pt-6"><GenericCabinetsAdmin /></div></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
         <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
+        <TabsContent value="bundle-deals" className="mt-6"><BundleDealsAdmin /></TabsContent>
+        <TabsContent value="price-shop-10x10" className="mt-6"><PriceShop10x10 /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>

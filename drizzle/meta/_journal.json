@@ -652,6 +652,20 @@
       "when": 1784932727164,
       "tag": "0092_secret_blockbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "5",
+      "when": 1784945132595,
+      "tag": "0093_flippant_giant_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "5",
+      "when": 1784945213682,
+      "tag": "0094_oval_siren",
+      "breakpoints": true
     }
   ]
 }

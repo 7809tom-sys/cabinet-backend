@@ -1764,3 +1764,52 @@ export const cabinet3dPreviews = mysqlTable("cabinet_3d_previews", {
 });
 export type Cabinet3dPreview = typeof cabinet3dPreviews.$inferSelect;
 export type InsertCabinet3dPreview = typeof cabinet3dPreviews.$inferInsert;
+
+// ─── Price Shop Snapshots ─────────────────────────────────────────────────────
+// Admin-saved snapshots of the 10×10 price shop at a point in time.
+// Each snapshot stores the full per-style pricing array as JSON so it can be
+// recalled and compared without re-running the live query.
+export const priceShopSnapshots = mysqlTable("price_shop_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),          // user-given label, e.g. "July 2026 prices"
+  layoutType: varchar("layoutType", { length: 32 }).notNull().default("10x10"), // "10x10" | "19L"
+  snapshotData: json("snapshotData").notNull(),               // full StyleResult[] array
+  totalStyles: int("totalStyles").default(0).notNull(),
+  createdBy: int("createdBy"),                                // FK to users.id (admin who saved it)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PriceShopSnapshot = typeof priceShopSnapshots.$inferSelect;
+export type InsertPriceShopSnapshot = typeof priceShopSnapshots.$inferInsert;
+
+// ─── Bundle Deals ─────────────────────────────────────────────────────────────
+// Admin-curated pre-configured kitchen packages saved from the Design Tool.
+// Each bundle is a named design snapshot that can be published to the storefront
+// so customers can buy the full kitchen with one click.
+export const bundleDeals = mysqlTable("bundle_deals", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  // The full design snapshot JSON (same shape as design drafts)
+  designSnapshot: json("designSnapshot").notNull(),
+  // The door style locked for this bundle
+  styleId: int("styleId"),                                   // FK to door_styles.id
+  styleName: varchar("styleName", { length: 200 }),
+  // Pricing (computed at save time, refreshable)
+  homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
+  yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  // Room dimensions (from the design)
+  roomWidthInches: int("roomWidthInches"),
+  roomDepthInches: int("roomDepthInches"),
+  cabinetCount: int("cabinetCount").default(0).notNull(),
+  // Storefront visibility
+  isPublished: boolean("isPublished").default(false).notNull(),
+  // Hero image (optional, generated or uploaded)
+  heroImageUrl: varchar("heroImageUrl", { length: 512 }),
+  // Sort order for storefront display
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdBy: int("createdBy"),                               // FK to users.id
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BundleDeal = typeof bundleDeals.$inferSelect;
+export type InsertBundleDeal = typeof bundleDeals.$inferInsert;

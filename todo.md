@@ -1703,3 +1703,36 @@
 - [ ] Bulk-publish action on Pending Review tab
 - [ ] TypeScript check passes
 - [ ] Save checkpoint
+
+## 10×10 Price Shop with Save Snapshots
+- [ ] Define standard 10×10 kitchen layout (industry-standard: no trim/crown/lazy susan, 30" walls)
+- [ ] Add price_shop_snapshots table to DB schema
+- [ ] Backend: priceShop.price10x10 query (homeowner + yourCost per style)
+- [ ] Backend: priceShop.saveSnapshot / listSnapshots / deleteSnapshot mutations
+- [ ] Frontend: new /price-shop-10x10 page showing both homeowner price and your cost
+- [ ] Save snapshot button with name input
+- [ ] Saved snapshots list with view/delete actions
+- [ ] Wire route in App.tsx
+- [ ] TypeScript check passes
+- [ ] Save checkpoint
+
+## Save as Bundle Deal (Design Tool)
+- [ ] Add bundle_deals table to DB schema (name, description, snapshot JSON, door style, price, published)
+- [ ] Backend: design.saveAsBundleDeal mutation (admin only)
+- [ ] Backend: bundleDeals.list / get / delete / publish procedures
+- [ ] Frontend: "Save as Bundle Deal" dropdown in Design Tool toolbar (admin only)
+- [ ] Bundle Deal name + description input dialog
+- [ ] Bundle Deals admin management page (list, publish/unpublish, delete)
+- [ ] TypeScript check passes
+- [ ] Save checkpoint
+
+## Bundle Deals System
+- [ ] Design Tool: Save as Bundle Deal button + dialog (name, description, hero image)
+- [ ] Backend: public getBundleDeal(id) procedure for storefront
+- [ ] Bundle Deals storefront page: browse published bundles, Load & Customize button
+- [ ] Design Tool: accept ?bundleId= param and pre-load the design snapshot
+- [ ] Bundle Deals admin management page (list, toggle published, delete, reorder)
+- [ ] Register /bundles and /admin/bundles routes in App.tsx
+- [ ] Register /price-shop-10x10 route in App.tsx
+- [ ] TypeScript check passes
+- [ ] Save checkpoint

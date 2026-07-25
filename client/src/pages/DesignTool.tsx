@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearch, useLocation } from "wouter";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
@@ -8,11 +9,12 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -21,7 +23,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -216,6 +218,8 @@ function DimStepper({
 
 export default function DesignTool() {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.role === "admin";
   useSeo({ title: t("seo_design_t"), description: t("seo_design_d"), lang });
   // Localized wall names (Back/Front/Left/Right) keyed by WallSide.
   const wallLabel: Record<WallSide, string> = {
@@ -249,6 +253,16 @@ export default function DesignTool() {
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
+  // Optional bundle deal to pre-load (?bundleId=<id>), e.g. from the Bundle Deals page.
+  const bundleIdParam = useMemo(() => {
+    const v = new URLSearchParams(search).get("bundleId");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }, [search]);
+  const { data: bundleData } = trpc.priceShop.getBundleDeal.useQuery(
+    { id: bundleIdParam ?? 0 },
+    { enabled: bundleIdParam != null, retry: 1 }
+  );
   // Optional door style to pre-select (?style=<styleId>), e.g. from a "Design
   // with this" CTA on the homepage or a door style product page.
   const preloadStyleId = useMemo(() => {
@@ -3952,6 +3966,24 @@ export default function DesignTool() {
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
 
+  // Load a bundle deal from ?bundleId=<id> (e.g. opened from the Bundle Deals page).
+  const loadedBundleRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (bundleIdParam == null || !bundleData || loadedBundleRef.current === bundleIdParam) return;
+    loadedBundleRef.current = bundleIdParam;
+    const snapshot = bundleData.designSnapshot as { room?: RoomData; placed?: PlacedCabinet[]; styleId?: number | null } | null;
+    if (!snapshot) return;
+    loadSavedDesign({
+      room: snapshot.room ?? DEFAULT_ROOM,
+      placed: Array.isArray(snapshot.placed) ? snapshot.placed : [],
+      styleId: snapshot.styleId ?? null,
+      distributorId: null,
+      roomType: null,
+      selectedSurfaces: null,
+    });
+    toast.success(`Bundle loaded: ${bundleData.name}`);
+  }, [bundleIdParam, bundleData, loadSavedDesign]);
+
   // ─── Draft auto-save / restore ───────────────────────────────────────────────
   // Real-world safeguard: someone designs on their phone, a call comes in (or the
   // OS evicts the tab), and the work must NOT vanish. We persist the full working
@@ -4254,6 +4286,34 @@ export default function DesignTool() {
     onError: (e) => toast.error("Rename failed", { description: e.message }),
   });
   const [loadSignal, setLoadSignal] = useState(0);
+  // Bundle Deal save dialog (admin only)
+  const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
+  const [bundleName, setBundleName] = useState("");
+  const [bundleDesc, setBundleDesc] = useState("");
+  const saveBundleMut = trpc.priceShop.saveBundleDeal.useMutation({
+    onSuccess: (res) => {
+      toast.success("Bundle Deal saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Bundle Deals to publish it.` });
+      setBundleDialogOpen(false);
+      setBundleName("");
+      setBundleDesc("");
+    },
+    onError: (e) => toast.error("Failed to save bundle", { description: e.message }),
+  });
+  const handleSaveBundle = () => {
+    if (placed.length === 0) { toast.error("Add cabinets before saving a bundle."); return; }
+    if (!bundleName.trim()) { toast.error("Please enter a bundle name."); return; }
+    saveBundleMut.mutate({
+      name: bundleName.trim(),
+      description: bundleDesc.trim() || undefined,
+      designSnapshot: { room, placed, styleId, lockedDistributorId, selectedSurfaces: [] },
+      styleId: styleId ?? undefined,
+      styleName: activeStyleName ?? undefined,
+      homeownerPrice: total > 0 ? total : undefined,
+      roomWidthInches: room.width,
+      roomDepthInches: room.depth,
+      cabinetCount: placed.length,
+    });
+  };
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
@@ -5192,6 +5252,18 @@ export default function DesignTool() {
               >
                 <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
               </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Admin</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onSelect={() => setBundleDialogOpen(true)}
+                    className="text-purple-600 font-medium"
+                  >
+                    <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Bundle Deal
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -8175,6 +8247,63 @@ export default function DesignTool() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bundle Deal save dialog (admin only) */}
+      {isAdmin && (
+        <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PackageOpen className="h-5 w-5 text-purple-600" /> Save as Bundle Deal
+              </DialogTitle>
+              <DialogDescription>
+                Save this design as a publishable Bundle Deal. Customers can browse it and load it into the designer to customize.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="bundle-name">Bundle Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="bundle-name"
+                  value={bundleName}
+                  onChange={(e) => setBundleName(e.target.value)}
+                  placeholder="e.g. Classic White Shaker 10×10 Kitchen"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSaveBundle(); }}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bundle-desc">Description <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <textarea
+                  id="bundle-desc"
+                  value={bundleDesc}
+                  onChange={(e) => setBundleDesc(e.target.value)}
+                  placeholder="Describe this kitchen package for customers…"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[80px] resize-none"
+                />
+              </div>
+              <div className="rounded-lg bg-muted/40 border border-border p-3 text-xs text-muted-foreground space-y-1">
+                <div className="flex justify-between"><span>Cabinets:</span><span className="font-medium text-foreground">{placed.length}</span></div>
+                <div className="flex justify-between"><span>Room size:</span><span className="font-medium text-foreground">{room.width}" × {room.depth}"</span></div>
+                {total > 0 && <div className="flex justify-between"><span>Homeowner price:</span><span className="font-medium text-foreground">${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>}
+                {activeStyleName && <div className="flex justify-between"><span>Style:</span><span className="font-medium text-foreground">{activeStyleName}</span></div>}
+              </div>
+              <p className="text-xs text-muted-foreground">The bundle will be saved as <strong>unpublished</strong>. Go to Admin → Bundle Deals to review and publish it.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setBundleDialogOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleSaveBundle}
+                disabled={saveBundleMut.isPending || !bundleName.trim()}
+                className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <PackageOpen className={`h-4 w-4${saveBundleMut.isPending ? " animate-spin" : ""}`} />
+                Save Bundle Deal
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Distributor conflict warning dialog */}
       <AlertDialog open={distConflictOpen} onOpenChange={(o) => { if (!o) { distConflictResolve?.(false); setDistConflictOpen(false); } }}>
