@@ -2527,9 +2527,10 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
     : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 78%, #000) 0%, color-mix(in srgb, ${face} 88%, #000) 45%, color-mix(in srgb, ${face} 96%, #000) 100%)` };
   return (
     <div
-      className="absolute rounded-[1.5px]"
+      className="absolute"
       style={{
         inset,
+        // Sharp 90° corners for shaker/framed panel — no border-radius.
         // Deep reveal groove: strong top shadow (rail overhang), bright bottom
         // lip (light bouncing off the panel floor), dark left shadow (side rail
         // overhang), subtle right highlight. This makes the panel read as truly
@@ -2540,7 +2541,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
     >
       {raised && (
         <div
-          className="absolute inset-[3px] rounded-[1.5px]"
+          className="absolute inset-[3px]"
           style={{
             // Raised field: lighter at top (catches overhead light), slightly
             // darker at bottom. Strong bevel shadow on all 4 edges makes it
@@ -2565,9 +2566,11 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
   // Strong bevel on the outer rail: bright top-left highlight (light hits the
   // top rail and left stile), dark bottom-right shadow (underside of bottom rail
   // and right stile). Makes the face frame read as real routed wood.
+  // Shaker/framed doors use sharp 90° corners — no border-radius on the face frame.
   const railBevel: React.CSSProperties = {
     boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.38), inset -2px -2px 2px rgba(0,0,0,0.28)`,
-    borderRadius: 2,
+    borderRadius: 0,
+    backgroundColor: face,
   };
   switch (kind) {
     case "slab":
@@ -2603,7 +2606,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
       return (
         <div className="absolute inset-0" style={railBevel}>
           <div
-            className="absolute inset-[5px] rounded-[1px]"
+            className="absolute inset-[5px]"
             style={{
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
               ...(doorSampleUrl

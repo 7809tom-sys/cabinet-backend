@@ -1776,4 +1776,12 @@
 - [x] Set DEFAULT_DOOR_SAMPLE_URL and DEFAULT_DRAWER_SAMPLE_URL constants in DesignTool
 - [x] Wire fallback URLs into doorSampleForCab and drawerSampleForCab so they return the default when no style is selected
 - [x] TypeScript check passes
+- [x] Save checkpoint
+
+## Bug: Elevation view door frame rounded corners and photo placement
+- [x] Remove borderRadius from RecessedPanel so shaker frames have sharp 90° corners
+- [x] Remove borderRadius from SingleDoorPanel slab/beaded/inset cases
+- [x] Ensure door photo fills only the recessed panel inset area, not the outer rail/stile
+- [x] Outer rail/stile frame (stile/rail) shows the painted finish color (face color)
+- [x] TypeScript check passes
 - [ ] Save checkpoint
