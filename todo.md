@@ -1808,3 +1808,18 @@
 - [x] Replace old manual image upload in catalog image section with MediaPicker
 - [x] TypeScript check: 0 errors
 - [x] Save checkpoint
+
+## Bug: Designer elevation view — cabinets bunched in left corner instead of spanning full wall
+- [ ] Diagnose why cabinets cluster in the left corner of the elevation/front view
+- [ ] Fix cabinet x-positioning in elevation so cabinets render at correct positions across the full wall width
+- [ ] Verify all walls (Back, Left, Front, Right) render correctly
+- [ ] TypeScript check passes
+- [ ] Save checkpoint
+
+## Bug fix: Designer elevation view — gray shading in cabinet faces (Jul 2026)
+- [x] Diagnose: door sample photo was applied as full-face background on outer cabinet box AND inside DoorFront AND inside RecessedPanel — triple-layered photo caused baked-in gray bevel shadows to bleed across entire cabinet face
+- [x] Fix: outer cabinet box always uses finish color gradient (not photo) as background
+- [x] Fix: DoorFront faceBackground ignores photo-URL faceFillOverride, uses finish color gradient instead
+- [x] Photo is now applied only inside individual door/drawer panel areas (SingleDoorPanel, RecessedPanel) where it belongs
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

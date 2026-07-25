@@ -208,15 +208,13 @@ export function ElevationView({
     // Falls back to the door sample if no separate drawer photo is set.
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     // Face fill: the CABINET BOX background (face frame).
-    // When a door sample photo is available, use it as the full-face background
-    // so the face frame and door panels share the same wood/finish texture —
-    // the whole cabinet reads as one unified material instead of a contrasting frame.
-    // Without a photo, fall back to the finish color gradient.
+    // The outer cabinet box always uses the finish color gradient as its background
+    // (face frame color). The door sample photo is applied ONLY inside individual
+    // door/drawer panel areas by DoorFront/SingleDoorPanel/RecessedPanel so the
+    // baked-in shadows in the photo don't bleed across the whole cabinet face.
     const faceFill = isAppliance
       ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
-      : cabDoorSampleUrl
-        ? `url(${cabDoorSampleUrl}) center/cover`
-        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -1780,7 +1778,11 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   // on this component's root so the outer container can be transparent (no box).
   // Photorealistic face frame: strong top-light highlight (simulates overhead room
   // lighting), rich mid-tone body, subtle bottom shadow for depth.
-  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #ffffff) 0%, ${face} 30%, ${face} 70%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
+  // Never use a photo URL as the face-frame background — photos have baked-in
+  // shadows that bleed across the whole cabinet face. Always use the finish color
+  // gradient for the face frame; photos are applied only inside door/drawer panels.
+  const isPhotoFill = faceFillOverride?.startsWith('url(');
+  const faceBackground = (isPhotoFill ? undefined : faceFillOverride) ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #ffffff) 0%, ${face} 30%, ${face} 70%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
 
   // Helper: wrap content in a root div that carries the face-frame background.
   // This keeps the outer cabinet container transparent (no visible box).
