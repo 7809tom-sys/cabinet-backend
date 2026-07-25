@@ -38,6 +38,7 @@ export const vendorsRouter = router({
         isApproved: z.boolean().optional(),
         totalSalesCents: z.number().int().min(0).optional(),
         notes: z.string().nullable().optional(),
+        websiteUrl: z.string().max(512).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {

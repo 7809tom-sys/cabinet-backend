@@ -53,6 +53,7 @@ type VendorLine = {
   totalSalesCents: number;
   salesUpdatedAt: Date | string | null;
   notes: string | null;
+  websiteUrl: string | null;
 };
 
 const money = (cents: number) =>
@@ -114,6 +115,7 @@ function VendorDialog({
     contactPhone: vendor?.contactPhone ?? "",
     isApproved: vendor?.isApproved ?? true,
     notes: vendor?.notes ?? "",
+    websiteUrl: vendor?.websiteUrl ?? "",
   });
 
   const upsert = trpc.vendors.upsert.useMutation({
@@ -183,6 +185,15 @@ function VendorDialog({
             />
           </div>
           <div>
+            <Label className="text-xs">Website URL</Label>
+            <Input
+              value={form.websiteUrl}
+              onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })}
+              placeholder="https://www.supplier.com"
+              type="url"
+            />
+          </div>
+          <div>
             <Label className="text-xs">Notes</Label>
             <Textarea
               value={form.notes}
@@ -212,6 +223,7 @@ function VendorDialog({
                 contactPhone: form.contactPhone,
                 isApproved: form.isApproved,
                 notes: form.notes,
+                websiteUrl: form.websiteUrl.trim() || null,
               })
             }
           >
@@ -504,11 +516,11 @@ export default function ApprovedVendorsAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total sales</TableHead>
-                  <TableHead className="w-[220px] text-right">Actions</TableHead>
+                  <TableHead className="min-w-[180px]">Vendor</TableHead>
+                  <TableHead className="w-[140px]">Category</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[110px] text-right">Total Sales</TableHead>
+                  <TableHead className="w-[260px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -524,6 +536,9 @@ export default function ApprovedVendorsAdmin() {
                       <div className="font-medium">{v.name}</div>
                       {v.contactName && (
                         <div className="text-xs text-muted-foreground">{v.contactName}</div>
+                      )}
+                      {v.contactEmail && (
+                        <div className="text-xs text-muted-foreground">{v.contactEmail}</div>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -549,7 +564,14 @@ export default function ApprovedVendorsAdmin() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1 flex-wrap">
+                        {v.websiteUrl && (
+                          <a href={v.websiteUrl} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="gap-1 border-primary/30 text-primary hover:bg-primary/5" title={`Visit ${v.name} website`}>
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
