@@ -244,8 +244,60 @@ function DrawerLayoutEditor({
 
   const assignedDrawers = rows.reduce((sum, r) => sum + r.count, 0);
 
+  // Quick-set: generate a simple uniform layout from a drawers-per-row count
+  const quickSetPerRow = (perRow: number) => {
+    if (perRow <= 0) { onChange(null); return; }
+    // Build rows: each row has `perRow` drawers side-by-side
+    const numRows = Math.ceil(totalDrawers / perRow);
+    const newRows: DrawerRow[] = [];
+    let remaining = totalDrawers;
+    for (let i = 0; i < numRows; i++) {
+      const count = Math.min(perRow, remaining);
+      newRows.push({ count });
+      remaining -= count;
+    }
+    onChange(JSON.stringify(newRows));
+  };
+
+  // Detect current quick-set value from rows (uniform layout)
+  const currentQuickSet: string = (() => {
+    if (rows.length === 0) return "__stacked__";
+    const allSame = rows.every((r) => r.count === rows[0].count);
+    if (allSame && rows.length === Math.ceil(totalDrawers / rows[0].count)) {
+      return String(rows[0].count);
+    }
+    return "__custom__";
+  })();
+
   return (
     <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 space-y-3">
+      {/* Quick-set side-by-side selector */}
+      {totalDrawers >= 2 && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">Drawers Per Row (Side-by-Side)</Label>
+          <Select
+            value={currentQuickSet}
+            onValueChange={(v) => {
+              if (v === "__stacked__") { onChange(null); }
+              else if (v !== "__custom__") { quickSetPerRow(parseInt(v)); }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-full h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__stacked__">All stacked (full-width, one above another)</SelectItem>
+              {Array.from({ length: Math.min(totalDrawers, 6) }, (_, i) => i + 1).slice(1).map((n) => (
+                <SelectItem key={n} value={String(n)}>{n} drawers side by side per row</SelectItem>
+              ))}
+              {currentQuickSet === "__custom__" && (
+                <SelectItem value="__custom__">Custom layout (use row editor below)</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Drawer Layout (per row)</Label>
         <button

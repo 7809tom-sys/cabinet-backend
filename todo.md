@@ -1761,3 +1761,11 @@
 - [x] Layout Preview reflects the selected doorsPerRow immediately
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Feature: Add Doors Per Row to inline admin quick-edit on CabinetDetail page
+- [x] Find the inline admin edit form/panel in CabinetDetail.tsx
+- [x] Add doorsPerRow dropdown to the inline edit form (same options as admin panel)
+- [x] Ensure doorsPerRow is included in the catalog query that feeds CabinetDetail
+- [x] Wire save mutation to persist doorsPerRow from inline edit
+- [x] TypeScript check passes
+- [x] Save checkpoint
