@@ -190,7 +190,7 @@ interface DrawerRow {
   height?: number;
 }
 
-function DrawerLayoutEditor({
+export function DrawerLayoutEditor({
   value,
   onChange,
   totalDrawers,

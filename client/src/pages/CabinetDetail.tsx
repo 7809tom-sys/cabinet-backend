@@ -28,6 +28,7 @@ import {
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
 import { MediaPicker } from "@/components/admin/MediaPicker";
+import { DrawerLayoutEditor } from "@/components/admin/CabinetConfigAdmin";
 import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
@@ -449,6 +450,8 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editOpeningType, setEditOpeningType] = useState<string>("__none__");
   const [editDoorHeight, setEditDoorHeight] = useState<string>("");
   const [editDrawerHeight, setEditDrawerHeight] = useState<string>("");
+  const [editDrawerLayout, setEditDrawerLayout] = useState<string | null>(null);
+  const [editDoorsPerRow, setEditDoorsPerRow] = useState<string>("__auto__");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
@@ -482,6 +485,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditOpeningType(String(cab.openingType ?? "__none__"));
       setEditDoorHeight(cab.doorHeight != null ? String(cab.doorHeight) : "");
       setEditDrawerHeight(cab.drawerHeight != null ? String(cab.drawerHeight) : "");
+      setEditDrawerLayout(cab.drawerLayout != null ? String(cab.drawerLayout) : null);
+      setEditDoorsPerRow(cab.doorsPerRow != null ? String(cab.doorsPerRow) : "__auto__");
       setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
@@ -640,6 +645,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
       doorHeight: editDoorHeight ? parseFloat(editDoorHeight) : null,
       drawerHeight: editDrawerHeight ? parseFloat(editDrawerHeight) : null,
+      drawerLayout: editDrawerLayout,
+      doorsPerRow: editDoorsPerRow === "__auto__" ? null : parseInt(editDoorsPerRow),
       configVerified: editConfigVerified,
     });
   }
@@ -1618,6 +1625,32 @@ export default function CabinetDetail({ masterCode }: Props) {
                     className="h-8 text-sm"
                   />
                   <p className="text-[11px] text-muted-foreground">Height of each drawer front in inches.</p>
+                </div>
+              )}
+
+              {/* Drawer Layout — side-by-side quick-set (shown when drawers > 0) */}
+              {parseInt(editNumDrawers) > 0 && (
+                <DrawerLayoutEditor
+                  value={editDrawerLayout}
+                  onChange={setEditDrawerLayout}
+                  totalDrawers={parseInt(editNumDrawers) || 1}
+                />
+              )}
+
+              {/* Doors Per Row (shown when 2+ doors and not stacked) */}
+              {parseInt(editNumDoors) >= 2 && editDoorOrientation !== "stacked" && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Doors Per Row (Side-by-Side)</Label>
+                  <Select value={editDoorsPerRow} onValueChange={setEditDoorsPerRow}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__auto__">Auto (all doors in one row)</SelectItem>
+                      {[1, 2, 3, 4].filter((n) => n <= parseInt(editNumDoors)).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} door{n > 1 ? "s" : ""} per row</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">How many doors appear side-by-side per row in the layout diagram.</p>
                 </div>
               )}
 
