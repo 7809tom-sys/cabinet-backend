@@ -15,6 +15,46 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle, Globe, Building2, GripVertical, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
+import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
+
+// ─── Spec Drawing Picker ─────────────────────────────────────────────────────
+function SpecDrawingPicker({
+  currentUrl,
+  onPick,
+  disabled,
+}: {
+  currentUrl: string | null;
+  onPick: (url: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 text-xs shrink-0 gap-1"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+      >
+        <ImageIcon className="h-3.5 w-3.5" />
+        Media
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Media Library — Cabinet Drawings</DialogTitle>
+          </DialogHeader>
+          <MediaLibraryAdmin
+            onPick={(url) => { onPick(url); setOpen(false); }}
+            selectedUrl={currentUrl}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STANDARD_DEPTHS = ["9", "12", "15", "18", "21", "24", "27", "30", "33", "36"];
@@ -1443,14 +1483,21 @@ function EditModal({
                   </div>
                 )}
                 <div className="flex-1 space-y-2">
-                  <Input
-                    className="text-xs h-8"
-                    placeholder="/manus-storage/spec_drawing.png"
-                    value={merged.specImageUrl ?? ""}
-                    onChange={(e) => set("specImageUrl", e.target.value || null)}
-                    disabled={busy}
-                  />
-                  <p className="text-[10px] text-muted-foreground">Generic line drawing from the Capital spec book. Auto-populated by cabinet family — edit only if this cabinet needs a different drawing.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      className="text-xs h-8 flex-1"
+                      placeholder="/manus-storage/spec_drawing.png"
+                      value={merged.specImageUrl ?? ""}
+                      onChange={(e) => set("specImageUrl", e.target.value || null)}
+                      disabled={busy}
+                    />
+                    <SpecDrawingPicker
+                      currentUrl={merged.specImageUrl ?? null}
+                      onPick={(url) => set("specImageUrl", url)}
+                      disabled={busy}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Click "Media" to pick from the library, or paste a URL directly.</p>
                 </div>
               </div>
             </div>

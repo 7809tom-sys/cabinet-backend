@@ -73,6 +73,7 @@ import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
 import PendingReviewAdmin from "@/components/admin/PendingReviewAdmin";
 import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
 import PriceShop10x10 from "@/pages/PriceShop10x10";
+import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -124,6 +125,7 @@ const GROUPS = [
       { value: "pending-review", label: "⏳ Pending Review" },
       { value: "bundle-deals", label: "📦 Bundle Deals" },
       { value: "price-shop-10x10", label: "10×10 Price Shop" },
+      { value: "media-library", label: "📁 Media Library" },
     ],
   },
   {
@@ -480,6 +482,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
         <TabsContent value="bundle-deals" className="mt-6"><BundleDealsAdmin /></TabsContent>
         <TabsContent value="price-shop-10x10" className="mt-6"><PriceShop10x10 /></TabsContent>
+        <TabsContent value="media-library" className="mt-6"><MediaLibraryAdmin /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>
