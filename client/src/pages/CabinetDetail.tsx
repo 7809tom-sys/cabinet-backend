@@ -27,6 +27,7 @@ import {
   ownerCostBreakdown,
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
+import { MediaPicker } from "@/components/admin/MediaPicker";
 import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
@@ -437,6 +438,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [scopedImageOpen, setScopedImageOpen] = useState(false);
   const [scopedImageUploading, setScopedImageUploading] = useState(false);
   const [scopedImageScope, setScopedImageScope] = useState<"line" | "global">("line");
+  const [scopedImagePickerUrl, setScopedImagePickerUrl] = useState("");
   const [editNumDoors, setEditNumDoors] = useState<string>("0");
   const [editNumDrawers, setEditNumDrawers] = useState<string>("0");
   const [editNumFixedShelves, setEditNumFixedShelves] = useState<string>("0");
@@ -548,7 +550,6 @@ export default function CabinetDetail({ masterCode }: Props) {
         contentType: file.type || "image/jpeg",
         slot: "thumbnail",
       });
-      // Now save at the chosen scope
       const distId = selectedRow?.distributorId ?? 0;
       await setLineImage.mutateAsync({
         cabinetId: cabinet.id,
@@ -560,6 +561,26 @@ export default function CabinetDetail({ masterCode }: Props) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setScopedImageUploading(false);
+    }
+  }
+
+  async function handleScopedImageUrl(url: string) {
+    if (!url || !cabinet?.id) return;
+    setScopedImagePickerUrl(url);
+    setScopedImageUploading(true);
+    try {
+      const distId = selectedRow?.distributorId ?? 0;
+      await setLineImage.mutateAsync({
+        cabinetId: cabinet.id,
+        distributorId: distId,
+        imageUrl: url,
+        scope: scopedImageScope,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setScopedImageUploading(false);
+      setScopedImagePickerUrl("");
     }
   }
 
@@ -873,22 +894,12 @@ export default function CabinetDetail({ masterCode }: Props) {
                     </button>
                   </div>
                   <div>
-                    <Label className="text-sm mb-1.5 block">Upload new image</Label>
-                    <label className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-4 cursor-pointer hover:border-primary/60 transition-colors ${
-                      scopedImageUploading ? "opacity-50 pointer-events-none" : ""
-                    }`}>
-                      <Upload className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {scopedImageUploading ? "Uploading…" : "Click to choose image"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleScopedImageFile}
-                        disabled={scopedImageUploading}
-                      />
-                    </label>
+                    <Label className="text-sm mb-1.5 block">Choose image</Label>
+                    <MediaPicker
+                      value={scopedImagePickerUrl}
+                      onChange={handleScopedImageUrl}
+                      placeholder="/manus-storage/... or https://..."
+                    />
                   </div>
                 </div>
                 <DialogFooter>
