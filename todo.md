@@ -1677,3 +1677,29 @@
 - [x] Backend: add a `styleSkuPreview` query returning paginated SKUs for a given styleId with cost + retail prices
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Data import: US Cabinet Depot Capital spec book list prices + alias mapping
+- [ ] Extract all cabinet item codes, sizes, and style-column list prices from Capital_Spec_Book_Single_Pages_V8_DIGITAL_ONLY_2.pdf
+- [ ] Confirm U.S. Cabinet Depot / Capital collection style codes present in the spec book (SW, SA, SD, SG, SI, SN, SB, SH, SC, SU, etc.)
+- [ ] Map Capital distributor item codes to our master alias and sub-alias structure
+- [ ] Upsert existing SKU rows with corrected listPrice values from the spec book
+- [ ] Insert new SKU rows for items present in the spec book but missing from the database
+- [ ] Leave yourCost blank/null for this import where the spec book only provides list price
+- [ ] Verify imported counts and spot-check sampled items against the PDF
+- [ ] Save checkpoint
+
+## Admin pricing preview terminology fix
+- [ ] Update the admin catalog preview so U.S. Cabinet Depot rows label the PDF-provided number as List Price, not Cost
+- [ ] Ensure alias-based matching in preview/import uses our master alias and sub alias
+
+## Evidence notes: Capital spec book
+- [ ] Save extraction notes from the Capital spec book pages into a local research file before further PDF inspection
+
+## Missing USCD Capital items: insert as unpublished + Pending Review tab
+
+- [ ] Insert 82 missing Capital/USCD cabinet records + distributor_skus (isPublished=0)
+- [ ] Rollout shelf cabinets (1RS/2RS/3RS) flagged separately for owner review
+- [ ] Add "Pending Review" tab to admin CabinetConfigAdmin showing unpublished SKUs
+- [ ] Bulk-publish action on Pending Review tab
+- [ ] TypeScript check passes
+- [ ] Save checkpoint

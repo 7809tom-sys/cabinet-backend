@@ -2636,6 +2636,97 @@ export const cabinetsRouter = router({
       return { updated: input.ids.length, conflictsCleared: 0 };
     }),
 
+  /** List unpublished SKUs for admin review (Pending Review tab). */
+  adminListPendingReview: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        category: z.string().optional(),
+        search: z.string().optional(),
+        isRollout: z.boolean().optional(), // filter to rollout-shelf items
+        limit: z.number().int().min(1).max(500).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+
+      const conds: SQL[] = [eq(distributorSkus.isPublished, false), eq(cabinets.isActive, true)];
+      if (input.distributorId) conds.push(eq(distributorSkus.distributorId, input.distributorId));
+      if (input.category) conds.push(eq(cabinets.category, input.category));
+      if (input.isRollout === true) {
+        conds.push(sql`(${cabinets.masterCode} REGEXP '(1RS|2RS|3RS|FH1RS|FH2RS|FH3RS)$')`);
+      } else if (input.isRollout === false) {
+        conds.push(sql`(${cabinets.masterCode} NOT REGEXP '(1RS|2RS|3RS|FH1RS|FH2RS|FH3RS)$')`);
+      }
+      if (input.search) {
+        const like = `%${input.search}%`;
+        conds.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`);
+      }
+
+      const where = and(...conds);
+
+      const [items, [tot]] = await Promise.all([
+        db
+          .select({
+            skuId: distributorSkus.id,
+            cabinetId: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            distributorId: distributorSkus.distributorId,
+            distributorBrandName: distributors.brandName,
+            styleId: distributorSkus.styleId,
+            styleName: doorStyles.ourName,
+            styleCode: doorStyles.styleCode,
+            platformSku: distributorSkus.platformSku,
+            distributorSku: distributorSkus.distributorSku,
+            listPrice: distributorSkus.listPrice,
+            isAvailable: distributorSkus.isAvailable,
+            isPublished: distributorSkus.isPublished,
+          })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .where(where)
+          .orderBy(asc(cabinets.category), asc(cabinets.masterCode), asc(doorStyles.styleCode))
+          .limit(input.limit)
+          .offset(input.offset),
+        db
+          .select({ n: sql<number>`count(*)` })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .where(where),
+      ]);
+
+      return { items, total: Number(tot?.n ?? 0) };
+    }),
+
+  /** Bulk publish (or unpublish) a set of SKU IDs — admin only. */
+  adminBulkPublishSkus: adminProcedure
+    .input(
+      z.object({
+        skuIds: z.array(z.number()).min(1).max(2000),
+        isPublished: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db
+        .update(distributorSkus)
+        .set({ isPublished: input.isPublished })
+        .where(inArray(distributorSkus.id, input.skuIds));
+      return { updated: input.skuIds.length };
+    }),
+
 });
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────

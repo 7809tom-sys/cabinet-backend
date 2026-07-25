@@ -70,6 +70,7 @@ import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 import { BannerAdmin } from "@/components/admin/BannerAdmin";
 import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
 import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
+import PendingReviewAdmin from "@/components/admin/PendingReviewAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -118,6 +119,7 @@ const GROUPS = [
       { value: "master-sku", label: "Master SKU Aliases" },
       { value: "cabinet-config", label: "Cabinet Config" },
       { value: "categories", label: "Categories" },
+      { value: "pending-review", label: "⏳ Pending Review" },
     ],
   },
   {
@@ -471,6 +473,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="master-sku" className="mt-6"><MasterSkuAdmin /></TabsContent>
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /><div className="mt-8 border-t border-border pt-6"><GenericCabinetsAdmin /></div></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
+        <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>
