@@ -1808,3 +1808,17 @@
 - [x] Replace old manual image upload in catalog image section with MediaPicker
 - [x] TypeScript check: 0 errors
 - [x] Save checkpoint
+
+## Feature: Triangle Corner Cabinet (WTC/BTC)
+- [x] Add `triangle-corner` to `CabinetDrawingType` union in `cabinetGraphics.ts`
+- [x] Add `cornerType` field to `CabinetLike` interface in `cabinetGraphics.ts`
+- [x] Add `triangle-corner` detection in `cabinetDrawingType()` function (checks `cornerType === "triangle"` or WTC/BTC code prefix)
+- [x] Add `"triangle-corner"` entry to `detailMap` in `cabinetGraphics.ts` (fixes TS2741 error)
+- [x] Add `triangleCornerClipPath()` and `isTriangleCorner()` functions to `design.ts`
+- [x] Add `cornerType` to `PlacedCabinet` and `DesignCabinet` interfaces in `design.ts`
+- [x] Apply `triangleCornerClipPath` in `PlanCanvas.tsx` for right-triangle plan footprint
+- [x] Add `triangle-corner` elevation rendering block in `ElevationView.tsx` (single door on angled face with corner shadow indicators)
+- [x] Add "Triangle Corner (WTC / BTC)" option to `CabinetConfigAdmin` dropdown
+- [x] Add `triangle` to `cornerType` zod enum in `catalog.ts` server router
+- [x] Add `cornerType` to `placeableCabinets` server select query in `design.ts` router
+- [x] TypeScript: 0 errors

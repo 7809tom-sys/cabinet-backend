@@ -17,7 +17,8 @@ export type CabinetDrawingType =
   | "decorative-door" // decorative door panels: match door style, go on island backs / cabinet sides
   | "glass-door" // glass-front wall cabinet
   | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
-  | "oven-tall"; // tall oven cabinet: 2 upper doors + appliance opening + drawers
+  | "oven-tall" // tall oven cabinet: 2 upper doors + appliance opening + drawers
+  | "triangle-corner"; // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
 
 export interface CabinetLike {
   masterCode?: string | null;
@@ -42,6 +43,8 @@ export interface CabinetLike {
   drawerHeight?: number | string | null;
   /** Door orientation: 'side-by-side' | 'stacked' | null */
   doorOrientation?: string | null;
+  /** Corner type from admin config: 'triangle' | 'diagonal' | 'lazy-susan' | etc. */
+  cornerType?: string | null;
   /** Explicit doors-per-row count for side-by-side rendering (null = auto) */
   doorsPerRow?: number | null;
   /** Drawer layout: 'stacked' (full-width, one above another) | 'side-by-side' (next to each other) | null */
@@ -221,6 +224,12 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const { doors: _cdbDoors, drawers: _cdbDrawers } = resolveDoorDrawerCounts(cab);
   if (/^cdb[-_]?\d/.test(code) || (/corner.*drawer.*base|corner drawer base/.test(hay) && _cdbDrawers > 0 && _cdbDoors === 0)) {
     return "corner-drawer-base";
+  }
+
+  // Triangle corner cabinets: right-triangle footprint, single door on hypotenuse face (WTC/BTC)
+  // Must be detected BEFORE diagonal-corner and l-corner checks.
+  if (cab.cornerType === "triangle" || /^(wtc|btc)/.test(code)) {
+    return "triangle-corner";
   }
 
   // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
@@ -484,6 +493,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "glass-door": "glass-front wall cabinet",
     "pantry": "tall pantry cabinet with 4 doors",
     "oven-tall": "tall oven cabinet with appliance opening",
+    "triangle-corner": "right-triangle corner cabinet with single door on angled face",
   };
 
   let detail = detailMap[type];

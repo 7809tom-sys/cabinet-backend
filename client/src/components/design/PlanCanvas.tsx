@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, snapPosition, orientToWall, hasCollision,
-  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
+  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide,
@@ -1071,7 +1071,8 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isCorner = isCornerCabinet(p.masterCode, p.description);
-            const isDiagonal = isDiagonalCorner(p.masterCode, p.description);
+            const isTriangle = isTriangleCorner(p.masterCode, p.cornerType);
+            const isDiagonal = !isTriangle && isDiagonalCorner(p.masterCode, p.description);
             const isBlind = isBlindCorner(p.masterCode, p.description);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
@@ -1136,7 +1137,9 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
                   borderRadius: (isCorner && !isBlind) ? 0 : 2,
-                  clipPath: isDiagonal
+                  clipPath: isTriangle
+                    ? triangleCornerClipPath(cornerRotationForPlaced(p, room))
+                    : isDiagonal
                     ? diagonalCornerClipPath(cornerRotationForPlaced(p, room))
                     : (isCorner && !isBlind)
                     ? cornerClipPath(cornerRotationForPlaced(p, room), cornerLegRatioForPlaced(p))

@@ -2087,6 +2087,7 @@ export default function DesignTool() {
         drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         layoutSpec: (c as any).layoutSpec ?? null,
+        cornerType: c.cornerType ?? null,
         styleId: styleIdRef.current ?? null,
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),

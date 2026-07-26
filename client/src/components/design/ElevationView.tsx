@@ -2151,6 +2151,58 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
     );
   }
 
+  // ─── SPECIALTY TYPE: TRIANGLE CORNER ──────────────────────────────────
+  // Triangle corner cabinets (WTC/BTC): right-triangle footprint, single door
+  // on the hypotenuse (angled) face. In elevation view we show a full-width
+  // door panel with diagonal shadow strips on both sides to suggest the
+  // right-triangle geometry.
+  if (cabinetType === "triangle-corner") {
+    return withFace(
+      <>
+        {/* Left corner shadow — suggests the receding left leg */}
+        <div
+          className="absolute top-0 bottom-0 left-0"
+          style={{ width: "12%" }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(135deg, color-mix(in srgb, ${face} 60%, #000) 0%, transparent 100%)`,
+              opacity: 0.45,
+            }}
+          />
+        </div>
+        {/* Right corner shadow — suggests the receding right leg */}
+        <div
+          className="absolute top-0 bottom-0 right-0"
+          style={{ width: "12%" }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(225deg, color-mix(in srgb, ${face} 60%, #000) 0%, transparent 100%)`,
+              opacity: 0.45,
+            }}
+          />
+        </div>
+        {/* Single door panel on the angled hypotenuse face */}
+        <div
+          className="absolute"
+          style={{ left: "12%", right: "12%", top: "3%", bottom: "3%" }}
+        >
+          <div
+            className="absolute inset-[1.5px] rounded-[2px]"
+            style={{
+              background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
+              mixBlendMode: doorSampleUrl ? "multiply" : undefined,
+              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
+            }}
+          />
+        </div>
+      </>
+    );
+  }
+
   // ─── SPECIALTY TYPE: DIAGONAL CORNER ──────────────────────────────────
   // Diagonal corner cabinets (DCW, WDC, DCB): angled front face with door(s).
   // In elevation view, we show the angled face as a slightly narrower door

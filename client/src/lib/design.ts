@@ -175,6 +175,9 @@ export interface DesignCabinet {
   // can enter the spec.
   pullMin?: number | null;
   pullMax?: number | null;
+  // Corner cabinet type from the catalog config (lazy-susan, blind-corner,
+  // diagonal, pie-cut, l-shape, triangle). Optional for backward-compat.
+  cornerType?: string | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -311,6 +314,11 @@ export interface PlacedCabinet {
   // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
   // and rendered bottom-up in the elevation view.
   layoutSpec?: string | null;
+  // Corner cabinet type from the catalog: null = standard, or one of the
+  // corner types. Carried from the catalog so the plan canvas and elevation
+  // can render the correct footprint/shape without relying solely on code-
+  // pattern matching. Optional for backward-compat with older saved designs.
+  cornerType?: string | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -1370,6 +1378,32 @@ export function diagonalCornerClipPath(rotation: number, legRatio = 0.5): string
     default: // 0 — wall corner top-left; face toward bottom-right
       return `polygon(0 0, 100% 0, 100% ${k}%, ${k}% 100%, 0 100%)`;
   }
+}
+
+// Returns a CSS clip-path for a triangle corner cabinet (WTC/BTC). The cabinet
+// body is a right-triangle: two legs along the back walls, hypotenuse is the
+// angled door face. The bounding box is square (width × width). Rotation selects
+// which corner is the wall corner (rot 0 = wall corner top-left, face bottom-right).
+export function triangleCornerClipPath(rotation: number): string {
+  const r = ((rotation % 360) + 360) % 360;
+  switch (r) {
+    case 90:  // wall corner top-right; face toward bottom-left
+      return `polygon(0 0, 100% 0, 0 100%)`;
+    case 180: // wall corner bottom-right; face toward top-left
+      return `polygon(100% 0, 100% 100%, 0 100%)`;
+    case 270: // wall corner bottom-left; face toward top-right
+      return `polygon(0 0, 100% 100%, 0 100%)`;
+    default:  // 0 — wall corner top-left; face toward bottom-right
+      return `polygon(0 0, 100% 0, 100% 100%)`;
+  }
+}
+
+// True for triangle corner cabinets (WTC/BTC). Detected by cornerType field or
+// by code prefix WTC/BTC.
+export function isTriangleCorner(masterCode: string, cornerType?: string | null): boolean {
+  if (cornerType === "triangle") return true;
+  const code = (masterCode || "").toUpperCase();
+  return /^(WTC|BTC)/.test(code);
 }
 
 // True for L-shaped corner cabinets (lazy-Susan, blind corner, easy-reach
