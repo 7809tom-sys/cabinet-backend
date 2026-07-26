@@ -188,11 +188,11 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const hay = `${sub} ${desc} ${code}`;
 
   // Face-pattern override: admin-set facePattern takes priority over all other detection.
-  // Also auto-detect by code prefix: WR (wine rack), WPR (wall plate rack), PR (plate rack),
-  // WLR (wine lattice rack), WRB (wine rack base).
+  // Also auto-detect by code prefix: WR (wine rack), WRC (wine rack combo), WPR (wall plate rack),
+  // PR (plate rack), WLR/LWR (wine lattice rack), WRB (wine rack base).
   if (
     cab.facePattern ||
-    /^(wr[-_]?\d|wpr[-_]?\d|pr[-_]?\d|wlr[-_]?\d|wrb[-_]?\d)/.test(code)
+    /^(wr[-_]?\d|wrc[-_]?\d|wpr[-_]?\d|pr[-_]?\d|wlr[-_]?\d|lwr[-_]?\d|wrb[-_]?\d)/.test(code)
   ) {
     return "face-pattern";
   }
