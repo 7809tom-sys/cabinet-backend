@@ -1680,7 +1680,7 @@ export const cabinetsRouter = router({
         doorHeight: z.number().positive().nullable().optional(),
         drawerHeight: z.number().positive().nullable().optional(),
         // Corner cabinet type: null = standard, or one of the corner types
-        cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape"]).nullable().optional(),
+        cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape", "triangle"]).nullable().optional(),
         // Lazy Susan specific
         shelfRadius: z.number().positive().nullable().optional(),
         shelfCount: z.number().int().positive().nullable().optional(),

@@ -961,7 +961,7 @@ function EditModal({
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
       doorHeight: merged.doorHeight != null ? parseFloat(merged.doorHeight) : null,
       drawerHeight: merged.drawerHeight != null ? parseFloat(merged.drawerHeight) : null,
-      cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | null | undefined) ?? null,
+      cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | "triangle" | null | undefined) ?? null,
       shelfRadius: merged.shelfRadius != null ? parseFloat(merged.shelfRadius) : null,
       shelfCount: merged.shelfCount ?? null,
       cabinetSquare: merged.cabinetSquare != null ? parseFloat(merged.cabinetSquare) : null,
@@ -1205,6 +1205,7 @@ function EditModal({
                       <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
                       <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
                       <SelectItem value="l-shape">L-Shape Corner</SelectItem>
+                      <SelectItem value="triangle">Triangle Corner (WTC / BTC)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>

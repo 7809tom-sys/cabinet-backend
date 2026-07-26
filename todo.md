@@ -1830,3 +1830,13 @@
 - [x] Also applied to IslandElevationView
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Feature: Triangle Corner cabinet type
+- [x] Add "triangle" to cornerType options in CabinetConfigAdmin dropdown
+- [x] Add "triangle-corner" to CabinetDrawingType union in cabinetGraphics.ts
+- [x] Detect triangle-corner via cornerType field in cabinetDrawingType()
+- [x] Add triangleCornerClipPath() helper in design.ts for plan view footprint
+- [x] Render triangle footprint in PlanCanvas.tsx
+- [x] Render triangle corner in ElevationView.tsx (angled top, single door on face)
+- [x] TypeScript check passes
+- [x] Save checkpoint

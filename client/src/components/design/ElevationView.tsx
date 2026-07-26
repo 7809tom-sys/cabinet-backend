@@ -2212,6 +2212,53 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       </>
     );
   }
+  // ─── SPECIALTY TYPE: TRIANGLE CORNER ────────────────────────────────
+  // Triangle corner cabinets: right-triangle footprint, single door on the
+  // hypotenuse (angled front face). In elevation, we show the angled top/bottom
+  // edge with a single door panel centered on the face.
+  if (cabinetType === "triangle-corner") {
+    return withFace(
+      <>
+        {/* Angled top-left indicator: simulates the sloped top edge of the triangle */}
+        <div
+          className="absolute top-0 left-0"
+          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
+        >
+          <svg
+            className="absolute inset-0 w-full h-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ pointerEvents: "none" }}
+          >
+            {/* Diagonal line across the top to indicate the angled face */}
+            <line x1="0" y1="0" x2="100" y2="0" stroke={edge} strokeWidth="1" />
+            <line x1="0" y1="100" x2="100" y2="100" stroke={edge} strokeWidth="1" />
+            {/* Angled top edge indicator */}
+            <polygon
+              points="0,0 30,0 0,30"
+              fill={`color-mix(in srgb, ${face} 80%, #000)`}
+              opacity="0.35"
+            />
+          </svg>
+        </div>
+        {/* Single door panel on the angled face */}
+        <div
+          className="absolute"
+          style={{ left: "15%", right: "5%", top: "4%", bottom: "4%" }}
+        >
+          <StylePanel
+            kind={kind}
+            edge={edge}
+            face={face}
+            drawer={false}
+            doorSampleUrl={doorSampleUrl}
+            drawerSampleUrl={drawerSampleUrl}
+          />
+        </div>
+      </>
+    );
+  }
+
   // ─── SPECIALTY TYPE: L-CORNER ───────────────────────────────────────
   // L-corner cabinets (lazy Susan, easy-reach): two visible door faces
   // meeting at the corner. Shows as two angled door panels.

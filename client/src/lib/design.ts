@@ -311,6 +311,10 @@ export interface PlacedCabinet {
   // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
   // and rendered bottom-up in the elevation view.
   layoutSpec?: string | null;
+  // Admin-set corner cabinet type override. When set, overrides code/description
+  // detection in cabinetDrawingType(). Values: 'lazy-susan' | 'blind-corner' |
+  // 'diagonal' | 'pie-cut' | 'l-shape' | 'triangle'.
+  cornerType?: string | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -653,6 +657,12 @@ export function footprintDepth(c: DesignCabinet): number {
   // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
   // standard shallow wall/base depth.
   if (isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
+    const w = dim(c.width, 24);
+    return w > 0 ? w : 24;
+  }
+  // A triangle corner cabinet also occupies a square bounding box (the right
+  // triangle fits inside the square, with legs along each wall).
+  if (isTriangleCorner(c.masterCode || "", c.description || undefined, (c as { cornerType?: string | null }).cornerType)) {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
@@ -1369,6 +1379,36 @@ export function diagonalCornerClipPath(rotation: number, legRatio = 0.5): string
       return `polygon(0 100%, 0 0, ${k}% 0, 100% ${100 - k}%, 100% 100%)`;
     default: // 0 — wall corner top-left; face toward bottom-right
       return `polygon(0 0, 100% 0, 100% ${k}%, ${k}% 100%, 0 100%)`;
+  }
+}
+
+// True for triangle corner cabinets: right-triangle footprint where the
+// hypotenuse is the door face. Detected by admin cornerType field or code prefix.
+export function isTriangleCorner(masterCode: string, description?: string, cornerType?: string | null): boolean {
+  if (cornerType === "triangle") return true;
+  const code = (masterCode || "").toUpperCase();
+  if (/^(WTC|BTC|TC[-\d])/.test(code)) return true;
+  const desc = (description || "").toLowerCase();
+  if (/triangle corner/.test(desc)) return true;
+  return false;
+}
+
+// Returns a CSS clip-path for a right-triangle corner cabinet in plan view.
+// The right-angle corner is at the wall corner; the hypotenuse is the door face.
+// `rotation` selects which corner is the wall corner (same convention as
+// diagonalCornerClipPath): 0 = top-left, 90 = top-right, 180 = bottom-right,
+// 270 = bottom-left.
+export function triangleCornerClipPath(rotation: number): string {
+  const r = ((rotation % 360) + 360) % 360;
+  switch (r) {
+    case 90:  // wall corner top-right; hypotenuse toward bottom-left
+      return "polygon(100% 0, 100% 100%, 0 100%)";
+    case 180: // wall corner bottom-right; hypotenuse toward top-left
+      return "polygon(100% 100%, 0 100%, 100% 0)";
+    case 270: // wall corner bottom-left; hypotenuse toward top-right
+      return "polygon(0 100%, 0 0, 100% 100%)";
+    default:  // 0 — wall corner top-left; hypotenuse toward bottom-right
+      return "polygon(0 0, 100% 0, 0 100%)";
   }
 }
 
