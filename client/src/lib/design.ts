@@ -314,6 +314,10 @@ export interface PlacedCabinet {
   // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
   // and rendered bottom-up in the elevation view.
   layoutSpec?: string | null;
+  // Drawer row layout JSON: [{count:N, height?:H}, ...]
+  // Each entry is a row of N side-by-side drawers. When present, the elevation
+  // renderer uses this to render drawers side-by-side instead of stacked.
+  drawerLayout?: string | null;
   // Corner cabinet type from the catalog: null = standard, or one of the
   // corner types. Carried from the catalog so the plan canvas and elevation
   // can render the correct footprint/shape without relying solely on code-

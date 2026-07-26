@@ -2087,6 +2087,7 @@ export default function DesignTool() {
         drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         layoutSpec: (c as any).layoutSpec ?? null,
+        drawerLayout: (c as any).drawerLayout ?? null,
         cornerType: c.cornerType ?? null,
         styleId: styleIdRef.current ?? null,
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
@@ -2296,6 +2297,7 @@ export default function DesignTool() {
             drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
             doorOrientation: (c as any).doorOrientation ?? null,
             layoutSpec: (c as any).layoutSpec ?? null,
+            drawerLayout: (c as any).drawerLayout ?? null,
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
           };
@@ -2366,6 +2368,7 @@ export default function DesignTool() {
         drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         layoutSpec: (c as any).layoutSpec ?? null,
+        drawerLayout: (c as any).drawerLayout ?? null,
         styleId: styleIdRef.current ?? null,
       };
       setPlaced((prev) => [...prev, newCab]);
@@ -2450,6 +2453,7 @@ export default function DesignTool() {
         drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         layoutSpec: (c as any).layoutSpec ?? null,
+        drawerLayout: (c as any).drawerLayout ?? null,
         styleId: styleIdRef.current ?? null,
       };
       // Place filler at gap.start + cabWidth
