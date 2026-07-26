@@ -1203,9 +1203,9 @@ function EditModal({
                       <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
                       <SelectItem value="blind-corner">Blind Corner (BBC / WBC)</SelectItem>
                       <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
+                      <SelectItem value="triangle">Triangle Corner (WTC / BTC)</SelectItem>
                       <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
                       <SelectItem value="l-shape">L-Shape Corner</SelectItem>
-                      <SelectItem value="triangle">Triangle Corner (WTC / BTC)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>

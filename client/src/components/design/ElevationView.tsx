@@ -208,13 +208,15 @@ export function ElevationView({
     // Falls back to the door sample if no separate drawer photo is set.
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     // Face fill: the CABINET BOX background (face frame).
-    // The outer cabinet box always uses the finish color gradient as its background
-    // (face frame color). The door sample photo is applied ONLY inside individual
-    // door/drawer panel areas by DoorFront/SingleDoorPanel/RecessedPanel so the
-    // baked-in shadows in the photo don't bleed across the whole cabinet face.
+    // When a door sample photo is available, use it as the full-face background
+    // so the face frame and door panels share the same wood/finish texture —
+    // the whole cabinet reads as one unified material instead of a contrasting frame.
+    // Without a photo, fall back to the finish color gradient.
     const faceFill = isAppliance
       ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
+      : cabDoorSampleUrl
+        ? `url(${cabDoorSampleUrl}) center/cover`
+        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -1726,7 +1728,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
   if (drawer) {
     // Apply the photo (drawer sample preferred, door sample as fallback) when available.
     const photoStyle: React.CSSProperties = effectiveDoorUrl
-      ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: "multiply" as const }
+      ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
       : {};
     if (kind === "slab") {
       return (
@@ -1778,11 +1780,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   // on this component's root so the outer container can be transparent (no box).
   // Photorealistic face frame: strong top-light highlight (simulates overhead room
   // lighting), rich mid-tone body, subtle bottom shadow for depth.
-  // Never use a photo URL as the face-frame background — photos have baked-in
-  // shadows that bleed across the whole cabinet face. Always use the finish color
-  // gradient for the face frame; photos are applied only inside door/drawer panels.
-  const isPhotoFill = faceFillOverride?.startsWith('url(');
-  const faceBackground = (isPhotoFill ? undefined : faceFillOverride) ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #ffffff) 0%, ${face} 30%, ${face} 70%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
+  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #ffffff) 0%, ${face} 30%, ${face} 70%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
 
   // Helper: wrap content in a root div that carries the face-frame background.
   // This keeps the outer cabinet container transparent (no visible box).
@@ -2212,53 +2210,6 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       </>
     );
   }
-  // ─── SPECIALTY TYPE: TRIANGLE CORNER ────────────────────────────────
-  // Triangle corner cabinets: right-triangle footprint, single door on the
-  // hypotenuse (angled front face). In elevation, we show the angled top/bottom
-  // edge with a single door panel centered on the face.
-  if (cabinetType === "triangle-corner") {
-    return withFace(
-      <>
-        {/* Angled top-left indicator: simulates the sloped top edge of the triangle */}
-        <div
-          className="absolute top-0 left-0"
-          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-        >
-          <svg
-            className="absolute inset-0 w-full h-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            style={{ pointerEvents: "none" }}
-          >
-            {/* Diagonal line across the top to indicate the angled face */}
-            <line x1="0" y1="0" x2="100" y2="0" stroke={edge} strokeWidth="1" />
-            <line x1="0" y1="100" x2="100" y2="100" stroke={edge} strokeWidth="1" />
-            {/* Angled top edge indicator */}
-            <polygon
-              points="0,0 30,0 0,30"
-              fill={`color-mix(in srgb, ${face} 80%, #000)`}
-              opacity="0.35"
-            />
-          </svg>
-        </div>
-        {/* Single door panel on the angled face */}
-        <div
-          className="absolute"
-          style={{ left: "15%", right: "5%", top: "4%", bottom: "4%" }}
-        >
-          <StylePanel
-            kind={kind}
-            edge={edge}
-            face={face}
-            drawer={false}
-            doorSampleUrl={doorSampleUrl}
-            drawerSampleUrl={drawerSampleUrl}
-          />
-        </div>
-      </>
-    );
-  }
-
   // ─── SPECIALTY TYPE: L-CORNER ───────────────────────────────────────
   // L-corner cabinets (lazy Susan, easy-reach): two visible door faces
   // meeting at the corner. Shows as two angled door panels.
@@ -2572,7 +2523,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
   // the image so only the door panel portion is visible.
   const samplePos = isWall ? "center 80%" : "center";
   const panelBg = doorSampleUrl
-    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: samplePos, mixBlendMode: "multiply" as const }
+    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: samplePos }
     : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 78%, #000) 0%, color-mix(in srgb, ${face} 88%, #000) 45%, color-mix(in srgb, ${face} 96%, #000) 100%)` };
   return (
     <div
@@ -2596,7 +2547,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
             // darker at bottom. Strong bevel shadow on all 4 edges makes it
             // read as a real raised wood panel.
             background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #fff) 0%, color-mix(in srgb, ${face} 98%, #fff) 35%, ${face} 65%, color-mix(in srgb, ${face} 92%, #000) 100%)`,
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const, mixBlendMode: "multiply" as const } : {}),
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
             boxShadow: `0 2px 4px rgba(0,0,0,0.32), inset 1.5px 1.5px 0 rgba(255,255,255,0.40), inset -1.5px -1.5px 2px rgba(0,0,0,0.24)`,
           }}
         />
@@ -2629,7 +2580,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center", mixBlendMode: "multiply" as const } : {}),
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center" } : {}),
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}
         />
@@ -2659,7 +2610,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
             style={{
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
               ...(doorSampleUrl
-                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center", mixBlendMode: "multiply" as const }
+                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center" }
                 : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
@@ -2694,7 +2645,6 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
               backgroundImage: `url(${doorSampleUrl})`,
               backgroundSize: "cover",
               backgroundPosition: samplePos,
-              mixBlendMode: "multiply" as const,
               // Outer bevel to simulate the face-frame edge
               boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 2px rgba(0,0,0,0.20)`,
             }}

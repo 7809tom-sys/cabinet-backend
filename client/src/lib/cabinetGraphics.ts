@@ -17,8 +17,7 @@ export type CabinetDrawingType =
   | "decorative-door" // decorative door panels: match door style, go on island backs / cabinet sides
   | "glass-door" // glass-front wall cabinet
   | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
-  | "oven-tall" // tall oven cabinet: 2 upper doors + appliance opening + drawers
-  | "triangle-corner"; // right-triangle footprint, angled hypotenuse front face (e.g. WTC, DCW-triangle)
+  | "oven-tall"; // tall oven cabinet: 2 upper doors + appliance opening + drawers
 
 export interface CabinetLike {
   masterCode?: string | null;
@@ -53,8 +52,6 @@ export interface CabinetLike {
   grainDirection?: string | null;
   /** Whether this panel uses the door style image (decorative door panel) */
   isDecorativeDoor?: boolean | null;
-  /** Admin-set corner cabinet type: 'lazy-susan' | 'blind-corner' | 'diagonal' | 'pie-cut' | 'l-shape' | 'triangle' */
-  cornerType?: string | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -224,12 +221,6 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const { doors: _cdbDoors, drawers: _cdbDrawers } = resolveDoorDrawerCounts(cab);
   if (/^cdb[-_]?\d/.test(code) || (/corner.*drawer.*base|corner drawer base/.test(hay) && _cdbDrawers > 0 && _cdbDoors === 0)) {
     return "corner-drawer-base";
-  }
-
-  // Triangle corner cabinets: right-triangle footprint, hypotenuse is the door face.
-  // Detected by admin-set cornerType field (highest priority) or by code/description.
-  if (cab.cornerType === "triangle" || /^(wtc|btc|tc[-\d])/.test(code) || /triangle corner/.test(hay)) {
-    return "triangle-corner";
   }
 
   // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
@@ -410,7 +401,6 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
-  if (type === "triangle-corner") return `Triangle Corner ${placement}`;
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
@@ -494,7 +484,6 @@ export function cabinetAltText(cab: CabinetLike): string {
     "glass-door": "glass-front wall cabinet",
     "pantry": "tall pantry cabinet with 4 doors",
     "oven-tall": "tall oven cabinet with appliance opening",
-    "triangle-corner": "triangle corner cabinet with angled front face",
   };
 
   let detail = detailMap[type];
