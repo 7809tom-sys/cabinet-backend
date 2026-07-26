@@ -541,7 +541,7 @@ export type OrderLineItem = {
   linePrice: number | null;
   doorStyle?: string | null; // chosen door-style name for this line
   styleId?: number | null;
-  tier?: "Wholesale" | "Contractor" | null;
+  tier?: "Wholesale" | "Contractor" | "Homeowner" | null;
   matched: boolean;
 };
 
@@ -557,7 +557,7 @@ export const orderRequests = mysqlTable("order_requests", {
   status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
   styleId: int("styleId"), // default door style applied across lines
   styleName: varchar("styleName", { length: 128 }),
-  tier: mysqlEnum("tier", ["Wholesale", "Contractor"]).default("Contractor").notNull(),
+  tier: mysqlEnum("tier", ["Wholesale", "Contractor", "Homeowner"]).default("Homeowner").notNull(),
   // Affiliate attribution: which affiliate referred this order (if any)
   affiliateId: int("affiliateId"),
   referralCode: varchar("referralCode", { length: 32 }),

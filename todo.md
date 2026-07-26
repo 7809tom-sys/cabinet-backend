@@ -1822,3 +1822,17 @@
 - [x] Add `triangle` to `cornerType` zod enum in `catalog.ts` server router
 - [x] Add `cornerType` to `placeableCabinets` server select query in `design.ts` router
 - [x] TypeScript: 0 errors
+
+## Feature: Pricing Tier Auto-Set (Jul 2026)
+- [x] Add `useEffect` in `DesignTool.tsx` to auto-set `tier` from `user.pricingTier` on login
+- [x] Change initial tier default from `"Contractor"` to `"Homeowner"` for guests
+- [x] Wrap both tier dropdowns in `{isAdmin && ...}` so only admins see the tier switcher
+- [x] Fix `orderTier` function in `orders.ts` to handle `"Homeowner"` tier
+- [x] Add server-side tier enforcement in `createRequest` mutation (non-admins get their DB tier)
+- [x] Add `"Homeowner"` to `orderRequests.tier` enum in `drizzle/schema.ts`
+- [x] Generate migration `drizzle/0099_purple_bullseye.sql` (ALTER TABLE to add Homeowner to enum)
+- [x] Apply migration via `webdev_execute_sql`
+- [x] Update `OrderLineItem.tier` type to include `"Homeowner"`
+- [x] Fix `createRequest` to use `resolvedTier` (not `input.tier`) when inserting order
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

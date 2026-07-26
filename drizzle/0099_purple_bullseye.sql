@@ -1,0 +1,1 @@
+ALTER TABLE `order_requests` MODIFY COLUMN `tier` enum('Wholesale','Contractor','Homeowner') NOT NULL DEFAULT 'Homeowner';

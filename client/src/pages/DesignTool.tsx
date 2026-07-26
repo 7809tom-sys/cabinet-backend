@@ -307,6 +307,22 @@ export default function DesignTool() {
   const undoRedo = useUndoRedo<PlacedCabinet[]>();
   const undoRedoRef = useRef(undoRedo);
   undoRedoRef.current = undoRedo;
+  // Sync pricing tier from the logged-in user's pricingTier field.
+  // Admins keep the dropdown to switch tiers; non-admins get their tier automatically.
+  useEffect(() => {
+    if (!user) return; // guest stays at Homeowner
+    const dbTier = (user as any).pricingTier as string | undefined;
+    if (!dbTier) return;
+    const tierMap: Record<string, PricingTier> = {
+      homeowner: "Homeowner",
+      contractor: "Contractor",
+      wholesale: "Wholesale",
+    };
+    const resolved = tierMap[dbTier.toLowerCase()];
+    if (resolved) setTier(resolved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(user as any)?.pricingTier, (user as any)?.id]);
+
   // Push a snapshot whenever `placed` changes (debounced to coalesce rapid updates).
   const lastPushedRef = useRef<PlacedCabinet[] | null>(null);
   useEffect(() => {
@@ -541,7 +557,8 @@ export default function DesignTool() {
   // stamp the current color without going stale or re-creating on every change.
   const styleIdRef = useRef<number | null>(null);
   const styleBRef = useRef<number | null>(null);
-  const [tier, setTier] = useState<PricingTier>("Contractor");
+  // Default to Homeowner for guests; overridden by user.pricingTier on login.
+  const [tier, setTier] = useState<PricingTier>("Homeowner");
   // Distributor lock: once the base cabinet's finish is chosen the member can
   // "Lock" the design to that style's supply line. While locked, the palette
   // only offers cabinets from that distributor and the finish picker is scoped
@@ -6951,6 +6968,7 @@ export default function DesignTool() {
               {t("dt_bs_two_tone_help")}
             </p>
 
+            {isAdmin && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-medium text-foreground shrink-0">{t("dt_bs_pricing")}</span>
               <Select value={tier} disabled={cabinetsLocked} onValueChange={(v) => { if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change pricing tier"); return; } setTier(v as PricingTier); }}>
@@ -6962,6 +6980,7 @@ export default function DesignTool() {
                 </SelectContent>
               </Select>
             </div>
+            )}
             </div>
           </SheetSection>
 
@@ -7770,6 +7789,7 @@ export default function DesignTool() {
                 />
               </div>
               <p className="text-[10px] leading-snug text-muted-foreground">{t("dt_bs_two_tone_help")}</p>
+              {isAdmin && (
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-foreground shrink-0">{t("dt_bs_pricing")}</span>
                 <Select value={tier} disabled={cabinetsLocked} onValueChange={(v) => { if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change pricing tier"); return; } setTier(v as PricingTier); }}>
@@ -7781,6 +7801,7 @@ export default function DesignTool() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
           </SheetContent>
         </Sheet>

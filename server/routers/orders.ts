@@ -39,9 +39,9 @@ import { resolveMarkupBps } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { createCheckoutSession } from "../stripe";
 
-// Map the order tierEnum ("Wholesale" | "Contractor") to the shared PricingTier.
-const orderTier = (t: "Wholesale" | "Contractor") =>
-  t === "Wholesale" ? ("wholesale" as const) : ("contractor" as const);
+// Map the order tierEnum to the shared PricingTier.
+const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
+  t === "Wholesale" ? ("wholesale" as const) : t === "Contractor" ? ("contractor" as const) : ("homeowner" as const);
 
 // ─── Shared types surfaced to the client ───────────────────────────────────────
 export type RecAddOn = {
@@ -142,7 +142,7 @@ async function matchPairs(
   return pairs.map((p) => toExtractedLine(matchCode(p.code, index, aliasMap), p.qty));
 }
 
-const tierEnum = z.enum(["Wholesale", "Contractor"]);
+const tierEnum = z.enum(["Wholesale", "Contractor", "Homeowner"]);
 
 const lineItemInput = z.object({
   cabinetId: z.number().nullable(),
@@ -664,11 +664,21 @@ export const ordersRouter = router({
         submit: z.boolean().default(false),
       })
     )
-    .mutation(async ({ input, ctx }) => {
+        .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-
+      // Server-side tier enforcement: non-admin users always get their assigned pricingTier.
+      // Admins may pass any tier (for quoting on behalf of a customer).
+      const isAdmin = (ctx as { user?: { role?: string } }).user?.role === "admin";
+      const userDbTier = (ctx as { user?: { pricingTier?: string } }).user?.pricingTier;
+      const resolvedTier: "Wholesale" | "Contractor" | "Homeowner" = isAdmin
+        ? input.tier
+        : userDbTier === "wholesale"
+          ? "Wholesale"
+          : userDbTier === "contractor"
+            ? "Contractor"
+            : "Homeowner"; // guests and homeowners default to Homeowner
       const normalizedLines: OrderLineItem[] = input.lineItems.map((l) => {
         const unitPrice = l.unitPrice ?? null;
         const linePrice =
@@ -736,7 +746,7 @@ export const ordersRouter = router({
         status: input.submit ? "submitted" : "draft",
         styleId: input.styleId ?? null,
         styleName: input.styleName ?? null,
-        tier: input.tier,
+        tier: resolvedTier,
         lineItems: normalizedLines,
         itemCount,
         totalAmount: total > 0 ? total.toFixed(2) : null,
