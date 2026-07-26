@@ -239,7 +239,10 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
   // L-shaped corner cabinets (lazy Susan, easy-reach) — NOT blind, NOT diagonal
   const isBlind = /^(bbc|wbc|bbl|bbr|wbl|wbr)/.test(code) || /-blind|blind/.test(code) || /blind\s*corner/.test(hay);
-  if (!isBlind && (cab.isCornerCabinet || /corner|easy reach|lazy susan/.test(hay))) {
+  // Explicit code-prefix detection for LS## (e.g. LS3612, LS3312), BER## (e.g. BER33, BER36),
+  // and ERB## (e.g. ERB33, ERB36). These may not have isCornerCabinet=true in the DB.
+  const isLsOrBer = /^(lsb?|ber|erb)\d/.test(code);
+  if (!isBlind && (isLsOrBer || cab.isCornerCabinet || /corner|easy reach|lazy susan/.test(hay))) {
     return "l-corner";
   }
 

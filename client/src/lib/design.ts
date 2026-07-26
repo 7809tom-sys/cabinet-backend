@@ -1327,7 +1327,9 @@ export function isCornerCabinet(masterCode: string, description?: string): boole
   const code = (masterCode || "").toUpperCase();
   // ERB/BER are the easy-reach corner base codes (BER is the Skyline naming;
   // ERB is how the catalog stores the same cabinet). WER is the wall easy-reach.
-  if (/^(BBC|WBC|BLB|LSB|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|AG-|AG\d|CAG)/.test(code)) return true;
+  // LS## = Lazy Susan (e.g. LS3612, LS3312); LSB## = Lazy Susan Base (older naming)
+  // BER## = Easy-Reach corner base (Skyline naming, e.g. BER33, BER36)
+  if (/^(BBC|WBC|BLB|LSB?|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|AG-|AG\d|CAG)/.test(code)) return true;
   if (/-CNR|CORNER/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
