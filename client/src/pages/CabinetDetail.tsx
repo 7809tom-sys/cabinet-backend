@@ -475,6 +475,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editLayoutSpec, setEditLayoutSpec] = useState<string | null>(null);
   const [editSpecImageUrl, setEditSpecImageUrl] = useState<string>("");
   const [editSpecNotes, setEditSpecNotes] = useState<string>("");
+  const [editFacePattern, setEditFacePattern] = useState<string>("__none__");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -523,6 +524,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditLayoutSpec(cab.layoutSpec != null ? String(cab.layoutSpec) : null);
       setEditSpecImageUrl(String(cab.specImageUrl ?? ""));
       setEditSpecNotes(String(cab.specNotes ?? ""));
+      setEditFacePattern(String((cab as Record<string, unknown>).facePattern ?? "__none__"));
     }
   }, [editOpen, cabinet]);
 
@@ -696,6 +698,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       layoutSpec: editLayoutSpec,
       specImageUrl: editSpecImageUrl.trim() || null,
       specNotes: editSpecNotes.trim() || null,
+      facePattern: (editFacePattern === "__none__" ? null : editFacePattern) as "slats" | "criss-cross" | "lattice" | "open" | null,
     });
   }
 
@@ -1771,6 +1774,23 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <Label htmlFor="edit-isDecorativeDoor" className="text-sm">Decorative Door Panel</Label>
                 </div>
                 <p className="text-[11px] text-muted-foreground">Check if this panel uses the door style image (decorative end panels, island backs).</p>
+              </div>
+
+              {/* Face Pattern (specialty open-front cabinets) */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Face Pattern (specialty open-front)</Label>
+                <select
+                  value={editFacePattern}
+                  onChange={(e) => setEditFacePattern(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="__none__">None (standard door/drawer)</option>
+                  <option value="slats">Vertical Slats (plate rack / wine rack)</option>
+                  <option value="criss-cross">Criss-Cross / X (wine cubby)</option>
+                  <option value="lattice">Lattice / Diamond (decorative)</option>
+                  <option value="open">Open (no face treatment)</option>
+                </select>
+                <p className="text-[11px] text-muted-foreground">Replaces door/drawer panels with a specialty open-front pattern in the elevation view. Auto-detected for WR, WPR, PR code prefixes.</p>
               </div>
 
               {/* Blind Corner Pull Spec (auto-shown for BBC/WBC codes) */}

@@ -1836,3 +1836,18 @@
 - [x] Fix `createRequest` to use `resolvedTier` (not `input.tier`) when inserting order
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Feature: facePattern for specialty open-face cabinets (Jul 2026)
+- [x] Add `facePattern` nullable enum column to `cabinet_configs` table in `drizzle/schema.ts` (values: 'slats', 'criss-cross', 'lattice', 'open')
+- [x] Generate migration with `pnpm drizzle-kit generate` and apply via `webdev_execute_sql`
+- [x] Add `facePattern` to `CabinetLike` interface in `cabinetGraphics.ts`
+- [x] Add code-prefix auto-detection fallback in `cabinetDrawingType()` (WR/WPR/PR → slats by default)
+- [x] Add `facePattern` dropdown to `CabinetConfigAdmin` admin UI (None / Vertical Slats / Criss-Cross / Lattice / Open)
+- [x] Add `facePattern` dropdown to `CabinetDetail` inline edit panel
+- [x] Add `facePattern` to server catalog router (adminUpdateCabinet + placeableCabinets query)
+- [x] Add `facePattern` to design router `placeableCabinets` select
+- [x] Add `facePattern` to `PlacedCabinet` interface in `design.ts`
+- [x] Implement `FacePattern` SVG component in `ElevationView.tsx` rendering all 4 patterns
+- [x] Wire `FacePattern` into `DoorFront` — replaces door panel when `facePattern` is set
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

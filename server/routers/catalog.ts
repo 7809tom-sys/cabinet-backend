@@ -1707,6 +1707,8 @@ export const cabinetsRouter = router({
         specImageUrl: z.string().nullable().optional(),
         // Spec notes from spec book
         specNotes: z.string().nullable().optional(),
+        // Face pattern for specialty open-front cabinets
+        facePattern: z.enum(["slats", "criss-cross", "lattice", "open"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1788,6 +1790,7 @@ export const cabinetsRouter = router({
       if (input.layoutSpec !== undefined) patch.layoutSpec = input.layoutSpec;
       if (input.specImageUrl !== undefined) patch.specImageUrl = input.specImageUrl;
       if (input.specNotes !== undefined) patch.specNotes = input.specNotes;
+      if (input.facePattern !== undefined) patch.facePattern = input.facePattern;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2433,6 +2436,8 @@ export const cabinetsRouter = router({
             // Spec book line drawing + notes
             specImageUrl: cabinets.specImageUrl,
             specNotes: cabinets.specNotes,
+            // Face pattern for specialty open-front cabinets
+            facePattern: cabinets.facePattern,
           })
           .from(cabinets)
           .where(where)

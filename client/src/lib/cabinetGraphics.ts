@@ -18,7 +18,8 @@ export type CabinetDrawingType =
   | "glass-door" // glass-front wall cabinet
   | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
   | "oven-tall" // tall oven cabinet: 2 upper doors + appliance opening + drawers
-  | "triangle-corner"; // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
+  | "triangle-corner" // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
+  | "face-pattern"; // specialty open-front cabinet with slats / criss-cross / lattice / open pattern
 
 export interface CabinetLike {
   masterCode?: string | null;
@@ -55,6 +56,8 @@ export interface CabinetLike {
   grainDirection?: string | null;
   /** Whether this panel uses the door style image (decorative door panel) */
   isDecorativeDoor?: boolean | null;
+  /** Face pattern for specialty open-front cabinets: 'slats' | 'criss-cross' | 'lattice' | 'open' | null */
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -183,6 +186,16 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const code = lc(cab.masterCode);
   const desc = lc(cab.description);
   const hay = `${sub} ${desc} ${code}`;
+
+  // Face-pattern override: admin-set facePattern takes priority over all other detection.
+  // Also auto-detect by code prefix: WR (wine rack), WPR (wall plate rack), PR (plate rack),
+  // WLR (wine lattice rack), WRB (wine rack base).
+  if (
+    cab.facePattern ||
+    /^(wr[-_]?\d|wpr[-_]?\d|pr[-_]?\d|wlr[-_]?\d|wrb[-_]?\d)/.test(code)
+  ) {
+    return "face-pattern";
+  }
 
   // Real cabinet families are never accessory strips, even if their description
   // mentions words like "shelf" or "panel" (e.g. "...Base Cabinet with Adjustable Shelf").
@@ -497,6 +510,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "pantry": "tall pantry cabinet with 4 doors",
     "oven-tall": "tall oven cabinet with appliance opening",
     "triangle-corner": "right-triangle corner cabinet with single door on angled face",
+    "face-pattern": "specialty open-front cabinet",
   };
 
   let detail = detailMap[type];

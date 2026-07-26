@@ -57,7 +57,7 @@ function RecessedPanel({
 }
 
 function DoorFront({
-  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn,
+  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, facePattern,
 }: {
   kind: DoorPanelKind; edge: string; face: string;
   doors: number; drawers: number; isWall: boolean;
@@ -66,8 +66,59 @@ function DoorFront({
   cabinetType: CabinetDrawingType | null;
   blindOnLeft: boolean;
   cabinetHeightIn: number;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }) {
   void drawerSampleUrl; // reserved for future drawer-front photo rendering in island view
+  // Face-pattern override: render specialty open-front pattern instead of door panels
+  const activeFacePattern = facePattern || (cabinetType === "face-pattern" ? "slats" : null);
+  if (activeFacePattern) {
+    const barColor = `color-mix(in srgb, ${face} 70%, #000000)`;
+    const bgColor = `color-mix(in srgb, ${face} 40%, #000000)`;
+    const stroke = `${edge}99`;
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0" style={{ border: `3px solid ${stroke}`, borderRadius: 2 }} />
+        {activeFacePattern === "slats" && (
+          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <defs>
+              <pattern id="island-slats" x="0" y="0" width="10%" height="100%" patternUnits="objectBoundingBox">
+                <rect x="15%" y="0" width="70%" height="100%" fill={barColor} />
+              </pattern>
+            </defs>
+            <rect x="5%" y="5%" width="90%" height="90%" fill={bgColor} opacity="0.25" />
+            <rect x="5%" y="5%" width="90%" height="90%" fill="url(#island-slats)" />
+          </svg>
+        )}
+        {activeFacePattern === "criss-cross" && (
+          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <defs>
+              <pattern id="island-xpat" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="20" y2="20" stroke={barColor} strokeWidth="2.5" />
+                <line x1="20" y1="0" x2="0" y2="20" stroke={barColor} strokeWidth="2.5" />
+              </pattern>
+            </defs>
+            <rect x="5%" y="5%" width="90%" height="90%" fill={bgColor} opacity="0.2" />
+            <rect x="5%" y="5%" width="90%" height="90%" fill="url(#island-xpat)" />
+          </svg>
+        )}
+        {activeFacePattern === "lattice" && (
+          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <defs>
+              <pattern id="island-lattice" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="8" y1="0" x2="8" y2="16" stroke={barColor} strokeWidth="2" />
+                <line x1="0" y1="8" x2="16" y2="8" stroke={barColor} strokeWidth="2" />
+              </pattern>
+            </defs>
+            <rect x="5%" y="5%" width="90%" height="90%" fill={bgColor} opacity="0.2" />
+            <rect x="5%" y="5%" width="90%" height="90%" fill="url(#island-lattice)" />
+          </svg>
+        )}
+        {activeFacePattern === "open" && (
+          <div className="absolute" style={{ left: "5%", right: "5%", top: "5%", bottom: "5%", background: bgColor, opacity: 0.35, borderRadius: 2 }} />
+        )}
+      </div>
+    );
+  }
   const railBevel: React.CSSProperties = {
     boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 ${edge}55, inset 1px 0 0 rgba(255,255,255,0.2), inset -1px 0 0 ${edge}44`,
   };
@@ -361,6 +412,7 @@ export function IslandElevationView({
               cabinetType={cabType}
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
+              facePattern={p.facePattern ?? null}
             />
           )}
           {!isAppliance && hw.id !== "none" && (

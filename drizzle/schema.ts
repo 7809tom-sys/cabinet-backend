@@ -265,6 +265,9 @@ export const cabinets = mysqlTable("cabinets", {
   specImageUrl: varchar("specImageUrl", { length: 512 }),
   // Bullet-point notes from the spec book (e.g. rollout shelf weight limit, flat-pack box count)
   specNotes: text("specNotes"),
+  // Face pattern for specialty open-front cabinets (wine racks, plate racks, etc.)
+  // null = standard door/drawer rendering; set to override with a decorative open-face pattern
+  facePattern: mysqlEnum("facePattern", ["slats", "criss-cross", "lattice", "open"]),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;

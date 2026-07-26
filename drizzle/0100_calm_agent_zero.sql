@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `facePattern` enum('slats','criss-cross','lattice','open');

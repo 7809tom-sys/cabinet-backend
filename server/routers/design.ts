@@ -66,6 +66,7 @@ export const designRouter = router({
           layoutSpec: cabinets.layoutSpec,
           drawerLayout: cabinets.drawerLayout,
           cornerType: cabinets.cornerType,
+          facePattern: cabinets.facePattern,
         })
         .from(cabinets)
         // showInDesigner=false hides a cabinet from the Kitchen Designer palette

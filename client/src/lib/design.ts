@@ -323,6 +323,9 @@ export interface PlacedCabinet {
   // can render the correct footprint/shape without relying solely on code-
   // pattern matching. Optional for backward-compat with older saved designs.
   cornerType?: string | null;
+  // Face pattern for specialty open-front cabinets (wine racks, plate racks, etc.)
+  // When set, the elevation renderer replaces door/drawer panels with this pattern.
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
