@@ -2487,11 +2487,18 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
         ? parsedDrawerRows
         : Array.from({ length: drawerCount }, () => ({ count: 1 }));
 
-      // Calculate row heights (proportional by height field, or equal split)
-      const specifiedSum = drawerRowSpecs.reduce((s, r) => s + (r.height ?? 0), 0);
-      const drawerRowHeights: number[] = specifiedSum > 0
-        ? drawerRowSpecs.map((r) => ((r.height ?? 0) / specifiedSum) * drawerBandPct)
-        : drawerRowSpecs.map(() => drawerBandPct / drawerRowSpecs.length);
+      // Calculate row heights:
+      // - Row 0 (first drawer row) is always 20% of cabinet face height
+      //   (6" out of 30" usable face including toe kick = 20%)
+      // - Remaining rows split the rest of the drawer band evenly
+      const FIRST_ROW_PCT = 20;
+      const firstRowPct = Math.min(FIRST_ROW_PCT, drawerBandPct * 0.8);
+      const remainingRows = drawerRowSpecs.length - 1;
+      const remainingBandPct = drawerBandPct - firstRowPct;
+      const drawerRowHeights: number[] = drawerRowSpecs.map((_, idx) => {
+        if (idx === 0) return firstRowPct;
+        return remainingRows > 0 ? remainingBandPct / remainingRows : 0;
+      });
 
       return withFace(
         <>
@@ -2532,22 +2539,29 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
         </>
       );
     }
-    // DRAWER BASE (all-drawer, no doors): a vertical STACK of drawer fronts.
-    const sliceH = 100 / drawerCount;
+    // DRAWER BASE (all-drawer, no doors): first row = 20% (6" of 30"), rest split evenly.
+    const FIRST_ROW_ALL = 20;
+    const allDrawerRowHeights: number[] = Array.from({ length: drawerCount }, (_, i) => {
+      if (i === 0) return FIRST_ROW_ALL;
+      return drawerCount > 1 ? (100 - FIRST_ROW_ALL) / (drawerCount - 1) : 100;
+    });
     return withFace(
       <>
-        {Array.from({ length: drawerCount }).map((_, i) => (
-          <div
-            key={`drw-${i}`}
-            className="absolute left-0 right-0"
-            style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
-          >
-            {i > 0 && (
-              <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
-            )}
-            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
-          </div>
-        ))}
+        {Array.from({ length: drawerCount }).map((_, i) => {
+          const top = allDrawerRowHeights.slice(0, i).reduce((s, h) => s + h, 0);
+          return (
+            <div
+              key={`drw-${i}`}
+              className="absolute left-0 right-0"
+              style={{ top: `${top}%`, height: `${allDrawerRowHeights[i]}%` }}
+            >
+              {i > 0 && (
+                <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
+              )}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+            </div>
+          );
+        })}
       </>
     );
   }
