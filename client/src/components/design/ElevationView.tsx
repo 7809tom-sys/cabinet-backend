@@ -1612,7 +1612,7 @@ export function ElevationView({
       )}
 
 
-      {sorted.length === 0 && viewOpenings.length === 0 && (
+      {sorted.length === 0 && viewOpenings.length === 0 && seamCabinets.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>
           {t("dt_ev_empty", { wall: WALL_LABELS[side].toLowerCase() })}
         </div>
