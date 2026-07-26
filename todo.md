@@ -1851,3 +1851,14 @@
 - [x] Wire `FacePattern` into `DoorFront` — replaces door panel when `facePattern` is set
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Feature: Edit masterCode in cabinet admin dialog with alias preservation (Jul 2026)
+- [x] Create cabinet_aliases table (cabinetId FK, alias text, createdAt) in drizzle/schema.ts
+- [x] Generate migration and apply via webdev_execute_sql
+- [x] Add editMasterCode useState to CabinetDetail.tsx
+- [x] Initialize editMasterCode from cabinet.masterCode in useEffect
+- [x] Add masterCode text input field to the admin edit dialog UI (with note about alias)
+- [x] Add masterCode to adminUpdateCabinet zod schema in catalog.ts
+- [x] In adminUpdateCabinet handler: if masterCode changed, insert old code into cabinet_aliases before updating
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

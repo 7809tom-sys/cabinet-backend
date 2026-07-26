@@ -272,6 +272,20 @@ export const cabinets = mysqlTable("cabinets", {
 
 export type Cabinet = typeof cabinets.$inferSelect;
 
+// ─── Cabinet Aliases ───────────────────────────────────────────────────────────────────
+// When a cabinet's masterCode is changed, the old code is preserved here
+// so existing designs, orders, and links that reference the old code continue to resolve.
+export const cabinetAliases = mysqlTable("cabinet_aliases", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  alias: varchar("alias", { length: 64 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  uniqAlias: unique().on(t.alias),
+}));
+
+export type CabinetAlias = typeof cabinetAliases.$inferSelect;
+
 // ─── Distributor SKU Mapping ───────────────────────────────────────────────────
 
 export const distributorSkus = mysqlTable("distributor_skus", {

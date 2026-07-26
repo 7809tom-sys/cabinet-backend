@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
   cabinets,
+  cabinetAliases,
   distributors,
   doorStyles,
   distributorSkus,
@@ -1709,12 +1710,25 @@ export const cabinetsRouter = router({
         specNotes: z.string().nullable().optional(),
         // Face pattern for specialty open-front cabinets
         facePattern: z.enum(["slats", "criss-cross", "lattice", "open"]).nullable().optional(),
+        // Master code rename — old code is automatically saved as an alias
+        masterCode: z.string().min(1).max(64).optional(),
       })
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const patch: Record<string, unknown> = {};
+      // If masterCode is being changed, save the old code as an alias first
+      if (input.masterCode !== undefined) {
+        const [existing] = await db.select({ masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
+        if (existing && existing.masterCode && existing.masterCode !== input.masterCode) {
+          // Upsert alias: ignore if the old code is already an alias for this cabinet
+          await db.insert(cabinetAliases)
+            .values({ cabinetId: input.id, alias: existing.masterCode })
+            .onDuplicateKeyUpdate({ set: { cabinetId: input.id } });
+        }
+        patch.masterCode = input.masterCode;
+      }
       if (input.description !== undefined) patch.description = input.description;
       if (input.category !== undefined) {
         patch.category = input.category;

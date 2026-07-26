@@ -476,6 +476,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editSpecImageUrl, setEditSpecImageUrl] = useState<string>("");
   const [editSpecNotes, setEditSpecNotes] = useState<string>("");
   const [editFacePattern, setEditFacePattern] = useState<string>("__none__");
+  const [editMasterCode, setEditMasterCode] = useState<string>("");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -525,6 +526,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditSpecImageUrl(String(cab.specImageUrl ?? ""));
       setEditSpecNotes(String(cab.specNotes ?? ""));
       setEditFacePattern(String((cab as Record<string, unknown>).facePattern ?? "__none__"));
+      setEditMasterCode(cabinet.masterCode ?? "");
     }
   }, [editOpen, cabinet]);
 
@@ -699,6 +701,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       specImageUrl: editSpecImageUrl.trim() || null,
       specNotes: editSpecNotes.trim() || null,
       facePattern: (editFacePattern === "__none__" ? null : editFacePattern) as "slats" | "criss-cross" | "lattice" | "open" | null,
+      masterCode: editMasterCode.trim() || undefined,
     });
   }
 
@@ -1774,6 +1777,20 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <Label htmlFor="edit-isDecorativeDoor" className="text-sm">Decorative Door Panel</Label>
                 </div>
                 <p className="text-[11px] text-muted-foreground">Check if this panel uses the door style image (decorative end panels, island backs).</p>
+              </div>
+
+              {/* Master Code (rename with alias preservation) */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">Master Code (SKU)</Label>
+                <Input
+                  value={editMasterCode}
+                  onChange={(e) => setEditMasterCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. B24, W3015"
+                  className="font-mono text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Renaming the master code automatically saves the old code as an alias so existing designs and orders continue to resolve correctly.
+                </p>
               </div>
 
               {/* Face Pattern (specialty open-front cabinets) */}
