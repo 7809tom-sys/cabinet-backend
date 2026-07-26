@@ -2263,17 +2263,15 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
     );
   }
   // ─── SPECIALTY TYPE: L-CORNER ───────────────────────────────────────
-  // L-corner cabinets (lazy Susan, easy-reach): two visible door faces
-  // meeting at the corner. Shows as two angled door panels.
+  // L-corner cabinets (lazy Susan, easy-reach): one door per wall face.
+  // Each wall elevation shows a single door filling the full face width.
+  // The CornerView seam-ghost mechanism ensures the cabinet appears on
+  // BOTH walls — one door on the Back wall, one door on the Left wall.
   if (cabinetType === "l-corner") {
-    const halfW = 50;
     return withFace(
       <>
-        {/* Left face door */}
-        <div
-          className="absolute top-[3%] bottom-[3%]"
-          style={{ left: "2%", width: `${halfW - 4}%` }}
-        >
+        {/* Single door panel filling the full face — this wall's door face */}
+        <div className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%]">
           <div
             className="absolute inset-[1.5px] rounded-[2px]"
             style={{
@@ -2282,24 +2280,11 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             }}
           />
         </div>
-        {/* Right face door (return face) */}
+        {/* Subtle corner-return shadow strip on the right edge to hint at the
+            L-shape — the door wraps around the corner */}
         <div
-          className="absolute top-[3%] bottom-[3%]"
-          style={{ left: `${halfW + 2}%`, width: `${halfW - 4}%` }}
-        >
-          <div
-            className="absolute inset-[1.5px] rounded-[2px]"
-            style={{
-              background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
-              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
-              opacity: 0.85,
-            }}
-          />
-        </div>
-        {/* Center divider (corner line) */}
-        <div
-          className="absolute top-0 bottom-0"
-          style={{ left: `${halfW - 0.5}%`, width: "1%", background: edge, opacity: 0.5 }}
+          className="absolute top-0 bottom-0 right-0"
+          style={{ width: "6%", background: `linear-gradient(to left, ${edge}55, transparent)`, opacity: 0.6 }}
         />
       </>
     );
