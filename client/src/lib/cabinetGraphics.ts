@@ -188,11 +188,13 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const hay = `${sub} ${desc} ${code}`;
 
   // Face-pattern override: admin-set facePattern takes priority over all other detection.
-  // Also auto-detect by code prefix: WR (wine rack), WRC (wine rack combo), WPR (wall plate rack),
-  // PR (plate rack), WLR/LWR (wine lattice rack), WRB (wine rack base).
+  // Auto-detect by code prefix — only CONFIRMED rack/open-front codes:
+  //   WRC (wine rack combo), WXR (wine cross rack), WWC (wine wall cabinet),
+  //   LWR (lattice wine rack), PR (plate rack), WPR (wall plate rack).
+  // NOTE: WR* is a WALL REFRIGERATOR cabinet — do NOT include it here.
   if (
     cab.facePattern ||
-    /^(wr[-_]?\d|wrc[-_]?\d|wpr[-_]?\d|pr[-_]?\d|wlr[-_]?\d|lwr[-_]?\d|wrb[-_]?\d)/.test(code)
+    /^(wrc[-_]?|wxr[-_]?|wwc[-_]?|lwr[-_]?|wpr[-_]?|pr[-_]?)\d/.test(code)
   ) {
     return "face-pattern";
   }
