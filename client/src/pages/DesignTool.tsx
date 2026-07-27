@@ -5707,7 +5707,20 @@ export default function DesignTool() {
                     <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-foreground">{selectedCab.masterCode}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold text-foreground">{selectedCab.masterCode}</div>
+                      {isAdmin && (
+                        <a
+                          href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                          title="Open Cabinet Config in new tab"
+                        >
+                          Edit Config ↗
+                        </a>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">{selectedCab.description}</div>
                   </div>
                   {(paletteFinishSwatch || styleId) && (

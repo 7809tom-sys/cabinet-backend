@@ -1862,3 +1862,9 @@
 - [x] In adminUpdateCabinet handler: if masterCode changed, insert old code into cabinet_aliases before updating
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Feature: Admin "Edit Config" link in designer cabinet detail panel (Jul 2026)
+- [x] Find the cabinet detail panel header in DesignTool (the "Selected WDC2442" sheet)
+- [x] Add admin-only "Edit Config ↗" link next to the master code that opens /catalog/{masterCode} in a new tab
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint
