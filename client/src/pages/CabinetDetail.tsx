@@ -717,6 +717,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       tier,
       unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
       qty,
+      catalogImageUrl: cabinet?.catalogImageUrl ?? null,
     });
     if (res.ok) {
       toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {

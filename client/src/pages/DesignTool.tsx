@@ -1434,6 +1434,7 @@ export default function DesignTool() {
           tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: unit,
           qty: 1,
+          catalogImageUrl: p.catalogImageUrl ?? null,
         });
     }
     // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own

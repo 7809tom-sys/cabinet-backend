@@ -27,6 +27,8 @@ export type CartItem = {
   qtyNote?: string;
   /** Product image URL (for pelican products, surfaces, etc.) */
   imageUrl?: string | null;
+  /** Catalog image URL for cabinet products (from catalogImageUrl field) */
+  catalogImageUrl?: string | null;
   /** Product category (e.g. "Sinks & Faucets", "Flooring") — used for display grouping */
   category?: string | null;
 };

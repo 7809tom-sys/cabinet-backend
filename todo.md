@@ -1868,3 +1868,9 @@
 - [x] Add admin-only "Edit Config ↗" link next to the master code that opens /catalog/{masterCode} in a new tab
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Bug: No catalog images in shopping cart (Jul 2026)
+- [x] Find cart item component and trace image rendering
+- [x] Fix cart to display catalogImageUrl instead of SVG line-drawing placeholder
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

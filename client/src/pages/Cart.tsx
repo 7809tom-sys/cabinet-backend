@@ -169,7 +169,7 @@ export default function Cart() {
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   ) : (
                     <CabinetImage
-                      cabinet={{ masterCode: item.masterCode, description: item.name }}
+                      cabinet={{ masterCode: item.masterCode, description: item.name, catalogImageUrl: item.catalogImageUrl ?? null }}
                       className="h-full w-auto max-w-full"
                     />
                   )}
