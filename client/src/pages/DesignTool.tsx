@@ -2108,6 +2108,7 @@ export default function DesignTool() {
         drawerLayout: (c as any).drawerLayout ?? null,
         cornerType: c.cornerType ?? null,
         facePattern: (c as any).facePattern ?? null,
+        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
@@ -2318,6 +2319,7 @@ export default function DesignTool() {
             layoutSpec: (c as any).layoutSpec ?? null,
             drawerLayout: (c as any).drawerLayout ?? null,
             facePattern: (c as any).facePattern ?? null,
+            glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
           };
@@ -2390,6 +2392,7 @@ export default function DesignTool() {
         layoutSpec: (c as any).layoutSpec ?? null,
         drawerLayout: (c as any).drawerLayout ?? null,
         facePattern: (c as any).facePattern ?? null,
+        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
       };
       setPlaced((prev) => [...prev, newCab]);
@@ -2476,6 +2479,7 @@ export default function DesignTool() {
         layoutSpec: (c as any).layoutSpec ?? null,
         drawerLayout: (c as any).drawerLayout ?? null,
         facePattern: (c as any).facePattern ?? null,
+        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
       };
       // Place filler at gap.start + cabWidth
@@ -3558,6 +3562,29 @@ export default function DesignTool() {
     // Check if any cabinet in the wall cabinet pool has this code.
     return wallCabPoolRef.current.some((c) => c.masterCode === gdCode);
   }, [attrUid, placed]);
+
+  // Add the glass door add-on SKU (glassDoorAddonCode) to the cart as a separate line item.
+  const addGlassDoorToCart = useCallback((uid: string) => {
+    const cab = placed.find((p) => p.uid === uid);
+    if (!cab || !cab.glassDoorAddonCode) return;
+    // Find the glass door cabinet in the catalog pool to get its id and catalogImageUrl
+    const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === cab.glassDoorAddonCode);
+    const cartLine: CartItem = {
+      masterCode: cab.glassDoorAddonCode,
+      name: gdCab?.description ?? `Glass Door (${cab.glassDoorAddonCode})`,
+      qty: 1,
+      styleId: cab.styleId ?? 0,
+      styleLabel: cartLockedStyleLabel ?? "",
+      distributorId: lockedDistributorId,
+      tier: DESIGN_TIER_TO_SHARED[tier],
+      unitPrice: null,
+      catalogImageUrl: gdCab?.catalogImageUrl ?? null,
+    };
+    addItem(cartLine);
+    // Also toggle the visual glass door on the placed cabinet
+    setCabAttr(uid, { glassDoor: true, noDoor: false });
+    toast.success(`Glass door ${cab.glassDoorAddonCode} added to cart`);
+  }, [placed, addItem, setCabAttr]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
@@ -7875,6 +7902,7 @@ export default function DesignTool() {
         onSetRolloutQty={setRolloutQtyFor}
         onSetGlassDoor={setGlassDoorFor}
         glassDoorAvailable={glassDoorAvailableForAttr}
+        onAddGlassDoorToCart={addGlassDoorToCart}
         onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}

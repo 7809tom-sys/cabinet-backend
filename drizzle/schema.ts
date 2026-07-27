@@ -268,6 +268,10 @@ export const cabinets = mysqlTable("cabinets", {
   // Face pattern for specialty open-front cabinets (wine racks, plate racks, etc.)
   // null = standard door/drawer rendering; set to override with a decorative open-face pattern
   facePattern: mysqlEnum("facePattern", ["slats", "criss-cross", "lattice", "open"]),
+  // Glass door add-on: the masterCode of the separate glass door SKU that can be added to this cabinet.
+  // When set, the designer shows an "Add Glass Door" button that adds this SKU to the cart
+  // and toggles the glass-door rendering on the placed cabinet.
+  glassDoorAddonCode: varchar("glassDoorAddonCode", { length: 64 }),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;

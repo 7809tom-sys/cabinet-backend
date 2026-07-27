@@ -118,6 +118,8 @@ export interface CabinetAttributesDialogProps {
   // Glass door upgrade toggle
   onSetGlassDoor: (uid: string, glassDoor: boolean) => void;
   glassDoorAvailable: boolean;
+  // Glass door add-on: add the separate glass door SKU to the cart
+  onAddGlassDoorToCart: (uid: string) => void;
   // Blind corner pull distance
   onSetBlindPull: (uid: string, pull: number) => void;
   // Waterfall countertop edge
@@ -150,6 +152,7 @@ export function CabinetAttributesDialog({
   onSetRolloutQty,
   onSetGlassDoor,
   glassDoorAvailable,
+  onAddGlassDoorToCart,
   onSetBlindPull,
   onSetWaterfall,
   onSetCategory,
@@ -440,6 +443,21 @@ export function CabinetAttributesDialog({
                   aria-label={t("dt_ca_glass_door_toggle")}
                 />
               </div>
+              {/* Glass door add-on: add the separate glass door SKU to the cart */}
+              {cabinet.glassDoorAddonCode && (
+                <div className="pt-2">
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Glass door sold separately ({cabinet.glassDoorAddonCode}). Add it to your cart as a separate line item.
+                  </p>
+                  <button
+                    type="button"
+                    className="w-full text-sm font-medium py-2 px-3 rounded-md border border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
+                    onClick={() => onAddGlassDoorToCart(uid)}
+                  >
+                    + Add Glass Door to Cart ({cabinet.glassDoorAddonCode})
+                  </button>
+                </div>
+              )}
             </section>
           )}
 

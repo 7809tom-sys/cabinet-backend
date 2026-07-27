@@ -1874,3 +1874,28 @@
 - [x] Fix cart to display catalogImageUrl instead of SVG line-drawing placeholder
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Feature: Glass-door stacker cabinets in designer (PG/GD codes) (Jul 2026)
+- [ ] Add isGlassStacker(masterCode) helper in design.ts (starts or ends with PG or GD, case-insensitive)
+- [ ] Add 'stacker' placementType to DB enum and apply migration
+- [ ] Auto-set placementType='stacker' for PG/GD codes in catalog import/admin
+- [ ] Show stacker cabinets in designer wall palette under a "Stackers" section
+- [ ] Placement rule: stacker snaps to top of an existing wall cabinet (same width preferred)
+- [ ] Elevation rendering: stacker renders above the wall cabinet it sits on
+- [ ] Plan view: stacker shares footprint with the wall cabinet below (same depth/width)
+- [ ] TypeScript: 0 errors
+- [ ] Save checkpoint
+
+## Feature: Glass Door Add-on SKU in cabinet config + designer (Jul 2026)
+- [x] Add glassDoorAddonCode varchar column to cabinets table in drizzle/schema.ts
+- [x] Generate migration and apply via webdev_execute_sql
+- [x] Add glassDoorAddonCode to adminUpdateCabinet zod schema and patch handler in catalog.ts
+- [x] Add glassDoorAddonCode to placeableCabinets select in catalog.ts and design.ts routers
+- [x] Add glassDoorAddonCode text input to CabinetDetail admin edit dialog
+- [x] Add glassDoorAddonCode to PlacedCabinet interface in design.ts
+- [x] Pass glassDoorAddonCode through all PlacedCabinet creation sites in DesignTool.tsx
+- [x] Add "Add Glass Door" button in designer cabinet detail panel (visible only when glassDoorAddonCode is set)
+- [x] On click: add glassDoorAddonCode SKU to cart + set glassDoor=true on placed cabinet
+- [x] Extend isStacker() to recognize W*PG suffix codes (12" tall glass stackers)
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint

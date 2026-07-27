@@ -67,6 +67,7 @@ export const designRouter = router({
           drawerLayout: cabinets.drawerLayout,
           cornerType: cabinets.cornerType,
           facePattern: cabinets.facePattern,
+          glassDoorAddonCode: cabinets.glassDoorAddonCode,
         })
         .from(cabinets)
         // showInDesigner=false hides a cabinet from the Kitchen Designer palette

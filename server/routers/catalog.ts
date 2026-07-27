@@ -1710,6 +1710,8 @@ export const cabinetsRouter = router({
         specNotes: z.string().nullable().optional(),
         // Face pattern for specialty open-front cabinets
         facePattern: z.enum(["slats", "criss-cross", "lattice", "open"]).nullable().optional(),
+        // Glass door add-on: masterCode of the separate glass door SKU (same distributor only)
+        glassDoorAddonCode: z.string().max(64).nullable().optional(),
         // Master code rename — old code is automatically saved as an alias
         masterCode: z.string().min(1).max(64).optional(),
       })
@@ -1805,6 +1807,7 @@ export const cabinetsRouter = router({
       if (input.specImageUrl !== undefined) patch.specImageUrl = input.specImageUrl;
       if (input.specNotes !== undefined) patch.specNotes = input.specNotes;
       if (input.facePattern !== undefined) patch.facePattern = input.facePattern;
+      if (input.glassDoorAddonCode !== undefined) patch.glassDoorAddonCode = input.glassDoorAddonCode;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2452,6 +2455,8 @@ export const cabinetsRouter = router({
             specNotes: cabinets.specNotes,
             // Face pattern for specialty open-front cabinets
             facePattern: cabinets.facePattern,
+            // Glass door add-on SKU (same distributor only)
+            glassDoorAddonCode: cabinets.glassDoorAddonCode,
           })
           .from(cabinets)
           .where(where)

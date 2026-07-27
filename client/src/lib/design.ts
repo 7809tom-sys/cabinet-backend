@@ -326,6 +326,9 @@ export interface PlacedCabinet {
   // Face pattern for specialty open-front cabinets (wine racks, plate racks, etc.)
   // When set, the elevation renderer replaces door/drawer panels with this pattern.
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  // Glass door add-on: masterCode of the separate glass door SKU (same distributor).
+  // When set, the designer shows an "Add Glass Door" button.
+  glassDoorAddonCode?: string | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -1214,8 +1217,13 @@ export function isStacker(p: { description?: string | null; masterCode?: string 
   if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return true;
   // Code signals: GS-* / GDS-* stacker families used across lines (e.g. GS-3012,
   // GDS-3015). Require a following size digit so we never match unrelated codes.
+  // W*PG suffix: glass-door stacker wall cabinets (e.g. W3012PG, W1212PG, W2412PG).
+  // These are 12"-tall wall cabinets that stack on top of standard wall cabinets.
   const code = (p.masterCode ?? "").toUpperCase();
-  return /^GD?S[-_ ]?\d/.test(code);
+  if (/^GD?S[-_ ]?\d/.test(code)) return true;
+  // W[WW][HH]PG pattern: wall cabinet with PG suffix and 12" height (e.g. W3012PG, W1212PG)
+  if (/^W\d{2,4}PG$/.test(code)) return true;
+  return false;
 }
 
 export function elevationBox(
