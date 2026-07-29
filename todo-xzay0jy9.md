@@ -28,6 +28,6 @@
 
 ## New Item Creation
 
-- [ ] Audit why new product codes from distributor catalogs may be skipped instead of created
-- [ ] Fix create path so any new product code is inserted as a new cabinet with its SKU and pricing
-- [ ] Test and deploy
+- [x] Audit why new product codes from distributor catalogs may be skipped instead of created
+- [x] Fix create path so any new product code is inserted as a new cabinet with its SKU and pricing
+- [x] Test and deploy

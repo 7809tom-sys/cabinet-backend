@@ -54,7 +54,8 @@ export async function importPafProducts(
       code: "NO_DEFAULT_STYLE",
       message: `No default door style found for distributor ${distributorId}`,
     });
-    return stats;
+    // Do NOT return early — still create/update cabinet records.
+    // SKU creation will be skipped for products that need a style.
   }
 
   for (const product of products) {
@@ -63,7 +64,7 @@ export async function importPafProducts(
         db,
         distributorId,
         product,
-        defaultStyle.id,
+        defaultStyle?.id ?? 0,
         preservePricing
       );
 
@@ -103,7 +104,25 @@ async function getDefaultDoorStyle(
     .where(and(eq(doorStyles.distributorId, distributorId)))
     .limit(1);
 
-  return defaultStyle || null;
+  if (defaultStyle) return defaultStyle;
+
+  // No door style exists for this distributor yet — create a generic placeholder
+  // so that SKU and pricing records can still be created during import.
+  // Admins can later rename/update this style or assign real door style images.
+  await db.insert(doorStyles).values({
+    distributorId,
+    styleCode: "DEFAULT",
+    ourName: "Default Style",
+    distributorName: "Default Style",
+  });
+
+  const [newStyle] = await db
+    .select()
+    .from(doorStyles)
+    .where(and(eq(doorStyles.distributorId, distributorId), eq(doorStyles.styleCode, "DEFAULT")))
+    .limit(1);
+
+  return newStyle || null;
 }
 
 /**
@@ -251,7 +270,7 @@ async function importSingleProduct(
   db: Awaited<ReturnType<typeof getDb>>,
   distributorId: number,
   product: PafProduct,
-  defaultStyleId: number,
+  defaultStyleId: number | 0,
   preservePricing: boolean
 ): Promise<{ type: "created" | "updated" | "skipped"; imageResolved?: boolean; error?: { code: string; message: string; details?: string } }> {
   if (!db) {
@@ -392,11 +411,13 @@ async function createOrUpdateDistributorSku(
   db: Awaited<ReturnType<typeof getDb>>,
   cabinetId: number,
   distributorId: number,
-  styleId: number,
+  styleId: number | 0,
   product: PafProduct,
   preservePricing: boolean
 ): Promise<void> {
   if (!db) return;
+  // If no style is configured for this distributor, skip SKU creation
+  if (!styleId) return;
 
   // Generate platform SKU: masterCode-DIST
   const platformSku = `${product.code.toUpperCase()}-${distributorId}`;
