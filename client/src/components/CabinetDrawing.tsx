@@ -99,6 +99,10 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <AccessoryStrip x={x} y={y} w={w} h={h} fill={fill} />;
     case "glass-door":
       return <GlassDoorFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "pantry":
+      return <PantryFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "oven-tall":
+      return <OvenTallFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "vanity":
     case "ada":
     case "standard-door":
@@ -630,6 +634,201 @@ function AccessoryStrip({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet
         strokeWidth={0.8}
         strokeDasharray="3 3"
       />
+    </g>
+  );
+}
+
+// Pantry / tall cabinet: outer box split into 2 stacked sections at ~54% height.
+// Each section has 1 or 2 doors side-by-side (2 for wide cabinets >= 24").
+// NO drawer band — pantry cabinets are all-door, top to bottom.
+function PantryFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const inset = 4;
+  const gap = 3; // gap between upper and lower door sections
+  const innerW = w - inset * 2;
+
+  // Determine doors per section based on width (narrow = 1 door, wide = 2 doors).
+  const doorsPerSection: number = (() => {
+    if (cabinet.doorsPerRow && cabinet.doorsPerRow > 0) return cabinet.doorsPerRow;
+    return w > 21 ? 2 : 1;
+  })();
+
+  // Split height: lower section is ~54% of total height (matches the 54" lower
+  // section of a standard 84" pantry). Upper section takes the remaining ~46%.
+  const lowerFrac = 0.54;
+  const dividerY = y + inset + (h - inset * 2) * lowerFrac;
+
+  const upperTop = y + inset;
+  const upperH = dividerY - upperTop - gap / 2;
+  const lowerTop = dividerY + gap / 2;
+  const lowerH = y + h - inset - lowerTop;
+
+  const doorW = (innerW - (doorsPerSection - 1) * 3) / doorsPerSection;
+
+  const renderSection = (sectionTop: number, sectionH: number) =>
+    Array.from({ length: doorsPerSection }).map((_, i) => {
+      const dx = x + inset + i * (doorW + 3);
+      const handleX =
+        doorsPerSection > 1
+          ? i === 0
+            ? dx + doorW - 4
+            : dx + 4
+          : dx + doorW / 2;
+      return (
+        <g key={i}>
+          <rect
+            x={dx}
+            y={sectionTop}
+            width={doorW}
+            height={sectionH}
+            rx={1.5}
+            fill={PANEL_FILL}
+            stroke={STROKE_LIGHT}
+            strokeWidth={1}
+          />
+          <circle cx={handleX} cy={sectionTop + sectionH / 2} r={1.4} fill={STROKE} />
+        </g>
+      );
+    });
+
+  return (
+    <g>
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      {/* Horizontal divider line between upper and lower sections */}
+      <line
+        x1={x + inset}
+        y1={dividerY}
+        x2={x + w - inset}
+        y2={dividerY}
+        stroke={STROKE_LIGHT}
+        strokeWidth={1}
+      />
+      {renderSection(upperTop, upperH)}
+      {renderSection(lowerTop, lowerH)}
+    </g>
+  );
+}
+
+// Oven tall cabinet: 2 upper doors + appliance opening (single or double oven)
+// + optional drawers at the bottom.
+function OvenTallFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const inset = 4;
+  const innerW = w - inset * 2;
+  const gap = 2;
+
+  const isDouble = cabinet.ovenType === "double";
+
+  // Layout proportions (based on standard 84" oven tall cabinet):
+  //   Upper doors: ~21% of height (~18")
+  //   Oven opening: ~35% single / ~63% double
+  //   Lower drawers: remaining
+  const upperDoorFrac = 0.21;
+  const ovenFrac = isDouble ? 0.63 : 0.35;
+  const drawerFrac = 1 - upperDoorFrac - ovenFrac;
+
+  const innerH = h - inset * 2;
+  const upperDoorH = innerH * upperDoorFrac;
+  const ovenH = innerH * ovenFrac;
+  const drawerH = innerH * drawerFrac;
+
+  const upperDoorTop = y + inset;
+  const ovenTop = upperDoorTop + upperDoorH + gap;
+  const drawerTop = ovenTop + ovenH + gap;
+
+  const upperDoors = w > 21 ? 2 : 1;
+  const upperDoorW = (innerW - (upperDoors - 1) * 3) / upperDoors;
+
+  const lowerDrawers = Math.max(1, Math.round(drawerH / (innerH * 0.12)));
+  const singleDrawerH = Math.max(4, (drawerH - (lowerDrawers - 1) * gap) / lowerDrawers);
+
+  return (
+    <g>
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+
+      {/* Upper door panels */}
+      {Array.from({ length: upperDoors }).map((_, i) => {
+        const dx = x + inset + i * (upperDoorW + 3);
+        const handleX =
+          upperDoors > 1 ? (i === 0 ? dx + upperDoorW - 4 : dx + 4) : dx + upperDoorW / 2;
+        return (
+          <g key={`ud-${i}`}>
+            <rect
+              x={dx}
+              y={upperDoorTop}
+              width={upperDoorW}
+              height={upperDoorH}
+              rx={1.5}
+              fill={PANEL_FILL}
+              stroke={STROKE_LIGHT}
+              strokeWidth={1}
+            />
+            <circle cx={handleX} cy={upperDoorTop + upperDoorH / 2} r={1.4} fill={STROKE} />
+          </g>
+        );
+      })}
+
+      {/* Oven opening — grey fill with dashed border to indicate appliance cavity */}
+      {isDouble ? (
+        <>
+          <rect
+            x={x + inset}
+            y={ovenTop}
+            width={innerW}
+            height={ovenH / 2 - gap / 2}
+            rx={1.5}
+            fill="#d1d5db"
+            stroke={STROKE_LIGHT}
+            strokeWidth={1}
+            strokeDasharray="3 2"
+          />
+          <rect
+            x={x + inset}
+            y={ovenTop + ovenH / 2 + gap / 2}
+            width={innerW}
+            height={ovenH / 2 - gap / 2}
+            rx={1.5}
+            fill="#d1d5db"
+            stroke={STROKE_LIGHT}
+            strokeWidth={1}
+            strokeDasharray="3 2"
+          />
+        </>
+      ) : (
+        <rect
+          x={x + inset}
+          y={ovenTop}
+          width={innerW}
+          height={ovenH}
+          rx={1.5}
+          fill="#d1d5db"
+          stroke={STROKE_LIGHT}
+          strokeWidth={1}
+          strokeDasharray="3 2"
+        />
+      )}
+
+      {/* Lower drawer fronts */}
+      {Array.from({ length: lowerDrawers }).map((_, i) => (
+        <g key={`dr-${i}`}>
+          <rect
+            x={x + inset}
+            y={drawerTop + i * (singleDrawerH + gap)}
+            width={innerW}
+            height={singleDrawerH}
+            rx={1.5}
+            fill={PANEL_FILL}
+            stroke={STROKE_LIGHT}
+            strokeWidth={1}
+          />
+          <rect
+            x={x + w / 2 - innerW * 0.18}
+            y={drawerTop + i * (singleDrawerH + gap) + singleDrawerH / 2 - 0.8}
+            width={innerW * 0.36}
+            height={1.6}
+            rx={0.8}
+            fill={STROKE}
+          />
+        </g>
+      ))}
     </g>
   );
 }
