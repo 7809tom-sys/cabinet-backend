@@ -25,6 +25,7 @@ const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const AdminCatalogImport = lazy(() => import("@/pages/AdminCatalogImport"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
 const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
@@ -254,6 +255,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Admin />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/admin/catalog-import">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <AdminCatalogImport />
             </Suspense>
           </AppLayout>
         </Route>

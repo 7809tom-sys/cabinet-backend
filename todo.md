@@ -1903,7 +1903,15 @@
 
 ## Feature: 20/20 Catalog Importer (Jul 2026)
 - [x] Create `catalog_imports` table to track upload history and import status
-- [ ] Build admin upload UI for 20/20 zip files with file validation and preview
+- [x] Build admin upload UI for 20/20 zip files with file validation and preview
+  - [x] Admin page component at /admin/catalog-import
+  - [x] File upload form with .zip validation
+  - [x] Distributor ID input
+  - [x] Pricing preservation toggle
+  - [x] Real-time import progress display
+  - [x] Import history table with status badges
+  - [x] Error handling and user feedback
+  - [x] Admin-only access check
 - [x] Implement 20/20 XML parser to extract products, options, features, pricing from paf.xml
   - [x] parsePafXml() function parses PAF XML deterministically (no AI)
   - [x] mapCategory() and mapPlacementType() helpers for data mapping
@@ -1927,4 +1935,4 @@
   - [x] Pricing preservation across all products
   - [x] All 24 tests passing
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
