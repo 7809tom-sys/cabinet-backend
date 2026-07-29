@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus, X } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PafProduct {
   code: string;
@@ -32,6 +40,26 @@ export default function AdminCatalogImport() {
     status: string;
     message: string;
   } | null>(null);
+
+  // New vendor creation state
+  const [showNewVendor, setShowNewVendor] = useState(false);
+  const [newVendorName, setNewVendorName] = useState("");
+  const [newVendorBrand, setNewVendorBrand] = useState("");
+
+  const utils = trpc.useUtils();
+  const { data: distList, isLoading: distsLoading } = trpc.distributorAdmin.adminList.useQuery();
+
+  const addDistributor = trpc.distributorAdmin.addDistributor.useMutation({
+    onSuccess: (d) => {
+      toast.success(`Vendor "${d.name}" created (ID: ${d.id})`);
+      utils.distributorAdmin.adminList.invalidate();
+      setDistributorId(d.id);
+      setShowNewVendor(false);
+      setNewVendorName("");
+      setNewVendorBrand("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const initializeImport = trpc.catalogImport.initializeImport.useMutation();
   const executeImport = trpc.catalogImport.executeImport.useMutation();
@@ -181,14 +209,79 @@ export default function AdminCatalogImport() {
         <Card className="p-6 space-y-6">
           <div className="space-y-2">
             <Label htmlFor="distributor">Distributor</Label>
-            <Input
-              id="distributor"
-              type="number"
-              placeholder="Enter distributor ID"
-              value={distributorId}
-              onChange={(e) => setDistributorId(e.target.value ? Number(e.target.value) : "")}
-              disabled={isProcessing}
-            />
+            {distsLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+                <Spinner className="h-4 w-4" /> Loading vendors…
+              </div>
+            ) : (
+              <Select
+                value={distributorId !== "" ? String(distributorId) : ""}
+                onValueChange={(v) => setDistributorId(Number(v))}
+                disabled={isProcessing}
+              >
+                <SelectTrigger id="distributor" className="w-full">
+                  <SelectValue placeholder="Choose a vendor…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(distList ?? []).map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.brandName || d.name}
+                      <span className="ml-2 text-xs text-muted-foreground font-mono">ID: {d.id}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Add New Vendor */}
+            {!showNewVendor ? (
+              <button
+                type="button"
+                onClick={() => setShowNewVendor(true)}
+                className="flex items-center gap-1.5 text-sm text-primary hover:underline mt-1"
+                disabled={isProcessing}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add new vendor
+              </button>
+            ) : (
+              <div className="border border-border rounded-lg p-4 space-y-3 mt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">New Vendor</h3>
+                  <button type="button" onClick={() => setShowNewVendor(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Company Name *</Label>
+                  <Input
+                    value={newVendorName}
+                    onChange={(e) => setNewVendorName(e.target.value)}
+                    placeholder="e.g. Acme Cabinets"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Brand Name (optional)</Label>
+                  <Input
+                    value={newVendorBrand}
+                    onChange={(e) => setNewVendorBrand(e.target.value)}
+                    placeholder="e.g. Acme"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!newVendorName.trim() || addDistributor.isPending}
+                    onClick={() => addDistributor.mutate({ name: newVendorName.trim(), brandName: newVendorBrand.trim() || undefined })}
+                  >
+                    {addDistributor.isPending ? <Spinner className="h-3.5 w-3.5 mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+                    Create Vendor
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowNewVendor(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

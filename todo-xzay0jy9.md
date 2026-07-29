@@ -7,3 +7,10 @@
 - [x] Add 14 targeted unit tests for DataPack detection/parsing — all pass
 - [x] Run tests and verify fix works — all 14 new DataPack tests pass, all existing catalog import tests pass
 - [x] Save checkpoint and deploy
+
+## Distributor Selector + New Vendor Creation in Catalog Import
+
+- [x] Review distributor list query and vendor creation endpoint
+- [x] Replace plain number input with a Select dropdown showing "Brand Name (ID: 123)"
+- [x] Add "Add new vendor" inline form to create a new distributor without leaving the page
+- [ ] Save checkpoint and deploy
