@@ -6,6 +6,73 @@ import { getDb } from "../db";
 import { catalogImports } from "../../drizzle/schema";
 import { importPafProducts } from "../lib/catalogImportLogic";
 import type { PafProduct } from "../lib/pafXmlParser";
+import { emailSettings } from "../../drizzle/schema";
+import { sendEmailViaSettings, emailSettingsReady, sendEmail, isEmailConfigured } from "../email";
+
+const NOTIFY_EMAIL = "7809tom@gmail.com";
+
+/** Send an import-result email — tries DB-backed settings first, falls back to env SMTP. */
+async function sendImportNotification(opts: {
+  fileName: string;
+  distributorId: number;
+  status: "completed" | "failed";
+  created?: number;
+  updated?: number;
+  skipped?: number;
+  errors?: number;
+  errorMessage?: string;
+}) {
+  const subject =
+    opts.status === "completed"
+      ? `✅ Catalog Import Complete — ${opts.fileName}`
+      : `❌ Catalog Import Failed — ${opts.fileName}`;
+
+  const body =
+    opts.status === "completed"
+      ? [
+          `Catalog import finished successfully.`,
+          ``,
+          `File:        ${opts.fileName}`,
+          `Distributor: ID ${opts.distributorId}`,
+          ``,
+          `Results:`,
+          `  Created : ${opts.created ?? 0}`,
+          `  Updated : ${opts.updated ?? 0}`,
+          `  Skipped : ${opts.skipped ?? 0}`,
+          `  Errors  : ${opts.errors ?? 0}`,
+          ``,
+          `Log in to cabinetdealz.com/admin to review the catalog.`,
+        ].join("\n")
+      : [
+          `Catalog import failed.`,
+          ``,
+          `File:        ${opts.fileName}`,
+          `Distributor: ID ${opts.distributorId}`,
+          ``,
+          `Error: ${opts.errorMessage ?? "Unknown error"}`,
+          ``,
+          `Log in to cabinetdealz.com/admin to retry the import.`,
+        ].join("\n");
+
+  try {
+    const db = await getDb();
+    if (db) {
+      const rows = await db.select().from(emailSettings).limit(1);
+      const cfg = rows[0];
+      if (emailSettingsReady(cfg)) {
+        await sendEmailViaSettings(cfg, { to: NOTIFY_EMAIL, subject, text: body });
+        return;
+      }
+    }
+    if (isEmailConfigured()) {
+      await sendEmail({ to: NOTIFY_EMAIL, subject, text: body });
+    } else {
+      console.warn("[CatalogImport] Email not configured — skipping import notification.");
+    }
+  } catch (err) {
+    console.warn("[CatalogImport] Failed to send import notification email:", err);
+  }
+}
 
 /**
  * 20/20 Catalog Importer Router
@@ -243,6 +310,14 @@ export const catalogImportRouter = router({
         .set({ status: "processing", importStartedAt: new Date() })
         .where(eq(catalogImports.id, input.importId));
 
+      // Load the real file name from the import record for notifications
+      const [importRecord] = await db
+        .select({ fileName: catalogImports.fileName })
+        .from(catalogImports)
+        .where(eq(catalogImports.id, input.importId))
+        .limit(1);
+      const importFileName = importRecord?.fileName ?? "catalog";
+
       try {
         // Execute the import
         const stats = await importPafProducts(
@@ -264,6 +339,17 @@ export const catalogImportRouter = router({
           })
           .where(eq(catalogImports.id, input.importId));
 
+        // Send completion email notification to owner
+        await sendImportNotification({
+          fileName: importFileName,
+          distributorId: input.distributorId,
+          status: "completed",
+          created: stats.created,
+          updated: stats.updated,
+          skipped: stats.skipped,
+          errors: stats.errors.length,
+        });
+
         return {
           success: true,
           stats,
@@ -279,6 +365,14 @@ export const catalogImportRouter = router({
             errorLog: JSON.stringify([{ code: "IMPORT_FAILED", message: errorMsg }]),
           })
           .where(eq(catalogImports.id, input.importId));
+
+        // Send failure email notification to owner
+        await sendImportNotification({
+          fileName: importFileName,
+          distributorId: input.distributorId,
+          status: "failed",
+          errorMessage: errorMsg,
+        });
 
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

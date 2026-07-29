@@ -51,3 +51,11 @@
 - [x] Add OvenTallFront renderer: 2 upper doors + appliance opening (grey dashed cavity, single or double oven) + lower drawer fronts with bar pulls
 - [x] Wire both into FrontByType switch (case "pantry" and case "oven-tall")
 - [x] TypeScript check passes with no errors
+
+## Import Completion Email Notification
+
+- [x] Add sendImportNotification helper to catalogImport.ts — sends to 7809tom@gmail.com using DB-backed SMTP settings (falls back to env SMTP)
+- [x] Wire success notification in executeImport: file name, distributor ID, Created/Updated/Skipped/Errors counts
+- [x] Wire failure notification in executeImport: file name, distributor ID, error message
+- [x] Real file name loaded from catalogImports DB record (importId lookup) and passed to both success and failure notifications
+- [x] Save checkpoint and deploy
