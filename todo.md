@@ -1936,3 +1936,5 @@
   - [x] All 24 tests passing
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+- [x] Fix catalog importer: resolve product images via alias SKU lookup, update catalogImageUrl

@@ -259,6 +259,7 @@ export const catalogImportRouter = router({
             importCompletedAt: new Date(),
             cabinetCount: stats.created + stats.updated,
             skuCount: stats.created + stats.updated,
+            imageCount: stats.imagesResolved || 0,
             errorLog: stats.errors.length > 0 ? JSON.stringify(stats.errors) : null,
           })
           .where(eq(catalogImports.id, input.importId));
