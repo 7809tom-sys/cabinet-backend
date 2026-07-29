@@ -17,10 +17,17 @@
 
 ## 20/20 Catalog Importer — "nothing uploaded" bug
 
-- [ ] Trace full import flow (client handleImport → server initializeImport + executeImport)
-- [ ] Fix broken step so uploaded ZIP is actually parsed and products are imported
-- [ ] Test and deploy
 - [x] Trace full import flow (client handleImport → server initializeImport + executeImport)
 - [x] Fix broken step so uploaded ZIP is actually parsed and products are imported
-- [ ] Test and deploy
 - [x] Test and deploy
+
+## Import Result Card
+
+- [x] Fix import result — show persistent Created/Updated/Skipped card instead of 3-second flash
+- [x] Add dismiss button to result card
+
+## New Item Creation
+
+- [ ] Audit why new product codes from distributor catalogs may be skipped instead of created
+- [ ] Fix create path so any new product code is inserted as a new cabinet with its SKU and pricing
+- [ ] Test and deploy

@@ -272,7 +272,22 @@ export function mapCategory(pafCategory: string): string {
   if (cat.includes("vanity")) return "Vanity";
   if (cat.includes("accessory") || cat.includes("trim") || cat.includes("molding") || cat.includes("filler")) return "Accessory";
 
-  return "Base"; // Default fallback
+  // Non-cabinet product types
+  if (cat.includes("appliance") || cat.includes("refrigerator") || cat.includes("dishwasher") || cat.includes("range") || cat.includes("microwave") || cat.includes("hood")) return "Appliance";
+  if (cat.includes("flooring") || cat.includes("hardwood") || cat.includes("laminate") || cat.includes("vinyl") || cat.includes("lvp") || cat.includes("lvt")) return "Flooring";
+  if (cat.includes("tile") || cat.includes("backsplash") || cat.includes("mosaic") || cat.includes("porcelain") || cat.includes("ceramic")) return "Tile";
+  if (cat.includes("faucet") || cat.includes("fixture")) return "Fixture";
+  if (cat.includes("countertop") || cat.includes("quartz") || cat.includes("granite") || cat.includes("marble")) return "Countertop";
+  if (cat.includes("shower") || cat.includes("toilet") || cat.includes("bidet") || cat.includes("tub") || cat.includes("bath")) return "Bath";
+  if (cat.includes("lighting") || cat.includes("light")) return "Lighting";
+  if (cat.includes("hardware") || cat.includes("pull") || cat.includes("knob") || cat.includes("hinge")) return "Hardware";
+
+  // If the category string is non-empty and unrecognized, preserve it with title casing
+  if (cat.length > 0) {
+    return pafCategory.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+
+  return "Base"; // Default fallback for empty/missing category
 }
 
 /**
@@ -287,6 +302,7 @@ export function mapPlacementType(code: string, category: string): string {
   if (catLower.includes("tall") || catLower.includes("pantry") || catLower.includes("utility") || catLower.includes("oven")) return "tall";
   if (catLower.includes("island")) return "island";
   if (catLower.includes("accessory") || catLower.includes("trim") || catLower.includes("molding") || catLower.includes("filler")) return "accessory";
+  if (catLower.includes("appliance") || catLower.includes("flooring") || catLower.includes("tile") || catLower.includes("faucet") || catLower.includes("fixture") || catLower.includes("countertop") || catLower.includes("bath") || catLower.includes("lighting") || catLower.includes("hardware")) return "other";
 
   return "base"; // Default fallback
 }

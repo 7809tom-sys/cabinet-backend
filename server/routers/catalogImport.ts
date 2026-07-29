@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -118,7 +118,7 @@ export const catalogImportRouter = router({
       const [newImport] = await db
         .select({ id: catalogImports.id })
         .from(catalogImports)
-        .orderBy(catalogImports.id)
+        .orderBy(desc(catalogImports.id))
         .limit(1);
 
       return { importId: newImport?.id || 0 };
