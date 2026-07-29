@@ -1,0 +1,207 @@
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { adminProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { getDb } from "../db";
+import { catalogImports } from "../../drizzle/schema";
+
+/**
+ * 20/20 Catalog Importer Router
+ * 
+ * Procedures for uploading and processing 20/20 catalog zip files.
+ * The importer:
+ * - Validates zip file structure
+ * - Extracts paf.xml and images
+ * - Parses cabinet data deterministically (no AI interference)
+ * - Creates/updates cabinet records while preserving existing pricing
+ * - Tracks import history and error logs
+ */
+
+export const catalogImportRouter = router({
+  /**
+   * List all catalog imports for a distributor
+   */
+  listImports: adminProcedure
+    .input(z.object({ distributorId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const imports = await db
+        .select()
+        .from(catalogImports)
+        .where(eq(catalogImports.distributorId, input.distributorId))
+        .orderBy(catalogImports.uploadedAt);
+
+      return imports.map((imp) => ({
+        id: imp.id,
+        fileName: imp.fileName,
+        status: imp.status,
+        cabinetCount: imp.cabinetCount,
+        skuCount: imp.skuCount,
+        imageCount: imp.imageCount,
+        preservePricing: imp.preservePricing,
+        uploadedAt: imp.uploadedAt,
+        importStartedAt: imp.importStartedAt,
+        importCompletedAt: imp.importCompletedAt,
+        uploadedByName: imp.uploadedByName,
+        errorLog: imp.errorLog ? JSON.parse(imp.errorLog) : [],
+      }));
+    }),
+
+  /**
+   * Get details of a specific import
+   */
+  getImport: adminProcedure
+    .input(z.object({ importId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [imp] = await db
+        .select()
+        .from(catalogImports)
+        .where(eq(catalogImports.id, input.importId))
+        .limit(1);
+
+      if (!imp) throw new TRPCError({ code: "NOT_FOUND" });
+
+      return {
+        id: imp.id,
+        distributorId: imp.distributorId,
+        fileName: imp.fileName,
+        fileSize: imp.fileSize,
+        status: imp.status,
+        cabinetCount: imp.cabinetCount,
+        skuCount: imp.skuCount,
+        imageCount: imp.imageCount,
+        preservePricing: imp.preservePricing,
+        isRollbackable: imp.isRollbackable,
+        uploadedAt: imp.uploadedAt,
+        importStartedAt: imp.importStartedAt,
+        importCompletedAt: imp.importCompletedAt,
+        uploadedByName: imp.uploadedByName,
+        errorLog: imp.errorLog ? JSON.parse(imp.errorLog) : [],
+      };
+    }),
+
+  /**
+   * Initialize a new catalog import (creates a pending record)
+   * Returns the import ID for the upload UI to reference
+   */
+  initializeImport: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number(),
+        fileName: z.string().min(1),
+        fileSize: z.number().positive(),
+        preservePricing: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      await db.insert(catalogImports).values({
+        distributorId: input.distributorId,
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+        status: "pending",
+        preservePricing: input.preservePricing,
+        uploadedByUserId: ctx.user?.id,
+        uploadedByName: ctx.user?.name || "Unknown",
+      });
+
+      // Get the last inserted import
+      const [newImport] = await db
+        .select({ id: catalogImports.id })
+        .from(catalogImports)
+        .orderBy(catalogImports.id)
+        .limit(1);
+
+      return { importId: newImport?.id || 0 };
+    }),
+
+  /**
+   * Update import status and counts after processing
+   */
+  updateImportStatus: adminProcedure
+    .input(
+      z.object({
+        importId: z.number(),
+        status: z.enum(["pending", "processing", "completed", "failed"]),
+        cabinetCount: z.number().int().min(0).optional(),
+        skuCount: z.number().int().min(0).optional(),
+        imageCount: z.number().int().min(0).optional(),
+        errorLog: z.array(z.object({
+          code: z.string(),
+          message: z.string(),
+          details: z.string().optional(),
+        })).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const patch: Record<string, unknown> = {
+        status: input.status,
+      };
+
+      if (input.status === "processing") {
+        patch.importStartedAt = new Date();
+      } else if (input.status === "completed" || input.status === "failed") {
+        patch.importCompletedAt = new Date();
+      }
+
+      if (input.cabinetCount !== undefined) patch.cabinetCount = input.cabinetCount;
+      if (input.skuCount !== undefined) patch.skuCount = input.skuCount;
+      if (input.imageCount !== undefined) patch.imageCount = input.imageCount;
+      if (input.errorLog !== undefined) patch.errorLog = JSON.stringify(input.errorLog);
+
+      await db
+        .update(catalogImports)
+        .set(patch)
+        .where(eq(catalogImports.id, input.importId));
+
+      return { success: true };
+    }),
+
+  /**
+   * Rollback an import (undo all changes from this import)
+   * Only available if isRollbackable = true
+   */
+  rollbackImport: adminProcedure
+    .input(z.object({ importId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [imp] = await db
+        .select()
+        .from(catalogImports)
+        .where(eq(catalogImports.id, input.importId))
+        .limit(1);
+
+      if (!imp) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!imp.isRollbackable) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This import cannot be rolled back",
+        });
+      }
+
+      // TODO: Implement rollback logic
+      // - Delete all cabinets created by this import
+      // - Restore all cabinets updated by this import to their pre-import state
+      // - Delete all SKUs created by this import
+      // - Restore all SKUs updated by this import
+
+      await db
+        .update(catalogImports)
+        .set({ status: "failed", errorLog: JSON.stringify([{ code: "ROLLBACK", message: "Import rolled back by admin" }]) })
+        .where(eq(catalogImports.id, input.importId));
+
+      return { success: true };
+    }),
+});

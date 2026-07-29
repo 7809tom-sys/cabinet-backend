@@ -290,6 +290,37 @@ export const cabinetAliases = mysqlTable("cabinet_aliases", {
 
 export type CabinetAlias = typeof cabinetAliases.$inferSelect;
 
+// ─── Catalog Imports (20/20 XML) ───────────────────────────────────────────────
+// Tracks all uploaded 20/20 catalog zip files, their import status, and error logs.
+// One row per upload; multiple uploads from the same distributor create separate rows.
+export const catalogImports = mysqlTable("catalog_imports", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(), // which distributor this catalog belongs to
+  fileName: varchar("fileName", { length: 255 }).notNull(), // e.g., "UCDCA26_1.zip"
+  fileSize: int("fileSize"), // bytes
+  // Import status: pending → processing → completed | failed
+  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
+  // Counts: how many cabinets were created/updated/skipped in this import
+  cabinetCount: int("cabinetCount").default(0).notNull(),
+  skuCount: int("skuCount").default(0).notNull(),
+  imageCount: int("imageCount").default(0).notNull(),
+  // Error log: JSON array of {code, message, details} for any issues during import
+  errorLog: text("errorLog"), // JSON string
+  // Preserve pricing toggle: if true, existing prices are NOT overwritten during import
+  preservePricing: boolean("preservePricing").default(true).notNull(),
+  // Rollback capability: if true, the import can be rolled back (undoing all changes)
+  isRollbackable: boolean("isRollbackable").default(true).notNull(),
+  // Timestamps
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+  importStartedAt: timestamp("importStartedAt"),
+  importCompletedAt: timestamp("importCompletedAt"),
+  uploadedByUserId: int("uploadedByUserId"),
+  uploadedByName: varchar("uploadedByName", { length: 128 }),
+});
+
+export type CatalogImport = typeof catalogImports.$inferSelect;
+export type InsertCatalogImport = typeof catalogImports.$inferInsert;
+
 // ─── Distributor SKU Mapping ───────────────────────────────────────────────────
 
 export const distributorSkus = mysqlTable("distributor_skus", {

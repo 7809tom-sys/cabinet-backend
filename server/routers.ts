@@ -49,6 +49,7 @@ import { bannersRouter } from "./routers/banners";
 import { masterSkuRouter } from "./routers/masterSku";
 import { cabinetCategoriesRouter } from "./routers/cabinetCategories";
 import { cabinet3dPreviewRouter } from "./routers/cabinet3dPreview";
+import { catalogImportRouter } from "./routers/catalogImport";
 
 export const appRouter = router({
   system: systemRouter,
@@ -108,6 +109,7 @@ export const appRouter = router({
   masterSku: masterSkuRouter,
   cabinetCategories: cabinetCategoriesRouter,
   cabinet3dPreview: cabinet3dPreviewRouter,
+  catalogImport: catalogImportRouter,
 });
 
 export type AppRouter = typeof appRouter;

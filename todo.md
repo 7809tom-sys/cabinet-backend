@@ -1899,3 +1899,19 @@
 - [x] Extend isStacker() to recognize W*PG suffix codes (12" tall glass stackers)
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+
+## Feature: 20/20 Catalog Importer (Jul 2026)
+- [x] Create `catalog_imports` table to track upload history and import status
+- [ ] Build admin upload UI for 20/20 zip files with file validation and preview
+- [x] Implement 20/20 XML parser to extract products, options, features, pricing from paf.xml
+  - [x] parsePafXml() function parses PAF XML deterministically (no AI)
+  - [x] mapCategory() and mapPlacementType() helpers for data mapping
+  - [x] 16 unit tests covering XML parsing, category mapping, edge cases
+  - [x] All tests passing
+- [ ] Build auto-import logic: create/update cabinets, map options, download images
+- [ ] Preserve existing pricing: toggle to skip price updates during import
+- [ ] Add import status tracking, error logging, and rollback capability
+- [ ] Test end-to-end with U.S. Cabinet Depot UCDCA26_1.zip
+- [ ] TypeScript: 0 errors
+- [ ] Save checkpoint
