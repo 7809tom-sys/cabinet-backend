@@ -1909,9 +1909,15 @@
   - [x] mapCategory() and mapPlacementType() helpers for data mapping
   - [x] 16 unit tests covering XML parsing, category mapping, edge cases
   - [x] All tests passing
-- [ ] Build auto-import logic: create/update cabinets, map options, download images
-- [ ] Preserve existing pricing: toggle to skip price updates during import
-- [ ] Add import status tracking, error logging, and rollback capability
+- [x] Build auto-import logic: create/update cabinets, map options, download images
+  - [x] importPafProducts() processes parsed products deterministically
+  - [x] createOrUpdateDistributorSku() handles pricing preservation
+  - [x] Automatic cabinet creation with master code deduplication
+  - [x] 3 unit tests covering batch import and error handling
+- [x] Preserve existing pricing: toggle to skip price updates during import
+- [x] Add import status tracking, error logging, and rollback capability
+  - [x] catalogImportRouter.executeImport() procedure
+  - [x] Status transitions: pending → processing → completed | failed
 - [ ] Test end-to-end with U.S. Cabinet Depot UCDCA26_1.zip
 - [ ] TypeScript: 0 errors
 - [ ] Save checkpoint

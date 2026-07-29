@@ -4,6 +4,8 @@ import { adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import { catalogImports } from "../../drizzle/schema";
+import { importPafProducts } from "../lib/catalogImportLogic";
+import type { PafProduct } from "../lib/pafXmlParser";
 
 /**
  * 20/20 Catalog Importer Router
@@ -203,5 +205,84 @@ export const catalogImportRouter = router({
         .where(eq(catalogImports.id, input.importId));
 
       return { success: true };
+    }),
+
+  /**
+   * Execute the import: process parsed products and create/update cabinets
+   * This is called after the zip file has been uploaded and paf.xml parsed
+   */
+  executeImport: adminProcedure
+    .input(
+      z.object({
+        importId: z.number(),
+        distributorId: z.number(),
+        products: z.array(
+          z.object({
+            code: z.string(),
+            description: z.string(),
+            category: z.string().optional(),
+            width: z.number().optional(),
+            height: z.number().optional(),
+            depth: z.number().optional(),
+            numberOfDoors: z.number().optional(),
+            numberOfDrawers: z.number().optional(),
+            listPrice: z.number().optional(),
+            imageUrl: z.string().optional(),
+          })
+        ),
+        preservePricing: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Update import status to processing
+      await db
+        .update(catalogImports)
+        .set({ status: "processing", importStartedAt: new Date() })
+        .where(eq(catalogImports.id, input.importId));
+
+      try {
+        // Execute the import
+        const stats = await importPafProducts(
+          input.distributorId,
+          input.products as PafProduct[],
+          input.preservePricing
+        );
+
+        // Update import status with results
+        await db
+          .update(catalogImports)
+          .set({
+            status: "completed",
+            importCompletedAt: new Date(),
+            cabinetCount: stats.created + stats.updated,
+            skuCount: stats.created + stats.updated,
+            errorLog: stats.errors.length > 0 ? JSON.stringify(stats.errors) : null,
+          })
+          .where(eq(catalogImports.id, input.importId));
+
+        return {
+          success: true,
+          stats,
+        };
+      } catch (err) {
+        // Mark import as failed
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        await db
+          .update(catalogImports)
+          .set({
+            status: "failed",
+            importCompletedAt: new Date(),
+            errorLog: JSON.stringify([{ code: "IMPORT_FAILED", message: errorMsg }]),
+          })
+          .where(eq(catalogImports.id, input.importId));
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Import failed: ${errorMsg}`,
+        });
+      }
     }),
 });
