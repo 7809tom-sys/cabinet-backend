@@ -23,3 +23,4 @@
 - [x] Trace full import flow (client handleImport → server initializeImport + executeImport)
 - [x] Fix broken step so uploaded ZIP is actually parsed and products are imported
 - [ ] Test and deploy
+- [x] Test and deploy

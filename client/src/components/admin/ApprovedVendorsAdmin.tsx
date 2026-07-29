@@ -515,14 +515,15 @@ export default function ApprovedVendorsAdmin() {
             </div>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[180px]">Vendor</TableHead>
-                  <TableHead className="w-[140px]">Category</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[110px] text-right">Total Sales</TableHead>
-                  <TableHead className="w-[260px] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[180px]">Vendor</TableHead>
+                <TableHead className="w-[60px] text-center">ID</TableHead>
+                <TableHead className="w-[140px]">Category</TableHead>
+                <TableHead className="w-[100px]">Status</TableHead>
+                <TableHead className="w-[110px] text-right">Total Sales</TableHead>
+                <TableHead className="w-[260px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
               <TableBody>
                 {filteredVendors.length === 0 ? (
                   <TableRow>
@@ -540,6 +541,11 @@ export default function ApprovedVendorsAdmin() {
                       {v.contactEmail && (
                         <div className="text-xs text-muted-foreground">{v.contactEmail}</div>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-all">
+                        {v.id}
+                      </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {v.category || "—"}
