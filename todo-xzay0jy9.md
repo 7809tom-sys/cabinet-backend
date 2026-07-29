@@ -13,4 +13,4 @@
 - [x] Review distributor list query and vendor creation endpoint
 - [x] Replace plain number input with a Select dropdown showing "Brand Name (ID: 123)"
 - [x] Add "Add new vendor" inline form to create a new distributor without leaving the page
-- [ ] Save checkpoint and deploy
+- [x] Save checkpoint and deploy

@@ -224,11 +224,10 @@ export default function AdminCatalogImport() {
                 </SelectTrigger>
                 <SelectContent>
                   {(distList ?? []).map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.brandName || d.name}
-                      <span className="ml-2 text-xs text-muted-foreground font-mono">ID: {d.id}</span>
-                    </SelectItem>
-                  ))}
+                <SelectItem key={d.id} value={String(d.id)}>
+                  {`${d.brandName || d.name}  (ID: ${d.id})`}
+                </SelectItem>
+              ))}
                 </SelectContent>
               </Select>
             )}
