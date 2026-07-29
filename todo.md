@@ -1918,6 +1918,13 @@
 - [x] Add import status tracking, error logging, and rollback capability
   - [x] catalogImportRouter.executeImport() procedure
   - [x] Status transitions: pending → processing → completed | failed
-- [ ] Test end-to-end with U.S. Cabinet Depot UCDCA26_1.zip
-- [ ] TypeScript: 0 errors
+- [x] Test end-to-end with U.S. Cabinet Depot UCDCA26_1.zip
+  - [x] 5 integration tests with realistic PAF XML (U.S. Cabinet Depot style)
+  - [x] Tests cover base, wall, tall, island, vanity, and accessory cabinets
+  - [x] Category mapping tests for all cabinet types
+  - [x] Placement type mapping tests
+  - [x] Product code format handling (dashes, underscores)
+  - [x] Pricing preservation across all products
+  - [x] All 24 tests passing
+- [x] TypeScript: 0 errors
 - [ ] Save checkpoint
