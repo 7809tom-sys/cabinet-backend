@@ -166,6 +166,13 @@ export default function AdminCatalogImport() {
     status: string;
     message: string;
   } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    fileName: string;
+  } | null>(null);
 
   // New vendor creation state
   const [showNewVendor, setShowNewVendor] = useState(false);
@@ -285,16 +292,20 @@ export default function AdminCatalogImport() {
 
       toast.success("Import completed successfully");
       setSelectedFile(null);
-      setDistributorId("");
 
       // Refresh import list
       listImports.refetch();
 
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setImportProgress(null);
-        setIsProcessing(false);
-      }, 3000);
+      // Save result for persistent display and reset progress
+      setImportResult({
+        created: importResult.stats.created,
+        updated: importResult.stats.updated,
+        skipped: importResult.stats.skipped,
+        errors: importResult.stats.errors?.length ?? 0,
+        fileName: selectedFile.name,
+      });
+      setImportProgress(null);
+      setIsProcessing(false);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       toast.error(`Import failed: ${errorMsg}`);
@@ -422,20 +433,56 @@ export default function AdminCatalogImport() {
             </Label>
           </div>
 
-          {importProgress && (
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center space-x-2">
-                {importProgress.status === "completed" ? (
-                  <div className="text-green-600">✓</div>
-                ) : importProgress.status === "failed" ? (
-                  <div className="text-red-600">✗</div>
-                ) : (
-                  <Spinner className="h-4 w-4" />
-                )}
-                <div>
-                  <p className="font-semibold capitalize">{importProgress.status}</p>
-                  <p className="text-sm text-gray-600">{importProgress.message}</p>
+         {importProgress && (
+           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+             <div className="flex items-center space-x-2">
+               {importProgress.status === "completed" ? (
+                 <div className="text-green-600">✓</div>
+               ) : importProgress.status === "failed" ? (
+                 <div className="text-red-600">✗</div>
+               ) : (
+                 <Spinner className="h-4 w-4" />
+               )}
+               <div>
+                 <p className="font-semibold capitalize">{importProgress.status}</p>
+                 <p className="text-sm text-gray-600">{importProgress.message}</p>
+               </div>
+             </div>
+           </div>
+         )}
+
+          {/* Persistent result card — stays until dismissed */}
+          {importResult && (
+            <div className="p-4 bg-green-50 rounded-lg border border-green-300">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <p className="font-semibold text-green-800">✓ Import Complete — {importResult.fileName}</p>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="bg-white rounded p-2 text-center border border-green-200">
+                      <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
+                      <p className="text-xs text-muted-foreground">Created</p>
+                    </div>
+                    <div className="bg-white rounded p-2 text-center border border-green-200">
+                      <p className="text-2xl font-bold text-blue-700">{importResult.updated}</p>
+                      <p className="text-xs text-muted-foreground">Updated</p>
+                    </div>
+                    <div className="bg-white rounded p-2 text-center border border-green-200">
+                      <p className="text-2xl font-bold text-gray-600">{importResult.skipped}</p>
+                      <p className="text-xs text-muted-foreground">Skipped</p>
+                    </div>
+                  </div>
+                  {importResult.errors > 0 && (
+                    <p className="text-sm text-red-600">{importResult.errors} error(s) — check Import History below for details</p>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setImportResult(null)}
+                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                  title="Dismiss"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             </div>
           )}
