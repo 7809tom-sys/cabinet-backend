@@ -30,6 +30,132 @@ interface PafProduct {
   imageUrl?: string;
 }
 
+// ---------------------------------------------------------------------------
+// NAC DataPack format detection and parsing
+// ---------------------------------------------------------------------------
+
+function isDataPackFormat(zipContent: InstanceType<typeof import("jszip")>): boolean {
+  const fileNames = Object.keys(zipContent.files);
+  const hasCatInfo = fileNames.some(
+    (n) => n === "CatInfo.Xml" || n.toLowerCase() === "catinfo.xml"
+  );
+  const hasProductsCsv = fileNames.some((n) =>
+    n.toLowerCase().includes("conversiondata/pricing/10_products.csv")
+  );
+  return hasCatInfo && hasProductsCsv;
+}
+
+async function parseDataPackZip(zipContent: InstanceType<typeof import("jszip")>): Promise<PafProduct[]> {
+  const fileNames = Object.keys(zipContent.files);
+  const productsCsvPath = fileNames.find((n) =>
+    n.toLowerCase().includes("conversiondata/pricing/10_products.csv")
+  );
+  if (!productsCsvPath) return [];
+  const catalogPrefix = productsCsvPath.substring(
+    0,
+    productsCsvPath.toLowerCase().indexOf("conversiondata/")
+  );
+  const productsCsvText = await zipContent.files[productsCsvPath].async("text");
+  const productRows = parseSimpleCsv(productsCsvText);
+  const priceCsvPath = fileNames.find(
+    (n) =>
+      n.startsWith(catalogPrefix) &&
+      n.toLowerCase().includes("conversiondata/pricing/72_pricetags_default.csv")
+  );
+  const priceMap: Record<string, number> = {};
+  if (priceCsvPath) {
+    const priceCsvText = await zipContent.files[priceCsvPath].async("text");
+    const priceRows = parseSimpleCsv(priceCsvText);
+    for (const row of priceRows) {
+      if (row[1] === "PR00011" && row[5] === "O.PG02") {
+        const sku = row[4];
+        const price = parseFloat(row[7]);
+        if (sku && !isNaN(price)) priceMap[sku] = price;
+      }
+    }
+  }
+  const products: PafProduct[] = [];
+  for (const row of productRows) {
+    if (row[0] !== "Product") continue;
+    const sku = row[2];
+    const description = row[3] || sku;
+    if (!sku) continue;
+    const product: PafProduct = {
+      code: sku.toUpperCase(),
+      description,
+      category: inferCategoryFromNacSku(sku),
+    };
+    if (priceMap[sku] !== undefined) product.listPrice = priceMap[sku];
+    products.push(product);
+  }
+  return products;
+}
+
+function parseSimpleCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  let isFirst = true;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    if (isFirst) { isFirst = false; continue; }
+    const cols: string[] = [];
+    let inQuote = false;
+    let cur = "";
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (ch === "," && !inQuote) { cols.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    cols.push(cur);
+    rows.push(cols);
+  }
+  return rows;
+}
+
+function inferCategoryFromNacSku(sku: string): string {
+  const s = sku.toUpperCase();
+  if (/^W\d/.test(s) || s.startsWith("WDC") || s.startsWith("WBC") || s.startsWith("WEC") || s.startsWith("WB")) return "Wall Cabinet";
+  if (/^T\d/.test(s) || s.startsWith("OT") || s.startsWith("UT") || s.startsWith("PT")) return "Tall Cabinet";
+  if (/^V\d/.test(s) || s.startsWith("VDB") || s.startsWith("VB")) return "Vanity";
+  return "Base Cabinet";
+}
+
+function parseSimplePafXml(xmlContent: string): PafProduct[] {
+  const products: PafProduct[] = [];
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+    if (xmlDoc.getElementsByTagName("parsererror").length > 0) throw new Error("Invalid XML format");
+    const productElements = xmlDoc.getElementsByTagName("Product");
+    for (let i = 0; i < productElements.length; i++) {
+      const elem = productElements[i];
+      const product: PafProduct = {
+        code: elem.getAttribute("Code") || `PROD_${i}`,
+        description: elem.getAttribute("Description") || "",
+      };
+      const categoryElem = elem.getElementsByTagName("Category")[0];
+      if (categoryElem) product.category = categoryElem.textContent || undefined;
+      const widthElem = elem.getElementsByTagName("Width")[0];
+      if (widthElem?.textContent) product.width = parseFloat(widthElem.textContent);
+      const heightElem = elem.getElementsByTagName("Height")[0];
+      if (heightElem?.textContent) product.height = parseFloat(heightElem.textContent);
+      const depthElem = elem.getElementsByTagName("Depth")[0];
+      if (depthElem?.textContent) product.depth = parseFloat(depthElem.textContent);
+      const priceElem = elem.getElementsByTagName("ListPrice")[0];
+      if (priceElem?.textContent) product.listPrice = parseFloat(priceElem.textContent);
+      const imageElem = elem.getElementsByTagName("ImageUrl")[0];
+      if (imageElem?.textContent) product.imageUrl = imageElem.textContent;
+      if (product.code && product.description) products.push(product);
+    }
+  } catch (err) {
+    console.error("Error parsing PAF XML:", err);
+  }
+  return products;
+}
+
 export default function AdminCatalogImport() {
   const auth = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -105,29 +231,29 @@ export default function AdminCatalogImport() {
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(selectedFile);
 
-      // Find paf.xml
-      const pafFile = Object.keys(zipContent.files).find((name) =>
-        name.toLowerCase().endsWith("paf.xml")
-      );
+      setImportProgress({ status: "parsing", message: "Detecting catalog format..." });
 
-      if (!pafFile) {
-        toast.error("paf.xml not found in zip file");
-        setIsProcessing(false);
-        return;
+      // Detect format: NAC DataPack (CatInfo.Xml + ConversionData CSVs) vs classic PAF XML
+      let parsedProducts: PafProduct[];
+      if (isDataPackFormat(zipContent)) {
+        setImportProgress({ status: "parsing", message: "Parsing NAC DataPack catalog (CSV format)..." });
+        parsedProducts = await parseDataPackZip(zipContent);
+      } else {
+        const pafFile = Object.keys(zipContent.files).find((name) =>
+          name.toLowerCase().endsWith("paf.xml")
+        );
+        if (!pafFile) {
+          toast.error("No recognized catalog format found (expected paf.xml or NAC DataPack CSVs)");
+          setIsProcessing(false);
+          return;
+        }
+        setImportProgress({ status: "parsing", message: "Parsing PAF XML..." });
+        const xmlContent = await zipContent.files[pafFile].async("text");
+        parsedProducts = parseSimplePafXml(xmlContent);
       }
 
-      setImportProgress({ status: "parsing", message: "Parsing PAF XML..." });
-
-      // Extract PAF XML content
-      const xmlContent = await zipContent.files[pafFile].async("text");
-
-      // Parse XML on backend via tRPC
-      setImportProgress({
-        status: "initializing",
-        message: "Initializing import...",
-      });
-
       // Initialize import record
+      setImportProgress({ status: "initializing", message: "Initializing import..." });
       const initResult = await initializeImport.mutateAsync({
         distributorId: Number(distributorId),
         fileName: selectedFile.name,
@@ -135,34 +261,20 @@ export default function AdminCatalogImport() {
         preservePricing,
       });
 
+      if (parsedProducts.length === 0) {
+        throw new Error("No products found in catalog file");
+      }
+
       setImportProgress({
         status: "importing",
-        message: "Importing products to database...",
+        message: `Found ${parsedProducts.length} products. Importing to database...`,
       });
-
-      // For now, we'll parse on the backend
-      // In a real scenario, you'd send the XML content to a backend endpoint
-      // that parses it and returns products
-      
-      // Mock products for demonstration - in production, parse XML on backend
-      const mockProducts: PafProduct[] = [
-        {
-          code: "3DB24",
-          description: "3 Drawer Base 24",
-          category: "Base Cabinet",
-          width: 24,
-          height: 30,
-          depth: 24,
-          numberOfDrawers: 3,
-          listPrice: 450,
-        },
-      ];
 
       // Execute import
       const importResult = await executeImport.mutateAsync({
         importId: initResult.importId,
         distributorId: Number(distributorId),
-        products: mockProducts,
+        products: parsedProducts,
         preservePricing,
       });
 

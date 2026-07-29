@@ -14,3 +14,12 @@
 - [x] Replace plain number input with a Select dropdown showing "Brand Name (ID: 123)"
 - [x] Add "Add new vendor" inline form to create a new distributor without leaving the page
 - [x] Save checkpoint and deploy
+
+## 20/20 Catalog Importer — "nothing uploaded" bug
+
+- [ ] Trace full import flow (client handleImport → server initializeImport + executeImport)
+- [ ] Fix broken step so uploaded ZIP is actually parsed and products are imported
+- [ ] Test and deploy
+- [x] Trace full import flow (client handleImport → server initializeImport + executeImport)
+- [x] Fix broken step so uploaded ZIP is actually parsed and products are imported
+- [ ] Test and deploy
