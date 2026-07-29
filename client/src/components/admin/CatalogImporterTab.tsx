@@ -95,28 +95,27 @@ export default function CatalogImporterTab() {
 
       setImportProgress({
         status: "importing",
-        message: "Importing products to database...",
+        message: "Parsing products from XML...",
       });
 
-      // Mock products for demonstration
-      const mockProducts: PafProduct[] = [
-        {
-          code: "3DB24",
-          description: "3 Drawer Base 24",
-          category: "Base Cabinet",
-          width: 24,
-          height: 30,
-          depth: 24,
-          numberOfDrawers: 3,
-          listPrice: 450,
-        },
-      ];
+      // Parse XML on the backend
+      // We'll use a simple XML parser in the browser for now
+      const parsedProducts = parseSimplePafXml(xmlContent);
 
-      // Execute import
+      if (parsedProducts.length === 0) {
+        throw new Error("No products found in PAF XML");
+      }
+
+      setImportProgress({
+        status: "importing",
+        message: `Found ${parsedProducts.length} products. Importing to database...`,
+      });
+
+      // Execute import with real parsed products
       const importResult = await executeImport.mutateAsync({
         importId: initResult.importId,
         distributorId: Number(distributorId),
-        products: mockProducts,
+        products: parsedProducts,
         preservePricing,
       });
 
@@ -282,4 +281,74 @@ export default function CatalogImporterTab() {
       )}
     </div>
   );
+}
+
+/**
+ * Simple PAF XML parser for browser-side parsing
+ * Extracts basic product information from 20/20 PAF XML format
+ */
+function parseSimplePafXml(xmlContent: string): PafProduct[] {
+  const products: PafProduct[] = [];
+
+  try {
+    // Parse XML string
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+
+    // Check for parsing errors
+    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+      throw new Error("Invalid XML format");
+    }
+
+    // Extract products from PAF XML
+    const productElements = xmlDoc.getElementsByTagName("Product");
+
+    for (let i = 0; i < productElements.length; i++) {
+      const elem = productElements[i];
+      const product: PafProduct = {
+        code: elem.getAttribute("Code") || `PROD_${i}`,
+        description: elem.getAttribute("Description") || "",
+      };
+
+      // Try to extract additional fields
+      const categoryElem = elem.getElementsByTagName("Category")[0];
+      if (categoryElem) {
+        product.category = categoryElem.textContent || undefined;
+      }
+
+      const widthElem = elem.getElementsByTagName("Width")[0];
+      if (widthElem && widthElem.textContent) {
+        product.width = parseFloat(widthElem.textContent);
+      }
+
+      const heightElem = elem.getElementsByTagName("Height")[0];
+      if (heightElem && heightElem.textContent) {
+        product.height = parseFloat(heightElem.textContent);
+      }
+
+      const depthElem = elem.getElementsByTagName("Depth")[0];
+      if (depthElem && depthElem.textContent) {
+        product.depth = parseFloat(depthElem.textContent);
+      }
+
+      const priceElem = elem.getElementsByTagName("ListPrice")[0];
+      if (priceElem && priceElem.textContent) {
+        product.listPrice = parseFloat(priceElem.textContent);
+      }
+
+      const imageElem = elem.getElementsByTagName("ImageUrl")[0];
+      if (imageElem && imageElem.textContent) {
+        product.imageUrl = imageElem.textContent;
+      }
+
+      if (product.code && product.description) {
+        products.push(product);
+      }
+    }
+  } catch (err) {
+    console.error("Error parsing PAF XML:", err);
+    // Return empty array on parse error - will be caught by caller
+  }
+
+  return products;
 }
