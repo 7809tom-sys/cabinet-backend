@@ -55,6 +55,10 @@ interface Props {
   // Optional per-cabinet drawer sample image URL resolver. When provided, the
   // drawer front photo is rendered on drawer fronts instead of the door photo.
   drawerSampleUrlFor?: (cab: PlacedCabinet) => string | null;
+  // Optional per-cabinet frame inset resolver. Returns the px inset from the door
+  // edge to the recessed panel, derived from the style's stileWidth in inches.
+  // When omitted, each door style uses its built-in default inset.
+  frameInsetFor?: (cab: PlacedCabinet) => number | null;
   // When this elevation is rendered inside a horizontally-mirrored container
   // (the left half of CornerView), set `mirror` so text labels are counter-
   // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
@@ -91,6 +95,7 @@ export function ElevationView({
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
+  frameInsetFor,
   onMove, onMoveVertical, moveLocked = false,
   flooringMaterialId = null,
   flooringPattern = "random-stagger",
@@ -207,6 +212,8 @@ export function ElevationView({
     // Resolve the drawer sample image URL (used for drawer fronts only).
     // Falls back to the door sample if no separate drawer photo is set.
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
+    // Resolve per-style frame inset (px) for this cabinet.
+    const cabFrameInset = !isAppliance && frameInsetFor ? frameInsetFor(p) : null;
     // Face fill: the CABINET BOX background (face frame).
     // When a door sample photo is available, use it as the full-face background
     // so the face frame and door panels share the same wood/finish texture —
@@ -311,6 +318,7 @@ export function ElevationView({
               layoutSpec={p.layoutSpec ?? null}
               drawerLayout={p.drawerLayout ?? null}
               facePattern={p.facePattern ?? null}
+              frameInsetPx={cabFrameInset ?? undefined}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1496,8 +1504,9 @@ export function ElevationView({
                 // Recessed toe kick: darker than the cabinet face, set back from
                 // the front plane. Top shadow simulates the overhang of the base
                 // cabinet above it.
-                background: `linear-gradient(180deg, color-mix(in srgb, ${cabF.face} 55%, #000) 0%, color-mix(in srgb, ${cabF.face} 70%, #000) 40%, color-mix(in srgb, ${cabF.face} 60%, #000) 100%)`,
-                boxShadow: `inset 0 3px 6px rgba(0,0,0,0.50), inset 0 -1px 0 rgba(255,255,255,0.08), 0 0 0 0.5px ${cabF.edge}66`,
+                background: `linear-gradient(180deg, color-mix(in srgb, ${cabF.face} 45%, #000) 0%, color-mix(in srgb, ${cabF.face} 62%, #000) 50%, color-mix(in srgb, ${cabF.face} 52%, #000) 100%)`,
+                boxShadow: `inset 0 4px 8px rgba(0,0,0,0.60), inset 0 -1px 0 rgba(255,255,255,0.10), 0 0 0 0.5px ${cabF.edge}88`,
+                borderTop: `1.5px solid ${cabF.edge}99`,
                 borderRadius: "0 0 1px 1px",
                 zIndex: 4,
               }}
@@ -1774,7 +1783,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, facePattern }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, facePattern, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; frameInsetPx?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1892,7 +1901,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
                     {Array.from({ length: count }).map((_, ci) => (
                       <div key={ci} className="relative h-full" style={{ width: `${colW}%` }}>
                         {ci > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                        <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+                        <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
                       </div>
                     ))}
                   </div>
@@ -1968,7 +1977,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: ovenDoorCount }).map((_, i) => (
               <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -1991,7 +2000,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: ovenDoorCount }).map((_, i) => (
               <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -2019,7 +2028,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: ovenDoorCount }).map((_, i) => (
               <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -2069,7 +2078,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
             </div>
           ))}
         </div>
@@ -2089,7 +2098,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
             </div>
           ))}
         </div>
@@ -2128,7 +2137,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {i > 0 && (
               <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
             )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
           </div>
         ))}
       </>
@@ -2203,7 +2212,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
           style={bLeft ? { left: `${100 - visiblePct}%`, width: `${visiblePct}%` } : { left: 0, width: `${visiblePct}%` }}
         >
           <div className={`absolute top-0 bottom-0 ${bLeft ? 'left-0' : 'right-0'}`} style={{ width: 2, background: stroke }} />
-          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
         </div>
       </>
     );
@@ -2431,7 +2440,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: cabDoorCount }).map((_, i) => (
               <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -2459,7 +2468,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: cabDoorCount }).map((_, i) => (
               <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -2489,7 +2498,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
             {Array.from({ length: cabDoorCount }).map((_, i) => (
               <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
               </div>
             ))}
           </div>
@@ -2551,18 +2560,14 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
             </div>
           ))}
         </>
       );
     }
-    // DRAWER BASE (all-drawer, no doors): first row = 20% (6" of 30"), rest split evenly.
-    const FIRST_ROW_ALL = 20;
-    const allDrawerRowHeights: number[] = Array.from({ length: drawerCount }, (_, i) => {
-      if (i === 0) return FIRST_ROW_ALL;
-      return drawerCount > 1 ? (100 - FIRST_ROW_ALL) / (drawerCount - 1) : 100;
-    });
+    // DRAWER BASE (all-drawer, no doors): equal-height drawers (2DB = 50/50, 3DB = 33/33/33).
+    const allDrawerRowHeights: number[] = Array.from({ length: drawerCount }, () => 100 / drawerCount);
     return withFace(
       <>
         {Array.from({ length: drawerCount }).map((_, i) => {
@@ -2604,20 +2609,20 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
                 style={{ width: 2, background: stroke }}
               />
             )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
           </div>
         ))}
       </>
     );
   }
-  return withFace(<SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />);
+  return withFace(<SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />);
 }
 
 // A recessed center panel with real depth: darkened, top-shadowed fill inside a
 // beveled reveal. Reused by every framed door style. `inset` is the px gap from
 // the door edge to the panel (i.e. the rail width). `depth` tunes how deep the
 // panel reads. `raised` adds a central raised field (cathedral/raised-panel).
-function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWall }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null; isWall?: boolean }) {
+function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWall }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null; isWall?: boolean; frameInsetPx?: number }) {
   // For wall cabinets the door-sample photo often includes a drawer front at the
   // top (it's a base-cabinet door+drawer combo shot). Anchor to the bottom of
   // the image so only the door panel portion is visible.
@@ -2660,7 +2665,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
 // individual door in a multi-door cabinet. Each framed style uses a beveled
 // outer rail (light top-left / dark bottom-right) plus a RecessedPanel so the
 // door reads as a real 3D door rather than flat outlines.
-function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null; isWall?: boolean }) {
+function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null; isWall?: boolean; frameInsetPx?: number }) {
   void stroke;
   // Beveled outer rail applied to the whole door face (shared by framed styles).
   // Strong bevel on the outer rail: bright top-left highlight (light hits the
@@ -2672,6 +2677,10 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
     borderRadius: 0,
     backgroundColor: face,
   };
+  // Per-style frame inset: how many px from the door edge to the recessed panel.
+  // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
+  // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
+  const resolvedInset = (fi: number) => frameInsetPx != null ? Math.max(2, Math.round(frameInsetPx)) : fi;
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.
@@ -2688,10 +2697,10 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
     case "double-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <div className="absolute left-[6px] right-[6px] top-[6px] bottom-[50.5%]">
+          <div className="absolute" style={{ left: resolvedInset(6), right: resolvedInset(6), top: resolvedInset(6), bottom: "50.5%" }}>
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
           </div>
-          <div className="absolute left-[6px] right-[6px] top-[50.5%] bottom-[6px]">
+          <div className="absolute" style={{ left: resolvedInset(6), right: resolvedInset(6), top: "50.5%", bottom: resolvedInset(6) }}>
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
           </div>
         </div>
@@ -2699,15 +2708,16 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
     case "raised":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} isWall={isWall} />
+          <RecessedPanel inset={resolvedInset(6)} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} isWall={isWall} />
         </div>
       );
     case "beaded":
       return (
         <div className="absolute inset-0" style={railBevel}>
           <div
-            className="absolute inset-[5px]"
+            className="absolute"
             style={{
+              inset: resolvedInset(5),
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
               ...(doorSampleUrl
                 ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center" }
@@ -2722,13 +2732,13 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
           className="absolute inset-[2px] rounded-[2px]"
           style={{ boxShadow: `0 0 0 1px ${edge}77, inset 1px 1px 0 rgba(255,255,255,0.22), inset -1px -1px 1px rgba(0,0,0,0.18)` }}
         >
-          <RecessedPanel inset={5} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+          <RecessedPanel inset={resolvedInset(5)} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
         </div>
       );
     case "slim-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={3} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+          <RecessedPanel inset={resolvedInset(3)} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
         </div>
       );
     case "shaker":
@@ -2752,8 +2762,9 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
             {/* Shaker panel groove overlay — drawn as a transparent inset div with
                 shadow-only border so the photo shows through uniformly */}
             <div
-              className="absolute inset-[6px]"
+              className="absolute"
               style={{
+                inset: resolvedInset(6),
                 boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), inset 2px 0 4px rgba(0,0,0,0.12), inset 0 -1px 0 rgba(255,255,255,0.22), inset -1.5px 0 2.5px rgba(255,255,255,0.10), 0 0 0 0.5px ${edge}60`,
               }}
             />
@@ -2762,7 +2773,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
       }
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={null} isWall={isWall} />
+          <RecessedPanel inset={resolvedInset(6)} face={face} edge={edge} doorSampleUrl={null} isWall={isWall} />
         </div>
       );
   }

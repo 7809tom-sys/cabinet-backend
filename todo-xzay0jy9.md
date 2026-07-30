@@ -59,3 +59,9 @@
 - [x] Wire failure notification in executeImport: file name, distributor ID, error message
 - [x] Real file name loaded from catalogImports DB record (importId lookup) and passed to both success and failure notifications
 - [x] Save checkpoint and deploy
+
+## Elevation View Rendering Fixes
+
+- [ ] Fix missing toe kick on base cabinets in elevation view (should show 4.5" toe kick space at bottom)
+- [ ] Fix 2-drawer base (2DB) showing uneven drawers — should show 2 equal-height drawer fronts
+- [ ] Investigate Hickory door style frame appearance in elevation view

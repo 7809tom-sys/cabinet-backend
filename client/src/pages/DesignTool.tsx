@@ -1527,6 +1527,29 @@ export default function DesignTool() {
     });
     return m;
   }, [doorStyles]);
+  // Per-style frame inset map: stileWidth (inches) → px at ~5.5px/in, clamped 2–12px.
+  // Used by ElevationView to draw the correct frame reveal for each door style.
+  const frameInsetById = useMemo(() => {
+    const m = new Map<number, number>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; stileWidth?: string | number | null };
+      if (s.stileWidth != null) {
+        const inches = parseFloat(String(s.stileWidth));
+        if (!isNaN(inches) && inches > 0) {
+          // Scale: 0.5" slim → ~3px, 0.75" shaker → ~5px, 1.5" traditional → ~8px
+          m.set(s.id, Math.min(12, Math.max(2, Math.round(inches * 5.5))));
+        }
+      }
+    });
+    return m;
+  }, [doorStyles]);
+  const frameInsetForCab = useCallback(
+    (cab: PlacedCabinet): number | null => {
+      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      return (sid != null && frameInsetById.get(sid)) || null;
+    },
+    [styleId, frameInsetById]
+  );
   // Default fallback images shown when no door style is selected yet — gives the
   // elevation view a realistic look even before the user picks a finish.
   const DEFAULT_DOOR_SAMPLE_URL = "/manus-storage/default-door-sample_9a6c9607.png";
@@ -6605,6 +6628,7 @@ export default function DesignTool() {
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
               drawerSampleUrlFor={drawerSampleForCab}
+              frameInsetFor={frameInsetForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
               onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
