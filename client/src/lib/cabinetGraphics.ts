@@ -122,6 +122,12 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     }
   }
 
+  // Explicit zero-drawer override: if admin explicitly set numberOfDrawers=0,
+  // never draw drawers regardless of what the description text says.
+  // This prevents description-parsed "drawer" mentions from overriding a
+  // deliberate admin decision that the cabinet has no visible drawer fronts.
+  const adminExplicitNoDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers === 0;
+
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;
   const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
@@ -133,6 +139,9 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   if (drawers === 0 && (cab.numberOfDrawers ?? 0) > 0 && /drawer/.test(`${desc} ${sub}`)) {
     drawers = cab.numberOfDrawers ?? 0;
   }
+
+  // If admin explicitly set numberOfDrawers=0, override any description-parsed count.
+  if (adminExplicitNoDrawers) drawers = 0;
 
   // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
   let doors = 0;
