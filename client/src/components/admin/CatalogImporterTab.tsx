@@ -41,7 +41,7 @@ export default function CatalogImporterTab() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.name.endsWith(".zip")) {
+      if (!file.name.toLowerCase().endsWith(".zip")) {
         toast.error("Please select a .zip file");
         return;
       }
@@ -168,7 +168,7 @@ export default function CatalogImporterTab() {
           <Input
             id="file"
             type="file"
-            accept=".zip"
+            accept=".zip,.ZIP"
             onChange={handleFileSelect}
             disabled={isProcessing}
           />
