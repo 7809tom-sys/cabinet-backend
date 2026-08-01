@@ -1941,12 +1941,16 @@
 
 ## Feature: Fix Catalog Importer - Extract Dimensions & Product Types
 
-- [ ] Add productType and cabinetStyle fields to cabinets table
-  - [ ] productType: "standard" | "openShelf" | "corner" | "endCap" | "specialty" | "accessory"
-  - [ ] cabinetStyle: "closedDoors" | "openShelf" | "glass" | "etc"
-- [ ] Update PAF XML parser to extract actual dimensions (width, depth, height)
-- [ ] Update PAF XML parser to detect product types from product code/description
-- [ ] Update importer logic to use actual dimensions instead of defaults
-- [ ] Detect and tag open shelf (BES*), corner (BEC*), and specialty items
-- [ ] Test with Ashford BES12, BEC24 to verify correct rendering
-- [ ] Save checkpoint
+- [x] Add productType and cabinetStyle fields to cabinets table
+  - [x] productType: "standard" | "openShelf" | "corner" | "endCap" | "specialty" | "accessory"
+  - [x] cabinetStyle: "closedDoors" | "openShelf" | "glass" | "etc"
+- [x] Update PAF XML parser to extract actual dimensions (width, depth, height)
+- [x] Update PAF XML parser to detect product types from product code/description
+- [x] Update importer logic to use actual dimensions instead of defaults
+- [x] Detect and tag open shelf (BES*), corner (BEC*), and specialty items
+- [x] Update 2D designer rendering to handle specialty item placement (baseTop, underCabinet)
+  - [x] Knee drawers positioned at 24.5" height on top of base cabinets
+  - [x] Stem glass holders positioned under wall cabinets
+  - [x] Open shelf end caps marked as endCap placement type
+- [x] Test with Ashford BES12, BEC24, SGH30 to verify correct rendering
+- [x] Save checkpoint
