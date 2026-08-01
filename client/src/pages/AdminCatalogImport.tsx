@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { CatalogImportProgress } from "@/components/CatalogImportProgress";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import {
@@ -165,6 +166,7 @@ export default function AdminCatalogImport() {
   const [importProgress, setImportProgress] = useState<{
     status: string;
     message: string;
+    progress?: number; // 0-100
   } | null>(null);
   const [importResult, setImportResult] = useState<{
     created: number;
@@ -231,19 +233,19 @@ export default function AdminCatalogImport() {
     }
 
     setIsProcessing(true);
-    setImportProgress({ status: "extracting", message: "Extracting zip file..." });
+    setImportProgress({ status: "extracting", message: "Extracting zip file...", progress: 10 });
 
     try {
       // Extract zip file
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(selectedFile);
 
-      setImportProgress({ status: "parsing", message: "Detecting catalog format..." });
+      setImportProgress({ status: "parsing", message: "Detecting catalog format...", progress: 20 });
 
       // Detect format: NAC DataPack (CatInfo.Xml + ConversionData CSVs) vs classic PAF XML
       let parsedProducts: PafProduct[];
       if (isDataPackFormat(zipContent)) {
-        setImportProgress({ status: "parsing", message: "Parsing NAC DataPack catalog (CSV format)..." });
+        setImportProgress({ status: "parsing", message: "Parsing NAC DataPack catalog (CSV format)...", progress: 30 });
         parsedProducts = await parseDataPackZip(zipContent);
       } else {
         const pafFile = Object.keys(zipContent.files).find((name) =>
@@ -254,13 +256,13 @@ export default function AdminCatalogImport() {
           setIsProcessing(false);
           return;
         }
-        setImportProgress({ status: "parsing", message: "Parsing PAF XML..." });
+        setImportProgress({ status: "parsing", message: "Parsing PAF XML...", progress: 30 });
         const xmlContent = await zipContent.files[pafFile].async("text");
         parsedProducts = parseSimplePafXml(xmlContent);
       }
 
       // Initialize import record
-      setImportProgress({ status: "initializing", message: "Initializing import..." });
+      setImportProgress({ status: "initializing", message: "Initializing import...", progress: 40 });
       const initResult = await initializeImport.mutateAsync({
         distributorId: Number(distributorId),
         fileName: selectedFile.name,
@@ -275,6 +277,7 @@ export default function AdminCatalogImport() {
       setImportProgress({
         status: "importing",
         message: `Found ${parsedProducts.length} products. Importing to database...`,
+        progress: 60,
       });
 
       // Execute import
@@ -288,6 +291,7 @@ export default function AdminCatalogImport() {
       setImportProgress({
         status: "completed",
         message: `Import complete! Created: ${importResult.stats.created}, Updated: ${importResult.stats.updated}, Skipped: ${importResult.stats.skipped}`,
+        progress: 100,
       });
 
       toast.success("Import completed successfully");
@@ -312,6 +316,7 @@ export default function AdminCatalogImport() {
       setImportProgress({
         status: "failed",
         message: errorMsg,
+        progress: 0,
       });
       setIsProcessing(false);
     }
@@ -434,21 +439,11 @@ export default function AdminCatalogImport() {
           </div>
 
          {importProgress && (
-           <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-             <div className="flex items-center space-x-2">
-               {importProgress.status === "completed" ? (
-                 <div className="text-green-600">✓</div>
-               ) : importProgress.status === "failed" ? (
-                 <div className="text-red-600">✗</div>
-               ) : (
-                 <Spinner className="h-4 w-4" />
-               )}
-               <div>
-                 <p className="font-semibold capitalize">{importProgress.status}</p>
-                 <p className="text-sm text-gray-600">{importProgress.message}</p>
-               </div>
-             </div>
-           </div>
+           <CatalogImportProgress
+             status={importProgress.status}
+             message={importProgress.message}
+             progress={importProgress.progress}
+           />
          )}
 
           {/* Persistent result card — stays until dismissed */}
