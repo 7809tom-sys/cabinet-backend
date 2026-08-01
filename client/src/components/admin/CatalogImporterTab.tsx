@@ -124,11 +124,11 @@ export default function CatalogImporterTab() {
       // Refresh import list
       listImports.refetch();
 
-      // Reset after 3 seconds
+      // Reset after 10 seconds (give user time to read the result)
       setTimeout(() => {
         setImportProgress(null);
         setIsProcessing(false);
-      }, 3000);
+      }, 10000);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       toast.error(`Import failed: ${errorMsg}`);
