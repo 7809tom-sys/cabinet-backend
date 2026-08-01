@@ -24,6 +24,7 @@ export interface PafProduct {
   numberOfDrawers?: number;
   listPrice?: number;
   imageUrl?: string; // relative path in zip
+  catalogImageUrl?: string; // S3 URL after upload
   options?: PafOption[];
   cabinetStyle?: string; // closedDoors | openShelf | glass | etc
   productType?: string; // standard | endCap | corner | specialty | accessory
@@ -309,9 +310,14 @@ function parsePafOptionValue(elem: Record<string, unknown>): PafOptionValue | nu
 export function mapCategory(pafCategory: string): string {
   const cat = (pafCategory || "").toLowerCase().trim();
 
-  if (cat.includes("wall")) return "Wall";
+  // Check for pantry/tall items FIRST before base items
+  // This prevents "pantry drawer" from being miscategorized as Base
   if (cat.includes("tall") || cat.includes("pantry") || cat.includes("utility") || cat.includes("oven")) return "Tall";
-  if (cat.includes("base") || cat.includes("sink") || cat.includes("drawer")) return "Base";
+  if (cat.includes("wall")) return "Wall";
+  
+  // Base cabinets: only if it explicitly says "base" or "sink"
+  // Don't use "drawer" alone as it's too ambiguous (pantry drawers, specialty drawers, etc.)
+  if (cat.includes("base") || cat.includes("sink")) return "Base";
   if (cat.includes("island")) return "Island";
   if (cat.includes("vanity")) return "Vanity";
   if (cat.includes("accessory") || cat.includes("trim") || cat.includes("molding") || cat.includes("filler")) return "Accessory";

@@ -118,7 +118,12 @@ describe("pafXmlParser", () => {
     it("should map base categories", () => {
       expect(mapCategory("Base Cabinet")).toBe("Base");
       expect(mapCategory("Sink Base")).toBe("Base");
-      expect(mapCategory("Drawer Base")).toBe("Base");
+    });
+
+    it("should map pantry drawer to Tall, not Base", () => {
+      expect(mapCategory("Pantry Drawer")).toBe("Tall");
+      expect(mapCategory("Pantry Door")).toBe("Tall");
+      expect(mapCategory("Utility Drawer")).toBe("Tall");
     });
 
     it("should map island categories", () => {
@@ -132,8 +137,12 @@ describe("pafXmlParser", () => {
       expect(mapCategory("Filler")).toBe("Accessory");
     });
 
-    it("should default to Base for unknown categories", () => {
-      expect(mapCategory("Unknown")).toBe("Base");
+    it("should preserve unrecognized categories with title casing", () => {
+      expect(mapCategory("Specialty")).toBe("Specialty");
+      expect(mapCategory("Hardware")).toBe("Hardware");
+    });
+
+    it("should default to Base for empty categories", () => {
       expect(mapCategory("")).toBe("Base");
     });
   });
