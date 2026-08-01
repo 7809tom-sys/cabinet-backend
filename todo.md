@@ -1938,3 +1938,15 @@
 - [x] Save checkpoint
 
 - [x] Fix catalog importer: resolve product images via alias SKU lookup, update catalogImageUrl
+
+## Feature: Fix Catalog Importer - Extract Dimensions & Product Types
+
+- [ ] Add productType and cabinetStyle fields to cabinets table
+  - [ ] productType: "standard" | "openShelf" | "corner" | "endCap" | "specialty" | "accessory"
+  - [ ] cabinetStyle: "closedDoors" | "openShelf" | "glass" | "etc"
+- [ ] Update PAF XML parser to extract actual dimensions (width, depth, height)
+- [ ] Update PAF XML parser to detect product types from product code/description
+- [ ] Update importer logic to use actual dimensions instead of defaults
+- [ ] Detect and tag open shelf (BES*), corner (BEC*), and specialty items
+- [ ] Test with Ashford BES12, BEC24 to verify correct rendering
+- [ ] Save checkpoint
