@@ -72,7 +72,7 @@ export function accessoryPlacement(c: {
   return "base";
 }
 
-export type Placement = "base" | "wall" | "tall" | "appliance";
+export type Placement = "base" | "wall" | "tall" | "appliance" | "baseTop" | "underCabinet";
 
 // Synthetic appliance catalog. Appliances are not cabinets (no DB row / price),
 // so they carry id = 0 and are skipped by the pricing engine. Dimensions are in
@@ -485,6 +485,8 @@ export function standardHeight(placement: Placement): number {
   if (placement === "wall") return STD.WALL_HEIGHT;
   if (placement === "tall") return STD.TALL_HEIGHT;
   if (placement === "appliance") return STD.COUNTERTOP_HEIGHT;
+  if (placement === "baseTop") return 10; // knee drawers, spice racks: typically 10-12" tall
+  if (placement === "underCabinet") return 8; // stem glass holders: typically 8-10" tall
   return STD.BASE_HEIGHT;
 }
 
@@ -1283,6 +1285,17 @@ export function elevationBox(
     //    they get taller (a 30" tops at 84", a 42" tops at 96"). Users who want a
     //    different position set an explicit mountBottom (branch #1), which wins.
     return { bottom: WALL_MOUNT_BOTTOM, height: h };
+  }
+  // baseTop: specialty items (knee drawers, spice racks) that sit on top of base cabinets
+  // at 24.5" height (STD.BASE_HEIGHT - STD.TOE_KICK = 34.5 - 10 = 24.5)
+  if (p.placement === "baseTop") {
+    return { bottom: STD.BASE_HEIGHT - STD.TOE_KICK, height: placedHeight(p) };
+  }
+  // underCabinet: specialty items (stem glass holders) that hang under wall cabinets
+  // They mount at the wall cabinet's bottom line (54") and hang down
+  if (p.placement === "underCabinet") {
+    const h = placedHeight(p);
+    return { bottom: WALL_MOUNT_BOTTOM - h, height: h }; // bottom of item is at 54", grows downward
   }
   // Base, tall, vanity: the box normally sits on the floor (bottom = 0). One
   // exception: a wall (upper) cabinet that was "dropped to the floor" is stood

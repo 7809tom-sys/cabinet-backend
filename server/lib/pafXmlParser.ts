@@ -25,6 +25,8 @@ export interface PafProduct {
   listPrice?: number;
   imageUrl?: string; // relative path in zip
   options?: PafOption[];
+  cabinetStyle?: string; // closedDoors | openShelf | glass | etc
+  productType?: string; // standard | endCap | corner | specialty | accessory
 }
 
 export interface PafOption {
@@ -120,6 +122,8 @@ function parsePafProduct(elem: Record<string, unknown>): PafProduct | null {
     code: code.toUpperCase(),
     description,
     category: extractString(elem, "CATEGORY") || "Cabinet",
+    cabinetStyle: detectCabinetStyle(description),
+    productType: detectProductType(code, description),
   };
 
   // Dimensions (optional)
@@ -154,6 +158,46 @@ function parsePafProduct(elem: Record<string, unknown>): PafProduct | null {
   }
 
   return product;
+}
+
+/**
+ * Detect cabinet style from description (openShelf vs closedDoors, etc.)
+ */
+function detectCabinetStyle(description: string): string {
+  const desc = description.toLowerCase();
+  if (desc.includes("open") || desc.includes("shelf")) return "openShelf";
+  if (desc.includes("glass")) return "glass";
+  if (desc.includes("drawer")) return "closedDoors"; // drawers imply closed
+  return "closedDoors"; // default
+}
+
+/**
+ * Detect product type from code and description (endCap, corner, specialty, etc.)
+ */
+function detectProductType(code: string, description: string): string {
+  const codeUpper = code.toUpperCase();
+  const descLower = description.toLowerCase();
+
+  // End-cap cabinets: BES (open shelf), BEC (corner), etc.
+  if (codeUpper.startsWith("BE")) return "endCap";
+  if (codeUpper.startsWith("ES")) return "endCap";
+  if (codeUpper.startsWith("EC")) return "endCap";
+
+  // Corner cabinets
+  if (codeUpper.includes("CORNER") || codeUpper.includes("COR") || descLower.includes("corner")) return "corner";
+
+  // Specialty items: glass holders, spice racks, etc.
+  if (codeUpper.includes("SGH") || codeUpper.includes("SG")) return "specialty"; // stem glass holder
+  if (codeUpper.includes("SPICE") || descLower.includes("spice")) return "specialty";
+  if (codeUpper.includes("KNEE") || descLower.includes("knee")) return "specialty";
+  if (codeUpper.includes("DRAWER") && descLower.includes("knee")) return "specialty";
+  if (descLower.includes("glass holder") || descLower.includes("stem glass")) return "specialty";
+  if (descLower.includes("open shelf") && !descLower.includes("base")) return "specialty";
+
+  // Accessories
+  if (codeUpper.includes("ACC") || descLower.includes("accessory")) return "accessory";
+
+  return "standard";
 }
 
 /**
@@ -297,6 +341,12 @@ export function mapCategory(pafCategory: string): string {
 export function mapPlacementType(code: string, category: string): string {
   const codeUpper = (code || "").toUpperCase();
   const catLower = (category || "").toLowerCase();
+
+  // Specialty items that sit on top of base cabinets (knee drawers, spice racks, etc.)
+  // These are marked as 'baseTop' so the designer knows to position them at 24.5" height
+  if (codeUpper.includes("KNEE") || catLower.includes("knee")) return "baseTop";
+  if (codeUpper.includes("SPICE") || catLower.includes("spice")) return "baseTop";
+  if (codeUpper.includes("SGH") || codeUpper.includes("SG") || catLower.includes("stem glass")) return "underCabinet";
 
   if (catLower.includes("wall")) return "wall";
   if (catLower.includes("tall") || catLower.includes("pantry") || catLower.includes("utility") || catLower.includes("oven")) return "tall";

@@ -245,6 +245,10 @@ export const cabinets = mysqlTable("cabinets", {
   configVerified: boolean("configVerified").default(false).notNull(),
   configVerifiedAt: timestamp("configVerifiedAt"),
   configVerifiedByName: varchar("configVerifiedByName", { length: 128 }),
+  // Cabinet style: how the cabinet looks (closed doors vs open shelves, etc.)
+  cabinetStyle: varchar("cabinetStyle", { length: 32 }).default("closedDoors"), // closedDoors | openShelf | glass | etc
+  // Product type for categorization: standard cabinet, end-cap, corner, specialty, accessory
+  productType: varchar("productType", { length: 32 }).default("standard"), // standard | endCap | corner | specialty | accessory
   // Door orientation for multi-door cabinets: side-by-side (horizontal) or stacked (vertical)
   doorOrientation: varchar("doorOrientation", { length: 16 }), // side-by-side | stacked | null
   // How many doors appear side-by-side in a single row (null = auto-detect from numberOfDoors)

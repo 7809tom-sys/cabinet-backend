@@ -23,7 +23,7 @@ export interface FillCabinet {
   width: string | null;
   height?: string | null;
   depth?: string | null;
-  placement: "base" | "wall" | "tall" | "appliance";
+  placement: "base" | "wall" | "tall" | "appliance" | "baseTop" | "underCabinet";
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   isCornerCabinet?: boolean | null;

@@ -155,11 +155,15 @@ const PLACEHOLDER_SKIN_CODE: Record<Placement, string> = {
   wall: "HICKORY-SKIN-WALL",
   tall: "HICKORY-SKIN-TALL",
   appliance: "HICKORY-SKIN-BASE", // not used (appliances are filtered out)
+  baseTop: "HICKORY-SKIN-BASE", // specialty items on base cabinets
+  underCabinet: "HICKORY-SKIN-WALL", // specialty items under wall cabinets
 };
 
 function placementLabel(p: Placement): string {
   if (p === "wall") return "Wall";
   if (p === "tall") return "Tall";
+  if (p === "baseTop") return "Base Top";
+  if (p === "underCabinet") return "Under Cabinet";
   return "Base";
 }
 

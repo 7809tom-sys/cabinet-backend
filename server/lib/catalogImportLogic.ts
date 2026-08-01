@@ -189,6 +189,8 @@ export async function importPafProducts(
         if (product.depth) patch.depth = product.depth;
         if (product.numberOfDoors !== undefined) patch.numberOfDoors = product.numberOfDoors;
         if (product.numberOfDrawers !== undefined) patch.numberOfDrawers = product.numberOfDrawers;
+        if (product.cabinetStyle) patch.cabinetStyle = product.cabinetStyle;
+        if (product.productType) patch.productType = product.productType;
 
         if (!existing.catalogImageUrl) {
           const img = resolveSiblingImage(code);
@@ -215,6 +217,8 @@ export async function importPafProducts(
           showInCatalog: true,
           showInDesigner: true,
           showIn2020: true,
+          cabinetStyle: product.cabinetStyle || "closedDoors",
+          productType: product.productType || "standard",
           ...(product.width ? { width: product.width } : {}),
           ...(product.height ? { height: product.height } : {}),
           ...(product.depth ? { depth: product.depth } : {}),
