@@ -86,7 +86,38 @@ async function sendImportNotification(opts: {
  * - Tracks import history and error logs
  */
 
+import { storagePut } from "../storage";
+
 export const catalogImportRouter = router({
+  /**
+   * Upload a catalog image from base64 data
+   */
+  uploadImage: adminProcedure
+    .input(
+      z.object({
+        productCode: z.string(),
+        imageData: z.string(), // base64 encoded image
+        mimeType: z.string().default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const buffer = Buffer.from(input.imageData, "base64");
+        const safeName = input.productCode.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+        const { url } = await storagePut(
+          `catalog-images/${Date.now()}-${safeName}.jpg`,
+          buffer,
+          input.mimeType
+        );
+        return { success: true, url };
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to upload image: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    }),
+
   /**
    * List all catalog imports for a distributor
    */
@@ -295,6 +326,7 @@ export const catalogImportRouter = router({
             numberOfDrawers: z.number().optional(),
             listPrice: z.number().optional(),
             imageUrl: z.string().optional(),
+            catalogImageUrl: z.string().optional(),
           })
         ),
         preservePricing: z.boolean().default(true),

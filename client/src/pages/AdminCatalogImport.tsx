@@ -29,6 +29,7 @@ interface PafProduct {
   numberOfDrawers?: number;
   listPrice?: number;
   imageUrl?: string;
+  catalogImageUrl?: string; // S3 URL after upload
 }
 
 // ---------------------------------------------------------------------------
@@ -99,30 +100,38 @@ function parseSimpleCsv(text: string): string[][] {
   for (const line of lines) {
     if (!line.trim()) continue;
     if (isFirst) { isFirst = false; continue; }
-    const cols: string[] = [];
-    let inQuote = false;
-    let cur = "";
+    const parts: string[] = [];
+    let current = "";
+    let inQuotes = false;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuote = !inQuote;
-      } else if (ch === "," && !inQuote) { cols.push(cur); cur = ""; }
-      else cur += ch;
+        inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        parts.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
     }
-    cols.push(cur);
-    rows.push(cols);
+    parts.push(current.trim());
+    rows.push(parts);
   }
   return rows;
 }
 
 function inferCategoryFromNacSku(sku: string): string {
-  const s = sku.toUpperCase();
-  if (/^W\d/.test(s) || s.startsWith("WDC") || s.startsWith("WBC") || s.startsWith("WEC") || s.startsWith("WB")) return "Wall Cabinet";
-  if (/^T\d/.test(s) || s.startsWith("OT") || s.startsWith("UT") || s.startsWith("PT")) return "Tall Cabinet";
-  if (/^V\d/.test(s) || s.startsWith("VDB") || s.startsWith("VB")) return "Vanity";
+  const upper = sku.toUpperCase();
+  if (upper.includes("WALL")) return "Wall Cabinet";
+  if (upper.includes("TALL")) return "Tall Cabinet";
+  if (upper.includes("ISLAND")) return "Island";
+  if (upper.includes("CORNER")) return "Corner Cabinet";
   return "Base Cabinet";
 }
+
+// ---------------------------------------------------------------------------
+// PAF XML parsing (simple DOM-based)
+// ---------------------------------------------------------------------------
 
 function parseSimplePafXml(xmlContent: string): PafProduct[] {
   const products: PafProduct[] = [];
@@ -198,6 +207,7 @@ export default function AdminCatalogImport() {
 
   const initializeImport = trpc.catalogImport.initializeImport.useMutation();
   const executeImport = trpc.catalogImport.executeImport.useMutation();
+  const uploadImage = trpc.catalogImport.uploadImage.useMutation();
   const listImports = trpc.catalogImport.listImports.useQuery(
     { distributorId: Number(distributorId) },
     { enabled: distributorId !== "" }
@@ -272,6 +282,49 @@ export default function AdminCatalogImport() {
 
       if (parsedProducts.length === 0) {
         throw new Error("No products found in catalog file");
+      }
+
+      // Extract and upload images from ZIP
+      const productsWithImages = parsedProducts.filter(p => p.imageUrl).length;
+      if (productsWithImages > 0) {
+        setImportProgress({
+          status: "uploading",
+          message: `Uploading ${productsWithImages} product images...`,
+          progress: 50,
+        });
+
+        for (const product of parsedProducts) {
+          if (product.imageUrl) {
+            try {
+              // Try to find the image file in the ZIP
+              const imageFile = Object.keys(zipContent.files).find((name) =>
+                name.toLowerCase().endsWith(product.imageUrl!.toLowerCase())
+              );
+
+              if (imageFile) {
+                const imageData = await zipContent.files[imageFile].async("arraybuffer");
+                // Convert to base64 for transmission
+                const base64Data = btoa(
+                  new Uint8Array(imageData).reduce((data, byte) => data + String.fromCharCode(byte), "")
+                );
+
+                // Upload via tRPC
+                const uploadResult = await uploadImage.mutateAsync({
+                  productCode: product.code,
+                  imageData: base64Data,
+                  mimeType: "image/jpeg",
+                });
+
+                if (uploadResult.success) {
+                  product.catalogImageUrl = uploadResult.url; // Store S3 URL
+                }
+              }
+            } catch (err) {
+              console.warn(`Failed to upload image for ${product.code}:`, err);
+              // Continue without image if upload fails
+            }
+          }
+        }
       }
 
       setImportProgress({
@@ -352,10 +405,10 @@ export default function AdminCatalogImport() {
                 </SelectTrigger>
                 <SelectContent>
                   {(distList ?? []).map((d) => (
-                <SelectItem key={d.id} value={String(d.id)}>
-                  {`${d.brandName || d.name}  (ID: ${d.id})`}
-                </SelectItem>
-              ))}
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {`${d.brandName || d.name}  (ID: ${d.id})`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}
@@ -438,6 +491,15 @@ export default function AdminCatalogImport() {
             </Label>
           </div>
 
+          <Button
+            onClick={handleImport}
+            disabled={!selectedFile || !distributorId || isProcessing}
+            className="w-full"
+          >
+            {isProcessing ? <Spinner className="h-4 w-4 mr-2" /> : null}
+            {isProcessing ? "Importing..." : "Import Catalog"}
+          </Button>
+
          {importProgress && (
            <CatalogImportProgress
              status={importProgress.status}
@@ -449,101 +511,58 @@ export default function AdminCatalogImport() {
           {/* Persistent result card — stays until dismissed */}
           {importResult && (
             <div className="p-4 bg-green-50 rounded-lg border border-green-300">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-2">
-                  <p className="font-semibold text-green-800">✓ Import Complete — {importResult.fileName}</p>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
-                    <div className="bg-white rounded p-2 text-center border border-green-200">
-                      <p className="text-2xl font-bold text-green-700">{importResult.created}</p>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                    </div>
-                    <div className="bg-white rounded p-2 text-center border border-green-200">
-                      <p className="text-2xl font-bold text-blue-700">{importResult.updated}</p>
-                      <p className="text-xs text-muted-foreground">Updated</p>
-                    </div>
-                    <div className="bg-white rounded p-2 text-center border border-green-200">
-                      <p className="text-2xl font-bold text-gray-600">{importResult.skipped}</p>
-                      <p className="text-xs text-muted-foreground">Skipped</p>
-                    </div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-green-900">Import Successful</p>
+                  <p className="text-sm text-green-800 mt-1">
+                    {importResult.fileName}
+                  </p>
+                  <div className="text-sm text-green-700 mt-2 space-y-1">
+                    <p>✓ Created: {importResult.created}</p>
+                    <p>✓ Updated: {importResult.updated}</p>
+                    <p>✓ Skipped: {importResult.skipped}</p>
+                    {importResult.errors > 0 && <p>⚠ Errors: {importResult.errors}</p>}
                   </div>
-                  {importResult.errors > 0 && (
-                    <p className="text-sm text-red-600">{importResult.errors} error(s) — check Import History below for details</p>
-                  )}
                 </div>
                 <button
-                  type="button"
                   onClick={() => setImportResult(null)}
-                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                  title="Dismiss"
+                  className="text-green-600 hover:text-green-900"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
           )}
-
-          <Button
-            onClick={handleImport}
-            disabled={!selectedFile || !distributorId || isProcessing}
-            className="w-full"
-          >
-            {isProcessing ? (
-              <>
-                <Spinner className="h-4 w-4 mr-2" />
-                Processing...
-              </>
-            ) : (
-              "Start Import"
-            )}
-          </Button>
         </Card>
 
         {/* Import History */}
-        {distributorId && listImports.data && (
-          <Card className="p-6 space-y-4">
-            <h2 className="text-xl font-bold">Import History</h2>
-            {listImports.data.length === 0 ? (
-              <p className="text-gray-500">No imports yet for this distributor</p>
-            ) : (
-              <div className="space-y-3">
-                {listImports.data.map((imp) => (
-                  <div
-                    key={imp.id}
-                    className="p-4 border rounded-lg space-y-2"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold">{imp.fileName}</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(imp.uploadedAt).toLocaleString()}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          imp.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : imp.status === "failed"
-                            ? "bg-red-100 text-red-800"
-                            : imp.status === "processing"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {imp.status}
-                      </span>
+        {listImports.data && listImports.data.length > 0 && (
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Recent Imports</h2>
+            <div className="space-y-3">
+              {listImports.data.map((imp) => (
+                <div key={imp.id} className="p-3 border border-border rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium">{imp.fileName}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(imp.uploadedAt).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {imp.cabinetCount} cabinets, {imp.skuCount} SKUs
+                      </p>
                     </div>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>Cabinets: {imp.cabinetCount} | SKUs: {imp.skuCount} | Images: {imp.imageCount}</p>
-                      {imp.errorLog && imp.errorLog.length > 0 && (
-                        <p className="text-red-600">
-                          Errors: {imp.errorLog.length}
-                        </p>
-                      )}
+                    <div className={`px-2 py-1 rounded text-xs font-semibold ${
+                      imp.status === "completed" ? "bg-green-100 text-green-800" :
+                      imp.status === "failed" ? "bg-red-100 text-red-800" :
+                      "bg-blue-100 text-blue-800"
+                    }`}>
+                      {imp.status}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </Card>
         )}
       </div>

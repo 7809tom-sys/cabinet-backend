@@ -193,7 +193,8 @@ export async function importPafProducts(
         if (product.productType) patch.productType = product.productType;
 
         if (!existing.catalogImageUrl) {
-          const img = resolveSiblingImage(code);
+          // Use uploaded image URL if provided, otherwise try sibling resolution
+          const img = product.catalogImageUrl || resolveSiblingImage(code);
           if (img) { patch.catalogImageUrl = img; imageResolved = true; }
         }
 
@@ -204,7 +205,8 @@ export async function importPafProducts(
         stats.updated++;
       } else {
         // ── INSERT new cabinet ───────────────────────────────────────────────
-        const img = resolveSiblingImage(code);
+        // Use uploaded image URL if provided, otherwise try sibling resolution
+        const img = product.catalogImageUrl || resolveSiblingImage(code);
         if (img) imageResolved = true;
 
         await db.insert(cabinets).values({
