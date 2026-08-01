@@ -126,6 +126,23 @@ describe("pafXmlParser", () => {
       expect(mapCategory("Utility Drawer")).toBe("Tall");
     });
 
+    it("should detect molding/trim by code", () => {
+      expect(mapCategory("unknown", "MOLDING24")).toBe("Accessory");
+      expect(mapCategory("unknown", "TRIM36")).toBe("Accessory");
+      expect(mapCategory("unknown", "TOEKICK")).toBe("Accessory");
+      expect(mapCategory("unknown", "CMA36")).toBe("Accessory");
+    });
+
+    it("should detect molding/trim by dimensions", () => {
+      expect(mapCategory("unknown", undefined, 3, 96)).toBe("Accessory");
+      expect(mapCategory("unknown", undefined, 4.5, 84)).toBe("Accessory");
+    });
+
+    it("should prioritize code-based W/B prefixes", () => {
+      expect(mapCategory("unknown", "W3036")).toBe("Wall");
+      expect(mapCategory("unknown", "B2436")).toBe("Base");
+    });
+
     it("should map island categories", () => {
       expect(mapCategory("Island")).toBe("Island");
     });

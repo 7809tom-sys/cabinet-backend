@@ -307,9 +307,37 @@ function parsePafOptionValue(elem: Record<string, unknown>): PafOptionValue | nu
  * Map a 20/20 product category string to our internal category
  * Deterministic: no AI, pure string matching
  */
-export function mapCategory(pafCategory: string): string {
+/**
+ * Map product code and category to our internal category.
+ * Applies intelligent rules:
+ * - W* prefix → Wall
+ * - B* prefix → Base
+ * - Molding/trim keywords → Accessory
+ * - Small items (height ≤96" AND width <5") → Accessory
+ * - Then standard category mapping
+ */
+export function mapCategory(pafCategory: string, productCode?: string, width?: number, height?: number): string {
+  const code = (productCode || "").toUpperCase();
   const cat = (pafCategory || "").toLowerCase().trim();
 
+  // CODE-BASED RULES (highest priority)
+  // Wall cabinets
+  if (code.startsWith("W")) return "Wall";
+  
+  // Base cabinets
+  if (code.startsWith("B")) return "Base";
+  
+  // Molding/trim items - check both code and description
+  if (code.includes("MOLDING") || code.includes("TRIM") || code.includes("TOE") || 
+      code.includes("COLD") || code.includes("PROM") || code.includes("CMA")) return "Accessory";
+  
+  if (cat.includes("molding") || cat.includes("trim") || cat.includes("toe kick") || 
+      cat.includes("cold bay") || cat.includes("prom")) return "Accessory";
+  
+  // DIMENSIONAL RULES (height ≤96" AND width <5" = molding/trim)
+  if (height !== undefined && width !== undefined && height <= 96 && width < 5) return "Accessory";
+
+  // CATEGORY-BASED RULES (fallback)
   // Check for pantry/tall items FIRST before base items
   // This prevents "pantry drawer" from being miscategorized as Base
   if (cat.includes("tall") || cat.includes("pantry") || cat.includes("utility") || cat.includes("oven")) return "Tall";
