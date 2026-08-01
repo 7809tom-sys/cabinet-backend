@@ -1812,6 +1812,29 @@ export const cabinetSubCategories = mysqlTable("cabinet_sub_categories", {
 export type CabinetSubCategory = typeof cabinetSubCategories.$inferSelect;
 export type InsertCabinetSubCategory = typeof cabinetSubCategories.$inferInsert;
 
+// ─── Learned Categorization Rules ────────────────────────────────────────────
+// When an admin recategorizes an item in the admin panel, we learn the pattern
+// and apply it to future uploads. These rules have the highest priority and
+// can never be overridden by default categorization logic.
+export const categorizationRules = mysqlTable("categorization_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  // Pattern type: "code_prefix" (W*), "code_contains" (MOLDING), "exact_code", "dimensions"
+  patternType: varchar("patternType", { length: 32 }).notNull(),
+  // The pattern itself: "W", "MOLDING", "CORBEL24", etc.
+  pattern: varchar("pattern", { length: 128 }).notNull(),
+  // Target category this pattern should map to
+  targetCategory: varchar("targetCategory", { length: 64 }).notNull(),
+  // How many times this rule has been confirmed by admin actions
+  confidence: int("confidence").default(1).notNull(),
+  // The cabinet ID that triggered this rule (for reference)
+  sourceCAbinetId: int("sourceCabinetId"),
+  // Admin who created/confirmed this rule
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CategorizationRule = typeof categorizationRules.$inferSelect;
+export type InsertCategorizationRule = typeof categorizationRules.$inferInsert;
 
 // ─── AI-generated 3D cabinet previews (cached per cabinet + door style) ──────
 // When a shopper taps a cabinet on the product detail page, we generate a

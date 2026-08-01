@@ -316,11 +316,24 @@ function parsePafOptionValue(elem: Record<string, unknown>): PafOptionValue | nu
  * - Small items (height ≤96" AND width <5") → Accessory
  * - Then standard category mapping
  */
-export function mapCategory(pafCategory: string, productCode?: string, width?: number, height?: number): string {
+/**
+ * Map product code and category to our internal category.
+ * LEARNED RULES (from admin recategorization) have the HIGHEST priority and can never be overridden.
+ * Then apply default rules.
+ */
+export async function mapCategory(pafCategory: string, productCode?: string, width?: number, height?: number): Promise<string> {
+  // Import here to avoid circular dependency
+  const { checkLearnedRules } = await import("./learnedCategorization");
+  
+  // CHECK LEARNED RULES FIRST (highest priority - can never be overridden)
+  const learnedCategory = await checkLearnedRules(productCode, width, height);
+  if (learnedCategory) return learnedCategory;
+
+  // Fall back to default rules
   const code = (productCode || "").toUpperCase();
   const cat = (pafCategory || "").toLowerCase().trim();
 
-  // CODE-BASED RULES (highest priority)
+  // CODE-BASED RULES (highest priority in default rules)
   // Wall cabinets
   if (code.startsWith("W")) return "Wall";
   
