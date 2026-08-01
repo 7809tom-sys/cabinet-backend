@@ -194,7 +194,7 @@ export async function importPafProducts(
 
         if (!existing.catalogImageUrl) {
           // Use uploaded image URL if provided, otherwise try sibling resolution
-          const img = product.catalogImageUrl || resolveSiblingImage(code);
+          const img = (product as any).catalogImageUrl || resolveSiblingImage(code);
           if (img) { patch.catalogImageUrl = img; imageResolved = true; }
         }
 
@@ -206,7 +206,7 @@ export async function importPafProducts(
       } else {
         // ── INSERT new cabinet ───────────────────────────────────────────────
         // Use uploaded image URL if provided, otherwise try sibling resolution
-        const img = product.catalogImageUrl || resolveSiblingImage(code);
+        const img = (product as any).catalogImageUrl || resolveSiblingImage(code);
         if (img) imageResolved = true;
 
         await db.insert(cabinets).values({
