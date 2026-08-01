@@ -412,30 +412,4 @@ export const catalogImportRouter = router({
         });
       }
     }),
-
-  /**
-   * Record that an admin recategorized an item.
-   * This learns the pattern and applies it to future uploads.
-   */
-  recordCategoryChange: adminProcedure
-    .input(
-      z.object({
-        cabinetId: z.number(),
-        oldCategory: z.string(),
-        newCategory: z.string(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const { recordCategoryChange } = await import("../lib/learnedCategorization");
-      await recordCategoryChange(input.cabinetId, input.oldCategory, input.newCategory, ctx.user.id);
-      return { success: true, message: "Category change recorded and learned" };
-    }),
-
-  /**
-   * Get all learned categorization rules
-   */
-  getLearnedRules: adminProcedure.query(async () => {
-    const { getAllLearnedRules } = await import("../lib/learnedCategorization");
-    return await getAllLearnedRules();
-  }),
 });

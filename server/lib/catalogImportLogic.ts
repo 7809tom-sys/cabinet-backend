@@ -168,7 +168,7 @@ export async function importPafProducts(
       }
 
       const code = product.code.toUpperCase();
-      const mappedCategory = await mapCategory(product.category, code, product.width, product.height);
+      const mappedCategory = mapCategory(product.category);
       const mappedPlacementType = mapPlacementType(code, product.category);
 
       const existing = resolveExisting(code);

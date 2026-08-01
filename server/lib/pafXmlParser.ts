@@ -24,7 +24,6 @@ export interface PafProduct {
   numberOfDrawers?: number;
   listPrice?: number;
   imageUrl?: string; // relative path in zip
-  catalogImageUrl?: string; // S3 URL after upload
   options?: PafOption[];
   cabinetStyle?: string; // closedDoors | openShelf | glass | etc
   productType?: string; // standard | endCap | corner | specialty | accessory
@@ -307,58 +306,12 @@ function parsePafOptionValue(elem: Record<string, unknown>): PafOptionValue | nu
  * Map a 20/20 product category string to our internal category
  * Deterministic: no AI, pure string matching
  */
-/**
- * Map product code and category to our internal category.
- * Applies intelligent rules:
- * - W* prefix → Wall
- * - B* prefix → Base
- * - Molding/trim keywords → Accessory
- * - Small items (height ≤96" AND width <5") → Accessory
- * - Then standard category mapping
- */
-/**
- * Map product code and category to our internal category.
- * LEARNED RULES (from admin recategorization) have the HIGHEST priority and can never be overridden.
- * Then apply default rules.
- */
-export async function mapCategory(pafCategory: string, productCode?: string, width?: number, height?: number): Promise<string> {
-  // Import here to avoid circular dependency
-  const { checkLearnedRules } = await import("./learnedCategorization");
-  
-  // CHECK LEARNED RULES FIRST (highest priority - can never be overridden)
-  const learnedCategory = await checkLearnedRules(productCode, width, height);
-  if (learnedCategory) return learnedCategory;
-
-  // Fall back to default rules
-  const code = (productCode || "").toUpperCase();
+export function mapCategory(pafCategory: string): string {
   const cat = (pafCategory || "").toLowerCase().trim();
 
-  // CODE-BASED RULES (highest priority in default rules)
-  // Wall cabinets
-  if (code.startsWith("W")) return "Wall";
-  
-  // Base cabinets
-  if (code.startsWith("B")) return "Base";
-  
-  // Molding/trim items - check both code and description
-  if (code.includes("MOLDING") || code.includes("TRIM") || code.includes("TOE") || 
-      code.includes("COLD") || code.includes("PROM") || code.includes("CMA")) return "Accessory";
-  
-  if (cat.includes("molding") || cat.includes("trim") || cat.includes("toe kick") || 
-      cat.includes("cold bay") || cat.includes("prom")) return "Accessory";
-  
-  // DIMENSIONAL RULES (height ≤96" AND width <5" = molding/trim)
-  if (height !== undefined && width !== undefined && height <= 96 && width < 5) return "Accessory";
-
-  // CATEGORY-BASED RULES (fallback)
-  // Check for pantry/tall items FIRST before base items
-  // This prevents "pantry drawer" from being miscategorized as Base
-  if (cat.includes("tall") || cat.includes("pantry") || cat.includes("utility") || cat.includes("oven")) return "Tall";
   if (cat.includes("wall")) return "Wall";
-  
-  // Base cabinets: only if it explicitly says "base" or "sink"
-  // Don't use "drawer" alone as it's too ambiguous (pantry drawers, specialty drawers, etc.)
-  if (cat.includes("base") || cat.includes("sink")) return "Base";
+  if (cat.includes("tall") || cat.includes("pantry") || cat.includes("utility") || cat.includes("oven")) return "Tall";
+  if (cat.includes("base") || cat.includes("sink") || cat.includes("drawer")) return "Base";
   if (cat.includes("island")) return "Island";
   if (cat.includes("vanity")) return "Vanity";
   if (cat.includes("accessory") || cat.includes("trim") || cat.includes("molding") || cat.includes("filler")) return "Accessory";
