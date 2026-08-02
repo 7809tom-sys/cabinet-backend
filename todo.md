@@ -1969,5 +1969,9 @@
 - [ ] Remove duplicate GenericCabinetsAdmin list (DONE - now shows single 589 cabinet list)
 - [x] Add distributor information to cabinet edit dialog
 - [x] Fix: Show ONLY distributors that have THIS CABINET active (with published SKUs)
+- [x] Fix: Distributor list in edit dialog not updating after saving changes
+- [x] Show ALL 880 cabinets in backend admin (remove isActive filter)
 - [ ] Fix merge procedure - still showing "No procedure found" error
-- [ ] Test merge works end-to-end on phone
+- [ ] Test merge works on phone
+- [ ] Test merge works on PC/desktop
+- [ ] Verify distributors shown are ONLY those with published+available SKUs (not guesses)

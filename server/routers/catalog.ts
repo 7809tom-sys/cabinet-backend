@@ -2368,7 +2368,7 @@ export const cabinetsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { rows: [], total: 0 };
-      const conditions: SQL[] = [eq(cabinets.isActive, true)];
+      const conditions: SQL[] = []; // Show ALL cabinets (active + inactive)
       if (input.unconfiguredOnly) {
         conditions.push(
           sql`(${cabinets.numberOfDoors} IS NULL AND ${cabinets.numberOfDrawers} IS NULL AND ${cabinets.numberOfFixedShelves} IS NULL AND ${cabinets.numberOfAdjShelves} IS NULL)`
