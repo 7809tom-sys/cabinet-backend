@@ -2821,6 +2821,33 @@ export const cabinetsRouter = router({
       return { updated: input.skuIds.length };
     }),
 
+  // ─── Get distributors that have this cabinet active (published + available SKUs) ───
+  getDistributorsForCabinet: publicProcedure
+    .input(z.object({ cabinetId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      
+      // Get all distributors that have published+available SKUs for this cabinet
+      const rows = await db
+        .selectDistinct({
+          id: distributors.id,
+          name: distributors.name,
+        })
+        .from(distributorSkus)
+        .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, input.cabinetId),
+            eq(distributorSkus.isPublished, true),
+            eq(distributorSkus.isAvailable, true)
+          )
+        )
+        .orderBy(asc(distributors.name));
+      
+      return rows.map(r => ({ id: r.id, name: r.name }));
+    }),
+
   // ─── Admin: Merge two cabinets (one becomes alias of the other) ───────────────
   mergeCabinets: adminProcedure
     .input(

@@ -1967,6 +1967,7 @@
 - [x] Test merge workflow on mobile
 - [x] Save checkpoint
 - [ ] Remove duplicate GenericCabinetsAdmin list (DONE - now shows single 589 cabinet list)
-- [ ] Add distributor information to cabinet edit dialog
+- [x] Add distributor information to cabinet edit dialog
+- [x] Fix: Show ONLY distributors that have THIS CABINET active (with published SKUs)
 - [ ] Fix merge procedure - still showing "No procedure found" error
 - [ ] Test merge works end-to-end on phone

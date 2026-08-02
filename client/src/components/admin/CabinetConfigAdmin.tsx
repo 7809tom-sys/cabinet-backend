@@ -782,8 +782,10 @@ function EditModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
-  // Fetch distributors that carry this cabinet (via SKUs)
-  const { data: distributorsList } = trpc.distributors.list.useQuery();
+  // Fetch distributors that have this cabinet active (published + available SKUs)
+  const { data: distributorsForCabinet } = trpc.cabinets.getDistributorsForCabinet.useQuery({
+    cabinetId: row.id,
+  });
 
   // Fetch categories from DB — single source of truth
   const { data: dbCategories } = trpc.cabinetCategories.list.useQuery();
@@ -1068,18 +1070,18 @@ function EditModal({
 
             {/* Distributors that carry this cabinet */}
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Distributors</Label>
+              <Label className="text-sm font-medium">Active on Distributors</Label>
               <div className="rounded-lg border border-border bg-muted/20 p-3">
-                {distributorsList && distributorsList.length > 0 ? (
+                {distributorsForCabinet && distributorsForCabinet.length > 0 ? (
                   <div className="space-y-1">
-                    {distributorsList.map((dist) => (
+                    {distributorsForCabinet.map((dist) => (
                       <div key={dist.id} className="text-sm text-foreground">
                         {dist.name}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">No distributors available</p>
+                  <p className="text-xs text-muted-foreground">Not active on any distributors yet</p>
                 )}
               </div>
             </div>
@@ -1946,7 +1948,7 @@ function EditModal({
                 <span className="font-semibold text-sm">All distributors</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Replace the master image — applies to {distributorsList?.length ?? 3} distributor lines
+                Replace the master image — applies to {distributorsForCabinet?.length ?? 3} distributor lines
               </p>
             </button>
             <button
