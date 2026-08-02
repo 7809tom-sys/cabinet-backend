@@ -1964,5 +1964,5 @@
 - [x] Wire merge button to open dialog and execute merge
 - [x] Simplify merge dialog to show only cabinet codes (mobile-friendly)
 - [x] Auto-open edit screen after merge completes so user can fix config
-- [ ] Test merge workflow on mobile
-- [ ] Save checkpoint
+- [x] Test merge workflow on mobile
+- [x] Save checkpoint

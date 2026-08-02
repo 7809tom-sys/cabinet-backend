@@ -64,7 +64,7 @@ import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
 import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
-import GenericCabinetsAdmin from "@/components/admin/GenericCabinetsAdmin";
+
 import CatalogImporterTab from "@/components/admin/CatalogImporterTab";
 import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
@@ -480,7 +480,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
         <TabsContent value="merge-suggestions" className="mt-6"><PotentialMergesAdmin /></TabsContent>
         <TabsContent value="master-sku" className="mt-6"><MasterSkuAdmin /></TabsContent>
-        <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /><div className="mt-8 border-t border-border pt-6"><GenericCabinetsAdmin /></div></TabsContent>
+        <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
         <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
         <TabsContent value="bundle-deals" className="mt-6"><BundleDealsAdmin /></TabsContent>
