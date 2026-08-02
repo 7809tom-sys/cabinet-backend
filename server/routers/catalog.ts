@@ -2821,6 +2821,51 @@ export const cabinetsRouter = router({
       return { updated: input.skuIds.length };
     }),
 
+  // ─── Admin: Merge two cabinets (one becomes alias of the other) ───────────────
+  mergeCabinets: adminProcedure
+    .input(
+      z.object({
+        masterCabinetId: z.number().int().positive(),
+        aliasCabinetId: z.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      
+      if (input.masterCabinetId === input.aliasCabinetId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot merge a cabinet with itself" });
+      }
+
+      // Get both cabinets
+      const [master, alias] = await Promise.all([
+        db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.masterCabinetId)).limit(1),
+        db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.aliasCabinetId)).limit(1),
+      ]);
+
+      if (!master || !master[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Master cabinet not found" });
+      if (!alias || !alias[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Alias cabinet not found" });
+
+      const masterCode = master[0].masterCode;
+      const aliasCode = alias[0].masterCode;
+
+      if (!masterCode || !aliasCode) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Both cabinets must have master codes" });
+      }
+
+      // Create alias record: aliasCode points to masterCode
+      await db.insert(cabinetAliases)
+        .values({ cabinetId: input.masterCabinetId, alias: aliasCode })
+        .onDuplicateKeyUpdate({ set: { cabinetId: input.masterCabinetId } });
+
+      return { 
+        ok: true,
+        masterCode,
+        aliasCode,
+        message: `${aliasCode} is now an alias of ${masterCode}`,
+      };
+    }),
+
 });
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
@@ -3869,51 +3914,6 @@ export const pricingRouter = router({
       const suffix = parts.length > 0 ? parts.join("-") : "full";
       const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
       return { xlsx, filename, counts };
-    }),
-
-  // ─── Admin: Merge two cabinets (one becomes alias of the other) ───────────────
-  mergeCabinets: adminProcedure
-    .input(
-      z.object({
-        masterCabinetId: z.number().int().positive(),
-        aliasCabinetId: z.number().int().positive(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      
-      if (input.masterCabinetId === input.aliasCabinetId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot merge a cabinet with itself" });
-      }
-
-      // Get both cabinets
-      const [master, alias] = await Promise.all([
-        db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.masterCabinetId)).limit(1),
-        db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.aliasCabinetId)).limit(1),
-      ]);
-
-      if (!master || !master[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Master cabinet not found" });
-      if (!alias || !alias[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Alias cabinet not found" });
-
-      const masterCode = master[0].masterCode;
-      const aliasCode = alias[0].masterCode;
-
-      if (!masterCode || !aliasCode) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Both cabinets must have master codes" });
-      }
-
-      // Create alias record: aliasCode points to masterCode
-      await db.insert(cabinetAliases)
-        .values({ cabinetId: input.masterCabinetId, alias: aliasCode })
-        .onDuplicateKeyUpdate({ set: { cabinetId: input.masterCabinetId } });
-
-      return { 
-        ok: true,
-        masterCode,
-        aliasCode,
-        message: `${aliasCode} is now an alias of ${masterCode}`,
-      };
     }),
 
 });

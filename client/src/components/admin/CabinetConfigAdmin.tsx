@@ -1065,6 +1065,25 @@ function EditModal({
                 </Select>
               </div>
             </div>
+
+            {/* Distributors that carry this cabinet */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Distributors</Label>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                {distributorsList && distributorsList.length > 0 ? (
+                  <div className="space-y-1">
+                    {distributorsList.map((dist) => (
+                      <div key={dist.id} className="text-sm text-foreground">
+                        {dist.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No distributors available</p>
+                )}
+              </div>
+            </div>
+
             {/* Not a cabinet */}
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
               <div>

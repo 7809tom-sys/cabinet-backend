@@ -1966,3 +1966,7 @@
 - [x] Auto-open edit screen after merge completes so user can fix config
 - [x] Test merge workflow on mobile
 - [x] Save checkpoint
+- [ ] Remove duplicate GenericCabinetsAdmin list (DONE - now shows single 589 cabinet list)
+- [ ] Add distributor information to cabinet edit dialog
+- [ ] Fix merge procedure - still showing "No procedure found" error
+- [ ] Test merge works end-to-end on phone
