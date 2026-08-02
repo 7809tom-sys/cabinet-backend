@@ -24,6 +24,7 @@ export interface PafProduct {
   numberOfDrawers?: number;
   listPrice?: number;
   imageUrl?: string; // relative path in zip
+  catalogImageUrl?: string; // S3 URL after upload
   options?: PafOption[];
   cabinetStyle?: string; // closedDoors | openShelf | glass | etc
   productType?: string; // standard | endCap | corner | specialty | accessory

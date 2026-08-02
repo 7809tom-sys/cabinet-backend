@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -2032,6 +2033,9 @@ export function CabinetConfigAdmin() {
   const [verifiedFilter, setVerifiedFilter] = useState<"all" | "verified" | "unverified">("all");
   const [page, setPage] = useState(0);
   const [editRow, setEditRow] = useState<CabinetRow | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeDirection, setMergeDirection] = useState<"keep-first" | "keep-second">("keep-first");
 
   const utils = trpc.useUtils();
 
@@ -2069,6 +2073,30 @@ export function CabinetConfigAdmin() {
     },
     [utils]
   );
+
+  const mergeMutation = trpc.cabinets.mergeCabinets.useMutation({
+    onSuccess: (result: any) => {
+      setSelected(new Set());
+      setMergeDialogOpen(false);
+      utils.cabinets.adminListCabinetConfig.invalidate();
+      toast.success(`${result.aliasCode} is now an alias of ${result.masterCode}`);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to merge cabinets");
+    },
+  });
+
+  const selectedArray = Array.from(selected);
+  const canMerge = selectedArray.length === 2;
+  const selectedRows = canMerge ? rows.filter(r => selectedArray.includes(r.id)) : [];
+
+  const handleMerge = () => {
+    if (selectedRows.length !== 2) return;
+    const [first, second] = selectedRows;
+    const masterCabinetId = mergeDirection === "keep-first" ? first.id : second.id;
+    const aliasCabinetId = mergeDirection === "keep-first" ? second.id : first.id;
+    mergeMutation.mutate({ masterCabinetId, aliasCabinetId });
+  };
 
   return (
     <div className="space-y-4">
@@ -2129,6 +2157,22 @@ export function CabinetConfigAdmin() {
         </Button>
       </div>
 
+      {/* Merge button */}
+      {canMerge && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setMergeDialogOpen(true)}
+            disabled={mergeMutation.isPending}
+            className="gap-1.5"
+          >
+            {mergeMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            Merge {selectedArray.length} Items
+          </Button>
+        </div>
+      )}
+
       {/* Progress summary */}
       {!unconfiguredOnly && rows.length > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2147,6 +2191,15 @@ export function CabinetConfigAdmin() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-8">
+                  <Checkbox
+                    checked={selected.size === rows.length && rows.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) setSelected(new Set(rows.map(r => r.id)));
+                      else setSelected(new Set());
+                    }}
+                  />
+                </th>
                 <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-24">Preview</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Code</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
@@ -2170,13 +2223,23 @@ export function CabinetConfigAdmin() {
                   <tr
                     key={row.id}
                     className={cn(
-                      "border-b border-border last:border-0 transition-colors cursor-pointer group",
+                      "border-b border-border last:border-0 transition-colors group",
                       i % 2 === 0 ? "bg-background" : "bg-muted/20",
-                      "hover:bg-primary/5 active:bg-primary/10"
+                      selected.has(row.id) ? "bg-primary/10" : "hover:bg-primary/5 active:bg-primary/10"
                     )}
-                    onClick={() => setEditRow(row as CabinetRow)}
                   >
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(row.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selected);
+                          if (checked) newSelected.add(row.id);
+                          else newSelected.delete(row.id);
+                          setSelected(newSelected);
+                        }}
+                      />
+                    </td>
+                    <td className="px-3 py-2.5 cursor-pointer" onClick={() => setEditRow(row as CabinetRow)}>
                       <div className="flex items-center gap-1">
                         {/* Catalog image thumbnail */}
                         <div className="w-10 h-10 rounded border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
@@ -2287,6 +2350,57 @@ export function CabinetConfigAdmin() {
           onSaved={handleSaved}
         />
       )}
+
+      {/* Merge Dialog */}
+      <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Merge Cabinets</DialogTitle>
+          </DialogHeader>
+          {selectedRows.length === 2 && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Select which cabinet will be the master. The other will become an alias.
+              </p>
+              <div className="space-y-2">
+                <div
+                  className={cn(
+                    "p-3 rounded border-2 cursor-pointer transition-colors",
+                    mergeDirection === "keep-first"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  onClick={() => setMergeDirection("keep-first")}
+                >
+                  <div className="font-mono font-semibold text-sm">{selectedRows[0].masterCode}</div>
+                  <div className="text-xs text-muted-foreground">{selectedRows[0].description}</div>
+                  <div className="text-xs text-green-600 mt-1">Master (keep this one)</div>
+                </div>
+                <div
+                  className={cn(
+                    "p-3 rounded border-2 cursor-pointer transition-colors",
+                    mergeDirection === "keep-second"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  onClick={() => setMergeDirection("keep-second")}
+                >
+                  <div className="font-mono font-semibold text-sm">{selectedRows[1].masterCode}</div>
+                  <div className="text-xs text-muted-foreground">{selectedRows[1].description}</div>
+                  <div className="text-xs text-amber-600 mt-1">Becomes alias</div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleMerge} disabled={mergeMutation.isPending}>
+              {mergeMutation.isPending ? <Spinner className="h-3.5 w-3.5 mr-1" /> : null}
+              Merge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

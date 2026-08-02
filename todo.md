@@ -1954,3 +1954,13 @@
   - [x] Open shelf end caps marked as endCap placement type
 - [x] Test with Ashford BES12, BEC24, SGH30 to verify correct rendering
 - [x] Save checkpoint
+
+
+## Feature: Cabinet Merge UI in Config Admin (Aug 2026)
+- [x] Add mergeCabinets tRPC procedure to cabinets router (takes masterCabinetId, aliasId, returns success)
+- [x] Add checkboxes to CabinetConfigAdmin table for row selection
+- [x] Add "Merge" button that appears when exactly 2 items are selected
+- [x] Create MergeDialog component with master/alias designation
+- [x] Wire merge button to open dialog and execute merge
+- [ ] Test merge creates alias record and both codes find same product
+- [ ] Save checkpoint
