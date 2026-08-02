@@ -2080,6 +2080,14 @@ export function CabinetConfigAdmin() {
       setMergeDialogOpen(false);
       utils.cabinets.adminListCabinetConfig.invalidate();
       toast.success(`${result.aliasCode} is now an alias of ${result.masterCode}`);
+      // Auto-open edit screen for the master cabinet
+      const masterCabinet = selectedRows.find(r => 
+        (mergeDirection === "keep-first" && r.id === selectedRows[0].id) ||
+        (mergeDirection === "keep-second" && r.id === selectedRows[1].id)
+      );
+      if (masterCabinet) {
+        setTimeout(() => setEditRow(masterCabinet as CabinetRow), 300);
+      }
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to merge cabinets");
@@ -2351,51 +2359,44 @@ export function CabinetConfigAdmin() {
         />
       )}
 
-      {/* Merge Dialog */}
+      {/* Merge Dialog - Simplified for mobile */}
       <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-sm p-4">
           <DialogHeader>
-            <DialogTitle>Merge Cabinets</DialogTitle>
+            <DialogTitle className="text-lg">Which is Master?</DialogTitle>
           </DialogHeader>
           {selectedRows.length === 2 && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Select which cabinet will be the master. The other will become an alias.
-              </p>
-              <div className="space-y-2">
-                <div
-                  className={cn(
-                    "p-3 rounded border-2 cursor-pointer transition-colors",
-                    mergeDirection === "keep-first"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                  onClick={() => setMergeDirection("keep-first")}
-                >
-                  <div className="font-mono font-semibold text-sm">{selectedRows[0].masterCode}</div>
-                  <div className="text-xs text-muted-foreground">{selectedRows[0].description}</div>
-                  <div className="text-xs text-green-600 mt-1">Master (keep this one)</div>
-                </div>
-                <div
-                  className={cn(
-                    "p-3 rounded border-2 cursor-pointer transition-colors",
-                    mergeDirection === "keep-second"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  )}
-                  onClick={() => setMergeDirection("keep-second")}
-                >
-                  <div className="font-mono font-semibold text-sm">{selectedRows[1].masterCode}</div>
-                  <div className="text-xs text-muted-foreground">{selectedRows[1].description}</div>
-                  <div className="text-xs text-amber-600 mt-1">Becomes alias</div>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <button
+                className={cn(
+                  "w-full p-4 rounded-lg border-2 text-left transition-all",
+                  mergeDirection === "keep-first"
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-300"
+                )}
+                onClick={() => setMergeDirection("keep-first")}
+              >
+                <div className="font-mono font-bold text-base">{selectedRows[0].masterCode}</div>
+                <div className="text-sm text-gray-600 mt-1 line-clamp-2">{selectedRows[0].description}</div>
+              </button>
+              <button
+                className={cn(
+                  "w-full p-4 rounded-lg border-2 text-left transition-all",
+                  mergeDirection === "keep-second"
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-300"
+                )}
+                onClick={() => setMergeDirection("keep-second")}
+              >
+                <div className="font-mono font-bold text-base">{selectedRows[1].masterCode}</div>
+                <div className="text-sm text-gray-600 mt-1 line-clamp-2">{selectedRows[1].description}</div>
+              </button>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMergeDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleMerge} disabled={mergeMutation.isPending}>
-              {mergeMutation.isPending ? <Spinner className="h-3.5 w-3.5 mr-1" /> : null}
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setMergeDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleMerge} disabled={mergeMutation.isPending} className="w-full sm:w-auto">
+              {mergeMutation.isPending ? <Spinner className="h-4 w-4 mr-2" /> : null}
               Merge
             </Button>
           </DialogFooter>

@@ -1962,5 +1962,7 @@
 - [x] Add "Merge" button that appears when exactly 2 items are selected
 - [x] Create MergeDialog component with master/alias designation
 - [x] Wire merge button to open dialog and execute merge
-- [ ] Test merge creates alias record and both codes find same product
+- [x] Simplify merge dialog to show only cabinet codes (mobile-friendly)
+- [x] Auto-open edit screen after merge completes so user can fix config
+- [ ] Test merge workflow on mobile
 - [ ] Save checkpoint
