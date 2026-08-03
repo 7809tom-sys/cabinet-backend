@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { CheckCircle, Upload, Eye, RefreshCw } from "lucide-react";
 
 interface PafProduct {
   code: string;
@@ -30,6 +31,44 @@ export default function CatalogImporterTab() {
     status: string;
     message: string;
   } | null>(null);
+
+  // ── Apply Master Catalog CSV ─────────────────────────────────────────────
+  const [masterCsvFile, setMasterCsvFile] = useState<File | null>(null);
+  const [masterCsvText, setMasterCsvText] = useState<string | null>(null);
+  const [masterPreview, setMasterPreview] = useState<{
+    updated: number; notFound: number; skipped: number; notFoundCodes: string[];
+  } | null>(null);
+  const [masterApplying, setMasterApplying] = useState(false);
+  const [masterResult, setMasterResult] = useState<{
+    updated: number; notFound: number; skipped: number;
+  } | null>(null);
+  const applyMasterCatalog = trpc.catalogImport.applyMasterCatalog.useMutation();
+  const handleMasterCsvSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) { toast.error("Please select a .csv file"); return; }
+    setMasterCsvFile(file); setMasterPreview(null); setMasterResult(null);
+    setMasterCsvText(await file.text());
+    toast.success(`Loaded: ${file.name} — click Preview to check before applying`);
+  };
+  const handleMasterPreview = async () => {
+    if (!masterCsvText) return;
+    setMasterApplying(true);
+    try { setMasterPreview(await applyMasterCatalog.mutateAsync({ csvText: masterCsvText, dryRun: true })); }
+    catch (err) { toast.error(`Preview failed: ${err instanceof Error ? err.message : String(err)}`); }
+    finally { setMasterApplying(false); }
+  };
+  const handleMasterApply = async () => {
+    if (!masterCsvText) return;
+    setMasterApplying(true); setMasterResult(null);
+    try {
+      const result = await applyMasterCatalog.mutateAsync({ csvText: masterCsvText, dryRun: false });
+      setMasterResult(result); setMasterPreview(null); setMasterCsvFile(null); setMasterCsvText(null);
+      toast.success(`✅ Applied! ${result.updated} cabinets updated.`);
+    } catch (err) { toast.error(`Apply failed: ${err instanceof Error ? err.message : String(err)}`); }
+    finally { setMasterApplying(false); }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const initializeImport = trpc.catalogImport.initializeImport.useMutation();
   const executeImport = trpc.catalogImport.executeImport.useMutation();
@@ -142,6 +181,52 @@ export default function CatalogImporterTab() {
 
   return (
     <div className="space-y-8">
+      {/* ── Apply Master Catalog CSV ── */}
+      <Card className="p-6 space-y-5 border-2 border-amber-200 bg-amber-50/40">
+        <div className="flex items-start gap-3">
+          <RefreshCw className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="text-lg font-semibold text-amber-900">Apply Master Catalog CSV</h3>
+            <p className="text-sm text-amber-700 mt-0.5">Upload the master catalog CSV to update descriptions, categories, dimensions, door/drawer counts, and graphic types for all matching cabinets.</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="master-csv-file" className="text-amber-900 font-medium">Master Catalog CSV File</Label>
+          <Input id="master-csv-file" type="file" accept=".csv" onChange={handleMasterCsvSelect} disabled={masterApplying} className="bg-white border-amber-300" />
+          {masterCsvFile && <p className="text-sm text-amber-700">📄 {masterCsvFile.name} ({(masterCsvFile.size / 1024).toFixed(1)} KB)</p>}
+        </div>
+        {masterPreview && (
+          <div className="rounded-lg border border-amber-300 bg-white p-4 space-y-3">
+            <p className="font-semibold text-amber-900">Preview — no changes made yet</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-md bg-green-50 border border-green-200 p-3"><p className="text-2xl font-bold text-green-700">{masterPreview.updated}</p><p className="text-xs text-green-600 mt-0.5">Will update</p></div>
+              <div className="rounded-md bg-red-50 border border-red-200 p-3"><p className="text-2xl font-bold text-red-700">{masterPreview.notFound}</p><p className="text-xs text-red-600 mt-0.5">Not in DB</p></div>
+              <div className="rounded-md bg-gray-50 border border-gray-200 p-3"><p className="text-2xl font-bold text-gray-600">{masterPreview.skipped}</p><p className="text-xs text-gray-500 mt-0.5">Skipped</p></div>
+            </div>
+            {masterPreview.notFoundCodes.length > 0 && (
+              <div className="text-xs text-red-600 bg-red-50 rounded p-2">
+                <span className="font-medium">Not found: </span>{masterPreview.notFoundCodes.slice(0, 10).join(", ")}{masterPreview.notFoundCodes.length > 10 && ` … +${masterPreview.notFoundCodes.length - 10} more`}
+              </div>
+            )}
+          </div>
+        )}
+        {masterResult && (
+          <div className="rounded-lg border border-green-300 bg-green-50 p-4 flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+            <div><p className="font-semibold text-green-800">Applied successfully</p><p className="text-sm text-green-700">{masterResult.updated} updated · {masterResult.notFound} not found · {masterResult.skipped} skipped</p></div>
+          </div>
+        )}
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleMasterPreview} disabled={!masterCsvFile || masterApplying} className="flex-1 border-amber-400 text-amber-800 hover:bg-amber-100">
+            {masterApplying && !masterPreview ? <><Spinner className="h-4 w-4 mr-2" />Previewing…</> : <><Eye className="h-4 w-4 mr-2" />Preview Changes</>}
+          </Button>
+          <Button onClick={handleMasterApply} disabled={!masterCsvFile || masterApplying || !masterPreview} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
+            {masterApplying && masterPreview ? <><Spinner className="h-4 w-4 mr-2" />Applying…</> : <><Upload className="h-4 w-4 mr-2" />Apply to Database</>}
+          </Button>
+        </div>
+        <p className="text-xs text-amber-600">Always preview before applying. Updates all matching cabinets by their Code.</p>
+      </Card>
+
       {/* Upload Form */}
       <Card className="p-6 space-y-6">
         <div>

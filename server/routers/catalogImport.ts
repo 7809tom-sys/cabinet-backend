@@ -3,7 +3,7 @@ import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
-import { catalogImports } from "../../drizzle/schema";
+import { catalogImports, cabinets } from "../../drizzle/schema";
 import { importPafProducts } from "../lib/catalogImportLogic";
 import type { PafProduct } from "../lib/pafXmlParser";
 import { emailSettings } from "../../drizzle/schema";
@@ -518,5 +518,125 @@ export const catalogImportRouter = router({
         });
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `CSV import failed: ${errorMsg}` });
       }
+    }),
+  applyMasterCatalog: adminProcedure
+    .input(z.object({
+      csvText: z.string().min(1),
+      dryRun: z.boolean().default(false),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // CSV parser (handles quoted fields)
+      function parseCsvLine(line: string): string[] {
+        const fields: string[] = [];
+        let cur = "";
+        let inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+            else inQuote = !inQuote;
+          } else if (ch === ',' && !inQuote) {
+            fields.push(cur.trim());
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        fields.push(cur.trim());
+        return fields;
+      }
+
+      const lines = input.csvText.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "CSV has no data rows" });
+
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, ""));
+      const colIdx = (names: string[]) => {
+        for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; }
+        return -1;
+      };
+
+      const codeCol    = colIdx(["code"]);
+      const descCol    = colIdx(["description"]);
+      const catCol     = colIdx(["category"]);
+      const subCatCol  = colIdx(["subcategory"]);
+      const wCol       = colIdx(["width"]);
+      const hCol       = colIdx(["height"]);
+      const dCol       = colIdx(["depth"]);
+      const doorsCol   = colIdx(["doors", "numberofdoors"]);
+      const drawCol    = colIdx(["drawers", "numberofdrawers"]);
+      const gtCol      = colIdx(["graphictype"]);
+
+      if (codeCol < 0) throw new TRPCError({ code: "BAD_REQUEST", message: "CSV missing 'Code' column" });
+
+      const CAT_MAP: Record<string, string> = {
+        base: "Base", wall: "Wall", tall: "Tall", vanity: "Vanity",
+        ada: "ADA", accessory: "Accessory", molding: "Molding",
+        filler: "Filler", panel: "Panel",
+      };
+
+      let updated = 0;
+      let notFound = 0;
+      let skipped = 0;
+      const notFoundCodes: string[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i]);
+        const code = cols[codeCol]?.trim();
+        if (!code) { skipped++; continue; }
+
+        const toNum = (idx: number) => {
+          if (idx < 0) return null;
+          const v = parseFloat(cols[idx] ?? "");
+          return isNaN(v) ? null : v;
+        };
+        const toInt = (idx: number) => {
+          if (idx < 0) return null;
+          const v = parseInt(cols[idx] ?? "", 10);
+          return isNaN(v) ? null : v;
+        };
+        const toStr = (idx: number) => idx >= 0 ? (cols[idx]?.trim() || null) : null;
+
+        const rawCat = toStr(catCol);
+        const category = rawCat ? (CAT_MAP[rawCat.toLowerCase()] ?? rawCat) : null;
+        const description = toStr(descCol);
+        const subCategory = toStr(subCatCol);
+        const width = toNum(wCol);
+        const height = toNum(hCol);
+        const depth = toNum(dCol);
+        const numberOfDoors = toInt(doorsCol);
+        const numberOfDrawers = toInt(drawCol);
+        const graphicType = toStr(gtCol);
+
+        if (input.dryRun) {
+          // Just check if the cabinet exists
+          const existing = await db.select({ id: cabinets.id }).from(cabinets).where(eq(cabinets.masterCode, code)).limit(1);
+          if (existing.length > 0) { updated++; } else { notFound++; notFoundCodes.push(code); }
+          continue;
+        }
+
+        const result = await db.update(cabinets).set({
+          ...(description !== null && { description }),
+          ...(category !== null && { category }),
+          subCategory,
+          ...(width !== null && { width: String(width) }),
+          ...(height !== null && { height: String(height) }),
+          ...(depth !== null && { depth: String(depth) }),
+          ...(numberOfDoors !== null && { numberOfDoors }),
+          ...(numberOfDrawers !== null && { numberOfDrawers }),
+          graphicType,
+        }).where(eq(cabinets.masterCode, code));
+
+        if ((result as any)[0]?.affectedRows > 0 || result) {
+          updated++;
+        } else {
+          notFound++;
+          if (notFoundCodes.length < 20) notFoundCodes.push(code);
+        }
+      }
+
+      return { updated, notFound, skipped, notFoundCodes, dryRun: input.dryRun };
     }),
 });
