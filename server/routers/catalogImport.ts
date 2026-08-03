@@ -412,4 +412,111 @@ export const catalogImportRouter = router({
         });
       }
     }),
+  /**
+   * Import from master catalog CSV (the format exported by the website).
+   * Columns: Code, Description, Category, SubCategory, Width, Height, Depth,
+   *          Doors, Drawers, GraphicType, LinesWithSKU
+   * This allows the round-trip: download CSV → edit → re-upload.
+   */
+  importMasterCsv: adminProcedure
+    .input(
+      z.object({
+        csvText: z.string().min(1),
+        distributorId: z.number(),
+        preservePricing: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Parse CSV — handle quoted fields with embedded commas/newlines
+      function parseCsvLine(line: string): string[] {
+        const fields: string[] = [];
+        let cur = "";
+        let inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+            else inQuote = !inQuote;
+          } else if (ch === ',' && !inQuote) {
+            fields.push(cur.trim());
+            cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        fields.push(cur.trim());
+        return fields;
+      }
+
+      const lines = input.csvText.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "CSV has no data rows" });
+
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, ""));
+      const colIdx = (names: string[]) => {
+        for (const n of names) {
+          const i = headers.indexOf(n);
+          if (i >= 0) return i;
+        }
+        return -1;
+      };
+
+      const codeCol   = colIdx(["code"]);
+      const descCol   = colIdx(["description"]);
+      const catCol    = colIdx(["category"]);
+      const subCatCol = colIdx(["subcategory"]);
+      const wCol      = colIdx(["width"]);
+      const hCol      = colIdx(["height"]);
+      const dCol      = colIdx(["depth"]);
+      const doorsCol  = colIdx(["doors", "numberofdoors"]);
+      const drawCol   = colIdx(["drawers", "numberofdrawers"]);
+
+      if (codeCol < 0) throw new TRPCError({ code: "BAD_REQUEST", message: "CSV missing 'Code' column" });
+
+      const products: PafProduct[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i]);
+        const code = cols[codeCol]?.trim();
+        if (!code) continue;
+        const toNum = (idx: number) => {
+          if (idx < 0) return undefined;
+          const v = parseFloat(cols[idx] ?? "");
+          return isNaN(v) ? undefined : v;
+        };
+        products.push({
+          code,
+          description: descCol >= 0 ? (cols[descCol] ?? "") : "",
+          category: catCol >= 0 ? (cols[catCol] ?? "") : "",
+          width: toNum(wCol),
+          height: toNum(hCol),
+          depth: toNum(dCol),
+          numberOfDoors: toNum(doorsCol),
+          numberOfDrawers: toNum(drawCol),
+        });
+      }
+
+      if (products.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "No valid rows found in CSV" });
+
+      try {
+        const stats = await importPafProducts(input.distributorId, products, input.preservePricing);
+        await sendImportNotification({
+          fileName: "master-catalog.csv",
+          distributorId: input.distributorId,
+          status: "completed",
+          created: stats.created,
+          updated: stats.updated,
+          skipped: stats.skipped,
+          errors: stats.errors.length,
+        });
+        return { success: true, stats };
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        await sendImportNotification({
+          fileName: "master-catalog.csv",
+          distributorId: input.distributorId,
+          status: "failed",
+          errorMessage: errorMsg,
+        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `CSV import failed: ${errorMsg}` });
+      }
+    }),
 });

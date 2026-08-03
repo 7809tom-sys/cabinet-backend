@@ -208,6 +208,41 @@ export default function AdminCatalogImport() {
   const initializeImport = trpc.catalogImport.initializeImport.useMutation();
   const executeImport = trpc.catalogImport.executeImport.useMutation();
   const uploadImage = trpc.catalogImport.uploadImage.useMutation();
+  const importMasterCsv = trpc.catalogImport.importMasterCsv.useMutation();
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvProcessing, setCsvProcessing] = useState(false);
+
+  const handleCsvSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setCsvFile(file);
+  };
+
+  const handleCsvImport = async () => {
+    if (!csvFile || !distributorId) return;
+    setCsvProcessing(true);
+    setImportResult(null);
+    try {
+      const csvText = await csvFile.text();
+      const result = await importMasterCsv.mutateAsync({
+        csvText,
+        distributorId: Number(distributorId),
+        preservePricing,
+      });
+      setImportResult({
+        created: result.stats.created,
+        updated: result.stats.updated,
+        skipped: result.stats.skipped,
+        errors: result.stats.errors.length,
+        fileName: csvFile.name,
+      });
+      toast.success("CSV import complete!");
+    } catch (err: any) {
+      toast.error(err.message ?? "CSV import failed");
+    } finally {
+      setCsvProcessing(false);
+    }
+  };
+
   const listImports = trpc.catalogImport.listImports.useQuery(
     { distributorId: Number(distributorId) },
     { enabled: distributorId !== "" }
@@ -476,6 +511,34 @@ export default function AdminCatalogImport() {
             {selectedFile && (
               <p className="text-sm text-gray-600">Selected: {selectedFile.name}</p>
             )}
+          </div>
+
+          {/* ── Master Catalog CSV upload ── */}
+          <div className="border-t pt-4 space-y-2">
+            <Label htmlFor="csvfile" className="font-semibold">
+              Or upload Master Catalog CSV
+            </Label>
+            <p className="text-xs text-gray-500">
+              Upload the CSV exported from this site (Admin → Export Catalog). Columns: Code, Description, Category, Width, Height, Depth, Doors, Drawers.
+            </p>
+            <Input
+              id="csvfile"
+              type="file"
+              accept=".csv"
+              onChange={handleCsvSelect}
+              disabled={csvProcessing || isProcessing}
+            />
+            {csvFile && (
+              <p className="text-sm text-gray-600">Selected: {csvFile.name}</p>
+            )}
+            <Button
+              onClick={handleCsvImport}
+              disabled={!csvFile || !distributorId || csvProcessing || isProcessing}
+              variant="outline"
+              className="w-full"
+            >
+              {csvProcessing ? "Importing CSV..." : "Import Master Catalog CSV"}
+            </Button>
           </div>
 
           <div className="flex items-center space-x-2">
