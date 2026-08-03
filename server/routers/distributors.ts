@@ -737,6 +737,9 @@ export const distributorImportRouter = router({
       const SUBCAT_PATTERNS = /sub.?cat/i;
       const DESC_PATTERNS = /description|^desc$|^name$/i;
       const DIM_PATTERNS = /dimension|^dim$|^size$|w.?h.?d/i;
+      const WIDTH_PATTERNS = /^width$|^w$|^wd$/i;
+      const HEIGHT_PATTERNS = /^height$|^h$|^ht$/i;
+      const DEPTH_PATTERNS = /^depth$|^d$|^dp$/i;
       const ASSEMBLE_PATTERNS = /^assemble$|^assembled$|^assembly$/i;
       const WEIGHT_PATTERNS = /^weight$|^wt$|^lbs?$|^weight.?lbs?$/i;
 
@@ -771,6 +774,12 @@ export const distributorImportRouter = router({
             role = "description";
           } else if (DIM_PATTERNS.test(normalized)) {
             role = "dimensions";
+          } else if (WIDTH_PATTERNS.test(normalized)) {
+            role = "dimWidth";
+          } else if (HEIGHT_PATTERNS.test(normalized)) {
+            role = "dimHeight";
+          } else if (DEPTH_PATTERNS.test(normalized)) {
+            role = "dimDepth";
           } else if (ASSEMBLE_PATTERNS.test(normalized)) {
             role = "assemble";
           } else if (WEIGHT_PATTERNS.test(normalized)) {
@@ -863,7 +872,7 @@ export const distributorImportRouter = router({
       distributorId: z.number(),
       columnMapping: z.array(z.object({
         colIdx: z.number(),
-        role: z.enum(["sku", "category", "subCategory", "description", "dimensions", "priceStyle", "assemble", "weight", "ignore"]),
+        role: z.enum(["sku", "category", "subCategory", "description", "dimensions", "dimWidth", "dimHeight", "dimDepth", "priceStyle", "assemble", "weight", "ignore"]),
         styleId: z.number().optional(),
       })),
       // Admin-selected cabinet overrides: rowNum (1-based, same as previewRows.rowNum) → cabinetId
@@ -898,6 +907,9 @@ export const distributorImportRouter = router({
       const subCatCol = input.columnMapping.find((c) => c.role === "subCategory")?.colIdx ?? -1;
       const descCol = input.columnMapping.find((c) => c.role === "description")?.colIdx ?? -1;
       const dimCol = input.columnMapping.find((c) => c.role === "dimensions")?.colIdx ?? -1;
+      const dimWidthCol = input.columnMapping.find((c) => c.role === "dimWidth")?.colIdx ?? -1;
+      const dimHeightCol = input.columnMapping.find((c) => c.role === "dimHeight")?.colIdx ?? -1;
+      const dimDepthCol = input.columnMapping.find((c) => c.role === "dimDepth")?.colIdx ?? -1;
       const assembleCol = input.columnMapping.find((c) => c.role === "assemble")?.colIdx ?? -1;
       const weightCol = input.columnMapping.find((c) => c.role === "weight")?.colIdx ?? -1;
       const priceCols = input.columnMapping.filter((c) => c.role === "priceStyle" && c.styleId != null);
@@ -1067,6 +1079,12 @@ export const distributorImportRouter = router({
           ? parseDims(dimCellEdit)
           : dimCol >= 0
           ? parseDims(String(row[dimCol] ?? ""))
+          : (dimWidthCol >= 0 || dimHeightCol >= 0 || dimDepthCol >= 0)
+          ? {
+              width: dimWidthCol >= 0 ? String(row[dimWidthCol] ?? "").trim() || null : null,
+              height: dimHeightCol >= 0 ? String(row[dimHeightCol] ?? "").trim() || null : null,
+              depth: dimDepthCol >= 0 ? String(row[dimDepthCol] ?? "").trim() || null : null,
+            }
           : parseDimsFromDesc(description);
         // Assemble flag
         const assembleVal = assembleCol >= 0 ? String(row[assembleCol] ?? "").trim() : null;
