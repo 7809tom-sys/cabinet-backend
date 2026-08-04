@@ -726,7 +726,7 @@ function Footer() {
   return (
     <footer className="bg-[var(--color-navy)] text-white/70">
       <div className="container py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-10">
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-xs">
@@ -739,26 +739,6 @@ function Footer() {
             <p className="text-sm leading-relaxed">
               {t("home_footer_blurb")}
             </p>
-          </div>
-
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_catalog")}</div>
-            <ul className="space-y-2 text-sm">
-              {[
-                { label: t("home_cat_base_t"), key: "Base" },
-                { label: t("home_cat_wall_t"), key: "Wall" },
-                { label: t("home_cat_tall_t"), key: "Tall" },
-                { label: t("home_cat_ada_t"), key: "ADA" },
-                { label: t("home_cat_vanity_t"), key: "Vanity" },
-                { label: t("home_cat_accessory_t"), key: "Accessory" },
-              ].map((item) => (
-                <li key={item.key}>
-                  <Link href={`/catalog?category=${item.key}`} className="hover:text-white transition-colors">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div>
