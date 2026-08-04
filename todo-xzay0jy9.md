@@ -65,3 +65,10 @@
 - [ ] Fix missing toe kick on base cabinets in elevation view (should show 4.5" toe kick space at bottom)
 - [ ] Fix 2-drawer base (2DB) showing uneven drawers — should show 2 equal-height drawer fronts
 - [ ] Investigate Hickory door style frame appearance in elevation view
+
+## Hide Merged/Aliased Cabinets from Admin Cabinet List
+
+- [x] Research: confirmed skuMasterAliases.aliasCode stores the merged-away cabinet's masterCode
+- [x] Add NOT IN (SELECT aliasCode FROM sku_master_aliases) filter to adminListCabinetConfig procedure
+- [x] TypeScript check passes — no errors
+- [x] Save checkpoint and deploy
