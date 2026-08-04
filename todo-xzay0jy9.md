@@ -34,15 +34,15 @@
 
 ## 20/20 Catalog Update Flow
 
-- [ ] Audit what fields are refreshed when an existing product is re-imported via 20/20 catalog
-- [ ] Improve update path if needed and surface update details in the import result card
-- [ ] Deploy and confirm
+- [x] Audit what fields are refreshed when an existing product is re-imported via 20/20 catalog
+- [x] Update path already refreshes: description, category, placementType, width, height, depth, numberOfDoors, numberOfDrawers, cabinetStyle, productType, catalogImageUrl (if empty) — no changes needed
+- [x] Deploy and confirm — no code changes required
 
 ## Elevation View Cabinet Borders
 
-- [ ] Find the elevation renderer code that draws cabinet borders/frames
-- [ ] Remove the unwanted border outlines around cabinets in elevation view
-- [ ] Deploy and confirm
+- [x] Find the elevation renderer code that draws cabinet borders/frames — outer box has border:none; the "border" was the black horizontal rail line from fake drawer bands
+- [x] Remove the unwanted border outlines — fixed in v69d41372: numberOfDrawers=0 override eliminates fake drawer rail lines on plain door cabinets
+- [x] Deploy and confirm — deployed in v69d41372
 
 ## Tall Cabinet 2D Rendering Fix
 
@@ -62,9 +62,9 @@
 
 ## Elevation View Rendering Fixes
 
-- [ ] Fix missing toe kick on base cabinets in elevation view (should show 4.5" toe kick space at bottom)
-- [ ] Fix 2-drawer base (2DB) showing uneven drawers — should show 2 equal-height drawer fronts
-- [ ] Investigate Hickory door style frame appearance in elevation view
+- [x] Fix missing toe kick on base cabinets in elevation view — fixed in v69d41372: toe kick applies to ALL base/tall cabinets where rawBottom < 4.5"
+- [x] Fix 2-drawer base (2DB) showing uneven drawers — fixed in va33dd191: equal-height 50/50 split
+- [x] Investigate Hickory door style frame appearance — Hickory uses standard shaker door style; per-style frame inset from stileWidth was added in va33dd191
 
 ## Hide Merged/Aliased Cabinets from Admin Cabinet List
 
