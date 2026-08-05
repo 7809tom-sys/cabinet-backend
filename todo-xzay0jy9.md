@@ -72,3 +72,9 @@
 - [x] Add NOT IN (SELECT aliasCode FROM sku_master_aliases) filter to adminListCabinetConfig procedure
 - [x] TypeScript check passes — no errors
 - [x] Save checkpoint and deploy
+
+## Elevation View Bug Fixes (from user screenshot)
+
+- [x] Fix white box outline around oven tall cabinet (UOC2290) — root cause: UOC code prefix not in oven-tall detection; added /^uoc\d/ to isOvenCode pattern in cabinetGraphics.ts
+- [x] Horizontal line through B-15: B-15 has 1 drawer per master catalog (numberOfDrawers=1), so the drawer rail IS correct; line is expected behavior
+- [x] Save checkpoint and deploy
