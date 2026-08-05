@@ -78,3 +78,23 @@
 - [x] Fix white box outline around oven tall cabinet (UOC2290) — root cause: UOC code prefix not in oven-tall detection; added /^uoc\d/ to isOvenCode pattern in cabinetGraphics.ts
 - [x] Horizontal line through B-15: B-15 has 1 drawer per master catalog (numberOfDrawers=1), so the drawer rail IS correct; line is expected behavior
 - [x] Save checkpoint and deploy
+
+## Add placementType to Master Catalog CSV Round-Trip
+
+- [x] Audit current CSV download columns and applyMasterCatalog procedure fields
+- [ ] Apply update2026-08-05.xlsx to DB via script (placementType, hingeSide, isCornerCabinet, altSku1/2/3, isActive, all fields)
+- [ ] Add PlacementType column to CSV export (catalogExport.ts) and import (applyMasterCatalog)
+- [ ] Save checkpoint and deploy
+
+## BEC (Base End Corner) Cabinet Support in 2D Designer
+
+- [x] Check BEC-24 in DB — exists as BEC-24 and BEC24
+- [x] Add BEC code detection to cabinetGraphics.ts — /^bec/ pattern returns "diagonal-corner"
+- [x] Add cornerType="base-end-corner" check in cabinetGraphics.ts for admin override
+- [x] Add BEC to isDiagonalCorner in design.ts — /^BEC/ pattern for plan-view footprint
+- [x] Add "Base End Corner (BEC)" to admin cornerType dropdown (value: base-end-corner)
+- [x] Elevation rendering: reuses diagonal-corner renderer (2 doors on angled face) — no new code needed
+- [x] TypeScript check passes — no errors
+- [x] Wire cornerType=base-end-corner into footprintDepth in design.ts for correct plan-view square footprint
+- [x] TypeScript check passes — no errors (second pass)
+- [x] Save checkpoint and deploy

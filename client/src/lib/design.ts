@@ -672,7 +672,8 @@ export function footprintDepth(c: DesignCabinet): number {
   // A diagonal corner cabinet occupies the same span on BOTH walls, so its
   // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
   // standard shallow wall/base depth.
-  if (isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
+  // cornerType="base-end-corner" is the admin override for BEC cabinets.
+  if (c.cornerType === "base-end-corner" || isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
@@ -1382,7 +1383,9 @@ export function isDiagonalCorner(masterCode: string, description?: string): bool
   const code = (masterCode || "").toUpperCase();
   // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
   // (AG) all sit across the corner at 45 degrees and share the same footprint.
-  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
+  // BEC = Base End Corner (e.g. BEC-24, BEC24): 24"×24" square with 45° angled front face.
+// Same diagonal footprint as DCB — two doors on the angled face spanning the corner.
+if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG|BEC)/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
   return false;

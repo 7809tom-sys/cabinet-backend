@@ -257,7 +257,11 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   }
 
   // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
-  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
+  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
+  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
+  // Also catches cornerType="base-end-corner" set via admin for any cabinet.
+  if ((cab as any).cornerType === "base-end-corner") return "diagonal-corner";
+  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag|bec[-\d]?)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
     return "diagonal-corner";
   }
 
