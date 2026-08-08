@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Truck, Calculator, Plug, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, Truck, Calculator, Plug, ShieldCheck, Activity } from "lucide-react";
 
 // Dollars <-> cents helpers (we edit dollars, store cents).
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -692,4 +692,3 @@ export function FreightApiLogsPanel() {
     </Card>
   );
 }
-import { Plus, Trash2, Truck, Calculator, Plug, ShieldCheck, Activity } from "lucide-react";
