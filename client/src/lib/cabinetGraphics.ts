@@ -257,7 +257,11 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   }
 
   // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
-  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
+  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
+  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
+  // Also catches cornerType="base-end-corner" set via admin for any cabinet.
+  if ((cab as any).cornerType === "base-end-corner") return "diagonal-corner";
+  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag|bec[-\d]?)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
     return "diagonal-corner";
   }
 
@@ -316,7 +320,9 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Oven tall detection: O-code or zero-prefixed oven codes (e.g. 0309024),
   // OR subCategory/description contains oven tower/pantry keywords.
   // Note: some distributors use digit 0 instead of letter O in the master code.
-  const isOvenCode = /^[o0]3\d{5}/.test(code); // matches o309024, 0309024, etc.
+  // UOC = "Upper Oven Cabinet" (e.g. UOC3390, UOC339024) — same oven-tall rendering.
+  // DoorDrawerDiagram already handles UOC; keep both in sync.
+  const isOvenCode = /^[o0]3\d{5}/.test(code) || /^uoc\d/.test(code); // o309024, 0309024, uoc3390
   const isOvenKeyword = /oven.*tower|oven.*pantry|oven.*tall|tall.*oven|oven.*cabinet/.test(hay);
   if (isOvenCode || (isOvenKeyword && isTallPlacement)) {
     return "oven-tall";

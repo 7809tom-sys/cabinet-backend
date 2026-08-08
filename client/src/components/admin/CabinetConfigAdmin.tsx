@@ -1225,6 +1225,7 @@ function EditModal({
                       <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
                       <SelectItem value="blind-corner">Blind Corner (BBC / WBC)</SelectItem>
                       <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
+                      <SelectItem value="base-end-corner">Base End Corner (BEC)</SelectItem>
                       <SelectItem value="triangle">Triangle Corner (WTC / BTC)</SelectItem>
                       <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
                       <SelectItem value="l-shape">L-Shape Corner</SelectItem>

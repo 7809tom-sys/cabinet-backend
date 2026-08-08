@@ -232,7 +232,7 @@ export function ElevationView({
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
-    if (p.masterCode && /^O\d/i.test(p.masterCode)) {
+    if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);
     }
     // For blind corner cabinets, determine which side the blind (corner) portion
