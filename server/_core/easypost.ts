@@ -24,6 +24,8 @@ export interface LiveQuoteRequest {
   pallets: LivePallet[];
   freightClass: string; // e.g. "175"
   residential?: boolean;
+  liftgate?: boolean;
+  limitedAccess?: boolean;
 }
 
 export interface LiveQuoteResult {

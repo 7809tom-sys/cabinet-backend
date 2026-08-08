@@ -101,4 +101,16 @@
 - [x] Added Edit Config link to desktop cabinet toolbar (same amber style as mobile)
 - [x] Added ?edit=1 URL param to both mobile and desktop Edit Config links
 - [x] CabinetDetail auto-opens edit dialog when ?edit=1 is in URL and user is admin (useEffect after auth loads)
+- [x] Save checkpoint and deploy
+
+## LTL Freight Broker API Integration
+
+- [x] Research Freightquote, GlobalTranz, Worldwide Express API docs and auth patterns
+- [x] Add freight_broker_settings table to DB schema
+- [x] Add Freight Broker section to Admin Shipping Settings UI
+- [x] Build ShippingCarrierService server module with clients for all 3 brokers
+- [x] Build payload assembler: origin ZIP, dest ZIP, address type, weight, dimensions, NMFC class, accessorials
+- [x] Wire live rate endpoint into checkout/cart ZIP check
+- [x] Add fallback: flat rate or "contact us" if API times out or errors
+- [ ] Log API call payloads and responses in admin log table
 - [ ] Save checkpoint and deploy

@@ -38,7 +38,25 @@ interface SettingsForm {
   defaultCabinetWeightLbs: string;
   // Live-quote model
   quoteMode: "estimator" | "live";
-  liveProvider: "estimator" | "easypost" | "shippo";
+  liveProvider: "estimator" | "easypost" | "shippo" | "freightquote" | "globaltranz" | "worldwideexpress";
+  // Freightquote credentials
+  fqClientId: string;
+  fqClientSecret: string;
+  fqAccountNumber: string;
+  fqEnvironment: "sandbox" | "production";
+  // GlobalTranz credentials
+  gtzApiKey: string;
+  gtzUsername: string;
+  gtzPassword: string;
+  gtzAccountNumber: string;
+  gtzEnvironment: "sandbox" | "production";
+  // Worldwide Express credentials
+  wwexClientId: string;
+  wwexClientSecret: string;
+  wwexAccountNumber: string;
+  wwexUsername: string;
+  wwexPassword: string;
+  wwexEnvironment: "sandbox" | "production";
   kitchenFreightFloor: string; // dollars
   kitchenMinCabinets: string;
   palletLengthIn: string;
@@ -86,7 +104,22 @@ export default function ShippingAdmin() {
       freeFreightThreshold: toDollars(s?.freeFreightThresholdCents ?? 0),
       defaultCabinetWeightLbs: String(s?.defaultCabinetWeightLbs ?? "45"),
       quoteMode: (s?.quoteMode ?? "estimator") as "estimator" | "live",
-      liveProvider: (s?.liveProvider ?? "estimator") as "estimator" | "easypost" | "shippo",
+      liveProvider: (s?.liveProvider ?? "estimator") as SettingsForm["liveProvider"],
+      fqClientId: (s as Record<string, unknown>)?.fqClientId as string ?? "",
+      fqClientSecret: "",
+      fqAccountNumber: (s as Record<string, unknown>)?.fqAccountNumber as string ?? "",
+      fqEnvironment: ((s as Record<string, unknown>)?.fqEnvironment as "sandbox" | "production") ?? "sandbox",
+      gtzApiKey: "",
+      gtzUsername: (s as Record<string, unknown>)?.gtzUsername as string ?? "",
+      gtzPassword: "",
+      gtzAccountNumber: (s as Record<string, unknown>)?.gtzAccountNumber as string ?? "",
+      gtzEnvironment: ((s as Record<string, unknown>)?.gtzEnvironment as "sandbox" | "production") ?? "sandbox",
+      wwexClientId: (s as Record<string, unknown>)?.wwexClientId as string ?? "",
+      wwexClientSecret: "",
+      wwexAccountNumber: (s as Record<string, unknown>)?.wwexAccountNumber as string ?? "",
+      wwexUsername: (s as Record<string, unknown>)?.wwexUsername as string ?? "",
+      wwexPassword: "",
+      wwexEnvironment: ((s as Record<string, unknown>)?.wwexEnvironment as "sandbox" | "production") ?? "sandbox",
       kitchenFreightFloor: toDollars(s?.kitchenFreightFloorCents ?? 80000),
       kitchenMinCabinets: String(s?.kitchenMinCabinets ?? 6),
       palletLengthIn: String(s?.palletLengthIn ?? "96"),
@@ -173,6 +206,22 @@ export default function ShippingAdmin() {
       defaultCabinetWeightLbs: numOr(form.defaultCabinetWeightLbs, 45),
       quoteMode: form.quoteMode,
       liveProvider: form.liveProvider,
+      // Broker credentials — only sent when non-empty (server keeps existing if omitted)
+      fqClientId: form.fqClientId || undefined,
+      fqClientSecret: form.fqClientSecret || undefined,
+      fqAccountNumber: form.fqAccountNumber || undefined,
+      fqEnvironment: form.fqEnvironment,
+      gtzApiKey: form.gtzApiKey || undefined,
+      gtzUsername: form.gtzUsername || undefined,
+      gtzPassword: form.gtzPassword || undefined,
+      gtzAccountNumber: form.gtzAccountNumber || undefined,
+      gtzEnvironment: form.gtzEnvironment,
+      wwexClientId: form.wwexClientId || undefined,
+      wwexClientSecret: form.wwexClientSecret || undefined,
+      wwexAccountNumber: form.wwexAccountNumber || undefined,
+      wwexUsername: form.wwexUsername || undefined,
+      wwexPassword: form.wwexPassword || undefined,
+      wwexEnvironment: form.wwexEnvironment,
       liveApiKey: apiKeyInput.trim().length > 0 ? apiKeyInput.trim() : undefined,
       kitchenFreightFloorCents: toCents(form.kitchenFreightFloor),
       kitchenMinCabinets: Math.round(numOr(form.kitchenMinCabinets, 6)),
@@ -239,12 +288,15 @@ export default function ShippingAdmin() {
               <Label>Live provider</Label>
               <Select
                 value={form.liveProvider}
-                onValueChange={(v) => set({ liveProvider: v as "estimator" | "easypost" | "shippo" })}
+                onValueChange={(v) => set({ liveProvider: v as SettingsForm["liveProvider"] })}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="easypost">EasyPost (LTL freight)</SelectItem>
-                  <SelectItem value="shippo">Shippo (coming soon)</SelectItem>
+                  <SelectItem value="freightquote">Freightquote by C.H. Robinson</SelectItem>
+                  <SelectItem value="globaltranz">GlobalTranz</SelectItem>
+                  <SelectItem value="worldwideexpress">Worldwide Express (WWEX)</SelectItem>
+                  <SelectItem value="shippo">Shippo</SelectItem>
                   <SelectItem value="estimator">None (estimator only)</SelectItem>
                 </SelectContent>
               </Select>
@@ -276,6 +328,114 @@ export default function ShippingAdmin() {
               Live mode is on but no API key is connected yet — the storefront will show
               "shipping quoted on your order" until you save a key.
             </p>
+          )}
+
+          {/* ── Freightquote (C.H. Robinson) credentials ─────────────────── */}
+          {liveMode && form.liveProvider === "freightquote" && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Freightquote by C.H. Robinson — OAuth2 Credentials</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Client ID</Label>
+                  <Input value={form.fqClientId} onChange={(e) => set({ fqClientId: e.target.value })} placeholder="Client ID from Navisphere portal" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Client Secret</Label>
+                  <Input type="password" value={form.fqClientSecret} onChange={(e) => set({ fqClientSecret: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Account Number</Label>
+                  <Input value={form.fqAccountNumber} onChange={(e) => set({ fqAccountNumber: e.target.value })} placeholder="C.H. Robinson account number" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Environment</Label>
+                  <Select value={form.fqEnvironment} onValueChange={(v) => set({ fqEnvironment: v as "sandbox" | "production" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">Sandbox (test)</SelectItem>
+                      <SelectItem value="production">Production (live)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Get credentials at <a href="https://developer.chrobinson.com" target="_blank" rel="noopener noreferrer" className="underline">developer.chrobinson.com</a>. Requires an active C.H. Robinson shipper account.</p>
+            </div>
+          )}
+
+          {/* ── GlobalTranz credentials ───────────────────────────────────── */}
+          {liveMode && form.liveProvider === "globaltranz" && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">GlobalTranz — API Key + Basic Auth</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">API / Security Key</Label>
+                  <Input type="password" value={form.gtzApiKey} onChange={(e) => set({ gtzApiKey: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Account Number</Label>
+                  <Input value={form.gtzAccountNumber} onChange={(e) => set({ gtzAccountNumber: e.target.value })} placeholder="GTZconnect customer ID" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Username</Label>
+                  <Input value={form.gtzUsername} onChange={(e) => set({ gtzUsername: e.target.value })} placeholder="GTZconnect username" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Password</Label>
+                  <Input type="password" value={form.gtzPassword} onChange={(e) => set({ gtzPassword: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Environment</Label>
+                  <Select value={form.gtzEnvironment} onValueChange={(v) => set({ gtzEnvironment: v as "sandbox" | "production" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">Sandbox (test)</SelectItem>
+                      <SelectItem value="production">Production (live)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Contact GlobalTranz at <a href="mailto:apisupport@globaltranz.com" className="underline">apisupport@globaltranz.com</a> to obtain API credentials.</p>
+            </div>
+          )}
+
+          {/* ── Worldwide Express credentials ─────────────────────────────── */}
+          {liveMode && form.liveProvider === "worldwideexpress" && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worldwide Express (WWEX) — OAuth2 Credentials</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Client ID</Label>
+                  <Input value={form.wwexClientId} onChange={(e) => set({ wwexClientId: e.target.value })} placeholder="WWEX Client ID" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Client Secret</Label>
+                  <Input type="password" value={form.wwexClientSecret} onChange={(e) => set({ wwexClientSecret: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Account Number</Label>
+                  <Input value={form.wwexAccountNumber} onChange={(e) => set({ wwexAccountNumber: e.target.value })} placeholder="WWEX account number" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Username (legacy)</Label>
+                  <Input value={form.wwexUsername} onChange={(e) => set({ wwexUsername: e.target.value })} placeholder="SpeedShip username (optional)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Password (legacy)</Label>
+                  <Input type="password" value={form.wwexPassword} onChange={(e) => set({ wwexPassword: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Environment</Label>
+                  <Select value={form.wwexEnvironment} onValueChange={(v) => set({ wwexEnvironment: v as "sandbox" | "production" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">Sandbox (test)</SelectItem>
+                      <SelectItem value="production">Production (live)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Contact your WWEX account representative to obtain API credentials and enable integration access.</p>
+            </div>
           )}
         </CardContent>
       </Card>

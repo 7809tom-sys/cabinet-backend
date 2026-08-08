@@ -107,6 +107,7 @@ const accessorialsSchema = z
     liftgate: z.boolean().optional(),
     residential: z.boolean().optional(),
     insideDelivery: z.boolean().optional(),
+    limitedAccess: z.boolean().optional(),
   })
   .optional();
 
@@ -444,7 +445,8 @@ export const freightRouter = router({
           settings.originZip
         );
 
-        const live = await easypostQuote(liveKey, {
+        // ── Dispatch to the configured live broker ─────────────────────────
+        const liveReq = {
           fromZip: originZip,
           toZip: input.destinationZip,
           pallets: plan.pallets.map((p) => ({
@@ -455,7 +457,48 @@ export const freightRouter = router({
           })),
           freightClass: settingsRow!.freightClass,
           residential: input.accessorials?.residential,
-        });
+          liftgate: input.accessorials?.liftgate,
+          limitedAccess: input.accessorials?.limitedAccess,
+        };
+
+        let live;
+        if (liveProvider === "freightquote") {
+          live = await freightquoteQuote(
+            {
+              clientId: settingsRow!.fqClientId ?? "",
+              clientSecret: settingsRow!.fqClientSecret ?? "",
+              accountNumber: settingsRow!.fqAccountNumber ?? "",
+              environment: (settingsRow!.fqEnvironment ?? "sandbox") as "sandbox" | "production",
+            },
+            liveReq,
+          );
+        } else if (liveProvider === "globaltranz") {
+          live = await globaltranzQuote(
+            {
+              apiKey: settingsRow!.gtzApiKey ?? "",
+              username: settingsRow!.gtzUsername ?? "",
+              password: settingsRow!.gtzPassword ?? "",
+              accountNumber: settingsRow!.gtzAccountNumber ?? "",
+              environment: (settingsRow!.gtzEnvironment ?? "sandbox") as "sandbox" | "production",
+            },
+            liveReq,
+          );
+        } else if (liveProvider === "worldwideexpress") {
+          live = await worldwideexpressQuote(
+            {
+              clientId: settingsRow!.wwexClientId ?? "",
+              clientSecret: settingsRow!.wwexClientSecret ?? "",
+              accountNumber: settingsRow!.wwexAccountNumber ?? "",
+              username: settingsRow!.wwexUsername ?? undefined,
+              password: settingsRow!.wwexPassword ?? undefined,
+              environment: (settingsRow!.wwexEnvironment ?? "sandbox") as "sandbox" | "production",
+            },
+            liveReq,
+          );
+        } else {
+          // EasyPost or Shippo (legacy)
+          live = await easypostQuote(liveKey, liveReq);
+        }
 
         if (!live.ok) {
           // No fabricated number — tell the UI freight is quoted at the order.
@@ -513,7 +556,15 @@ export const freightRouter = router({
       : [];
     // Never leak the raw API key to the client; report only whether one is set.
     const safeSettings = settingsRow
-      ? { ...settingsRow, liveApiKey: null, hasLiveApiKey: !!settingsRow.liveApiKey }
+      ? {
+          ...settingsRow,
+          liveApiKey: null, hasLiveApiKey: !!settingsRow.liveApiKey,
+          fqClientSecret: null, hasFqClientSecret: !!settingsRow.fqClientSecret,
+          gtzPassword: null, hasGtzPassword: !!settingsRow.gtzPassword,
+          gtzApiKey: null, hasGtzApiKey: !!settingsRow.gtzApiKey,
+          wwexClientSecret: null, hasWwexClientSecret: !!settingsRow.wwexClientSecret,
+          wwexPassword: null, hasWwexPassword: !!settingsRow.wwexPassword,
+        }
       : null;
     return { settings: safeSettings, zones: zoneRows };
   }),
@@ -536,7 +587,25 @@ export const freightRouter = router({
         defaultCabinetWeightLbs: z.number().min(1).max(1000),
         // Live-quote / pallet / floor controls.
         quoteMode: z.enum(["estimator", "live"]),
-        liveProvider: z.enum(["estimator", "easypost", "shippo"]),
+        liveProvider: z.enum(["estimator", "easypost", "shippo", "freightquote", "globaltranz", "worldwideexpress"]),
+        // Freightquote (C.H. Robinson) credentials
+        fqClientId: z.string().max(255).nullable().optional(),
+        fqClientSecret: z.string().max(255).nullable().optional(),
+        fqAccountNumber: z.string().max(64).nullable().optional(),
+        fqEnvironment: z.enum(["sandbox", "production"]).optional(),
+        // GlobalTranz credentials
+        gtzApiKey: z.string().max(255).nullable().optional(),
+        gtzUsername: z.string().max(128).nullable().optional(),
+        gtzPassword: z.string().max(255).nullable().optional(),
+        gtzAccountNumber: z.string().max(64).nullable().optional(),
+        gtzEnvironment: z.enum(["sandbox", "production"]).optional(),
+        // Worldwide Express credentials
+        wwexClientId: z.string().max(255).nullable().optional(),
+        wwexClientSecret: z.string().max(255).nullable().optional(),
+        wwexAccountNumber: z.string().max(64).nullable().optional(),
+        wwexUsername: z.string().max(128).nullable().optional(),
+        wwexPassword: z.string().max(255).nullable().optional(),
+        wwexEnvironment: z.enum(["sandbox", "production"]).optional(),
         // Optional: only set the key when provided (keeps existing if omitted).
         liveApiKey: z.string().max(255).nullable().optional(),
         kitchenFreightFloorCents: z.number().int().min(0).max(100000000),
@@ -573,6 +642,20 @@ export const freightRouter = router({
       if (typeof liveApiKey === "string" && liveApiKey.length > 0) {
         values.liveApiKey = liveApiKey;
       }
+      // Broker credentials: only overwrite when a non-empty value is provided.
+      const credFields = [
+        "fqClientId", "fqClientSecret", "fqAccountNumber",
+        "gtzApiKey", "gtzUsername", "gtzPassword", "gtzAccountNumber",
+        "wwexClientId", "wwexClientSecret", "wwexAccountNumber", "wwexUsername", "wwexPassword",
+      ] as const;
+      for (const field of credFields) {
+        const v = (input as Record<string, unknown>)[field];
+        if (typeof v === "string" && v.length > 0) values[field] = v;
+        else if (v === null) values[field] = null;
+      }
+      if (input.fqEnvironment) values.fqEnvironment = input.fqEnvironment;
+      if (input.gtzEnvironment) values.gtzEnvironment = input.gtzEnvironment;
+      if (input.wwexEnvironment) values.wwexEnvironment = input.wwexEnvironment;
 
       if (existing) {
         await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
@@ -668,3 +751,7 @@ export const freightRouter = router({
       return { ok: true, count: input.zones.length };
     }),
 });
+import { easypostQuote } from "../_core/easypost";
+import { freightquoteQuote } from "../_core/freightquote";
+import { globaltranzQuote } from "../_core/globaltranz";
+import { worldwideexpressQuote } from "../_core/worldwideexpress";

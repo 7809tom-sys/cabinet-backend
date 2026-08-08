@@ -919,8 +919,28 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   // Live carrier/broker API key (e.g. EasyPost / Shippo). When quoteMode="live"
   // and a key is present, freight is fetched live from the carrier instead of the
   // in-house estimator.
-  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(), // estimator | easypost | shippo
+  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(), // estimator | easypost | shippo | freightquote | globaltranz | worldwideexpress
   liveApiKey: varchar("liveApiKey", { length: 255 }),
+  // Broker API credentials — stored per-broker so the admin can configure all
+  // three without losing settings when switching between them.
+  // Freightquote (C.H. Robinson Navisphere) — OAuth2 client_credentials
+  fqClientId: varchar("fqClientId", { length: 255 }),
+  fqClientSecret: varchar("fqClientSecret", { length: 255 }),
+  fqAccountNumber: varchar("fqAccountNumber", { length: 64 }),
+  fqEnvironment: mysqlEnum("fqEnvironment", ["sandbox", "production"]).default("sandbox"),
+  // GlobalTranz — API key + basic auth
+  gtzApiKey: varchar("gtzApiKey", { length: 255 }),
+  gtzUsername: varchar("gtzUsername", { length: 128 }),
+  gtzPassword: varchar("gtzPassword", { length: 255 }),
+  gtzAccountNumber: varchar("gtzAccountNumber", { length: 64 }),
+  gtzEnvironment: mysqlEnum("gtzEnvironment", ["sandbox", "production"]).default("sandbox"),
+  // Worldwide Express (WWEX) — OAuth2 or legacy API key
+  wwexClientId: varchar("wwexClientId", { length: 255 }),
+  wwexClientSecret: varchar("wwexClientSecret", { length: 255 }),
+  wwexAccountNumber: varchar("wwexAccountNumber", { length: 64 }),
+  wwexUsername: varchar("wwexUsername", { length: 128 }),
+  wwexPassword: varchar("wwexPassword", { length: 255 }),
+  wwexEnvironment: mysqlEnum("wwexEnvironment", ["sandbox", "production"]).default("sandbox"),
   // Quote mode. "estimator" = in-house zone math (legacy). "live" = call the
   // carrier API for a real LTL rate; if the live call fails, freight is reported
   // as unavailable ("quoted on your order") rather than guessed.
