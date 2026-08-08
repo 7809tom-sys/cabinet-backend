@@ -15,6 +15,8 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { trpc } from "@/lib/trpc";
 import { normalizeZip } from "@shared/availability";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -27,6 +29,51 @@ export default function Cart() {
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
   const [, navigate] = useLocation();
   const [zipInput, setZipInput] = useState(zip ?? "");
+
+  // Determine the viewer's current pricing tier from their login state.
+  const { user } = useAuth();
+  const viewerTier = resolveStorefrontTier(user);
+
+  // Build the list of (masterCode, styleId) pairs for cabinet items in the cart.
+  const cartPairs = useMemo(
+    () =>
+      items
+        .filter((i) => i.distributorId != null) // cabinets only (not pelican products)
+        .map((i) => ({ masterCode: i.masterCode, styleId: i.styleId })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items.map((i) => `${i.masterCode}:${i.styleId}`).join(",")]
+  );
+
+  // Fetch live tier-computed prices for all cart items. This ensures the cart
+  // always shows the correct price for the viewer's current tier, even if the
+  // stored unitPrice was added under a different tier.
+  const { data: livePriceRows } = trpc.design.priceForCartItems.useQuery(
+    { items: cartPairs },
+    { enabled: cartPairs.length > 0 }
+  );
+
+  // Build a map of masterCode:styleId → live unit price at the viewer's tier.
+  const livePriceMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of livePriceRows ?? []) {
+      const price = resolveTierPrice(viewerTier, r);
+      if (price != null) m.set(`${r.masterCode}:${r.styleId}`, price);
+    }
+    return m;
+  }, [livePriceRows, viewerTier]);
+
+  // Get the live price for a cart item, falling back to the stored unitPrice.
+  const liveUnitPrice = (item: (typeof items)[number]): number | null => {
+    const live = livePriceMap.get(`${item.masterCode}:${item.styleId}`);
+    return live ?? item.unitPrice;
+  };
+
+  // Compute the live subtotal using live prices.
+  const liveSubtotal = useMemo(
+    () => items.reduce((s, i) => s + (liveUnitPrice(i) ?? 0) * i.qty, 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, livePriceMap]
+  );
 
   const normalizedZip = normalizeZip(zipInput);
 
@@ -155,7 +202,8 @@ export default function Cart() {
 
             const renderRow = (item: (typeof items)[number], inBundle: boolean) => {
             const a = itemAvailability(item.distributorId);
-            const lineTotal = item.unitPrice != null ? item.unitPrice * item.qty : null;
+            const unitPrice = liveUnitPrice(item);
+            const lineTotal = unitPrice != null ? unitPrice * item.qty : null;
             return (
               <div
                 key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}`}
@@ -208,7 +256,7 @@ export default function Cart() {
                   {/* Price — right-aligned, stacked next to info block */}
                   <div className="shrink-0 text-right">
                     <div className="text-sm font-semibold">{money(lineTotal)}</div>
-                    <div className="text-xs text-muted-foreground">{money(item.unitPrice)} {t("crt_each")}</div>
+                    <div className="text-xs text-muted-foreground">{money(unitPrice)} {t("crt_each")}</div>
                   </div>
                 </div>
 
@@ -302,7 +350,11 @@ export default function Cart() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("crt_est_subtotal")}</span>
-              <span className="font-medium">${subtotal.toFixed(2)}</span>
+              <span className="font-medium">${liveSubtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Pricing tier</span>
+              <span className="text-xs font-medium capitalize text-primary">{viewerTier}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground inline-flex items-center gap-1">

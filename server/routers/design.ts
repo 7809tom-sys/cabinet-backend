@@ -12,6 +12,7 @@ import { buildPhotorealPrompt } from "@shared/photorealPrompt";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
+import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import {
   relevantCategories,
   selectRecommendations,
@@ -1936,5 +1937,74 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         const message = err instanceof Error ? err.message : "Image generation failed.";
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
       }
+    }),
+
+  // Live tier-priced lookup for cart items. Accepts (masterCode, styleId) pairs
+  // (what the cart stores) and returns the current tier-computed unit price for
+  // each. Used by the Cart page to show live prices instead of the stored
+  // unitPrice (which may be stale if the user's tier changed since adding).
+  priceForCartItems: publicProcedure
+    .input(
+      z.object({
+        items: z.array(z.object({ masterCode: z.string(), styleId: z.number() })).max(200),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db || input.items.length === 0) return [];
+
+      const masterCodes = Array.from(new Set(input.items.map((i) => i.masterCode)));
+      const styleIds = Array.from(new Set(input.items.map((i) => i.styleId)));
+      const wanted = new Set(input.items.map((i) => `${i.masterCode}:${i.styleId}`));
+
+      const rows = await db
+        .select({
+          masterCode: cabinets.masterCode,
+          styleId: distributorSkus.styleId,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+        .where(
+          and(
+            inArray(cabinets.masterCode, masterCodes),
+            inArray(distributorSkus.styleId, styleIds),
+            eq(distributorSkus.isAvailable, true),
+          )
+        );
+
+      // Best (cheapest contractor) row per (masterCode, styleId).
+      const best = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const key = `${r.masterCode}:${r.styleId}`;
+        if (!wanted.has(key)) continue;
+        const cur = best.get(key);
+        if (!cur) { best.set(key, r); continue; }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+        if (a < b) best.set(key, r);
+      }
+
+      const ps = await getPricingSettings();
+      return Array.from(best.values()).map((r) => ({
+        masterCode: r.masterCode,
+        styleId: Number(r.styleId),
+        ...visiblePricesForViewer(
+          {
+            listPrice: r.listPrice,
+            adjustedListPrice: r.adjustedListPrice,
+            wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
+            contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
+            homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+          },
+          resolveStorefrontTier(ctx.user),
+          ctx.user?.role === "admin",
+        ),
+      }));
     }),
 });

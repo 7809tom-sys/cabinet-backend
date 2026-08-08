@@ -80,3 +80,17 @@
 - [x] Fix: added yourCost to select, added sellPriceForTier(r, ps, tier) computation before return — matches rollOutTraysForStyles pattern
 - [x] TypeScript check passes — no errors
 - [ ] Save checkpoint and deploy
+- [x] Save checkpoint and deploy
+
+## Door Style Persistence + Tier Pricing Consistency
+
+- [x] Audited: door style passes via ?style= URL param from Family → CabinetDetail (already working)
+- [x] Audited: viewer tier uses resolveStorefrontTier(user) on CabinetDetail, Family, and now Cart
+- [x] Door style persistence confirmed: Family links include ?style={styleId}, CabinetDetail pre-selects it
+- [x] Tier pricing: design tool auto-syncs tier from user.pricingTier on login (existing code)
+- [x] Cart: added priceForCartItems server procedure + live price lookup in Cart page using viewer's current tier
+- [x] Cart: order summary now shows "Pricing tier" label (homeowner/contractor/wholesale)
+- [x] Cart: liveSubtotal computed from live tier prices, not stale stored unitPrice
+- [ ] Save checkpoint and deploy
+- [x] Security: priceForCartItems gates prices by viewer tier using visiblePricesForViewer
+- [x] Save checkpoint and deploy
