@@ -614,7 +614,10 @@ export const designRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
+          yourCost: distributorSkus.yourCost,
         })
+        // NOTE: yourCost is required so sellPriceForTier can compute the
+        // correct tier price (cost × markup).
         .from(distributorSkus)
         .where(and(...conditions));
 
@@ -630,7 +633,21 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
-      return Array.from(best.values());
+      // Compute tier prices from cost base × markup (same formula as the
+      // product page and family catalog). Never return raw stored columns
+      // because most SKUs only have listPrice set — the stored homeownerPrice
+      // column is NULL for those rows, causing resolveTierPrice to fall back
+      // to listPrice and show the full MSRP instead of the discounted price.
+      const ps = await getPricingSettings();
+      return Array.from(best.values()).map((r) => ({
+        cabinetId: r.cabinetId,
+        styleId: Number(r.styleId),
+        listPrice: r.listPrice,
+        adjustedListPrice: r.adjustedListPrice,
+        wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
+        contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
+        homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+      }));
     }),
 
   // Batched roll-out shelf availability per door style, used by the BOM/cart to

@@ -72,3 +72,11 @@
 - [x] Add NOT IN (SELECT aliasCode FROM sku_master_aliases) filter to adminListCabinetConfig procedure
 - [x] TypeScript check passes — no errors
 - [x] Save checkpoint and deploy
+
+## Pricing Bug: Estimate & Build Sheet and Cart show list price instead of tier price
+
+- [x] Traced: priceForCabinetsByStyles in design.ts was returning raw stored columns (homeownerPrice=NULL for most SKUs) instead of computed tier prices
+- [x] Root cause: missing yourCost in select + missing sellPriceForTier call in priceForCabinetsByStyles
+- [x] Fix: added yourCost to select, added sellPriceForTier(r, ps, tier) computation before return — matches rollOutTraysForStyles pattern
+- [x] TypeScript check passes — no errors
+- [ ] Save checkpoint and deploy
