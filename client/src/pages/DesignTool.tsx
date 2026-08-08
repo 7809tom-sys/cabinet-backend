@@ -5472,6 +5472,17 @@ export default function DesignTool() {
                 {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
+              {isAdmin && (
+                <a
+                  href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}?edit=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                  title="Open Cabinet Config in new tab"
+                >
+                  Edit Config ↗
+                </a>
+              )}
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
               {/* Custom sizing: resize this cabinet's Width, Height and Depth to
@@ -5762,7 +5773,7 @@ export default function DesignTool() {
                       <div className="text-sm font-semibold text-foreground">{selectedCab.masterCode}</div>
                       {isAdmin && (
                         <a
-                          href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}`}
+                          href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}?edit=1`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"

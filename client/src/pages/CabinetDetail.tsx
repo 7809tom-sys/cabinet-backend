@@ -422,7 +422,15 @@ export default function CabinetDetail({ masterCode }: Props) {
   })();
 
   // ── Admin inline edit ────────────────────────────────────────────────────────
+  // Auto-open the edit dialog when ?edit=1 is in the URL (e.g. from "Edit Config" in the design tool).
+  const autoEdit = new URLSearchParams(searchStr).get("edit") === "1";
   const [editOpen, setEditOpen] = useState(false);
+  // Once auth resolves and user is confirmed admin, auto-open if ?edit=1 was in the URL.
+  useEffect(() => {
+    if (autoEdit && isOwner) setEditOpen(true);
+  // Only fire once when isOwner first becomes true (auth loaded).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner]);
   const [overrideDistId, setOverrideDistId] = useState<number | null>(null);
   const [overrideFields, setOverrideFields] = useState<Record<string, string>>({});
   const [editDescription, setEditDescription] = useState("");

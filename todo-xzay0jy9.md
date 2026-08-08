@@ -79,7 +79,7 @@
 - [x] Root cause: missing yourCost in select + missing sellPriceForTier call in priceForCabinetsByStyles
 - [x] Fix: added yourCost to select, added sellPriceForTier(r, ps, tier) computation before return — matches rollOutTraysForStyles pattern
 - [x] TypeScript check passes — no errors
-- [ ] Save checkpoint and deploy
+- [x] Save checkpoint and deploy
 - [x] Save checkpoint and deploy
 
 ## Door Style Persistence + Tier Pricing Consistency
@@ -91,6 +91,14 @@
 - [x] Cart: added priceForCartItems server procedure + live price lookup in Cart page using viewer's current tier
 - [x] Cart: order summary now shows "Pricing tier" label (homeowner/contractor/wholesale)
 - [x] Cart: liveSubtotal computed from live tier prices, not stale stored unitPrice
-- [ ] Save checkpoint and deploy
+- [x] Save checkpoint and deploy
 - [x] Security: priceForCartItems gates prices by viewer tier using visiblePricesForViewer
 - [x] Save checkpoint and deploy
+
+## Edit Config — Desktop Designer Fix
+
+- [x] Root cause: Edit Config link only existed in mobile sheet (isMobile branch), not in desktop toolbar
+- [x] Added Edit Config link to desktop cabinet toolbar (same amber style as mobile)
+- [x] Added ?edit=1 URL param to both mobile and desktop Edit Config links
+- [x] CabinetDetail auto-opens edit dialog when ?edit=1 is in URL and user is admin (useEffect after auth loads)
+- [ ] Save checkpoint and deploy
