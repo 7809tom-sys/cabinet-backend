@@ -61,6 +61,10 @@ interface Props {
   source: "ocr" | "csv" | "design" | "manual" | "barcode";
   onLinesChange: (next: ReviewLine[]) => void;
   onReset: () => void;
+  /** Pre-select this door style (from cart item) instead of auto-selecting the first available. */
+  initialStyleId?: number;
+  /** Pre-select this pricing tier (from cart item) instead of defaulting to Contractor. */
+  initialTier?: string;
 }
 
 // Extract the dimension digits from a raw code so the Fix picker can pre-search
@@ -176,11 +180,11 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
   );
 }
 
-export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
+export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
-  const [tier, setTier] = useState<Tier>("Contractor");
-  const [styleId, setStyleId] = useState<number | null>(null);
+  const [tier, setTier] = useState<Tier>((initialTier as Tier) ?? "Contractor");
+  const [styleId, setStyleId] = useState<number | null>(initialStyleId ?? null);
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
 
   // Contact + submit state
@@ -316,11 +320,12 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
 
   // Auto-select the first style that covers everything once styles load.
   useEffect(() => {
-    if (styleId == null && styleOptions.length > 0) {
+    // Only auto-select if no initialStyleId was provided AND no style has been chosen yet.
+    if (styleId == null && !initialStyleId && styleOptions.length > 0) {
       const best = styleOptions.find((s) => s.coversAll) ?? styleOptions[0];
       setStyleId(best.styleId);
     }
-  }, [styleOptions, styleId]);
+  }, [styleOptions, styleId, initialStyleId]);
 
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
 

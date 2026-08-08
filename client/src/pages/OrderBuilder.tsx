@@ -32,6 +32,8 @@ export default function OrderBuilder() {
   const [source, setSource] = useState<Source>("ocr");
   const matchCodes = trpc.orders.matchCodes.useMutation();
   const prefillConsumed = useRef(false);
+  const [initialStyleId, setInitialStyleId] = useState<number | null>(null);
+  const [initialTier, setInitialTier] = useState<string | null>(null);
 
   // If the user arrived from the cart ("Request this order"), pick up the
   // prefilled {code, qty} pairs, match them, and drop straight into review.
@@ -48,7 +50,16 @@ export default function OrderBuilder() {
     if (!raw) return;
     let parsed: { code: string; qty: number }[] = [];
     try {
-      parsed = JSON.parse(raw) as { code: string; qty: number }[];
+      const decoded = JSON.parse(raw) as
+        | { items: { code: string; qty: number }[]; styleId: number | null; tier: string | null }
+        | { code: string; qty: number }[]; // legacy format
+      if (Array.isArray(decoded)) {
+        parsed = decoded;
+      } else {
+        parsed = decoded.items;
+        if (decoded.styleId) setInitialStyleId(decoded.styleId);
+        if (decoded.tier) setInitialTier(decoded.tier);
+      }
     } catch {
       return;
     }
@@ -136,6 +147,8 @@ export default function OrderBuilder() {
             source={source}
             onLinesChange={setLines}
             onReset={() => setLines([])}
+            initialStyleId={initialStyleId ?? undefined}
+            initialTier={initialTier ?? undefined}
           />
         )}
       </div>

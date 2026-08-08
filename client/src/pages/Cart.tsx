@@ -135,7 +135,14 @@ export default function Cart() {
       toast.error(t("crt_one_supplier_err"));
       return;
     }
-    const prefill = items.map((i) => ({ code: i.masterCode, qty: i.qty }));
+    // Include styleId and tier from the first item so OrderReview can pre-select
+    // the correct door style and pricing tier instead of defaulting to Aston Green.
+    const firstItem = items[0];
+    const prefill = {
+      items: items.map((i) => ({ code: i.masterCode, qty: i.qty })),
+      styleId: firstItem?.styleId ?? null,
+      tier: firstItem?.tier ?? null,
+    };
     try {
       sessionStorage.setItem(CART_PREFILL_KEY, JSON.stringify(prefill));
     } catch {
