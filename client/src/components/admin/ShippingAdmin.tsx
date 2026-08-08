@@ -626,3 +626,70 @@ export default function ShippingAdmin() {
     </div>
   );
 }
+
+// ─── API Logs sub-component ───────────────────────────────────────────────────
+// Exported separately so it can be used standalone or embedded in ShippingAdmin.
+export function FreightApiLogsPanel() {
+  const { data: logs, isLoading, refetch } = trpc.freight.adminGetApiLogs.useQuery({ limit: 50 });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" /> Freight API Call Log
+          </span>
+          <Button variant="outline" size="sm" className="bg-background" onClick={() => refetch()}>Refresh</Button>
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Last 50 live carrier API calls. Resets on server restart. Use this to debug rate requests and verify credentials.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!isLoading && (!logs || logs.length === 0) && (
+          <p className="text-sm text-muted-foreground">No API calls logged yet. Switch to Live mode and request a freight quote to see entries here.</p>
+        )}
+        {logs && logs.length > 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Time</TableHead>
+                  <TableHead className="text-xs">Broker</TableHead>
+                  <TableHead className="text-xs">Route</TableHead>
+                  <TableHead className="text-xs">Weight</TableHead>
+                  <TableHead className="text-xs">Class</TableHead>
+                  <TableHead className="text-xs">Accessorials</TableHead>
+                  <TableHead className="text-xs">Result</TableHead>
+                  <TableHead className="text-xs">ms</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-xs whitespace-nowrap">{new Date(log.ts).toLocaleTimeString()}</TableCell>
+                    <TableCell className="text-xs font-mono">{log.broker}</TableCell>
+                    <TableCell className="text-xs font-mono">{log.fromZip} → {log.toZip}</TableCell>
+                    <TableCell className="text-xs">{log.totalWeightLbs.toFixed(0)} lbs</TableCell>
+                    <TableCell className="text-xs">{log.freightClass}</TableCell>
+                    <TableCell className="text-xs">{log.accessorials.join(", ") || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {log.ok ? (
+                        <span className="text-emerald-600 font-medium">${(log.amountCents / 100).toFixed(2)} {log.carrier}</span>
+                      ) : (
+                        <span className="text-destructive" title={log.error}>✗ {(log.error ?? "error").slice(0, 40)}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{log.durationMs}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+import { Plus, Trash2, Truck, Calculator, Plug, ShieldCheck, Activity } from "lucide-react";

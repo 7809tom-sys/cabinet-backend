@@ -38,6 +38,12 @@ import {
 import { easypostQuote } from "../_core/easypost";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
+import { freightquoteQuote } from "../_core/freightquote";
+import { globaltranzQuote } from "../_core/globaltranz";
+import { worldwideexpressQuote } from "../_core/worldwideexpress";
+import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
+
+// ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
   enabled: true,
   originZip: "",
@@ -461,6 +467,7 @@ export const freightRouter = router({
           limitedAccess: input.accessorials?.limitedAccess,
         };
 
+        const brokerStart = Date.now();
         let live;
         if (liveProvider === "freightquote") {
           live = await freightquoteQuote(
@@ -499,6 +506,27 @@ export const freightRouter = router({
           // EasyPost or Shippo (legacy)
           live = await easypostQuote(liveKey, liveReq);
         }
+
+        // Log the API call for admin visibility.
+        logFreightApiCall({
+          broker: liveProvider,
+          fromZip: liveReq.fromZip,
+          toZip: liveReq.toZip,
+          palletCount: plan.palletCount,
+          totalWeightLbs: plan.totalWeightLbs,
+          freightClass: liveReq.freightClass,
+          accessorials: [
+            liveReq.residential ? "RESIDENTIAL" : null,
+            liveReq.liftgate ? "LIFTGATE" : null,
+            liveReq.limitedAccess ? "LIMITED_ACCESS" : null,
+          ].filter(Boolean) as string[],
+          ok: live.ok,
+          amountCents: live.amountCents,
+          carrier: live.carrier,
+          service: live.service,
+          error: live.error,
+          durationMs: Date.now() - brokerStart,
+        });
 
         if (!live.ok) {
           // No fabricated number — tell the UI freight is quoted at the order.
@@ -750,8 +778,10 @@ export const freightRouter = router({
       }
       return { ok: true, count: input.zones.length };
     }),
+
+  // ─── Admin: get recent freight API call logs ─────────────────────────────────
+  adminGetApiLogs: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }))
+    .query(({ input }) => getFreightApiLogs(input.limit)),
+
 });
-import { easypostQuote } from "../_core/easypost";
-import { freightquoteQuote } from "../_core/freightquote";
-import { globaltranzQuote } from "../_core/globaltranz";
-import { worldwideexpressQuote } from "../_core/worldwideexpress";

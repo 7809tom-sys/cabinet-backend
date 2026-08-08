@@ -112,5 +112,5 @@
 - [x] Build payload assembler: origin ZIP, dest ZIP, address type, weight, dimensions, NMFC class, accessorials
 - [x] Wire live rate endpoint into checkout/cart ZIP check
 - [x] Add fallback: flat rate or "contact us" if API times out or errors
-- [ ] Log API call payloads and responses in admin log table
-- [ ] Save checkpoint and deploy
+- [x] Log API call payloads and responses in admin log table
+- [x] Save checkpoint and deploy
