@@ -573,7 +573,8 @@ export const ordersRouter = router({
         .select({
           styleId: distributorSkus.styleId,
           cabinetId: distributorSkus.cabinetId,
-          name: doorStyles.ourName,
+          // Use aliasName (white-label public name) when set; fall back to ourName.
+          name: sql<string>`COALESCE(NULLIF(${doorStyles.aliasName}, ''), ${doorStyles.ourName})`,
           doorStyle: doorStyles.doorStyle,
           finish: doorStyles.finish,
           color: doorStyles.color,
