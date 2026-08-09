@@ -610,6 +610,7 @@ type CatalogItem = {
   category: string | null;
   homeownerPrice: unknown;
   imageUrl?: string | null;
+  catalogImageUrl?: string | null;
 };
 
 function CatalogCard({
@@ -654,10 +655,10 @@ function CatalogCard({
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-4">
-      {item.imageUrl && (
+      {(item.imageUrl || item.catalogImageUrl) && (
         <div className="mb-3 aspect-square w-full overflow-hidden rounded-lg bg-muted">
           <img
-            src={item.imageUrl}
+            src={item.imageUrl || item.catalogImageUrl!}
             alt={item.description ?? item.masterCode}
             loading="lazy"
             className="h-full w-full object-contain"
