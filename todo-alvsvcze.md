@@ -15,3 +15,4 @@
 - [x] Route affiliate-hired staff to their affiliate's CRM when they log in (not house CRM)
 - [ ] Enforce accessCrm/accessDesigner permissions in backend and update affiliate dashboard to recognize team members
 - [x] Fix storefront "Choose Your Cabinet Line" page to use affiliate's custom brand names instead of central names
+- [x] Add product images to storefront catalog cards (imageUrl from distributor_skus)

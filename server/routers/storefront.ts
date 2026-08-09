@@ -358,6 +358,7 @@ export const storefrontRouter = router({
         platformSku: distributorSkus.platformSku,
         homeownerPrice: distributorSkus.homeownerPrice,
         listPrice: distributorSkus.listPrice,
+        imageUrl: distributorSkus.imageUrl,
         // Cost columns — the base the per-tier markup multiplies. Never shipped
         // raw to the client; only used server-side to compute the sell price.
         wholesalePrice: distributorSkus.wholesalePrice,
