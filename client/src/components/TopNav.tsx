@@ -83,6 +83,13 @@ export function TopNav() {
   const { count: cartCount } = useCart();
   const { t } = useLanguage();
 
+  // Check if the current user is a linked affiliate (partner role or has affiliate record)
+  const { data: myAffiliateData } = trpc.affiliates.myReferrals.useQuery(undefined, {
+    enabled: !!user,
+    retry: false,
+  });
+  const isAffiliate = !!myAffiliateData?.affiliate;
+
   // Read ?ref= param to show affiliate branding on design/order pages
   const refCode = new URLSearchParams(search).get("ref") ?? "";
   const { data: affiliateBrand } = trpc.affiliates.byCode.useQuery(
@@ -238,6 +245,17 @@ export function TopNav() {
                   </Button>
                 </Link>
               )}
+              {isAffiliate && (
+                <Link href="/affiliate">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+                  >
+                    Administration
+                  </Button>
+                </Link>
+              )}
               {user.role === "contractor" && (
                 <Link href="/contractor">
                   <Button
@@ -314,6 +332,13 @@ export function TopNav() {
               <Link href="/admin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
                   {user?.role === "designer" ? t("nav_crm") : t("nav_admin")}
+                </Button>
+              </Link>
+            )}
+            {isAffiliate && (
+              <Link href="/affiliate" onClick={() => setMobileOpen(false)} className="px-3">
+                <Button variant="outline" className="w-full border-[var(--color-gold)] text-[var(--color-gold)]">
+                  Administration
                 </Button>
               </Link>
             )}

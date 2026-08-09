@@ -169,6 +169,11 @@ export default function AffiliatesAdmin() {
                       <Store className="h-3.5 w-3.5" /> Affiliate Portal
                     </Button>
                   </a>
+                  <a href={`/affiliate?viewAs=${a.id}`}>
+                    <Button size="sm" className="w-full gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
+                      <Eye className="h-3.5 w-3.5" /> Full Page View
+                    </Button>
+                  </a>
                   <a href={`/store-preview/${a.template ?? "classic"}`} target="_blank" rel="noreferrer">
                     <Button variant="outline" size="sm" className="w-full gap-1.5">
                       <Eye className="h-3.5 w-3.5" /> Preview Template

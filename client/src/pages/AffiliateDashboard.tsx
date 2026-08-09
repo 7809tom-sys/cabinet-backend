@@ -297,12 +297,23 @@ function statusBadge(status: string) {
 }
 
 export default function AffiliateDashboard() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const [section, setSection] = useState<AffiliateSection>("overview");
+
+  // Admin "View as" support: ?viewAs=<affiliateId> lets admins see any affiliate's dashboard
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const viewAsId = params.get("viewAs");
+  const isAdminViewAs = !!viewAsId && user?.role === "admin";
+
   const myRef = trpc.affiliates.myReferrals.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !isAdminViewAs,
     retry: false,
   });
+
+  const adminRef = trpc.affiliates.adminReferrals.useQuery(
+    { affiliateId: Number(viewAsId) },
+    { enabled: isAdminViewAs, retry: false }
+  );
 
   if (loading) {
     return (
@@ -316,7 +327,9 @@ export default function AffiliateDashboard() {
     return <AffiliateLanding />;
   }
 
-  if (myRef.isLoading) {
+  const activeQuery = isAdminViewAs ? adminRef : myRef;
+
+  if (activeQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <Spinner className="h-7 w-7" />
@@ -324,11 +337,11 @@ export default function AffiliateDashboard() {
     );
   }
 
-  if (!myRef.data) {
+  if (!activeQuery.data) {
     return <AffiliateLanding />;
   }
 
-  const { affiliate, orders, summary, commissionRate } = myRef.data;
+  const { affiliate, orders, summary, commissionRate } = activeQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const storeUrl = `${origin}/store/${affiliate.slug}`;
   const refLink = `${origin}/order/new?ref=${affiliate.referralCode}`;
