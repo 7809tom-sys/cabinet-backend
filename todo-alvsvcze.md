@@ -23,5 +23,6 @@
 - [x] Fix all NavLinks to route through /store/:slug/* paths (cart, design, order)
 - [x] Add /store/:slug/cart, /store/:slug/order, /store/:slug/design routes with AffiliateShell
 - [ ] Auto-generate subdomain names from affiliate business names
-- [ ] Add subdomain-based routing (detect subdomain → serve affiliate storefront)
-- [ ] Add CRM "needs help closing" flag for affiliates needing assistance
+- [x] Auto-generate subdomain names from affiliate business names
+- [x] Add subdomain-based routing (detect subdomain → serve affiliate storefront)
+- [x] Add CRM "needs help closing" flag for affiliates needing assistance

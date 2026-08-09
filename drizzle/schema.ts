@@ -798,6 +798,8 @@ export const crmDeals = mysqlTable("crm_deals", {
   // Sort order within a stage column (for manual drag ordering)
   boardOrder: int("boardOrder").default(0).notNull(),
   closedAt: timestamp("closedAt"), // set when stage becomes won/lost
+  // Flag set by affiliate when they need help from the master admin to close this deal
+  needsHelpClosing: boolean("needsHelpClosing").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

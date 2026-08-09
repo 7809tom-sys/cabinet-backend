@@ -285,6 +285,9 @@ function DealCard({ deal, lang, onOpen, affiliateName }: { deal: DealRow; lang: 
       {affiliateName && (
         <div className="text-[10px] font-medium text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1">{affiliateName}</div>
       )}
+      {deal.needsHelpClosing && (
+        <div className="text-[10px] font-medium text-red-600 bg-red-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Closing</div>
+      )}
       {deal.company && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground"><Building2 className="h-3 w-3" />{deal.company}</div>
       )}
@@ -483,6 +486,10 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
   const remove = trpc.crm.remove.useMutation({
     onSuccess: () => { toast.success(lang === "es" ? "Trato eliminado" : "Deal removed"); utils.crm.board.invalidate(); onClose(); },
   });
+  const updateDeal = trpc.crm.update.useMutation({
+    onSuccess: () => { utils.crm.deal.invalidate({ id: dealId! }); utils.crm.board.invalidate(); },
+    onError: () => toast.error("Update failed"),
+  });
 
   const { data: linkable } = trpc.crm.linkableDesigns.useQuery(undefined, { enabled: dealId != null });
   const [designToLink, setDesignToLink] = useState<string>("");
@@ -588,6 +595,18 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
 
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => remove.mutate({ id: deal.id })} disabled={remove.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" />{lang === "es" ? "Eliminar trato" : "Delete deal"}
+              </Button>
+
+              {/* Help closing toggle */}
+              <Button
+                variant={deal.needsHelpClosing ? "default" : "outline"}
+                className={deal.needsHelpClosing ? "bg-red-600 hover:bg-red-700 text-white" : "border-red-200 text-red-600 hover:bg-red-50"}
+                onClick={() => updateDeal.mutate({ id: deal.id, needsHelpClosing: !deal.needsHelpClosing })}
+                disabled={updateDeal.isPending}
+              >
+                {deal.needsHelpClosing
+                  ? (lang === "es" ? "Ayuda solicitada" : "Help Requested")
+                  : (lang === "es" ? "Solicitar ayuda para cerrar" : "Request Help Closing")}
               </Button>
             </div>
           </>

@@ -188,6 +188,7 @@ const dealCoreInput = {
   estimatedValue: z.number().min(0).nullable().optional(),
   nextFollowUpAt: z.number().int().nullable().optional(), // epoch ms
   notes: z.string().max(8000).nullable().optional(),
+  needsHelpClosing: z.boolean().optional(),
 };
 
 export const crmRouter = router({
@@ -375,6 +376,7 @@ export const crmRouter = router({
       if (input.nextFollowUpAt !== undefined)
         patch.nextFollowUpAt = input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null;
       if (input.notes !== undefined) patch.notes = input.notes;
+      if (input.needsHelpClosing !== undefined) patch.needsHelpClosing = input.needsHelpClosing;
       if (input.stage !== undefined && input.stage !== deal.stage) {
         patch.stage = input.stage;
         patch.closedAt = isClosedStage(input.stage as CrmStage) ? new Date() : null;

@@ -1,0 +1,1 @@
+ALTER TABLE `crm_deals` ADD `needsHelpClosing` boolean DEFAULT false NOT NULL;
