@@ -66,6 +66,7 @@ interface DealRow {
   nextFollowUpAt: string | Date | null;
   notes: string | null;
   updatedAt: string | Date;
+  affiliateId?: number | null;
 }
 
 const priorityColor: Record<CrmPriority, string> = {
@@ -84,6 +85,8 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
   const deals = (data?.deals ?? []) as DealRow[];
+  const affiliateNames = (data as any)?.affiliateNames as Record<number, string> | undefined;
+  const isHouseScope = data?.scope === "house";
 
   const byStage = useMemo(() => {
     const map: Record<CrmStage, DealRow[]> = {
@@ -189,7 +192,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                   <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                 ) : (
                   byStage[mobileStage].map((d) => (
-                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} />
+                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} />
                   ))
                 )}
               </div>
@@ -213,7 +216,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                     <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                   ) : (
                     byStage[stage].map((d) => (
-                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} />
+                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} />
                     ))
                   )}
                 </div>
@@ -265,7 +268,7 @@ function StatChip({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function DealCard({ deal, lang, onOpen }: { deal: DealRow; lang: Lang; onOpen: () => void }) {
+function DealCard({ deal, lang, onOpen, affiliateName }: { deal: DealRow; lang: Lang; onOpen: () => void; affiliateName?: string }) {
   return (
     <button
       draggable
@@ -279,6 +282,9 @@ function DealCard({ deal, lang, onOpen }: { deal: DealRow; lang: Lang; onOpen: (
           {CRM_PRIORITY_LABELS[deal.priority][lang]}
         </span>
       </div>
+      {affiliateName && (
+        <div className="text-[10px] font-medium text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1">{affiliateName}</div>
+      )}
       {deal.company && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground"><Building2 className="h-3 w-3" />{deal.company}</div>
       )}

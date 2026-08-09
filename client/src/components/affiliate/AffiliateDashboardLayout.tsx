@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
   Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink,
-  Calendar, Gift,
+  Calendar, Gift, Users,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -44,7 +44,8 @@ export type AffiliateSection =
   | "appointments"
   | "customize"
   | "marketing"
-  | "tax";
+  | "tax"
+  | "team";
 
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
@@ -59,6 +60,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Palette, label: "Customize Store", section: "customize" },
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
+  { icon: Users, label: "My Team", section: "team" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "affiliate-sidebar-width";

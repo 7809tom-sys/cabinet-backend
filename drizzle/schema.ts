@@ -805,6 +805,26 @@ export const crmDeals = mysqlTable("crm_deals", {
 export type CrmDeal = typeof crmDeals.$inferSelect;
 export type InsertCrmDeal = typeof crmDeals.$inferInsert;
 
+// ─── Affiliate Team Members ─────────────────────────────────────────────────
+// Links a user (salesperson/designer) to an affiliate so they can access that
+// affiliate's CRM and design tool. The affiliate owner manages this from their
+// administration panel.
+export const affiliateTeamMembers = mysqlTable("affiliate_team_members", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  userId: int("userId"), // linked after the person signs in (matched by email)
+  email: varchar("email", { length: 320 }).notNull(),
+  name: varchar("name", { length: 256 }),
+  role: mysqlEnum("role", ["salesperson", "designer"]).notNull(),
+  accessCrm: boolean("accessCrm").default(true).notNull(),
+  accessDesigner: boolean("accessDesigner").default(true).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AffiliateTeamMember = typeof affiliateTeamMembers.$inferSelect;
+export type InsertAffiliateTeamMember = typeof affiliateTeamMembers.$inferInsert;
+
 export const crmActivities = mysqlTable("crm_activities", {
   id: int("id").autoincrement().primaryKey(),
   dealId: int("dealId").notNull(),

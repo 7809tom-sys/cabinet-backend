@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, desc, isNull, inArray } from "drizzle-orm";
+import { and, eq, desc, isNull, inArray, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -15,6 +15,7 @@ import {
   proApplications,
   salesCommissions,
   users,
+  affiliateTeamMembers,
 } from "../../drizzle/schema";
 import nodemailer from "nodemailer";
 import {
@@ -86,6 +87,18 @@ async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
   const db = await getDb();
   if (!db) return null;
   const email = (ctx.user.email ?? "").toLowerCase();
+  // First check affiliate_team_members (hired staff)
+  const teamRows = await db.select().from(affiliateTeamMembers)
+    .where(and(
+      eq(affiliateTeamMembers.isActive, true),
+      or(
+        eq(affiliateTeamMembers.userId, ctx.user.id),
+        ...(email.length > 0 ? [eq(affiliateTeamMembers.email, email)] : [])
+      )
+    ));
+  if (teamRows.length > 0) return teamRows[0].affiliateId;
+
+  // Then check affiliate ownership
   const rows = await db.select().from(affiliates);
   const mine =
     rows.find((r) => r.userId === ctx.user.id) ??
@@ -115,7 +128,14 @@ export type CrmScope =
  */
 async function resolveScope(ctx: Ctx): Promise<CrmScope> {
   if (ctx.user.role === "admin" || ctx.user.role === "designer" || ctx.user.role === "sales_rep")
+  {
+    // Check if this designer/sales_rep is linked to an affiliate team
+    if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
+      const affiliateId = await resolveMyAffiliateId(ctx);
+      if (affiliateId != null) return { kind: "affiliate", affiliateId };
+    }
     return { kind: "house" };
+  }
   if (ctx.user.role === "contractor") return { kind: "contractor", userId: ctx.user.id };
   const affiliateId = await resolveMyAffiliateId(ctx);
   if (affiliateId == null) {
@@ -181,6 +201,7 @@ export const crmRouter = router({
         scope: "house" as "house" | "affiliate" | "contractor",
         affiliateId: null as number | null,
         deals: [] as (typeof crmDeals.$inferSelect)[],
+        affiliateNames: {} as Record<number, string>,
       };
     }
     // If an admin passes affiliateId, force the scope to that affiliate's deals
@@ -194,10 +215,17 @@ export const crmRouter = router({
       crmDeals.boardOrder,
       desc(crmDeals.updatedAt),
     );
+    // For house scope, build a map of affiliateId -> storeName for attribution
+    let affiliateNames: Record<number, string> = {};
+    if (scope.kind === "house") {
+      const affRows = await db.select({ id: affiliates.id, storeName: affiliates.storeName }).from(affiliates);
+      affiliateNames = Object.fromEntries(affRows.map((a) => [a.id, a.storeName]));
+    }
     return {
       scope: scope.kind as "house" | "affiliate" | "contractor",
       affiliateId: (scope.kind === "affiliate" ? scope.affiliateId : null) as number | null,
       deals,
+      affiliateNames,
     };
   }),
 

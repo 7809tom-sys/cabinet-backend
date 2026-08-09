@@ -66,7 +66,28 @@ async function resolveMyAffiliate(ctx: { user: { id: number; email: string | nul
   const mine =
     rows.find((r) => r.userId === ctx.user.id) ??
     rows.find((r) => (r.email ?? "").toLowerCase() === email && email.length > 0);
-  return mine ?? null;
+  if (mine) return mine;
+
+  // Check if user is a team member of an affiliate
+  const teamRows = await db.select().from(affiliateTeamMembers)
+    .where(and(
+      eq(affiliateTeamMembers.isActive, true),
+      or(
+        eq(affiliateTeamMembers.userId, ctx.user.id),
+        ...(email.length > 0 ? [eq(affiliateTeamMembers.email, email)] : [])
+      )
+    ));
+  if (teamRows.length > 0) {
+    const parentAffiliate = rows.find((r) => r.id === teamRows[0].affiliateId);
+    return parentAffiliate ?? null;
+  }
+
+  // Admin users: resolve to the first active affiliate so admin can use affiliate panels
+  if (ctx.user.role === "admin" && rows.length > 0) {
+    return rows[0];
+  }
+
+  return null;
 }
 
 const brandingInput = z.object({
@@ -86,6 +107,54 @@ const brandingInput = z.object({
 });
 
 export const affiliatesRouter = router({
+  // ─── Affiliate Team Management ────────────────────────────────────────────
+  myTeam: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return [];
+    const db = await getDb();
+    if (!db) return [];
+    return db.select().from(affiliateTeamMembers)
+      .where(eq(affiliateTeamMembers.affiliateId, mine.id))
+      .orderBy(desc(affiliateTeamMembers.createdAt));
+  }),
+
+  addTeamMember: partnerProcedure
+    .input(z.object({
+      email: z.string().email().max(320),
+      name: z.string().max(256).optional(),
+      role: z.enum(["salesperson", "designer"]),
+      accessCrm: z.boolean().optional(),
+      accessDesigner: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.insert(affiliateTeamMembers).values({
+        affiliateId: mine.id,
+        email: input.email.toLowerCase(),
+        name: input.name ?? null,
+        role: input.role,
+        accessCrm: input.accessCrm ?? true,
+        accessDesigner: input.accessDesigner ?? true,
+      });
+      return { success: true };
+    }),
+
+  removeTeamMember: partnerProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(affiliateTeamMembers)
+        .set({ isActive: false })
+        .where(and(eq(affiliateTeamMembers.id, input.id), eq(affiliateTeamMembers.affiliateId, mine.id)));
+      return { success: true };
+    }),
+
   // ─── Public: storefront by slug ────────────────────────────────────────────
   bySlug: publicProcedure
     .input(z.object({ slug: z.string().min(1).max(64) }))
@@ -1217,3 +1286,4 @@ export const affiliatesRouter = router({
     .input(z.object({ affiliateId: z.number(), status: z.string(), notes: z.string().optional() }))
     .mutation(async () => ({ ok: true })),
 });
+import { affiliateTeamMembers } from "../../drizzle/schema";

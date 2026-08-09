@@ -560,6 +560,8 @@ export default function AffiliateDashboard() {
             <W9Panel />
           </div>
         );
+      case "team":
+        return <AffiliateTeamPanel />;
       default:
         return null;
     }
@@ -1645,3 +1647,4 @@ function W9Panel() {
     </div>
   );
 }
+import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
