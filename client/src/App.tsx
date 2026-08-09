@@ -85,7 +85,7 @@ function CartWithLayout() {
   if (slug) {
     return (
       <Suspense fallback={<PageLoader />}>
-        <AffiliateCartShell slug={slug} />
+        <AffiliateShell slug={slug} />
       </Suspense>
     );
   }
@@ -96,7 +96,7 @@ function CartWithLayout() {
   );
 }
 
-function AffiliateCartShell({ slug }: { slug: string }) {
+function AffiliateShell({ slug, children }: { slug: string; children?: React.ReactNode }) {
   const { data } = trpc.affiliates.bySlug.useQuery({ slug });
   const storeName = data?.storeName ?? "Store";
   const logoUrl = data?.logoUrl ?? null;
@@ -111,12 +111,12 @@ function AffiliateCartShell({ slug }: { slug: string }) {
             <span className="text-lg font-bold">{storeName}</span>
           )}
         </a>
-        <a href="/cart" className="text-sm font-medium text-muted-foreground">
+        <a href={`/store/${slug}/cart`} className="text-sm font-medium text-muted-foreground">
           <ShoppingCart className="h-5 w-5" />
         </a>
       </header>
       <main className="flex-1">
-        <Cart />
+        {children ?? <Cart />}
       </main>
     </div>
   );
@@ -146,6 +146,33 @@ export default function App() {
         </Route>
 
         {/* Branded affiliate storefront — its own header/footer, no AppLayout */}
+        <Route path="/store/:slug/cart">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <Cart />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/order">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <OrderBuilder />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/design">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <DesignSession />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
         <Route path="/store/:slug">
           {(params) => (
             <Suspense fallback={<PageLoader />}>

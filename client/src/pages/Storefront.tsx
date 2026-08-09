@@ -202,7 +202,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                 <p className="text-muted-foreground leading-relaxed mb-6">
                   Beyond cabinets — shop quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs, and toilets. All at trade pricing.
                 </p>
-                <a href={withRef("/surfaces")}>
+                <a href={withRef(`/store/${data.slug}/surfaces`)}>
                   <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
                     Shop Surfaces &amp; Fixtures <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -251,7 +251,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <div className="container text-center text-white">
             <h2 className={`${headlineFont} text-3xl md:text-4xl font-bold mb-3`}>{t("quote_title")}</h2>
             <p className="text-white/80 max-w-2xl mx-auto mb-8">{t("quote_sub")}</p>
-            <Link href={withRef("/order/new")}>
+            <Link href={withRef(`/store/${data.slug}/order`)}>
               <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
                 {t("quote_btn")} <ArrowRight className="h-4 w-4" />
               </Button>
@@ -315,8 +315,8 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
               <div className="font-semibold text-white mb-3">{t("cat_shop")}</div>
               <ul className="space-y-2 text-sm">
                 <li><a href="#shop" className="hover:text-white">{t("hero_browse")}</a></li>
-                <li><Link href={withRef("/design")} className="hover:text-white">{t("nav_design")}</Link></li>
-                <li><Link href={withRef("/order/new")} className="hover:text-white">{t("nav_quote")}</Link></li>
+                <li><Link href={withRef(`/store/${data.slug}/design`)} className="hover:text-white">{t("nav_design")}</Link></li>
+                <li><Link href={withRef(`/store/${data.slug}/order`)} className="hover:text-white">{t("nav_quote")}</Link></li>
               </ul>
             </div>
           </div>
@@ -351,10 +351,12 @@ function NavLinks({
   t,
   withRef,
   variant,
+  slug,
 }: {
   t: TFn;
   withRef: HeaderProps["withRef"];
   variant: "light" | "dark";
+  slug: string;
 }) {
   const cls = variant === "light" ? "text-white hover:bg-white/15" : "";
   const { count: cartCount } = useCart();
@@ -363,10 +365,10 @@ function NavLinks({
       <a href="#shop" className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("cat_shop")}</Button>
       </a>
-      <Link href={withRef("/design")} className="hidden sm:block">
+      <Link href={withRef(`/store/${slug}/design`)} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
       </Link>
-      <Link href={withRef("/cart")} aria-label="Cart">
+      <Link href={withRef(`/store/${slug}/cart`)} aria-label="Cart">
         <Button variant="ghost" size="sm" className={`relative ${cls}`}>
           <ShoppingCart className="h-5 w-5" />
           {cartCount > 0 && (
@@ -394,9 +396,9 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
         <div className="container flex items-center justify-between h-16">
           <Logo />
           <div className="flex items-center gap-2">
-            <NavLinks t={t} withRef={withRef} variant="dark" />
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
             {LangToggle}
-            <Link href={withRef("/order/new")}>
+            <Link href={withRef(`/store/${data.slug}/order`)}>
               <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.accent }}>
                 {t("nav_quote")}
               </Button>
@@ -433,7 +435,7 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                     {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </a>
-                <Link href={withRef("/design")}>
+                <Link href={withRef(`/store/${data.slug}/design`)}>
                   <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
                     {t("hero_design")}
                   </Button>
@@ -476,9 +478,9 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
         <div className="container flex items-center justify-between h-16">
           <Logo light />
           <div className="flex items-center gap-2 text-white">
-            <NavLinks t={t} withRef={withRef} variant="light" />
+            <NavLinks t={t} withRef={withRef} variant="light" slug={data.slug} />
             {LangToggle}
-            <Link href={withRef("/order/new")}>
+            <Link href={withRef(`/store/${data.slug}/order`)}>
               <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.accent }}>
                 {t("nav_quote")}
               </Button>
@@ -506,7 +508,7 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef("/design")}>
+              <Link href={withRef(`/store/${data.slug}/design`)}>
                 <Button size="lg" variant="outline" className="border-white/40 text-white bg-white/10 hover:bg-white/20 gap-2 backdrop-blur">
                   {t("hero_design")}
                 </Button>
@@ -527,9 +529,9 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
         <div className="container flex items-center justify-between h-16">
           <Logo />
           <div className="flex items-center gap-2">
-            <NavLinks t={t} withRef={withRef} variant="dark" />
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
             {LangToggle}
-            <Link href={withRef("/order/new")}>
+            <Link href={withRef(`/store/${data.slug}/order`)}>
               <Button size="sm" variant="outline" className="font-semibold" style={{ borderColor: brand.primary, color: brand.primary }}>
                 {t("nav_quote")}
               </Button>
@@ -559,7 +561,7 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef("/design")}>
+              <Link href={withRef(`/store/${data.slug}/design`)}>
                 <Button size="lg" variant="outline" className="gap-2" style={{ borderColor: brand.primary, color: brand.primary }}>
                   {t("hero_design")}
                 </Button>
@@ -585,9 +587,9 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
         <div className="container flex items-center justify-between h-16">
           <Logo />
           <div className="flex items-center gap-2">
-            <NavLinks t={t} withRef={withRef} variant="dark" />
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
             {LangToggle}
-            <Link href={withRef("/order/new")}>
+            <Link href={withRef(`/store/${data.slug}/order`)}>
               <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.primary }}>
                 {t("nav_quote")}
               </Button>
@@ -630,7 +632,7 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef("/design")}>
+              <Link href={withRef(`/store/${data.slug}/design`)}>
                 <Button
                   size="lg"
                   variant="outline"

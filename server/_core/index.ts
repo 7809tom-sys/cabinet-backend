@@ -66,6 +66,28 @@ async function startServer() {
   // No-op for localhost, *.manus.space/.manus.computer, and the www host, so it is
   // safe to run before everything else.
   app.use(apexRedirectMiddleware);
+  // ─── Affiliate subdomain routing ─────────────────────────────────────────────
+  // Detects affiliate subdomains (e.g., reaves-way-cabinet-shop.cabinetdealz.com)
+  // and internally rewrites the URL to /store/:slug so the SPA serves the
+  // affiliate's white-labeled storefront. API/tRPC/static paths are excluded.
+  app.use((req, _res, next) => {
+    const host = (req.headers.host || "").toLowerCase();
+    // Skip non-subdomain hosts (www, naked domain, localhost, manus.space, etc.)
+    if (!host.includes("cabinetdealz.com") || host.startsWith("www.") || host === "cabinetdealz.com") {
+      return next();
+    }
+    // Extract subdomain: "reaves-way-cabinet-shop.cabinetdealz.com" → "reaves-way-cabinet-shop"
+    const subdomain = host.split(".cabinetdealz.com")[0];
+    if (!subdomain || subdomain.includes(".")) return next();
+    // Don't rewrite API calls, static assets, or already-prefixed store paths
+    if (req.url.startsWith("/api/") || req.url.startsWith("/store/") || req.url.startsWith("/__manus__") || req.url.startsWith("/manus-storage")) {
+      return next();
+    }
+    // Rewrite: / → /store/slug, /cart → /store/slug/cart, etc.
+    const originalUrl = req.url === "/" ? "" : req.url;
+    req.url = `/store/${subdomain}${originalUrl}`;
+    next();
+  });
   // Stripe webhook MUST be registered before express.json() so the raw body
   // is available for signature verification.
   registerStripeWebhook(app);

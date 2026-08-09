@@ -16,3 +16,12 @@
 - [ ] Enforce accessCrm/accessDesigner permissions in backend and update affiliate dashboard to recognize team members
 - [x] Fix storefront "Choose Your Cabinet Line" page to use affiliate's custom brand names instead of central names
 - [x] Add product images to storefront catalog cards (imageUrl from distributor_skus)
+- [x] Add catalogImageUrl from cabinets table to storefront product cards
+- [x] White-label cart - hide CabinetDealz logo, show affiliate branding
+- [x] White-label cart - use affiliate branded style names
+- [x] Hide tier badge for storefront/homeowner items
+- [x] Fix all NavLinks to route through /store/:slug/* paths (cart, design, order)
+- [x] Add /store/:slug/cart, /store/:slug/order, /store/:slug/design routes with AffiliateShell
+- [ ] Auto-generate subdomain names from affiliate business names
+- [ ] Add subdomain-based routing (detect subdomain → serve affiliate storefront)
+- [ ] Add CRM "needs help closing" flag for affiliates needing assistance
