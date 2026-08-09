@@ -7,3 +7,5 @@
 - [ ] Fix SKU count (531) for Shaker White (Preston) - remove unpriced items
 - [x] Add admin "View as Affiliate" button on AffiliatesAdmin so admin can open any affiliate's dashboard
 - [x] Verify all affiliate dashboard tabs are fully editable end-to-end (confirmed: pricing, catalog, customize, marketing all have save/mutate)
+- [x] Fix CRM data isolation: affiliates no longer see master CRM contacts (board query now filters by affiliateId)
+- [x] CRM create mutation tags new deals to the correct affiliate when created from affiliate dashboard

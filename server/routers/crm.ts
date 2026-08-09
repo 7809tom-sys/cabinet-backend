@@ -172,7 +172,9 @@ const dealCoreInput = {
 
 export const crmRouter = router({
   // ── Board: all deals grouped by stage for the caller's scope ────────────────
-  board: protectedProcedure.query(async ({ ctx }) => {
+  board: protectedProcedure
+    .input(z.object({ affiliateId: z.number().int().optional() }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) {
       return {
@@ -181,7 +183,11 @@ export const crmRouter = router({
         deals: [] as (typeof crmDeals.$inferSelect)[],
       };
     }
-    const scope = await resolveScope(ctx);
+    // If an admin passes affiliateId, force the scope to that affiliate's deals
+    let scope = await resolveScope(ctx);
+    if (input?.affiliateId != null && scope.kind === "house") {
+      scope = { kind: "affiliate", affiliateId: input.affiliateId };
+    }
     const where = scopeWhere(scope);
     const q = db.select().from(crmDeals);
     const deals = await (where ? q.where(where) : q).orderBy(
@@ -292,14 +298,16 @@ export const crmRouter = router({
 
   // ── Create a deal in the caller's scope ─────────────────────────────────────
   create: protectedProcedure
-    .input(z.object(dealCoreInput))
+    .input(z.object({ ...dealCoreInput, affiliateId: z.number().int().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const scope = await resolveScope(ctx);
       const stage = (input.stage ?? "new") as CrmStage;
       const res = await db.insert(crmDeals).values({
-        affiliateId: scope.kind === "affiliate" ? scope.affiliateId : null,
+        affiliateId: scope.kind === "affiliate"
+          ? scope.affiliateId
+          : (input.affiliateId != null && scope.kind === "house" ? input.affiliateId : null),
         ownerUserId: ctx.user.id,
         title: input.title,
         stage,

@@ -74,10 +74,12 @@ const priorityColor: Record<CrmPriority, string> = {
   high: "bg-red-100 text-red-700",
 };
 
-export function CrmBoard({ lang = "en" }: { lang?: Lang }) {
+export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateId?: number }) {
   const t = L(lang);
   const utils = trpc.useUtils();
-  const { data, isLoading, error } = trpc.crm.board.useQuery();
+  const { data, isLoading, error } = trpc.crm.board.useQuery(
+    affiliateId != null ? { affiliateId } : undefined
+  );
   const [openDealId, setOpenDealId] = useState<number | null>(null);
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
@@ -139,7 +141,7 @@ export function CrmBoard({ lang = "en" }: { lang?: Lang }) {
         </div>
         <div className="flex items-center gap-2">
           <ImportLeadsDialog lang={lang} />
-          <NewDealDialog lang={lang} />
+          <NewDealDialog lang={lang} affiliateId={affiliateId} />
         </div>
       </div>
 
@@ -296,7 +298,7 @@ function DealCard({ deal, lang, onOpen }: { deal: DealRow; lang: Lang; onOpen: (
 }
 
 // ─── New deal dialog ────────────────────────────────────────────────────────
-function NewDealDialog({ lang }: { lang: Lang }) {
+function NewDealDialog({ lang, affiliateId }: { lang: Lang; affiliateId?: number }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -326,6 +328,7 @@ function NewDealDialog({ lang }: { lang: Lang }) {
       priority: form.priority,
       language: form.language,
       notes: form.notes || null,
+      ...(affiliateId != null ? { affiliateId } : {}),
     });
   }
   return (

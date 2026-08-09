@@ -437,7 +437,7 @@ export default function AffiliateDashboard() {
         return (
           <div className="max-w-full">
             <h2 className="text-xl font-bold mb-4">My CRM</h2>
-            <CrmBoard lang="en" />
+            <CrmBoard lang="en" affiliateId={affiliate.id} />
           </div>
         );
       case "orders":
