@@ -235,9 +235,9 @@ export default function Cart() {
                     <span className="font-mono text-sm font-semibold">{item.masterCode}</span>
                     {item.category ? (
                       <Badge variant="outline" className="text-[10px]">{item.category}</Badge>
-                    ) : (
+                    ) : item.tier !== "homeowner" ? (
                       <Badge variant="secondary" className="text-[10px]">{item.tier}</Badge>
-                    )}
+                    ) : null}
                   </div>
                   <p className="mt-0.5 text-sm text-foreground leading-snug">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.styleLabel}</p>

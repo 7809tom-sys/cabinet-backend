@@ -762,12 +762,13 @@ function CatalogCard({
                 masterCode: code,
                 name: description || code,
                 styleId,
-                styleLabel: family.name,
+                styleLabel: branding.brandName(family.styleId, family.name),
                 distributorId: family.distributorId,
                 tier: "homeowner",
                 unitPrice,
                 qty,
                 category: showing.category,
+                catalogImageUrl: item.catalogImageUrl ?? null,
               });
               if (res.ok) {
                 toast.success(lang === "es" ? `Añadido: ${qty} × ${code}` : `Added ${qty} × ${code} to cart`);
