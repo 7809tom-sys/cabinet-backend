@@ -174,6 +174,7 @@ function FamilyPicker({
               // room scene. No keyword/bucket guessing — if there's no real photo
               // we render the color-accurate swatch on the family's finish color.
               const scene = f.roomSceneImageUrl || null;
+              const displayName = branding.brandName(f.styleId, f.name);
               return (
                 <button
                   key={f.styleId}
@@ -207,7 +208,7 @@ function FamilyPicker({
                     {scene ? (
                       <img
                         src={scene}
-                        alt={`${f.name} kitchen`}
+                        alt={`${displayName} kitchen`}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
@@ -266,7 +267,7 @@ function FamilyPicker({
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
-                    <h3 className="font-serif text-lg font-bold leading-tight">{f.name}</h3>
+                    <h3 className="font-serif text-lg font-bold leading-tight">{displayName}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {[f.finish, f.color].filter(Boolean).join(" · ") || "\u00A0"}
                     </p>

@@ -14,3 +14,4 @@
 - [x] Add affiliate team management (add salesperson/designer by email) to affiliate admin panel
 - [x] Route affiliate-hired staff to their affiliate's CRM when they log in (not house CRM)
 - [ ] Enforce accessCrm/accessDesigner permissions in backend and update affiliate dashboard to recognize team members
+- [x] Fix storefront "Choose Your Cabinet Line" page to use affiliate's custom brand names instead of central names
