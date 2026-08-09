@@ -55,6 +55,9 @@ type CartState = {
   /** The door-style family of the FIRST item, kept only for friendly messages. */
   lockedStyleId: number | null;
   lockedStyleLabel: string | null;
+  /** When items were added from an affiliate storefront, stores the slug for white-labeling. */
+  storefrontSlug: string | null;
+  setStorefrontSlug: (slug: string | null) => void;
   addItem: (item: CartItem) => AddItemResult;
   removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"]) => void;
   setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number) => void;
@@ -68,6 +71,7 @@ const CartContext = createContext<CartState | null>(null);
 
 const STORAGE_KEY = "cd_cart_v1";
 const ZIP_KEY = "cd_cart_zip_v1";
+const SLUG_KEY = "cd_cart_slug_v1";
 
 function lineKey(
   i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
@@ -93,6 +97,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const [storefrontSlug, setStorefrontSlugState] = useState<string | null>(() => {
+    try {
+      return typeof localStorage !== "undefined" ? localStorage.getItem(SLUG_KEY) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (storefrontSlug) localStorage.setItem(SLUG_KEY, storefrontSlug);
+      else localStorage.removeItem(SLUG_KEY);
+    } catch { /* ignore */ }
+  }, [storefrontSlug]);
 
   useEffect(() => {
     try {
@@ -189,6 +207,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
     const clear = () => setItems([]);
     const setZip = (z: string | null) => setZipState(z);
+    const setStorefrontSlug = (s: string | null) => setStorefrontSlugState(s);
 
     const count = items.reduce((n, i) => n + i.qty, 0);
     const subtotal = items.reduce((s, i) => s + (i.unitPrice ?? 0) * i.qty, 0);
@@ -199,6 +218,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lockedDistributorId,
       lockedStyleId,
       lockedStyleLabel,
+      storefrontSlug,
+      setStorefrontSlug,
       addItem,
       removeItem,
       setQty,
@@ -207,7 +228,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count,
       subtotal,
     };
-  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel]);
+  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
 }

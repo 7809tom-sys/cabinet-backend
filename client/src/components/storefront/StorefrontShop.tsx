@@ -119,6 +119,7 @@ export function StorefrontShop({
       withRef={withRef}
       onSwitch={clear}
       branding={branding}
+      slug={slug}
     />
   );
 }
@@ -307,6 +308,7 @@ function LockedCatalog({
   withRef,
   onSwitch,
   branding,
+  slug,
 }: {
   family: LockedFamily;
   brand: Brand;
@@ -314,6 +316,7 @@ function LockedCatalog({
   withRef: (path: string) => string;
   onSwitch: () => void;
   branding: StorefrontBranding;
+  slug?: string;
 }) {
   // The affiliate's white-label name for this line (falls back to central name).
   const displayName = branding.brandName(family.styleId, family.name);
@@ -534,6 +537,7 @@ function LockedCatalog({
                 branding={branding}
                 family={family}
                 promos={promos ?? []}
+                slug={slug}
               />
             ))}
           </div>
@@ -621,6 +625,7 @@ function CatalogCard({
   branding,
   family,
   promos,
+  slug,
 }: {
   item: CatalogItem;
   styleId: number;
@@ -629,10 +634,11 @@ function CatalogCard({
   branding: StorefrontBranding;
   family: LockedFamily;
   promos: ActivePromo[];
+  slug?: string;
 }) {
   const [glass, setGlass] = useState(false);
   const [qty, setQtyState] = useState(1);
-  const { addItem } = useCart();
+  const { addItem, setStorefrontSlug } = useCart();
 
   // Only solid WALL cabinets are eligible to offer a glass-door swap. The query
   // returns null for anything else (oven/tall/base, or no buyable GD twin), so
@@ -771,6 +777,7 @@ function CatalogCard({
                 catalogImageUrl: item.catalogImageUrl ?? null,
               });
               if (res.ok) {
+                if (slug) setStorefrontSlug(slug);
                 toast.success(lang === "es" ? `Añadido: ${qty} × ${code}` : `Added ${qty} × ${code} to cart`);
                 setQtyState(1);
               } else {

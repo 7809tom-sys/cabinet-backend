@@ -76,6 +76,32 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function CartWithLayout() {
+  // If the cart was filled from an affiliate storefront, skip the CabinetDealz
+  // header and just show a minimal back-to-store link instead.
+  const slug = typeof localStorage !== "undefined" ? localStorage.getItem("cd_cart_slug_v1") : null;
+  if (slug) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <AdminEditModeBar />
+        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center gap-3">
+          <a href={`/store/${slug}`} className="text-sm font-medium text-primary hover:underline">
+            &larr; Back to Store
+          </a>
+        </header>
+        <main className="flex-1">
+          <Cart />
+        </main>
+      </div>
+    );
+  }
+  return (
+    <AppLayout>
+      <Cart />
+    </AppLayout>
+  );
+}
+
 export default function App() {
   useEffect(() => {
     // Show a gentle, non-blocking refresh prompt when a newer build is deployed,
@@ -316,11 +342,9 @@ export default function App() {
         </Route>
 
         <Route path="/cart">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <Cart />
-            </Suspense>
-          </AppLayout>
+          <Suspense fallback={<PageLoader />}>
+            <CartWithLayout />
+          </Suspense>
         </Route>
 
         <Route path="/account">
