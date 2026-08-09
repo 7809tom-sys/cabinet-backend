@@ -303,16 +303,29 @@ export default function AffiliateDashboard() {
   // Admin "View as" support: ?viewAs=<affiliateId> lets admins see any affiliate's dashboard
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const viewAsId = params.get("viewAs");
-  const isAdminViewAs = !!viewAsId && user?.role === "admin";
+  const isAdmin = user?.role === "admin";
+  const isAdminViewAs = !!viewAsId && isAdmin;
 
   const myRef = trpc.affiliates.myReferrals.useQuery(undefined, {
-    enabled: isAuthenticated && !isAdminViewAs,
+    enabled: isAuthenticated && !isAdmin,
     retry: false,
   });
 
   const adminRef = trpc.affiliates.adminReferrals.useQuery(
     { affiliateId: Number(viewAsId) },
     { enabled: isAdminViewAs, retry: false }
+  );
+
+  // Admin without ?viewAs= param: load the full affiliate list and show the first one
+  const adminList = trpc.affiliates.adminList.useQuery(undefined, {
+    enabled: isAdmin && !isAdminViewAs,
+    retry: false,
+  });
+
+  // For admin without viewAs, pick the first affiliate from the list
+  const adminFirstAffiliate = trpc.affiliates.adminReferrals.useQuery(
+    { affiliateId: (adminList.data as any)?.[0]?.id ?? 0 },
+    { enabled: isAdmin && !isAdminViewAs && !!(adminList.data as any)?.[0]?.id, retry: false }
   );
 
   if (loading) {
@@ -327,7 +340,15 @@ export default function AffiliateDashboard() {
     return <AffiliateLanding />;
   }
 
-  const activeQuery = isAdminViewAs ? adminRef : myRef;
+  // Determine which query to use based on role and context
+  let activeQuery: typeof myRef;
+  if (isAdminViewAs) {
+    activeQuery = adminRef;
+  } else if (isAdmin) {
+    activeQuery = adminFirstAffiliate;
+  } else {
+    activeQuery = myRef;
+  }
 
   if (activeQuery.isLoading) {
     return (
@@ -338,6 +359,18 @@ export default function AffiliateDashboard() {
   }
 
   if (!activeQuery.data) {
+    // Admin should never see the landing page - show a message instead
+    if (isAdmin) {
+      return (
+        <div className="container max-w-md py-20 text-center">
+          <h1 className="font-serif text-2xl font-bold mb-3">No Affiliates Yet</h1>
+          <p className="text-muted-foreground mb-6">Create your first affiliate from the Admin panel.</p>
+          <a href="/admin">
+            <Button className="bg-[var(--color-navy)] text-white">Go to Admin</Button>
+          </a>
+        </div>
+      );
+    }
     return <AffiliateLanding />;
   }
 
