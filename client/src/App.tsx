@@ -12,6 +12,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
+import { trpc } from "@/lib/trpc";
+import { ShoppingCart } from "lucide-react";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -82,23 +84,41 @@ function CartWithLayout() {
   const slug = typeof localStorage !== "undefined" ? localStorage.getItem("cd_cart_slug_v1") : null;
   if (slug) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <AdminEditModeBar />
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center gap-3">
-          <a href={`/store/${slug}`} className="text-sm font-medium text-primary hover:underline">
-            &larr; Back to Store
-          </a>
-        </header>
-        <main className="flex-1">
-          <Cart />
-        </main>
-      </div>
+      <Suspense fallback={<PageLoader />}>
+        <AffiliateCartShell slug={slug} />
+      </Suspense>
     );
   }
   return (
     <AppLayout>
       <Cart />
     </AppLayout>
+  );
+}
+
+function AffiliateCartShell({ slug }: { slug: string }) {
+  const { data } = trpc.affiliates.bySlug.useQuery({ slug });
+  const storeName = data?.storeName ?? "Store";
+  const logoUrl = data?.logoUrl ?? null;
+  return (
+    <div className="min-h-screen flex flex-col">
+      <AdminEditModeBar />
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between">
+        <a href={`/store/${slug}`} className="flex items-center gap-2">
+          {logoUrl ? (
+            <img src={logoUrl} alt={storeName} className="h-8 w-auto max-w-[140px] object-contain" />
+          ) : (
+            <span className="text-lg font-bold">{storeName}</span>
+          )}
+        </a>
+        <a href="/cart" className="text-sm font-medium text-muted-foreground">
+          <ShoppingCart className="h-5 w-5" />
+        </a>
+      </header>
+      <main className="flex-1">
+        <Cart />
+      </main>
+    </div>
   );
 }
 
