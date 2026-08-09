@@ -1043,6 +1043,7 @@ export const designRouter = router({
         name: z.string().max(255).optional(),
         phone: z.string().max(32).optional(),
         roomType: z.string().max(32).optional(),
+        affiliateSlug: z.string().max(255).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -1054,6 +1055,7 @@ export const designRouter = router({
       const name = input.name?.trim() || null;
       const phone = input.phone?.trim() || null;
       const roomType = input.roomType?.trim() || null;
+      const affiliateSlug = input.affiliateSlug?.trim() || null;
 
       // De-dupe: look for an existing lead for this email (scoped to the same
       // user when logged in). Update + bump the counter if found.
@@ -1090,6 +1092,7 @@ export const designRouter = router({
         name,
         phone,
         roomType,
+        affiliateSlug,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 

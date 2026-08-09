@@ -1177,6 +1177,7 @@ export const designLeads = mysqlTable("design_leads", {
   roomType: varchar("roomType", { length: 32 }), // kitchen/bath/etc. if known at launch
   source: varchar("source", { length: 64 }).default("designer_launch").notNull(),
   dealId: int("dealId"), // the HOUSE crm deal auto-created from this lead (null until created)
+  affiliateSlug: varchar("affiliateSlug", { length: 255 }), // affiliate storefront slug if design came from affiliate
   // Light de-dupe / engagement counters so repeat launches update one record.
   launchCount: int("launchCount").default(1).notNull(),
   lastLaunchAt: timestamp("lastLaunchAt").defaultNow().notNull(),

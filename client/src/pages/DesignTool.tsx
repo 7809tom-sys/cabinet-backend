@@ -242,10 +242,16 @@ export default function DesignTool() {
       email: contact.email,
       name: contact.name,
       phone: contact.phone,
+      affiliateSlug: affiliateSlug ?? undefined,
     });
   }, [captureLead]);
 
   const search = useSearch();
+  // Optional affiliate slug (?affiliate=<slug>) when coming from an affiliate storefront.
+  const affiliateSlug = useMemo(() => {
+    const v = new URLSearchParams(search).get("affiliate");
+    return v ? String(v).trim() : null;
+  }, [search]);
   // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
   // "Linked Designs" list. Loads the saved room + placed cabinets + style.
   const loadDesignId = useMemo(() => {

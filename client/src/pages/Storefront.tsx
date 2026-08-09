@@ -315,7 +315,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
               <div className="font-semibold text-white mb-3">{t("cat_shop")}</div>
               <ul className="space-y-2 text-sm">
                 <li><a href="#shop" className="hover:text-white">{t("hero_browse")}</a></li>
-                <li><Link href={withRef(`/store/${data.slug}/design`)} className="hover:text-white">{t("nav_design")}</Link></li>
+                <li><Link href={withRef(`/design?affiliate=${data.slug}`)} className="hover:text-white">{t("nav_design")}</Link></li>
                 <li><Link href={withRef(`/store/${data.slug}/order`)} className="hover:text-white">{t("nav_quote")}</Link></li>
               </ul>
             </div>
@@ -365,7 +365,7 @@ function NavLinks({
       <a href="#shop" className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("cat_shop")}</Button>
       </a>
-      <Link href={withRef(`/store/${slug}/design`)} className="hidden sm:block">
+      <Link href={withRef(`/design?affiliate=${slug}`)} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
       </Link>
       <Link href={withRef(`/store/${slug}/cart`)} aria-label="Cart">
@@ -435,7 +435,7 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                     {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </a>
-                <Link href={withRef(`/store/${data.slug}/design`)}>
+                <Link href={withRef(`/design?affiliate=${data.slug}`)}>
                   <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
                     {t("hero_design")}
                   </Button>
@@ -508,7 +508,7 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef(`/store/${data.slug}/design`)}>
+              <Link href={withRef(`/design?affiliate=${data.slug}`)}>
                 <Button size="lg" variant="outline" className="border-white/40 text-white bg-white/10 hover:bg-white/20 gap-2 backdrop-blur">
                   {t("hero_design")}
                 </Button>
@@ -561,7 +561,7 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef(`/store/${data.slug}/design`)}>
+              <Link href={withRef(`/design?affiliate=${data.slug}`)}>
                 <Button size="lg" variant="outline" className="gap-2" style={{ borderColor: brand.primary, color: brand.primary }}>
                   {t("hero_design")}
                 </Button>
@@ -632,7 +632,7 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                   {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
-              <Link href={withRef(`/store/${data.slug}/design`)}>
+              <Link href={withRef(`/design?affiliate=${data.slug}`)}>
                 <Button
                   size="lg"
                   variant="outline"
