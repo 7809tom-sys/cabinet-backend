@@ -90,43 +90,58 @@ export function TopNav() {
   });
   const isAffiliate = !!myAffiliateData?.affiliate;
 
-  // Read ?ref= param to show affiliate branding on design/order pages
+  // Detect affiliate slug from multiple sources:
+  // 1. ?ref= param (referral code)
+  // 2. /store/:slug/* URL path
+  // 3. localStorage (cd_cart_slug_v1)
   const refCode = new URLSearchParams(search).get("ref") ?? "";
+  const storeSlugMatch = location.match(/^\/store\/([^/]+)/);
+  const storeSlug = storeSlugMatch ? storeSlugMatch[1] : null;
+  const storedSlug = typeof localStorage !== "undefined" ? localStorage.getItem("cd_cart_slug_v1") : null;
+  
+  // Query affiliate by referral code OR by slug (for storefront pages)
   const { data: affiliateBrand } = trpc.affiliates.byCode.useQuery(
     { code: refCode },
     { enabled: !!refCode, staleTime: 5 * 60 * 1000 }
   );
+  const { data: affiliateBySlug } = trpc.affiliates.bySlug.useQuery(
+    { slug: storeSlug || storedSlug || "" },
+    { enabled: !refCode && !!(storeSlug || storedSlug), staleTime: 5 * 60 * 1000 }
+  );
+  
+  // Use whichever affiliate data is available
+  const currentAffiliate = affiliateBrand || affiliateBySlug;
 
   const isActive = (href: string) => location.startsWith(href);
   const moreActive = [...MORE_LINKS, ...PORTAL_LINKS].some((l) => isActive(l.href));
 
   // On affiliate pages, hide internal portals (Supplier Portal, Dealer Portal)
-  const visiblePortalLinks = affiliateBrand
+  const visiblePortalLinks = currentAffiliate
     ? PORTAL_LINKS.filter((l) => l.href === "/affiliate")
     : PORTAL_LINKS;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-2">
-        {/* Logo — show affiliate branding when ?ref= is present */}
-        {affiliateBrand ? (
+        {/* Logo — show affiliate branding when on affiliate storefront or ?ref= present */}
+        {currentAffiliate ? (
           <a
-            href={`https://${affiliateBrand.slug}.cabinetdealz.com`}
+            href={`https://${currentAffiliate.slug}.cabinetdealz.com`}
             className="flex items-center gap-2 shrink-0 max-w-[200px]"
           >
-            {affiliateBrand.logoUrl ? (
+            {currentAffiliate.logoUrl ? (
               <img
-                src={affiliateBrand.logoUrl}
-                alt={affiliateBrand.storeName}
+                src={currentAffiliate.logoUrl}
+                alt={currentAffiliate.storeName}
                 className="h-8 w-auto max-w-[140px] object-contain"
               />
             ) : (
               <>
                 <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-navy)] text-white font-bold text-sm shrink-0">
-                  {affiliateBrand.storeName.slice(0, 1).toUpperCase()}
+                  {currentAffiliate.storeName.slice(0, 1).toUpperCase()}
                 </div>
                 <span className="font-serif text-lg font-bold text-[var(--color-navy)] dark:text-foreground truncate">
-                  {affiliateBrand.storeName}
+                  {currentAffiliate.storeName}
                 </span>
               </>
             )}
