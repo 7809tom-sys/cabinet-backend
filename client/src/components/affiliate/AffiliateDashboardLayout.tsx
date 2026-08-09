@@ -131,7 +131,7 @@ function SidebarInner({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeItem = NAV_ITEMS.find((i) => i.section === section);
-  const storeUrl = `${window.location.origin}/store/${storeSlug}`;
+  const storeUrl = `https://${storeSlug}.cabinetdealz.com`;
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);

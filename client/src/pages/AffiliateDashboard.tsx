@@ -376,7 +376,7 @@ export default function AffiliateDashboard() {
 
   const { affiliate, orders, summary, commissionRate } = activeQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const storeUrl = `${origin}/store/${affiliate.slug}`;
+  const storeUrl = `https://${affiliate.slug}.cabinetdealz.com`;
   const refLink = `${origin}/order/new?ref=${affiliate.referralCode}`;
 
   function copy(text: string, label: string) {

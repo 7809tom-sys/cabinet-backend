@@ -111,7 +111,7 @@ export function TopNav() {
         {/* Logo — show affiliate branding when ?ref= is present */}
         {affiliateBrand ? (
           <a
-            href={`/store/${affiliateBrand.slug}`}
+            href={`https://${affiliateBrand.slug}.cabinetdealz.com`}
             className="flex items-center gap-2 shrink-0 max-w-[200px]"
           >
             {affiliateBrand.logoUrl ? (

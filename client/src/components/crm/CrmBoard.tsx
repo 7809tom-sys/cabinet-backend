@@ -67,6 +67,7 @@ interface DealRow {
   notes: string | null;
   updatedAt: string | Date;
   affiliateId?: number | null;
+  needsHelpClosing?: boolean;
 }
 
 const priorityColor: Record<CrmPriority, string> = {
