@@ -1294,28 +1294,4 @@ export const affiliatesRouter = router({
   updatePayoutVerification: adminProcedure
     .input(z.object({ affiliateId: z.number(), status: z.string(), notes: z.string().optional() }))
     .mutation(async () => ({ ok: true })),
-
-  uploadLogo: partnerProcedure
-    .input(z.object({
-      imageBase64: z.string().min(1),
-      contentType: z.string().regex(/^image\/(jpeg|png|webp|gif)$/).default("image/png"),
-      fileName: z.string().max(256).default("logo.png"),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const buf = Buffer.from(input.imageBase64, "base64");
-      const ext = input.contentType.split("/")[1] ?? "png";
-      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
-      const { url } = await storagePut(
-        `affiliate-logo/${mine.slug}_${Date.now()}_${safeName}.${ext}`,
-        buf,
-        input.contentType,
-      );
-      await db.update(affiliates).set({ logoUrl: url }).where(eq(affiliates.id, mine.id));
-      return { url };
-    }),
-
 });

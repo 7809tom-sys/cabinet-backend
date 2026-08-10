@@ -534,7 +534,7 @@ export default function AffiliateDashboard() {
         return <AffiliatePricingPanel />;
       case "customize":
         return (
-          <div className="w-full">
+          <div className="max-w-3xl">
             <h2 className="text-xl font-bold mb-4">Customize Store</h2>
             <CustomizeTab affiliate={affiliate} onSaved={() => myRef.refetch()} />
           </div>
@@ -736,7 +736,6 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
 // with a Room Scene Picker and an AI Concierge upsell card.
 
 type AffiliateRow = {
-  slug: string;
   tagline: string | null;
   taglineEs: string | null;
   aboutText: string | null;
@@ -839,35 +838,6 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     onError: (e) => toast.error("Upload failed", { description: e.message }),
   });
 
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const uploadLogo = trpc.affiliates.uploadLogo.useMutation({
-    onSuccess: ({ url }) => {
-      set("logoUrl", url);
-      toast.success("Logo uploaded — save to apply");
-    },
-    onError: (e) => toast.error("Logo upload failed", { description: e.message }),
-  });
-
-  async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Logo must be under 5 MB"); return; }
-    setUploadingLogo(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-        if (!match) { toast.error("Could not read image"); setUploadingLogo(false); return; }
-        uploadLogo.mutate({ imageBase64: match[2], contentType: match[1] as "image/jpeg" | "image/png" | "image/webp" | "image/gif", fileName: file.name }, {
-          onSettled: () => setUploadingLogo(false),
-        });
-      };
-      reader.readAsDataURL(file);
-    } catch { setUploadingLogo(false); }
-    e.target.value = "";
-  }
-
   async function handleHeroFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -915,9 +885,7 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
   ) ?? null;
 
   return (
-    <div className="flex gap-6 items-start">
-      {/* ── Left: settings ────────────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 space-y-6">
+    <div className="space-y-6">
 
       {/* ── Storefront on/off ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
@@ -1068,66 +1036,31 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
             <Label htmlFor="primary">Primary color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} placeholder="#1a2b4a" className="font-mono" />
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(form.primaryColor) ? form.primaryColor : "#1a2b4a"}
-                onChange={(e) => set("primaryColor", e.target.value)}
-                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer p-0.5"
-                title="Pick a color"
-              />
+              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }} />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="accent">Accent color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="accent" value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#c9a227" className="font-mono" />
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(form.accentColor) ? form.accentColor : "#c9a227"}
-                onChange={(e) => set("accentColor", e.target.value)}
-                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer p-0.5"
-                title="Pick a color"
-              />
+              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.accentColor || "#c9a227" }} />
             </div>
           </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="logo">Logo URL</Label>
-          <div className="flex gap-2 items-center">
-            {form.logoUrl ? (
-              <img src={form.logoUrl} alt="Logo preview" className="h-10 w-auto max-w-[120px] object-contain rounded border border-border bg-muted p-1 shrink-0" />
-            ) : (
-              <div className="h-10 w-10 rounded border border-dashed border-border bg-muted flex items-center justify-center shrink-0">
-                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-              </div>
-            )}
-            <label className="flex-1">
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleLogoFileChange} />
-              <div className={`inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer w-full ${uploadingLogo || uploadLogo.isPending ? "opacity-50 pointer-events-none" : ""}`}>
-                {uploadingLogo || uploadLogo.isPending ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
-                ) : (
-                  <><Upload className="h-4 w-4" /> Upload Logo</>
-                )}
-              </div>
-            </label>
-            {form.logoUrl && (
-              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground shrink-0" onClick={() => set("logoUrl", "")}>
-                Remove
-              </Button>
-            )}
-          </div>
+          <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
         </div>
 
         {/* ── Typography ──────────────────────────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Body font</Label>
-            <Select value={form.fontFamily || "__default__"} onValueChange={(v) => set("fontFamily", v === "__default__" ? "" : v)}>
+            <Select value={form.fontFamily || ""} onValueChange={(v) => set("fontFamily", v)}>
               <SelectTrigger><SelectValue placeholder="Default (Inter)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__default__">Default (Inter)</SelectItem>
+                <SelectItem value="">Default</SelectItem>
                 {BODY_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}
@@ -1136,10 +1069,10 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
           </div>
           <div className="space-y-1.5">
             <Label>Heading font</Label>
-            <Select value={form.headingFont || "__default__"} onValueChange={(v) => set("headingFont", v === "__default__" ? "" : v)}>
+            <Select value={form.headingFont || ""} onValueChange={(v) => set("headingFont", v)}>
               <SelectTrigger><SelectValue placeholder="Default (Playfair Display)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__default__">Default (Playfair Display)</SelectItem>
+                <SelectItem value="">Default</SelectItem>
                 {HEADING_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}
@@ -1255,41 +1188,6 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
       {/* ── AI Concierge upsell card ──────────────────────────────────────── */}
       <AiConciergeCard />
-    </div>
-
-      {/* ── Right: sticky live preview ──────────────────────────────────── */}
-      <div className="hidden xl:flex flex-col w-[420px] shrink-0 sticky top-4 self-start gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-foreground">Live Preview</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-xs text-muted-foreground"
-            onClick={() => setPreviewKey((k) => k + 1)}
-          >
-            <Loader2 className="h-3 w-3" /> Refresh
-          </Button>
-        </div>
-        <div className="rounded-xl border border-border overflow-hidden shadow-lg bg-background" style={{ height: "calc(100vh - 120px)" }}>
-          {affiliate.slug ? (
-            <iframe
-              key={previewKey}
-              src={`/store/${affiliate.slug}`}
-              className="w-full h-full"
-              title="Storefront preview"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-              Save your storefront to see a preview.
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground text-center">
-          Click <strong>Save storefront</strong> then <strong>Refresh</strong> to see your changes.
-        </p>
-      </div>
     </div>
   );
 }
@@ -1866,4 +1764,3 @@ function W9Panel() {
 }
 import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-  const [previewKey, setPreviewKey] = useState(0);
