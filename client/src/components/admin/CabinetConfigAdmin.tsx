@@ -2071,9 +2071,9 @@ export function CabinetConfigAdmin() {
   });
 
   const { data: dbCatsList } = trpc.cabinetCategories.list.useQuery();
-  const categories = dbCatsList && dbCatsList.length > 0
+  const categories = (dbCatsList && dbCatsList.length > 0
     ? dbCatsList.map((c) => c.name)
-    : ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"];
+    : ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"]).filter((c) => c && c.trim() !== "");
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;

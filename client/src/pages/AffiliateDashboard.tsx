@@ -1057,10 +1057,10 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Body font</Label>
-            <Select value={form.fontFamily || ""} onValueChange={(v) => set("fontFamily", v)}>
+            <Select value={form.fontFamily || "__default__"} onValueChange={(v) => set("fontFamily", v === "__default__" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Default (Inter)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Default</SelectItem>
+                <SelectItem value="__default__">Default (Inter)</SelectItem>
                 {BODY_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}
@@ -1069,10 +1069,10 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
           </div>
           <div className="space-y-1.5">
             <Label>Heading font</Label>
-            <Select value={form.headingFont || ""} onValueChange={(v) => set("headingFont", v)}>
+            <Select value={form.headingFont || "__default__"} onValueChange={(v) => set("headingFont", v === "__default__" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Default (Playfair Display)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Default</SelectItem>
+                <SelectItem value="__default__">Default (Playfair Display)</SelectItem>
                 {HEADING_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}
