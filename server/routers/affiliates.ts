@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers } from "../../drizzle/schema";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -1295,4 +1295,3 @@ export const affiliatesRouter = router({
     .input(z.object({ affiliateId: z.number(), status: z.string(), notes: z.string().optional() }))
     .mutation(async () => ({ ok: true })),
 });
-import { affiliateTeamMembers } from "../../drizzle/schema";
