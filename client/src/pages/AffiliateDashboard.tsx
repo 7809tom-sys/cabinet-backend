@@ -749,7 +749,34 @@ type AffiliateRow = {
   instagramUrl: string | null;
   storefrontEnabled: boolean | null;
   template: "classic" | "showcase" | "minimal" | "craftsman" | null;
+  fontFamily: string | null;
+  headingFont: string | null;
+  buttonRadius: string | null;
 };
+
+// ── Typography options ──────────────────────────────────────────────────────
+const BODY_FONTS = [
+  { value: "Inter", label: "Inter (Modern Sans-serif)" },
+  { value: "Lato", label: "Lato (Clean & Friendly)" },
+  { value: "Open Sans", label: "Open Sans (Neutral)" },
+  { value: "Merriweather", label: "Merriweather (Serif)" },
+  { value: "Roboto", label: "Roboto (Google Default)" },
+  { value: "Source Sans 3", label: "Source Sans (Professional)" },
+];
+const HEADING_FONTS = [
+  { value: "Playfair Display", label: "Playfair Display (Elegant Serif)" },
+  { value: "Montserrat", label: "Montserrat (Bold Sans)" },
+  { value: "Raleway", label: "Raleway (Geometric)" },
+  { value: "Oswald", label: "Oswald (Condensed)" },
+  { value: "Lora", label: "Lora (Literary Serif)" },
+  { value: "Nunito", label: "Nunito (Rounded)" },
+];
+const BUTTON_RADII = [
+  { value: "0px", label: "Sharp (0px)" },
+  { value: "0.375rem", label: "Slightly Rounded (6px)" },
+  { value: "0.75rem", label: "Rounded (12px)" },
+  { value: "9999px", label: "Pill (fully rounded)" },
+];
 
 const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: string; desc: string }[] = [
   { id: "classic", name: "Classic", desc: "Navy split hero with a lifestyle photo and serif headline." },
@@ -784,6 +811,9 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     instagramUrl: affiliate.instagramUrl ?? "",
     storefrontEnabled: affiliate.storefrontEnabled ?? true,
     template: (affiliate.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
+    fontFamily: affiliate.fontFamily ?? "",
+    headingFont: affiliate.headingFont ?? "",
+    buttonRadius: affiliate.buttonRadius ?? "0.375rem",
   });
 
   const utils = trpc.useUtils();
@@ -835,15 +865,18 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
       aboutText: form.aboutText || null,
       aboutTextEs: form.aboutTextEs || null,
       primaryColor: form.primaryColor || null,
-      accentColor: form.accentColor || null,
-      logoUrl: form.logoUrl || null,
-      heroImageUrl: form.heroImageUrl || null,
-      serviceArea: form.serviceArea || null,
-      facebookUrl: form.facebookUrl || null,
-      instagramUrl: form.instagramUrl || null,
-      storefrontEnabled: form.storefrontEnabled,
-      template: form.template,
-    });
+    accentColor: form.accentColor || null,
+    logoUrl: form.logoUrl || null,
+    heroImageUrl: form.heroImageUrl || null,
+    serviceArea: form.serviceArea || null,
+    facebookUrl: form.facebookUrl || null,
+    instagramUrl: form.instagramUrl || null,
+    storefrontEnabled: form.storefrontEnabled,
+    template: form.template,
+    fontFamily: form.fontFamily || null,
+    headingFont: form.headingFont || null,
+    buttonRadius: form.buttonRadius || null,
+  });
   }
 
   // Detect which scene key is currently active (if heroImageUrl matches one)
@@ -1018,6 +1051,88 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
         <div className="space-y-1.5">
           <Label htmlFor="logo">Logo URL</Label>
           <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
+        </div>
+
+        {/* ── Typography ──────────────────────────────────────────────────── */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Body font</Label>
+            <Select value={form.fontFamily || ""} onValueChange={(v) => set("fontFamily", v)}>
+              <SelectTrigger><SelectValue placeholder="Default (Inter)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Default</SelectItem>
+                {BODY_FONTS.map((f) => (
+                  <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Heading font</Label>
+            <Select value={form.headingFont || ""} onValueChange={(v) => set("headingFont", v)}>
+              <SelectTrigger><SelectValue placeholder="Default (Playfair Display)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Default</SelectItem>
+                {HEADING_FONTS.map((f) => (
+                  <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* ── Button radius ────────────────────────────────────────────────── */}
+        <div className="space-y-2">
+          <Label>Button shape</Label>
+          <div className="flex flex-wrap gap-2">
+            {BUTTON_RADII.map((r) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => set("buttonRadius", r.value)}
+                className={`px-4 py-2 text-sm border transition-colors ${form.buttonRadius === r.value || (!form.buttonRadius && r.value === "0.375rem") ? "border-primary bg-primary/10 text-primary font-medium" : "border-border bg-background text-foreground hover:border-primary/50"}`}
+                style={{ borderRadius: r.value }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Live mini-preview ────────────────────────────────────────────── */}
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="px-3 py-2 bg-muted text-xs font-medium text-muted-foreground">Live Preview</div>
+          <div
+            className="p-5 space-y-3"
+            style={{
+              backgroundColor: form.primaryColor || "#1a2b4a",
+              fontFamily: form.fontFamily || "Inter, sans-serif",
+            }}
+          >
+            <p
+              className="text-2xl font-bold text-white"
+              style={{ fontFamily: form.headingFont || "Playfair Display, serif" }}
+            >
+              {form.tagline || "Beautiful Kitchens, Built Around You."}
+            </p>
+            <p className="text-sm text-white/75">Your storefront headline will appear in your heading font above.</p>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                type="button"
+                className="px-5 py-2 text-sm font-semibold text-white"
+                style={{ backgroundColor: form.accentColor || "#c9a227", borderRadius: form.buttonRadius || "0.375rem", fontFamily: form.fontFamily || "Inter, sans-serif" }}
+              >
+                Shop Cabinets
+              </button>
+              <button
+                type="button"
+                className="px-5 py-2 text-sm font-semibold border border-white/50 text-white bg-transparent"
+                style={{ borderRadius: form.buttonRadius || "0.375rem", fontFamily: form.fontFamily || "Inter, sans-serif" }}
+              >
+                Learn More
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1648,3 +1763,4 @@ function W9Panel() {
   );
 }
 import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

@@ -60,6 +60,40 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
     [data?.primaryColor, data?.accentColor]
   );
 
+  // Inject Google Fonts + CSS variables for affiliate typography/button radius.
+  useEffect(() => {
+    const bodyFont = data?.fontFamily;
+    const headFont = data?.headingFont;
+    const btnRadius = data?.buttonRadius;
+    if (!bodyFont && !headFont && !btnRadius) return;
+
+    // Load Google Fonts for any custom fonts selected.
+    const fontsToLoad = [bodyFont, headFont].filter(Boolean) as string[];
+    if (fontsToLoad.length > 0) {
+      const existing = document.getElementById("affiliate-gfonts");
+      if (existing) existing.remove();
+      const link = document.createElement("link");
+      link.id = "affiliate-gfonts";
+      link.rel = "stylesheet";
+      const families = fontsToLoad.map((f) => `family=${encodeURIComponent(f)}:wght@400;500;600;700`).join("&");
+      link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+      document.head.appendChild(link);
+    }
+
+    // Apply CSS variables to :root so all storefront elements inherit them.
+    const root = document.documentElement;
+    if (bodyFont) root.style.setProperty("--sf-font-body", `"${bodyFont}", sans-serif`);
+    if (headFont) root.style.setProperty("--sf-font-heading", `"${headFont}", serif`);
+    if (btnRadius) root.style.setProperty("--sf-btn-radius", btnRadius);
+
+    return () => {
+      // Clean up when leaving the storefront.
+      root.style.removeProperty("--sf-font-body");
+      root.style.removeProperty("--sf-font-heading");
+      root.style.removeProperty("--sf-btn-radius");
+    };
+  }, [data?.fontFamily, data?.headingFont, data?.buttonRadius]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -111,6 +145,11 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
 
   // Template-dependent typography: serif headlines for classic/craftsman, sans for showcase/minimal.
   const headlineFont = template === "showcase" || template === "minimal" ? "font-sans" : "font-serif";
+
+  // Use affiliate's custom fonts when set, otherwise fall back to template defaults.
+  const bodyFontStyle = data.fontFamily ? { fontFamily: `var(--sf-font-body, "${data.fontFamily}", sans-serif)` } : {};
+  const headingFontStyle = data.headingFont ? { fontFamily: `var(--sf-font-heading, "${data.headingFont}", serif)` } : {};
+  const btnRadiusStyle = data.buttonRadius ? { borderRadius: `var(--sf-btn-radius, ${data.buttonRadius})` } : {};
 
   const LangToggle = (
     <button

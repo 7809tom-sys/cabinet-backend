@@ -678,6 +678,10 @@ export const affiliates = mysqlTable("affiliates", {
   accentColor: varchar("accentColor", { length: 16 }), // hex, e.g. "#c79a4b"
   heroImageUrl: varchar("heroImageUrl", { length: 512 }),
   tagline: varchar("tagline", { length: 256 }), // hero subheading
+  // Typography & shape
+  fontFamily: varchar("fontFamily", { length: 64 }), // body font, e.g. "Inter" | "Lato" | "Merriweather"
+  headingFont: varchar("headingFont", { length: 64 }), // heading font, e.g. "Playfair Display" | "Montserrat"
+  buttonRadius: varchar("buttonRadius", { length: 16 }), // e.g. "0.375rem" | "9999px" | "0px"
   taglineEs: varchar("taglineEs", { length: 256 }), // optional Spanish hero subheading
   aboutText: text("aboutText"), // "about this store" blurb on storefront
   aboutTextEs: text("aboutTextEs"), // optional Spanish "about this store" blurb

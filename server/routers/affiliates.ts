@@ -45,8 +45,11 @@ function toPublicStorefront(a: typeof affiliates.$inferSelect) {
     facebookUrl: a.facebookUrl,
     instagramUrl: a.instagramUrl,
     storefrontEnabled: a.storefrontEnabled,
-    template: a.template,
-  };
+  template: a.template,
+  fontFamily: a.fontFamily,
+  headingFont: a.headingFont,
+  buttonRadius: a.buttonRadius,
+};
 }
 
 export type StorefrontAffiliate = ReturnType<typeof toPublicStorefront>;
@@ -104,6 +107,9 @@ const brandingInput = z.object({
   facebookUrl: z.string().max(512).nullable().optional(),
   instagramUrl: z.string().max(512).nullable().optional(),
   template: z.enum(["classic", "showcase", "minimal", "craftsman"]).optional(),
+  fontFamily: z.string().max(64).nullable().optional(),
+  headingFont: z.string().max(64).nullable().optional(),
+  buttonRadius: z.string().max(16).nullable().optional(),
 });
 
 export const affiliatesRouter = router({
@@ -231,9 +237,12 @@ export const affiliatesRouter = router({
         facebookUrl: null,
         instagramUrl: null,
         storefrontEnabled: true,
-        template: input.template,
-      };
-    }),
+      template: input.template,
+      fontFamily: null,
+      headingFont: null,
+      buttonRadius: null,
+    };
+  }),
 
   // ─── Public: list active storefronts (directory) ───────────────────────────
   listActive: publicProcedure.query(async () => {
