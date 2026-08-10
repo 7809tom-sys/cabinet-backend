@@ -390,19 +390,45 @@ export const affiliatesRouter = router({
 
   // ─── Partner: update my storefront branding ────────────────────────────────
   updateMyStorefront: partnerProcedure
-    .input(brandingInput.merge(z.object({ storefrontEnabled: z.boolean().optional() })))
+    .input(
+      brandingInput.merge(
+        z.object({
+          storefrontEnabled: z.boolean().optional(),
+          storeName: z.string().min(1).max(256).optional(),
+          // Admins may target a specific affiliate explicitly. Ignored for partners.
+          affiliateId: z.number().int().positive().optional(),
+        })
+      )
+    )
     .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
-      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
       const db = await getDb();
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const set: Record<string, unknown> = { ...input };
+      const { affiliateId, ...fields } = input;
+      // Resolve the target affiliate. Admins can pass an explicit affiliateId so
+      // they edit the affiliate they are actually viewing instead of falling back
+      // to the first row in the table.
+      let targetId: number;
+      if (affiliateId !== undefined && ctx.user.role === "admin") {
+        const rows = await db
+          .select({ id: affiliates.id })
+          .from(affiliates)
+          .where(eq(affiliates.id, affiliateId))
+          .limit(1);
+        if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+        targetId = rows[0].id;
+      } else {
+        const mine = await resolveMyAffiliate(ctx);
+        if (!mine)
+          throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+        targetId = mine.id;
+      }
+      const set: Record<string, unknown> = { ...fields };
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
       if (Object.keys(set).length > 0) {
-        await db.update(affiliates).set(set).where(eq(affiliates.id, mine.id));
+        await db.update(affiliates).set(set).where(eq(affiliates.id, targetId));
       }
-      return { id: mine.id };
+      return { id: targetId };
     }),
 
   // ─── Partner: my referrals + commission summary ────────────────────────────

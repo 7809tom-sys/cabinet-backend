@@ -114,3 +114,22 @@
 - [x] Add fallback: flat rate or "contact us" if API times out or errors
 - [x] Log API call payloads and responses in admin log table
 - [x] Save checkpoint and deploy
+
+## Affiliate Save Not Persisting (admin panel + affiliate dashboard)
+
+- [x] Diagnose why branding saves do not persist from both save paths
+- [x] Confirmed server-side writes were always correct (7 persistence tests pass)
+- [x] Root cause 1: admins hit updateMyStorefront, which fell back to the FIRST affiliate row — edits landed on the wrong store
+- [x] Root cause 2: both forms initialized state once on mount and never re-synced, so saved values looked reverted
+- [x] Root cause 3: onSaved refetched myRef, which is disabled for admins — admin views stayed stale
+- [x] Fix 1: updateMyStorefront accepts an optional affiliateId, honored only for admins, validated against the table
+- [x] Fix 2: CustomizeTab re-syncs form state on affiliate id/updatedAt change; admin editor re-syncs on fresh data
+- [x] Fix 3: save invalidates myReferrals/adminReferrals/adminList/bySlug and refetches the ACTIVE query
+- [x] Fix 4: added storeName to the affiliate-editable fields (text logo support)
+- [x] Crash fix: replaced empty-string SelectItem values in font dropdowns (Radix throws → white screen)
+- [x] Crash fix: same empty SelectItem issue fixed in DistributorImport
+- [x] Added native color pickers for primary/accent color
+- [x] Added Store display name field to Brand Identity
+- [x] Added vitest coverage: 7 tests in server/affiliates.savePersist.test.ts (incl. admin targeting + rejection of unknown id)
+- [x] All 29 existing affiliate tests still pass; TypeScript clean; production build succeeds
+- [x] Save checkpoint and deploy

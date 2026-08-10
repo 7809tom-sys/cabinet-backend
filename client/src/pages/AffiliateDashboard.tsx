@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -536,7 +536,11 @@ export default function AffiliateDashboard() {
         return (
           <div className="max-w-3xl">
             <h2 className="text-xl font-bold mb-4">Customize Store</h2>
-            <CustomizeTab affiliate={affiliate} onSaved={() => myRef.refetch()} />
+            <CustomizeTab
+              affiliate={affiliate}
+              isAdmin={isAdmin}
+              onSaved={() => activeQuery.refetch()}
+            />
           </div>
         );
       case "promotions":
@@ -736,6 +740,9 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
 // with a Room Scene Picker and an AI Concierge upsell card.
 
 type AffiliateRow = {
+  id: number;
+  storeName: string;
+  updatedAt?: Date | string | null;
   tagline: string | null;
   taglineEs: string | null;
   aboutText: string | null;
@@ -795,9 +802,37 @@ const SCENE_LABELS: Record<KitchenSceneKey, { name: string; desc: string }> = {
   "slab-natural": { name: "Natural Wood Slab", desc: "Sleek European-modern with warmth." },
 };
 
-function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
+function CustomizeTab({
+  affiliate,
+  onSaved,
+  isAdmin,
+}: {
+  affiliate: AffiliateRow;
+  onSaved: () => void;
+  isAdmin?: boolean;
+}) {
   const [uploading, setUploading] = useState(false);
+  const formFromAffiliate = (a: AffiliateRow) => ({
+    storeName: a.storeName ?? "",
+    tagline: a.tagline ?? "",
+    taglineEs: a.taglineEs ?? "",
+    aboutText: a.aboutText ?? "",
+    aboutTextEs: a.aboutTextEs ?? "",
+    primaryColor: a.primaryColor ?? "",
+    accentColor: a.accentColor ?? "",
+    logoUrl: a.logoUrl ?? "",
+    heroImageUrl: a.heroImageUrl ?? "",
+    serviceArea: a.serviceArea ?? "",
+    facebookUrl: a.facebookUrl ?? "",
+    instagramUrl: a.instagramUrl ?? "",
+    storefrontEnabled: a.storefrontEnabled ?? true,
+    template: (a.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
+    fontFamily: a.fontFamily ?? "",
+    headingFont: a.headingFont ?? "",
+    buttonRadius: a.buttonRadius ?? "0.375rem",
+  });
   const [form, setForm] = useState({
+    storeName: affiliate.storeName ?? "",
     tagline: affiliate.tagline ?? "",
     taglineEs: affiliate.taglineEs ?? "",
     aboutText: affiliate.aboutText ?? "",
@@ -816,11 +851,28 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     buttonRadius: affiliate.buttonRadius ?? "0.375rem",
   });
 
+  // Re-sync the form whenever a different affiliate is loaded, or fresh data
+  // arrives from the server after a save. Without this, the fields keep showing
+  // the values captured on first mount and a successful save looks like it
+  // "reverted".
+  const syncKey = `${affiliate.id}:${String(affiliate.updatedAt ?? "")}`;
+  const lastSyncRef = useRef(syncKey);
+  useEffect(() => {
+    if (lastSyncRef.current !== syncKey) {
+      lastSyncRef.current = syncKey;
+      setForm(formFromAffiliate(affiliate));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncKey]);
+
   const utils = trpc.useUtils();
   const save = trpc.affiliates.updateMyStorefront.useMutation({
     onSuccess: () => {
       toast.success("Storefront updated");
       utils.affiliates.bySlug.invalidate();
+      utils.affiliates.myReferrals.invalidate();
+      utils.affiliates.adminReferrals.invalidate();
+      utils.affiliates.adminList.invalidate();
       onSaved();
     },
     onError: (e) => toast.error("Could not save", { description: e.message }),
@@ -860,6 +912,11 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
   function handleSave() {
     save.mutate({
+      // Admins must target the affiliate they are actually viewing, otherwise the
+      // server falls back to the first affiliate row and the edit lands on the
+      // wrong store.
+      ...(isAdmin ? { affiliateId: affiliate.id } : {}),
+      storeName: form.storeName || undefined,
       tagline: form.tagline || null,
       taglineEs: form.taglineEs || null,
       aboutText: form.aboutText || null,
@@ -1031,19 +1088,44 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
           <Palette className="h-4 w-4 text-primary" /> Brand Identity
         </h2>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="storeName">Store display name</Label>
+          <Input
+            id="storeName"
+            value={form.storeName}
+            onChange={(e) => set("storeName", e.target.value)}
+            placeholder="Reaves Way Cabinet Shop"
+          />
+          <p className="text-xs text-muted-foreground">
+            Shown as your storefront name. If you have no logo image, this text is used as your logo.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="primary">Primary color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} placeholder="#1a2b4a" className="font-mono" />
-              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }} />
+              <input
+                type="color"
+                aria-label="Pick primary color"
+                value={/^#[0-9a-fA-F]{6}$/.test(form.primaryColor) ? form.primaryColor : "#1a2b4a"}
+                onChange={(e) => set("primaryColor", e.target.value)}
+                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer bg-transparent p-0"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="accent">Accent color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="accent" value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#c9a227" className="font-mono" />
-              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.accentColor || "#c9a227" }} />
+              <input
+                type="color"
+                aria-label="Pick accent color"
+                value={/^#[0-9a-fA-F]{6}$/.test(form.accentColor) ? form.accentColor : "#c9a227"}
+                onChange={(e) => set("accentColor", e.target.value)}
+                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer bg-transparent p-0"
+              />
             </div>
           </div>
         </div>
@@ -1057,10 +1139,13 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Body font</Label>
-            <Select value={form.fontFamily || ""} onValueChange={(v) => set("fontFamily", v)}>
+            <Select
+              value={form.fontFamily || "__default__"}
+              onValueChange={(v) => set("fontFamily", v === "__default__" ? "" : v)}
+            >
               <SelectTrigger><SelectValue placeholder="Default (Inter)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Default</SelectItem>
+                <SelectItem value="__default__">Default</SelectItem>
                 {BODY_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}
@@ -1069,10 +1154,13 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
           </div>
           <div className="space-y-1.5">
             <Label>Heading font</Label>
-            <Select value={form.headingFont || ""} onValueChange={(v) => set("headingFont", v)}>
+            <Select
+              value={form.headingFont || "__default__"}
+              onValueChange={(v) => set("headingFont", v === "__default__" ? "" : v)}
+            >
               <SelectTrigger><SelectValue placeholder="Default (Playfair Display)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Default</SelectItem>
+                <SelectItem value="__default__">Default</SelectItem>
                 {HEADING_FONTS.map((f) => (
                   <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</SelectItem>
                 ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -551,13 +551,19 @@ function AffiliateStorefrontEditor({ affiliate: a, onSaved }: { affiliate: Affil
     instagramUrl: "",
   });
   const [loaded, setLoaded] = useState(false);
+  const syncRef = useRef<string>("");
 
   // Load full affiliate data (adminList only has partial fields)
   const { data: fullData } = trpc.affiliates.adminList.useQuery(undefined, { retry: false });
   useEffect(() => {
-    if (!loaded && fullData) {
-      const af = fullData.find((x) => x.id === a.id);
-      if (af) {
+    const af = fullData?.find((x) => x.id === a.id);
+    if (af) {
+      // Re-sync whenever fresh server data arrives (including right after a save)
+      // so the fields reflect what is actually stored instead of the values
+      // captured on first render.
+      const stamp = `${af.id}:${String((af as Record<string, unknown>).updatedAt ?? "")}`;
+      if (stamp !== syncRef.current) {
+        syncRef.current = stamp;
         setForm({
           storeName: af.storeName ?? "",
           contactName: af.contactName ?? "",
@@ -579,8 +585,15 @@ function AffiliateStorefrontEditor({ affiliate: a, onSaved }: { affiliate: Affil
     }
   }, [fullData, loaded, a.id]);
 
+  const utils = trpc.useUtils();
   const save = trpc.affiliates.adminUpdate.useMutation({
-    onSuccess: () => { toast.success("Storefront updated"); onSaved(); },
+    onSuccess: () => {
+      toast.success("Storefront updated");
+      utils.affiliates.adminList.invalidate();
+      utils.affiliates.adminReferrals.invalidate();
+      utils.affiliates.bySlug.invalidate();
+      onSaved();
+    },
     onError: (e) => toast.error(e.message),
   });
 

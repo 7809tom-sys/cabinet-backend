@@ -1800,9 +1800,9 @@ export default function DistributorImport() {
                     </span>
                   </label>
                   <Select
-                    value={styleId}
+                    value={styleId || "__percolumn__"}
                     onValueChange={(v) => {
-                      setStyleId(v);
+                      setStyleId(v === "__percolumn__" ? "" : v);
                       setPreview(null);
                     }}
                     disabled={!distributorId}
@@ -1811,7 +1811,7 @@ export default function DistributorImport() {
                       <SelectValue placeholder="Use Door Style column per row" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">
+                      <SelectItem value="__percolumn__">
                         Use Door Style column per row
                       </SelectItem>
                       {(styles ?? []).map((s) => (
