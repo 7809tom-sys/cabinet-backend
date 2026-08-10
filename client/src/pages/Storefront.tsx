@@ -456,18 +456,18 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                 </div>
               ) : null}
               <h1 className={`${headlineFont} text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6`}>
-                {data.tagline || (
-                  <>
-                    Beautiful Kitchens,
-                    <br />
-                    <span style={{ color: brand.accent }}>Built Around You.</span>
-                  </>
-                )}
-              </h1>
-              <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
-                {data.aboutText ||
-                  `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
-              </p>
+              {data.tagline || (
+                <>
+                  Beautiful Kitchens,
+                  <br />
+                  <span style={{ color: brand.accent }}>Built for You.</span>
+                </>
+              )}
+            </h1>
+            <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
+              {data.aboutText ||
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all through ${data.storeName}.`}
+            </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a href="#shop">
                   <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
@@ -535,11 +535,11 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-6 tracking-tight`}>
-              {data.tagline || "Beautiful Kitchens, Built Around You."}
+              {data.tagline || `${data.storeName} — Quality Cabinets & Design`}
             </h1>
             <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed max-w-xl">
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all through ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">
@@ -588,11 +588,11 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl font-bold leading-[1.08] mb-6 tracking-tight text-foreground`}>
-              {data.tagline || "Beautiful Kitchens, Built Around You."}
+              {data.tagline || `${data.storeName} — Quality Cabinets & Design`}
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl">
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all through ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">
@@ -659,11 +659,11 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
               className={`${headlineFont} text-5xl md:text-7xl font-black leading-[0.98] mb-6 uppercase tracking-tight`}
               style={{ color: brand.primary }}
             >
-              {data.tagline || "Beautiful Kitchens, Built To Last."}
+              {data.tagline || `${data.storeName}`.toUpperCase()}
             </h1>
             <p className="text-lg md:text-xl mb-8 leading-relaxed max-w-2xl font-medium" style={{ color: brand.primary }}>
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all through ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">
