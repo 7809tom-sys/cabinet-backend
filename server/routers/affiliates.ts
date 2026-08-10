@@ -1017,6 +1017,42 @@ export const affiliatesRouter = router({
       return { url };
     }),
 
+  // ─── Partner: upload store logo ────────────────────────────────────────────
+  // Mirrors uploadHeroImage but writes logoUrl, and honours admin targeting so
+  // an admin editing a specific store uploads to THAT store.
+  uploadLogo: partnerProcedure
+    .input(z.object({
+      imageBase64: z.string().min(1),
+      contentType: z.string().regex(/^image\/(jpeg|png|webp|gif|svg\+xml)$/).default("image/png"),
+      fileName: z.string().max(256).default("logo.png"),
+      affiliateId: z.number().int().positive().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const targetId = await resolveTargetAffiliateId(ctx, input.affiliateId);
+      const rows = await db
+        .select({ slug: affiliates.slug })
+        .from(affiliates)
+        .where(eq(affiliates.id, targetId))
+        .limit(1);
+      const slug = rows[0]?.slug ?? String(targetId);
+      const buf = Buffer.from(input.imageBase64, "base64");
+      // Guard against oversized uploads reaching storage (base64 inflates ~33%).
+      if (buf.byteLength > 5 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Logo must be 5MB or smaller." });
+      }
+      const ext = input.contentType === "image/svg+xml" ? "svg" : (input.contentType.split("/")[1] ?? "png");
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+      const { url } = await storagePut(
+        `affiliate-logo/${slug}_${Date.now()}_${safeName}.${ext}`,
+        buf,
+        input.contentType,
+      );
+      await db.update(affiliates).set({ logoUrl: url }).where(eq(affiliates.id, targetId));
+      return { url };
+    }),
+
   // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────
   // The affiliate describes what they want; we notify the owner who will follow up.
   requestAiConcierge: partnerProcedure

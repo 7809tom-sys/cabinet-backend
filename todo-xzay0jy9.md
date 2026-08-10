@@ -174,3 +174,15 @@
 - [x] Extract resolveTargetAffiliateId so embed mutations respect admin targeting
 - [x] Add tests: 14 validation tests + 6 draft/publish/exposure tests (all pass)
 - [x] Save checkpoint and deploy
+
+## Logo Upload Button (re-add safely)
+
+- [x] Added uploadLogo procedure (storagePut to affiliate-logo/, honours admin affiliateId targeting, 5MB server guard, filename sanitized)
+- [x] Upload UI uses a plain styled <label> with a hidden file input — NO Button asChild inside a label (that was the white-screen cause)
+- [x] Client validates type (PNG/JPG/WebP/GIF/SVG) and 5MB size with clear toasts
+- [x] Logo preview thumbnail plus Remove logo action
+- [x] "No logo — your store name is shown as text" hint when empty
+- [x] Logo URL field kept as a collapsed fallback for externally hosted logos
+- [x] 5 upload tests pass (persist, bad content type, empty payload, oversized, SVG)
+- [x] Verified: TypeScript clean, 55 affiliate/white-label tests pass, production build succeeds
+- [x] Save checkpoint and deploy

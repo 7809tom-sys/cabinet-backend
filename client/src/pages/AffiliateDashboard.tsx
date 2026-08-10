@@ -850,6 +850,7 @@ function CustomizeTab({
   isAdmin?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const formFromAffiliate = (a: AffiliateRow) => ({
     storeName: a.storeName ?? "",
     tagline: a.tagline ?? "",
@@ -945,6 +946,59 @@ function CustomizeTab({
       };
       reader.readAsDataURL(file);
     } catch { setUploading(false); }
+    e.target.value = "";
+  }
+
+  const uploadLogo = trpc.affiliates.uploadLogo.useMutation({
+    onSuccess: ({ url }) => {
+      // The server already persisted logoUrl; mirror it into the form so the
+      // preview updates immediately and a later Save won't blank it out.
+      set("logoUrl", url);
+      toast.success("Logo uploaded", { description: "It is already saved to your store." });
+      onSaved();
+    },
+    onError: (e) => toast.error("Logo upload failed", { description: e.message }),
+  });
+
+  function onLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Unsupported file type", { description: "Use PNG, JPG, WebP, GIF, or SVG." });
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be 5MB or smaller");
+      e.target.value = "";
+      return;
+    }
+    setLogoUploading(true);
+    const reader = new FileReader();
+    reader.onerror = () => {
+      toast.error("Could not read that file");
+      setLogoUploading(false);
+    };
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+      if (!match) {
+        toast.error("Could not read that image");
+        setLogoUploading(false);
+        return;
+      }
+      uploadLogo.mutate(
+        {
+          imageBase64: match[2],
+          contentType: match[1],
+          fileName: file.name,
+          ...(isAdmin ? { affiliateId: affiliate.id } : {}),
+        },
+        { onSettled: () => setLogoUploading(false) }
+      );
+    };
+    reader.readAsDataURL(file);
     e.target.value = "";
   }
 
@@ -1169,8 +1223,73 @@ function CustomizeTab({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="logo">Logo URL</Label>
-          <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
+          <Label>Store logo</Label>
+          <div className="flex items-start gap-3 flex-wrap">
+            {/* Current logo preview, or a text-logo hint when none is set. */}
+            {form.logoUrl ? (
+              <img
+                src={form.logoUrl}
+                alt="Current logo"
+                className="h-14 w-auto max-w-[160px] object-contain rounded border border-border bg-white p-1"
+              />
+            ) : (
+              <div className="h-14 px-3 flex items-center rounded border border-dashed border-border text-xs text-muted-foreground">
+                No logo — your store name is shown as text
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              {/*
+                IMPORTANT: this is a plain <label> containing a hidden file input.
+                Do NOT use <Button asChild> inside a label here — rendering a
+                button-like element as a <span> inside a label previously caused a
+                DOM-nesting crash (white screen) in the production build.
+              */}
+              <label
+                className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background text-sm font-medium cursor-pointer hover:bg-muted transition-colors ${
+                  logoUploading ? "opacity-60 pointer-events-none" : ""
+                }`}
+              >
+                {logoUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {logoUploading ? "Uploading…" : "Upload logo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  className="hidden"
+                  onChange={onLogoFile}
+                />
+              </label>
+              {form.logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => set("logoUrl", "")}
+                  className="text-xs text-destructive hover:underline text-left"
+                >
+                  Remove logo
+                </button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            PNG, JPG, WebP, GIF, or SVG up to 5MB. If you don't have a logo file, leave this empty
+            and your store name will be used as a text logo.
+          </p>
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Or paste a logo URL
+            </summary>
+            <Input
+              id="logo"
+              value={form.logoUrl}
+              onChange={(e) => set("logoUrl", e.target.value)}
+              placeholder="https://…/logo.png"
+              className="font-mono text-sm mt-2"
+            />
+          </details>
         </div>
 
         {/* ── Typography ──────────────────────────────────────────────────── */}
