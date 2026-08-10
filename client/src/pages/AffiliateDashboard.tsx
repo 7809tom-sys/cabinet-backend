@@ -613,6 +613,7 @@ export default function AffiliateDashboard() {
       onSection={setSection}
       storeName={affiliate.storeName}
       storeSlug={affiliate.slug}
+      affiliateId={affiliate.id}
     >
       {renderSection()}
     </AffiliateDashboardLayout>

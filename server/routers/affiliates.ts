@@ -315,6 +315,23 @@ export const affiliatesRouter = router({
       return rows[0] ?? null;
     }),
 
+  // ─── Admin: minimal affiliate list for the dashboard store switcher ────────
+  // adminList returns whole rows (heavy, includes internal notes). The switcher
+  // only needs enough to label an option, so keep this small and cacheable.
+  adminSwitcherList: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({
+        id: affiliates.id,
+        storeName: affiliates.storeName,
+        slug: affiliates.slug,
+        status: affiliates.status,
+      })
+      .from(affiliates)
+      .orderBy(affiliates.storeName);
+  }),
+
   // ─── Admin: create an affiliate ────────────────────────────────────────────
   adminCreate: adminProcedure
     .input(

@@ -31,6 +31,7 @@ import {
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
+import { AffiliateStoreSwitcher } from "./AffiliateStoreSwitcher";
 
 export type AffiliateSection =
   | "overview"
@@ -75,10 +76,11 @@ type Props = {
   onSection: (s: AffiliateSection) => void;
   storeName: string;
   storeSlug: string;
+  /** Current affiliate id — required for the admin store switcher. */
+  affiliateId?: number;
   children: React.ReactNode;
 };
-
-export function AffiliateDashboardLayout({ section, onSection, storeName, storeSlug, children }: Props) {
+export function AffiliateDashboardLayout({ section, onSection, storeName, storeSlug, affiliateId, children }: Props) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
@@ -114,6 +116,7 @@ export function AffiliateDashboardLayout({ section, onSection, storeName, storeS
         onSection={onSection}
         storeName={storeName}
         storeSlug={storeSlug}
+        affiliateId={affiliateId}
         setSidebarWidth={setSidebarWidth}
         user={user}
         logout={logout}
@@ -126,8 +129,8 @@ export function AffiliateDashboardLayout({ section, onSection, storeName, storeS
 }
 
 function SidebarInner({
-  section, onSection, storeName, storeSlug, setSidebarWidth, user, logout, isMobile, children,
-}: Props & { setSidebarWidth: (w: number) => void;   user: { name?: string | null; email?: string | null } | null; logout: () => void; isMobile: boolean }) {
+  section, onSection, storeName, storeSlug, affiliateId, setSidebarWidth, user, logout, isMobile, children,
+}: Props & { setSidebarWidth: (w: number) => void;   user: { name?: string | null; email?: string | null; role?: string | null } | null; logout: () => void; isMobile: boolean }) {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
@@ -176,7 +179,15 @@ function SidebarInner({
               </button>
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate text-sm">{storeName}</span>
+                  {user?.role === "admin" && affiliateId ? (
+                    <AffiliateStoreSwitcher
+                      currentId={affiliateId}
+                      currentName={storeName}
+                      isAdmin
+                    />
+                  ) : (
+                    <span className="font-semibold tracking-tight truncate text-sm">{storeName}</span>
+                  )}
                 </div>
               )}
             </div>

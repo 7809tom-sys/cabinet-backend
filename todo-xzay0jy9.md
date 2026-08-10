@@ -186,3 +186,15 @@
 - [x] 5 upload tests pass (persist, bad content type, empty payload, oversized, SVG)
 - [x] Verified: TypeScript clean, 55 affiliate/white-label tests pass, production build succeeds
 - [x] Save checkpoint and deploy
+
+## Affiliate Switcher Dropdown (admin only)
+
+- [x] Added adminSwitcherList (id, storeName, slug, status only — no notes/commission/email leakage)
+- [x] Added AffiliateStoreSwitcher in the dashboard sidebar header, admin-only
+- [x] Switching sets ?viewAs=<id> while PRESERVING the current ?section= so you stay on the same panel
+- [x] Current store shown with a store icon + chevron; active store has a check mark
+- [x] Search filter for many stores; inactive stores show their status
+- [x] Used DropdownMenu with plain buttons instead of Radix Select — avoids the empty-value crash class entirely
+- [x] Partners see plain text (no switcher) and adminSwitcherList rejects non-admins
+- [x] 4 switcher tests pass; 59 affiliate/white-label tests green; production build succeeds
+- [x] Save checkpoint and deploy
