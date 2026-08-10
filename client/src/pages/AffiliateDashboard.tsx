@@ -1036,14 +1036,26 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
             <Label htmlFor="primary">Primary color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} placeholder="#1a2b4a" className="font-mono" />
-              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }} />
+              <input
+                type="color"
+                value={/^#[0-9a-fA-F]{6}$/.test(form.primaryColor) ? form.primaryColor : "#1a2b4a"}
+                onChange={(e) => set("primaryColor", e.target.value)}
+                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer p-0.5"
+                title="Pick a color"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="accent">Accent color (hex)</Label>
             <div className="flex gap-2 items-center">
               <Input id="accent" value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#c9a227" className="font-mono" />
-              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.accentColor || "#c9a227" }} />
+              <input
+                type="color"
+                value={/^#[0-9a-fA-F]{6}$/.test(form.accentColor) ? form.accentColor : "#c9a227"}
+                onChange={(e) => set("accentColor", e.target.value)}
+                className="h-9 w-9 rounded border border-border shrink-0 cursor-pointer p-0.5"
+                title="Pick a color"
+              />
             </div>
           </div>
         </div>
