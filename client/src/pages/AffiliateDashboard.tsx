@@ -838,6 +838,35 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     onError: (e) => toast.error("Upload failed", { description: e.message }),
   });
 
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const uploadLogo = trpc.affiliates.uploadLogo.useMutation({
+    onSuccess: ({ url }) => {
+      set("logoUrl", url);
+      toast.success("Logo uploaded — save to apply");
+    },
+    onError: (e) => toast.error("Logo upload failed", { description: e.message }),
+  });
+
+  async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Logo must be under 5 MB"); return; }
+    setUploadingLogo(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (!match) { toast.error("Could not read image"); setUploadingLogo(false); return; }
+        uploadLogo.mutate({ imageBase64: match[2], contentType: match[1] as "image/jpeg" | "image/png" | "image/webp" | "image/gif", fileName: file.name }, {
+          onSettled: () => setUploadingLogo(false),
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch { setUploadingLogo(false); }
+    e.target.value = "";
+  }
+
   async function handleHeroFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1062,7 +1091,32 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
         <div className="space-y-1.5">
           <Label htmlFor="logo">Logo URL</Label>
-          <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
+          <div className="flex gap-2 items-center">
+            {form.logoUrl ? (
+              <img src={form.logoUrl} alt="Logo preview" className="h-10 w-auto max-w-[120px] object-contain rounded border border-border bg-muted p-1 shrink-0" />
+            ) : (
+              <div className="h-10 w-10 rounded border border-dashed border-border bg-muted flex items-center justify-center shrink-0">
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+            )}
+            <label className="flex-1">
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleLogoFileChange} />
+              <Button type="button" variant="outline" size="sm" className="w-full gap-2" disabled={uploadingLogo || uploadLogo.isPending} asChild>
+                <span>
+                  {uploadingLogo || uploadLogo.isPending ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
+                  ) : (
+                    <><Upload className="h-4 w-4" /> Upload Logo</>
+                  )}
+                </span>
+              </Button>
+            </label>
+            {form.logoUrl && (
+              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground shrink-0" onClick={() => set("logoUrl", "")}>
+                Remove
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ── Typography ──────────────────────────────────────────────────── */}
