@@ -1104,15 +1104,13 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
             )}
             <label className="flex-1">
               <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleLogoFileChange} />
-              <Button type="button" variant="outline" size="sm" className="w-full gap-2" disabled={uploadingLogo || uploadLogo.isPending} asChild>
-                <span>
-                  {uploadingLogo || uploadLogo.isPending ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
-                  ) : (
-                    <><Upload className="h-4 w-4" /> Upload Logo</>
-                  )}
-                </span>
-              </Button>
+              <div className={`inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer w-full ${uploadingLogo || uploadLogo.isPending ? "opacity-50 pointer-events-none" : ""}`}>
+                {uploadingLogo || uploadLogo.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
+                ) : (
+                  <><Upload className="h-4 w-4" /> Upload Logo</>
+                )}
+              </div>
             </label>
             {form.logoUrl && (
               <Button type="button" variant="ghost" size="sm" className="text-muted-foreground shrink-0" onClick={() => set("logoUrl", "")}>
