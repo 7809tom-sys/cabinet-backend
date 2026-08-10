@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { openLiveChat, isTawkConfigured } from "@/lib/tawk";
 import { MessageCircle, X, Headset } from "lucide-react";
 import { toast } from "sonner";
+import { isAffiliateStorefrontPath } from "@/lib/affiliateContext";
 
 const WELCOME =
   "Hi! I'm the Cabinet Dealz assistant. Ask me about cabinet styles, sizes, ordering, or your kitchen project. Want a human? Tap \u201cTalk to a live person\u201d below.";
@@ -25,6 +26,9 @@ export function openChatWidget() { _setOpen?.((v) => !v); }
 
 export function ChatWidget() {
   const [location] = useLocation();
+  // White-label rule: the platform assistant is platform branding, so it must
+  // never appear anywhere inside an affiliate's storefront experience.
+  const isAffiliateStore = isAffiliateStorefrontPath(location);
   // The Kitchen/Closet Designer uses a fixed bottom toolbar (Delete/Cart) on
   // touch layouts (<1024px). The floating chat launcher would sit on top of it,
   // covering those controls, so we hide the launcher there. Desktop keeps chat.
@@ -98,7 +102,7 @@ export function ChatWidget() {
     }
   }, []);
 
-  if (isDesignerTouch || consultantOpen) return null;
+  if (isAffiliateStore || isDesignerTouch || consultantOpen) return null;
 
   return (
     <>

@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
@@ -59,6 +60,14 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
     }),
     [data?.primaryColor, data?.accentColor]
   );
+
+  // White-label the browser tab, favicon, and social meta so the platform name
+  // never appears in the affiliate's customer-facing experience.
+  useWhiteLabelHead({
+    storeName: data?.storeName,
+    tagline: data?.tagline,
+    logoUrl: data?.logoUrl,
+  });
 
   // Inject Google Fonts + CSS variables for affiliate typography/button radius.
   useEffect(() => {
@@ -361,7 +370,6 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           </div>
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
             <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
-            <span>{t("footer_powered")}</span>
             <AffiliateLoginFooterLink />
             <AdminFooterLink affiliateId={data.id} storeName={data.storeName} />
           </div>

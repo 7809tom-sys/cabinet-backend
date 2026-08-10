@@ -112,16 +112,21 @@ export interface BuildSheetArgs {
   total: number;
   buildRows: BuildSheetRow[];
   extraLines: { label: string; detail: string }[];
+  /**
+   * Brand name for the sheet header. On an affiliate storefront this is the
+   * affiliate's store name so the export carries no platform branding.
+   */
+  brandName?: string | null;
 }
 
 // Pure: build the CSV text for a design build sheet. No DOM / side effects so it
 // can be unit-tested directly. Returns null if there are no cabinet rows.
 export function buildSheetCsv(args: BuildSheetArgs): string | null {
-  const { room, styleName, tier, total, buildRows, extraLines } = args;
+  const { room, styleName, tier, total, buildRows, extraLines, brandName } = args;
   if (buildRows.length === 0) return null;
   const header = ["Item Code", "Description", "Color / Finish", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Swing", "Qty", "Unit Price", "Adj %", "Line Total"];
   const lines: string[] = [];
-  lines.push(`Cabinet Dealz Build Sheet`);
+  lines.push(`${brandName?.trim() || "Cabinet Dealz"} Build Sheet`);
   lines.push(`Door Style:,${csvEscape(styleName ?? "(not selected)")}`);
   lines.push(`Pricing Tier:,${csvEscape(tier)}`);
   lines.push(`Room:,${csvEscape(`${room.width}in x ${room.depth}in`)}`);
@@ -157,7 +162,13 @@ export function exportBuildSheet(args: BuildSheetArgs): boolean {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `cabinet-dealz-build-sheet-${Date.now()}.csv`;
+  // Filename follows the brand too, so an affiliate's customer never receives a
+  // file named after the platform.
+  const slugBrand = (args.brandName?.trim() || "cabinet-dealz")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "build";
+  a.download = `${slugBrand}-build-sheet-${Date.now()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

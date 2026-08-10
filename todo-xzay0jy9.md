@@ -133,3 +133,27 @@
 - [x] Added vitest coverage: 7 tests in server/affiliates.savePersist.test.ts (incl. admin targeting + rejection of unknown id)
 - [x] All 29 existing affiliate tests still pass; TypeScript clean; production build succeeds
 - [x] Save checkpoint and deploy
+
+## Full White-Label Enforcement on Affiliate Storefront
+
+- [x] Audit every affiliate-facing surface for CabinetDealz branding leaks
+- [x] Leak found: browser tab title/favicon/social meta showed "Cabinet Dealz — Professional Cabinet Platform"
+- [x] Leak found: footer showed "Powered by Cabinet Dealz"
+- [x] Leak found: global ChatWidget showed "Cabinet Dealz Assistant"
+- [x] Add useWhiteLabelHead hook to swap title, favicon, and OG/Twitter meta to affiliate branding
+- [x] Apply white-label head to Storefront and AffiliateShell (cart/order/design pages)
+- [x] Remove "Powered by Cabinet Dealz" from the storefront footer
+- [x] Remove the assistant chat widget entirely from affiliate storefront routes
+- [x] White-label the build sheet CSV header and filename via brandName
+- [x] Verify logo falls back to affiliate text name everywhere a logo is shown (AffiliateShell + storefront header already do)
+- [x] Add tests asserting no platform branding leaks on storefront (14 tests in client/src/lib/whiteLabel.test.ts)
+
+## Plugins Tab — Link to Third-Party Plugin Stores
+
+- [x] Add a Plugins section to the affiliate dashboard nav ("Plugins & Add-ons")
+- [x] Link out to 8 third-party plugin/widget stores (no custom marketplace, no curated catalog)
+- [x] Only surface stores whose widgets are compatible with this stack (script-tag / iframe embeds)
+- [x] Explicitly exclude WordPress/Shopify/Wix ecosystems as incompatible
+- [x] Explain install flow in a 4-step guide with a third-party trust caveat
+- [x] External links use target=_blank with rel=noreferrer noopener
+- [x] Save checkpoint and deploy

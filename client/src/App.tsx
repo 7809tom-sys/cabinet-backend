@@ -5,6 +5,7 @@ import { TopNav } from "@/components/TopNav";
 import { SiteFooter } from "@/components/SiteFooter";
 import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import ChatWidget from "@/components/ChatWidget";
+import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
@@ -100,6 +101,9 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
   const { data } = trpc.affiliates.bySlug.useQuery({ slug });
   const storeName = data?.storeName ?? "Store";
   const logoUrl = data?.logoUrl ?? null;
+  // Keep the tab/favicon on the affiliate's brand for cart, order, and design
+  // pages reached from their storefront.
+  useWhiteLabelHead({ storeName: data?.storeName, tagline: data?.tagline, logoUrl });
   return (
     <div className="min-h-screen flex flex-col">
       <AdminEditModeBar />

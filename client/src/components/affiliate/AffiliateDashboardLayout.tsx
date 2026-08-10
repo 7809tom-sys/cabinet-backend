@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
   Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink,
-  Calendar, Gift, Users,
+  Calendar, Gift, Users, Puzzle,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -44,6 +44,7 @@ export type AffiliateSection =
   | "appointments"
   | "customize"
   | "marketing"
+  | "plugins"
   | "tax"
   | "team";
 
@@ -59,6 +60,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Calendar, label: "Appointments", section: "appointments" },
   { icon: Palette, label: "Customize Store", section: "customize" },
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
+  { icon: Puzzle, label: "Plugins & Add-ons", section: "plugins" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
   { icon: Users, label: "My Team", section: "team" },
 ];

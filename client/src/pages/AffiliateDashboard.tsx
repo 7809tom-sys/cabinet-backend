@@ -8,6 +8,7 @@ import AffiliateCatalogPanel from "@/components/affiliate/AffiliateCatalogPanel"
 import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPanel";
 import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
 import AffiliatePromotionsPanel from "@/components/affiliate/AffiliatePromotionsPanel";
+import { AffiliatePluginsPanel } from "@/components/affiliate/AffiliatePluginsPanel";
 import { AffiliateAppointmentsPanel } from "@/components/affiliate/AffiliateAppointmentsPanel";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
@@ -315,6 +316,7 @@ export default function AffiliateDashboard() {
     "appointments",
     "customize",
     "marketing",
+    "plugins",
     "tax",
     "team",
   ] as const;
@@ -566,6 +568,8 @@ export default function AffiliateDashboard() {
             />
           </div>
         );
+      case "plugins":
+        return <AffiliatePluginsPanel />;
       case "promotions":
         return (
           <div className="max-w-4xl">
