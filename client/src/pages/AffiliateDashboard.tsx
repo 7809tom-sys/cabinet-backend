@@ -534,7 +534,7 @@ export default function AffiliateDashboard() {
         return <AffiliatePricingPanel />;
       case "customize":
         return (
-          <div className="max-w-3xl">
+          <div className="w-full">
             <h2 className="text-xl font-bold mb-4">Customize Store</h2>
             <CustomizeTab affiliate={affiliate} onSaved={() => myRef.refetch()} />
           </div>
@@ -736,6 +736,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
 // with a Room Scene Picker and an AI Concierge upsell card.
 
 type AffiliateRow = {
+  slug: string;
   tagline: string | null;
   taglineEs: string | null;
   aboutText: string | null;
@@ -914,7 +915,9 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
   ) ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-6 items-start">
+      {/* ── Left: settings ────────────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 space-y-6">
 
       {/* ── Storefront on/off ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
@@ -1254,6 +1257,41 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
       {/* ── AI Concierge upsell card ──────────────────────────────────────── */}
       <AiConciergeCard />
+    </div>
+
+      {/* ── Right: sticky live preview ──────────────────────────────────── */}
+      <div className="hidden xl:flex flex-col w-[420px] shrink-0 sticky top-4 self-start gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-foreground">Live Preview</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-muted-foreground"
+            onClick={() => setPreviewKey((k) => k + 1)}
+          >
+            <Loader2 className="h-3 w-3" /> Refresh
+          </Button>
+        </div>
+        <div className="rounded-xl border border-border overflow-hidden shadow-lg bg-background" style={{ height: "calc(100vh - 120px)" }}>
+          {affiliate.slug ? (
+            <iframe
+              key={previewKey}
+              src={`/store/${affiliate.slug}`}
+              className="w-full h-full"
+              title="Storefront preview"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              Save your storefront to see a preview.
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          Click <strong>Save storefront</strong> then <strong>Refresh</strong> to see your changes.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1830,3 +1868,4 @@ function W9Panel() {
 }
 import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+  const [previewKey, setPreviewKey] = useState(0);
