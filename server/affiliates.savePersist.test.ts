@@ -215,4 +215,44 @@ describe("affiliate storefront save persistence", () => {
         .where(eq(affiliates.id, mine.id));
     }
   });
+
+  it("saved colors surface on the PUBLIC storefront payload (bySlug)", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(partnerCtx());
+    const mine = await caller.affiliates.myAffiliate();
+    if (!mine) return;
+    const before = await readRow(mine.id);
+    if (!before) return;
+
+    try {
+      await caller.affiliates.updateMyStorefront({
+        primaryColor: "#0b3d2e",
+        accentColor: "#e0a92b",
+        fontFamily: "Lato",
+        headingFont: "Montserrat",
+        buttonRadius: "9999px",
+      });
+      // The storefront reads its theme from the public bySlug payload, so the
+      // colors must be present there — not just in the DB row.
+      const pub = await caller.affiliates.bySlug({ slug: before.slug });
+      expect(pub).not.toBeNull();
+      expect(pub!.primaryColor).toBe("#0b3d2e");
+      expect(pub!.accentColor).toBe("#e0a92b");
+      expect(pub!.fontFamily).toBe("Lato");
+      expect(pub!.headingFont).toBe("Montserrat");
+      expect(pub!.buttonRadius).toBe("9999px");
+    } finally {
+      await db
+        .update(affiliates)
+        .set({
+          primaryColor: before.primaryColor,
+          accentColor: before.accentColor,
+          fontFamily: before.fontFamily,
+          headingFont: before.headingFont,
+          buttonRadius: before.buttonRadius,
+        })
+        .where(eq(affiliates.id, mine.id));
+    }
+  });
 });
