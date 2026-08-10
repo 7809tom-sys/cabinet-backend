@@ -298,11 +298,34 @@ function statusBadge(status: string) {
 
 export default function AffiliateDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
-  const [section, setSection] = useState<AffiliateSection>("overview");
-
   // Admin "View as" support: ?viewAs=<affiliateId> lets admins see any affiliate's dashboard
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const viewAsId = params.get("viewAs");
+
+  // Deep-link support: ?section=customize opens that panel directly.
+  const VALID_SECTIONS = [
+    "overview",
+    "crm",
+    "orders",
+    "earnings",
+    "analytics",
+    "catalog",
+    "pricing",
+    "promotions",
+    "appointments",
+    "customize",
+    "marketing",
+    "tax",
+    "team",
+  ] as const;
+  const sectionParam = params.get("section");
+  const initialSection = (
+    sectionParam && (VALID_SECTIONS as readonly string[]).includes(sectionParam)
+      ? sectionParam
+      : "overview"
+  ) as AffiliateSection;
+  const [section, setSection] = useState<AffiliateSection>(initialSection);
+
   const isAdmin = user?.role === "admin";
   const isAdminViewAs = !!viewAsId && isAdmin;
 
