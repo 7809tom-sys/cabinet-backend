@@ -157,3 +157,20 @@
 - [x] Explain install flow in a 4-step guide with a third-party trust caveat
 - [x] External links use target=_blank with rel=noreferrer noopener
 - [x] Save checkpoint and deploy
+
+## Custom Embed Code with Sandboxed Preview
+
+- [x] Add embedCodeDraft + embedCode + embedEnabled columns to affiliates table (migration applied)
+- [x] Add embedCodeDraft to brandingInput and the update procedures
+- [x] Expose ONLY the published embed via toPublicStorefront (never the draft)
+- [x] Build embed code editor UI in the Plugins tab with draft/publish separation
+- [x] Render a sandboxed iframe preview of the draft snippet (srcdoc, allow-scripts WITHOUT allow-same-origin)
+- [x] Validate snippet: cap length 8000, block cookie/storage/document.write/parent-redirect/card-harvesting, warn on bare URL or full HTML
+- [x] Show which third-party hosts the snippet contacts
+- [x] Publish copies draft -> published + enables; Unpublish disables but keeps draft
+- [x] Server re-validates on publish so a bad snippet cannot go live
+- [x] Render the published embed on the storefront and affiliate cart/order/design pages
+- [x] StorefrontEmbed recreates script elements so provider snippets actually execute
+- [x] Extract resolveTargetAffiliateId so embed mutations respect admin targeting
+- [x] Add tests: 14 validation tests + 6 draft/publish/exposure tests (all pass)
+- [x] Save checkpoint and deploy

@@ -682,6 +682,14 @@ export const affiliates = mysqlTable("affiliates", {
   fontFamily: varchar("fontFamily", { length: 64 }), // body font, e.g. "Inter" | "Lato" | "Merriweather"
   headingFont: varchar("headingFont", { length: 64 }), // heading font, e.g. "Playfair Display" | "Montserrat"
   buttonRadius: varchar("buttonRadius", { length: 16 }), // e.g. "0.375rem" | "9999px" | "0px"
+  // Third-party widget embed snippet (chat, reviews, booking, etc.).
+  // Two-stage: the affiliate edits `embedCodeDraft` and previews it in a
+  // sandboxed iframe, then explicitly publishes it into `embedCode`. Only
+  // `embedCode` is ever served to storefront visitors, so a broken or
+  // half-finished snippet can never take down a live store.
+  embedCodeDraft: text("embedCodeDraft"),
+  embedCode: text("embedCode"),
+  embedEnabled: boolean("embedEnabled").default(false).notNull(),
   taglineEs: varchar("taglineEs", { length: 256 }), // optional Spanish hero subheading
   aboutText: text("aboutText"), // "about this store" blurb on storefront
   aboutTextEs: text("aboutTextEs"), // optional Spanish "about this store" blurb

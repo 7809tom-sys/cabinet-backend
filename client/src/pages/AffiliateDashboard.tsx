@@ -569,7 +569,16 @@ export default function AffiliateDashboard() {
           </div>
         );
       case "plugins":
-        return <AffiliatePluginsPanel />;
+        return (
+          <AffiliatePluginsPanel
+            affiliateId={affiliate.id}
+            isAdmin={isAdmin}
+            embedCodeDraft={affiliate.embedCodeDraft}
+            embedEnabled={Boolean(affiliate.embedEnabled)}
+            storeName={affiliate.storeName}
+            onSaved={() => activeQuery.refetch()}
+          />
+        );
       case "promotions":
         return (
           <div className="max-w-4xl">
@@ -786,6 +795,8 @@ type AffiliateRow = {
   fontFamily: string | null;
   headingFont: string | null;
   buttonRadius: string | null;
+  embedCodeDraft?: string | null;
+  embedEnabled?: boolean | null;
 };
 
 // ── Typography options ──────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import {
   deriveReferralCode,
   sumCommission,
 } from "@shared/affiliate";
+import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
@@ -49,6 +50,11 @@ function toPublicStorefront(a: typeof affiliates.$inferSelect) {
   fontFamily: a.fontFamily,
   headingFont: a.headingFont,
   buttonRadius: a.buttonRadius,
+  // Only the PUBLISHED snippet is exposed publicly, and only when enabled.
+  // The draft is intentionally never sent to storefront visitors so an
+  // in-progress or broken snippet can't affect a live store.
+  embedCode: a.embedEnabled ? a.embedCode : null,
+  embedEnabled: a.embedEnabled,
 };
 }
 
@@ -93,7 +99,38 @@ async function resolveMyAffiliate(ctx: { user: { id: number; email: string | nul
   return null;
 }
 
+/**
+ * Resolve which affiliate a mutation should write to.
+ *
+ * Admins may pass an explicit affiliateId so they edit the store they are
+ * actually looking at. Without this, resolveMyAffiliate falls back to "the first
+ * affiliate in the table" for admins, which silently wrote one store's changes
+ * onto another. Partners always resolve to their own affiliate and cannot
+ * target anyone else, even if they send an affiliateId.
+ */
+async function resolveTargetAffiliateId(
+  ctx: { user: { id: number; role: string; email?: string | null } },
+  affiliateId?: number
+): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+  if (affiliateId !== undefined && ctx.user.role === "admin") {
+    const rows = await db
+      .select({ id: affiliates.id })
+      .from(affiliates)
+      .where(eq(affiliates.id, affiliateId))
+      .limit(1);
+    if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+    return rows[0].id;
+  }
+  const mine = await resolveMyAffiliate(ctx as Parameters<typeof resolveMyAffiliate>[0]);
+  if (!mine)
+    throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+  return mine.id;
+}
+
 const brandingInput = z.object({
+  // (see resolveTargetAffiliateId above for how admin targeting works)
   logoUrl: z.string().max(512).nullable().optional(),
   primaryColor: z.string().max(16).nullable().optional(),
   accentColor: z.string().max(16).nullable().optional(),
@@ -110,6 +147,9 @@ const brandingInput = z.object({
   fontFamily: z.string().max(64).nullable().optional(),
   headingFont: z.string().max(64).nullable().optional(),
   buttonRadius: z.string().max(16).nullable().optional(),
+  // Draft snippet only. Publishing is a separate, explicit action so that
+  // saving your work never changes what customers see.
+  embedCodeDraft: z.string().max(EMBED_CODE_MAX_LENGTH).nullable().optional(),
 });
 
 export const affiliatesRouter = router({
@@ -241,6 +281,9 @@ export const affiliatesRouter = router({
       fontFamily: null,
       headingFont: null,
       buttonRadius: null,
+      // Template previews never run third-party embeds.
+      embedCode: null,
+      embedEnabled: false,
     };
   }),
 
@@ -405,30 +448,67 @@ export const affiliatesRouter = router({
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const { affiliateId, ...fields } = input;
-      // Resolve the target affiliate. Admins can pass an explicit affiliateId so
-      // they edit the affiliate they are actually viewing instead of falling back
-      // to the first row in the table.
-      let targetId: number;
-      if (affiliateId !== undefined && ctx.user.role === "admin") {
-        const rows = await db
-          .select({ id: affiliates.id })
-          .from(affiliates)
-          .where(eq(affiliates.id, affiliateId))
-          .limit(1);
-        if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
-        targetId = rows[0].id;
-      } else {
-        const mine = await resolveMyAffiliate(ctx);
-        if (!mine)
-          throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
-        targetId = mine.id;
-      }
+      // Admins can pass an explicit affiliateId so they edit the affiliate they
+      // are actually viewing instead of falling back to the first row.
+      const targetId = await resolveTargetAffiliateId(ctx, affiliateId);
       const set: Record<string, unknown> = { ...fields };
       Object.keys(set).forEach((k) => set[k] === undefined && delete set[k]);
       if (Object.keys(set).length > 0) {
         await db.update(affiliates).set(set).where(eq(affiliates.id, targetId));
       }
       return { id: targetId };
+    }),
+
+  // ─── Partner: publish / unpublish the third-party widget embed ──────────────
+  // Publishing is deliberately separate from saving. The affiliate edits and
+  // previews `embedCodeDraft` as much as they like; only this call copies the
+  // draft into the live `embedCode` column that storefront visitors receive.
+  publishEmbedCode: partnerProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const targetId = await resolveTargetAffiliateId(ctx, input?.affiliateId);
+      const rows = await db
+        .select({ draft: affiliates.embedCodeDraft })
+        .from(affiliates)
+        .where(eq(affiliates.id, targetId))
+        .limit(1);
+      const draft = (rows[0]?.draft ?? "").trim();
+      if (!draft) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "There is no draft snippet to publish. Paste your widget code and save first.",
+        });
+      }
+      // Re-validate server-side: the client check is a convenience, not a gate.
+      if (embedCodeHasErrors(draft)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This snippet failed validation and cannot be published. Fix the errors shown in the editor.",
+        });
+      }
+      await db
+        .update(affiliates)
+        .set({ embedCode: draft, embedEnabled: true })
+        .where(eq(affiliates.id, targetId));
+      return { id: targetId, published: true };
+    }),
+
+  unpublishEmbedCode: partnerProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const targetId = await resolveTargetAffiliateId(ctx, input?.affiliateId);
+      // Keep the draft so the affiliate can re-publish later; just take it live-off.
+      await db
+        .update(affiliates)
+        .set({ embedEnabled: false })
+        .where(eq(affiliates.id, targetId));
+      return { id: targetId, published: false };
     }),
 
   // ─── Partner: my referrals + commission summary ────────────────────────────

@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import ChatWidget from "@/components/ChatWidget";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
+import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
@@ -122,6 +123,9 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
       <main className="flex-1">
         {children ?? <Cart />}
       </main>
+      {/* Affiliate's own published widget, so it follows customers through
+          cart / order / design just like it does on the storefront. */}
+      <StorefrontEmbed code={data?.embedCode} />
     </div>
   );
 }

@@ -1,4 +1,14 @@
 import { ExternalLink, Puzzle, MessageCircle, Star, CalendarClock, Mail, BarChart3, ShieldCheck, Info } from "lucide-react";
+import { AffiliateEmbedEditor } from "./AffiliateEmbedEditor";
+
+type PluginsPanelProps = {
+  affiliateId?: number;
+  isAdmin?: boolean;
+  embedCodeDraft?: string | null;
+  embedEnabled?: boolean;
+  storeName?: string | null;
+  onSaved?: () => void;
+};
 
 /**
  * Plugins & Add-ons
@@ -83,7 +93,14 @@ const CATEGORY_ICONS: { icon: React.ElementType; label: string; hint: string }[]
   { icon: BarChart3, label: "Analytics", hint: "See where your traffic comes from" },
 ];
 
-export function AffiliatePluginsPanel() {
+export function AffiliatePluginsPanel({
+  affiliateId,
+  isAdmin,
+  embedCodeDraft,
+  embedEnabled,
+  storeName,
+  onSaved,
+}: PluginsPanelProps = {}) {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
@@ -157,6 +174,16 @@ export function AffiliatePluginsPanel() {
         </div>
       </div>
 
+      {/* Paste + preview + publish */}
+      <AffiliateEmbedEditor
+        affiliateId={affiliateId}
+        isAdmin={isAdmin}
+        embedCodeDraft={embedCodeDraft}
+        embedEnabled={embedEnabled}
+        storeName={storeName}
+        onSaved={onSaved}
+      />
+
       {/* How to install */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-3">
         <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -167,8 +194,8 @@ export function AffiliatePluginsPanel() {
           <li>Create your account there and configure the widget with your own branding.</li>
           <li>Copy the embed snippet they give you (usually a single script tag).</li>
           <li>
-            Send it to your account manager to have it added to your storefront, or paste it into
-            your own site if you host additional pages elsewhere.
+            Paste it into the <span className="font-medium">Custom widget code</span> box above, hit
+            Test in preview, then Publish to storefront when it looks right.
           </li>
         </ol>
         <p className="text-xs text-muted-foreground">

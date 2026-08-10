@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
+import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
@@ -375,6 +376,8 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           </div>
         </div>
       </footer>
+      {/* Affiliate's own published third-party widget (chat, reviews, etc.) */}
+      <StorefrontEmbed code={data.embedCode} />
     </div>
   );
 }
