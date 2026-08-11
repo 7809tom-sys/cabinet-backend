@@ -231,8 +231,8 @@
 - [x] Save checkpoint and deploy
 
 ## Template Card Thumbnails
-- [ ] Capture screenshots of all 4 storefront templates (classic, showcase, minimal, craftsman)
-- [ ] Upload thumbnails as static assets
-- [ ] Add thumbnail images to each template picker card
-- [ ] Verify production build succeeds
-- [ ] Save checkpoint and deploy
+- [x] Captured screenshots of all 4 storefront templates (classic, showcase, minimal, craftsman)
+- [x] Uploaded thumbnails as static assets (/manus-storage/classic_37966efb.jpg etc.)
+- [x] Added thumbnail images to each template picker card (16/10 aspect ratio, Active badge overlay)
+- [x] Verified production build succeeds (TypeScript 0 errors)
+- [x] Saved checkpoint and deployed (v6919d5a0)

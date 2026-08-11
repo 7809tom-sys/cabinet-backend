@@ -61,7 +61,23 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  app.use("*", (req, res) => {
+    // For affiliate subdomain requests the URL has already been rewritten by the
+    // subdomain middleware (e.g. req.url = "/store/reaves-way-cabinet-shop").
+    // However the browser's window.location.pathname is still "/" because the
+    // rewrite is server-side only.  Inject a tiny bootstrap script so the SPA
+    // router can redirect to the correct /store/:slug path on first load.
+    const slugMatch = req.url.match(/^\/store\/([^/?#]+)/);
+    if (slugMatch) {
+      const slug = slugMatch[1];
+      const indexHtml = fs.readFileSync(path.resolve(distPath, "index.html"), "utf-8");
+      const injected = indexHtml.replace(
+        "<head>",
+        `<head><script>window.__AFFILIATE_SLUG__=${JSON.stringify(slug)};</script>`
+      );
+      res.setHeader("Content-Type", "text/html; charset=UTF-8");
+      return res.send(injected);
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

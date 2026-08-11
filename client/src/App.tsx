@@ -10,6 +10,7 @@ import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
+import { useLocation } from "wouter";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
@@ -131,6 +132,19 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
 }
 
 export default function App() {
+  const [, navigate] = useLocation();
+
+  // When the server injected window.__AFFILIATE_SLUG__ (affiliate subdomain visit),
+  // redirect the SPA router to /store/:slug so the storefront renders instead of
+  // the main homepage. This runs once on mount, before any route renders.
+  useEffect(() => {
+    const slug = (window as unknown as Record<string, unknown>).__AFFILIATE_SLUG__ as string | undefined;
+    if (slug && window.location.pathname === "/") {
+      navigate(`/store/${slug}`, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Show a gentle, non-blocking refresh prompt when a newer build is deployed,
     // so users (and customers) never get stuck on a stale cached version.
