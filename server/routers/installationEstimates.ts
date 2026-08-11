@@ -5,6 +5,7 @@ import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, order
 import { getDb } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate } from "../../shared/installationEstimate";
+import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
 
 const estimateLineSchema = z.object({
   description: z.string().trim().min(1).max(256),
@@ -29,17 +30,20 @@ async function resolveAffiliateId(user: AuthUser, requestedAffiliateId?: number)
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-  if (user.role === "admin" && requestedAffiliateId) return requestedAffiliateId;
-  const email = (user.email ?? "").toLowerCase();
   const rows = await db.select().from(affiliates);
-  const direct = rows.find((affiliate) => affiliate.userId === user.id) ?? rows.find((affiliate) => (affiliate.email ?? "").toLowerCase() === email && email.length > 0);
-  if (direct) return direct.id;
+  const email = (user.email ?? "").toLowerCase();
 
   const memberships = await db.select().from(affiliateTeamMembers).where(and(
     eq(affiliateTeamMembers.isActive, true),
     or(eq(affiliateTeamMembers.userId, user.id), ...(email ? [eq(affiliateTeamMembers.email, email)] : [])),
   ));
-  if (memberships.length > 0 && memberships[0].accessCrm) return memberships[0].affiliateId;
+  const affiliateId = resolveInstallationEstimateAffiliateId({
+    user,
+    requestedAffiliateId,
+    affiliates: rows,
+    memberships,
+  });
+  if (affiliateId) return affiliateId;
 
   throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to affiliate installation estimates." });
 }
