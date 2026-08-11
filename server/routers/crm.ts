@@ -209,6 +209,7 @@ export const crmRouter = router({
         affiliateId: null as number | null,
         deals: [] as (typeof crmDeals.$inferSelect)[],
         affiliateNames: {} as Record<number, string>,
+        affiliateBranding: {} as Record<number, { storeName: string; primaryColor: string | null; accentColor: string | null }>,
       };
     }
     // If an admin passes affiliateId, force the scope to that affiliate's deals
@@ -221,15 +222,27 @@ export const crmRouter = router({
     );
     // For house scope, build a map of affiliateId -> storeName for attribution
     let affiliateNames: Record<number, string> = {};
+    let affiliateBranding: Record<number, { storeName: string; primaryColor: string | null; accentColor: string | null }> = {};
     if (scope.kind === "house") {
-      const affRows = await db.select({ id: affiliates.id, storeName: affiliates.storeName }).from(affiliates);
+      const affRows = await db.select({
+        id: affiliates.id,
+        storeName: affiliates.storeName,
+        primaryColor: affiliates.primaryColor,
+        accentColor: affiliates.accentColor,
+      }).from(affiliates);
       affiliateNames = Object.fromEntries(affRows.map((a) => [a.id, a.storeName]));
+      affiliateBranding = Object.fromEntries(affRows.map((a) => [a.id, {
+        storeName: a.storeName,
+        primaryColor: a.primaryColor,
+        accentColor: a.accentColor,
+      }]));
     }
     return {
       scope: scope.kind as "house" | "affiliate" | "contractor",
       affiliateId: (scope.kind === "affiliate" ? scope.affiliateId : null) as number | null,
       deals,
       affiliateNames,
+      affiliateBranding,
     };
   }),
 

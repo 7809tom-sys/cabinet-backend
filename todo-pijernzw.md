@@ -40,3 +40,9 @@
 - [x] Verify `crm.deal` master visibility and affiliate isolation with a router-level test.
 - [x] Verify master-board affiliate name attribution for an affiliate-owned designer record.
 - [x] Save the final validated designer and CRM checkpoint.
+- [x] Inspect CRM deal-card components and affiliate branding data available to the master board.
+- [x] Add accessible affiliate-color accents and affiliate-name labels to master CRM deal cards.
+- [x] Add focused coverage for affiliate card-color resolution and attribution rendering.
+- [x] Verify the master CRM card presentation and save a checkpoint.
+- [x] Inspect master CRM deal cards to confirm affiliate-color accents and labels render correctly.
+- [x] Save a checkpoint containing the verified affiliate-color CRM card update.

@@ -27,6 +27,7 @@ import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
   CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2,
 } from "lucide-react";
+import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 
 type Lang = CrmLanguage;
 const L = (lang: Lang) => ({
@@ -87,6 +88,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
 
   const deals = (data?.deals ?? []) as DealRow[];
   const affiliateNames = (data as any)?.affiliateNames as Record<number, string> | undefined;
+  const affiliateBranding = (data as any)?.affiliateBranding as Record<number, CrmAffiliateBrand> | undefined;
   const isHouseScope = data?.scope === "house";
 
   const byStage = useMemo(() => {
@@ -193,7 +195,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                   <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                 ) : (
                   byStage[mobileStage].map((d) => (
-                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} />
+                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isHouseScope && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
                   ))
                 )}
               </div>
@@ -217,7 +219,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                     <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                   ) : (
                     byStage[stage].map((d) => (
-                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} />
+                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isHouseScope && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
                     ))
                   )}
                 </div>
@@ -269,13 +271,15 @@ function StatChip({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function DealCard({ deal, lang, onOpen, affiliateName }: { deal: DealRow; lang: Lang; onOpen: () => void; affiliateName?: string }) {
+function DealCard({ deal, lang, onOpen, affiliateName, affiliateBrand }: { deal: DealRow; lang: Lang; onOpen: () => void; affiliateName?: string; affiliateBrand?: CrmAffiliateBrand }) {
+  const brandColor = affiliateCardColor(affiliateBrand);
   return (
     <button
       draggable
       onDragStart={(e) => e.dataTransfer.setData("text/deal-id", String(deal.id))}
       onClick={onOpen}
       className="w-full text-left rounded-lg border border-border bg-card p-3 hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      style={brandColor ? { borderLeftWidth: 4, borderLeftColor: brandColor } : undefined}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <span className="text-sm font-medium text-foreground leading-snug">{deal.title}</span>
@@ -284,7 +288,10 @@ function DealCard({ deal, lang, onOpen, affiliateName }: { deal: DealRow; lang: 
         </span>
       </div>
       {affiliateName && (
-        <div className="text-[10px] font-medium text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 inline-block mb-1">{affiliateName}</div>
+        <div className="text-[10px] font-medium text-foreground bg-muted rounded px-1.5 py-0.5 inline-flex items-center gap-1.5 mb-1">
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: brandColor }} />
+          {affiliateName}
+        </div>
       )}
       {deal.needsHelpClosing && (
         <div className="text-[10px] font-medium text-red-600 bg-red-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Closing</div>
