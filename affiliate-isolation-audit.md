@@ -9,3 +9,5 @@ The First Class designer entry route also renders the First Class title, First C
 The separate Sales Demo storefront resolves at `/store/sales-demo`, displays the `SALESDEMO` referral code, and routes its designer and ordering links through the `sales-demo` affiliate context. Its visible identity is `Cabinet Dealz Sales Demo` with the training-specific tagline and notice.
 
 The live First Class storefront resolves at `/store/firstclass`, displays the `FIRSTCLASS` referral code, and routes storefront, designer, cart, and order links through the `firstclass` affiliate context. Its visible identity remains `First Class Flooring & Cabinet Design`, distinct from Sales Demo and Reaves Way.
+
+Mobile verification after the designer layout correction confirmed that both First Class and Reaves Way render a visible 12' × 10' plan canvas with room boundaries, wall controls, and the consultant icon placed beside the room control rather than floating over the canvas.

@@ -91,7 +91,7 @@
 - [x] Verify the retained First Class canonical dashboard and referral-link helpers.
 - [x] Supersede First Class training setup because training moves to the separate Sales Demo affiliate.
 - [x] Define Sales Demo as an administrator-managed training site with isolated affiliate identity.
-- [ ] Set sales-representative access to the Sales Demo storefront, designer, order walkthrough, and CRM.
+- [x] Configure invited sales-representative access to the Sales Demo storefront, designer, order walkthrough, and CRM.
 - [x] Verify the Sales Demo storefront identity and canonical training links.
 - [x] Preserve First Class as a live affiliate and repair its own canonical dashboard links.
 - [x] Define the separate demonstration affiliate’s safe training scope and identity.
@@ -99,3 +99,21 @@
 - [x] Verify live First Class and the demonstration affiliate remain isolated through their public storefront and canonical affiliate links.
 - [x] Create the Sales Demo without a user-ID login binding so the administrator account remains separate.
 - [x] Create Cabinet Dealz Sales Demo with owner email `7809tom@gmail.com`, slug `sales-demo`, and referral code `SALESDEMO`.
+- [x] Inspect existing affiliate team invite and email-delivery workflow.
+- [x] Add a Sales Demo invitation action to the administration panel with salesperson CRM and designer access.
+- [x] Ensure invited users are limited to the Sales Demo training affiliate and cannot access First Class or other live affiliate data.
+- [x] Add automated coverage for Sales Demo invitation permissions and verify the admin workflow.
+- [x] Support prospective affiliate candidates as a Sales Demo invitation audience with the same isolated training access.
+- [ ] Ensure a Sales Demo team-access grant occurs only after an invitation email is successfully sent.
+- [ ] Add server coverage for Sales Demo invite audiences, permission flags, and no side effects when SMTP is unavailable.
+- [ ] Add access-scope coverage proving Sales Demo invitees cannot resolve into First Class or other live affiliate data.
+- [ ] Verify the admin Sales Demo invite flow in the browser after SMTP email delivery is configured.
+- [x] Diagnose the First Class designer blank-canvas loading failure.
+- [x] Restore First Class designer functionality without affecting other affiliate designers.
+- [x] Move the consultant action beside the room-dimensions controls on mobile and desktop.
+- [x] Add regression coverage and verify the repaired First Class designer on mobile.
+- [x] Add a focused designer layout test covering the visible canvas container and consultant-control placement.
+- [x] Verify the repaired First Class designer canvas and room controls are usable on mobile.
+- [x] Verify Reaves Way designer rendering remains intact after the shared layout correction.
+- [x] Add a rendered consultant-control component test proving placement with room controls.
+- [ ] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.

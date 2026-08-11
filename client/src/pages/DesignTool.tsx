@@ -39,6 +39,8 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
+import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -4533,8 +4535,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         >
           <SquareDashedMousePointer className="h-4 w-4" />
         </button>
-
-        
+        <ConsultantRoomControl
+          open={consultOpen}
+          onToggle={() => setConsultOpen((open) => !open)}
+          label={t("dt_sh_consultant_title")}
+        />
 
         {/* Active wall selector: highlights a wall; new items drop on it and it
             can be dragged on the canvas to resize the room on that side.
@@ -4942,11 +4947,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <DoorOpen className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_swing_door")}</span>
                   </button>
-                  <button onClick={() => setConsultOpen((o) => !o)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
-                    <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left">{t("dt_sh_consultant_menu")}</span>
-                  </button>
-
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
@@ -5288,6 +5288,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             <StickyNote className="h-3.5 w-3.5" />
           </Button>
+          <ConsultantRoomControl
+            compact
+            open={consultOpen}
+            onToggle={() => setConsultOpen((open) => !open)}
+            label={t("dt_sh_consultant_title")}
+          />
           <div className="h-5 w-px bg-border mx-0.5" />
           {/* Selected-item actions */}
           <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-7 w-7" title={`${t("dt_sh_rotate")} (R)`}>
@@ -6583,7 +6589,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </PaletteShell>
 
         {/* Canvas */}
-        <div ref={canvasExportRef} className="flex-1 min-w-0 relative pb-16 lg:pb-0">
+        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
           {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
             <div className="absolute inset-0 z-20">
               <PolygonRoomEditor
@@ -6921,22 +6927,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               </button>
             </div>
           )}
-
-          {/* AI Consultant floating action button — bottom-right of canvas */}
-          <button
-            type="button"
-            onClick={() => setConsultOpen((o) => !o)}
-            title={t("dt_sh_consultant_title")}
-            className={`absolute bottom-20 lg:bottom-4 right-4 z-30 flex items-center gap-2 rounded-full shadow-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-              consultOpen
-                ? "bg-[#1a2744] text-white pr-3"
-                : "bg-[#1a2744] text-white hover:bg-[#1a2744]/90 hover:shadow-xl hover:scale-105"
-            }`}
-          >
-            <Sparkles className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">{consultOpen ? "Close AI" : t("dt_sh_consultant")}</span>
-            {consultOpen && <X className="h-3.5 w-3.5 ml-0.5" />}
-          </button>
 
           {/* Wall layer toggle (plan only) */}
           {viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (

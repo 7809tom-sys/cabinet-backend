@@ -20,6 +20,7 @@ vi.mock("@/lib/trpc", () => ({
       adminVerifyW9: { useMutation: () => mutation },
       adminUpdateMarkup: { useMutation: () => mutation },
       adminUpsertStyleBranding: { useMutation: () => mutation },
+      adminInviteSalesDemo: { useMutation: () => mutation },
       adminBranding: { useQuery: () => ({ data: null, isLoading: false }) },
       adminEarnings: { useQuery: () => ({ data: null, isLoading: false }) },
       adminReferrals: { useQuery: () => ({ data: null, isLoading: false }) },
@@ -39,5 +40,6 @@ describe("AffiliatesAdmin portal actions", () => {
     expect(html).toContain('href="/affiliate?viewAs=1"');
     expect(html).toContain('href="/affiliate?viewAs=5730001"');
     expect(html).not.toMatch(/href="\/affiliate"(?!\?viewAs=)/);
+    expect(html).toContain("Invite to Sales Demo");
   });
 });

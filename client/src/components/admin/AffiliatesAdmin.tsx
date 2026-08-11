@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText, CheckCircle2,
-  Calculator, Save, Info, BarChart2, TrendingUp, Users, QrCode, Megaphone, BookOpen, Download, Youtube,
+  Calculator, Save, Info, BarChart2, TrendingUp, Users, UserPlus, QrCode, Megaphone, BookOpen, Download, Youtube,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid,
@@ -90,6 +90,7 @@ export default function AffiliatesAdmin() {
               <Eye className="h-3.5 w-3.5" /> Demo Storefront
             </Button>
           </a>
+          <SalesDemoInviteDialog />
           <CreateAffiliateDialog onCreated={() => utils.affiliates.adminList.invalidate()} />
         </div>
       </div>
@@ -199,6 +200,74 @@ export default function AffiliatesAdmin() {
         ))
       )}
     </div>
+  );
+}
+
+function SalesDemoInviteDialog() {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [audience, setAudience] = useState<"sales_representative" | "affiliate_candidate">("sales_representative");
+  const invite = trpc.affiliates.adminInviteSalesDemo.useMutation({
+    onSuccess: () => {
+      toast.success("Sales Demo invitation sent");
+      setOpen(false);
+      setEmail("");
+      setName("");
+      setAudience("sales_representative");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  function sendInvite() {
+    if (!email.trim()) {
+      toast.error("Enter an email address");
+      return;
+    }
+    invite.mutate({
+      email: email.trim(),
+      name: name.trim() || undefined,
+      audience,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <UserPlus className="h-3.5 w-3.5" /> Invite to Sales Demo
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Invite to Cabinet Dealz Sales Demo</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Send a guided training invitation for the Sales Demo storefront, designer, order walkthrough, and CRM. The recipient cannot access First Class or other live affiliate records.</p>
+          <div className="space-y-2">
+            <Label htmlFor="sales-demo-invite-email">Email address</Label>
+            <Input id="sales-demo-invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="candidate@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sales-demo-invite-name">Name <span className="text-muted-foreground">(optional)</span></Label>
+            <Input id="sales-demo-invite-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Alex Smith" />
+          </div>
+          <div className="space-y-2">
+            <Label>Invite audience</Label>
+            <Select value={audience} onValueChange={(value) => setAudience(value as "sales_representative" | "affiliate_candidate")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sales_representative">Sales representative</SelectItem>
+                <SelectItem value="affiliate_candidate">Prospective affiliate candidate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button className="w-full gap-2" onClick={sendInvite} disabled={invite.isPending}>
+            <Send className="h-4 w-4" /> {invite.isPending ? "Sending invitation…" : "Send Sales Demo invitation"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

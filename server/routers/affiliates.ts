@@ -10,7 +10,9 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
+import { emailSettingsReady, sendEmailViaSettings } from "../email";
+import { buildSalesDemoInvite, deliverInviteThenGrant } from "../salesDemoInvite";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -399,6 +401,65 @@ export const affiliatesRouter = router({
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
       return { id: insertId, slug, referralCode };
+    }),
+
+  // ─── Admin: invite a representative or candidate to the isolated Sales Demo ──
+  adminInviteSalesDemo: adminProcedure
+    .input(z.object({
+      email: z.string().email().max(320),
+      name: z.string().max(256).optional(),
+      audience: z.enum(["sales_representative", "affiliate_candidate"]).default("sales_representative"),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [salesDemo] = await db.select().from(affiliates).where(eq(affiliates.slug, "sales-demo")).limit(1);
+      if (!salesDemo) throw new TRPCError({ code: "NOT_FOUND", message: "Sales Demo affiliate has not been configured." });
+
+      const email = input.email.trim().toLowerCase();
+      const origin = "https://www.cabinetdealz.com";
+      const invite = buildSalesDemoInvite({ recipientName: input.name, audience: input.audience, origin });
+      const [emailConfig] = await db.select().from(emailSettings).limit(1);
+      if (!emailSettingsReady(emailConfig)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending Sales Demo invitations.",
+        });
+      }
+      const sent = await deliverInviteThenGrant({
+        deliver: () => sendEmailViaSettings(emailConfig, {
+          to: email,
+          subject: invite.subject,
+          text: invite.text,
+          html: invite.html,
+        }),
+        grant: async () => {
+          const [existing] = await db.select().from(affiliateTeamMembers)
+            .where(and(eq(affiliateTeamMembers.affiliateId, salesDemo.id), eq(affiliateTeamMembers.email, email)))
+            .limit(1);
+          if (existing) {
+            await db.update(affiliateTeamMembers).set({
+              name: input.name?.trim() || existing.name,
+              role: "salesperson",
+              accessCrm: true,
+              accessDesigner: true,
+              isActive: true,
+            }).where(eq(affiliateTeamMembers.id, existing.id));
+          } else {
+            await db.insert(affiliateTeamMembers).values({
+              affiliateId: salesDemo.id,
+              email,
+              name: input.name?.trim() || null,
+              role: "salesperson",
+              accessCrm: true,
+              accessDesigner: true,
+              isActive: true,
+            });
+          }
+        },
+      });
+      if (!sent.success) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: sent.error ?? "Unable to send the Sales Demo invitation." });
+      return { success: true, email, ...invite };
     }),
 
   // ─── Admin: update an affiliate ────────────────────────────────────────────
