@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { affiliateDashboardLinks, affiliateDashboardPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
+import { resolveAffiliateDashboardSelection } from "@/lib/affiliateDashboardSelection";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/affiliate/AffiliateDashboardLayout";
 import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel";
@@ -342,7 +343,8 @@ export default function AffiliateDashboard() {
   // save inside CustomizeTab can trigger a refresh of the sibling panel.
   const [previewKey, setPreviewKey] = useState(0);
 
-  const isAdminViewAs = !!viewAsId && isAdmin;
+  const dashboardSelection = resolveAffiliateDashboardSelection(viewAsId, isAdmin);
+  const isAdminViewAs = dashboardSelection.kind === "admin-view-as";
 
   const myRef = trpc.affiliates.myReferrals.useQuery(undefined, {
     enabled: isAuthenticated && !isAdmin,
@@ -350,7 +352,7 @@ export default function AffiliateDashboard() {
   });
 
   const adminRef = trpc.affiliates.adminReferrals.useQuery(
-    { affiliateId: Number(viewAsId) },
+    { affiliateId: isAdminViewAs ? dashboardSelection.affiliateId : 0 },
     { enabled: isAdminViewAs, retry: false }
   );
 
@@ -374,7 +376,7 @@ export default function AffiliateDashboard() {
     return <AffiliateLanding />;
   }
 
-  if (isAdmin && !isAdminViewAs) {
+  if (dashboardSelection.kind === "admin-picker") {
     if (adminList.isLoading) {
       return (
         <div className="flex items-center justify-center min-h-[40vh]">

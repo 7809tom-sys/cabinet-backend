@@ -125,7 +125,7 @@
 - [x] Add a rendered consultant-control component test proving placement with room controls.
 - [x] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.
 - [ ] Verify the authenticated First Class dashboard renders `FIRSTCLASS` and First Class-only canonical URLs.
-- [ ] Add focused explicit-affiliate dashboard record-selection coverage without fallback to a generic affiliate.
+- [x] Add focused explicit-affiliate dashboard record-selection coverage without fallback to a generic affiliate.
 - [x] Audit checkout controls and primary customer-facing flows for redundant or confusing interaction points.
 - [x] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
 - [x] Inspect the final checkout implementation to confirm duplicate style and pricing controls are absent while context persists.
