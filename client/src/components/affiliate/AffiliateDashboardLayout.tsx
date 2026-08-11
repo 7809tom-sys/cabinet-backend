@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { Link } from "wouter";
 import { AffiliateStoreSwitcher } from "./AffiliateStoreSwitcher";
 
@@ -138,7 +139,7 @@ function SidebarInner({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeItem = NAV_ITEMS.find((i) => i.section === section);
-  const storeUrl = `https://${storeSlug}.cabinetdealz.com`;
+  const storeUrl = affiliateStorefrontUrl(storeSlug);
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/affiliate/AffiliateDashboardLayout";
 import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel";
@@ -412,7 +413,7 @@ export default function AffiliateDashboard() {
 
   const { affiliate, orders, summary, commissionRate } = activeQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const storeUrl = `https://${affiliate.slug}.cabinetdealz.com`;
+  const storeUrl = affiliateStorefrontUrl(affiliate.slug, origin);
   const refLink = `${origin}/order/new?ref=${affiliate.referralCode}`;
 
   function copy(text: string, label: string) {
@@ -1616,7 +1617,7 @@ function StorefrontPreviewPanel({
   // Merge the external key (from parent save) with the local manual refresh key.
   const [localKey, setLocalKey] = useState(0);
   const key = externalKey * 1000 + localKey;
-  const storeUrl = `https://${slug}.cabinetdealz.com`;
+  const storeUrl = affiliateStorefrontUrl(slug);
 
   function refresh() {
     setLocalKey((k) => k + 1);

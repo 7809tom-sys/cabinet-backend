@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { affiliateStorefrontPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active") return "default";
@@ -132,13 +133,13 @@ export default function AffiliatesAdmin() {
                     {a.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {a.location}</span>}
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <a href={subdomainUrl(a.slug)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                      <ExternalLink className="h-3.5 w-3.5" /> {a.slug}.cabinetdealz.com
+                    <a href={affiliateStorefrontUrl(a.slug)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" /> {affiliateStorefrontPath(a.slug)}
                     </a>
                     <Button
                       variant="ghost" size="icon" className="h-6 w-6"
                       onClick={() => {
-                        navigator.clipboard.writeText(subdomainUrl(a.slug));
+                        navigator.clipboard.writeText(affiliateStorefrontUrl(a.slug));
                         toast.success("Storefront link copied");
                       }}
                     >
@@ -159,7 +160,7 @@ export default function AffiliatesAdmin() {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
-                  <a href={subdomainUrl(a.slug)} target="_blank" rel="noreferrer">
+                  <a href={affiliateStorefrontUrl(a.slug)} target="_blank" rel="noreferrer">
                     <Button variant="outline" size="sm" className="w-full gap-1.5">
                       <ExternalLink className="h-3.5 w-3.5" /> View Store
                     </Button>
@@ -222,7 +223,7 @@ type AffiliateItem = {
 
 function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
   const utils = trpc.useUtils();
-  const storeUrl = subdomainUrl(a.slug);
+  const storeUrl = affiliateStorefrontUrl(a.slug, origin);
   const refLink = `${origin}/order/new?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
   const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "catalog" | "storefront" | "analytics" | "pricing" | "marketing" | "w9">("credentials");
@@ -1011,7 +1012,7 @@ function useQRCode(url: string) {
 }
 
 function AffiliateMarketingAdmin({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
-  const storefrontUrl = subdomainUrl(a.slug);
+  const storefrontUrl = affiliateStorefrontUrl(a.slug, origin);
   const referralUrl = `${origin}?ref=${a.referralCode}`;
   const qrDataUrl = useQRCode(storefrontUrl);
 
@@ -1498,5 +1499,3 @@ function AffiliateW9Review({ affiliate: a }: { affiliate: AffiliateItem }) {
     </div>
   );
 }
-  // Generate subdomain URL for each affiliate
-  const subdomainUrl = (slug: string) => `https://${slug}.cabinetdealz.com`;

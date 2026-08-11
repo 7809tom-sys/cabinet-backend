@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -61,7 +62,7 @@ function LinkRow({ label, url }: { label: string; url: string }) {
 
 async function downloadBusinessCard(affiliate: { storeName: string; contactName: string | null; phone: string | null; slug: string }, qrDataUrl: string) {
   const { jsPDF } = await import("jspdf");
-  const storefrontUrl = `https://${affiliate.slug}.cabinetdealz.com`;
+  const storefrontUrl = affiliateStorefrontUrl(affiliate.slug);
   // Standard business card: 3.5" x 2" at 72dpi = 252 x 144 pt
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: [252, 144] });
 
@@ -170,7 +171,7 @@ const GUIDES = [
 
 export default function AffiliateMarketingHub() {
   const { data: affiliate, isLoading } = trpc.affiliates.myAffiliate.useQuery();
-  const storefrontUrl = affiliate ? `https://${affiliate.slug}.cabinetdealz.com` : "";
+  const storefrontUrl = affiliate ? affiliateStorefrontUrl(affiliate.slug) : "";
   const digitalCardUrl = affiliate ? `${BASE_URL}/card/${affiliate.slug}` : "";
   const referralUrl = affiliate ? `${BASE_URL}?ref=${affiliate.referralCode}` : "";
   const qrDataUrl = useQRCode(storefrontUrl);

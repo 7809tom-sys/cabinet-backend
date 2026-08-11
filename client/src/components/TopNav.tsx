@@ -8,6 +8,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { SiteStringKey } from "@/lib/i18n/site";
 import { ChatTrigger } from "@/components/ChatWidget";
 import { trpc } from "@/lib/trpc";
+import { affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -126,7 +127,7 @@ export function TopNav() {
         {/* Logo — show affiliate branding when on affiliate storefront or ?ref= present */}
         {currentAffiliate ? (
           <a
-            href={`https://${currentAffiliate.slug}.cabinetdealz.com`}
+            href={affiliateStorefrontPath(currentAffiliate.slug)}
             className="flex items-center gap-2 shrink-0 max-w-[200px]"
           >
             {currentAffiliate.logoUrl ? (
