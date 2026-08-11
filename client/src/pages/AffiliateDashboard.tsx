@@ -329,6 +329,11 @@ export default function AffiliateDashboard() {
   const [section, setSection] = useState<AffiliateSection>(initialSection);
 
   const isAdmin = user?.role === "admin";
+  // Incrementing this key causes StorefrontPreviewPanel to reload its iframe.
+  // Lifted here (parent of both CustomizeTab and StorefrontPreviewPanel) so a
+  // save inside CustomizeTab can trigger a refresh of the sibling panel.
+  const [previewKey, setPreviewKey] = useState(0);
+
   const isAdminViewAs = !!viewAsId && isAdmin;
 
   const myRef = trpc.affiliates.myReferrals.useQuery(undefined, {
@@ -558,16 +563,22 @@ export default function AffiliateDashboard() {
       case "pricing":
         return <AffiliatePricingPanel />;
       case "customize":
-        return (
-          <div className="max-w-3xl">
-            <h2 className="text-xl font-bold mb-4">Customize Store</h2>
-            <CustomizeTab
-              affiliate={affiliate}
-              isAdmin={isAdmin}
-              onSaved={() => activeQuery.refetch()}
-            />
+      return (
+          <div className="flex gap-6 items-start w-full">
+            {/* ── Settings column ─────────────────────────────────────────── */}
+            <div className="flex-1 min-w-0 max-w-3xl">
+              <h2 className="text-xl font-bold mb-4">Customize Store</h2>
+              <CustomizeTab
+                affiliate={affiliate}
+                isAdmin={isAdmin}
+                onSaved={() => { activeQuery.refetch(); setPreviewKey((k) => k + 1); }}
+              />
+            </div>
+
+            {/* ── Live preview column — visible only on xl+ ────────────── */}
+            <StorefrontPreviewPanel slug={affiliate.slug} externalKey={previewKey} />
           </div>
-        );
+      );
       case "plugins":
         return (
           <AffiliatePluginsPanel
@@ -576,7 +587,7 @@ export default function AffiliateDashboard() {
             embedCodeDraft={affiliate.embedCodeDraft}
             embedEnabled={Boolean(affiliate.embedEnabled)}
             storeName={affiliate.storeName}
-            onSaved={() => activeQuery.refetch()}
+            onSaved={() => { activeQuery.refetch(); setPreviewKey((k) => k + 1); }}
           />
         );
       case "promotions":
@@ -1439,6 +1450,96 @@ function CustomizeTab({
 }
 
 // ─── AI Concierge Upsell Card ───────────────────────────────────────────────────
+// ─── Storefront Live Preview Panel ──────────────────────────────────────────
+// Renders a sticky iframe showing the affiliate's public storefront.
+// Only visible on xl+ screens (≥1280px) so mobile/tablet layouts are unaffected.
+// Uses a plain iframe — no shadcn components — to avoid any DOM nesting issues.
+function StorefrontPreviewPanel({
+  slug,
+  externalKey = 0,
+}: {
+  slug: string;
+  /** Incrementing this from the parent triggers an iframe reload. */
+  externalKey?: number;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Merge the external key (from parent save) with the local manual refresh key.
+  const [localKey, setLocalKey] = useState(0);
+  const key = externalKey * 1000 + localKey;
+  const storeUrl = `https://${slug}.cabinetdealz.com`;
+
+  function refresh() {
+    setLocalKey((k) => k + 1);
+  }
+
+  return (
+    <div className="hidden xl:flex flex-col gap-2 w-[420px] shrink-0 sticky top-6 self-start">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-muted-foreground">Live Preview</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={refresh}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+            title="Reload preview"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            Refresh
+          </button>
+          <a
+            href={storeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+            title="Open in new tab"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            Open
+          </a>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border overflow-hidden bg-muted/30 shadow-sm">
+        {/* Scale the storefront down to fit the 420px panel width.
+            The storefront is designed for 1280px, so scale = 420/1280 ≈ 0.328.
+            We set the iframe to 1280px wide then scale it down so the layout
+            renders correctly instead of reflowing to mobile breakpoints. */}
+        <div
+          style={{ height: "600px", overflow: "hidden", position: "relative" }}
+        >
+          <iframe
+            key={key}
+            ref={iframeRef}
+            src={storeUrl}
+            title="Storefront preview"
+            style={{
+              width: "1280px",
+              height: "900px",
+              border: "none",
+              transformOrigin: "top left",
+              transform: "scale(0.328)",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground text-center">
+        Preview refreshes automatically after each Save.
+      </p>
+    </div>
+  );
+}
+
 function AiConciergeCard() {
   const [description, setDescription] = useState("");
   const [submitted, setSubmitted] = useState(false);

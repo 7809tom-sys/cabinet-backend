@@ -198,3 +198,22 @@
 - [x] Partners see plain text (no switcher) and adminSwitcherList rejects non-admins
 - [x] 4 switcher tests pass; 59 affiliate/white-label tests green; production build succeeds
 - [x] Save checkpoint and deploy
+
+## Live Preview Panel (Customize Store tab)
+
+- [x] Added StorefrontPreviewPanel — sticky 420px iframe column, visible only on xl+ (≥1280px)
+- [x] Preview loads the affiliate's real storefront URL (https://{slug}.cabinetdealz.com)
+- [x] Storefront scaled to 0.328 (1280→420px) so it renders at desktop breakpoints not mobile
+- [x] pointerEvents:none so clicking the preview doesn't navigate away from the settings
+- [x] Refresh button + Open-in-new-tab link in the panel header
+- [x] Auto-refresh after each Save via refreshPreviewRef callback (no extra state re-render)
+- [x] Zero shadcn components in the panel — plain HTML only, no DOM nesting risk
+- [x] TypeScript clean, production build succeeds
+- [x] Save checkpoint and deploy
+
+### Preview refresh wiring fix
+- [x] Lifted previewKey state to AffiliateDashboard parent (not inside CustomizeTab)
+- [x] onSaved increments previewKey, which is passed as externalKey to StorefrontPreviewPanel
+- [x] Panel merges externalKey and localKey so both auto-refresh and manual Refresh work
+- [x] Removed unused refreshPreviewRef from CustomizeTab
+- [x] TypeScript clean, production build succeeds
