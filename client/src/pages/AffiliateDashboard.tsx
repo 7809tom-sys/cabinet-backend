@@ -841,11 +841,11 @@ const BUTTON_RADII = [
   { value: "9999px", label: "Pill (fully rounded)" },
 ];
 
-const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: string; desc: string }[] = [
-  { id: "classic", name: "Classic", desc: "Navy split hero with a lifestyle photo and serif headline." },
-  { id: "showcase", name: "Showcase", desc: "Full-bleed kitchen photo with overlaid headline and CTAs." },
-  { id: "minimal", name: "Minimal", desc: "Light, airy layout with thin rules and lots of whitespace." },
-  { id: "craftsman", name: "Craftsman", desc: "Warm, bold type on an accent block — no photo required." },
+const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: string; desc: string; thumb: string }[] = [
+  { id: "classic",   name: "Classic",   desc: "Navy split hero with a lifestyle photo and serif headline.", thumb: "/manus-storage/classic_37966efb.jpg" },
+  { id: "showcase",  name: "Showcase",  desc: "Full-bleed kitchen photo with overlaid headline and CTAs.",  thumb: "/manus-storage/showcase_888cd21d.jpg" },
+  { id: "minimal",   name: "Minimal",   desc: "Light, airy layout with thin rules and lots of whitespace.", thumb: "/manus-storage/minimal_ecbddcb9.jpg" },
+  { id: "craftsman", name: "Craftsman", desc: "Warm, bold type on an accent block — no photo required.",   thumb: "/manus-storage/craftsman_1a0d1798.jpg" },
 ];
 
 type KitchenSceneKey = "shaker-white" | "shaker-gray" | "shaker-espresso" | "raised-cherry" | "slab-natural";
@@ -1178,9 +1178,22 @@ function CustomizeTab({
                   aria-pressed={active}
                   className="w-full text-left"
                 >
+                  {/* Thumbnail screenshot */}
+                  <div className="relative rounded overflow-hidden mb-2 bg-muted" style={{ aspectRatio: "16/10" }}>
+                    <img
+                      src={tpl.thumb}
+                      alt={`${tpl.name} template preview`}
+                      className="w-full h-full object-cover object-top"
+                      loading="lazy"
+                    />
+                    {active && (
+                      <div className="absolute top-1.5 right-1.5">
+                        <Badge variant="default" className="text-[10px] px-1.5 py-0.5">Active</Badge>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <div className="font-semibold text-sm">{tpl.name}</div>
-                    {active && <Badge variant="default" className="text-xs px-2 py-0.5">Active</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</div>
                 </button>

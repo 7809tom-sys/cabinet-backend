@@ -229,3 +229,10 @@
 - [x] Zero asChild/DOM nesting violations — Dialog uses plain buttons and an iframe
 - [x] TypeScript clean, production build succeeds
 - [x] Save checkpoint and deploy
+
+## Template Card Thumbnails
+- [ ] Capture screenshots of all 4 storefront templates (classic, showcase, minimal, craftsman)
+- [ ] Upload thumbnails as static assets
+- [ ] Add thumbnail images to each template picker card
+- [ ] Verify production build succeeds
+- [ ] Save checkpoint and deploy
