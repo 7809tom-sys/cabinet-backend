@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Plus, ReceiptText, Send, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
+import { installationEstimateStatusAction, isCustomerVisibleInstallationEstimate } from "@shared/installationEstimateStatus";
 
 type DraftLine = { description: string; quantity: number; unitCost: number };
 
@@ -100,8 +101,8 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
             <div className="space-y-1.5 text-sm">{lineItems.map((line, index) => <div key={index} className="flex justify-between gap-3"><span>{line.quantity} × {line.description}</span><span className="tabular-nums">{money(line.lineTotal)}</span></div>)}</div>
             <div className="border-t pt-2 flex items-center justify-between font-bold"><span>Installation total</span><span>{money(estimate.totalAmount)}</span></div>
             {estimate.notes && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{estimate.notes}</p>}
-            {estimate.status === "draft" && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: estimate.id, affiliateId, status: "shared" })}><Send className="mr-1 h-3.5 w-3.5" />Mark shared with customer</Button>}
-            {estimate.status !== "draft" && estimate.shareToken && <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${installationEstimateDocumentPath(estimate.shareToken!)}`); toast.success("Customer installation document link copied."); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy customer document</Button>}
+            {installationEstimateStatusAction(estimate.status) === "share" && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: estimate.id, affiliateId, status: "shared" })}><Send className="mr-1 h-3.5 w-3.5" />Mark shared with customer</Button>}
+            {isCustomerVisibleInstallationEstimate(estimate.status) && estimate.shareToken && <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${installationEstimateDocumentPath(estimate.shareToken!)}`); toast.success("Customer installation document link copied."); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy customer document</Button>}
           </article>;
         }) : <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No installation estimates yet. Create one for the customer’s installation work.</div>}
       </section>
