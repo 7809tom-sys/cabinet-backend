@@ -1,7 +1,7 @@
 import { and, desc, eq, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates } from "../../drizzle/schema";
+import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, orderRequests } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate } from "../../shared/installationEstimate";
@@ -103,5 +103,31 @@ export const installationEstimatesRouter = router({
       const [affiliate] = await db.select({ storeName: affiliates.storeName, phone: affiliates.phone, email: affiliates.email, logoUrl: affiliates.logoUrl, primaryColor: affiliates.primaryColor })
         .from(affiliates).where(eq(affiliates.id, estimate.affiliateId)).limit(1);
       return { estimate, affiliate: affiliate ?? null };
+    }),
+
+  // The material-order confirmation can only reveal a separate installation
+  // document when the caller supplies the exact order id AND the same customer
+  // email that was submitted with that material order. Totals stay independent.
+  forOrderConfirmation: publicProcedure
+    .input(z.object({ orderRequestId: z.number().int().positive(), customerEmail: z.string().trim().email().max(320) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [order] = await db.select({ affiliateId: orderRequests.affiliateId })
+        .from(orderRequests)
+        .where(and(eq(orderRequests.id, input.orderRequestId), eq(orderRequests.originatorEmail, input.customerEmail)))
+        .limit(1);
+      if (!order?.affiliateId) return null;
+
+      const [estimate] = await db.select({ shareToken: affiliateInstallationEstimates.shareToken, totalAmount: affiliateInstallationEstimates.totalAmount })
+        .from(affiliateInstallationEstimates)
+        .where(and(
+          eq(affiliateInstallationEstimates.orderRequestId, input.orderRequestId),
+          eq(affiliateInstallationEstimates.affiliateId, order.affiliateId),
+          or(eq(affiliateInstallationEstimates.status, "shared"), eq(affiliateInstallationEstimates.status, "accepted")),
+        ))
+        .orderBy(desc(affiliateInstallationEstimates.updatedAt))
+        .limit(1);
+      return estimate?.shareToken ? estimate : null;
     }),
 });

@@ -161,3 +161,6 @@
 - [x] Redirect the existing parts-list import actions to the dedicated reviewed plan-image import dialog once its upload screen is rendered.
 - [x] Make plan interpretation available through the designer’s real public or email-gated entry path and handle unauthenticated attempts safely.
 - [ ] Verify on mobile and desktop that a designer user can upload a plan image, review interpreted results, and apply approved items without authentication failures.
+- [x] Allow affiliates to associate an installation estimate with a Cabinet Dealz material order request.
+- [x] Surface an eligible separate installation document on the customer’s material-order confirmation without merging invoice totals.
+- [x] Add focused coverage for customer installation-document URL generation and verify the linked billing presentation.

@@ -20,13 +20,14 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs";
 import {
-  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin,
+  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin, FileText,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
+import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -587,6 +588,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
 
   // ─── Confirmation screen ──────────────────────────────────────────────────
   const confirmReq = trpc.orders.confirm.useMutation();
+  const installationDocument = trpc.installationEstimates.forOrderConfirmation.useQuery(
+    { orderRequestId: submittedId ?? 0, customerEmail: email },
+    { enabled: submittedId != null && emailValid, retry: false },
+  );
   if (submittedId != null) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -618,6 +623,19 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             {t("or_start_another")}
           </Button>
         </div>
+
+        {installationDocument.data?.shareToken && (
+          <section className="mx-auto mt-6 max-w-lg rounded-xl border border-amber-300 bg-amber-50 p-4 text-left text-sm text-amber-950">
+            <div className="flex items-start gap-3">
+              <FileText className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Separate installation estimate available</p>
+                <p className="mt-1">Your affiliate’s installation document is separate from the Cabinet Dealz material invoice and payment.</p>
+                <a className="mt-3 inline-flex font-semibold underline underline-offset-4" href={installationEstimateDocumentPath(installationDocument.data.shareToken)} target="_blank" rel="noreferrer">View installation estimate</a>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Upfront card payment — only renders when payments are configured.
             Gated on a freight amount being attached (see PayWithCard). */}

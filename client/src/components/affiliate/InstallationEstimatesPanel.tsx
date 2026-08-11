@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Plus, ReceiptText, Send, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 
 type DraftLine = { description: string; quantity: number; unitCost: number };
 
@@ -18,6 +19,7 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [orderRequestId, setOrderRequestId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([{ description: "Cabinet installation labor", quantity: 1, unitCost: 0 }]);
 
@@ -28,7 +30,7 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
   const create = trpc.installationEstimates.create.useMutation({
     onSuccess: () => {
       toast.success("Installation estimate saved separately from the material order.");
-      setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setNotes("");
+      setCustomerName(""); setCustomerEmail(""); setCustomerPhone(""); setOrderRequestId(""); setNotes("");
       setLines([{ description: "Cabinet installation labor", quantity: 1, unitCost: 0 }]);
       utils.installationEstimates.list.invalidate({ affiliateId });
     },
@@ -47,6 +49,7 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
     }
     create.mutate({
       affiliateId,
+      orderRequestId: Number(orderRequestId) || null,
       customerName: customerName.trim() || null,
       customerEmail: customerEmail.trim() || null,
       customerPhone: customerPhone.trim() || null,
@@ -69,6 +72,7 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
           <div className="space-y-1.5"><Label>Customer name</Label><Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Customer name" /></div>
           <div className="space-y-1.5"><Label>Customer email</Label><Input type="email" value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} placeholder="customer@example.com" /></div>
           <div className="space-y-1.5"><Label>Customer phone</Label><Input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="(555) 555-5555" /></div>
+          <div className="space-y-1.5"><Label>Cabinet Dealz material order # <span className="font-normal text-muted-foreground">(optional)</span></Label><Input inputMode="numeric" value={orderRequestId} onChange={(event) => setOrderRequestId(event.target.value.replace(/\D/g, ""))} placeholder="Material order request ID" /></div>
         </div>
         <div className="space-y-2">
           <Label>Installation items</Label>
@@ -97,7 +101,7 @@ export function InstallationEstimatesPanel({ affiliateId }: { affiliateId: numbe
             <div className="border-t pt-2 flex items-center justify-between font-bold"><span>Installation total</span><span>{money(estimate.totalAmount)}</span></div>
             {estimate.notes && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{estimate.notes}</p>}
             {estimate.status === "draft" && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: estimate.id, affiliateId, status: "shared" })}><Send className="mr-1 h-3.5 w-3.5" />Mark shared with customer</Button>}
-            {estimate.status !== "draft" && estimate.shareToken && <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/installation-estimate/${estimate.shareToken}`); toast.success("Customer installation document link copied."); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy customer document</Button>}
+            {estimate.status !== "draft" && estimate.shareToken && <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${installationEstimateDocumentPath(estimate.shareToken!)}`); toast.success("Customer installation document link copied."); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy customer document</Button>}
           </article>;
         }) : <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No installation estimates yet. Create one for the customer’s installation work.</div>}
       </section>
