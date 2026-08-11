@@ -160,6 +160,7 @@ export const distributorPortalRouter = router({
           isPublished: distributorSkus.isPublished,
           isAvailable: distributorSkus.isAvailable,
           imageUrl: distributorSkus.imageUrl,
+          catalogImageUrl: cabinets.catalogImageUrl,
           status: distributorSkus.status,
         })
         .from(distributorSkus)

@@ -437,6 +437,7 @@ function CatalogPage() {
       utils.distributorPortal.catalog.invalidate();
       utils.distributorPortal.myLine.invalidate();
     },
+    onError: (err) => toast.error(err.message),
   });
 
   const updatePrice = trpc.distributorPortal.updatePrice.useMutation({
@@ -584,8 +585,8 @@ function CatalogPage() {
               {catalog.data?.items.map((item) => (
                 <TableRow key={item.skuId}>
                   <TableCell>
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="h-10 w-10 object-cover rounded" />
+                    {item.imageUrl || item.catalogImageUrl ? (
+                      <img src={item.imageUrl || item.catalogImageUrl!} alt="" className="h-10 w-10 object-cover rounded" />
                     ) : (
                       <div className="h-10 w-10 bg-muted rounded flex items-center justify-center">
                         <ImageIcon className="h-4 w-4 text-muted-foreground" />
@@ -624,7 +625,11 @@ function CatalogPage() {
                     <Switch
                       checked={item.isPublished}
                       onCheckedChange={(checked) => {
-                        toggleVis.mutate({ skuId: item.skuId, isPublished: checked });
+                        toggleVis.mutate({
+                          ...(adminDistId ? { distributorId: adminDistId } : {}),
+                          skuId: item.skuId,
+                          isPublished: checked,
+                        });
                       }}
                       disabled={toggleVis.isPending}
                     />
