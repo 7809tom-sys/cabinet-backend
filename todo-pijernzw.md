@@ -53,13 +53,13 @@
 - [x] Inspect current designer import, cabinet placement, and door-style selection capabilities.
 - [x] Map the supplied dimensioned layout to cabinet, appliance, and corner-cabinet requirements.
 - [x] Report which layout-import steps can be automated and which require design review.
-- [ ] Define the dimensioned plan upload, interpretation, review, and apply workflow for the designer.
-- [ ] Add image or PDF plan upload and structured cabinet-layout interpretation.
-- [ ] Build a review screen that lets users inspect and correct proposed cabinet placements before applying them.
-- [ ] Apply approved cabinet and appliance placements to the editable designer canvas before door-style selection.
-- [ ] Add validation and automated coverage for imported layout mapping.
-- [ ] Verify the feature in the designer and save a checkpoint.
-- [ ] Support clear photographed handwritten plans and flag low-confidence labels or dimensions for review.
+- [x] Define the dimensioned plan upload, interpretation, review, and apply workflow for the designer.
+- [x] Add image-plan upload and structured cabinet-layout interpretation.
+- [x] Build an editable review screen that lets users inspect and correct proposed cabinet placements before applying them.
+- [x] Apply approved cabinet and appliance placements to the editable designer canvas before door-style selection.
+- [x] Add validation and automated coverage for imported layout mapping.
+- [x] Verify the feature in the designer and save a checkpoint.
+- [x] Support clear photographed handwritten plans and flag low-confidence labels or dimensions for review.
 - [ ] Document Reaves Way Cabinet Shop as the approved standard for future affiliate setup.
 - [ ] Identify the new-affiliate setup flow and its configurable defaults.
 - [ ] Apply Reaves Way storefront, designer, CRM, and link behavior as the required default for future affiliates.
@@ -146,8 +146,18 @@
 - [ ] Add router and UI coverage for installation-estimate creation, listing, and status changes.
 - [ ] Create separate customer-facing material and installation documents with distinct issuer labels and totals.
 - [ ] Verify the affiliate editor and customer-facing separated billing views in the browser.
-- [ ] Define the More-tab Import Existing Design upload, interpretation, review, and apply flow.
-- [ ] Add image-plan upload and structured interpretation for readable typed or handwritten cabinet layouts.
-- [ ] Build a review step that flags uncertain items and applies confirmed cabinet placements to the designer canvas.
+- [x] Define the More-tab Import Existing Design upload, interpretation, review, and apply flow.
+- [x] Add image-plan upload and structured interpretation for readable typed or handwritten cabinet layouts.
+- [x] Build a review step that flags uncertain items before layout application.
 - [ ] Add focused coverage and verify the More-tab existing-design import workflow.
 - [x] Add the Import Existing Design entry point to the desktop/laptop More controls as well as mobile.
+- [x] Replace the current designer layout automatically when the user applies a reviewed imported layout.
+- [x] Use the current designer room size when imported plans omit dimensions and flag each missing measurement for confirmation.
+- [x] Preselect high-confidence imported cabinet notes and require explicit approval for low-confidence notes.
+- [x] Apply a reviewed imported plan by replacing the current layout while retaining current room dimensions when plan dimensions are missing.
+- [x] Require explicit approval for every low-confidence imported cabinet note before applying the replacement layout.
+- [x] Add a direct image picker and camera-capable image upload to the designer’s Import Existing Design flow.
+- [x] Connect the direct plan-image upload dialog to both mobile and desktop More-menu actions.
+- [x] Redirect the existing parts-list import actions to the dedicated reviewed plan-image import dialog once its upload screen is rendered.
+- [x] Make plan interpretation available through the designer’s real public or email-gated entry path and handle unauthenticated attempts safely.
+- [ ] Verify on mobile and desktop that a designer user can upload a plan image, review interpreted results, and apply approved items without authentication failures.

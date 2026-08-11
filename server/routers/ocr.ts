@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
 import { cabinets } from "../../drizzle/schema";
 import { invokeLLM } from "../_core/llm";
@@ -85,6 +85,7 @@ Rules:
 const dataUrlInput = z
   .string()
   .min(16)
+  .max(12_000_000)
   .refine((s) => s.startsWith("data:image/"), "Must be a data:image/* URL");
 
 // ─── CSV column headers that 2020 Design / common BOM exports use ────────────
@@ -94,7 +95,7 @@ const CODE_HEADERS = ["code", "sku", "item", "part", "product", "cabinet", "item
 const QTY_HEADERS = ["qty", "quantity", "count", "amount", "pcs", "pieces", "units"];
 
 export const ocrRouter = router({
-  interpretPlan: protectedProcedure
+  interpretPlan: publicProcedure
     .input(z.object({ imageDataUrl: dataUrlInput }))
     .mutation(async ({ input }) => {
       try {

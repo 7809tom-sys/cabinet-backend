@@ -63,7 +63,7 @@ import {
   type PlanAnnotation, makeAnnotation,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
-  clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
+  clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
   formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
@@ -102,6 +102,8 @@ import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
+import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
+import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
@@ -722,6 +724,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   });
   const wallCabPoolRef = useRef<DesignCabinet[]>([]);
   useEffect(() => { wallCabPoolRef.current = (wallCabPool as DesignCabinet[] | undefined) ?? []; }, [wallCabPool]);
+
+  // Keep every tall cabinet available when matching a reviewed imported plan,
+  // regardless of the palette tab the customer currently has open.
+  const { data: tallCabPool } = trpc.design.placeableCabinets.useQuery({
+    placement: "tall",
+    styleId: styleId ?? undefined,
+    distributorId: lockedDistributorId ?? undefined,
+  });
 
   // The unified "Corner" tab shows BOTH corner base AND corner wall cabinets in
   // one place (grouped into two sections). The base-placement corner cabinets
@@ -4365,6 +4375,150 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
   });
 
+  const applyPlanImageImport = useCallback((plan: ReviewedPlan) => {
+    if (layoutLocked) {
+      toast.info(t("dt_t_unlock_suggest"));
+      return;
+    }
+
+    const catalog = [
+      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+      ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
+      ...appliancePalette,
+    ];
+    if (catalog.length === 0) {
+      toast.error("Choose a door style first so the imported plan can be matched to available cabinets.");
+      return;
+    }
+
+    const hasImportedRoomSize = plan.roomWidthInches > 0 && plan.roomDepthInches > 0;
+    const replacementRoom: RoomData = hasImportedRoomSize
+      ? {
+          ...room,
+          width: clampRoomInches(plan.roomWidthInches),
+          depth: clampRoomInches(plan.roomDepthInches),
+          // A plan image describes a conventional measured room; discard an
+          // unrelated prior custom perimeter before wall-packing this new plan.
+          vertices: undefined,
+          customWalls: undefined,
+        }
+      : room;
+
+    const placedFromPlan: PlacedCabinet[] = [];
+    let unmatchedCabinets = 0;
+    let unmatchedAppliances = 0;
+    for (const item of plan.cabinets) {
+      const match = findClosestPlanCabinet(item, catalog);
+      if (!match) {
+        unmatchedCabinets += 1;
+        continue;
+      }
+
+      const width = Number(match.cabinet.width) || Math.max(9, Number(item.widthInches) || 24);
+      const depth = Number(match.cabinet.depth) || (match.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+      const height = Number(match.cabinet.height) || standardHeight(match.placement);
+      const spot = nextFreeSpotOnWall(width, depth, match.placement, match.wall, replacementRoom, placedFromPlan);
+      placedFromPlan.push({
+        uid: makeUid(),
+        cabinetId: match.cabinet.id,
+        masterCode: match.cabinet.masterCode,
+        description: match.cabinet.description,
+        category: match.cabinet.category,
+        subCategory: match.cabinet.subCategory,
+        placement: match.placement,
+        x: spot.x,
+        y: spot.y,
+        width,
+        depth,
+        height,
+        rotation: spot.rotation,
+        catalogImageUrl: match.cabinet.catalogImageUrl ?? null,
+        numberOfDoors: match.cabinet.numberOfDoors,
+        numberOfDrawers: match.cabinet.numberOfDrawers,
+        nominalWidth: width,
+        nominalHeight: height,
+        nominalDepth: depth,
+        pullMin: match.cabinet.pullMin ?? null,
+        pullMax: match.cabinet.pullMax ?? null,
+        cornerType: match.cabinet.cornerType ?? null,
+        styleId: styleIdRef.current ?? null,
+      });
+    }
+
+    for (const appliance of plan.appliances) {
+      const match = findClosestPlanCabinet(
+        { label: appliance.label, cabinetType: "appliance", widthInches: 0, wall: appliance.wall, confidence: 1 },
+        appliancePalette,
+      );
+      if (!match) {
+        unmatchedAppliances += 1;
+        continue;
+      }
+
+      const width = Number(match.cabinet.width) || 24;
+      const depth = Number(match.cabinet.depth) || STD.BASE_DEPTH;
+      const height = Number(match.cabinet.height) || standardHeight("appliance");
+      const spot = nextFreeSpotOnWall(width, depth, "appliance", match.wall, replacementRoom, placedFromPlan);
+      placedFromPlan.push({
+        uid: makeUid(),
+        cabinetId: match.cabinet.id,
+        masterCode: match.cabinet.masterCode,
+        description: match.cabinet.description,
+        category: match.cabinet.category,
+        subCategory: match.cabinet.subCategory,
+        placement: "appliance",
+        x: spot.x,
+        y: spot.y,
+        width,
+        depth,
+        height,
+        rotation: spot.rotation,
+        catalogImageUrl: match.cabinet.catalogImageUrl ?? null,
+        numberOfDoors: match.cabinet.numberOfDoors,
+        numberOfDrawers: match.cabinet.numberOfDrawers,
+        nominalWidth: width,
+        nominalHeight: height,
+        nominalDepth: depth,
+        styleId: styleIdRef.current ?? null,
+      });
+    }
+
+    if (placedFromPlan.length === 0) {
+      toast.error("None of the approved notes matched an available cabinet. Review the plan notes or choose a door style and try again.");
+      return;
+    }
+
+    setRoom(replacementRoom);
+    setPlaced(placedFromPlan);
+    setOpenings([]);
+    setIsland(null);
+    setSelectedUid(null);
+    setSelectedOpeningUid(null);
+    setSinks([]);
+    setSelectedSinkUid(null);
+    setFurniture([]);
+    setSelectedFurnUid(null);
+    setPonyWalls([]);
+    setSelectedPonyWallUid(null);
+    setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
+    setBacksplashMaterialId(null);
+    setFlooringMaterialId(null);
+    setFlooringPattern("random-stagger");
+    setSelectedSurfaces([]);
+    setCabinetsLocked(false);
+    setConsultMessages([]);
+    setConsultOpen(false);
+    clearDraft();
+
+    const placedApplianceCount = placedFromPlan.filter((item) => item.placement === "appliance").length;
+    const unmatchedCount = unmatchedCabinets + unmatchedAppliances;
+    const unmatchedNote = unmatchedCount > 0 ? ` ${unmatchedCount} approved note${unmatchedCount === 1 ? "" : "s"} could not be matched and was skipped.` : "";
+    const applianceNote = placedApplianceCount > 0 ? ` ${placedApplianceCount} reviewed appliance${placedApplianceCount === 1 ? "" : "s"} ${placedApplianceCount === 1 ? "was" : "were"} placed on the back wall for you to position precisely.` : "";
+    const roomNote = hasImportedRoomSize ? " Imported room dimensions were applied." : " Your current room dimensions were retained.";
+    toast.success(`${placedFromPlan.length} approved cabinet${placedFromPlan.length === 1 ? "" : "s"} replaced the current layout.${roomNote}${unmatchedNote}${applianceNote}`);
+  }, [appliancePalette, autoFillCabinets, clearDraft, layoutLocked, room, t, tallCabPool, wallCabPool]);
+
   const selectedCab = placed.find((p) => p.uid === selectedUid);
   const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
 
@@ -4423,6 +4577,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
   };
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [planImportOpen, setPlanImportOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -4970,7 +5125,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{t("dt_sh_my_plans")}</span>
                   </button>
                   <button
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setCsvImportOpen(true), 120); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPlanImportOpen(true), 120); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors"
                   >
                     <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -5339,7 +5494,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onSelect={() => setCsvImportOpen(true)}>
+              <DropdownMenuItem onSelect={() => setPlanImportOpen(true)}>
                 <Upload className="h-3.5 w-3.5 mr-2" /> Import Existing Design
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -5477,6 +5632,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             <FileText className="h-4 w-4" />
           </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
+          <PlanImageImportDialog
+            open={planImportOpen}
+            onOpenChange={setPlanImportOpen}
+            onApply={applyPlanImageImport}
+          />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
         </div>
