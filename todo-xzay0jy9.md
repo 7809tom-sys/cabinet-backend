@@ -217,3 +217,15 @@
 - [x] Panel merges externalKey and localKey so both auto-refresh and manual Refresh work
 - [x] Removed unused refreshPreviewRef from CustomizeTab
 - [x] TypeScript clean, production build succeeds
+
+## Template Preview Button
+
+- [x] Added Preview button to each template card (replaces the old external link)
+- [x] Preview opens a Dialog with a scaled iframe (72% scale, 70vh height) showing /store-preview/{template}
+- [x] Dialog header shows template name, description, "Use this template" button (or "Currently active" badge)
+- [x] Open-in-new-tab link in dialog header for full-page view
+- [x] Template switcher row at bottom of dialog for quick comparison between all 4 templates
+- [x] Clicking the card still selects the template; Preview button stops propagation so it only opens the modal
+- [x] Zero asChild/DOM nesting violations — Dialog uses plain buttons and an iframe
+- [x] TypeScript clean, production build succeeds
+- [x] Save checkpoint and deploy

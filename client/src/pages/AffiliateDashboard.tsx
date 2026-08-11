@@ -38,6 +38,12 @@ import {
   formatMembershipPrice,
 } from "@shared/affiliate";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
 
@@ -863,6 +869,7 @@ function CustomizeTab({
 }) {
   const [uploading, setUploading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [previewingTemplate, setPreviewingTemplate] = useState<"classic" | "showcase" | "minimal" | "craftsman" | null>(null);
   const formFromAffiliate = (a: AffiliateRow) => ({
     storeName: a.storeName ?? "",
     tagline: a.tagline ?? "",
@@ -1154,37 +1161,53 @@ function CustomizeTab({
           {TEMPLATES.map((tpl) => {
             const active = form.template === tpl.id;
             return (
-              <button
+              <div
                 key={tpl.id}
-                type="button"
-                onClick={() => set("template", tpl.id)}
-                aria-pressed={active}
+                role="group"
                 className={
-                  "text-left rounded-lg border p-3 transition-colors " +
+                  "rounded-lg border p-3 transition-colors " +
                   (active
                     ? "border-primary ring-2 ring-primary/30 bg-primary/5"
                     : "border-border hover:bg-muted")
                 }
               >
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-sm">{tpl.name}</div>
-                  {active && <Badge variant="default" className="text-xs px-2 py-0.5">Active</Badge>}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</div>
-                <a
-                  href={`/store-preview/${tpl.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                {/* Clicking the name/desc row selects the template */}
+                <button
+                  type="button"
+                  onClick={() => set("template", tpl.id)}
+                  aria-pressed={active}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-sm">{tpl.name}</div>
+                    {active && <Badge variant="default" className="text-xs px-2 py-0.5">Active</Badge>}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</div>
+                </button>
+                {/* Preview button — opens the modal, does NOT select the template */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewingTemplate(tpl.id);
+                  }}
                   className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   Preview <ExternalLink className="h-3 w-3" />
-                </a>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>
       </div>
+      {/* ── Template preview modal ────────────────────────────────────────── */}
+      <TemplatePreviewDialog
+        open={previewingTemplate !== null}
+        templateId={previewingTemplate}
+        onClose={() => setPreviewingTemplate(null)}
+        onSelect={(id) => { set("template", id); setPreviewingTemplate(null); }}
+        currentTemplate={form.template}
+      />
 
       {/* ── Brand identity ────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
@@ -1454,6 +1477,111 @@ function CustomizeTab({
 // Renders a sticky iframe showing the affiliate's public storefront.
 // Only visible on xl+ screens (≥1280px) so mobile/tablet layouts are unaffected.
 // Uses a plain iframe — no shadcn components — to avoid any DOM nesting issues.
+// ─── Template Preview Dialog ──────────────────────────────────────────────────
+// Opens a full-screen dialog with a scaled iframe showing the /store-preview
+// route for the selected template. Lets affiliates compare layouts before
+// committing. Uses a plain iframe — no asChild / DOM nesting risk.
+type TemplateId = "classic" | "showcase" | "minimal" | "craftsman";
+function TemplatePreviewDialog({
+  open,
+  templateId,
+  onClose,
+  onSelect,
+  currentTemplate,
+}: {
+  open: boolean;
+  templateId: TemplateId | null;
+  onClose: () => void;
+  onSelect: (id: TemplateId) => void;
+  currentTemplate: TemplateId;
+}) {
+  // Local state tracks which template is being previewed inside the dialog.
+  // Starts from the templateId prop but can be changed by the switcher row
+  // without closing the dialog.
+  const [viewing, setViewing] = useState<TemplateId>(templateId ?? "classic");
+  // Sync viewing when the dialog opens with a new template.
+  useEffect(() => {
+    if (templateId) setViewing(templateId);
+  }, [templateId]);
+
+  const tpl = TEMPLATES.find((t) => t.id === viewing);
+  const isActive = viewing === currentTemplate;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-5xl w-full p-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b border-border flex flex-row items-center justify-between">
+          <div>
+            <DialogTitle className="text-base font-semibold">
+              {tpl?.name ?? "Template"} Preview
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">{tpl?.desc}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isActive ? (
+              <Badge variant="default" className="text-xs">Currently active</Badge>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onSelect(viewing)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Use this template
+              </button>
+            )}
+            <a
+              href={`/store-preview/${viewing}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-border text-sm hover:bg-muted transition-colors"
+              title="Open full page"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </DialogHeader>
+
+        {/* Scaled iframe — 1280px wide storefront scaled to fit the dialog */}
+        <div style={{ height: "70vh", overflow: "hidden", position: "relative", background: "#f5f5f5" }}>
+          {open && (
+            <iframe
+              key={viewing}
+              src={`/store-preview/${viewing}`}
+              title={`${tpl?.name ?? viewing} template preview`}
+              style={{
+                width: "1280px",
+                height: "calc(70vh / 0.72)",
+                border: "none",
+                transformOrigin: "top left",
+                transform: "scale(0.72)",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+        </div>
+
+        {/* Template switcher row — click to switch which template is previewed */}
+        <div className="flex gap-2 px-5 py-3 border-t border-border overflow-x-auto">
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setViewing(t.id)}
+              className={`shrink-0 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                t.id === viewing
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function StorefrontPreviewPanel({
   slug,
   externalKey = 0,
