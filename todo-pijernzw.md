@@ -146,3 +146,8 @@
 - [ ] Add router and UI coverage for installation-estimate creation, listing, and status changes.
 - [ ] Create separate customer-facing material and installation documents with distinct issuer labels and totals.
 - [ ] Verify the affiliate editor and customer-facing separated billing views in the browser.
+- [ ] Define the More-tab Import Existing Design upload, interpretation, review, and apply flow.
+- [ ] Add image-plan upload and structured interpretation for readable typed or handwritten cabinet layouts.
+- [ ] Build a review step that flags uncertain items and applies confirmed cabinet placements to the designer canvas.
+- [ ] Add focused coverage and verify the More-tab existing-design import workflow.
+- [x] Add the Import Existing Design entry point to the desktop/laptop More controls as well as mobile.

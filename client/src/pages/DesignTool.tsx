@@ -5,7 +5,7 @@ import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
-  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
+  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles, Upload,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
@@ -4969,6 +4969,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_my_plans")}</span>
                   </button>
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setCsvImportOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                  >
+                    <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">Import Existing Design</span>
+                  </button>
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
@@ -5332,6 +5339,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={() => setCsvImportOpen(true)}>
+                <Upload className="h-3.5 w-3.5 mr-2" /> Import Existing Design
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs text-muted-foreground">Room Features</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
                 checked={!!island}
