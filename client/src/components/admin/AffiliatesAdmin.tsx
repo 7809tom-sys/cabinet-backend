@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "@/lib/affiliateStorefrontUrl";
+import { affiliateAdminRowLinks } from "@/lib/affiliateAdminRowLinks";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active") return "default";
@@ -168,12 +169,12 @@ export default function AffiliatesAdmin() {
                   >
                     <Copy className="h-3.5 w-3.5" /> Copy storefront link
                   </Button>
-                  <a href="/affiliate" target="_blank" rel="noreferrer">
+                  <a href={affiliateAdminRowLinks(a.id).portalUrl} target="_blank" rel="noreferrer">
                     <Button variant="outline" size="sm" className="w-full gap-1.5">
                       <Store className="h-3.5 w-3.5" /> Affiliate Portal
                     </Button>
                   </a>
-                  <a href={`/affiliate?viewAs=${a.id}`}>
+                  <a href={affiliateAdminRowLinks(a.id).fullPageUrl}>
                     <Button size="sm" className="w-full gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
                       <Eye className="h-3.5 w-3.5" /> Full Page View
                     </Button>

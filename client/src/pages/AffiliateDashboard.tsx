@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
+import { affiliateDashboardLinks, affiliateDashboardPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/affiliate/AffiliateDashboardLayout";
 import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel";
@@ -353,17 +353,13 @@ export default function AffiliateDashboard() {
     { enabled: isAdminViewAs, retry: false }
   );
 
-  // Admin without ?viewAs= param: load the full affiliate list and show the first one
+  // Admin without ?viewAs= param: load the full affiliate list and require an
+  // explicit selection. Falling back to the first row silently showed one
+  // affiliate's URLs inside another affiliate workflow.
   const adminList = trpc.affiliates.adminList.useQuery(undefined, {
     enabled: isAdmin && !isAdminViewAs,
     retry: false,
   });
-
-  // For admin without viewAs, pick the first affiliate from the list
-  const adminFirstAffiliate = trpc.affiliates.adminReferrals.useQuery(
-    { affiliateId: (adminList.data as any)?.[0]?.id ?? 0 },
-    { enabled: isAdmin && !isAdminViewAs && !!(adminList.data as any)?.[0]?.id, retry: false }
-  );
 
   if (loading) {
     return (
@@ -377,15 +373,35 @@ export default function AffiliateDashboard() {
     return <AffiliateLanding />;
   }
 
-  // Determine which query to use based on role and context
-  let activeQuery: typeof myRef;
-  if (isAdminViewAs) {
-    activeQuery = adminRef;
-  } else if (isAdmin) {
-    activeQuery = adminFirstAffiliate;
-  } else {
-    activeQuery = myRef;
+  if (isAdmin && !isAdminViewAs) {
+    if (adminList.isLoading) {
+      return (
+        <div className="flex items-center justify-center min-h-[40vh]">
+          <Spinner className="h-7 w-7" />
+        </div>
+      );
+    }
+    const affiliateChoices = (adminList.data ?? []) as Array<{ id: number; storeName: string; slug: string; referralCode: string }>;
+    return (
+      <div className="container max-w-2xl py-12 space-y-6">
+        <div>
+          <h1 className="font-serif text-3xl font-bold">Choose an Affiliate Dashboard</h1>
+          <p className="mt-2 text-muted-foreground">Select a specific affiliate so its storefront and referral links never mix with another record.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {affiliateChoices.map((choice) => (
+            <a key={choice.id} href={affiliateDashboardPath(choice.id)} className="rounded-xl border border-border bg-card p-5 hover:border-primary hover:bg-primary/5 transition-colors">
+              <p className="font-semibold">{choice.storeName}</p>
+              <p className="mt-1 text-xs text-muted-foreground font-mono">{choice.referralCode}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    );
   }
+
+  // Determine which query to use based on role and context
+  const activeQuery: typeof myRef = isAdminViewAs ? adminRef : myRef;
 
   if (activeQuery.isLoading) {
     return (
@@ -412,9 +428,7 @@ export default function AffiliateDashboard() {
   }
 
   const { affiliate, orders, summary, commissionRate } = activeQuery.data;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const storeUrl = affiliateStorefrontUrl(affiliate.slug, origin);
-  const refLink = `${origin}/order/new?ref=${affiliate.referralCode}`;
+  const { storefrontUrl: storeUrl, referralUrl: refLink } = affiliateDashboardLinks(affiliate);
 
   function copy(text: string, label: string) {
     navigator.clipboard.writeText(text).then(

@@ -50,3 +50,52 @@
 - [x] Add an All affiliates / specific affiliate dropdown filter to the master CRM board.
 - [x] Add focused coverage for master CRM affiliate-filter scope selection.
 - [x] Verify the dropdown filtering behavior and save a checkpoint.
+- [x] Inspect current designer import, cabinet placement, and door-style selection capabilities.
+- [x] Map the supplied dimensioned layout to cabinet, appliance, and corner-cabinet requirements.
+- [x] Report which layout-import steps can be automated and which require design review.
+- [ ] Define the dimensioned plan upload, interpretation, review, and apply workflow for the designer.
+- [ ] Add image or PDF plan upload and structured cabinet-layout interpretation.
+- [ ] Build a review screen that lets users inspect and correct proposed cabinet placements before applying them.
+- [ ] Apply approved cabinet and appliance placements to the editable designer canvas before door-style selection.
+- [ ] Add validation and automated coverage for imported layout mapping.
+- [ ] Verify the feature in the designer and save a checkpoint.
+- [ ] Support clear photographed handwritten plans and flag low-confidence labels or dimensions for review.
+- [ ] Document Reaves Way Cabinet Shop as the approved standard for future affiliate setup.
+- [ ] Identify the new-affiliate setup flow and its configurable defaults.
+- [ ] Apply Reaves Way storefront, designer, CRM, and link behavior as the required default for future affiliates.
+- [ ] Verify the standardized new-affiliate setup and save a checkpoint.
+- [x] Audit First Class affiliate records, links, branding, and storefront content for Reaves Way-specific values.
+- [x] Remove or replace Reaves Way-specific values from First Class while preserving First Class configuration.
+- [x] Verify Reaves Way and First Class public and administrative affiliate views are separated, then save a checkpoint.
+- [x] Trace why the First Class dashboard renders Reaves Way referral data.
+- [x] Correct First Class branded storefront and quick referral link generation to use First Class only.
+- [x] Add regression coverage for per-affiliate dashboard link isolation.
+- [x] Verify the First Class dashboard link and code, then save a checkpoint.
+- [x] Verify the actual canonical storefront and referral HTML URLs resolve to First Class rather than Reaves Way.
+- [x] Verify the corrected First Class portal target route and `FIRSTCLASS` referral URL through the canonical link helper.
+- [x] Add regression coverage for the portal target helper used by each admin affiliate action.
+- [x] Verify First Class and Reaves Way canonical dashboard and referral URLs remain isolated.
+- [x] Save the corrected First Class canonical dashboard URL and referral-link isolation update.
+- [x] Add a component-level mapping test proving each admin affiliate row uses its own portal dashboard URL.
+- [ ] Add a rendered `AffiliatesAdmin` component test for per-row portal and full-page URLs.
+- [ ] Verify the authenticated First Class and Reaves Way dashboard views show their own referral codes and canonical URLs.
+- [ ] Save a checkpoint after the final First Class and Reaves Way isolation verification.
+- [ ] Confirm the screenshot’s Reaves Way links are caused by generic dashboard selection rather than overwritten First Class data.
+- [ ] Verify the explicit First Class portal route resolves the First Class affiliate record before considering any deletion.
+- [ ] Trace the First Class dashboard session or record binding that is yielding Reaves Way link values.
+- [ ] Correct the active affiliate binding so First Class renders only `firstclass` and `FIRSTCLASS` links.
+- [ ] Verify the repaired First Class dashboard links and save a checkpoint.
+- [x] Inventory all First Class affiliate-dependent records before replacement.
+- [x] Supersede First Class removal because First Class remains the live affiliate.
+- [x] Supersede First Class recreation because the live record is preserved.
+- [x] Verify the retained First Class canonical dashboard and referral-link helpers.
+- [x] Supersede First Class training setup because training moves to the separate Sales Demo affiliate.
+- [x] Define Sales Demo as an administrator-managed training site with isolated affiliate identity.
+- [ ] Set sales-representative access to the Sales Demo storefront, designer, order walkthrough, and CRM.
+- [x] Verify the Sales Demo storefront identity and canonical training links.
+- [x] Preserve First Class as a live affiliate and repair its own canonical dashboard links.
+- [x] Define the separate demonstration affiliate’s safe training scope and identity.
+- [x] Create a dedicated demonstration affiliate for sales-representative storefront, designer, order, and CRM walkthroughs.
+- [x] Verify live First Class and the demonstration affiliate remain isolated through their public storefront and canonical affiliate links.
+- [x] Create the Sales Demo without a user-ID login binding so the administrator account remains separate.
+- [x] Create Cabinet Dealz Sales Demo with owner email `7809tom@gmail.com`, slug `sales-demo`, and referral code `SALESDEMO`.

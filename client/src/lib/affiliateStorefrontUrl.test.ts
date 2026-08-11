@@ -1,7 +1,29 @@
-import { affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
+import { affiliateDashboardLinks, affiliateDashboardPath, affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
 import { describe, expect, it, vi } from "vitest";
 
 describe("affiliate storefront URLs", () => {
+  it("builds an explicit dashboard address for the requested affiliate", () => {
+    expect(affiliateDashboardPath(1)).toBe("/affiliate?viewAs=1");
+    expect(affiliateDashboardPath(5730001)).toBe("/affiliate?viewAs=5730001");
+  });
+
+  it("keeps First Class and Reaves Way dashboard HTML links isolated", () => {
+    expect(affiliateDashboardLinks(
+      { slug: "firstclass", referralCode: "FIRSTCLASS" },
+      "https://www.cabinetdealz.com",
+    )).toEqual({
+      storefrontUrl: "https://www.cabinetdealz.com/store/firstclass",
+      referralUrl: "https://www.cabinetdealz.com/order/new?ref=FIRSTCLASS",
+    });
+    expect(affiliateDashboardLinks(
+      { slug: "reaves-way-cabinet-shop", referralCode: "REAVESWAYCABINETSHOP" },
+      "https://www.cabinetdealz.com",
+    )).toEqual({
+      storefrontUrl: "https://www.cabinetdealz.com/store/reaves-way-cabinet-shop",
+      referralUrl: "https://www.cabinetdealz.com/order/new?ref=REAVESWAYCABINETSHOP",
+    });
+  });
+
   it("builds the canonical routed storefront path for each affiliate slug", () => {
     expect(affiliateStorefrontPath("firstclass")).toBe("/store/firstclass");
     expect(affiliateStorefrontPath("reaves-way-cabinet-shop")).toBe("/store/reaves-way-cabinet-shop");
