@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSalesDemoInvite, deliverInviteThenGrant } from "./salesDemoInvite";
+import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_TEAM_ACCESS } from "./salesDemoInvite";
 
 describe("Sales Demo invitation", () => {
   it("creates candidate links scoped only to the Sales Demo affiliate", () => {
@@ -35,5 +35,14 @@ describe("Sales Demo invitation", () => {
 
     expect(result.success).toBe(true);
     expect(calls).toEqual(["deliver", "grant"]);
+  });
+
+  it("uses CRM and designer permissions for the Sales Demo salesperson role only", () => {
+    expect(SALES_DEMO_TEAM_ACCESS).toEqual({
+      role: "salesperson",
+      accessCrm: true,
+      accessDesigner: true,
+      isActive: true,
+    });
   });
 });

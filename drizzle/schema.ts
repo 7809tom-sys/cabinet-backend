@@ -650,6 +650,37 @@ export const orderRequests = mysqlTable("order_requests", {
 export type OrderRequest = typeof orderRequests.$inferSelect;
 export type InsertOrderRequest = typeof orderRequests.$inferInsert;
 
+// ─── Affiliate installation estimates ─────────────────────────────────────────
+// These belong to the installing affiliate and intentionally do not feed the
+// Cabinet Dealz material-order, payment, distributor, or QBO invoice pipelines.
+export type InstallationEstimateLineItem = {
+  description: string;
+  quantity: number;
+  unitCost: number;
+  lineTotal: number;
+};
+
+export const affiliateInstallationEstimates = mysqlTable("affiliate_installation_estimates", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  orderRequestId: int("orderRequestId"),
+  customerName: varchar("customerName", { length: 256 }),
+  customerEmail: varchar("customerEmail", { length: 320 }),
+  customerPhone: varchar("customerPhone", { length: 32 }),
+  shareToken: varchar("shareToken", { length: 64 }).unique(),
+  status: mysqlEnum("status", ["draft", "shared", "accepted", "cancelled"]).default("draft").notNull(),
+  lineItems: json("lineItems").$type<InstallationEstimateLineItem[]>().notNull(),
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxAmount: decimal("taxAmount", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AffiliateInstallationEstimate = typeof affiliateInstallationEstimates.$inferSelect;
+export type InsertAffiliateInstallationEstimate = typeof affiliateInstallationEstimates.$inferInsert;
+
 // ─── Affiliates / Partner stores ───────────────────────────────────────────────
 // Trade partners (cabinet/remodel stores) who refer orders to Cabinet Dealz. Each
 // affiliate gets a unique referralCode + link and a branded public storefront at

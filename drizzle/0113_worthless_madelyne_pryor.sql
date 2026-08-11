@@ -1,0 +1,2 @@
+ALTER TABLE `affiliate_installation_estimates` ADD `shareToken` varchar(64);--> statement-breakpoint
+ALTER TABLE `affiliate_installation_estimates` ADD CONSTRAINT `affiliate_installation_estimates_shareToken_unique` UNIQUE(`shareToken`);

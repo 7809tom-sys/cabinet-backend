@@ -183,7 +183,9 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
 export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
-  const [tier, setTier] = useState<Tier>((initialTier as Tier) ?? "Contractor");
+  const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
+  const normalizedAccountTier: Tier = accountTier === "Wholesale" || accountTier === "wholesale" ? "Wholesale" : "Contractor";
+  const [tier, setTier] = useState<Tier>((initialTier as Tier) ?? normalizedAccountTier);
   const [styleId, setStyleId] = useState<number | null>(initialStyleId ?? null);
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
 
@@ -225,6 +227,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     if (user?.email && !email) setEmail(user.email);
     if (user?.name && !name) setName(user.name);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialTier === "Wholesale" || initialTier === "Contractor") {
+      setTier(initialTier);
+      return;
+    }
+    setTier(normalizedAccountTier);
+  }, [initialTier, normalizedAccountTier]);
 
   // Debounce the ZIP so we only query pickup options once typing settles.
   const [zipDebounced, setZipDebounced] = useState("");
@@ -646,7 +656,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         </div>
       </div>
 
-      {/* Style + tier controls */}
+      {/* Style and account pricing are selected before checkout; this is a read-only confirmation. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>{t("or_door_style")}</Label>
@@ -656,20 +666,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             <div className="flex items-center gap-2 text-sm text-muted-foreground h-9">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("or_loading_styles")}
             </div>
-          ) : styleOptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("or_no_styles_cover")}</p>
           ) : (
-            <Select value={styleId ? String(styleId) : undefined} onValueChange={(v) => setStyleId(Number(v))}>
-              <SelectTrigger><SelectValue placeholder={t("or_choose_door_style")} /></SelectTrigger>
-              <SelectContent>
-                {styleOptions.map((s) => (
-                  <SelectItem key={s.styleId} value={String(s.styleId)}>
-                    {s.name}
-                    {!s.coversAll ? t("or_partial_coverage") : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
+              {selectedStyle?.name ?? t("or_no_styles_cover")}
+            </p>
           )}
           {isUnfinishedExteriorStyleName(selectedStyle?.name ?? null) && (
             <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
@@ -682,13 +682,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         </div>
         <div className="space-y-1.5">
           <Label>{t("or_pricing_tier")}</Label>
-          <Select value={tier} onValueChange={(v) => setTier(v as Tier)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Contractor">{t("or_tier_contractor")}</SelectItem>
-              <SelectItem value="Wholesale">{t("or_tier_wholesale")}</SelectItem>
-            </SelectContent>
-          </Select>
+          <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
+            {tier === "Wholesale" ? t("or_tier_wholesale") : t("or_tier_contractor")}
+          </p>
+          <p className="text-xs text-muted-foreground">Pricing is applied automatically from your account.</p>
         </div>
       </div>
 

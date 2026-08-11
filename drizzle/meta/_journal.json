@@ -785,6 +785,20 @@
       "when": 1786468815531,
       "tag": "0111_mean_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "5",
+      "when": 1786478884610,
+      "tag": "0112_chemical_golden_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "5",
+      "when": 1786479307008,
+      "tag": "0113_worthless_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

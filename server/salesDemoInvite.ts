@@ -1,5 +1,12 @@
 export type SalesDemoInviteAudience = "sales_representative" | "affiliate_candidate";
 
+export const SALES_DEMO_TEAM_ACCESS = {
+  role: "salesperson" as const,
+  accessCrm: true,
+  accessDesigner: true,
+  isActive: true,
+};
+
 export function buildSalesDemoInvite(options: {
   recipientName?: string | null;
   audience: SalesDemoInviteAudience;

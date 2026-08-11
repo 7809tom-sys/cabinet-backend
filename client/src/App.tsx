@@ -59,6 +59,7 @@ const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Terms = lazy(() => import("@/pages/Terms"));
+const InstallationEstimateDocument = lazy(() => import("@/pages/InstallationEstimateDocument"));
 
 function PageLoader() {
   return (
@@ -99,7 +100,7 @@ function CartWithLayout() {
   );
 }
 
-function AffiliateShell({ slug, children }: { slug: string; children?: React.ReactNode }) {
+function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; children?: React.ReactNode; fullHeight?: boolean }) {
   const { data } = trpc.affiliates.bySlug.useQuery({ slug });
   const storeName = data?.storeName ?? "Store";
   const logoUrl = data?.logoUrl ?? null;
@@ -109,7 +110,7 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
   // pages reached from their storefront.
   useWhiteLabelHead({ storeName: data?.storeName, tagline: data?.tagline, logoUrl });
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={`flex flex-col ${fullHeight ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
       <AdminEditModeBar />
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between" style={{ borderBottomColor: accentColor, borderBottomWidth: 2 }}>
         <a href={`/store/${slug}`} className="flex items-center gap-2">
@@ -123,7 +124,7 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
           <ShoppingCart className="h-5 w-5" />
         </a>
       </header>
-      <main className="flex-1">
+      <main className={fullHeight ? "flex-1 min-h-0 overflow-hidden" : "flex-1"}>
         {children ?? <Cart />}
       </main>
       {/* Affiliate's own published widget, so it follows customers through
@@ -143,7 +144,7 @@ function DesignerRoute() {
   );
 
   if (affiliateSlug) {
-    return <AffiliateShell slug={affiliateSlug}>{designer}</AffiliateShell>;
+    return <AffiliateShell slug={affiliateSlug} fullHeight>{designer}</AffiliateShell>;
   }
 
   return (
@@ -212,7 +213,7 @@ export default function App() {
         <Route path="/store/:slug/design">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
-              <AffiliateShell slug={params.slug}>
+              <AffiliateShell slug={params.slug} fullHeight>
                 <DesignTool affiliateSlug={params.slug} />
               </AffiliateShell>
             </Suspense>
@@ -222,6 +223,13 @@ export default function App() {
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <Storefront slug={params.slug} />
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/installation-estimate/:token">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <InstallationEstimateDocument token={params.token} />
             </Suspense>
           )}
         </Route>

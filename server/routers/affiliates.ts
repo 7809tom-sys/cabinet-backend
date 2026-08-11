@@ -12,7 +12,7 @@ import {
 import { getDb } from "../db";
 import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
-import { buildSalesDemoInvite, deliverInviteThenGrant } from "../salesDemoInvite";
+import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -440,20 +440,14 @@ export const affiliatesRouter = router({
           if (existing) {
             await db.update(affiliateTeamMembers).set({
               name: input.name?.trim() || existing.name,
-              role: "salesperson",
-              accessCrm: true,
-              accessDesigner: true,
-              isActive: true,
+              ...SALES_DEMO_TEAM_ACCESS,
             }).where(eq(affiliateTeamMembers.id, existing.id));
           } else {
             await db.insert(affiliateTeamMembers).values({
               affiliateId: salesDemo.id,
               email,
               name: input.name?.trim() || null,
-              role: "salesperson",
-              accessCrm: true,
-              accessDesigner: true,
-              isActive: true,
+              ...SALES_DEMO_TEAM_ACCESS,
             });
           }
         },

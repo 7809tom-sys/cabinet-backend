@@ -11,6 +11,7 @@ import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub"
 import AffiliatePromotionsPanel from "@/components/affiliate/AffiliatePromotionsPanel";
 import { AffiliatePluginsPanel } from "@/components/affiliate/AffiliatePluginsPanel";
 import { AffiliateAppointmentsPanel } from "@/components/affiliate/AffiliateAppointmentsPanel";
+import { InstallationEstimatesPanel } from "@/components/affiliate/InstallationEstimatesPanel";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import {
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
   Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
-  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone,
+  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone, Wrench,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -504,6 +505,7 @@ export default function AffiliateDashboard() {
                 { label: "My Catalog", section: "catalog" as AffiliateSection, icon: BookOpen },
                 { label: "Pricing", section: "pricing" as AffiliateSection, icon: Tag },
                 { label: "Marketing Hub", section: "marketing" as AffiliateSection, icon: Megaphone },
+                { label: "Installation", section: "installation" as AffiliateSection, icon: Wrench },
               ] as const).map((item) => (
                 <button
                   key={item.section}
@@ -623,6 +625,8 @@ export default function AffiliateDashboard() {
             <AffiliateAppointmentsPanel />
           </div>
         );
+      case "installation":
+        return <InstallationEstimatesPanel affiliateId={affiliate.id} />;
       case "marketing":
         return <AffiliateMarketingHub />;
       case "tax":

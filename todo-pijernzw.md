@@ -104,10 +104,17 @@
 - [x] Ensure invited users are limited to the Sales Demo training affiliate and cannot access First Class or other live affiliate data.
 - [x] Add automated coverage for Sales Demo invitation permissions and verify the admin workflow.
 - [x] Support prospective affiliate candidates as a Sales Demo invitation audience with the same isolated training access.
-- [ ] Ensure a Sales Demo team-access grant occurs only after an invitation email is successfully sent.
-- [ ] Add server coverage for Sales Demo invite audiences, permission flags, and no side effects when SMTP is unavailable.
+- [x] Ensure a Sales Demo team-access grant occurs only after an invitation email is successfully sent.
+- [x] Add server coverage for Sales Demo invite audiences, permission flags, and no side effects when SMTP is unavailable.
+- [ ] Add router-level coverage for Sales Demo team permission flags and Sales Demo-only membership.
+- [ ] Add router-level coverage proving SMTP-not-configured invites cannot create or update team access.
 - [ ] Add access-scope coverage proving Sales Demo invitees cannot resolve into First Class or other live affiliate data.
 - [ ] Verify the admin Sales Demo invite flow in the browser after SMTP email delivery is configured.
+- [x] Compare standalone and affiliate-shell designer viewport sizing on mobile.
+- [x] Restore full usable canvas height for First Class and Sales Demo designer sessions.
+- [x] Verify affiliate designer canvases match the Cabinet Dealz mobile workspace and save a checkpoint.
+- [x] Capture comparable mobile evidence for Cabinet Dealz, First Class, and Sales Demo designer workspaces.
+- [x] Save a checkpoint after the verified affiliate designer viewport correction.
 - [x] Diagnose the First Class designer blank-canvas loading failure.
 - [x] Restore First Class designer functionality without affecting other affiliate designers.
 - [x] Move the consultant action beside the room-dimensions controls on mobile and desktop.
@@ -117,3 +124,18 @@
 - [x] Verify Reaves Way designer rendering remains intact after the shared layout correction.
 - [x] Add a rendered consultant-control component test proving placement with room controls.
 - [ ] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.
+- [ ] Audit checkout controls and primary customer-facing flows for redundant or confusing interaction points.
+- [ ] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
+- [ ] Apply targeted low-risk usability cleanup fixes without changing established workflows.
+- [ ] Add regression coverage and verify the cleanup pass before saving a checkpoint.
+- [ ] Validate responsive design and interaction consistency across storefront, designer, checkout, and CRM after cleanup.
+- [x] Inspect affiliate order, CRM, and customer-facing estimate data structures for installation pricing support.
+- [x] Add affiliate installation estimate line items with descriptions, quantities, unit costs, and calculated totals.
+- [x] Surface customer-facing installation estimate details alongside affiliated cabinetry orders.
+- [x] Add coverage and verify installation-estimate editing in affiliate administration and customer presentation views.
+- [x] Keep Cabinet Dealz material invoices separate from affiliate installation estimates and invoices.
+- [x] Present customers with distinct material and installation documents and totals rather than one combined invoice.
+- [ ] Surface affiliate installation estimates in a customer-facing order or invoice view linked to the cabinetry order.
+- [ ] Add router and UI coverage for installation-estimate creation, listing, and status changes.
+- [ ] Create separate customer-facing material and installation documents with distinct issuer labels and totals.
+- [ ] Verify the affiliate editor and customer-facing separated billing views in the browser.
