@@ -26,6 +26,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
+import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -54,7 +55,7 @@ type StyleOption = {
   coverage: number;
 };
 
-type Tier = "Wholesale" | "Contractor";
+type Tier = CheckoutTier;
 
 interface Props {
   lines: ReviewLine[];
@@ -184,8 +185,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
-  const normalizedAccountTier: Tier = accountTier === "Wholesale" || accountTier === "wholesale" ? "Wholesale" : "Contractor";
-  const [tier, setTier] = useState<Tier>((initialTier as Tier) ?? normalizedAccountTier);
+  const normalizedAccountTier: Tier = resolveCheckoutTier(undefined, accountTier);
+  const [tier, setTier] = useState<Tier>(resolveCheckoutTier(initialTier, accountTier));
   const [styleId, setStyleId] = useState<number | null>(initialStyleId ?? null);
   const [fixingIndex, setFixingIndex] = useState<number | null>(null);
 
@@ -229,12 +230,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (initialTier === "Wholesale" || initialTier === "Contractor") {
-      setTier(initialTier);
-      return;
-    }
-    setTier(normalizedAccountTier);
-  }, [initialTier, normalizedAccountTier]);
+    setTier(resolveCheckoutTier(initialTier, accountTier));
+  }, [initialTier, accountTier]);
 
   // Debounce the ZIP so we only query pickup options once typing settles.
   const [zipDebounced, setZipDebounced] = useState("");

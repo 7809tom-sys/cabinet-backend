@@ -77,13 +77,13 @@
 - [x] Verify First Class and Reaves Way canonical dashboard and referral URLs remain isolated.
 - [x] Save the corrected First Class canonical dashboard URL and referral-link isolation update.
 - [x] Add a component-level mapping test proving each admin affiliate row uses its own portal dashboard URL.
-- [ ] Add a rendered `AffiliatesAdmin` component test for per-row portal and full-page URLs.
+- [x] Add a rendered `AffiliatesAdmin` component test for per-row portal and full-page URLs.
 - [ ] Verify the authenticated First Class and Reaves Way dashboard views show their own referral codes and canonical URLs.
 - [ ] Save a checkpoint after the final First Class and Reaves Way isolation verification.
-- [ ] Confirm the screenshot’s Reaves Way links are caused by generic dashboard selection rather than overwritten First Class data.
-- [ ] Verify the explicit First Class portal route resolves the First Class affiliate record before considering any deletion.
-- [ ] Trace the First Class dashboard session or record binding that is yielding Reaves Way link values.
-- [ ] Correct the active affiliate binding so First Class renders only `firstclass` and `FIRSTCLASS` links.
+- [x] Confirm the screenshot’s Reaves Way links were caused by generic dashboard selection rather than overwritten First Class data.
+- [x] Verify the explicit First Class portal route resolves the First Class affiliate record before considering any deletion.
+- [x] Trace the First Class dashboard session or record binding that was yielding Reaves Way link values.
+- [x] Correct the active affiliate binding so First Class renders only `firstclass` and `FIRSTCLASS` links.
 - [ ] Verify the repaired First Class dashboard links and save a checkpoint.
 - [x] Inventory all First Class affiliate-dependent records before replacement.
 - [x] Supersede First Class removal because First Class remains the live affiliate.
@@ -123,9 +123,16 @@
 - [x] Verify the repaired First Class designer canvas and room controls are usable on mobile.
 - [x] Verify Reaves Way designer rendering remains intact after the shared layout correction.
 - [x] Add a rendered consultant-control component test proving placement with room controls.
-- [ ] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.
-- [ ] Audit checkout controls and primary customer-facing flows for redundant or confusing interaction points.
-- [ ] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
+- [x] Capture independently verifiable mobile evidence that First Class and Reaves Way render visible canvases and room controls.
+- [ ] Verify the authenticated First Class dashboard renders `FIRSTCLASS` and First Class-only canonical URLs.
+- [ ] Add focused explicit-affiliate dashboard record-selection coverage without fallback to a generic affiliate.
+- [x] Audit checkout controls and primary customer-facing flows for redundant or confusing interaction points.
+- [x] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
+- [x] Inspect the final checkout implementation to confirm duplicate style and pricing controls are absent while context persists.
+- [x] Add regression coverage for selected style and authenticated pricing carried into checkout.
+- [ ] Add a rendered checkout test proving preselected door style and authenticated pricing appear without editable dropdowns.
+- [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
+- [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
 - [ ] Apply targeted low-risk usability cleanup fixes without changing established workflows.
 - [ ] Add regression coverage and verify the cleanup pass before saving a checkpoint.
 - [ ] Validate responsive design and interaction consistency across storefront, designer, checkout, and CRM after cleanup.
