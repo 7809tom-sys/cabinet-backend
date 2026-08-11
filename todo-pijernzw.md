@@ -46,3 +46,7 @@
 - [x] Verify the master CRM card presentation and save a checkpoint.
 - [x] Inspect master CRM deal cards to confirm affiliate-color accents and labels render correctly.
 - [x] Save a checkpoint containing the verified affiliate-color CRM card update.
+- [x] Inspect the master CRM board’s existing affiliate metadata and query controls.
+- [x] Add an All affiliates / specific affiliate dropdown filter to the master CRM board.
+- [x] Add focused coverage for master CRM affiliate-filter scope selection.
+- [x] Verify the dropdown filtering behavior and save a checkpoint.

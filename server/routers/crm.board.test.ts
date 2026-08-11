@@ -50,6 +50,7 @@ describe("crm.board master visibility", () => {
     const result = await caller.board();
 
     expect(result.scope).toBe("house");
+    expect(result.isMasterView).toBe(true);
     expect(result.deals).toEqual([affiliateDeal]);
     expect(result.affiliateNames).toEqual({ 7: "Reaves Way Cabinet Shop." });
   });

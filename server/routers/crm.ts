@@ -210,10 +210,13 @@ export const crmRouter = router({
         deals: [] as (typeof crmDeals.$inferSelect)[],
         affiliateNames: {} as Record<number, string>,
         affiliateBranding: {} as Record<number, { storeName: string; primaryColor: string | null; accentColor: string | null }>,
+        isMasterView: false,
       };
     }
     // If an admin passes affiliateId, force the scope to that affiliate's deals
-    const scope = resolveBoardScope(await resolveScope(ctx), input?.affiliateId);
+    const callerScope = await resolveScope(ctx);
+    const isMasterView = callerScope.kind === "house";
+    const scope = resolveBoardScope(callerScope, input?.affiliateId);
     const where = scopeWhere(scope);
     const q = db.select().from(crmDeals);
     const deals = await (where ? q.where(where) : q).orderBy(
@@ -223,7 +226,7 @@ export const crmRouter = router({
     // For house scope, build a map of affiliateId -> storeName for attribution
     let affiliateNames: Record<number, string> = {};
     let affiliateBranding: Record<number, { storeName: string; primaryColor: string | null; accentColor: string | null }> = {};
-    if (scope.kind === "house") {
+    if (isMasterView) {
       const affRows = await db.select({
         id: affiliates.id,
         storeName: affiliates.storeName,
@@ -243,6 +246,7 @@ export const crmRouter = router({
       deals,
       affiliateNames,
       affiliateBranding,
+      isMasterView,
     };
   }),
 

@@ -28,6 +28,7 @@ import {
   CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2,
 } from "lucide-react";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
+import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
 
 type Lang = CrmLanguage;
 const L = (lang: Lang) => ({
@@ -80,8 +81,15 @@ const priorityColor: Record<CrmPriority, string> = {
 export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateId?: number }) {
   const t = L(lang);
   const utils = trpc.useUtils();
+  const [masterAffiliateFilter, setMasterAffiliateFilter] = useState(MASTER_AFFILIATE_FILTER_ALL);
+  const masterAffiliateId = masterAffiliateFilterId(masterAffiliateFilter);
+  const boardInput = affiliateId != null
+    ? { affiliateId }
+    : masterAffiliateId != null
+      ? { affiliateId: masterAffiliateId }
+      : undefined;
   const { data, isLoading, error } = trpc.crm.board.useQuery(
-    affiliateId != null ? { affiliateId } : undefined
+    boardInput,
   );
   const [openDealId, setOpenDealId] = useState<number | null>(null);
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
@@ -89,7 +97,11 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const deals = (data?.deals ?? []) as DealRow[];
   const affiliateNames = (data as any)?.affiliateNames as Record<number, string> | undefined;
   const affiliateBranding = (data as any)?.affiliateBranding as Record<number, CrmAffiliateBrand> | undefined;
-  const isHouseScope = data?.scope === "house";
+  const isMasterView = (data as any)?.isMasterView === true;
+  const affiliateOptions = useMemo(
+    () => Object.entries(affiliateBranding ?? {}).sort(([, a], [, b]) => a.storeName.localeCompare(b.storeName)),
+    [affiliateBranding],
+  );
 
   const byStage = useMemo(() => {
     const map: Record<CrmStage, DealRow[]> = {
@@ -146,6 +158,19 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
           <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
+          {isMasterView && (
+            <Select value={masterAffiliateFilter} onValueChange={setMasterAffiliateFilter}>
+              <SelectTrigger className="w-[210px] bg-card" aria-label="Filter deals by affiliate">
+                <SelectValue placeholder="All affiliates" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={MASTER_AFFILIATE_FILTER_ALL}>All affiliates</SelectItem>
+                {affiliateOptions.map(([id, affiliate]) => (
+                  <SelectItem key={id} value={id}>{affiliate.storeName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <ImportLeadsDialog lang={lang} />
           <NewDealDialog lang={lang} affiliateId={affiliateId} />
         </div>
@@ -195,7 +220,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                   <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                 ) : (
                   byStage[mobileStage].map((d) => (
-                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isHouseScope && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
+                    <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isMasterView && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isMasterView && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
                   ))
                 )}
               </div>
@@ -219,7 +244,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
                     <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                   ) : (
                     byStage[stage].map((d) => (
-                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isHouseScope && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isHouseScope && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
+                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} affiliateName={isMasterView && d.affiliateId ? affiliateNames?.[d.affiliateId] : undefined} affiliateBrand={isMasterView && d.affiliateId ? affiliateBranding?.[d.affiliateId] : undefined} />
                     ))
                   )}
                 </div>
