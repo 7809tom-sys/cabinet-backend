@@ -21,6 +21,7 @@ import {
   sumCommission,
 } from "@shared/affiliate";
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
+import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
@@ -373,6 +374,7 @@ export const affiliatesRouter = router({
       if (existing.some((e) => e.referralCode === referralCode))
         throw new TRPCError({ code: "CONFLICT", message: `Referral code "${referralCode}" is already in use.` });
 
+      const blueprint = reavesWayAffiliateDefaults();
       const result = await db.insert(affiliates).values({
         storeName: input.storeName,
         slug,
@@ -385,8 +387,8 @@ export const affiliatesRouter = router({
         commissionRate: (input.commissionRate ?? 0.05).toFixed(4),
         status: input.status,
         logoUrl: input.logoUrl ?? null,
-        primaryColor: input.primaryColor ?? null,
-        accentColor: input.accentColor ?? null,
+        primaryColor: input.primaryColor ?? blueprint.primaryColor,
+        accentColor: input.accentColor ?? blueprint.accentColor,
         heroImageUrl: input.heroImageUrl ?? null,
         tagline: input.tagline ?? null,
         taglineEs: input.taglineEs ?? null,
@@ -396,7 +398,9 @@ export const affiliatesRouter = router({
         yearsInBusiness: input.yearsInBusiness ?? null,
         facebookUrl: input.facebookUrl ?? null,
         instagramUrl: input.instagramUrl ?? null,
-        template: input.template ?? "classic",
+        template: blueprint.template,
+        buttonRadius: blueprint.buttonRadius,
+        defaultMarkupBps: blueprint.defaultMarkupBps,
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;

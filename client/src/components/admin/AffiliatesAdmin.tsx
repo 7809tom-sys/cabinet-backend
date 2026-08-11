@@ -1226,7 +1226,7 @@ const TEMPLATES = [
 function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"template" | "details">("template");
-  const [selectedTemplate, setSelectedTemplate] = useState<"classic" | "showcase" | "minimal" | "craftsman">("classic");
+  const [selectedTemplate, setSelectedTemplate] = useState<"classic" | "showcase" | "minimal" | "craftsman">("showcase");
   const [form, setForm] = useState({
     storeName: "", contactName: "", email: "", phone: "", website: "",
     location: "", slug: "", referralCode: "", commissionPct: "5",
@@ -1237,7 +1237,7 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
       toast.success("Affiliate created");
       setOpen(false);
       setStep("template");
-      setSelectedTemplate("classic");
+      setSelectedTemplate("showcase");
       setForm({ storeName: "", contactName: "", email: "", phone: "", website: "", location: "", slug: "", referralCode: "", commissionPct: "5" });
       onCreated();
     },
@@ -1263,13 +1263,13 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
       referralCode: form.referralCode || undefined,
       commissionRate: isNaN(pct) ? 0.05 : pct / 100,
       status: "active",
-      template: selectedTemplate,
+      template: "showcase",
     });
   }
 
   function handleOpenChange(v: boolean) {
     setOpen(v);
-    if (!v) { setStep("template"); setSelectedTemplate("classic"); }
+    if (!v) { setStep("template"); setSelectedTemplate("showcase"); }
   }
 
   return (
@@ -1282,23 +1282,22 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
       {step === "template" && (
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Choose a Storefront Template</DialogTitle>
+            <DialogTitle>Reaves Way Affiliate Blueprint</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Pick the layout that best fits this affiliate’s brand. They can change it later from their dashboard.
+              Every new affiliate starts with the approved Reaves Way storefront structure, white-label designer, CRM routing, and canonical link flow. Their own name, logo, and contact details remain unique.
             </p>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
             {TEMPLATES.map((tpl) => {
-              const active = selectedTemplate === tpl.id;
+              const active = tpl.id === "showcase";
               return (
                 <div
                   key={tpl.id}
-                  onClick={() => setSelectedTemplate(tpl.id)}
                   className={
-                    "relative cursor-pointer rounded-xl border-2 p-4 transition-all " +
+                    "relative rounded-xl border-2 p-4 transition-all " +
                     (active
                       ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/40 hover:bg-muted/50")
+                      : "border-border opacity-55")
                   }
                 >
                   {active && (
@@ -1310,7 +1309,7 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
                   )}
                   <div className="flex items-start gap-2 mb-2">
                     <div className="font-semibold text-sm">{tpl.name}</div>
-                    <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5">{tpl.badge}</span>
+                    <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5">{active ? "Approved standard" : tpl.badge}</span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{tpl.desc}</p>
                   <a
@@ -1329,7 +1328,7 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => setStep("details")}>
-              Continue with {TEMPLATES.find((t) => t.id === selectedTemplate)?.name} →
+              Continue with Reaves Way standard →
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1341,7 +1340,7 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
           <DialogHeader>
             <DialogTitle>Add Affiliate</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Template: <span className="font-medium text-foreground">{TEMPLATES.find((t) => t.id === selectedTemplate)?.name}</span>
+              Blueprint: <span className="font-medium text-foreground">Reaves Way standard</span>
               {" — "}
               <button onClick={() => setStep("template")} className="text-primary hover:underline text-sm">Change</button>
             </p>

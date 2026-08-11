@@ -60,9 +60,9 @@
 - [x] Add validation and automated coverage for imported layout mapping.
 - [x] Verify the feature in the designer and save a checkpoint.
 - [x] Support clear photographed handwritten plans and flag low-confidence labels or dimensions for review.
-- [ ] Document Reaves Way Cabinet Shop as the approved standard for future affiliate setup.
-- [ ] Identify the new-affiliate setup flow and its configurable defaults.
-- [ ] Apply Reaves Way storefront, designer, CRM, and link behavior as the required default for future affiliates.
+- [x] Document Reaves Way Cabinet Shop as the approved standard for future affiliate setup.
+- [x] Identify the new-affiliate setup flow and its configurable defaults.
+- [x] Apply Reaves Way storefront, designer, CRM, and link behavior as the required default for future affiliates.
 - [ ] Verify the standardized new-affiliate setup and save a checkpoint.
 - [x] Audit First Class affiliate records, links, branding, and storefront content for Reaves Way-specific values.
 - [x] Remove or replace Reaves Way-specific values from First Class while preserving First Class configuration.
