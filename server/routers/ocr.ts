@@ -38,6 +38,40 @@ const extractionSchema = {
   },
 } as const;
 
+const planInterpretationSchema = {
+  name: "cabinet_plan_interpretation",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      roomWidthInches: { type: "number" },
+      roomDepthInches: { type: "number" },
+      cabinets: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            label: { type: "string" },
+            cabinetType: { type: "string" },
+            widthInches: { type: "number" },
+            wall: { type: "string" },
+            confidence: { type: "number" },
+          },
+          required: ["label", "cabinetType", "widthInches", "wall", "confidence"],
+        },
+      },
+      appliances: { type: "array", items: { type: "string" } },
+      reviewNotes: { type: "array", items: { type: "string" } },
+    },
+    required: ["roomWidthInches", "roomDepthInches", "cabinets", "appliances", "reviewNotes"],
+  },
+} as const;
+
+const PLAN_SYSTEM_PROMPT = `You interpret kitchen cabinet layouts from a photographed or typed drawing.
+Return only dimensions, cabinet notes, appliance labels, and wall assignments that are readable. Do not invent unreadable values. Convert millimetres to inches when they are explicitly labelled. Use confidence 0 through 1. Put unclear handwriting, missing dimensions, and geometry that needs confirmation into reviewNotes.`;
+
 const SYSTEM_PROMPT = `You are a kitchen-cabinet takeoff assistant. The user uploads a photo or scan of a cabinet list, kitchen floor plan, quote, or hand-written takeoff.
 Your ONLY job is to extract the cabinet CODES (a.k.a. nomenclature / SKUs) and their quantities.
 Cabinet codes look like: B24, B-24, DB24-3, W3030, SB36, WDC2436, BLS36, VB30, etc. (letters + numbers, sometimes with dashes).
@@ -60,6 +94,33 @@ const CODE_HEADERS = ["code", "sku", "item", "part", "product", "cabinet", "item
 const QTY_HEADERS = ["qty", "quantity", "count", "amount", "pcs", "pieces", "units"];
 
 export const ocrRouter = router({
+  interpretPlan: protectedProcedure
+    .input(z.object({ imageDataUrl: dataUrlInput }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await invokeLLM({
+          model: "gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: PLAN_SYSTEM_PROMPT },
+            { role: "user", content: [{ type: "text", text: "Read this existing kitchen design for review before editable placement." }, { type: "image_url", image_url: { url: input.imageDataUrl } }] },
+          ],
+          responseFormat: { type: "json_schema", json_schema: planInterpretationSchema },
+          maxTokens: 4000,
+        });
+        const content = result.choices?.[0]?.message?.content;
+        const text = typeof content === "string" ? content : "";
+        return JSON.parse(text) as {
+          roomWidthInches: number;
+          roomDepthInches: number;
+          cabinets: Array<{ label: string; cabinetType: string; widthInches: number; wall: string; confidence: number }>;
+          appliances: string[];
+          reviewNotes: string[];
+        };
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not interpret this plan. Try a clearer photo or review the readable dimensions manually." });
+      }
+    }),
+
   // Parse a CSV/TSV parts list and match codes to the catalog.
   // Accepts a raw CSV text string (max 200KB). No auth required — the catalog
   // lookup is public, and no user data is stored.
