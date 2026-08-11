@@ -75,6 +75,16 @@ describe("affiliates admin gating", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("blocks non-admins from inviting people into the isolated Sales Demo training affiliate", async () => {
+    const userCaller = appRouter.createCaller(userCtx("user"));
+    await expect(
+      userCaller.affiliates.adminInviteSalesDemo({
+        email: "candidate@example.com",
+        audience: "affiliate_candidate",
+      })
+    ).rejects.toThrow();
+  });
 });
 
 describe("referral attribution on createRequest", () => {

@@ -12,7 +12,7 @@ import {
 import { getDb } from "../db";
 import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
-import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
+import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -417,7 +417,7 @@ export const affiliatesRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const [salesDemo] = await db.select().from(affiliates).where(eq(affiliates.slug, "sales-demo")).limit(1);
+      const [salesDemo] = await db.select().from(affiliates).where(eq(affiliates.slug, SALES_DEMO_AFFILIATE_SLUG)).limit(1);
       if (!salesDemo) throw new TRPCError({ code: "NOT_FOUND", message: "Sales Demo affiliate has not been configured." });
 
       const email = input.email.trim().toLowerCase();

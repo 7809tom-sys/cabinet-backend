@@ -130,7 +130,7 @@
 - [x] Remove checkout cabinet-style and pricing-tier dropdowns while preserving selected item styles and authenticated pricing.
 - [x] Inspect the final checkout implementation to confirm duplicate style and pricing controls are absent while context persists.
 - [x] Add regression coverage for selected style and authenticated pricing carried into checkout.
-- [ ] Add a rendered checkout test proving preselected door style and authenticated pricing appear without editable dropdowns.
+- [x] Add a rendered checkout test proving preselected door style and authenticated pricing appear without editable dropdowns.
 - [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
 - [ ] Verify simplified checkout controls, totals, and submitted material-order payload in the browser.
 - [ ] Apply targeted low-risk usability cleanup fixes without changing established workflows.

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_TEAM_ACCESS } from "./salesDemoInvite";
+import { buildSalesDemoInvite, deliverInviteThenGrant, isSalesDemoAffiliateTarget, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "./salesDemoInvite";
 
 describe("Sales Demo invitation", () => {
   it("creates candidate links scoped only to the Sales Demo affiliate", () => {
@@ -44,5 +44,12 @@ describe("Sales Demo invitation", () => {
       accessDesigner: true,
       isActive: true,
     });
+  });
+
+  it("recognizes only the isolated Sales Demo affiliate as a valid invitation target", () => {
+    expect(SALES_DEMO_AFFILIATE_SLUG).toBe("sales-demo");
+    expect(isSalesDemoAffiliateTarget("sales-demo")).toBe(true);
+    expect(isSalesDemoAffiliateTarget("firstclass")).toBe(false);
+    expect(isSalesDemoAffiliateTarget("reaves-way-cabinet-shop")).toBe(false);
   });
 });

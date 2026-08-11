@@ -1,11 +1,17 @@
 export type SalesDemoInviteAudience = "sales_representative" | "affiliate_candidate";
 
+export const SALES_DEMO_AFFILIATE_SLUG = "sales-demo";
+
 export const SALES_DEMO_TEAM_ACCESS = {
   role: "salesperson" as const,
   accessCrm: true,
   accessDesigner: true,
   isActive: true,
 };
+
+export function isSalesDemoAffiliateTarget(slug: string | null | undefined): boolean {
+  return slug?.trim().toLowerCase() === SALES_DEMO_AFFILIATE_SLUG;
+}
 
 export function buildSalesDemoInvite(options: {
   recipientName?: string | null;

@@ -27,6 +27,7 @@ import PayWithCard from "@/components/order/PayWithCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
+import { checkoutPresentation } from "@/lib/checkoutPresentation";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 
 // A single working line in the review table. Derived from the matcher output
@@ -336,6 +337,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   }, [styleOptions, styleId, initialStyleId]);
 
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
+  const checkoutContext = checkoutPresentation(selectedStyle?.name, tier);
 
   // ─── Checkout recommendations (style-scoped accessories) ──────────────────
   // Cart-aware accessory suggestions for the chosen door style. Items already on
@@ -683,7 +685,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             </div>
           ) : (
             <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
-              {selectedStyle?.name ?? t("or_no_styles_cover")}
+              {selectedStyle?.name ?? checkoutContext.doorStyle}
             </p>
           )}
           {isUnfinishedExteriorStyleName(selectedStyle?.name ?? null) && (
@@ -698,7 +700,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         <div className="space-y-1.5">
           <Label>{t("or_pricing_tier")}</Label>
           <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
-            {tier === "Wholesale" ? t("or_tier_wholesale") : t("or_tier_contractor")}
+            {checkoutContext.pricingTier === "Wholesale" ? t("or_tier_wholesale") : t("or_tier_contractor")}
           </p>
           <p className="text-xs text-muted-foreground">Pricing is applied automatically from your account.</p>
         </div>
