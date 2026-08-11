@@ -6,28 +6,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { AlertTriangle, Camera, CheckCircle2, ImagePlus, Upload } from "lucide-react";
+import {
+  buildReviewedPlanImage,
+  initializePlanImageReview,
+  missingPlanImageDimensions,
+  type InterpretedPlanImageCabinet,
+  type PlanImageInterpretation,
+  type ReviewedPlanImage,
+  type ReviewedPlanImageAppliance,
+} from "@/lib/planImageReview";
 
-type InterpretedCabinet = {
-  label: string;
-  cabinetType: string;
-  widthInches: number;
-  wall: string;
-  confidence: number;
-};
-
-type Interpretation = {
-  roomWidthInches: number;
-  roomDepthInches: number;
-  cabinets: InterpretedCabinet[];
-  appliances: string[];
-  reviewNotes: string[];
-};
-
-export type ReviewedPlanAppliance = { label: string; wall: string };
-export type ReviewedPlan = Omit<Interpretation, "cabinets" | "appliances"> & {
-  cabinets: InterpretedCabinet[];
-  appliances: ReviewedPlanAppliance[];
-};
+export type ReviewedPlan = ReviewedPlanImage;
 
 export function PlanImageImportDialog({
   open,
@@ -40,18 +29,19 @@ export function PlanImageImportDialog({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [result, setResult] = useState<Interpretation | null>(null);
-  const [reviewedCabinets, setReviewedCabinets] = useState<InterpretedCabinet[]>([]);
+  const [result, setResult] = useState<PlanImageInterpretation | null>(null);
+  const [reviewedCabinets, setReviewedCabinets] = useState<InterpretedPlanImageCabinet[]>([]);
   const [approved, setApproved] = useState<Set<number>>(new Set());
-  const [reviewedAppliances, setReviewedAppliances] = useState<ReviewedPlanAppliance[]>([]);
+  const [reviewedAppliances, setReviewedAppliances] = useState<ReviewedPlanImageAppliance[]>([]);
   const [approvedAppliances, setApprovedAppliances] = useState<Set<number>>(new Set());
   const interpret = trpc.ocr.interpretPlan.useMutation({
     onSuccess: (next) => {
       setResult(next);
-      setReviewedCabinets(next.cabinets);
-      setApproved(new Set(next.cabinets.flatMap((cabinet, index) => cabinet.confidence >= 0.8 ? [index] : [])));
-      setReviewedAppliances(next.appliances.map((label) => ({ label, wall: "Back" })));
-      setApprovedAppliances(new Set(next.appliances.map((_, index) => index)));
+      const review = initializePlanImageReview(next);
+      setReviewedCabinets(review.reviewedCabinets);
+      setApproved(review.approvedCabinetIndexes);
+      setReviewedAppliances(review.reviewedAppliances);
+      setApprovedAppliances(review.approvedApplianceIndexes);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -91,17 +81,14 @@ export function PlanImageImportDialog({
       toast.error("Approve at least one readable cabinet before applying this layout.");
       return;
     }
-    onApply({
-      ...result,
-      cabinets: reviewedCabinets.filter((_, index) => approved.has(index)),
-      appliances: reviewedAppliances.filter((_, index) => approvedAppliances.has(index)),
-    });
+    onApply(buildReviewedPlanImage(result, reviewedCabinets, approved, reviewedAppliances, approvedAppliances));
     onOpenChange(false);
     reset();
   };
 
-  const missingWidth = !!result && result.roomWidthInches <= 0;
-  const missingDepth = !!result && result.roomDepthInches <= 0;
+  const missingDimensions = result ? missingPlanImageDimensions(result) : { width: false, depth: false };
+  const missingWidth = missingDimensions.width;
+  const missingDepth = missingDimensions.depth;
 
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>

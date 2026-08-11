@@ -149,7 +149,7 @@
 - [x] Define the More-tab Import Existing Design upload, interpretation, review, and apply flow.
 - [x] Add image-plan upload and structured interpretation for readable typed or handwritten cabinet layouts.
 - [x] Build a review step that flags uncertain items before layout application.
-- [ ] Add focused coverage and verify the More-tab existing-design import workflow.
+- [x] Add focused coverage and verify the More-tab existing-design import workflow.
 - [x] Add the Import Existing Design entry point to the desktop/laptop More controls as well as mobile.
 - [x] Replace the current designer layout automatically when the user applies a reviewed imported layout.
 - [x] Use the current designer room size when imported plans omit dimensions and flag each missing measurement for confirmation.
