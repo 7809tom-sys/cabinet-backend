@@ -13,3 +13,11 @@ export function affiliateStorefrontUrl(slug: string, origin?: string): string {
   const base = (origin || (typeof window !== "undefined" ? window.location.origin : PRODUCTION_ORIGIN)).replace(/\/+$/, "");
   return `${base}${affiliateStorefrontPath(slug)}`;
 }
+
+export function copyAffiliateStorefrontLink(
+  slug: string,
+  options?: { origin?: string; clipboard?: Pick<Clipboard, "writeText"> }
+): Promise<void> {
+  const clipboard = options?.clipboard ?? navigator.clipboard;
+  return clipboard.writeText(affiliateStorefrontUrl(slug, options?.origin));
+}

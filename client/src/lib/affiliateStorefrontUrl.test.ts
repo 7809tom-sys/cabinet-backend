@@ -1,5 +1,5 @@
-import { affiliateStorefrontPath, affiliateStorefrontUrl } from "./affiliateStorefrontUrl";
-import { describe, expect, it } from "vitest";
+import { affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
+import { describe, expect, it, vi } from "vitest";
 
 describe("affiliate storefront URLs", () => {
   it("builds the canonical routed storefront path for each affiliate slug", () => {
@@ -13,6 +13,19 @@ describe("affiliate storefront URLs", () => {
     );
     expect(affiliateStorefrontUrl("firstclass", "https://preview.manus.com")).toBe(
       "https://preview.manus.com/store/firstclass"
+    );
+  });
+
+  it("copies the canonical storefront URL for the selected affiliate row", async () => {
+    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+
+    await copyAffiliateStorefrontLink("reaves-way-cabinet-shop", {
+      origin: "https://www.cabinetdealz.com",
+      clipboard,
+    });
+
+    expect(clipboard.writeText).toHaveBeenCalledWith(
+      "https://www.cabinetdealz.com/store/reaves-way-cabinet-shop"
     );
   });
 });

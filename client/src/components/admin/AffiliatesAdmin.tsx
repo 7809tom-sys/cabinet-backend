@@ -23,7 +23,7 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { affiliateStorefrontPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
+import { affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "@/lib/affiliateStorefrontUrl";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active") return "default";
@@ -136,15 +136,6 @@ export default function AffiliatesAdmin() {
                     <a href={affiliateStorefrontUrl(a.slug)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
                       <ExternalLink className="h-3.5 w-3.5" /> {affiliateStorefrontPath(a.slug)}
                     </a>
-                    <Button
-                      variant="ghost" size="icon" className="h-6 w-6"
-                      onClick={() => {
-                        navigator.clipboard.writeText(affiliateStorefrontUrl(a.slug));
-                        toast.success("Storefront link copied");
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 </div>
 
@@ -165,6 +156,18 @@ export default function AffiliatesAdmin() {
                       <ExternalLink className="h-3.5 w-3.5" /> View Store
                     </Button>
                   </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5"
+                    onClick={() => {
+                      void copyAffiliateStorefrontLink(a.slug)
+                        .then(() => toast.success("Storefront link copied"))
+                        .catch(() => toast.error("Could not copy storefront link"));
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy storefront link
+                  </Button>
                   <a href="/affiliate" target="_blank" rel="noreferrer">
                     <Button variant="outline" size="sm" className="w-full gap-1.5">
                       <Store className="h-3.5 w-3.5" /> Affiliate Portal
