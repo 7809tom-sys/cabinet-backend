@@ -47,7 +47,8 @@ export type AffiliateSection =
   | "marketing"
   | "plugins"
   | "tax"
-  | "team";
+  | "team"
+  | "settings";
 
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
@@ -64,6 +65,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Puzzle, label: "Plugins & Add-ons", section: "plugins" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
   { icon: Users, label: "My Team", section: "team" },
+  { icon: Settings, label: "Domain Setup", section: "settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "affiliate-sidebar-width";
@@ -276,3 +278,4 @@ function SidebarInner({
     </>
   );
 }
+import { Settings } from "lucide-react";

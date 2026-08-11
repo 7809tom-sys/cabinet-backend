@@ -619,6 +619,15 @@ export default function AffiliateDashboard() {
         );
       case "team":
         return <AffiliateTeamPanel />;
+      case "settings":
+        return (
+          <div className="space-y-6 max-w-4xl">
+            <CustomDomainGuide
+              storefrontSlug={affiliate.slug}
+              defaultDomain={`${affiliate.slug}.cabinetdealz.com`}
+            />
+          </div>
+        );
       default:
         return null;
     }
@@ -2252,3 +2261,4 @@ function W9Panel() {
 }
 import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CustomDomainGuide } from "@/components/affiliate/CustomDomainGuide";
