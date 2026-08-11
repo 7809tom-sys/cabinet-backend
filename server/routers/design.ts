@@ -3,7 +3,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals } from "../../drizzle/schema";
+import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -25,6 +25,21 @@ import {
   requiresMandatorySkin,
   type ExposedSides,
 } from "../../shared/skinMatch";
+
+async function resolveAffiliateDesignOwner(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  affiliateSlug?: string,
+) {
+  const slug = affiliateSlug?.trim().toLowerCase();
+  if (!slug) return null;
+  const rows = await db
+    .select({ id: affiliates.id, storeName: affiliates.storeName, referralCode: affiliates.referralCode })
+    .from(affiliates)
+    .where(and(eq(affiliates.slug, slug), eq(affiliates.status, "active"), eq(affiliates.storefrontEnabled, true)))
+    .limit(1);
+  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate storefront not found." });
+  return rows[0];
+}
 
 export const designRouter = router({
   placeableCabinets: publicProcedure
@@ -919,6 +934,7 @@ export const designRouter = router({
         id: z.number().optional(),
         name: z.string().min(1).max(255),
         email: z.string().email().optional(),
+        affiliateSlug: z.string().max(255).optional(),
         roomData: z.any(),
         placedCabinets: z.any(),
         selectedSurfaces: z.any().optional(),
@@ -935,6 +951,8 @@ export const designRouter = router({
       if (!db) throw new Error("Database not available");
 
       const userId = ctx.user?.id ?? null;
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const affiliateId = affiliate?.id ?? null;
 
       if (input.id) {
         await db
@@ -950,12 +968,16 @@ export const designRouter = router({
             roomLabel: input.roomLabel ?? null,
             roomType: input.roomType ?? null,
           })
-          .where(eq(kitchenDesigns.id, input.id));
+          .where(and(
+            eq(kitchenDesigns.id, input.id),
+            affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+          ));
         return { id: input.id };
       }
 
       const result = await db.insert(kitchenDesigns).values({
         userId,
+        affiliateId,
         name: input.name,
         roomData: input.roomData,
         placedCabinets: input.placedCabinets,
@@ -969,9 +991,44 @@ export const designRouter = router({
       // mysql2 returns a tuple: [ResultSetHeader, ...]; insertId lives on the header.
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
-      // Push a CRM "design saved" event only for a NEW design (not every autosave
-      // update). Best-effort + house pipeline. The email may come from the lead
-      // gate even when the user isn't signed in.
+      // An affiliate storefront design is linked only to that affiliate's CRM.
+      // A normal design retains the existing house CRM behavior.
+      let dealId: number | null = null;
+      if (affiliateId != null) {
+        const email = (input.email ?? ctx.user?.email ?? "").trim().toLowerCase();
+        const matchingLead = email
+          ? (await db
+              .select()
+              .from(designLeads)
+              .where(and(eq(designLeads.affiliateId, affiliateId), eq(designLeads.email, email)))
+              .orderBy(desc(designLeads.lastLaunchAt))
+              .limit(1))[0]
+          : undefined;
+        dealId = matchingLead?.dealId ?? null;
+        if (dealId == null) {
+          const dealRes = await db.insert(crmDeals).values({
+            affiliateId,
+            ownerUserId: userId,
+            title: `${input.projectName?.trim() || input.name}${input.roomLabel ? ` — ${input.roomLabel}` : ""}`.slice(0, 256),
+            stage: "new",
+            priority: "medium",
+            contactName: ctx.user?.name ?? null,
+            contactEmail: email || null,
+            source: "storefront",
+            notes: `Design saved from ${affiliate?.storeName ?? "affiliate"} designer.`,
+          });
+          dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
+          if (matchingLead) await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, matchingLead.id));
+        }
+        await db.insert(crmDealDesigns).values({
+          dealId,
+          designId: insertId,
+          designName: input.name,
+          linkedByUserId: userId,
+        });
+      }
+
+      // Push a CRM "design saved" event only for a NEW design (not every autosave).
       void emitCrmEvent({
         event: "design_saved",
         contact: {
@@ -985,8 +1042,11 @@ export const designRouter = router({
           designName: input.name,
           projectName: input.projectName ?? null,
           roomType: input.roomType ?? null,
+          dealId,
         },
-        link: `/design?id=${insertId}`,
+        affiliateId,
+        referralCode: affiliate?.referralCode ?? null,
+        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
       });
 
       return { id: insertId };
@@ -1008,24 +1068,34 @@ export const designRouter = router({
       return { ok: true };
     }),
 
-  myDesigns: protectedProcedure.query(async ({ ctx }) => {
+  myDesigns: protectedProcedure
+    .input(z.object({ affiliateSlug: z.string().max(255).optional() }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
+    const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug);
     return db
       .select()
       .from(kitchenDesigns)
-      .where(eq(kitchenDesigns.userId, ctx.user.id));
-  }),
+      .where(and(
+        eq(kitchenDesigns.userId, ctx.user.id),
+        affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
+      ));
+    }),
 
   byId: publicProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.number(), affiliateSlug: z.string().max(255).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       const rows = await db
         .select()
         .from(kitchenDesigns)
-        .where(eq(kitchenDesigns.id, input.id))
+        .where(and(
+          eq(kitchenDesigns.id, input.id),
+          affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
+        ))
         .limit(1);
       return rows[0] ?? null;
     }),
@@ -1056,6 +1126,8 @@ export const designRouter = router({
       const phone = input.phone?.trim() || null;
       const roomType = input.roomType?.trim() || null;
       const affiliateSlug = input.affiliateSlug?.trim() || null;
+      const affiliate = await resolveAffiliateDesignOwner(db, affiliateSlug ?? undefined);
+      const affiliateId = affiliate?.id ?? null;
 
       // De-dupe: look for an existing lead for this email (scoped to the same
       // user when logged in). Update + bump the counter if found.
@@ -1064,8 +1136,15 @@ export const designRouter = router({
         .from(designLeads)
         .where(
           userId
-            ? and(eq(designLeads.userId, userId), eq(designLeads.email, emailLower))
-            : eq(designLeads.email, emailLower),
+            ? and(
+                eq(designLeads.userId, userId),
+                eq(designLeads.email, emailLower),
+                affiliateId == null ? isNull(designLeads.affiliateId) : eq(designLeads.affiliateId, affiliateId),
+              )
+            : and(
+                eq(designLeads.email, emailLower),
+                affiliateId == null ? isNull(designLeads.affiliateId) : eq(designLeads.affiliateId, affiliateId),
+              ),
         )
         .limit(1);
 
@@ -1093,18 +1172,19 @@ export const designRouter = router({
         phone,
         roomType,
         affiliateSlug,
+        affiliateId,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
-      // Auto-create a HOUSE sales deal so this lead lands on the Cabinet Dealz
-      // sales board immediately (affiliateId NULL = house pipeline). Best-effort:
+      // Auto-create a deal inside the design owner's CRM. Affiliate launches
+      // never create a Cabinet Dealz house deal. Best-effort:
       // never block lead capture if deal creation fails. The dealId is stored
       // back on the lead so repeat launches reuse the same deal (D2 de-dupe).
       let dealId: number | null = null;
       try {
         const dealTitle = `Designer lead \u2014 ${name || input.email}`.slice(0, 256);
         const dealRes = await db.insert(crmDeals).values({
-          affiliateId: null, // house deal
+          affiliateId,
           ownerUserId: userId,
           title: dealTitle,
           stage: "new",
@@ -1113,7 +1193,7 @@ export const designRouter = router({
           contactEmail: emailLower,
           contactPhone: phone,
           source: "storefront",
-          notes: `Auto-created from the Design Tool launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
+          notes: `Auto-created from the designer launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
         });
         dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
         await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, insertId));
@@ -1121,8 +1201,9 @@ export const designRouter = router({
         // Lead is still captured even if the deal could not be created.
       }
 
-      // Notify the owner of a fresh design lead (best-effort).
-      try {
+      // House launches notify the platform owner. Affiliate launches stay in the
+      // affiliate's own CRM without a platform-team notification.
+      if (affiliateId == null) try {
         await notifyOwner({
           title: "New design lead",
           content: `${name || "(no name)"} · ${input.email}${phone ? ` · ${phone}` : ""}${roomType ? ` · ${roomType}` : ""} started a design.`,
@@ -1131,13 +1212,14 @@ export const designRouter = router({
         // Never block lead capture on a notification failure.
       }
 
-      // Push the lead to the external CRM (best-effort). House pipeline for now —
-      // storefront design leads are not affiliate-attributed at capture time.
+      // Push the lead to its owning CRM scope (best-effort).
       void emitCrmEvent({
         event: "lead",
         contact: { userId, name, email: emailLower, phone },
         data: { source: "design_tool_gate", roomType, dealId, leadId: insertId },
-        link: dealId ? `/admin/crm?deal=${dealId}` : null,
+        affiliateId,
+        referralCode: affiliate?.referralCode ?? null,
+        link: dealId ? (affiliateId ? `/affiliate?section=crm&deal=${dealId}` : `/admin/crm?deal=${dealId}`) : null,
       });
 
       return { ok: true as const, id: insertId, deduped: false as const };
@@ -1164,10 +1246,11 @@ export const designRouter = router({
   // same projectName (owned by the caller) is priced with the SAME contractor
   // price path the Designer uses, returning per-room subtotals + a grand total.
   projectSummary: protectedProcedure
-    .input(z.object({ projectName: z.string().min(1).max(255) }))
+    .input(z.object({ projectName: z.string().min(1).max(255), affiliateSlug: z.string().max(255).optional() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return { projectName: input.projectName, rooms: [], grandTotal: 0, roomCount: 0 };
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
 
       const designs = await db
         .select()
@@ -1176,6 +1259,7 @@ export const designRouter = router({
           and(
             eq(kitchenDesigns.userId, ctx.user.id),
             eq(kitchenDesigns.projectName, input.projectName),
+            affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
           ),
         )
         .orderBy(kitchenDesigns.createdAt);

@@ -10,7 +10,7 @@ import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
@@ -103,18 +103,20 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
   const { data } = trpc.affiliates.bySlug.useQuery({ slug });
   const storeName = data?.storeName ?? "Store";
   const logoUrl = data?.logoUrl ?? null;
+  const primaryColor = data?.primaryColor || "#1a2b4a";
+  const accentColor = data?.accentColor || "#c9a227";
   // Keep the tab/favicon on the affiliate's brand for cart, order, and design
   // pages reached from their storefront.
   useWhiteLabelHead({ storeName: data?.storeName, tagline: data?.tagline, logoUrl });
   return (
     <div className="min-h-screen flex flex-col">
       <AdminEditModeBar />
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between" style={{ borderBottomColor: accentColor, borderBottomWidth: 2 }}>
         <a href={`/store/${slug}`} className="flex items-center gap-2">
           {logoUrl ? (
             <img src={logoUrl} alt={storeName} className="h-8 w-auto max-w-[140px] object-contain" />
           ) : (
-            <span className="text-lg font-bold">{storeName}</span>
+            <span className="text-lg font-bold" style={{ color: primaryColor }}>{storeName}</span>
           )}
         </a>
         <a href={`/store/${slug}/cart`} className="text-sm font-medium text-muted-foreground">
@@ -127,6 +129,27 @@ function AffiliateShell({ slug, children }: { slug: string; children?: React.Rea
       {/* Affiliate's own published widget, so it follows customers through
           cart / order / design just like it does on the storefront. */}
       <StorefrontEmbed code={data?.embedCode} />
+    </div>
+  );
+}
+
+function DesignerRoute() {
+  const search = useSearch();
+  const affiliateSlug = new URLSearchParams(search).get("affiliate")?.trim() || null;
+  const designer = (
+    <Suspense fallback={<PageLoader />}>
+      <DesignTool affiliateSlug={affiliateSlug ?? undefined} />
+    </Suspense>
+  );
+
+  if (affiliateSlug) {
+    return <AffiliateShell slug={affiliateSlug}>{designer}</AffiliateShell>;
+  }
+
+  return (
+    <div className="flex flex-col overflow-hidden" style={{ height: "100dvh" }}>
+      <TopNav />
+      <div className="flex-1 min-h-0 overflow-hidden">{designer}</div>
     </div>
   );
 }
@@ -190,7 +213,7 @@ export default function App() {
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <AffiliateShell slug={params.slug}>
-                <DesignSession />
+                <DesignTool affiliateSlug={params.slug} />
               </AffiliateShell>
             </Suspense>
           )}
@@ -258,15 +281,7 @@ export default function App() {
         </Route>
 
         <Route path="/design">
-          {/* Design Tool uses a fixed-height no-scroll layout to prevent canvas overflow on mobile */}
-          <div className="flex flex-col overflow-hidden" style={{ height: "100dvh" }}>
-            <TopNav />
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Suspense fallback={<PageLoader />}>
-                <DesignTool />
-              </Suspense>
-            </div>
-          </div>
+          <DesignerRoute />
         </Route>
 
         <Route path="/pro-network">

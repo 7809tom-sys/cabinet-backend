@@ -13,3 +13,30 @@
 - [x] Verify the admin-panel action and save a checkpoint.
 - [x] Confirm the Copy storefront link action writes the canonical affiliate URL to the clipboard.
 - [x] Save a checkpoint containing the visible admin copy action.
+- [x] Inspect affiliate designer branding, design persistence, and CRM ownership flows.
+- [x] Define the affiliate context contract for designer routes, saved designs, and generated plans.
+- [x] White-label the affiliate designer with the affiliate’s logo, colors, and identity only.
+- [x] Remove Cabinet Dealz branding from all affiliate designer views and artifacts.
+- [x] Associate every affiliate-originated design and plan with its affiliate CRM.
+- [x] Surface affiliate-owned designs and plans in the matching affiliate CRM.
+- [x] Prevent affiliate-originated designs and plans from being created in or exposed through the Cabinet Dealz platform CRM.
+- [x] Add automated coverage for white-label branding and affiliate CRM routing.
+- [x] Verify affiliate designer and CRM behavior, then save a checkpoint.
+- [x] Keep the correction limited to affiliate logo/colors in the designer and affiliate-only CRM ownership for designs and plans.
+- [x] Verify the affiliate designer title and social metadata contain no Cabinet Dealz branding after the final white-label update.
+- [x] Search all affiliate-designer screens and plan artifacts for remaining Cabinet Dealz text, then remove or verify each result.
+- [x] Add focused coverage for affiliate white-label behavior beyond the build-sheet export.
+- [x] Restore master CRM visibility across all affiliate-owned deals while retaining their affiliate ownership.
+- [x] Validate master CRM oversight and affiliate-specific CRM ownership together.
+- [x] Add focused coverage proving master CRM visibility and affiliate CRM isolation.
+- [x] Verify master CRM records retain affiliate attribution while affiliate CRM remains scoped to its owner.
+- [x] Add router-level CRM list and detail coverage for master visibility and affiliate isolation.
+- [x] Verify master CRM results preserve affiliate attribution for affiliate-owned designer records.
+- [x] Verify affiliate-owned designer records appear in both the owning affiliate CRM and the master CRM.
+- [x] Exercise the CRM board and deal routes for master visibility and affiliate isolation.
+- [x] Verify master-board affiliate attribution for affiliate-owned designer records.
+- [x] Save a checkpoint after the final designer and CRM validation.
+- [x] Verify `crm.board` master visibility and affiliate scope with a router-level test.
+- [x] Verify `crm.deal` master visibility and affiliate isolation with a router-level test.
+- [x] Verify master-board affiliate name attribution for an affiliate-owned designer record.
+- [x] Save the final validated designer and CRM checkpoint.

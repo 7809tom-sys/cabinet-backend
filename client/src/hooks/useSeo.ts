@@ -17,9 +17,24 @@ const SITE_NAME = "Cabinet Dealz";
 const DEFAULT_IMAGE =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/cabinet-dealz-og-9YFJJyM9Uen3xAfZytLw8r.png";
 
+export function formatSeoTitle(
+  title: string,
+  siteName = SITE_NAME,
+  appendSiteName = true,
+) {
+  if (!title) return "";
+  return !appendSiteName || title.includes(siteName)
+    ? title
+    : `${title} | ${siteName}`;
+}
+
 export interface SeoOptions {
   title: string;
   description?: string;
+  /** Brand used for title and social metadata; defaults to the platform name. */
+  siteName?: string;
+  /** Set false for white-label pages whose title must not include a platform suffix. */
+  appendSiteName?: boolean;
   /** Open Graph type, e.g. "website" (default) or "product". */
   type?: string;
   /** Absolute or path-relative image used for social previews. */
@@ -70,6 +85,8 @@ export function useSeo(
   const {
     title,
     description: desc,
+    siteName = SITE_NAME,
+    appendSiteName = true,
     type = "website",
     image = DEFAULT_IMAGE,
     lang,
@@ -88,9 +105,7 @@ export function useSeo(
     // Title
     const prevTitle = document.title;
     if (title) {
-      document.title = title.includes(SITE_NAME)
-        ? title
-        : `${title} | ${SITE_NAME}`;
+      document.title = formatSeoTitle(title, siteName, appendSiteName);
     }
     const finalTitle = document.title;
 
@@ -107,7 +122,7 @@ export function useSeo(
     setMeta("property", "og:title", finalTitle, created, prev);
     if (desc) setMeta("property", "og:description", desc, created, prev);
     setMeta("property", "og:type", type, created, prev);
-    setMeta("property", "og:site_name", SITE_NAME, created, prev);
+    setMeta("property", "og:site_name", siteName, created, prev);
     setMeta("property", "og:image", image, created, prev);
     if (lang) {
       setMeta(

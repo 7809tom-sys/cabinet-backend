@@ -25,6 +25,12 @@ describe("buildSheetCsv", () => {
     expect(csv).toContain("Room:,120in x 96in");
   });
 
+  it("uses the affiliate brand rather than Cabinet Dealz on an affiliate plan", () => {
+    const csv = buildSheetCsv({ ...base, brandName: "Reaves Way Cabinet Shop." })!;
+    expect(csv).toContain("Reaves Way Cabinet Shop. Build Sheet");
+    expect(csv).not.toContain("Cabinet Dealz");
+  });
+
   it("computes line totals as unitPrice * qty", () => {
     const csv = buildSheetCsv(base)!;
     // 199.99 * 2 = 399.98

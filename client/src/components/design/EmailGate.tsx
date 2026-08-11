@@ -14,13 +14,16 @@ export interface LeadContact {
 interface Props {
   // Called once a valid email is provided (with optional name + phone).
   onVerified: (contact: LeadContact) => void;
+  brandName?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
 }
 
 // Lightweight contact gate before entering the design tool.
 // Email is required (it gates entry). Name + phone are optional so we keep the
 // gate low-friction, but capturing them gives reps real contact info to follow
 // up on. If the user is already logged in, we skip straight through.
-export function EmailGate({ onVerified }: Props) {
+export function EmailGate({ onVerified, brandName, primaryColor, accentColor }: Props) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [email, setEmail] = useState("");
@@ -42,6 +45,11 @@ export function EmailGate({ onVerified }: Props) {
   }
 
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const primary = primaryColor || "#1a2744";
+  const accent = accentColor || "#d4a75a";
+  const subtitle = brandName
+    ? "Tell us where to send your design. Your email launches the designer and saves your bill of materials — add your name and phone so your design team can help if you'd like."
+    : t("dt_gate_sub");
 
   const submit = () => {
     if (!valid) return;
@@ -53,16 +61,16 @@ export function EmailGate({ onVerified }: Props) {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-[#1a2744] to-[#2a3a5a] px-4 py-10">
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-10" style={{ backgroundColor: primary }}>
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8">
-        <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-[#1a2744] mx-auto mb-5">
-          <Ruler className="h-7 w-7 text-[#d4a75a]" />
+        <div className="flex items-center justify-center h-14 w-14 rounded-xl mx-auto mb-5" style={{ backgroundColor: primary }}>
+          <Ruler className="h-7 w-7" style={{ color: accent }} />
         </div>
-        <h1 className="font-serif text-2xl font-bold text-center text-[#1a2744] mb-2">
+        <h1 className="font-serif text-2xl font-bold text-center mb-2" style={{ color: primary }}>
           {t("dt_gate_title")}
         </h1>
         <p className="text-center text-sm text-muted-foreground mb-6">
-          {t("dt_gate_sub")}
+          {subtitle}
         </p>
 
         <div className="space-y-3">
@@ -113,7 +121,8 @@ export function EmailGate({ onVerified }: Props) {
             <p className="text-xs text-destructive">{t("dt_gate_invalid_email")}</p>
           )}
           <Button
-            className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
+            className="w-full text-white gap-2"
+            style={{ backgroundColor: primary }}
             disabled={!valid}
             onClick={submit}
           >

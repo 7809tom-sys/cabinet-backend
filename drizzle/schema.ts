@@ -441,6 +441,9 @@ export const orderItems = mysqlTable("order_items", {
 export const kitchenDesigns = mysqlTable("kitchen_designs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
+  // A non-null owner keeps affiliate-storefront designs and plans isolated from
+  // the Cabinet Dealz house pipeline and attaches them to that affiliate CRM.
+  affiliateId: int("affiliateId"),
   name: varchar("name", { length: 256 }).notNull(),
   // Master Project grouping: several rooms (kitchen + baths + laundry) can share
   // one projectName, becoming a single job. roomLabel names the room within the
@@ -1183,12 +1186,13 @@ export type InsertPayment = typeof payments.$inferInsert;
 export const designLeads = mysqlTable("design_leads", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"), // null for guest/email-only launches
+  affiliateId: int("affiliateId"), // null only for a non-affiliate designer launch
   email: varchar("email", { length: 320 }).notNull(),
   name: varchar("name", { length: 256 }),
   phone: varchar("phone", { length: 32 }),
   roomType: varchar("roomType", { length: 32 }), // kitchen/bath/etc. if known at launch
   source: varchar("source", { length: 64 }).default("designer_launch").notNull(),
-  dealId: int("dealId"), // the HOUSE crm deal auto-created from this lead (null until created)
+  dealId: int("dealId"), // the owning affiliate or house CRM deal (null until created)
   affiliateSlug: varchar("affiliateSlug", { length: 255 }), // affiliate storefront slug if design came from affiliate
   // Light de-dupe / engagement counters so repeat launches update one record.
   launchCount: int("launchCount").default(1).notNull(),

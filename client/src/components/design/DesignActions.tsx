@@ -80,8 +80,12 @@ interface Props {
   // Current room context for Master Project grouping.
   roomType: string;
   // Contact email for the designer (from the email gate / signed-in user). Used
-  // to pre-fill a CRM quote request.
+  // to associate the saved plan with the correct CRM contact.
   contactEmail?: string | null;
+  /** Affiliate context makes saved designs, plans, exports, and CRM links private to that affiliate. */
+  affiliateSlug?: string | null;
+  /** Visible only in affiliate sessions; removes platform branding from exports. */
+  brandName?: string | null;
   // Incrementing signals from a parent (e.g. the mobile "More" sheet) to open the
   // Save / My Plans dialogs without the parent needing access to internal state.
   openSaveSignal?: number;
@@ -205,12 +209,16 @@ function downloadProjectCsv(
     rooms: { name: string; roomLabel: string | null; roomType: string | null; styleName: string | null; cabinetCount: number; subtotal: number }[];
     grandTotal: number;
   },
+  brandName?: string | null,
 ) {
   const esc = (v: string | number) => {
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines: string[] = [];
+  const brand = brandName?.trim() || "Cabinet Dealz";
+  const slugBrand = brand.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "project";
+  lines.push(`${brand} Project Plan`);
   lines.push(`Project:,${esc(projectName)}`);
   lines.push(`Rooms:,${summary.rooms.length}`);
   lines.push("");
@@ -230,7 +238,7 @@ function downloadProjectCsv(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `cabinet-dealz-project-${projectName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${Date.now()}.csv`;
+  a.download = `${slugBrand}-project-${projectName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${Date.now()}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -240,11 +248,11 @@ function downloadProjectCsv(
 
 // Per-project totals expander used inside the My Designs dialog. Lazily queries
 // the roll-up only when opened.
-function ProjectTotals({ projectName }: { projectName: string }) {
+function ProjectTotals({ projectName, affiliateSlug, brandName }: { projectName: string; affiliateSlug?: string | null; brandName?: string | null }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const summary = trpc.design.projectSummary.useQuery(
-    { projectName },
+    { projectName, affiliateSlug: affiliateSlug ?? undefined },
     { enabled: open },
   );
   return (
@@ -282,7 +290,7 @@ function ProjectTotals({ projectName }: { projectName: string }) {
                 variant="outline"
                 size="sm"
                 className="mt-2 h-7 w-full gap-1.5 text-[11px]"
-                onClick={() => downloadProjectCsv(projectName, summary.data!)}
+                onClick={() => downloadProjectCsv(projectName, summary.data!, brandName)}
               >
                 <Download className="h-3 w-3" /> {t("dt_act_download_project_csv")}
               </Button>
@@ -327,7 +335,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
+  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -344,7 +352,7 @@ export function DesignActions({
   // Open the Save / My Plans dialogs when a parent bumps the signal (mobile menu).
   useEffect(() => { if (openSaveSignal) setSaveOpen(true); }, [openSaveSignal]);
   useEffect(() => { if (openLoadSignal) setLoadOpen(true); }, [openLoadSignal]);
-  // When checked, after saving we create a CRM lead (house deal) for the team.
+  // When checked, after saving we create a CRM deal for the design's owner.
   const [requestQuote, setRequestQuote] = useState(false);
 
   const quoteMutation = trpc.crm.requestQuoteFromDesign.useMutation({
@@ -366,7 +374,7 @@ export function DesignActions({
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
-      // Optionally route this saved design to the sales pipeline.
+      // Optionally request a quote from the design's owning CRM.
       if (requestQuote && res?.id) {
         quoteMutation.mutate({
           designId: res.id,
@@ -382,7 +390,7 @@ export function DesignActions({
   });
 
   // Only logged-in users can list their saved designs (protected procedure).
-  const myDesigns = trpc.design.myDesigns.useQuery(undefined, {
+  const myDesigns = trpc.design.myDesigns.useQuery(affiliateSlug ? { affiliateSlug } : undefined, {
     enabled: isAuthenticated && loadOpen,
     retry: false,
   });
@@ -396,6 +404,8 @@ export function DesignActions({
     const rlabel = roomLabel.trim();
     saveMutation.mutate({
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
+      email: contactEmail ?? undefined,
+      affiliateSlug: affiliateSlug ?? undefined,
       roomData: room,
       placedCabinets: placed,
       selectedSurfaces,
@@ -408,7 +418,7 @@ export function DesignActions({
   };
 
   const handleExport = () =>
-    exportBuildSheet({ room, styleName, tier, total, buildRows, extraLines });
+    exportBuildSheet({ room, styleName, tier, total, buildRows, extraLines, brandName });
 
   return (
     <>
@@ -563,7 +573,7 @@ export function DesignActions({
                       </span>
                     </div>
                   )}
-                  {group.projectName && <ProjectTotals projectName={group.projectName} />}
+                  {group.projectName && <ProjectTotals projectName={group.projectName} affiliateSlug={affiliateSlug} brandName={brandName} />}
                   <div className={`space-y-1.5 ${group.projectName ? "pl-2 border-l-2 border-[#a87f33]/30" : ""}`}>
                     {group.rooms.map((d) => {
                       const items = Array.isArray(d.placedCabinets) ? d.placedCabinets.length : 0;

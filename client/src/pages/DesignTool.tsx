@@ -137,6 +137,7 @@ import { surfaceRole, formatPrice } from "@/lib/pelican";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
 import type { SiteStringKey } from "@/lib/i18n/site";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
@@ -216,11 +217,35 @@ function DimStepper({
   );
 }
 
-export default function DesignTool() {
+export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?: string }) {
   const { t, lang } = useLanguage();
   const { user } = useAuth();
   const isAdmin = (user as any)?.role === "admin";
-  useSeo({ title: t("seo_design_t"), description: t("seo_design_d"), lang });
+  const search = useSearch();
+  const queryAffiliateSlug = useMemo(() => {
+    const v = new URLSearchParams(search).get("affiliate");
+    return v ? String(v).trim() : null;
+  }, [search]);
+  const affiliateSlug = affiliateSlugProp ?? queryAffiliateSlug;
+  const { data: affiliateBrand } = trpc.affiliates.bySlug.useQuery(
+    { slug: affiliateSlug ?? "" },
+    { enabled: !!affiliateSlug, retry: false },
+  );
+  const affiliatePrimary = affiliateBrand?.primaryColor || "#1a2b4a";
+  const affiliateAccent = affiliateBrand?.accentColor || "#c9a227";
+  useWhiteLabelHead({
+    storeName: affiliateBrand?.storeName,
+    tagline: affiliateBrand?.tagline,
+    logoUrl: affiliateBrand?.logoUrl,
+  });
+  useSeo({
+    title: affiliateBrand ? `${affiliateBrand.storeName} Design Studio` : t("seo_design_t"),
+    description: affiliateBrand?.tagline || t("seo_design_d"),
+    siteName: affiliateBrand?.storeName,
+    appendSiteName: !affiliateBrand,
+    image: affiliateBrand?.logoUrl || undefined,
+    lang,
+  });
   // Localized wall names (Back/Front/Left/Right) keyed by WallSide.
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
@@ -244,14 +269,7 @@ export default function DesignTool() {
       phone: contact.phone,
       affiliateSlug: affiliateSlug ?? undefined,
     });
-  }, [captureLead]);
-
-  const search = useSearch();
-  // Optional affiliate slug (?affiliate=<slug>) when coming from an affiliate storefront.
-  const affiliateSlug = useMemo(() => {
-    const v = new URLSearchParams(search).get("affiliate");
-    return v ? String(v).trim() : null;
-  }, [search]);
+  }, [captureLead, affiliateSlug]);
   // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
   // "Linked Designs" list. Loads the saved room + placed cabinets + style.
   const loadDesignId = useMemo(() => {
@@ -286,7 +304,7 @@ export default function DesignTool() {
   // consumed exactly once per session after email verification.
   const surfaceSelectionAppliedRef = useRef(false);
   const { data: savedDesign } = trpc.design.byId.useQuery(
-    { id: loadDesignId ?? 0 },
+    { id: loadDesignId ?? 0, affiliateSlug: affiliateSlug ?? undefined },
     { enabled: loadDesignId != null && verified, retry: 1 }
   );
 
@@ -4436,19 +4454,40 @@ export default function DesignTool() {
 
   if (!verified) {
     return (
-      <EmailGate onVerified={handleVerified} />
+      <div className="min-h-full flex flex-col">
+        {affiliateBrand && (
+          <div className="flex items-center gap-3 border-b bg-card px-4 py-3" style={{ borderBottomColor: affiliateAccent, borderBottomWidth: 2 }}>
+            {affiliateBrand.logoUrl ? (
+              <img src={affiliateBrand.logoUrl} alt={affiliateBrand.storeName} className="h-8 max-w-40 object-contain" />
+            ) : (
+              <span className="text-base font-bold" style={{ color: affiliatePrimary }}>{affiliateBrand.storeName}</span>
+            )}
+          </div>
+        )}
+        <EmailGate
+          onVerified={handleVerified}
+          brandName={affiliateBrand?.storeName}
+          primaryColor={affiliateBrand?.primaryColor}
+          accentColor={affiliateBrand?.accentColor}
+        />
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
         <div className="hidden lg:flex items-center gap-2">
-          <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">
-            {t("dt_sh_title_desktop")}
-          </h1>
+          {affiliateBrand ? (
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              {affiliateBrand.logoUrl ? <img src={affiliateBrand.logoUrl} alt="" className="h-6 max-w-24 object-contain" /> : null}
+              <h1 className="font-serif text-sm font-bold" style={{ color: affiliatePrimary }}>{affiliateBrand.storeName} Designer</h1>
+            </div>
+          ) : (
+            <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">{t("dt_sh_title_desktop")}</h1>
+          )}
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{t("dt_sh_items", { n: placed.length })}</Badge>
         </div>
 
@@ -5383,6 +5422,8 @@ export default function DesignTool() {
             buildRows={buildRows}
             roomType={roomType}
             contactEmail={verifiedEmail}
+            affiliateSlug={affiliateSlug}
+            brandName={affiliateBrand?.storeName}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
             onSaveSuccess={(designName, designId) => {

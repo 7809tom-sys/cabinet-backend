@@ -77,7 +77,7 @@ async function recordSalesCommissionOnWon(
 }
 
 // ─── Scope resolution ──────────────────────────────────────────────────────────
-// Admin (role === "admin") sees the HOUSE board: deals where affiliateId IS NULL.
+// Admin (role === "admin") uses the master CRM and sees house plus affiliate deals.
 // A partner/affiliate user sees ONLY their own affiliate's deals.
 // We resolve the caller's affiliate by linked userId first, then by email.
 
@@ -107,9 +107,8 @@ async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
 }
 
 // A deal-ownership scope. Three kinds:
-//  - house       : the distributor / Cabinet Dealz sales team. Sees EVERY deal
-//                  (homeowner, contractor, and affiliate) so the platform owner
-//                  never misses a lead.
+//  - house       : the distributor / Cabinet Dealz sales team. Sees every deal
+//                  while affiliate ownership remains available for attribution.
 //  - affiliate   : a paid storefront affiliate — sees only their affiliate deals.
 //  - contractor  : a lightweight self-serve contractor — sees only the deals
 //                  they personally own (crmDeals.ownerUserId = them).
@@ -148,13 +147,20 @@ async function resolveScope(ctx: Ctx): Promise<CrmScope> {
 }
 
 // The SQL predicate that isolates a caller's deals.
-//  - house      : NO filter — the distributor sees every deal on the platform.
+//  - house      : no filter — the master CRM sees every deal on the platform.
 //  - affiliate  : that affiliate's deals only.
 //  - contractor : deals whose ownerUserId is the contractor.
-function scopeWhere(scope: CrmScope) {
-  if (scope.kind === "house") return undefined; // see all deals
+export function scopeWhere(scope: CrmScope) {
+  if (scope.kind === "house") return undefined;
   if (scope.kind === "affiliate") return eq(crmDeals.affiliateId, scope.affiliateId);
   return eq(crmDeals.ownerUserId, scope.userId);
+}
+
+export function resolveBoardScope(scope: CrmScope, requestedAffiliateId?: number): CrmScope {
+  if (requestedAffiliateId != null && scope.kind === "house") {
+    return { kind: "affiliate", affiliateId: requestedAffiliateId };
+  }
+  return scope;
 }
 
 // Verify a deal belongs to the caller's scope; returns the deal or throws.
@@ -206,10 +212,7 @@ export const crmRouter = router({
       };
     }
     // If an admin passes affiliateId, force the scope to that affiliate's deals
-    let scope = await resolveScope(ctx);
-    if (input?.affiliateId != null && scope.kind === "house") {
-      scope = { kind: "affiliate", affiliateId: input.affiliateId };
-    }
+    const scope = resolveBoardScope(await resolveScope(ctx), input?.affiliateId);
     const where = scopeWhere(scope);
     const q = db.select().from(crmDeals);
     const deals = await (where ? q.where(where) : q).orderBy(
@@ -677,10 +680,8 @@ export const crmRouter = router({
     }),
 
   // ── Request a quote from a saved design (member-facing) ──────────────────────
-  // Creates a HOUSE deal (affiliateId NULL) so the Cabinet Dealz sales team picks
-  // it up, then links the saved design. Usable by ANY logged-in member regardless
-  // of affiliate scope (does NOT call resolveScope). Idempotent-ish: if the design
-  // is already linked to an open house deal, it reuses that deal.
+  // Affiliate-owned designs create or reuse deals only in their owning affiliate
+  // CRM. Non-affiliate designs retain the existing house pipeline behavior.
   requestQuoteFromDesign: protectedProcedure
     .input(
       z.object({
@@ -705,7 +706,7 @@ export const crmRouter = router({
       const design = dRows[0];
       if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
 
-      // If this design is already linked to a house deal, reuse it.
+      // If this design is already linked to its owning CRM deal, reuse it.
       const links = await db
         .select()
         .from(crmDealDesigns)
@@ -714,7 +715,7 @@ export const crmRouter = router({
         const existingDeal = await db
           .select()
           .from(crmDeals)
-          .where(and(eq(crmDeals.id, link.dealId), isNull(crmDeals.affiliateId)))
+          .where(and(eq(crmDeals.id, link.dealId), design.affiliateId == null ? isNull(crmDeals.affiliateId) : eq(crmDeals.affiliateId, design.affiliateId)))
           .limit(1);
         if (existingDeal[0]) {
           await db
@@ -735,7 +736,7 @@ export const crmRouter = router({
       const title = who ? `${baseLabel} — ${who}` : baseLabel;
 
       const res = await db.insert(crmDeals).values({
-        affiliateId: null, // house deal
+        affiliateId: design.affiliateId,
         ownerUserId: ctx.user.id,
         title: title.slice(0, 256),
         stage: "new",
@@ -748,7 +749,7 @@ export const crmRouter = router({
         source: "storefront",
         notes:
           input.notes ??
-          `Quote requested from the Design Tool. Room type: ${design.roomType ?? "kitchen"}.`,
+          `Quote requested from the designer. Room type: ${design.roomType ?? "kitchen"}.`,
       });
       const dealId = (res as unknown as [{ insertId: number }])[0].insertId;
 
