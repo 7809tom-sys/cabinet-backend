@@ -37,3 +37,6 @@
 - [x] Add visual Featured badge to storefront family cards based on affiliate style branding
 - [x] Add customer favorite (heart) toggle to storefront family cards with local storage persistence
 - [x] Add a "My Favorites" filter or view in the family picker so customers can quickly review their saved styles
+- [x] Add customer_favorites table to schema for account-backed favorite synchronization
+- [x] Add tRPC procedures to list, add, and remove account-backed favorites
+- [x] Merge guest localStorage favorites upon login and sync active favorites to the user account

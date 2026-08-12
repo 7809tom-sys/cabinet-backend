@@ -43,6 +43,31 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// ─── Customer favorites ───────────────────────────────────────────────────────
+// Favorites are scoped by storefront slug so a customer can save different
+// cabinet families for the main site and for each white-label affiliate store.
+export const customerFavorites = mysqlTable(
+  "customer_favorites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    storefrontSlug: varchar("storefrontSlug", { length: 160 }).notNull().default("main"),
+    styleId: int("styleId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    userStoreStyleUnique: uniqueIndex("customer_favorites_user_store_style_uq").on(
+      t.userId,
+      t.storefrontSlug,
+      t.styleId
+    ),
+    userStoreIndex: index("customer_favorites_user_store_idx").on(t.userId, t.storefrontSlug),
+  })
+);
+
+export type CustomerFavorite = typeof customerFavorites.$inferSelect;
+export type InsertCustomerFavorite = typeof customerFavorites.$inferInsert;
+
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributors = mysqlTable("distributors", {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
+import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { favoriteStorageKey as buildFavoriteStorageKey, filterFavoriteFamilies, parseFavoriteFamilyIds, toggleFavoriteFamilyId } from "@/lib/favoriteFamilies";
 import {
   STOREFRONT_STRINGS,
@@ -144,12 +146,22 @@ function FamilyPicker({
   branding: StorefrontBranding;
   slug?: string;
 }) {
+  const { user } = useAuth();
   const { data, isLoading } = trpc.storefront.families.useQuery({ slug: slug || undefined });
   const storageKey = buildFavoriteStorageKey(slug);
+  const storefrontScope = slug || "main";
   const [favoriteIds, setFavoriteIds] = useState<number[]>(() => readFavoriteFamilyIds(storageKey));
   const [showFavorites, setShowFavorites] = useState(false);
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const accountFavoriteQuery = trpc.favorites.list.useQuery(
+    { storefrontSlug: storefrontScope },
+    { enabled: Boolean(user?.id), staleTime: 60_000 }
+  );
+  const syncFavorites = trpc.favorites.sync.useMutation();
+  const addFavorite = trpc.favorites.add.useMutation();
+  const removeFavorite = trpc.favorites.remove.useMutation();
+  const mergedAccountScopeRef = useRef<string | null>(null);
 
   useEffect(() => {
     setFavoriteIds(readFavoriteFamilyIds(storageKey));
@@ -163,8 +175,44 @@ function FamilyPicker({
     }
   }, [storageKey, favoriteIds]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      mergedAccountScopeRef.current = null;
+      return;
+    }
+    if (accountFavoriteQuery.isLoading || accountFavoriteQuery.data == null) return;
+
+    const mergeScope = `${user.id}:${storefrontScope}`;
+    if (mergedAccountScopeRef.current === mergeScope) return;
+    mergedAccountScopeRef.current = mergeScope;
+
+    const mergedIds = Array.from(new Set([
+      ...favoriteIds,
+      ...accountFavoriteQuery.data.styleIds,
+    ]));
+    setFavoriteIds(mergedIds);
+    syncFavorites.mutate(
+      { storefrontSlug: storefrontScope, styleIds: mergedIds },
+      {
+        onSuccess: (result) => setFavoriteIds(result.styleIds),
+      }
+    );
+  }, [
+    accountFavoriteQuery.data,
+    accountFavoriteQuery.isLoading,
+    favoriteIds,
+    storefrontScope,
+    syncFavorites,
+    user?.id,
+  ]);
+
   function toggleFavorite(styleId: number) {
-    setFavoriteIds((current) => toggleFavoriteFamilyId(current, styleId));
+    const nextIds = toggleFavoriteFamilyId(favoriteIds, styleId);
+    setFavoriteIds(nextIds);
+    if (user?.id) {
+      const mutation = nextIds.includes(styleId) ? addFavorite : removeFavorite;
+      mutation.mutate({ storefrontSlug: storefrontScope, styleId });
+    }
   }
 
   const visibleFamilies = showFavorites
@@ -193,6 +241,18 @@ function FamilyPicker({
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl">
               {t(lang, "family_pick_sub")}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {user ? (
+                "Your favorites sync to your account across devices."
+              ) : (
+                <>
+                  Saved on this device. {" "}
+                  <a href={getLoginUrl()} className="font-semibold underline underline-offset-2 hover:no-underline">
+                    Sign in to sync across devices
+                  </a>
+                </>
+              )}
             </p>
           </div>
           <Button
