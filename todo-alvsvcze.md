@@ -40,3 +40,4 @@
 - [x] Add customer_favorites table to schema for account-backed favorite synchronization
 - [x] Add tRPC procedures to list, add, and remove account-backed favorites
 - [x] Merge guest localStorage favorites upon login and sync active favorites to the user account
+- [x] Add a visible last-synced status for account favorites and local-only status for guests

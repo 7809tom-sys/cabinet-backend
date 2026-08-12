@@ -17,6 +17,7 @@ import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStore
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { favoriteStorageKey as buildFavoriteStorageKey, filterFavoriteFamilies, parseFavoriteFamilyIds, toggleFavoriteFamilyId } from "@/lib/favoriteFamilies";
+import { favoriteSyncStatusText } from "@/lib/favoriteSyncStatus";
 import {
   STOREFRONT_STRINGS,
   type Lang,
@@ -151,6 +152,8 @@ function FamilyPicker({
   const storageKey = buildFavoriteStorageKey(slug);
   const storefrontScope = slug || "main";
   const [favoriteIds, setFavoriteIds] = useState<number[]>(() => readFavoriteFamilyIds(storageKey));
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [syncError, setSyncError] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
@@ -177,6 +180,17 @@ function FamilyPicker({
 
   useEffect(() => {
     if (!user?.id) {
+      setLastSyncedAt(null);
+      setSyncError(false);
+      return;
+    }
+    if (accountFavoriteQuery.data?.lastSyncedAt) {
+      setLastSyncedAt(new Date(accountFavoriteQuery.data.lastSyncedAt));
+    }
+  }, [accountFavoriteQuery.data?.lastSyncedAt, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
       mergedAccountScopeRef.current = null;
       return;
     }
@@ -194,7 +208,12 @@ function FamilyPicker({
     syncFavorites.mutate(
       { storefrontSlug: storefrontScope, styleIds: mergedIds },
       {
-        onSuccess: (result) => setFavoriteIds(result.styleIds),
+        onSuccess: (result) => {
+          setFavoriteIds(result.styleIds);
+          setLastSyncedAt(result.lastSyncedAt ? new Date(result.lastSyncedAt) : null);
+          setSyncError(false);
+        },
+        onError: () => setSyncError(true),
       }
     );
   }, [
@@ -210,8 +229,18 @@ function FamilyPicker({
     const nextIds = toggleFavoriteFamilyId(favoriteIds, styleId);
     setFavoriteIds(nextIds);
     if (user?.id) {
-      const mutation = nextIds.includes(styleId) ? addFavorite : removeFavorite;
-      mutation.mutate({ storefrontSlug: storefrontScope, styleId });
+      const options = {
+        onSuccess: (result: { lastSyncedAt: Date | null }) => {
+          setLastSyncedAt(result.lastSyncedAt ? new Date(result.lastSyncedAt) : null);
+          setSyncError(false);
+        },
+        onError: () => setSyncError(true),
+      };
+      if (nextIds.includes(styleId)) {
+        addFavorite.mutate({ storefrontSlug: storefrontScope, styleId }, options);
+      } else {
+        removeFavorite.mutate({ storefrontSlug: storefrontScope, styleId }, options);
+      }
     }
   }
 
@@ -244,7 +273,14 @@ function FamilyPicker({
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               {user ? (
-                "Your favorites sync to your account across devices."
+                <span className={syncError ? "text-destructive" : undefined}>
+                  {favoriteSyncStatusText({
+                    authenticated: true,
+                    lastSyncedAt,
+                    isPending: syncFavorites.isPending || addFavorite.isPending || removeFavorite.isPending,
+                    hasError: syncError,
+                  })}
+                </span>
               ) : (
                 <>
                   Saved on this device. {" "}

@@ -68,6 +68,26 @@ export const customerFavorites = mysqlTable(
 export type CustomerFavorite = typeof customerFavorites.$inferSelect;
 export type InsertCustomerFavorite = typeof customerFavorites.$inferInsert;
 
+// One row per user/storefront records the most recent successful account sync,
+// including removals where no remaining favorite row would carry a new timestamp.
+export const customerFavoriteSyncs = mysqlTable(
+  "customer_favorite_syncs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    storefrontSlug: varchar("storefrontSlug", { length: 160 }).notNull().default("main"),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    userStoreUnique: uniqueIndex("customer_favorite_syncs_user_store_uq").on(
+      t.userId,
+      t.storefrontSlug
+    ),
+  })
+);
+
+export type CustomerFavoriteSync = typeof customerFavoriteSyncs.$inferSelect;
+
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributors = mysqlTable("distributors", {
