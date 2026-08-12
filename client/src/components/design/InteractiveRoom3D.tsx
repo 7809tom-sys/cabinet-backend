@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, Rotate3D } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
 
 type SceneSku = {
   distributorSkuId: number;
@@ -32,6 +33,9 @@ export type InteractiveRoomScene = {
 
 interface Props {
   scene: InteractiveRoomScene;
+  /** Current 2D design items take precedence over starter-layout suggestions. */
+  placed?: PlacedCabinet[];
+  roomOverride?: RoomData;
   className?: string;
 }
 
@@ -103,6 +107,7 @@ function addCabinet(
   roomDepth: number,
   color: string,
   counterColor: string,
+  transform?: { x: number; z: number; rotation: number; bottom?: number },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -120,11 +125,12 @@ function addCabinet(
   if (key === "front") { z = roomDepth - depthIn / 2; rotation = Math.PI; }
   if (key === "left") { x = depthIn / 2; z = along + widthIn / 2; rotation = Math.PI / 2; }
   if (key === "right") { x = roomWidth - depthIn / 2; z = along + widthIn / 2; rotation = -Math.PI / 2; }
+  if (transform) ({ x, z, rotation } = transform);
 
   const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
   const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
   const bodyHeight = heightIn * INCH;
-  const bottom = isWall ? WALL_BOTTOM : 0;
+  const bottom = transform?.bottom ?? (isWall ? WALL_BOTTOM : 0);
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
   cabinet.rotation.y = rotation;
@@ -172,17 +178,50 @@ function addCabinet(
   }
 }
 
-export function InteractiveRoom3D({ scene, className }: Props) {
+export function existingCabinetTransform(cabinet: PlacedCabinet) {
+  const width = numberValue(cabinet.width, 24);
+  const depth = numberValue(cabinet.depth, BASE_DEPTH);
+  const savedRotation = Number(cabinet.rotation);
+  const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
+  const bottom = cabinet.placement === "wall"
+    ? numberValue(cabinet.mountBottom, WALL_BOTTOM)
+    : cabinet.placement === "baseTop"
+      ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
+      : cabinet.placement === "underCabinet"
+        ? WALL_BOTTOM - numberValue(cabinet.height, 6)
+        : 0;
+  return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
+}
+
+function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
+  return {
+    distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
+    cabinetId: cabinet.cabinetId,
+    masterCode: cabinet.masterCode,
+    description: cabinet.description,
+    placementType: cabinet.placement,
+    width: cabinet.width,
+    height: cabinet.height ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
+    depth: cabinet.depth,
+    numberOfDoors: cabinet.numberOfDoors ?? null,
+    numberOfDrawers: cabinet.numberOfDrawers ?? null,
+  };
+}
+
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, className }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
+  const renderExistingDesign = placed.length > 0;
 
   useEffect(() => {
     const mount = mountRef.current;
-    if (!mount || !scene.roomShape) return;
-    const room = dimensions(scene.roomShape.defaultDimensions);
+    if (!mount || (!scene.roomShape && !roomOverride)) return;
+    const room = roomOverride
+      ? { width: roomOverride.width, depth: roomOverride.depth, ceilingHeight: roomOverride.ceilingHeight ?? STD.WALL_HEIGHT + WALL_BOTTOM }
+      : dimensions(scene.roomShape?.defaultDimensions);
     const canvasWidth = Math.max(280, mount.clientWidth);
     const canvasHeight = Math.max(280, mount.clientHeight || 420);
     let renderer: THREE.WebGLRenderer;
@@ -225,7 +264,11 @@ export function InteractiveRoom3D({ scene, className }: Props) {
     threeScene.add(fillLight);
 
     const materialDefaults = scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" };
-    const polygon = roomPolygon(scene.roomShape.geometryTemplate, room.width, room.depth);
+    const polygon = roomPolygon(
+      roomOverride?.vertices?.length ? { vertices: roomOverride.vertices } : scene.roomShape?.geometryTemplate,
+      room.width,
+      room.depth,
+    );
     const floorShape = new THREE.Shape(polygon);
     const floor = new THREE.Mesh(
       new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }),
@@ -256,9 +299,16 @@ export function InteractiveRoom3D({ scene, className }: Props) {
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = sceneCabinetColor(scene);
-    for (const suggestion of validSuggestions) {
-      if (!suggestion.sku) continue;
-      addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop);
+    if (renderExistingDesign) {
+      for (const cabinet of placed) {
+        const sku = existingCabinetSku(cabinet);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, existingCabinetTransform(cabinet));
+      }
+    } else {
+      for (const suggestion of validSuggestions) {
+        if (!suggestion.sku) continue;
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop);
+      }
     }
     threeScene.add(catalogRoot);
 
@@ -285,9 +335,9 @@ export function InteractiveRoom3D({ scene, className }: Props) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [scene, validSuggestions, autoRotate, resetKey]);
+  }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey]);
 
-  if (!scene.roomShape || !scene.materials) {
+  if ((!scene.roomShape && !roomOverride) || !scene.materials) {
     return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose an active distributor door style and a seeded room layout to generate a real catalog 3D preview.</div>;
   }
   if (webglUnavailable) {
@@ -299,7 +349,7 @@ export function InteractiveRoom3D({ scene, className }: Props) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
-          <p className="text-xs text-muted-foreground">{scene.layout?.name} · {validSuggestions.length} real catalog cabinet suggestion{validSuggestions.length === 1 ? "" : "s"}</p>
+          <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>

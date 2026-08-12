@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, sceneCabinetColor, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, existingCabinetTransform, sceneCabinetColor, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -17,5 +17,12 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a verified hex style color before applying finish-name fallbacks", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
+  });
+
+  it("preserves a placed cabinet’s current 2D location and wall mounting height", () => {
+    expect(existingCabinetTransform({
+      uid: "wall-1", cabinetId: 10, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 24, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 60,
+    })).toEqual({ x: 39, z: 6, rotation: 0, bottom: 60 });
   });
 });

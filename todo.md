@@ -2005,3 +2005,8 @@
 - [x] Add camera controls and responsive desktop/mobile 3D preview UI
 - [x] Connect the 3D preview to seeded room layouts and the current designer state
 - [x] Validate real catalog data and scene renderer helpers with focused tests, API smoke checks, and guarded designer-route verification
+
+## Fix: Open 3D preview for existing designs
+- [x] Remove the unnecessary seeded-layout requirement from the 3D preview button
+- [x] Render placed cabinets and the current room geometry in the interactive 3D scene
+- [x] Verify desktop and mobile 3D preview access

@@ -641,10 +641,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ) as { distributorId?: number } | undefined;
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
-  const canLoadInteractive3d = Boolean(selectedLayoutPresetId && styleId && selectedStyleDistributorId);
+  const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
+  const canLoadInteractive3d = Boolean(styleId && selectedStyleDistributorId && (placed.length > 0 || selectedLayoutPresetId));
   const { data: interactive3dScene, isFetching: interactive3dLoading } = trpc.roomLayouts.scene.useQuery(
     {
-      layoutPresetId: selectedLayoutPresetId ?? "unselected",
+      layoutPresetId: activeSceneLayoutPresetId,
       distributorId: selectedStyleDistributorId ?? 0,
       styleId: styleId ?? 0,
     },
@@ -5107,6 +5108,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
                 {/* Quick-action rows */}
                 <div className="px-1 pb-1">
+                  <button
+                    disabled={!canLoadInteractive3d || interactive3dLoading}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+                  >
+                    <Boxes className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">Interactive 3D Preview</span>
+                  </button>
                   <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
@@ -8662,9 +8671,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : interactive3dScene ? (
-              <InteractiveRoom3D scene={interactive3dScene as InteractiveRoomScene} />
+              <InteractiveRoom3D scene={interactive3dScene as InteractiveRoomScene} placed={placed} roomOverride={room} />
             ) : (
-              <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose a room layout and an active door style to load the 3D preview.</div>
+              <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
             )}
           </div>
         </DialogContent>
