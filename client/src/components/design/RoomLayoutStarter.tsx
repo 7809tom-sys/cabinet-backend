@@ -165,7 +165,8 @@ export function RoomLayoutStarter({
           {canResolveCatalog && catalogData ? (
             <div className="mt-2 space-y-1.5">
               {catalogData.zones.map((zone) => {
-                const candidates = catalogData.candidatesByZone[zone.zoneKey] ?? [];
+                const candidatesByZone = catalogData.candidatesByZone as Record<string, unknown[]>;
+                const candidates = candidatesByZone[zone.zoneKey] ?? [];
                 return <div key={zone.zoneKey} className="flex items-center justify-between gap-3 text-xs"><span className="font-medium">{zone.label}</span><Badge variant={candidates.length ? "secondary" : "outline"}>{candidates.length ? `${candidates.length} real SKU option${candidates.length === 1 ? "" : "s"}` : "Choose manually"}</Badge></div>;
               })}
             </div>

@@ -1992,3 +1992,16 @@
 - [x] Add typed room-layout preset and eligible-catalog API procedures
 - [x] Build responsive room shape and layout selector UI from seeded data
 - [x] Test API, seeded data, and UI on desktop and mobile
+
+## Assessment: Cabinets.com-inspired 3D room rendering
+- [x] Inspect the Cabinets.com Blank Slate onboarding and construction selection; later public stages did not advance reliably under automation
+- [x] Compare the intended 3D experience with current Cabinet Dealz room geometry, catalog data, elevation rendering, and existing isometric preview
+- [x] Define a catalog-aware 3D scene implementation and validation plan
+- [x] Implement interactive 3D room preview with actual eligible distributor SKUs
+
+## Feature: Interactive catalog-aware 3D room preview
+- [x] Add typed API endpoint for room configuration, layout zones, real eligible SKUs, and finish materials
+- [x] Build interactive Three.js/WebGL renderer for room shell, cabinet boxes, countertops, and finish materials
+- [x] Add camera controls and responsive desktop/mobile 3D preview UI
+- [x] Connect the 3D preview to seeded room layouts and the current designer state
+- [x] Validate real catalog data and scene renderer helpers with focused tests, API smoke checks, and guarded designer-route verification

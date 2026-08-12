@@ -1,0 +1,313 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Camera, Rotate3D } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+type SceneSku = {
+  distributorSkuId: number;
+  cabinetId: number;
+  masterCode: string;
+  description: string | null;
+  placementType: string | null;
+  width: unknown;
+  height: unknown;
+  depth: unknown;
+  numberOfDoors: number | null;
+  numberOfDrawers: number | null;
+};
+
+export type InteractiveRoomScene = {
+  roomShape: { id: string; name: string; defaultDimensions: unknown; geometryTemplate: unknown } | null;
+  layout: { id: string; name: string } | null;
+  suggestions: Array<{
+    zone: { zoneKey: string; label: string; wallKey: string | null; sequence: number; placementType: string | null; required: boolean };
+    sku: SceneSku | null;
+  }>;
+  materials: {
+    cabinet: { publicName: string | null; name: string; color: string | null; finish: string | null; doorStyle: string | null; doorPanelType: string | null };
+    defaults: { floor: string; countertop: string; backsplash: string; wall: string };
+  } | null;
+};
+
+interface Props {
+  scene: InteractiveRoomScene;
+  className?: string;
+}
+
+const INCH = 1 / 12;
+const BASE_DEPTH = 24;
+const WALL_DEPTH = 12;
+const COUNTERTOP_H = 37.5;
+const WALL_BOTTOM = 54;
+
+function numberValue(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function dimensions(value: unknown) {
+  const object = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return {
+    width: numberValue(object.width, 144),
+    depth: numberValue(object.depth, 120),
+    ceilingHeight: numberValue(object.ceilingHeight, 96),
+  };
+}
+
+export function sceneCabinetColor(scene: InteractiveRoomScene) {
+  const color = scene.materials?.cabinet.color?.trim() ?? "";
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+  const source = `${scene.materials?.cabinet.finish ?? ""} ${color}`.toLowerCase();
+  if (/(black|charcoal|obsidian|graphite)/.test(source)) return "#34363a";
+  if (/(navy|blue|ocean)/.test(source)) return "#435b77";
+  if (/(green|sage|forest)/.test(source)) return "#78826b";
+  if (/(walnut|espresso|brown|mocha)/.test(source)) return "#75523e";
+  if (/(oak|maple|honey|natural)/.test(source)) return "#c69a63";
+  if (/(cream|beige|linen|almond)/.test(source)) return "#ded5c1";
+  return "#f2f0ea";
+}
+
+function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
+  const geometry = geometryTemplate && typeof geometryTemplate === "object" && !Array.isArray(geometryTemplate)
+    ? geometryTemplate as Record<string, unknown>
+    : {};
+  const raw = Array.isArray(geometry.vertices) ? geometry.vertices : [];
+  const points = raw
+    .map((vertex) => vertex && typeof vertex === "object" ? vertex as Record<string, unknown> : {})
+    .map((vertex) => new THREE.Vector2(
+      Math.max(0, Math.min(width, numberValue(vertex.x, 0) * width)) * INCH,
+      -Math.max(0, Math.min(depth, numberValue(vertex.y, 0) * depth)) * INCH,
+    ));
+  return points.length >= 3
+    ? points
+    : [new THREE.Vector2(0, 0), new THREE.Vector2(width * INCH, 0), new THREE.Vector2(width * INCH, -depth * INCH), new THREE.Vector2(0, -depth * INCH)];
+}
+
+function disposeObject(root: THREE.Object3D) {
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    mesh.geometry?.dispose?.();
+    const material = mesh.material;
+    if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
+    else material?.dispose?.();
+  });
+}
+
+function addCabinet(
+  root: THREE.Group,
+  sku: SceneSku,
+  wallKey: string | null,
+  cursor: Record<string, number>,
+  roomWidth: number,
+  roomDepth: number,
+  color: string,
+  counterColor: string,
+) {
+  const placement = (sku.placementType ?? "base").toLowerCase();
+  const isWall = placement === "wall";
+  const isTall = placement === "tall";
+  const widthIn = numberValue(sku.width, 24);
+  const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
+  const heightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  const key = wallKey === "left" ? "left" : wallKey === "right" ? "right" : wallKey === "front" ? "front" : "back";
+  const along = cursor[key] ?? 3;
+  cursor[key] = along + widthIn + 1.5;
+
+  let x = along + widthIn / 2;
+  let z = depthIn / 2;
+  let rotation = 0;
+  if (key === "front") { z = roomDepth - depthIn / 2; rotation = Math.PI; }
+  if (key === "left") { x = depthIn / 2; z = along + widthIn / 2; rotation = Math.PI / 2; }
+  if (key === "right") { x = roomWidth - depthIn / 2; z = along + widthIn / 2; rotation = -Math.PI / 2; }
+
+  const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
+  const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
+  const bodyHeight = heightIn * INCH;
+  const bottom = isWall ? WALL_BOTTOM : 0;
+  const cabinet = new THREE.Group();
+  cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
+  cabinet.rotation.y = rotation;
+  cabinet.userData = { distributorSkuId: sku.distributorSkuId, masterCode: sku.masterCode, label: sku.description ?? sku.masterCode };
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth),
+    new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 }),
+  );
+  cabinet.add(body);
+
+  const faceMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.02 });
+  const faceDepth = bodyDepth / 2 + 0.015;
+  const doorCount = Math.max(1, sku.numberOfDoors ?? (isWall || isTall ? 2 : 1));
+  const drawerCount = Math.max(0, sku.numberOfDrawers ?? 0);
+  const usableHeight = bodyHeight - 0.08;
+  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.35, drawerCount * 0.3) : 0;
+  const doorHeight = Math.max(0.2, usableHeight - drawerHeight);
+  const frontGroup = new THREE.Group();
+  frontGroup.position.z = faceDepth;
+  for (let i = 0; i < doorCount; i++) {
+    const doorWidth = (bodyWidth - 0.08) / doorCount;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
+    door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
+    frontGroup.add(door);
+  }
+  for (let i = 0; i < drawerCount; i++) {
+    const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, drawerHeight / drawerCount - 0.025, 0.048), faceMaterial);
+    drawer.position.set(0, bodyHeight / 2 - 0.04 - (drawerHeight / drawerCount) * (i + 0.5), 0.004);
+    frontGroup.add(drawer);
+  }
+  cabinet.add(frontGroup);
+  cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
+  root.add(cabinet);
+
+  if (!isWall && !isTall && placement !== "accessory") {
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12),
+      new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
+    );
+    counter.position.copy(cabinet.position);
+    counter.rotation.y = rotation;
+    counter.position.y = COUNTERTOP_H * INCH;
+    root.add(counter);
+  }
+}
+
+export function InteractiveRoom3D({ scene, className }: Props) {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount || !scene.roomShape) return;
+    const room = dimensions(scene.roomShape.defaultDimensions);
+    const canvasWidth = Math.max(280, mount.clientWidth);
+    const canvasHeight = Math.max(280, mount.clientHeight || 420);
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    } catch {
+      setWebglUnavailable(true);
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(canvasWidth, canvasHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mount.replaceChildren(renderer.domElement);
+
+    const threeScene = new THREE.Scene();
+    threeScene.background = new THREE.Color("#f6f3ed");
+    const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
+    const maxSpan = Math.max(room.width, room.depth) * INCH;
+    camera.position.set(maxSpan * 1.15, maxSpan * 0.92, maxSpan * 1.25);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxPolarAngle = Math.PI / 2.02;
+    controls.minDistance = 3;
+    controls.maxDistance = Math.max(14, maxSpan * 3.4);
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = 1.1;
+    controls.update();
+
+    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#5e6470", 2.4));
+    const keyLight = new THREE.DirectionalLight("#fff7ea", 2.4);
+    keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
+    keyLight.castShadow = true;
+    threeScene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight("#b7d1ef", 0.7);
+    fillLight.position.set(-maxSpan, maxSpan, maxSpan);
+    threeScene.add(fillLight);
+
+    const materialDefaults = scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" };
+    const polygon = roomPolygon(scene.roomShape.geometryTemplate, room.width, room.depth);
+    const floorShape = new THREE.Shape(polygon);
+    const floor = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }),
+      new THREE.MeshStandardMaterial({ color: materialDefaults.floor, roughness: 0.78 }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.08;
+    floor.receiveShadow = true;
+    threeScene.add(floor);
+
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide });
+    const wallHeight = room.ceilingHeight * INCH;
+    polygon.forEach((start, index) => {
+      const end = polygon[(index + 1) % polygon.length];
+      const dx = end.x - start.x;
+      const dz = -(end.y - start.y);
+      const length = Math.hypot(dx, dz);
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), wallMaterial.clone());
+      wall.position.set((start.x + end.x) / 2, wallHeight / 2, (-start.y + -end.y) / 2);
+      wall.rotation.y = Math.atan2(dz, dx);
+      if (index > 1) (wall.material as THREE.MeshStandardMaterial).transparent = true, (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
+      threeScene.add(wall);
+    });
+    const grid = new THREE.GridHelper(Math.max(room.width, room.depth) * INCH, 12, "#d9d3c8", "#e7e1d8");
+    grid.position.set(room.width * INCH / 2, 0.01, room.depth * INCH / 2);
+    threeScene.add(grid);
+
+    const catalogRoot = new THREE.Group();
+    const cursor = { back: 3, left: 3, right: 3, front: 3 };
+    const finish = sceneCabinetColor(scene);
+    for (const suggestion of validSuggestions) {
+      if (!suggestion.sku) continue;
+      addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop);
+    }
+    threeScene.add(catalogRoot);
+
+    let frame = 0;
+    const render = () => {
+      frame = requestAnimationFrame(render);
+      controls.update();
+      renderer.render(threeScene, camera);
+    };
+    render();
+    const resizeObserver = new ResizeObserver(() => {
+      const width = Math.max(280, mount.clientWidth);
+      const height = Math.max(280, mount.clientHeight || 420);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    });
+    resizeObserver.observe(mount);
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      controls.dispose();
+      disposeObject(threeScene);
+      renderer.dispose();
+      renderer.domElement.remove();
+    };
+  }, [scene, validSuggestions, autoRotate, resetKey]);
+
+  if (!scene.roomShape || !scene.materials) {
+    return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose an active distributor door style and a seeded room layout to generate a real catalog 3D preview.</div>;
+  }
+  if (webglUnavailable) {
+    return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">This device cannot start the interactive 3D view. Your 2D plan and elevation preview remain available.</div>;
+  }
+
+  return (
+    <section className={className} aria-label="Interactive three-dimensional room preview">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">Interactive 3D Preview</p>
+          <p className="text-xs text-muted-foreground">{scene.layout?.name} · {validSuggestions.length} real catalog cabinet suggestion{validSuggestions.length === 1 ? "" : "s"}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
+        </div>
+      </div>
+      <div ref={mountRef} className="h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner sm:h-[440px] touch-none" />
+      <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit · Scroll or pinch to zoom · Cabinet geometry comes from the active distributor catalog</p>
+    </section>
+  );
+}

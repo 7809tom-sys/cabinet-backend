@@ -109,6 +109,7 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
+import { InteractiveRoom3D, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -338,6 +339,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return p === "catalog" || p === "cart" || p === "style" || p === "room" ? p : null;
   });
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
+  const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
+  const [interactive3dOpen, setInteractive3dOpen] = useState(false);
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -638,6 +641,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ) as { distributorId?: number } | undefined;
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
+  const canLoadInteractive3d = Boolean(selectedLayoutPresetId && styleId && selectedStyleDistributorId);
+  const { data: interactive3dScene, isFetching: interactive3dLoading } = trpc.roomLayouts.scene.useQuery(
+    {
+      layoutPresetId: selectedLayoutPresetId ?? "unselected",
+      distributorId: selectedStyleDistributorId ?? 0,
+      styleId: styleId ?? 0,
+    },
+    { enabled: canLoadInteractive3d },
+  );
   // Two-tone supply-line check: when both Color 1 (slot A) and Color 2 (slot B)
   // are chosen, compare the distributor (supply line) behind each. If they don't
   // share a supply line, the two colors ship from different suppliers, which
@@ -4713,6 +4725,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <Button variant="outline" size="sm" className="hidden lg:inline-flex shrink-0" onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden lg:inline-flex shrink-0"
+          onClick={() => setInteractive3dOpen(true)}
+          disabled={!canLoadInteractive3d || interactive3dLoading}
+          title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
+        >
+          <Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D preview
+        </Button>
 
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
@@ -8586,8 +8608,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       setDrawMode(false);
                       setMeasureMode(false);
                     }}
-                    onLayoutSelected={() => toast.success("Room shape applied. Choose cabinets from your active catalog to continue.")}
+                    onLayoutSelected={(layoutPresetId) => {
+                      setSelectedLayoutPresetId(layoutPresetId);
+                      toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
+                    }}
                   />
+                  {selectedLayoutPresetId ? (
+                    <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setInteractive3dOpen(true); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
+                      <Boxes className="mr-1.5 h-4 w-4" /> Open interactive 3D preview
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -8612,11 +8642,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 setDrawMode(false);
                 setMeasureMode(false);
               }}
-              onLayoutSelected={() => {
+              onLayoutSelected={(layoutPresetId) => {
+                setSelectedLayoutPresetId(layoutPresetId);
                 setLayoutStarterOpen(false);
                 toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
               }}
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
+            <DialogDescription>Cabinets shown here are suggested from the selected distributor and active door style. Drag to orbit and use the controls to zoom.</DialogDescription>
+          </DialogHeader>
+          <div className="p-4 sm:p-5">
+            {interactive3dLoading ? (
+              <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
+            ) : interactive3dScene ? (
+              <InteractiveRoom3D scene={interactive3dScene as InteractiveRoomScene} />
+            ) : (
+              <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose a room layout and an active door style to load the 3D preview.</div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
