@@ -1975,3 +1975,8 @@
 - [ ] Test merge works on phone
 - [ ] Test merge works on PC/desktop
 - [ ] Verify distributors shown are ONLY those with published+available SKUs (not guesses)
+
+## Schema: Room-layout to SKU catalog mapping
+- [x] Add matching Drizzle ORM table definitions and logical relations
+- [x] Add optional kitchen-design layout metadata fields
+- [x] Run focused unit coverage and typecheck without generating or applying a migration
