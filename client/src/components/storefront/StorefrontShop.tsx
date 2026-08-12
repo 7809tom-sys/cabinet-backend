@@ -138,7 +138,7 @@ function FamilyPicker({
   branding: StorefrontBranding;
   slug?: string;
 }) {
-  const { data, isLoading } = trpc.storefront.families.useQuery();
+  const { data, isLoading } = trpc.storefront.families.useQuery({ slug: slug || undefined });
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
   const { data: affiliatePromos } = trpc.storefront.activeBannerAndPromos.useQuery(
     { slug: slug! },

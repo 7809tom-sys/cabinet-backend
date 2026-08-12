@@ -119,12 +119,39 @@ export const storefrontRouter = router({
         .object({
           distributorId: z.number().optional(),
           doorStyle: z.string().optional(),
+          slug: z.string().optional(),
         })
         .optional()
     )
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
+
+      let disabledStyleIds = new Set<number>();
+      let featuredStyleIds = new Set<number>();
+      const brandNameMap = new Map<number, string>();
+      const roomSceneMap = new Map<number, string>();
+
+      if (input?.slug) {
+        const aRows = await db
+          .select()
+          .from(affiliates)
+          .where(eq(affiliates.slug, input.slug.toLowerCase()))
+          .limit(1);
+        const a = aRows[0];
+        if (a) {
+          const brandRows = await db
+            .select()
+            .from(affiliateStyleBranding)
+            .where(eq(affiliateStyleBranding.affiliateId, a.id));
+          for (const r of brandRows) {
+            if (r.isEnabled === false) disabledStyleIds.add(r.styleId);
+            if (r.featured) featuredStyleIds.add(r.styleId);
+            if (r.brandName?.trim()) brandNameMap.set(r.styleId, r.brandName.trim());
+            if (r.roomSceneUrl?.trim()) roomSceneMap.set(r.styleId, r.roomSceneUrl.trim());
+          }
+        }
+      }
 
       const conditions = [
         eq(doorStyles.isActive, true),
@@ -166,9 +193,25 @@ export const storefrontRouter = router({
         .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
         .where(and(...conditions));
 
-      return rows
-        .map(toFamily)
-        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      const mapped = rows
+        .filter((r) => !disabledStyleIds.has(r.id))
+        .map((r) => {
+          const fam = toFamily(r);
+          if (brandNameMap.has(r.id)) {
+            fam.name = brandNameMap.get(r.id)!;
+          }
+          if (roomSceneMap.has(r.id)) {
+            fam.roomSceneImageUrl = roomSceneMap.get(r.id)!;
+          }
+          return fam;
+        });
+
+      return mapped.sort((a, b) => {
+        const aFeatured = featuredStyleIds.has(a.styleId) ? 1 : 0;
+        const bFeatured = featuredStyleIds.has(b.styleId) ? 1 : 0;
+        if (aFeatured !== bFeatured) return bFeatured - aFeatured; // featured first
+        return (a.name || "").localeCompare(b.name || "");
+      });
     }),
 
   // The distinct door-style "types" (Shaker, Raised Panel, Slab, ...) available,
@@ -649,11 +692,7 @@ export const storefrontRouter = router({
       if (!a || !a.storefrontEnabled || a.status === "inactive") return null;
 
       const brandRows = await db
-        .select({
-          styleId: affiliateStyleBranding.styleId,
-          brandName: affiliateStyleBranding.brandName,
-          markupBps: affiliateStyleBranding.markupBps,
-        })
+        .select()
         .from(affiliateStyleBranding)
         .where(eq(affiliateStyleBranding.affiliateId, a.id));
 
@@ -661,10 +700,16 @@ export const storefrontRouter = router({
       const styleNames: Record<number, string> = {};
       // styleId -> per-style markup bps override
       const styleMarkupBps: Record<number, number> = {};
+      const styleEnabled: Record<number, boolean> = {};
+      const styleFeatured: Record<number, boolean> = {};
+      const styleRoomScenes: Record<number, string> = {};
       for (const r of brandRows) {
         const nm = (r.brandName ?? "").trim();
         if (nm) styleNames[r.styleId] = nm;
         if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
+        styleEnabled[r.styleId] = r.isEnabled;
+        styleFeatured[r.styleId] = r.featured;
+        if (r.roomSceneUrl?.trim()) styleRoomScenes[r.styleId] = r.roomSceneUrl.trim();
       }
 
       let categoryMarkupBps: Record<string, number> = {};
@@ -679,6 +724,9 @@ export const storefrontRouter = router({
         categoryMarkupBps,
         styleMarkupBps,
         styleNames,
+        styleEnabled,
+        styleFeatured,
+        styleRoomScenes,
       };
     }),
 

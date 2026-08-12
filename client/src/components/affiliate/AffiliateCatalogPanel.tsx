@@ -15,13 +15,14 @@ type StyleRow = {
   doorStyle: string | null;
   color: string | null;
   thumbnailImageUrl: string | null;
-  override: {
-    brandName: string | null;
-    markupBps: number | null;
-    featured: boolean;
-    sortOrder: number;
-    roomSceneUrl: string | null;
-  } | null;
+    override: {
+      brandName: string | null;
+      markupBps: number | null;
+      featured: boolean;
+      isEnabled: boolean;
+      sortOrder: number;
+      roomSceneUrl: string | null;
+    } | null;
 };
 
 function bpsToPercent(bps: number | null | undefined) {
@@ -59,11 +60,16 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
   });
 
   const featured = style.override?.featured ?? false;
+  const isEnabled = style.override?.isEnabled ?? true;
   const displayName = style.override?.brandName || style.ourName || style.styleCode || "Unnamed Style";
   const effectiveBps = style.override?.markupBps ?? affiliateDefaultBps;
 
   function toggleFeatured() {
     upsert.mutate({ styleId: style.id, featured: !featured });
+  }
+
+  function toggleEnabled() {
+    upsert.mutate({ styleId: style.id, isEnabled: !isEnabled });
   }
 
   function saveEdit() {
@@ -93,7 +99,7 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
   const cardImg = roomScene || (style as StyleRow & { roomSceneImageUrl?: string | null }).roomSceneImageUrl || style.thumbnailImageUrl;
 
   return (
-    <div className={`rounded-lg border transition-colors ${featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+    <div className={`rounded-lg border transition-colors ${!isEnabled ? "opacity-60 bg-muted/40 border-dashed" : featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
       {/* Thumbnail row */}
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-md overflow-hidden bg-muted shrink-0">
@@ -119,14 +125,30 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
               {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
             </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {featured && <Badge className="text-xs bg-primary/10 text-primary border-primary/30">Featured</Badge>}
+            {!isEnabled && <Badge variant="destructive" className="text-xs">Hidden / Disabled</Badge>}
             <Badge variant="outline" className="text-xs">
               {style.override?.markupBps != null ? `${bpsToPercent(style.override.markupBps)}% markup` : `${bpsToPercent(affiliateDefaultBps)}% (default)`}
             </Badge>
             {style.color && <Badge variant="secondary" className="text-xs">{style.color}</Badge>}
           </div>
         </div>
+      </div>
+
+      {/* Enable / Disable line toggle bar */}
+      <div className="border-t border-border px-3 py-2 flex items-center justify-between bg-muted/20">
+        <span className="text-xs font-medium text-foreground">
+          {isEnabled ? "Line Active on Storefront" : "Line Hidden from Storefront"}
+        </span>
+        <Button
+          variant={isEnabled ? "outline" : "default"}
+          size="sm"
+          className="h-7 text-xs"
+          onClick={toggleEnabled}
+        >
+          {isEnabled ? "Turn Off Line" : "Turn On Line"}
+        </Button>
       </div>
 
       {/* Room scene row */}

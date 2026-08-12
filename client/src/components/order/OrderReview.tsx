@@ -336,8 +336,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     }
   }, [styleOptions, styleId, initialStyleId]);
 
+  const [affiliateSlug] = useState<string | null>(() => readAffiliateSlug());
+  const { data: storeBranding } = trpc.storefront.brandingForSlug.useQuery(
+    { slug: affiliateSlug! },
+    { enabled: !!affiliateSlug, retry: false }
+  );
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
-  const checkoutContext = checkoutPresentation(selectedStyle?.name, tier);
+  const brandedStyleName = selectedStyle
+    ? ((storeBranding?.styleNames as Record<number, string>)?.[selectedStyle.styleId] || selectedStyle.name)
+    : null;
+  const checkoutContext = checkoutPresentation(brandedStyleName, tier);
 
   // ─── Checkout recommendations (style-scoped accessories) ──────────────────
   // Cart-aware accessory suggestions for the chosen door style. Items already on
@@ -429,9 +437,6 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   }, [lines, bottomIdSet, styleId]);
 
   // Live pricing for the matched cabinets under the chosen style + tier.
-  // affiliateSlug is read from localStorage (set when the customer visited the
-  // affiliate storefront) so the server can apply the affiliate's markup.
-  const [affiliateSlug] = useState<string | null>(() => readAffiliateSlug());
   const priceQuery = trpc.orders.priceLines.useQuery(
     { cabinetIds: stableCabinetIds, styleId: styleId ?? 0, tier, affiliateSlug: affiliateSlug ?? undefined },
     { enabled: stableCabinetIds.length > 0 && styleId != null, retry: false }
@@ -551,9 +556,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         description: l.description,
         subCategory: (l as { subCategory?: string | null }).subCategory ?? null,
       })),
-      selectedStyle?.name ?? null,
+      brandedStyleName ?? null,
     );
-    const hickoryNote = unfinishedExteriorSkinNote(selectedStyle?.name ?? null);
+    const hickoryNote = unfinishedExteriorSkinNote(brandedStyleName ?? null);
     const composedNotes = [notes.trim(), finishNote, hickoryNote].filter(Boolean).join("\n\n");
     createReq.mutate({
       originatorName: name || undefined,
@@ -562,7 +567,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       zip: zip || undefined,
       source,
       styleId: selectedStyle?.styleId ?? null,
-      styleName: selectedStyle?.name ?? null,
+      styleName: brandedStyleName ?? null,
       tier,
       notes: composedNotes || undefined,
       referralCode: referralCode ?? undefined,
@@ -581,7 +586,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
         styleId: selectedStyle?.styleId ?? null,
-        doorStyle: selectedStyle?.name ?? null,
+        doorStyle: brandedStyleName ?? null,
         tier,
         matched: l.matched,
       })),
@@ -685,14 +690,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             </div>
           ) : (
             <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
-              {selectedStyle?.name ?? checkoutContext.doorStyle}
+              {brandedStyleName ?? checkoutContext.doorStyle}
             </p>
           )}
-          {isUnfinishedExteriorStyleName(selectedStyle?.name ?? null) && (
+          {isUnfinishedExteriorStyleName(brandedStyleName ?? null) && (
             <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                <strong>{selectedStyle?.name}</strong> {t("or_unfinished_a")} <strong>{t("or_unfinished_b")}</strong>{t("or_unfinished_c")}
+                <strong>{brandedStyleName}</strong> {t("or_unfinished_a")} <strong>{t("or_unfinished_b")}</strong>{t("or_unfinished_c")}
               </span>
             </div>
           )}
@@ -758,7 +763,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                   {l.matched &&
                     requiresFinishMatch({ description: l.description ?? l.masterCode }) &&
                     (() => {
-                      const label = finishMatchLabel(selectedStyle?.name);
+                      const label = finishMatchLabel(brandedStyleName);
                       return (
                         <Badge
                           variant="outline"
@@ -884,7 +889,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
               )}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {selectedStyle ? `${selectedStyle.name} · ${tier}` : t("or_select_style_to_price")}
+              {selectedStyle ? `${brandedStyleName} · ${tier}` : t("or_select_style_to_price")}
             </p>
           </div>
           <p className="font-serif text-xl font-semibold tabular-nums">

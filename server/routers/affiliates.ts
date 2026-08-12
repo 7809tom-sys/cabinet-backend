@@ -705,6 +705,7 @@ export const affiliatesRouter = router({
       // No business cap on per-style markup (blank/null = fall back to default).
       markupBps: z.number().int().min(0).max(1000000).nullable().optional(),
       featured: z.boolean().optional(),
+      isEnabled: z.boolean().optional(),
       sortOrder: z.number().int().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -720,17 +721,18 @@ export const affiliatesRouter = router({
       const brandName = input.brandName === undefined ? row?.brandName ?? null : (input.brandName?.trim() || null);
       const markupBps = input.markupBps === undefined ? row?.markupBps ?? null : input.markupBps;
       const featured = input.featured === undefined ? (row?.featured ?? false) : input.featured;
+      const isEnabled = input.isEnabled === undefined ? (row?.isEnabled ?? true) : input.isEnabled;
       const sortOrder = input.sortOrder === undefined ? (row?.sortOrder ?? 0) : input.sortOrder;
       if (row) {
         await db.update(affiliateStyleBranding)
-          .set({ brandName, markupBps, featured, sortOrder })
+          .set({ brandName, markupBps, featured, isEnabled, sortOrder })
           .where(eq(affiliateStyleBranding.id, row.id));
       } else {
         await db.insert(affiliateStyleBranding).values({
-          affiliateId: mine.id, styleId: input.styleId, brandName, markupBps, featured, sortOrder,
+          affiliateId: mine.id, styleId: input.styleId, brandName, markupBps, featured, isEnabled, sortOrder,
         });
       }
-      return { styleId: input.styleId, brandName, markupBps, featured, sortOrder };
+      return { styleId: input.styleId, brandName, markupBps, featured, isEnabled, sortOrder };
     }),
 
   // Upload a room scene photo for a specific door style on this affiliate's storefront

@@ -952,6 +952,7 @@ export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
   markupBps: int("markupBps"), // null = use affiliate default / category
   // Catalog curation: affiliate can feature specific styles and upload their own room scene photo
   featured: boolean("featured").default(false).notNull(),
+  isEnabled: boolean("isEnabled").default(true).notNull(), // false = affiliate hides/turns off this cabinet line
   sortOrder: int("sortOrder").default(0).notNull(),
   roomSceneUrl: text("roomSceneUrl"), // affiliate's own room scene photo for this style
   createdAt: timestamp("createdAt").defaultNow().notNull(),

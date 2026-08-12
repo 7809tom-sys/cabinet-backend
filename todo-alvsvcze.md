@@ -31,3 +31,6 @@
 - [x] Verify pricing correction in the browser and save a checkpoint
 - [x] Remove general "Browse by Cabinet Type" section from storefront home; restrict cabinet type filtering to family/style-specific views (White Shaker, Hickory, etc.)
 - [x] Apply the family-first cabinet navigation rule consistently to all affiliate storefronts, not only the main storefront
+- [ ] Add affiliate-specific "Featured Cabinet" toggle for front page placement
+- [ ] Add affiliate-specific style disable/hide toggle to prevent selling specific lines
+- [ ] Ensure affiliate custom renaming propagates consistently across all family cards, headers, cart, checkout, and order records
