@@ -37,6 +37,7 @@ import { AffiliateStoreSwitcher } from "./AffiliateStoreSwitcher";
 export type AffiliateSection =
   | "overview"
   | "crm"
+  | "design"
   | "orders"
   | "earnings"
   | "analytics"
@@ -55,6 +56,7 @@ export type AffiliateSection =
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
   { icon: ShoppingBag, label: "My CRM", section: "crm" },
+  { icon: Palette, label: "Design Workspace", section: "design" },
   { icon: ShoppingBag, label: "Orders", section: "orders" },
   { icon: DollarSign, label: "Earnings", section: "earnings" },
   { icon: BarChart2, label: "Analytics", section: "analytics" },
@@ -83,9 +85,13 @@ type Props = {
   storeSlug: string;
   /** Current affiliate id — required for the admin store switcher. */
   affiliateId?: number;
+  /** Team-member capabilities; owners and admins receive the full navigation. */
+  isAffiliateOwner?: boolean;
+  canAccessCrm?: boolean;
+  canAccessDesigner?: boolean;
   children: React.ReactNode;
 };
-export function AffiliateDashboardLayout({ section, onSection, storeName, storeSlug, affiliateId, children }: Props) {
+export function AffiliateDashboardLayout({ section, onSection, storeName, storeSlug, affiliateId, isAffiliateOwner = true, canAccessCrm = true, canAccessDesigner = true, children }: Props) {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
@@ -122,6 +128,9 @@ export function AffiliateDashboardLayout({ section, onSection, storeName, storeS
         storeName={storeName}
         storeSlug={storeSlug}
         affiliateId={affiliateId}
+        isAffiliateOwner={isAffiliateOwner}
+        canAccessCrm={canAccessCrm}
+        canAccessDesigner={canAccessDesigner}
         setSidebarWidth={setSidebarWidth}
         user={user}
         logout={logout}
@@ -134,14 +143,17 @@ export function AffiliateDashboardLayout({ section, onSection, storeName, storeS
 }
 
 function SidebarInner({
-  section, onSection, storeName, storeSlug, affiliateId, setSidebarWidth, user, logout, isMobile, children,
-}: Props & { setSidebarWidth: (w: number) => void;   user: { name?: string | null; email?: string | null; role?: string | null } | null; logout: () => void; isMobile: boolean }) {
+  section, onSection, storeName, storeSlug, affiliateId, isAffiliateOwner, canAccessCrm, canAccessDesigner, setSidebarWidth, user, logout, isMobile, children,
+}: Props & { setSidebarWidth: (w: number) => void; user: { name?: string | null; email?: string | null; role?: string | null } | null; logout: () => void; isMobile: boolean }) {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeItem = NAV_ITEMS.find((i) => i.section === section);
   const storeUrl = affiliateStorefrontUrl(storeSlug);
+  const visibleNavItems = NAV_ITEMS.filter((item) =>
+    isAffiliateOwner || user?.role === "admin" || item.section === "overview" || (item.section === "crm" && canAccessCrm) || (item.section === "design" && canAccessDesigner),
+  );
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
@@ -200,7 +212,7 @@ function SidebarInner({
 
           <SidebarContent className="gap-0">
             <SidebarMenu className="px-2 py-1">
-              {NAV_ITEMS.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = item.section === section;
                 return (
                   <SidebarMenuItem key={item.section}>

@@ -13,6 +13,7 @@ import { getDb } from "../db";
 import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -111,6 +112,23 @@ async function resolveMyAffiliate(ctx: { user: { id: number; email: string | nul
  * onto another. Partners always resolve to their own affiliate and cannot
  * target anyone else, even if they send an affiliateId.
  */
+async function requireAffiliateOwner(ctx: { user: { id: number; email: string | null; role: string } }) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+  if (ctx.user.role === "admin") {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+    return mine;
+  }
+  const access = await resolveAffiliateAccess(db, ctx.user);
+  if (!access?.isOwner) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the affiliate owner can manage team members." });
+  }
+  const rows = await db.select().from(affiliates).where(eq(affiliates.id, access.affiliateId)).limit(1);
+  if (!rows[0]) throw new TRPCError({ code: "FORBIDDEN", message: "Affiliate account not found." });
+  return rows[0];
+}
+
 async function resolveTargetAffiliateId(
   ctx: { user: { id: number; role: string; email?: string | null } },
   affiliateId?: number
@@ -158,7 +176,7 @@ const brandingInput = z.object({
 export const affiliatesRouter = router({
   // ─── Affiliate Team Management ────────────────────────────────────────────
   myTeam: partnerProcedure.query(async ({ ctx }) => {
-    const mine = await resolveMyAffiliate(ctx);
+    const mine = await requireAffiliateOwner(ctx);
     if (!mine) return [];
     const db = await getDb();
     if (!db) return [];
@@ -176,7 +194,7 @@ export const affiliatesRouter = router({
       accessDesigner: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
+      const mine = await requireAffiliateOwner(ctx);
       if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -194,7 +212,7 @@ export const affiliatesRouter = router({
   removeTeamMember: partnerProcedure
     .input(z.object({ id: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
-      const mine = await resolveMyAffiliate(ctx);
+      const mine = await requireAffiliateOwner(ctx);
       if (!mine) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -505,6 +523,17 @@ export const affiliatesRouter = router({
       }
     }
     return mine;
+  }),
+
+  myAccess: partnerProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const access = await resolveAffiliateAccess(db, ctx.user);
+    if (access) return access;
+    if (ctx.user.role === "admin") {
+      return { affiliateId: null, isOwner: true, accessCrm: true, accessDesigner: true, teamMemberId: null };
+    }
+    return null;
   }),
 
   // ─── Partner: update my storefront branding ────────────────────────────────

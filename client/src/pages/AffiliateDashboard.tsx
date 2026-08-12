@@ -316,6 +316,7 @@ export default function AffiliateDashboard() {
   const VALID_SECTIONS = [
     "overview",
     "crm",
+    "design",
     "orders",
     "earnings",
     "analytics",
@@ -363,6 +364,20 @@ export default function AffiliateDashboard() {
     enabled: isAdmin && !isAdminViewAs,
     retry: false,
   });
+
+  const myAccess = trpc.affiliates.myAccess.useQuery(undefined, {
+    enabled: isAuthenticated && !isAdmin && !isAdminViewAs,
+    retry: false,
+  });
+  const access = isAdmin || isAdminViewAs
+    ? { isOwner: true, accessCrm: true, accessDesigner: true }
+    : (myAccess.data ?? { isOwner: true, accessCrm: true, accessDesigner: true });
+
+  useEffect(() => {
+    if ((section === "crm" && !access.accessCrm) || (section === "design" && !access.accessDesigner) || (section === "team" && !access.isOwner)) {
+      setSection("overview");
+    }
+  }, [access.accessCrm, access.accessDesigner, access.isOwner, section]);
 
   if (loading) {
     return (
@@ -442,6 +457,21 @@ export default function AffiliateDashboard() {
 
   function renderSection() {
     switch (section) {
+      case "design":
+        return (
+          <div className="max-w-2xl space-y-5">
+            <div>
+              <h1 className="font-serif text-2xl font-bold">Design Workspace</h1>
+              <p className="mt-2 text-muted-foreground">Open the branded kitchen designer for this affiliate storefront.</p>
+            </div>
+            <a
+              href={`${storeUrl.replace(/\/$/, "")}/design`}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Open Design Tool <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
+        );
       case "overview":
         return (
           <div className="space-y-6 max-w-4xl">
@@ -661,6 +691,9 @@ export default function AffiliateDashboard() {
       storeName={affiliate.storeName}
       storeSlug={affiliate.slug}
       affiliateId={affiliate.id}
+      isAffiliateOwner={access.isOwner}
+      canAccessCrm={access.accessCrm}
+      canAccessDesigner={access.accessDesigner}
     >
       {renderSection()}
     </AffiliateDashboardLayout>

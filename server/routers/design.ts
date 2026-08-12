@@ -13,6 +13,7 @@ import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fill
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import {
   relevantCategories,
   selectRecommendations,
@@ -39,6 +40,29 @@ async function resolveAffiliateDesignOwner(
     .limit(1);
   if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate storefront not found." });
   return rows[0];
+}
+
+type DesignContext = {
+  user?: { id: number; email: string | null; role: string } | null;
+};
+
+async function requireAffiliateDesignerAccess(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  ctx: DesignContext,
+  affiliateId: number | null,
+) {
+  if (!ctx.user || ctx.user.role === "admin") return;
+  const access = await resolveAffiliateAccess(db, ctx.user);
+  if (!access) return;
+  if (!access.accessDesigner) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Designer access has not been enabled for this team member.",
+    });
+  }
+  if (affiliateId != null && access.affiliateId !== affiliateId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "This design belongs to another affiliate." });
+  }
 }
 
 export const designRouter = router({
@@ -953,6 +977,7 @@ export const designRouter = router({
       const userId = ctx.user?.id ?? null;
       const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
+      await requireAffiliateDesignerAccess(db, ctx, affiliateId);
 
       if (input.id) {
         await db
@@ -1059,11 +1084,12 @@ export const designRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       // Ensure the design belongs to the requesting user
       const rows = await db
-        .select({ id: kitchenDesigns.id })
+        .select({ id: kitchenDesigns.id, affiliateId: kitchenDesigns.affiliateId })
         .from(kitchenDesigns)
         .where(and(eq(kitchenDesigns.id, input.id), eq(kitchenDesigns.userId, ctx.user.id)))
         .limit(1);
       if (!rows.length) throw new TRPCError({ code: "NOT_FOUND" });
+      await requireAffiliateDesignerAccess(db, ctx, rows[0].affiliateId);
       await db.update(kitchenDesigns).set({ name: input.name }).where(eq(kitchenDesigns.id, input.id));
       return { ok: true };
     }),
@@ -1074,6 +1100,7 @@ export const designRouter = router({
     const db = await getDb();
     if (!db) return [];
     const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug);
+    await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
     return db
       .select()
       .from(kitchenDesigns)
@@ -1251,6 +1278,7 @@ export const designRouter = router({
       const db = await getDb();
       if (!db) return { projectName: input.projectName, rooms: [], grandTotal: 0, roomCount: 0 };
       const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
 
       const designs = await db
         .select()
@@ -1376,6 +1404,7 @@ export const designRouter = router({
   myProjects: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
+    await requireAffiliateDesignerAccess(db, ctx, null);
     const rows = await db
       .select()
       .from(kitchenDesigns)

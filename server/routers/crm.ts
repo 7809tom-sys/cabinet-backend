@@ -15,7 +15,6 @@ import {
   proApplications,
   salesCommissions,
   users,
-  affiliateTeamMembers,
 } from "../../drizzle/schema";
 import nodemailer from "nodemailer";
 import {
@@ -32,6 +31,7 @@ import {
   SALES_REP_COMMISSION_CENTS,
   shouldCreateCommission,
 } from "@shared/salesPrograms";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -83,27 +83,15 @@ async function recordSalesCommissionOnWon(
 
 type Ctx = { user: { id: number; email: string | null; role: string } };
 
-async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
+async function resolveMyAffiliateAccess(ctx: Ctx) {
   const db = await getDb();
   if (!db) return null;
-  const email = (ctx.user.email ?? "").toLowerCase();
-  // First check affiliate_team_members (hired staff)
-  const teamRows = await db.select().from(affiliateTeamMembers)
-    .where(and(
-      eq(affiliateTeamMembers.isActive, true),
-      or(
-        eq(affiliateTeamMembers.userId, ctx.user.id),
-        ...(email.length > 0 ? [eq(affiliateTeamMembers.email, email)] : [])
-      )
-    ));
-  if (teamRows.length > 0) return teamRows[0].affiliateId;
+  return resolveAffiliateAccess(db, ctx.user);
+}
 
-  // Then check affiliate ownership
-  const rows = await db.select().from(affiliates);
-  const mine =
-    rows.find((r) => r.userId === ctx.user.id) ??
-    rows.find((r) => (r.email ?? "").toLowerCase() === email && email.length > 0);
-  return mine?.id ?? null;
+async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
+  const access = await resolveMyAffiliateAccess(ctx);
+  return access?.affiliateId ?? null;
 }
 
 // A deal-ownership scope. Three kinds:
@@ -126,24 +114,30 @@ export type CrmScope =
  * Throws FORBIDDEN if a non-house/contractor caller has no affiliate.
  */
 async function resolveScope(ctx: Ctx): Promise<CrmScope> {
-  if (ctx.user.role === "admin" || ctx.user.role === "designer" || ctx.user.role === "sales_rep")
-  {
-    // Check if this designer/sales_rep is linked to an affiliate team
-    if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
-      const affiliateId = await resolveMyAffiliateId(ctx);
-      if (affiliateId != null) return { kind: "affiliate", affiliateId };
+  if (ctx.user.role === "admin") return { kind: "house" };
+
+  const affiliateAccess = await resolveMyAffiliateAccess(ctx);
+  if (affiliateAccess) {
+    if (!affiliateAccess.accessCrm) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "CRM access has not been enabled for this team member.",
+      });
     }
+    return { kind: "affiliate", affiliateId: affiliateAccess.affiliateId };
+  }
+
+  // Internal platform CRM roles remain house-scoped when they are not linked
+  // to an affiliate team invitation.
+  if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
     return { kind: "house" };
   }
   if (ctx.user.role === "contractor") return { kind: "contractor", userId: ctx.user.id };
-  const affiliateId = await resolveMyAffiliateId(ctx);
-  if (affiliateId == null) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "No affiliate account is linked to your login.",
-    });
-  }
-  return { kind: "affiliate", affiliateId };
+
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message: "No affiliate account is linked to your login.",
+  });
 }
 
 // The SQL predicate that isolates a caller's deals.

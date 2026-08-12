@@ -4,16 +4,16 @@
 - [x] Make Administration link visible for admin users who are also affiliates
 - [x] Link admin user (id=1) to affiliate record so they can access affiliate dashboard
 - [x] Affiliate dashboard is already fully editable (pricing, catalog, customize, marketing, etc.)
-- [ ] Fix SKU count (531) for Shaker White (Preston) - remove unpriced items
+- [x] Fix SKU count (531) for Shaker White (Preston) - remove unpriced items
 - [x] Add admin "View as Affiliate" button on AffiliatesAdmin so admin can open any affiliate's dashboard
 - [x] Verify all affiliate dashboard tabs are fully editable end-to-end (confirmed: pricing, catalog, customize, marketing all have save/mutate)
 - [x] Fix CRM data isolation: affiliates no longer see master CRM contacts (board query now filters by affiliateId)
 - [x] CRM create mutation tags new deals to the correct affiliate when created from affiliate dashboard
-- [ ] Show affiliate name/attribution on CRM deals so admin can see which affiliate each deal belongs to
+- [x] Show affiliate name/attribution on CRM deals so admin can see which affiliate each deal belongs to
 - [x] Show affiliate name/attribution on CRM deals so admin can see which affiliate each deal belongs to
 - [x] Add affiliate team management (add salesperson/designer by email) to affiliate admin panel
 - [x] Route affiliate-hired staff to their affiliate's CRM when they log in (not house CRM)
-- [ ] Enforce accessCrm/accessDesigner permissions in backend and update affiliate dashboard to recognize team members
+- [x] Enforce accessCrm/accessDesigner permissions in backend and update affiliate dashboard to recognize team members
 - [x] Fix storefront "Choose Your Cabinet Line" page to use affiliate's custom brand names instead of central names
 - [x] Add product images to storefront catalog cards (imageUrl from distributor_skus)
 - [x] Add catalogImageUrl from cabinets table to storefront product cards
@@ -22,7 +22,7 @@
 - [x] Hide tier badge for storefront/homeowner items
 - [x] Fix all NavLinks to route through /store/:slug/* paths (cart, design, order)
 - [x] Add /store/:slug/cart, /store/:slug/order, /store/:slug/design routes with AffiliateShell
-- [ ] Auto-generate subdomain names from affiliate business names
+- [x] Auto-generate subdomain names from affiliate business names
 - [x] Auto-generate subdomain names from affiliate business names
 - [x] Add subdomain-based routing (detect subdomain → serve affiliate storefront)
 - [x] Add CRM "needs help closing" flag for affiliates needing assistance
