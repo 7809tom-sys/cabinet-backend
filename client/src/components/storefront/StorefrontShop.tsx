@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { favoriteStorageKey as buildFavoriteStorageKey, filterFavoriteFamilies, parseFavoriteFamilyIds, toggleFavoriteFamilyId } from "@/lib/favoriteFamilies";
 import {
   STOREFRONT_STRINGS,
   type Lang,
@@ -22,7 +23,7 @@ import {
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import {
   ArrowRight, Check, Lock, RefreshCw, Sparkles, Search, Truck, ChevronRight,
-  Minus, Plus, ShoppingCart, Info,
+  Minus, Plus, ShoppingCart, Info, Heart,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
@@ -89,6 +90,11 @@ function money(v: unknown): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function readFavoriteFamilyIds(storageKey: string): number[] {
+  if (typeof window === "undefined") return [];
+  return parseFavoriteFamilyIds(window.localStorage.getItem(storageKey));
+}
+
 /**
  * Family-locked shopping surface. Until a family (cabinet line) is chosen it
  * shows the line picker. Once locked, all browsing is scoped to that one line
@@ -139,7 +145,32 @@ function FamilyPicker({
   slug?: string;
 }) {
   const { data, isLoading } = trpc.storefront.families.useQuery({ slug: slug || undefined });
+  const storageKey = buildFavoriteStorageKey(slug);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>(() => readFavoriteFamilyIds(storageKey));
+  const [showFavorites, setShowFavorites] = useState(false);
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
+  const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+
+  useEffect(() => {
+    setFavoriteIds(readFavoriteFamilyIds(storageKey));
+  }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(favoriteIds));
+    } catch {
+      // Favorites remain usable for the current session if storage is blocked.
+    }
+  }, [storageKey, favoriteIds]);
+
+  function toggleFavorite(styleId: number) {
+    setFavoriteIds((current) => toggleFavoriteFamilyId(current, styleId));
+  }
+
+  const visibleFamilies = showFavorites
+    ? filterFavoriteFamilies(data ?? [], favoriteIds)
+    : (data ?? []);
+
   const { data: affiliatePromos } = trpc.storefront.activeBannerAndPromos.useQuery(
     { slug: slug! },
     { enabled: !!slug, staleTime: 5 * 60 * 1000 }
@@ -155,31 +186,80 @@ function FamilyPicker({
   return (
     <section id="shop" className="py-16 md:py-20">
       <div className="container">
-        <div className="text-center mb-10">
-          <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">
-            {t(lang, "family_pick_title")}
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            {t(lang, "family_pick_sub")}
-          </p>
+        <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">
+              {t(lang, "family_pick_title")}
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl">
+              {t(lang, "family_pick_sub")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant={showFavorites ? "default" : "outline"}
+            className="shrink-0 gap-2"
+            onClick={() => setShowFavorites((current) => !current)}
+            style={showFavorites ? { backgroundColor: brand.accent, borderColor: brand.accent } : undefined}
+            aria-pressed={showFavorites}
+          >
+            <Heart className={`h-4 w-4 ${favoriteIds.length > 0 ? "fill-current" : ""}`} />
+            My Favorites{favoriteIds.length > 0 ? ` (${favoriteIds.length})` : ""}
+          </Button>
         </div>
 
         {isLoading ? (
           <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>
         ) : !data || data.length === 0 ? (
           <p className="text-center text-muted-foreground py-12">—</p>
+        ) : visibleFamilies.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
+            <Heart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+            <h3 className="font-serif text-xl font-bold">No favorite cabinet families yet</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Tap the heart on any cabinet family to save it here for quick access.
+            </p>
+            <Button type="button" variant="outline" className="mt-5" onClick={() => setShowFavorites(false)}>
+              Browse all families
+            </Button>
+          </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {data.map((f) => {
+            {visibleFamilies.map((f) => {
               // STRICT ONE-FAMILY-ONE-COLOR: lead with this family's OWN verified
               // room scene. No keyword/bucket guessing — if there's no real photo
               // we render the color-accurate swatch on the family's finish color.
               const scene = f.roomSceneImageUrl || null;
               const displayName = branding.brandName(f.styleId, f.name);
               return (
-                <button
+                <div
                   key={f.styleId}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onPick({
+                        styleId: f.styleId,
+                        distributorId: f.distributorId,
+                        name: f.name,
+                        doorStyle: f.doorStyle,
+                        finish: f.finish,
+                        color: f.color,
+                        woodSpecies: f.woodSpecies,
+                        boxConstruction: f.boxConstruction,
+                        drawerConstruction: f.drawerConstruction,
+                        hardware: f.hardware,
+                        frameSize: f.frameSize,
+                        overlayType: f.overlayType,
+                        doorPanelType: f.doorPanelType,
+                        thumbnailImageUrl: f.thumbnailImageUrl,
+                        roomSceneImageUrl: f.roomSceneImageUrl,
+                        doorSampleImageUrl: f.doorSampleImageUrl,
+                        styleCode: f.styleCode,
+                      });
+                    }
+                  }}
                   onClick={() =>
                     onPick({
                       styleId: f.styleId,
@@ -201,7 +281,7 @@ function FamilyPicker({
                       styleCode: f.styleCode,
                     })
                   }
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                   style={{ ['--tw-ring-color' as string]: brand.accent }}
                 >
                   {/* Full kitchen scene hero */}
@@ -236,9 +316,29 @@ function FamilyPicker({
                         {f.doorStyle}
                       </Badge>
                     )}
+                    <button
+                      type="button"
+                      aria-label={favoriteIdSet.has(f.styleId) ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
+                      aria-pressed={favoriteIdSet.has(f.styleId)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleFavorite(f.styleId);
+                      }}
+                      className="absolute left-3 top-12 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/90 text-foreground shadow-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    >
+                      <Heart className={`h-4 w-4 ${favoriteIdSet.has(f.styleId) ? "fill-current" : ""}`} style={favoriteIdSet.has(f.styleId) ? { color: brand.accent } : undefined} />
+                    </button>
                     {promoByStyleId.get(f.styleId) && (
                       <Badge className="absolute right-3 top-3 border-0 bg-red-600 text-white shadow-sm font-bold">
                         {promoByStyleId.get(f.styleId)}
+                      </Badge>
+                    )}
+                    {f.featured && (
+                      <Badge
+                        className={`absolute right-3 ${promoByStyleId.get(f.styleId) ? "top-12" : "top-3"} border-0 text-white shadow-sm font-bold inline-flex items-center gap-1`}
+                        style={{ backgroundColor: brand.accent }}
+                      >
+                        <Sparkles className="h-3 w-3" /> Featured
                       </Badge>
                     )}
                     {/* Door-style detail swatch chip — click to open construction specs modal */}
@@ -279,7 +379,7 @@ function FamilyPicker({
                       {t(lang, "family_shop_this")} <ArrowRight className="h-4 w-4" />
                     </span>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

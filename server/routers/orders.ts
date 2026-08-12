@@ -735,6 +735,32 @@ export const ordersRouter = router({
         }
       }
 
+      if (input.submit && affiliateId) {
+        const targetStyleIds = new Set<number>();
+        if (input.styleId) targetStyleIds.add(input.styleId);
+        for (const l of normalizedLines) {
+          if (l.styleId) targetStyleIds.add(l.styleId);
+        }
+        if (targetStyleIds.size > 0) {
+          const disabledRows = await db
+            .select({ styleId: affiliateStyleBranding.styleId })
+            .from(affiliateStyleBranding)
+            .where(
+              and(
+                eq(affiliateStyleBranding.affiliateId, affiliateId),
+                eq(affiliateStyleBranding.isEnabled, false),
+                inArray(affiliateStyleBranding.styleId, Array.from(targetStyleIds))
+              )
+            );
+          if (disabledRows.length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "One or more cabinet lines in your order are currently disabled by this affiliate store.",
+            });
+          }
+        }
+      }
+
       const requestNumber = makeRequestNumber();
       const result = await db.insert(orderRequests).values({
         userId: ctx.user?.id ?? null,

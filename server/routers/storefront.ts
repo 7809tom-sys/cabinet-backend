@@ -196,7 +196,10 @@ export const storefrontRouter = router({
       const mapped = rows
         .filter((r) => !disabledStyleIds.has(r.id))
         .map((r) => {
-          const fam = toFamily(r);
+          const fam = {
+            ...toFamily(r),
+            featured: featuredStyleIds.has(r.id),
+          };
           if (brandNameMap.has(r.id)) {
             fam.name = brandNameMap.get(r.id)!;
           }
@@ -357,11 +360,36 @@ export const storefrontRouter = router({
         search: z.string().optional(),
         limit: z.number().min(1).max(200).default(60),
         offset: z.number().min(0).default(0),
+        slug: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
+
+      if (input.slug) {
+        const affRows = await db
+          .select({ id: affiliates.id })
+          .from(affiliates)
+          .where(eq(affiliates.slug, input.slug.toLowerCase()))
+          .limit(1);
+        const a = affRows[0];
+        if (a) {
+          const brandRows = await db
+            .select({ isEnabled: affiliateStyleBranding.isEnabled })
+            .from(affiliateStyleBranding)
+            .where(
+              and(
+                eq(affiliateStyleBranding.affiliateId, a.id),
+                eq(affiliateStyleBranding.styleId, input.styleId)
+              )
+            )
+            .limit(1);
+          if (brandRows[0]?.isEnabled === false) {
+            return { items: [], total: 0 };
+          }
+        }
+      }
 
       const conditions = [
         eq(cabinets.isActive, true),
