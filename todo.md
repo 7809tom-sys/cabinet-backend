@@ -1985,3 +1985,10 @@
 - [x] Profile existing active and published catalog coverage for starter-layout zones
 - [x] Write an idempotent seed script that uses real distributor SKU records
 - [x] Validate the script without inserting data
+
+## Feature: Catalog-aware room layout starter
+- [x] Generate, review, and apply the additive room-layout migration
+- [x] Run guarded seed using real catalog SKUs and verify the seeded records
+- [x] Add typed room-layout preset and eligible-catalog API procedures
+- [x] Build responsive room shape and layout selector UI from seeded data
+- [x] Test API, seeded data, and UI on desktop and mobile

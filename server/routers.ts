@@ -51,6 +51,7 @@ import { cabinetCategoriesRouter } from "./routers/cabinetCategories";
 import { cabinet3dPreviewRouter } from "./routers/cabinet3dPreview";
 import { catalogImportRouter } from "./routers/catalogImport";
 import { installationEstimatesRouter } from "./routers/installationEstimates";
+import { roomLayoutsRouter } from "./routers/roomLayouts";
 
 export const appRouter = router({
   system: systemRouter,
@@ -112,6 +113,7 @@ export const appRouter = router({
   cabinet3dPreview: cabinet3dPreviewRouter,
   catalogImport: catalogImportRouter,
   installationEstimates: installationEstimatesRouter,
+  roomLayouts: roomLayoutsRouter,
 });
 
 export type AppRouter = typeof appRouter;

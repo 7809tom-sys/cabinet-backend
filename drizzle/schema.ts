@@ -10,6 +10,7 @@ import {
   boolean,
   json,
   index,
+  foreignKey,
   unique,
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
@@ -381,9 +382,7 @@ export type InsertRoomShapePreset = typeof roomShapePresets.$inferInsert;
 
 export const layoutPresets = mysqlTable("layout_presets", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  roomShapePresetId: varchar("roomShapePresetId", { length: 64 })
-    .notNull()
-    .references(() => roomShapePresets.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  roomShapePresetId: varchar("roomShapePresetId", { length: 64 }).notNull(),
   roomType: varchar("roomType", { length: 32 }).notNull(),
   name: varchar("name", { length: 128 }).notNull(),
   description: text("description"),
@@ -398,15 +397,18 @@ export const layoutPresets = mysqlTable("layout_presets", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   shapeNameUnique: uniqueIndex("layout_presets_room_shape_name_uq").on(t.roomShapePresetId, t.name),
+  shapeFk: foreignKey({
+    name: "lp_shape_fk",
+    columns: [t.roomShapePresetId],
+    foreignColumns: [roomShapePresets.id],
+  }).onDelete("restrict").onUpdate("cascade"),
 }));
 export type LayoutPreset = typeof layoutPresets.$inferSelect;
 export type InsertLayoutPreset = typeof layoutPresets.$inferInsert;
 
 export const layoutPresetZones = mysqlTable("layout_preset_zones", {
   id: int("id").autoincrement().primaryKey(),
-  layoutPresetId: varchar("layoutPresetId", { length: 64 })
-    .notNull()
-    .references(() => layoutPresets.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  layoutPresetId: varchar("layoutPresetId", { length: 64 }).notNull(),
   zoneKey: varchar("zoneKey", { length: 64 }).notNull(),
   label: varchar("label", { length: 128 }).notNull(),
   wallKey: varchar("wallKey", { length: 64 }),
@@ -432,6 +434,11 @@ export const layoutPresetZones = mysqlTable("layout_preset_zones", {
 }, (t) => ({
   layoutZoneKeyUnique: uniqueIndex("layout_preset_zones_layout_key_uq").on(t.layoutPresetId, t.zoneKey),
   layoutSequenceIndex: index("layout_preset_zones_sequence_ix").on(t.layoutPresetId, t.sequence),
+  layoutFk: foreignKey({
+    name: "lpz_layout_fk",
+    columns: [t.layoutPresetId],
+    foreignColumns: [layoutPresets.id],
+  }).onDelete("cascade").onUpdate("cascade"),
 }));
 export type LayoutPresetZone = typeof layoutPresetZones.$inferSelect;
 export type InsertLayoutPresetZone = typeof layoutPresetZones.$inferInsert;
@@ -534,8 +541,7 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   placedCabinets: json("placedCabinets").$type<object[]>(), // [{cabinetId, x, y, rotation, styleId}]
   designSchemaVersion: int("designSchemaVersion").default(1).notNull(),
   layoutSource: varchar("layoutSource", { length: 32 }),
-  layoutPresetId: varchar("layoutPresetId", { length: 64 })
-    .references(() => layoutPresets.id, { onDelete: "set null", onUpdate: "cascade" }),
+  layoutPresetId: varchar("layoutPresetId", { length: 64 }),
   layoutPresetVersion: int("layoutPresetVersion"),
   // Pelican surface & fixture picks (flooring, backsplash, countertop, sink,
   // faucet) chosen in the Surfaces palette tab. Persisted so a reloaded design
@@ -546,21 +552,23 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  layoutPresetFk: foreignKey({
+    name: "kd_layout_fk",
+    columns: [t.layoutPresetId],
+    foreignColumns: [layoutPresets.id],
+  }).onDelete("set null").onUpdate("cascade"),
+}));
 
 // ─── Saved Design Layout Resolution ───────────────────────────────────────────
 // Normalized audit records for the preset that started a design and the exact
 // real distributor SKU that resolved each functional starter-layout zone.
 export const designLayoutInstances = mysqlTable("design_layout_instances", {
   id: int("id").autoincrement().primaryKey(),
-  kitchenDesignId: int("kitchenDesignId")
-    .notNull()
-    .references(() => kitchenDesigns.id, { onDelete: "cascade", onUpdate: "cascade" }),
-  roomShapePresetId: varchar("roomShapePresetId", { length: 64 })
-    .references(() => roomShapePresets.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  kitchenDesignId: int("kitchenDesignId").notNull(),
+  roomShapePresetId: varchar("roomShapePresetId", { length: 64 }),
   roomShapeVersion: int("roomShapeVersion"),
-  layoutPresetId: varchar("layoutPresetId", { length: 64 })
-    .references(() => layoutPresets.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  layoutPresetId: varchar("layoutPresetId", { length: 64 }),
   layoutPresetVersion: int("layoutPresetVersion"),
   source: mysqlEnum("source", ["wizard", "manual", "image_import", "consultant", "bundle"])
     .default("manual").notNull(),
@@ -570,40 +578,55 @@ export const designLayoutInstances = mysqlTable("design_layout_instances", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   designUnique: uniqueIndex("design_layout_instances_design_uq").on(t.kitchenDesignId),
+  // Preserve the accepted name already created by the partial migration.
+  designFk: foreignKey({
+    name: "design_layout_instances_kitchenDesignId_kitchen_designs_id_fk",
+    columns: [t.kitchenDesignId],
+    foreignColumns: [kitchenDesigns.id],
+  }).onDelete("cascade").onUpdate("cascade"),
+  shapeFk: foreignKey({
+    name: "dli_shape_fk",
+    columns: [t.roomShapePresetId],
+    foreignColumns: [roomShapePresets.id],
+  }).onDelete("restrict").onUpdate("cascade"),
+  layoutFk: foreignKey({
+    name: "dli_layout_fk",
+    columns: [t.layoutPresetId],
+    foreignColumns: [layoutPresets.id],
+  }).onDelete("restrict").onUpdate("cascade"),
 }));
 export type DesignLayoutInstance = typeof designLayoutInstances.$inferSelect;
 export type InsertDesignLayoutInstance = typeof designLayoutInstances.$inferInsert;
 
 export const designLayoutZoneSelections = mysqlTable("design_layout_zone_selections", {
   id: int("id").autoincrement().primaryKey(),
-  designLayoutInstanceId: int("designLayoutInstanceId")
-    .notNull()
-    .references(() => designLayoutInstances.id, { onDelete: "cascade", onUpdate: "cascade" }),
-  layoutPresetZoneId: int("layoutPresetZoneId")
-    .references(() => layoutPresetZones.id, { onDelete: "set null", onUpdate: "cascade" }),
+  designLayoutInstanceId: int("designLayoutInstanceId").notNull(),
+  layoutPresetZoneId: int("layoutPresetZoneId"),
   zoneKey: varchar("zoneKey", { length: 64 }).notNull(),
-  cabinetId: int("cabinetId")
-    .references(() => cabinets.id, { onDelete: "restrict", onUpdate: "cascade" }),
-  distributorSkuId: int("distributorSkuId")
-    .references(() => distributorSkus.id, { onDelete: "restrict", onUpdate: "cascade" }),
-  distributorId: int("distributorId")
-    .references(() => distributors.id, { onDelete: "restrict", onUpdate: "cascade" }),
-  styleId: int("styleId")
-    .references(() => doorStyles.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  cabinetId: int("cabinetId"),
+  distributorSkuId: int("distributorSkuId"),
+  distributorId: int("distributorId"),
+  styleId: int("styleId"),
   placedCabinetUid: varchar("placedCabinetUid", { length: 128 }),
   status: mysqlEnum("status", ["matched", "customer_selected", "needs_selection", "unavailable", "replaced", "removed"])
     .default("needs_selection").notNull(),
   matchReason: varchar("matchReason", { length: 128 }),
   matchDetails: json("matchDetails").$type<object>(),
   resolvedAt: timestamp("resolvedAt"),
-  resolvedByUserId: int("resolvedByUserId")
-    .references(() => users.id, { onDelete: "set null", onUpdate: "cascade" }),
+  resolvedByUserId: int("resolvedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   instanceZoneUnique: uniqueIndex("dlzs_instance_zone_uq").on(t.designLayoutInstanceId, t.zoneKey),
   distributorSkuIndex: index("dlzs_distributor_sku_ix").on(t.distributorSkuId),
   statusIndex: index("dlzs_status_ix").on(t.status),
+  instanceFk: foreignKey({ name: "dlzs_instance_fk", columns: [t.designLayoutInstanceId], foreignColumns: [designLayoutInstances.id] }).onDelete("cascade").onUpdate("cascade"),
+  zoneFk: foreignKey({ name: "dlzs_zone_fk", columns: [t.layoutPresetZoneId], foreignColumns: [layoutPresetZones.id] }).onDelete("set null").onUpdate("cascade"),
+  cabinetFk: foreignKey({ name: "dlzs_cab_fk", columns: [t.cabinetId], foreignColumns: [cabinets.id] }).onDelete("restrict").onUpdate("cascade"),
+  skuFk: foreignKey({ name: "dlzs_sku_fk", columns: [t.distributorSkuId], foreignColumns: [distributorSkus.id] }).onDelete("restrict").onUpdate("cascade"),
+  distributorFk: foreignKey({ name: "dlzs_dist_fk", columns: [t.distributorId], foreignColumns: [distributors.id] }).onDelete("restrict").onUpdate("cascade"),
+  styleFk: foreignKey({ name: "dlzs_style_fk", columns: [t.styleId], foreignColumns: [doorStyles.id] }).onDelete("restrict").onUpdate("cascade"),
+  userFk: foreignKey({ name: "dlzs_user_fk", columns: [t.resolvedByUserId], foreignColumns: [users.id] }).onDelete("set null").onUpdate("cascade"),
 }));
 export type DesignLayoutZoneSelection = typeof designLayoutZoneSelections.$inferSelect;
 export type InsertDesignLayoutZoneSelection = typeof designLayoutZoneSelections.$inferInsert;

@@ -107,6 +107,7 @@ import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
+import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -325,6 +326,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const p = new URLSearchParams(window.location.search).get("panel");
     return p === "catalog" || p === "cart" || p === "style" || p === "room" ? p : null;
   });
+  const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -4682,6 +4684,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           />
         </div>
 
+        <Button variant="outline" size="sm" className="hidden lg:inline-flex shrink-0" onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
+          <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
+        </Button>
+
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
           className="lg:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
@@ -8541,11 +8547,50 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   onChange={applyRoom}
                   onApplied={() => setMobilePanel(null)}
                 />
+                <div className="mt-5 border-t pt-4">
+                  <RoomLayoutStarter
+                    selectedStyleId={styleId}
+                    selectedDistributorId={selectedStyleDistributorId}
+                    onApplyRoom={(next) => {
+                      applyRoom(next);
+                      setPolygonEditMode(Boolean(next.vertices?.length));
+                      setDrawMode(false);
+                      setMeasureMode(false);
+                    }}
+                    onLayoutSelected={() => toast.success("Room shape applied. Choose cabinets from your active catalog to continue.")}
+                  />
+                </div>
               </div>
             </div>
           </SheetContent>
         </Sheet>
       )}
+
+      <Dialog open={layoutStarterOpen} onOpenChange={setLayoutStarterOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto p-0">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
+            <DialogDescription>Room shapes and starter layouts are loaded from the Cabinet Dealz catalog setup.</DialogDescription>
+          </DialogHeader>
+          <div className="p-5">
+            <RoomLayoutStarter
+              selectedStyleId={styleId}
+              selectedDistributorId={selectedStyleDistributorId}
+              onApplyRoom={(next) => {
+                if (layoutLocked) return;
+                applyRoom(next);
+                setPolygonEditMode(Boolean(next.vertices?.length));
+                setDrawMode(false);
+                setMeasureMode(false);
+              }}
+              onLayoutSelected={() => {
+                setLayoutStarterOpen(false);
+                toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Rename design dialog (opened from mobile save success toast) */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
