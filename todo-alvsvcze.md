@@ -29,3 +29,5 @@
 - [x] Fix affiliate pricing consistency so storefront, cart, and order review preserve the intended homeowner price plus affiliate markup
 - [x] Add or update pricing tests covering affiliate markup preservation in cart and order flows
 - [x] Verify pricing correction in the browser and save a checkpoint
+- [x] Remove general "Browse by Cabinet Type" section from storefront home; restrict cabinet type filtering to family/style-specific views (White Shaker, Hickory, etc.)
+- [x] Apply the family-first cabinet navigation rule consistently to all affiliate storefronts, not only the main storefront
