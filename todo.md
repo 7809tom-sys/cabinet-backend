@@ -1980,3 +1980,8 @@
 - [x] Add matching Drizzle ORM table definitions and logical relations
 - [x] Add optional kitchen-design layout metadata fields
 - [x] Run focused unit coverage and typecheck without generating or applying a migration
+
+## Seed: Room-layout presets from real catalog SKUs
+- [x] Profile existing active and published catalog coverage for starter-layout zones
+- [x] Write an idempotent seed script that uses real distributor SKU records
+- [x] Validate the script without inserting data
