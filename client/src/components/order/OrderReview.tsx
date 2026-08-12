@@ -700,7 +700,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         <div className="space-y-1.5">
           <Label>{t("or_pricing_tier")}</Label>
           <p className="flex h-10 items-center rounded-md border border-border bg-muted/30 px-3 text-sm font-medium text-foreground">
-            {checkoutContext.pricingTier === "Wholesale" ? t("or_tier_wholesale") : t("or_tier_contractor")}
+            {checkoutContext.pricingTier === "Wholesale"
+              ? t("or_tier_wholesale")
+              : checkoutContext.pricingTier === "Homeowner"
+                ? t("or_tier_homeowner")
+                : t("or_tier_contractor")}
           </p>
           <p className="text-xs text-muted-foreground">Pricing is applied automatically from your account.</p>
         </div>

@@ -14,4 +14,8 @@ describe("checkout presentation", () => {
   it("uses the only remaining valid pricing display for wholesale accounts", () => {
     expect(checkoutPresentation("Aero Black", "Wholesale").pricingTier).toBe("Wholesale");
   });
+
+  it("labels affiliate storefront pricing as Homeowner", () => {
+    expect(checkoutPresentation("Green Haven", "Homeowner").pricingTier).toBe("Homeowner");
+  });
 });

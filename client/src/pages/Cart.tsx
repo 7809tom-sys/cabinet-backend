@@ -17,6 +17,7 @@ import { normalizeZip } from "@shared/availability";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
+import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/affiliateCartPricing";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -24,7 +25,11 @@ export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
 export default function Cart() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
-  const { items, removeItem, setQty, clear, zip, setZip, subtotal, count } = useCart();
+  const { items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug } = useCart();
+  // Affiliate storefront items already contain the marked-up homeowner price
+  // shown to the customer. Do not replace that price with the generic platform
+  // tier price returned by the live refresh query.
+  const isAffiliateCart = Boolean(storefrontSlug);
   const money = (n: number | null): string =>
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
   const [, navigate] = useLocation();
@@ -65,14 +70,19 @@ export default function Cart() {
   // Get the live price for a cart item, falling back to the stored unitPrice.
   const liveUnitPrice = (item: (typeof items)[number]): number | null => {
     const live = livePriceMap.get(`${item.masterCode}:${item.styleId}`);
-    return live ?? item.unitPrice;
+    return resolveAffiliateCartUnitPrice({
+      storedUnitPrice: item.unitPrice,
+      liveUnitPrice: live,
+      tier: item.tier,
+      isAffiliateCart,
+    });
   };
 
   // Compute the live subtotal using live prices.
   const liveSubtotal = useMemo(
     () => items.reduce((s, i) => s + (liveUnitPrice(i) ?? 0) * i.qty, 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items, livePriceMap]
+    [items, livePriceMap, isAffiliateCart]
   );
 
   const normalizedZip = normalizeZip(zipInput);
@@ -210,7 +220,7 @@ export default function Cart() {
             const renderRow = (item: (typeof items)[number], inBundle: boolean) => {
             const a = itemAvailability(item.distributorId);
             const unitPrice = liveUnitPrice(item);
-            const lineTotal = unitPrice != null ? unitPrice * item.qty : null;
+              const lineTotal = calculateCartLineTotal(unitPrice, item.qty);
             return (
               <div
                 key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}`}
@@ -305,7 +315,11 @@ export default function Cart() {
             return groups.map((g) => {
               if (g.kind === "single") return renderRow(g.item, false);
               const groupTotal = g.parts.reduce(
-                (sum, p) => (p.unitPrice != null ? sum + p.unitPrice * p.qty : sum),
+                (sum, p) => {
+                  const unit = liveUnitPrice(p);
+                  const lineTotal = calculateCartLineTotal(unit, p.qty);
+                  return lineTotal != null ? sum + lineTotal : sum;
+                },
                 0
               );
               const first = g.parts[0];

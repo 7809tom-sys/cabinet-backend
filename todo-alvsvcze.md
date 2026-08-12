@@ -26,3 +26,6 @@
 - [x] Auto-generate subdomain names from affiliate business names
 - [x] Add subdomain-based routing (detect subdomain → serve affiliate storefront)
 - [x] Add CRM "needs help closing" flag for affiliates needing assistance
+- [x] Fix affiliate pricing consistency so storefront, cart, and order review preserve the intended homeowner price plus affiliate markup
+- [x] Add or update pricing tests covering affiliate markup preservation in cart and order flows
+- [x] Verify pricing correction in the browser and save a checkpoint
