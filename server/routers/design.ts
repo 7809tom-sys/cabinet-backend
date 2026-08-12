@@ -3,7 +3,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates } from "../../drizzle/schema";
+import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -1292,7 +1292,9 @@ export const designRouter = router({
         )
         .orderBy(kitchenDesigns.createdAt);
 
-      // Look up the white-label style name for any styleId we encounter.
+      // Look up the master style names, then layer the active affiliate's
+      // per-style aliases on top. The override is intentionally scoped to the
+      // selected affiliate project and never changes the central catalog name.
       const styleIds = Array.from(
         new Set(designs.map((d) => d.selectedStyleId).filter((x): x is number => !!x)),
       );
@@ -1303,6 +1305,16 @@ export const designRouter = router({
           .from(doorStyles)
           .where(inArray(doorStyles.id, styleIds));
         for (const s of sRows) styleNameById.set(s.id, s.ourName);
+        if (affiliate) {
+          const aliasRows = await db
+            .select({ styleId: affiliateStyleBranding.styleId, brandName: affiliateStyleBranding.brandName })
+            .from(affiliateStyleBranding)
+            .where(and(eq(affiliateStyleBranding.affiliateId, affiliate.id), inArray(affiliateStyleBranding.styleId, styleIds)));
+          for (const alias of aliasRows) {
+            const name = alias.brandName?.trim();
+            if (name) styleNameById.set(alias.styleId, name);
+          }
+        }
       }
 
       const rooms: {

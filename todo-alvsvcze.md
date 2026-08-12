@@ -41,3 +41,12 @@
 - [x] Add tRPC procedures to list, add, and remove account-backed favorites
 - [x] Merge guest localStorage favorites upon login and sync active favorites to the user account
 - [x] Add a visible last-synced status for account favorites and local-only status for guests
+- [x] Enforce affiliate-isolated door aliases across storefront labels, image metadata, designer labels, cart, checkout, and order records
+- [x] Test a controlled Reeves Way door alias and verify it remains isolated from the main site and other affiliate storefronts
+- [x] Fix the remaining selected-style designer label that exposes a central door name
+- [x] Repeat the alias isolation check using a unique Reeves Way-only test name across main and all active affiliate storefronts
+- [x] Verify the unique affiliate alias in cart, checkout/order review, and submitted order records
+- [x] Add regression coverage for affiliate aliases in downstream commerce summaries
+- [x] Verify submitted-order persistence and CRM event payloads with the unique affiliate alias
+- [x] Add an order-submission regression test for submitted alias persistence and CRM payload data
+- [x] Add an order-review summary regression test for the affiliate alias display

@@ -42,6 +42,7 @@ import { trpc } from "@/lib/trpc";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
 import { styleDisplayName } from "@/lib/styleDisplayName";
+import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -236,8 +237,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { slug: affiliateSlug ?? "" },
     { enabled: !!affiliateSlug, retry: false },
   );
+  const { data: affiliateStyleBranding } = trpc.storefront.brandingForSlug.useQuery(
+    { slug: affiliateSlug ?? "" },
+    { enabled: !!affiliateSlug, retry: false },
+  );
   const affiliatePrimary = affiliateBrand?.primaryColor || "#1a2b4a";
   const affiliateAccent = affiliateBrand?.accentColor || "#c9a227";
+  const affiliateStyleName = useCallback(
+    (style: { id: number; ourName?: string | null; aliasName?: string | null; styleCode?: string | null } | null | undefined) => {
+      return resolveAffiliateStyleName(style, affiliateStyleBranding?.styleNames);
+    },
+    [affiliateStyleBranding?.styleNames],
+  );
   useWhiteLabelHead({
     storeName: affiliateBrand?.storeName,
     tagline: affiliateBrand?.tagline,
@@ -662,11 +673,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // supply lines that happen to share a style name (e.g. both have "Air White")
     // each keep their own entry instead of one silently shadowing the other.
     for (const s of scoped) {
-      const key = `${s.distributorId ?? "_"}::${(styleDisplayName(s) || String(s.id)).toLowerCase()}`;
+      const key = `${s.distributorId ?? "_"}::${(affiliateStyleName(s) || String(s.id)).toLowerCase()}`;
       if (!map.has(key)) map.set(key, s);
     }
-    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
-  }, [doorStyles, lockedDistributorId]);
+    return Array.from(map.values()).sort((a, b) => affiliateStyleName(a).localeCompare(affiliateStyleName(b)));
+  }, [affiliateStyleName, doorStyles, lockedDistributorId]);
 
   // Color 2 (slot B) must come from the same distributor as Color 1 (slot A).
   // Build a filtered list scoped to that distributor so the picker only shows
@@ -680,11 +691,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Filter to same distributor, then de-duplicate by name (same as uniqueDoorStyles).
     const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
     for (const s of source.filter((s) => s.distributorId === distA)) {
-      const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
+      const key = (affiliateStyleName(s) || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
     }
-    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
-  }, [doorStyles, styleA, uniqueDoorStyles]);
+    return Array.from(map.values()).sort((a, b) => affiliateStyleName(a).localeCompare(affiliateStyleName(b)));
+  }, [affiliateStyleName, doorStyles, styleA, uniqueDoorStyles]);
+  // ColorSlotButton owns several thumbnail image labels internally. Feed it a
+  // display-only copy of each style with the scoped affiliate alias substituted
+  // into aliasName, while retaining raw doorStyles for pricing and finish logic.
+  const displayDoorStyles = useMemo(
+    () => (doorStyles ?? []).map((style) => ({ ...style, aliasName: affiliateStyleName(style) })),
+    [affiliateStyleName, doorStyles],
+  );
+  const displayUniqueDoorStyles = useMemo(
+    () => uniqueDoorStyles.map((style) => ({ ...style, aliasName: affiliateStyleName(style) })),
+    [affiliateStyleName, uniqueDoorStyles],
+  );
+  const displaySlotBStyles = useMemo(
+    () => slotBStyles.map((style) => ({ ...style, aliasName: affiliateStyleName(style) })),
+    [affiliateStyleName, slotBStyles],
+  );
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
       {
@@ -1230,8 +1256,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // instantly re-skins the placed cabinets on the canvas + elevation.
   const activeStyleName = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { ourName?: string | null; aliasName?: string | null } | undefined;
-    return s ? (styleDisplayName(s) || null) : null;
-  }, [doorStyles, styleId]);
+    return s ? (affiliateStyleName({ ...s, id: styleId ?? 0 }) || null) : null;
+  }, [affiliateStyleName, doorStyles, styleId]);
   const activeFinish = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as
       | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
@@ -1316,10 +1342,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const m = new Map<number, string>();
     doorStyles?.forEach((d) => {
       const s = d as { id: number; ourName?: string | null; aliasName?: string | null };
-      m.set(s.id, styleDisplayName(s) || s.ourName || `Style #${s.id}`);
+      m.set(s.id, affiliateStyleName(s));
     });
     return m;
-  }, [doorStyles]);
+  }, [affiliateStyleName, doorStyles]);
 
   // Itemized lines for the exported build sheet (cabinets aggregated by code).
   const buildRows = useMemo<BuildSheetRow[]>(() => {
@@ -3173,8 +3199,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Second finish
     let secondFinish: string | undefined;
     if (styleB != null && styleB !== styleA) {
-      const s2 = doorStyles?.find((d) => d.id === styleB) as { ourName?: string | null; aliasName?: string | null } | undefined;
-      if (s2) secondFinish = styleDisplayName(s2) || s2.ourName || undefined;
+      const s2 = doorStyles?.find((s) => s.id === styleB);
+      if (s2) secondFinish = affiliateStyleName(s2) || undefined;
     }
     return {
       roomWidthFt: Math.round((room.width / 12) * 10) / 10,
@@ -5784,7 +5810,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <SelectContent>
                         <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                                    <SelectItem key={s.id} value={String(s.id)}>{affiliateStyleName(s)}</SelectItem>
                         ))}                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
@@ -6122,7 +6148,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <SelectContent>
                         <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                                    <SelectItem key={s.id} value={String(s.id)}>{affiliateStyleName(s)}</SelectItem>
                         ))}                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
@@ -7128,7 +7154,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {/* Compact door style badge — replaces the large hero image to save vertical space */}
             {activeStyle ? (
               <>
-                <DoorStyleSwatch style={activeStyle} className="h-10 w-10 rounded border border-border shrink-0 object-contain" />
+                <DoorStyleSwatch
+                  style={{ ...activeStyle, aliasName: activeStyleName }}
+                  className="h-10 w-10 rounded border border-border shrink-0 object-contain"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("dt_bs_door_sample")}</div>
                   <div className="truncate text-xs font-bold">{activeStyleName}</div>
@@ -7218,8 +7247,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 label={t("dt_bs_color_1")}
                 slot="A"
                 active={activeSlot === "A"}
-                style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
-                styles={uniqueDoorStyles}
+                style={styleA != null ? (displayDoorStyles.find((d) => d.id === styleA) ?? null) : null}
+                styles={displayUniqueDoorStyles}
                 distributors={distributorLabels ?? []}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
@@ -7235,8 +7264,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 label={t("dt_bs_color_2")}
                 slot="B"
                 active={activeSlot === "B"}
-                style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
-                styles={slotBStyles}
+                style={styleB != null ? (displayDoorStyles.find((d) => d.id === styleB) ?? null) : null}
+                styles={displaySlotBStyles}
                 distributors={distributorLabels ?? []}
                 disabled={cabinetsLocked || styleA == null}
                 disabledReason={cabinetsLocked ? "Cabinets are locked — unlock to change door style" : "Set Color 1 first before choosing Color 2"}
@@ -8044,8 +8073,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   label={t("dt_bs_color_1")}
                   slot="A"
                   active={activeSlot === "A"}
-                  style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
-                  styles={uniqueDoorStyles}
+                  style={styleA != null ? (displayDoorStyles.find((d) => d.id === styleA) ?? null) : null}
+                  styles={displayUniqueDoorStyles}
                   distributors={distributorLabels ?? []}
                   onSelect={() => {
                     if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
@@ -8061,8 +8090,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   label={t("dt_bs_color_2")}
                   slot="B"
                   active={activeSlot === "B"}
-                  style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
-                  styles={slotBStyles}
+                  style={styleB != null ? (displayDoorStyles.find((d) => d.id === styleB) ?? null) : null}
+                  styles={displaySlotBStyles}
                   distributors={distributorLabels ?? []}
                   disabled={cabinetsLocked || styleA == null}
                   disabledReason={cabinetsLocked ? "Cabinets are locked — unlock to change door style" : "Set Color 1 first before choosing Color 2"}

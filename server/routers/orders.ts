@@ -37,6 +37,7 @@ import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
 import { resolveMarkupBps } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
+import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 
 // Map the order tierEnum to the shared PricingTier.
@@ -735,10 +736,46 @@ export const ordersRouter = router({
         }
       }
 
+      // Resolve each stored display name from the affiliate's own branding
+      // records. This protects white-label order records from stale or direct
+      // requests carrying a central catalog name.
+      const affiliateStyleAliases = new Map<number, string>();
+      if (affiliateId) {
+        const styleIds = Array.from(
+          new Set(
+            [input.styleId, ...normalizedLines.map((line) => line.styleId)]
+              .filter((styleId): styleId is number => typeof styleId === "number")
+          )
+        );
+        if (styleIds.length > 0) {
+          const aliases = await db
+            .select({ styleId: affiliateStyleBranding.styleId, brandName: affiliateStyleBranding.brandName })
+            .from(affiliateStyleBranding)
+            .where(
+              and(
+                eq(affiliateStyleBranding.affiliateId, affiliateId),
+                inArray(affiliateStyleBranding.styleId, styleIds)
+              )
+            );
+          for (const alias of aliases) {
+            const name = alias.brandName?.trim();
+            if (name) affiliateStyleAliases.set(alias.styleId, name);
+          }
+        }
+      }
+      const orderAliasPersistence = buildAffiliateOrderPersistence({
+        styleId: input.styleId,
+        submittedStyleName: input.styleName,
+        lines: normalizedLines,
+        aliases: affiliateStyleAliases,
+      });
+      const resolvedOrderStyleName = orderAliasPersistence.styleName;
+      const resolvedLines = orderAliasPersistence.lineItems;
+
       if (input.submit && affiliateId) {
         const targetStyleIds = new Set<number>();
         if (input.styleId) targetStyleIds.add(input.styleId);
-        for (const l of normalizedLines) {
+        for (const l of resolvedLines) {
           if (l.styleId) targetStyleIds.add(l.styleId);
         }
         if (targetStyleIds.size > 0) {
@@ -772,9 +809,9 @@ export const ordersRouter = router({
         source: input.source,
         status: input.submit ? "submitted" : "draft",
         styleId: input.styleId ?? null,
-        styleName: input.styleName ?? null,
+        styleName: resolvedOrderStyleName,
         tier: resolvedTier,
-        lineItems: normalizedLines,
+        lineItems: resolvedLines,
         itemCount,
         totalAmount: total > 0 ? total.toFixed(2) : null,
         notes: input.notes ?? null,
@@ -806,7 +843,7 @@ export const ordersRouter = router({
             requestNumber,
             source: input.source,
             tier: input.tier,
-            styleName: input.styleName ?? null,
+            styleName: orderAliasPersistence.crmData.styleName,
             itemCount,
             totalAmount: total > 0 ? Number(total.toFixed(2)) : null,
             deliveryMethod: input.deliveryMethod ?? "ship",

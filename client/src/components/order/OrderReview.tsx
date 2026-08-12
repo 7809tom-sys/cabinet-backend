@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode, readAffiliateSlug, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
@@ -28,6 +28,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
 import { checkoutPresentation } from "@/lib/checkoutPresentation";
+import { resolveCheckoutAlias } from "@/lib/affiliateCheckoutAlias";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 
 // A single working line in the review table. Derived from the matcher output
@@ -342,9 +343,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     { enabled: !!affiliateSlug, retry: false }
   );
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
-  const brandedStyleName = selectedStyle
-    ? ((storeBranding?.styleNames as Record<number, string>)?.[selectedStyle.styleId] || selectedStyle.name)
-    : null;
+  const brandedStyleName = resolveCheckoutAlias(
+    selectedStyle,
+    storeBranding?.styleNames as Record<number, string> | undefined,
+  );
   const checkoutContext = checkoutPresentation(brandedStyleName, tier);
 
   // ─── Checkout recommendations (style-scoped accessories) ──────────────────
