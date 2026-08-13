@@ -18,7 +18,7 @@ describe("BEC-24 Ashford designer availability", () => {
           masterCode: "BEC-24",
           description: '24" Base End Angle Cabinet',
           isCornerCabinet: false,
-          cornerType: "triangle",
+          cornerType: null,
           placement: "base",
         }),
       ]),

@@ -108,3 +108,5 @@
 - [x] Add category, custom rule, and drawing configuration controls directly to the designer Edit Config workspace
 - [x] Persist designer Edit Config updates to the master cabinet configuration and refresh the selected drawing
 - [x] Add a prominent Designer Drawing Rule section to the main Cabinet Config form with profile and generic-image controls
+- [x] Inspect and record BEC-24's live Cabinet Config fields for category, drawing rule, corner type, and designer visibility
+- [x] Clear BEC-24's obsolete triangle corner type while retaining its Base End Angle category and end-cap product type
