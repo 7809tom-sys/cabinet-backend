@@ -30,8 +30,10 @@ import {
   blindPullRange,
 } from "@/lib/design";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
+import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
+import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
 
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
@@ -127,6 +129,13 @@ export interface CabinetAttributesDialogProps {
   // Category / subCategory override — lets the user re-classify a cabinet
   // (e.g. change Base → Vanity, or update the subCategory label).
   onSetCategory: (uid: string, category: string, subCategory: string | null) => void;
+  // Per-design drawing-profile override for non-standard and end cabinets.
+  onSetCustomProfile: (uid: string, profile: string | null) => void;
+  // Owner-only link to the persistent Cabinet Config record for this SKU.
+  masterConfigHref?: string;
+  // Persists the selected design's category and drawing rule to its master SKU.
+  onSaveMasterConfig?: (cabinet: PlacedCabinet) => void;
+  savingMasterConfig?: boolean;
   // Oven type: single or double — only shown for oven-tall cabinets
   onSetOvenType: (uid: string, ovenType: "single" | "double") => void;
 }
@@ -156,6 +165,10 @@ export function CabinetAttributesDialog({
   onSetBlindPull,
   onSetWaterfall,
   onSetCategory,
+  onSetCustomProfile,
+  masterConfigHref,
+  onSaveMasterConfig,
+  savingMasterConfig,
   onSetOvenType,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
@@ -180,7 +193,7 @@ export function CabinetAttributesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className={CABINET_ATTRIBUTES_DIALOG_CLASS}>
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>
@@ -332,6 +345,56 @@ export function CabinetAttributesDialog({
                 </Select>
               </div>
             </div>
+          </section>
+
+          {/* Custom drawing rule */}
+          <section className="space-y-3 border-t border-border pt-4">
+            <div>
+              <h4 className="text-sm font-semibold">Drawing Rule</h4>
+              <p className="text-[11px] text-muted-foreground">
+                Choose how this cabinet draws in plan and elevation. End cabinets remain independent from corner-cabinet rules.
+              </p>
+            </div>
+            <Select
+              value={cabinet.customProfile ?? "standard"}
+              onValueChange={(value) => onSetCustomProfile(uid, value === "standard" ? null : value)}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Standard cabinet" />
+              </SelectTrigger>
+              <SelectContent>
+                {CUSTOM_CABINET_PROFILES.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>{profile.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {cabinet.customProfile && cabinet.customProfile !== "standard" && !cabinet.genericDrawingUrl && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                This profile has no generic drawing image yet. It will use its vector fallback until one is saved in Cabinet Config.
+              </p>
+            )}
+            {masterConfigHref && (
+              <a
+                href={masterConfigHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex text-[11px] font-medium text-amber-700 hover:underline dark:text-amber-400"
+              >
+                Open Master Cabinet Config to save this rule and generic image ↗
+              </a>
+            )}
+            {onSaveMasterConfig && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={savingMasterConfig}
+                onClick={() => onSaveMasterConfig(cabinet)}
+              >
+                {savingMasterConfig ? "Saving master configuration…" : "Save category and drawing rule to this cabinet SKU"}
+              </Button>
+            )}
           </section>
 
           {/* Door */}

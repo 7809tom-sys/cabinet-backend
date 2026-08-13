@@ -1070,10 +1070,12 @@ export function PlanCanvas({
             const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
-            const isCorner = isCornerCabinet(p.masterCode, p.description);
+            const configuredCorner = p.cornerType ?? null;
+            const isCorner = configuredCorner !== null || isCornerCabinet(p.masterCode, p.description);
             const isTriangle = isTriangleCorner(p.masterCode, p.cornerType);
-            const isDiagonal = !isTriangle && isDiagonalCorner(p.masterCode, p.description);
-            const isBlind = isBlindCorner(p.masterCode, p.description);
+            const isDiagonal = !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(p.masterCode, p.description));
+            const isBlind = configuredCorner === "blind-corner" || isBlindCorner(p.masterCode, p.description);
+            const isConfiguredL = configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape";
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
@@ -1141,7 +1143,7 @@ export function PlanCanvas({
                     ? triangleCornerClipPath(cornerRotationForPlaced(p, room))
                     : isDiagonal
                     ? diagonalCornerClipPath(cornerRotationForPlaced(p, room))
-                    : (isCorner && !isBlind)
+                    : ((isConfiguredL || isCorner) && !isBlind)
                     ? cornerClipPath(cornerRotationForPlaced(p, room), cornerLegRatioForPlaced(p))
                     : undefined,
                 }}

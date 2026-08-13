@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import {
   Upload,
+  Camera,
   ScanLine,
   CheckCircle2,
   AlertTriangle,
@@ -28,6 +29,7 @@ import {
   FileText,
 } from "lucide-react";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
+import { buildPhotoCartItems } from "@/lib/photoToCartItems";
 
 type MatchRow = {
   rawCode: string;
@@ -42,6 +44,7 @@ type MatchRow = {
 };
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
+const MAX_SCAN_EDGE = 2200;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -52,11 +55,45 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+async function prepareScanImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please choose an image file (photo or scan).");
+  }
+  if (file.size <= MAX_BYTES) return readFileAsDataUrl(file);
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("This photo could not be prepared for scanning."));
+      img.src = objectUrl;
+    });
+    const scale = Math.min(1, MAX_SCAN_EDGE / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not prepare the image.");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const prepared = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.86));
+    if (!prepared || prepared.size > MAX_BYTES) {
+      throw new Error("Image is still too large. Crop it to the cabinet list and try again.");
+    }
+    return readFileAsDataUrl(new File([prepared], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, { type: "image/jpeg" }));
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export default function PhotoToCart() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const { addItem, lockedDistributorId, clear } = useCart();
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview] = useState<string | null>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -97,19 +134,17 @@ export default function PhotoToCart() {
 
   async function onPick(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file (photo or scan).");
-      return;
+    try {
+      const url = await prepareScanImage(file);
+      setPreview(url);
+      setDataUrl(url);
+      setFilename(file.name);
+      setRows(null);
+    } catch (error) {
+      toast.error("Photo could not be prepared", {
+        description: error instanceof Error ? error.message : "Choose another photo and try again.",
+      });
     }
-    if (file.size > MAX_BYTES) {
-      toast.error("Image is too large", { description: "Max 8MB. Try a smaller photo." });
-      return;
-    }
-    const url = await readFileAsDataUrl(file);
-    setPreview(url);
-    setDataUrl(url);
-    setFilename(file.name);
-    setRows(null);
   }
 
   function runExtraction() {
@@ -150,6 +185,11 @@ export default function PhotoToCart() {
     // OCR time), so they're never blocked by the distributor lock; however if
     // the cart already holds items from a known supplier we still surface a
     // clear-and-restart option so the user can choose a clean slate.
+    const cartItems = buildPhotoCartItems(matched, selectedStyle, tier);
+    if (cartItems.length === 0) {
+      toast.error("Nothing matched to add yet.");
+      return;
+    }
     if (lockedDistributorId != null) {
       toast.warning(`Your cart already has items`, {
         description: `Clear the cart to start a new order with ${selectedStyle.label}, or keep adding to the current one?`,
@@ -158,18 +198,7 @@ export default function PhotoToCart() {
           onClick: () => {
             clear();
             setTimeout(() => {
-              for (const r of matched) {
-                addItem({
-                  masterCode: r.masterCode!,
-                  name: r.description ?? r.masterCode!,
-                  styleId: selectedStyle.id,
-                  styleLabel: selectedStyle.label,
-                  distributorId: null,
-                  tier,
-                  unitPrice: null,
-                  qty: r.quantity,
-                });
-              }
+              for (const item of cartItems) addItem(item);
               toast.success(`Added ${matched.length} item${matched.length === 1 ? "" : "s"} to cart`, {
                 description: `Door style: ${selectedStyle.label}`,
               });
@@ -180,18 +209,7 @@ export default function PhotoToCart() {
       });
       return;
     }
-    for (const r of matched) {
-      addItem({
-        masterCode: r.masterCode!,
-        name: r.description ?? r.masterCode!,
-        styleId: selectedStyle.id,
-        styleLabel: selectedStyle.label,
-        distributorId: null,
-        tier,
-        unitPrice: null, // priced at quote/review (keeps family-lock + tier handling consistent)
-        qty: r.quantity,
-      });
-    }
+    for (const item of cartItems) addItem(item);
     toast.success(`Added ${matched.length} item${matched.length === 1 ? "" : "s"} to cart`, {
       description: `Door style: ${selectedStyle.label}`,
     });
@@ -246,25 +264,52 @@ export default function PhotoToCart() {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => onPick(e.target.files?.[0])}
+            onChange={(e) => {
+              onPick(e.target.files?.[0]);
+              e.currentTarget.value = "";
+            }}
+          />
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              onPick(e.target.files?.[0]);
+              e.currentTarget.value = "";
+            }}
           />
           {!preview ? (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-border rounded-xl py-12 flex flex-col items-center justify-center gap-3 hover:border-primary/60 hover:bg-muted/40 transition-colors"
-            >
-              <Upload className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Click to choose a photo or scan (JPG/PNG, max 8MB)
-              </span>
-            </button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                className="rounded-xl border-2 border-primary/50 bg-primary/5 px-5 py-10 flex flex-col items-center justify-center gap-3 text-primary hover:border-primary hover:bg-primary/10 transition-colors"
+              >
+                <Camera className="h-9 w-9" />
+                <span className="font-semibold">Take photo / Scan now</span>
+                <span className="text-xs text-muted-foreground">Use your phone camera for a handwritten list</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="rounded-xl border-2 border-dashed border-border px-5 py-10 flex flex-col items-center justify-center gap-3 hover:border-primary/60 hover:bg-muted/40 transition-colors"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="font-semibold">Choose saved photo</span>
+                <span className="text-xs text-muted-foreground">JPG, PNG, or a phone screenshot</span>
+              </button>
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="relative rounded-xl overflow-hidden border bg-muted/30">
                 <img src={preview} alt="Uploaded list" className="max-h-80 w-full object-contain" />
               </div>
               <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => cameraRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-1.5" /> Take another photo
+                </Button>
                 <Button variant="outline" onClick={() => fileRef.current?.click()}>
                   <ImageIcon className="h-4 w-4 mr-1.5" /> Choose another
                 </Button>

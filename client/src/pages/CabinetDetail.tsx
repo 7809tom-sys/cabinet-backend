@@ -30,6 +30,7 @@ import {
 import { CabinetImage } from "@/components/CabinetImage";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import { DrawerLayoutEditor, LayoutSpecBuilder, defaultLayoutSpec } from "@/components/admin/CabinetConfigAdmin";
+import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
@@ -484,6 +485,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editSpecImageUrl, setEditSpecImageUrl] = useState<string>("");
   const [editSpecNotes, setEditSpecNotes] = useState<string>("");
   const [editFacePattern, setEditFacePattern] = useState<string>("__none__");
+  const [editGraphicType, setEditGraphicType] = useState<string>("standard");
   const [editMasterCode, setEditMasterCode] = useState<string>("");
 
   // Pre-fill form when dialog opens
@@ -534,6 +536,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditSpecImageUrl(String(cab.specImageUrl ?? ""));
       setEditSpecNotes(String(cab.specNotes ?? ""));
       setEditFacePattern(String((cab as Record<string, unknown>).facePattern ?? "__none__"));
+      setEditGraphicType(String(cab.graphicType ?? "standard"));
       setEditMasterCode(cabinet.masterCode ?? "");
     }
   }, [editOpen, cabinet]);
@@ -709,6 +712,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       specImageUrl: editSpecImageUrl.trim() || null,
       specNotes: editSpecNotes.trim() || null,
       facePattern: (editFacePattern === "__none__" ? null : editFacePattern) as "slats" | "criss-cross" | "lattice" | "open" | null,
+      graphicType: editGraphicType === "standard" ? null : editGraphicType,
       masterCode: editMasterCode.trim() || undefined,
     });
   }
@@ -1395,6 +1399,60 @@ export default function CabinetDetail({ masterCode }: Props) {
                 </div>
               </div>
 
+              {/* Designer Drawing Rule — intentionally placed beside Category so
+                  administrators can configure a non-standard cabinet without
+                  scrolling through unrelated shipping and pricing fields. */}
+              <div className="space-y-3 rounded-lg border-2 border-primary/30 bg-primary/5 px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <Layers className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <div>
+                    <Label className="text-sm font-semibold">Designer Drawing Rule</Label>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Choose the cabinet drawing profile used in the 2D designer. Use <strong>Base end angle cabinet</strong> for BEC/end cabinets; do not use a corner rule.
+                    </p>
+                  </div>
+                </div>
+                <select
+                  value={editGraphicType}
+                  onChange={(e) => setEditGraphicType(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {CUSTOM_CABINET_PROFILES.map((profile) => (
+                    <option key={profile.id} value={profile.id}>{profile.label}</option>
+                  ))}
+                </select>
+                {editGraphicType !== "standard" && (
+                  <div className="space-y-1.5 border-t border-primary/15 pt-3">
+                    <Label className="text-xs">Generic Drawing / Reference Image</Label>
+                    <MediaPicker
+                      value={editSpecImageUrl}
+                      onChange={(url) => setEditSpecImageUrl(url)}
+                      placeholder="Upload or select the cabinet drawing image"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      The designer uses this image first. When no image is saved, it uses the selected rule's vector fallback.
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-1.5 border-t border-primary/15 pt-3">
+                  <Label className="text-xs">Corner Type</Label>
+                  <Select value={editCornerType} onValueChange={setEditCornerType}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Standard or end cabinet (not a corner)</SelectItem>
+                      <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
+                      <SelectItem value="blind-corner">Rectangular Blind Corner (BBC / WBC)</SelectItem>
+                      <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
+                      <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
+                      <SelectItem value="l-shape">L-Shape Corner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    End cabinets such as BEC must remain on “Standard or end cabinet”; this setting drives true-corner plan and elevation rules.
+                  </p>
+                </div>
+              </div>
+
               {/* Active / Inactive toggle */}
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
@@ -1716,23 +1774,6 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <p className="text-[11px] text-muted-foreground">How many doors appear side-by-side per row in the layout diagram.</p>
                 </div>
               )}
-
-              {/* Corner Cabinet Type */}
-              <div className="space-y-1.5">
-                <Label className="text-sm">Corner Cabinet Type</Label>
-                <Select value={editCornerType} onValueChange={setEditCornerType}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— standard (not a corner) —</SelectItem>
-                    <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
-                    <SelectItem value="blind-corner">Blind Corner (BBC / WBC)</SelectItem>
-                    <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
-                    <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
-                    <SelectItem value="l-shape">L-Shape Corner</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>
-              </div>
 
               {/* Config Verified */}
               <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: editConfigVerified ? '#86efac' : undefined, background: editConfigVerified ? '#f0fdf4' : undefined }}>

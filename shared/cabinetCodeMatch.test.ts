@@ -7,6 +7,7 @@ import {
 } from "./cabinetCodeMatch";
 
 const catalog: CatalogEntry[] = [
+  { id: 0, masterCode: "B-12", description: "Base 12", category: "Base" },
   { id: 1, masterCode: "B-24", description: "Base 24", category: "Base" },
   { id: 2, masterCode: "DB-24-3", description: "Drawer Base 24 (3 drawers)", category: "Base" },
   { id: 3, masterCode: "W-3030", description: "Wall 30x30", category: "Wall" },
@@ -81,5 +82,20 @@ describe("matchCabinetCodes", () => {
     expect(s.matched).toBe(2);
     expect(s.unmatched).toBe(1);
     expect(s.units).toBe(4);
+  });
+
+  it("matches the supplied handwritten order format and preserves quantities", () => {
+    const results = matchCabinetCodes(
+      [
+        { code: "B-12", quantity: 3 },
+        { code: "B24", quantity: 4 },
+        { code: "SB36", quantity: 2 },
+        { code: "W2142", quantity: 1 },
+      ],
+      [...catalog, { id: 5, masterCode: "W-2142", description: "Wall 21 x 42", category: "Wall" }],
+    );
+    expect(results.every((row) => row.matched)).toBe(true);
+    expect(results.map((row) => row.quantity)).toEqual([3, 4, 2, 1]);
+    expect(summarizeMatches(results).units).toBe(10);
   });
 });

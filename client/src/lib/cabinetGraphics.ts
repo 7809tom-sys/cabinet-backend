@@ -19,6 +19,7 @@ export type CabinetDrawingType =
   | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
   | "oven-tall" // tall oven cabinet: 2 upper doors + appliance opening + drawers
   | "triangle-corner" // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
+  | "end-angle" // end-of-run cabinet with an angled outer face, not a room corner
   | "face-pattern"; // specialty open-front cabinet with slats / criss-cross / lattice / open pattern
 
 export interface CabinetLike {
@@ -94,39 +95,10 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   const sub = lc(cab.subCategory);
   const w = toNum(cab.width);
 
-  // 0) Admin-set numberOfDoors / numberOfDrawers act as hard overrides.
-  //    When an admin explicitly sets these fields in the product editor, they
-  //    take priority over description parsing so the elevation renderer always
-  //    shows the correct door/drawer count regardless of what the description
-  //    text says.
-  //    Special case: numberOfDoors === 0 is treated as an explicit "no doors"
-  //    override (e.g. wine lattice, tray divider, open shelf wall cabinets).
-  //    Exception: pure drawer-base codes (DB-*, 2DB*) are never given doors
-  //    even if numberOfDoors is set to a positive value by mistake.
-  const isPureDrawerCode =
-    /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")) ||
-    /^\d+db\d/i.test(lc(cab.masterCode ?? ""));
-  if (!isPureDrawerCode) {
-    // Explicit zero-door override (specialty open cabinets set numberOfDoors=0)
-    if (typeof cab.numberOfDoors === "number" && cab.numberOfDoors === 0) {
-      const adminDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers > 0 ? cab.numberOfDrawers : null;
-      return { doors: 0, drawers: adminDrawers ?? 0 };
-    }
-    const adminDoors = typeof cab.numberOfDoors === "number" && cab.numberOfDoors > 0 ? cab.numberOfDoors : null;
-    const adminDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers > 0 ? cab.numberOfDrawers : null;
-    if (adminDoors !== null || adminDrawers !== null) {
-      return {
-        doors: adminDoors ?? 0,
-        drawers: adminDrawers ?? 0,
-      };
-    }
-  }
-
-  // Explicit zero-drawer override: if admin explicitly set numberOfDrawers=0,
-  // never draw drawers regardless of what the description text says.
-  // This prevents description-parsed "drawer" mentions from overriding a
-  // deliberate admin decision that the cabinet has no visible drawer fronts.
-  const adminExplicitNoDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers === 0;
+  // 0) The source description is the primary signal. Numeric fields are often
+  // imported as a generic default (including zero) or arrive stale, so treating
+  // them as hard overrides can make a single-door cabinet draw as two doors.
+  // `noDoor` above remains the deliberate editor override for truly open fronts.
 
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;
@@ -139,9 +111,6 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   if (drawers === 0 && (cab.numberOfDrawers ?? 0) > 0 && /drawer/.test(`${desc} ${sub}`)) {
     drawers = cab.numberOfDrawers ?? 0;
   }
-
-  // If admin explicitly set numberOfDrawers=0, override any description-parsed count.
-  if (adminExplicitNoDrawers) drawers = 0;
 
   // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
   let doors = 0;
@@ -172,7 +141,9 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     return { doors: 0, drawers };
   }
 
-  // 4) Fall back to the numeric field, then to width (>=24" base/wall = 2 doors).
+  // 4) Fall back to positive numeric fields, then to width (>=24" base/wall = 2 doors).
+  // A zero is not a reliable no-door flag because it is the schema default; open
+  // fronts use the explicit `noDoor` signal above.
   if (doors === 0) {
     const n = cab.numberOfDoors ?? 0;
     if (n > 0) doors = n;
@@ -250,18 +221,21 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "corner-drawer-base";
   }
 
+  // Base End Cabinets have an angled outside face but sit at the end of a run.
+  // They must never inherit any room-corner rule, including a supplier's generic
+  // `triangle` setting. BEC is checked before the triangle-corner branch below.
+  if (/^bec[-\d]?/.test(code) || /base angle.*end of run|base end cabinet/.test(hay)) {
+    return "end-angle";
+  }
+
   // Triangle corner cabinets: right-triangle footprint, single door on hypotenuse face (WTC/BTC)
   // Must be detected BEFORE diagonal-corner and l-corner checks.
   if (cab.cornerType === "triangle" || /^(wtc|btc)/.test(code)) {
     return "triangle-corner";
   }
 
-  // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
-  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
-  // BEC = Base End Corner — same diagonal face as DCB, 2 doors on the angled front.
-  // Also catches cornerType="base-end-corner" set via admin for any cabinet.
-  if ((cab as any).cornerType === "base-end-corner") return "diagonal-corner";
-  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag|bec[-\d]?)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
+  // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG).
+  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
     return "diagonal-corner";
   }
 
@@ -443,6 +417,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
+  if (type === "end-angle") return "Base End Angle Cabinet";
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
@@ -516,6 +491,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
     "diagonal-corner": "diagonal corner cabinet with angled front",
+    "end-angle": "base end cabinet with angled outer face",
     "l-corner": "L-shaped corner cabinet",
     "corner-drawer-base": "corner drawer base cabinet",
     vanity: "vanity cabinet",

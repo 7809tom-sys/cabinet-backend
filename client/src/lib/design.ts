@@ -217,6 +217,12 @@ export interface PlacedCabinet {
   // Optional for backward-compat with older saved designs; the canvas falls
   // back to the to-scale code-drawn shape when absent.
   catalogImageUrl?: string | null;
+  // Optional Custom Cabinet Rule profile and generic line drawing. These come
+  // from Cabinet Config and preserve non-standard cabinet rendering in designs.
+  customProfile?: string | null;
+  genericDrawingUrl?: string | null;
+  fixedShelfCount?: number | null;
+  adjustableShelfCount?: number | null;
   // User override for a WALL cabinet's mount height (inches from floor to the
   // BOTTOM of the box). When set, the elevation uses this exactly; when absent,
   // elevationBox derives the bottom from the default rule (stacker stacks on
@@ -724,6 +730,28 @@ export function lCornerBoxSide(placement: Placement): number {
 }
 
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
+  // Cabinet Config may explicitly classify a corner even when a supplier SKU or
+  // description is non-standard. Honor that saved configuration first.
+  if (p.cornerType === "diagonal") {
+    const side = lCornerBoxSide(p.placement);
+    return { w: side, d: side };
+  }
+  if (p.cornerType === "lazy-susan" || p.cornerType === "pie-cut" || p.cornerType === "l-shape") {
+    const side = lCornerBoxSide(p.placement);
+    return { w: side, d: side };
+  }
+  if (p.cornerType === "blind-corner") {
+    const stdDepth = p.placement === "wall" ? 12 : 24;
+    const rot = ((p.rotation % 360) + 360) % 360;
+    return rot === 90 || rot === 270 ? { w: stdDepth, d: p.width } : { w: p.width, d: stdDepth };
+  }
+  // True diagonal corners span a room corner with a clipped square plan box.
+  // Base End Cabinets (BEC) are deliberately excluded by isDiagonalCorner: they
+  // are end-of-run cabinets, not room-corner cabinets.
+  if (isDiagonalCorner(p.masterCode, p.description)) {
+    const side = lCornerBoxSide(p.placement);
+    return { w: side, d: side };
+  }
   if (isLCornerCabinet(p.masterCode, p.description)) {
     const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
@@ -1383,9 +1411,9 @@ export function isDiagonalCorner(masterCode: string, description?: string): bool
   const code = (masterCode || "").toUpperCase();
   // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
   // (AG) all sit across the corner at 45 degrees and share the same footprint.
-  // BEC = Base End Corner (e.g. BEC-24, BEC24): 24"×24" square with 45° angled front face.
-// Same diagonal footprint as DCB — two doors on the angled face spanning the corner.
-if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG|BEC)/.test(code)) return true;
+  // BEC = Base End Cabinet: an end-of-run angle cabinet, never a room-corner
+  // cabinet. It is handled by the independent end-angle drawing profile.
+  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
   return false;

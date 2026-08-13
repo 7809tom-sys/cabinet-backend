@@ -78,6 +78,9 @@ Cabinet codes look like: B24, B-24, DB24-3, W3030, SB36, WDC2436, BLS36, VB30, e
 Rules:
 - Return EVERY distinct cabinet code you can read, with its quantity (default 1 if no quantity is shown).
 - If the same code appears multiple times as separate lines, sum the quantities.
+- Treat a trailing "x 3", "x3", "X 3", or "* 3" as a quantity. For example, "B-12 x 3" means code B-12, quantity 3.
+- Common handwritten codes include B-12, B24, SB36, W2142, and drawer-base codes. Preserve the code exactly as written; the app normalizes dashes afterwards.
+- Ignore crossed-out or struck-through entries.
 - Read codes EXACTLY as written; do not invent, correct, or expand them.
 - Ignore prices, dimensions-only notes, room labels, and anything that is not a cabinet code.
 - If you cannot read any codes, return an empty items array.`;
@@ -245,6 +248,7 @@ export const ocrRouter = router({
       let extracted: ExtractedCode[] = [];
       try {
         const result = await invokeLLM({
+          model: "gemini-3-flash-preview",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             {
@@ -262,7 +266,14 @@ export const ocrRouter = router({
         const raw = result.choices?.[0]?.message?.content;
         const text = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p: any) => (p.type === "text" ? p.text : "")).join("") : "";
         const parsed = JSON.parse(text || "{}") as { items?: ExtractedCode[] };
-        extracted = Array.isArray(parsed.items) ? parsed.items : [];
+        extracted = Array.isArray(parsed.items)
+          ? parsed.items
+              .map((item) => ({
+                code: String(item.code || "").trim(),
+                quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)),
+              }))
+              .filter((item) => item.code.length > 0)
+          : [];
       } catch (err) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

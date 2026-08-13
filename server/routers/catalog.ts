@@ -1706,6 +1706,8 @@ export const cabinetsRouter = router({
         layoutSpec: z.string().nullable().optional(),
         // Generic line-drawing image from spec book
         specImageUrl: z.string().nullable().optional(),
+        // Configured Custom Cabinet Rule profile. "standard" keeps automatic geometry.
+        graphicType: z.string().max(64).nullable().optional(),
         // Spec notes from spec book
         specNotes: z.string().nullable().optional(),
         // Face pattern for specialty open-front cabinets
@@ -1805,6 +1807,7 @@ export const cabinetsRouter = router({
       if (input.isDecorativeDoor !== undefined) patch.isDecorativeDoor = input.isDecorativeDoor;
       if (input.layoutSpec !== undefined) patch.layoutSpec = input.layoutSpec;
       if (input.specImageUrl !== undefined) patch.specImageUrl = input.specImageUrl;
+      if (input.graphicType !== undefined) patch.graphicType = input.graphicType;
       if (input.specNotes !== undefined) patch.specNotes = input.specNotes;
       if (input.facePattern !== undefined) patch.facePattern = input.facePattern;
       if (input.glassDoorAddonCode !== undefined) patch.glassDoorAddonCode = input.glassDoorAddonCode;

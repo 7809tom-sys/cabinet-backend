@@ -71,6 +71,23 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("diagonal-corner");
   });
 
+  it("classifies a Base End Cabinet as end-angle, never as a diagonal corner", () => {
+    const cab: CabinetLike = {
+      masterCode: "BEC-24",
+      description: '24" Base Angle Cabinet (End of Run)',
+      category: "Base",
+      subCategory: "Standard Base",
+      width: "24",
+      numberOfDoors: 2,
+      isCornerCabinet: false,
+      cornerType: "triangle",
+    };
+    expect(cabinetDrawingType(cab)).toBe("end-angle");
+    expect(cabinetTypeLabel(cab)).toBe("Base End Angle Cabinet");
+    expect(cabinetAltText(cab)).toContain("base end cabinet with angled outer face");
+    expect(baseSubGroup(cab)).toBe("specialty");
+  });
+
   it("classifies an appliance garage before generic wall logic", () => {
     const cab: CabinetLike = {
       masterCode: "AG-24",

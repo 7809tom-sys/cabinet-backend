@@ -475,7 +475,7 @@ describe("finishColors", () => {
   });
   it("derives the finish from the paint color even when the brand name is abstract", () => {
     // "Aero Obsidian" brand word isn't a color, but its paint color is black.
-    expect(finishColors("Aero Obsidian", "SW 6258 Tricorn Black").face.toLowerCase()).toBe("#2b2b2e");
+    expect(finishColors("Aero Obsidian", "SW 6258 Tricorn Black").face.toLowerCase()).toBe("#2f2f2f");
   });
   it("returns a deterministic, non-default color for unmatched names", () => {
     const a = finishColors("Zorptacular");

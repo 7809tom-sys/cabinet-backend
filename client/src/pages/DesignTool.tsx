@@ -43,6 +43,7 @@ import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
+import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -273,6 +274,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [verifiedName, setVerifiedName] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
   const captureLead = trpc.design.captureLead.useMutation();
+  const trpcUtils = trpc.useUtils();
+  const saveMasterCabinetConfig = trpc.cabinets.adminUpdateCabinet.useMutation({
+    onSuccess: () => {
+      void trpcUtils.design.placeableCabinets.invalidate();
+      toast.success("Master cabinet configuration saved; this drawing and the cabinet catalog are refreshed.");
+    },
+    onError: (error) => toast.error(error.message || "Could not save the master cabinet configuration."),
+  });
   const handleVerified = useCallback((contact: LeadContact) => {
     setVerifiedEmail(contact.email);
     setVerifiedName(contact.name ?? "");
@@ -1610,19 +1619,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     return m;
   }, [doorStyles]);
-  // Per-style frame inset map: stileWidth (inches) → px at ~5.5px/in, clamped 2–12px.
-  // Used by ElevationView to draw the correct frame reveal for each door style.
+  // Per-style frame inset map: uses the authored stile width from the Door Style
+  // information page. Zenith Sage's documented 3-inch stile becomes a 12px
+  // elevation reveal so its recessed panels match the real cabinet profile.
   const frameInsetById = useMemo(() => {
     const m = new Map<number, number>();
     doorStyles?.forEach((d) => {
       const s = d as { id: number; stileWidth?: string | number | null };
-      if (s.stileWidth != null) {
-        const inches = parseFloat(String(s.stileWidth));
-        if (!isNaN(inches) && inches > 0) {
-          // Scale: 0.5" slim → ~3px, 0.75" shaker → ~5px, 1.5" traditional → ~8px
-          m.set(s.id, Math.min(12, Math.max(2, Math.round(inches * 5.5))));
-        }
-      }
+      const inset = frameInsetPxFromInches(s.stileWidth);
+      if (inset != null) m.set(s.id, inset);
     });
     return m;
   }, [doorStyles]);
@@ -2246,6 +2251,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         numberOfDoors: c.numberOfDoors,
         numberOfDrawers: c.numberOfDrawers,
         catalogImageUrl: c.catalogImageUrl ?? null,
+        customProfile: (c as any).graphicType ?? null,
+        genericDrawingUrl: (c as any).specImageUrl ?? null,
+        fixedShelfCount: (c as any).numberOfFixedShelves ?? null,
+        adjustableShelfCount: (c as any).numberOfAdjShelves ?? null,
         pullMin: c.pullMin ?? null,
         pullMax: c.pullMax ?? null,
         openingType: (c as any).openingType ?? null,
@@ -8285,6 +8294,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}
+        onSetCustomProfile={(uid, customProfile) => setCabAttr(uid, { customProfile })}
+        masterConfigHref={isAdmin ? `/catalog/${encodeURIComponent((attrUid ? placed.find((p) => p.uid === attrUid) : null)?.masterCode ?? "")}?edit=1` : undefined}
+        onSaveMasterConfig={isAdmin ? (cabinet) => {
+          if (!cabinet.cabinetId || !cabinet.category) return;
+          saveMasterCabinetConfig.mutate({
+            id: cabinet.cabinetId,
+            category: cabinet.category,
+            subCategory: cabinet.subCategory ?? null,
+            graphicType: cabinet.customProfile ?? "standard",
+            specImageUrl: cabinet.genericDrawingUrl ?? null,
+          });
+        } : undefined}
+        savingMasterConfig={saveMasterCabinetConfig.isPending}
         onSetOvenType={(uid, ovenType) => setCabAttr(uid, { ovenType })}
       />
 
