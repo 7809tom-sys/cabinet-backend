@@ -8,7 +8,7 @@ import { appRouter } from "./routers";
 import { priceLadder } from "../shared/pricing";
 
 describe("affiliate owner private pricing", () => {
-  it("authorizes the existing matching Reeves Way owner only on the Reeves Way storefront", async () => {
+  it("uses the exact affiliate catalog-card record and authorizes its private cost only for the matching owner", async () => {
     const db = await getDb();
     expect(db).toBeTruthy();
 
@@ -38,9 +38,18 @@ describe("affiliate owner private pricing", () => {
       access,
     })).toBe(true);
 
+    const publicCaller = appRouter.createCaller({} as any);
+    const family = await publicCaller.doorStyles.familyCatalog({ styleId: 330005 });
+    const catalogCard = family.items.find((item) => item.cabinetId === 9390110);
+    expect(catalogCard).toEqual(expect.objectContaining({
+      id: 9390110,
+      cabinetId: 9390110,
+      masterCode: "W-1230",
+    }));
+
     const caller = appRouter.createCaller({ user: owner } as any);
     const exactRecordStyles = await caller.pricing.stylesForCabinet({
-      cabinetId: 9390110,
+      cabinetId: catalogCard!.cabinetId,
       affiliateSlug: affiliate!.slug,
     });
     const ownerStyle = exactRecordStyles.find((style) => style.affiliateCost != null);
@@ -61,6 +70,15 @@ describe("affiliate owner private pricing", () => {
     expect(ownerStyle!.affiliateCost).toBe(expectedAffiliateCost);
     expect(ownerStyle!.affiliateCost).not.toBe(rawPriceRow!.yourCost);
     expect(ownerStyle!.yourCost).toBeNull();
+
+    const customerStyles = await publicCaller.pricing.stylesForCabinet({
+      cabinetId: catalogCard!.cabinetId,
+      affiliateSlug: affiliate!.slug,
+    });
+    const customerStyle = customerStyles.find((style) => style.platformSku === ownerStyle!.platformSku);
+    expect(customerStyle).toBeTruthy();
+    expect(customerStyle!.yourCost).toBeNull();
+    expect(customerStyle!.affiliateCost).toBeNull();
 
     const [admin] = await db!
       .select({ id: users.id, email: users.email, role: users.role })

@@ -145,7 +145,7 @@
 - [x] Add duplicate-SKU affiliate detail-route regressions
 - [x] Add an affiliate storefront-to-detail regression for duplicate normalized SKU records
 - [ ] Verify the exact duplicate-SKU detail route shows My Cost, Sells At, and Margin for an authenticated affiliate owner
-- [ ] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
+- [x] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
 - [x] Add CabinetDetail UI regressions for Administration My Cost and affiliate-owner Affiliate Cost, Sells At, and Margin rendering
 - [ ] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
