@@ -162,3 +162,5 @@
 - [x] Prevent catalog thumbnail/generic drawing images from rendering as floating images in live BA-24/BEC elevations
 - [x] Render BA-24/BEC elevation geometry with the active realistic selected door sample instead of a catalog thumbnail
 - [ ] Verify the corrected BA-24/BEC elevation against the supplied mobile screenshot
+- [x] Route BA-24 through the 24-by-24 two-face end-return elevation geometry rather than a standard base face
+- [ ] Verify BA-24 and BEC both show two textured 12-inch return faces in live elevation

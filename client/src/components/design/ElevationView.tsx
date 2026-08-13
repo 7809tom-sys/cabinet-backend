@@ -120,8 +120,15 @@ export function resolveElevationFacePresentation(
   genericDrawingUrl?: string | null,
   isAppliance = false,
 ) {
-  const cabinetType = isAppliance ? null : cabinetDrawingType(cabinet);
   const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
+  // The source BA-24 may still carry an `end-angle` drawing type while BEC
+  // carries `end-return`. Both are the same 24-by-24 two-face return in an
+  // elevation, so normalize them before DoorFront selects its geometry.
+  const cabinetType = isAppliance
+    ? null
+    : isEndAngle
+      ? "end-return"
+      : cabinetDrawingType(cabinet);
   // BA/BEC end returns have a meaningful measured 2D face, so their catalog
   // line drawings remain reference images only. They must not replace the live
   // textured elevation with a floating white thumbnail.

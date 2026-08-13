@@ -30,6 +30,19 @@ describe("end-angle elevation face", () => {
     ).toBe(false);
   });
 
+  it("normalizes BA-24's end-angle source type to the two-face end-return elevation geometry", () => {
+    const ba24 = {
+      masterCode: "BA-24",
+      description: '24" Base End Angle Cabinet',
+      category: "Base",
+      graphicType: "end-angle",
+      width: 24,
+      height: 34.5,
+    };
+
+    expect(resolveElevationFacePresentation(ba24, "end-angle", null).cabinetType).toBe("end-return");
+  });
+
   it("renders BEC-24 as two distinct 12-inch faces at a 90-degree end return", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {
