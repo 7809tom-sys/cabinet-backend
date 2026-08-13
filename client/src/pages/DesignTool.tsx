@@ -44,6 +44,7 @@ import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
+import { buildDesignCabinetCartLines } from "@/lib/designCartLines";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -1150,7 +1151,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [placed, styleId]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
-    { pairs: pricePairs },
+    { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: pricePairs.length > 0 && !!styleId }
   );
 
@@ -1511,31 +1512,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // the design's locked distributor, so there is never a cross-distributor mix.
   const cabinetCartLines = useMemo(() => {
     if (!styleId) return [] as CartItem[];
-    const map = new Map<string, CartItem>();
-    for (const p of placed) {
-      if (isClosetPart(p.masterCode)) continue; // closet parts use a separate flow
-      if (p.cabinetId == null) continue; // appliances / non-catalog items
-      const unit = unitPriceFor(p);
-      if (unit == null) continue; // skip unpriced rows (no SKU for this style)
-      const sid = effectiveStyleId(p, styleId) ?? styleId;
-      const styleLabel = styleNameById.get(sid) ?? "";
-      const bomCode = p.glassDoor ? p.masterCode + "GD" : p.masterCode;
-      const key = `${bomCode}::${sid}`;
-      const existing = map.get(key);
-      if (existing) existing.qty += 1;
-      else
-        map.set(key, {
-          masterCode: bomCode,
-          name: p.description ?? p.masterCode,
-          styleId: sid,
-          styleLabel,
-          distributorId: lockedDistributorId ?? null,
-          tier: DESIGN_TIER_TO_SHARED[tier],
-          unitPrice: unit,
-          qty: 1,
-          catalogImageUrl: p.catalogImageUrl ?? null,
-        });
-    }
+    const map = new Map(
+      buildDesignCabinetCartLines({
+        placed,
+        styleId,
+        distributorId: lockedDistributorId ?? null,
+        tier: DESIGN_TIER_TO_SHARED[tier],
+        styleNameById,
+        unitPriceFor,
+      }).map((line) => [`${line.masterCode}::${line.styleId}`, line]),
+    );
     // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own
     // RS-* line items, priced + locked to the SAME distributor line as the design.
     for (const line of rolloutLines) {

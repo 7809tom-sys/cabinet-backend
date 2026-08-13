@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { canAddToCart } from "@shared/familyLock";
+import { calculateCartSubtotal } from "@/lib/cartTotals";
 
 export type CartItem = {
   masterCode: string;
@@ -210,7 +211,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const setStorefrontSlug = (s: string | null) => setStorefrontSlugState(s);
 
     const count = items.reduce((n, i) => n + i.qty, 0);
-    const subtotal = items.reduce((s, i) => s + (i.unitPrice ?? 0) * i.qty, 0);
+    const subtotal = calculateCartSubtotal(items);
 
     return {
       items,

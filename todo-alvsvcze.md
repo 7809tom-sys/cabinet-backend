@@ -77,6 +77,9 @@
 - [x] Fix BEC-24 plan view so it renders as a base end-angle cabinet without a corner-wedge footprint
 - [x] Fix BEC-24 elevation so its angled end is not rendered as a diagonal-corner or clipped roof face
 - [ ] Verify corrected BEC-24 plan and elevation geometry against the supplied mobile screenshots
+- [x] Correct BEC-24 price to match the verified BA-24 Ashford source across designer and cart queries
+- [x] Add BEC-24 designer-to-cart regression coverage for source price, cart line, and total
+- [x] Route the cart subtotal through a shared testable helper and verify BEC-24's persisted cart total
 - [x] Add a renderer-level generic-image assertion that preserves elevation dimensions and end-angle clipping
 - [x] Add a tall open-shelf with side-hinged door Custom Cabinet Rule profile based on the supplied reference
 - [x] Add a curved open-shelf base/end Custom Cabinet Rule profile based on the supplied reference
