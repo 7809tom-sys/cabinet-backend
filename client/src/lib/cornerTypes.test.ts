@@ -57,4 +57,22 @@ describe("configured corner cabinet types", () => {
     expect(isBlindCorner(bec.masterCode, bec.description)).toBe(false);
     expect(placedFootprint(bec)).toEqual({ w: 24, d: 24 });
   });
+
+  it("uses Cabinet Config diagonal, lazy-Susan, and rectangular blind-corner settings in plan geometry", () => {
+    const configured = {
+      uid: "configured-corner",
+      masterCode: "CUSTOM-36",
+      description: '36" Configured Base Cabinet',
+      width: 36,
+      depth: 24,
+      x: 0,
+      y: 0,
+      rotation: 0,
+      placement: "base",
+    } as PlacedCabinet;
+
+    expect(placedFootprint({ ...configured, cornerType: "diagonal" })).toEqual({ w: 36, d: 36 });
+    expect(placedFootprint({ ...configured, cornerType: "lazy-susan" })).toEqual({ w: 36, d: 36 });
+    expect(placedFootprint({ ...configured, cornerType: "blind-corner" })).toEqual({ w: 36, d: 24 });
+  });
 });

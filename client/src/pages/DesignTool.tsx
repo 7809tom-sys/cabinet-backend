@@ -76,7 +76,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -276,7 +276,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const captureLead = trpc.design.captureLead.useMutation();
   const trpcUtils = trpc.useUtils();
   const saveMasterCabinetConfig = trpc.cabinets.adminUpdateCabinet.useMutation({
-    onSuccess: () => {
+    onSuccess: (_result, input) => {
+      setPlaced((current) => refreshPlacedCabinetsFromMasterConfig(current, {
+        cabinetId: input.id,
+        category: input.category,
+        subCategory: input.subCategory,
+        graphicType: input.graphicType,
+        specImageUrl: input.specImageUrl,
+      }));
       void trpcUtils.design.placeableCabinets.invalidate();
       toast.success("Master cabinet configuration saved; this drawing and the cabinet catalog are refreshed.");
     },

@@ -59,19 +59,25 @@
 - [x] Remove overlapping guide and panel artifacts from Zenith Sage 2D elevations
 - [x] Rebuild Zenith Sage door and drawer fronts with consistent 3-inch recessed Shaker-frame proportions
 - [x] Enforce a global 3-inch square-corner face frame for every Shaker door and drawer in 2D elevations
-- [ ] Verify the global Shaker rule on base, wall, tall, drawer-base, microwave-base, and specialty cabinet fronts
+- [x] Verify the global Shaker rule on base, wall, tall, drawer-base, microwave-base, and specialty cabinet fronts
 - [x] Enforce a toe kick on every floor-standing cabinet in 2D elevations
 - [x] Verify floor-standing toe kicks on base, tall, specialty, and microwave cabinets while excluding wall and raised cabinets
-- [ ] Render diagonal corner cabinets with the angled face, shelf structure, and door configuration shown in the supplied reference
-- [ ] Verify diagonal corner and blind corner elevations remain correctly distinct
-- [ ] Add diagonal, lazy Susan, and rectangular blind-corner type controls to Cabinet Config
-- [ ] Persist the configured corner type and use it in both plan and elevation rendering
-- [ ] Make the designer render the configured generic cabinet image for matching cabinet types
-- [ ] Verify configured generic images override designer fallbacks without breaking elevation geometry
-- [ ] Define a configuration-driven drawing contract for non-standard cabinets in Cabinet Config
-- [ ] Make the designer use each non-standard cabinet's configured drawing type, generic image, doors, drawers, shelves, openings, and corner geometry
-- [ ] Add a Custom Cabinet Rules workspace in Cabinet Config for unusual cabinet images and drawing behavior
-- [ ] Apply saved custom cabinet rules to the 2D designer rendering
+- [x] Render diagonal corner cabinets with the angled face, shelf structure, and door configuration shown in the supplied reference
+- [x] Verify diagonal corner and blind corner elevations remain correctly distinct
+- [x] Add diagonal, lazy Susan, and rectangular blind-corner type controls to Cabinet Config
+- [x] Persist the configured corner type and use it in both plan and elevation rendering
+- [x] Make the designer render the configured generic cabinet image for matching cabinet types
+- [x] Verify configured generic images override designer fallbacks without breaking elevation geometry
+- [x] Define a configuration-driven drawing contract for non-standard cabinets in Cabinet Config
+- [x] Make the designer use each non-standard cabinet's configured drawing type, generic image, doors, drawers, shelves, openings, and corner geometry
+- [x] Add a Custom Cabinet Rules workspace in Cabinet Config for unusual cabinet images and drawing behavior
+- [x] Apply saved custom cabinet rules to the 2D designer rendering
+- [x] Add end-to-end renderer regressions for non-standard doors, drawers, shelves, openings, generic images, and corner geometry
+- [x] Add exhaustive renderer fixtures for every Custom Cabinet Rule profile variant
+- [x] Fix BEC-24 plan view so it renders as a base end-angle cabinet without a corner-wedge footprint
+- [x] Fix BEC-24 elevation so its angled end is not rendered as a diagonal-corner or clipped roof face
+- [ ] Verify corrected BEC-24 plan and elevation geometry against the supplied mobile screenshots
+- [x] Add a renderer-level generic-image assertion that preserves elevation dimensions and end-angle clipping
 - [x] Add a tall open-shelf with side-hinged door Custom Cabinet Rule profile based on the supplied reference
 - [x] Add a curved open-shelf base/end Custom Cabinet Rule profile based on the supplied reference
 - [x] Add a 12-inch curved open-shelf base/end Custom Cabinet Rule profile based on the supplied reference
@@ -97,5 +103,5 @@
 - [x] Reclassify the Base End Angle cabinet as an end cabinet, not a corner cabinet
 - [x] Add an end-angle drawing profile that remains independent of all corner-cabinet rules
 - [x] Add category, custom rule, and drawing configuration controls directly to the designer Edit Config workspace
-- [ ] Persist designer Edit Config updates to the master cabinet configuration and refresh the selected drawing
+- [x] Persist designer Edit Config updates to the master cabinet configuration and refresh the selected drawing
 - [x] Add a prominent Designer Drawing Rule section to the main Cabinet Config form with profile and generic-image controls

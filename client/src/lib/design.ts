@@ -337,6 +337,38 @@ export interface PlacedCabinet {
   glassDoorAddonCode?: string | null;
 }
 
+/** The master fields editable from Designer Edit Config that affect 2D drawing. */
+export type MasterCabinetDrawingRefresh = {
+  cabinetId: number;
+  category?: string | null;
+  subCategory?: string | null;
+  graphicType?: string | null;
+  specImageUrl?: string | null;
+};
+
+/**
+ * Applies a persisted master drawing change to all matching cabinets already
+ * placed in the open design. This makes the selected elevation/plan refresh
+ * instantly instead of waiting for the cabinet palette to be reopened.
+ */
+export function refreshPlacedCabinetsFromMasterConfig(
+  placed: PlacedCabinet[],
+  master: MasterCabinetDrawingRefresh,
+): PlacedCabinet[] {
+  return placed.map((cabinet) => {
+    if (cabinet.cabinetId !== master.cabinetId) return cabinet;
+    return {
+      ...cabinet,
+      ...(master.category !== undefined ? { category: master.category } : {}),
+      ...(master.subCategory !== undefined ? { subCategory: master.subCategory } : {}),
+      ...(master.graphicType !== undefined
+        ? { customProfile: master.graphicType && master.graphicType !== "standard" ? master.graphicType : null }
+        : {}),
+      ...(master.specImageUrl !== undefined ? { genericDrawingUrl: master.specImageUrl } : {}),
+    };
+  });
+}
+
 // Generic "is this live dimension custom?" check: true when a captured nominal
 // value exists and the live value differs by more than a rounding margin.
 export function isCustomDim(live: number, nominal?: number | null): boolean {

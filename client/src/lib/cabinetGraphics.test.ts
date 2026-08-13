@@ -88,6 +88,22 @@ describe("cabinetDrawingType", () => {
     expect(baseSubGroup(cab)).toBe("specialty");
   });
 
+  it("honors Cabinet Config corner types for otherwise neutral cabinet records", () => {
+    const base = { masterCode: "CUSTOM-36", description: '36" Configured Base Cabinet', category: "Base" };
+    expect(cabinetDrawingType({ ...base, cornerType: "diagonal" })).toBe("diagonal-corner");
+    expect(cabinetDrawingType({ ...base, cornerType: "blind-corner" })).toBe("blind-corner");
+    expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
+  });
+
+  it("keeps BA-24's configured end-angle description out of the triangle-corner renderer", () => {
+    expect(cabinetDrawingType({
+      masterCode: "BA-24",
+      description: '24" Base End Angle Cabinet',
+      category: "Base",
+      cornerType: "triangle",
+    })).toBe("end-angle");
+  });
+
   it("classifies an appliance garage before generic wall logic", () => {
     const cab: CabinetLike = {
       masterCode: "AG-24",

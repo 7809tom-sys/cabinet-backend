@@ -93,13 +93,27 @@ interface Props {
   flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
 }
 
-/**
- * Whether an elevation face needs the clipped outer edge used by a base end
- * angle. A saved custom profile can request it, but the cabinet's configured
- * BEC/BA drawing type is sufficient on its own.
- */
-export function shouldClipEndAngleFace(cabinet: CabinetLike, customProfile?: string | null): boolean {
+/** A Base End Angle is an end-of-run cabinet, never a clipped corner face. */
+export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: string | null): boolean {
   return customProfile === "end-angle" || cabinetDrawingType(cabinet) === "end-angle";
+}
+
+/**
+ * Resolves the saved Cabinet Config contract before drawing an elevation face.
+ * A custom rule can use its configured generic drawing image; otherwise it
+ * falls back to the rule's vector profile while standard cabinets keep their
+ * normal door/drawer geometry.
+ */
+export function resolveElevationFacePresentation(
+  cabinet: CabinetLike,
+  customProfile?: string | null,
+  genericDrawingUrl?: string | null,
+  isAppliance = false,
+) {
+  const cabinetType = isAppliance ? null : cabinetDrawingType(cabinet);
+  const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
+  const renderMode = resolveCustomCabinetRender(customProfile, genericDrawingUrl, isAppliance);
+  return { cabinetType, isEndAngle, renderMode };
 }
 
 export function ElevationView({
@@ -228,12 +242,11 @@ export function ElevationView({
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     // Resolve per-style frame inset (px) for this cabinet.
     const cabFrameInset = !isAppliance && frameInsetFor ? frameInsetFor(p) : null;
-    const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
     const customProfile = p.customProfile ?? null;
-    // BEC/BA end-angle cabinets get the clipped outer face from their master
-    // configuration even when a user has not selected a separate custom profile.
-    const isEndAngle = shouldClipEndAngleFace(p, customProfile);
-    const customRenderMode = resolveCustomCabinetRender(customProfile, p.genericDrawingUrl, isAppliance);
+    const facePresentation = resolveElevationFacePresentation(p, customProfile, p.genericDrawingUrl, isAppliance);
+    const cabType: CabinetDrawingType | null = facePresentation.cabinetType;
+    const isEndAngle = facePresentation.isEndAngle;
+    const customRenderMode = facePresentation.renderMode;
     const showGenericDrawing = customRenderMode === "generic-image";
     const showProfileFallback = customRenderMode === "vector-profile" && !isEndAngle;
     // Face fill: clean cabinet-box background behind the vector face geometry.
@@ -306,7 +319,6 @@ export function ElevationView({
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
-          clipPath: isEndAngle ? "polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%)" : undefined,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -336,6 +348,7 @@ export function ElevationView({
               layoutSpec={p.layoutSpec ?? null}
               drawerLayout={p.drawerLayout ?? null}
               facePattern={p.facePattern ?? null}
+              shelfCount={(p.fixedShelfCount ?? 0) + (p.adjustableShelfCount ?? 0)}
               frameInsetPx={cabFrameInset ?? undefined}
             />
           )}
@@ -1766,7 +1779,7 @@ function HardwareOverlay({
 // One door/drawer face panel rendered in the chosen door style. Used both for
 // the door region and for each individual drawer front so a drawer base reads
 // as a real stack of drawer fronts rather than one big door.
-function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSampleUrl, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; frameInsetPx?: number }) {
+export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSampleUrl, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; frameInsetPx?: number }) {
   // Elevation drawings use schematic geometry rather than tiling a product image
   // across small panels. Product photos remain in the catalog and style inspector.
   const effectiveDoorUrl = null;
@@ -1825,7 +1838,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function CustomProfileFace({
+export function CustomProfileFace({
   profile,
   face,
   edge,
@@ -1910,7 +1923,7 @@ function CustomProfileFace({
   );
 }
 
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, facePattern, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; frameInsetPx?: number }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, facePattern, shelfCount, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; frameInsetPx?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2404,6 +2417,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   if (cabinetType === "diagonal-corner") {
     const dCount = Math.max(1, doorCount || 1);
     const doorSlice = 70 / dCount; // doors occupy ~70% of width (angled face)
+    const visibleShelves = Math.max(0, Math.min(4, shelfCount ?? 0));
     return withFace(
       <>
         {/* Left angled indicator */}
@@ -2444,13 +2458,18 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
               bottom: "3%",
             }}
           >
-            <div
-              className="absolute inset-[1.5px] rounded-[2px]"
-              style={{
-                background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
-                boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
-              }}
-            />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+            {Array.from({ length: visibleShelves }).map((_, shelfIndex) => (
+              <div
+                key={`diagonal-shelf-${shelfIndex}`}
+                className="absolute left-[14%] right-[14%] h-px"
+                style={{
+                  top: `${((shelfIndex + 1) / (visibleShelves + 1)) * 100}%`,
+                  background: `${edge}66`,
+                  boxShadow: "0 1px 0 rgba(255,255,255,0.2)",
+                }}
+              />
+            ))}
           </div>
         ))}
       </>
@@ -2466,13 +2485,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       <>
         {/* Single door panel filling the full face — this wall's door face */}
         <div className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%]">
-          <div
-            className="absolute inset-[1.5px] rounded-[2px]"
-            style={{
-              background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
-              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
-            }}
-          />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
         </div>
         {/* Subtle corner-return shadow strip on the right edge to hint at the
             L-shape — the door wraps around the corner */}

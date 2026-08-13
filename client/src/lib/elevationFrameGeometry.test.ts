@@ -21,6 +21,22 @@ describe("elevation face-frame geometry", () => {
     expect(drawerPanelInsetPx(6, true)).toBe(SHAKER_FACE_FRAME_PX);
   });
 
+  it("keeps the same 3-inch square Shaker frame across base, wall, tall, drawer, microwave, and specialty fronts", () => {
+    const cabinetFrontFamilies = [
+      "base cabinet",
+      "wall cabinet",
+      "tall pantry",
+      "drawer base",
+      "microwave base",
+      "specialty end cabinet",
+    ];
+
+    for (const family of cabinetFrontFamilies) {
+      expect(elevationFrameInsetPx("shaker", null), family).toBe(SHAKER_FACE_FRAME_PX);
+      expect(drawerPanelInsetPx(null, true), family).toBe(SHAKER_FACE_FRAME_PX);
+    }
+  });
+
   it("falls back safely when a style has no authored frame width", () => {
     expect(frameInsetPxFromInches(null)).toBeNull();
     expect(drawerPanelInsetPx(null)).toBe(3);

@@ -17,6 +17,18 @@ import {
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { cabinetDrawingType } from "@/lib/cabinetGraphics";
+
+export function planCornerGeometry(cabinet: PlacedCabinet) {
+  const isEndAngle = cabinetDrawingType(cabinet) === "end-angle";
+  const configuredCorner = isEndAngle ? null : cabinet.cornerType ?? null;
+  const isCorner = !isEndAngle && (configuredCorner !== null || isCornerCabinet(cabinet.masterCode, cabinet.description));
+  const isTriangle = !isEndAngle && isTriangleCorner(cabinet.masterCode, cabinet.cornerType);
+  const isDiagonal = !isEndAngle && !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description));
+  const isBlind = !isEndAngle && (configuredCorner === "blind-corner" || isBlindCorner(cabinet.masterCode, cabinet.description));
+  const isConfiguredL = !isEndAngle && (configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape");
+  return { isEndAngle, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
+}
 
 interface IslandZone {
   x: number;
@@ -1070,12 +1082,7 @@ export function PlanCanvas({
             const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
-            const configuredCorner = p.cornerType ?? null;
-            const isCorner = configuredCorner !== null || isCornerCabinet(p.masterCode, p.description);
-            const isTriangle = isTriangleCorner(p.masterCode, p.cornerType);
-            const isDiagonal = !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(p.masterCode, p.description));
-            const isBlind = configuredCorner === "blind-corner" || isBlindCorner(p.masterCode, p.description);
-            const isConfiguredL = configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape";
+            const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(p);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;

@@ -224,8 +224,17 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Base End Cabinets have an angled outside face but sit at the end of a run.
   // They must never inherit any room-corner rule, including a supplier's generic
   // `triangle` setting. BEC is checked before the triangle-corner branch below.
-  if (/^bec[-\d]?/.test(code) || /base angle.*end of run|base end cabinet/.test(hay)) {
+  if (/^bec[-\d]?/.test(code) || /base angle.*end of run|base end (?:angle|cabinet)/.test(hay)) {
     return "end-angle";
+  }
+
+  // Cabinet Config is the source of truth for intentionally configured corner
+  // geometry. These settings must work even when a supplier uses a neutral SKU
+  // or description that does not carry the usual corner prefix.
+  if (cab.cornerType === "diagonal") return "diagonal-corner";
+  if (cab.cornerType === "blind-corner") return "blind-corner";
+  if (cab.cornerType === "lazy-susan" || cab.cornerType === "pie-cut" || cab.cornerType === "l-shape") {
+    return "l-corner";
   }
 
   // Triangle corner cabinets: right-triangle footprint, single door on hypotenuse face (WTC/BTC)
