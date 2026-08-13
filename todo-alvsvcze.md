@@ -148,6 +148,8 @@
 - [x] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
 - [x] Add CabinetDetail UI regressions for Administration My Cost and affiliate-owner Affiliate Cost, Sells At, and Margin rendering
 - [x] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
+- [x] Remove Cabinet Dealz browser title, social metadata, and document branding from affiliate subdomains
+- [x] Add regression coverage for affiliate-specific document metadata and white-label sharing tags
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
