@@ -6,6 +6,7 @@ import { resolveAffiliateAccess } from "./lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "./lib/affiliatePrivateCost";
 import { appRouter } from "./routers";
 import { priceLadder } from "../shared/pricing";
+import { affiliateCabinetDetailHref } from "../client/src/lib/affiliateCabinetDetailRoute";
 
 describe("affiliate owner private pricing", () => {
   it("uses the exact affiliate catalog-card record and authorizes its private cost only for the matching owner", async () => {
@@ -47,9 +48,25 @@ describe("affiliate owner private pricing", () => {
       masterCode: "W-1230",
     }));
 
+    const detailHref = affiliateCabinetDetailHref({
+      slug: affiliate!.slug,
+      masterCode: catalogCard!.masterCode,
+      styleId: 330005,
+      cabinetId: catalogCard!.cabinetId,
+    });
+    expect(detailHref).toBe(
+      "/store/reaves-way-cabinet-shop/catalog/W-1230?style=330005&cabinetId=9390110",
+    );
+    const routedCabinetId = Number(new URL(detailHref, "https://example.test").searchParams.get("cabinetId"));
+    const detailRecord = await publicCaller.cabinets.byId({ id: routedCabinetId });
+    expect(detailRecord).toEqual(expect.objectContaining({
+      id: catalogCard!.cabinetId,
+      masterCode: catalogCard!.masterCode,
+    }));
+
     const caller = appRouter.createCaller({ user: owner } as any);
     const exactRecordStyles = await caller.pricing.stylesForCabinet({
-      cabinetId: catalogCard!.cabinetId,
+      cabinetId: detailRecord!.id,
       affiliateSlug: affiliate!.slug,
     });
     const ownerStyle = exactRecordStyles.find((style) => style.affiliateCost != null);

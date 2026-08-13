@@ -147,7 +147,7 @@
 - [ ] Verify the exact duplicate-SKU detail route shows My Cost, Sells At, and Margin for an authenticated affiliate owner
 - [x] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
 - [x] Add CabinetDetail UI regressions for Administration My Cost and affiliate-owner Affiliate Cost, Sells At, and Margin rendering
-- [ ] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
+- [x] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
