@@ -2016,3 +2016,9 @@
 - [x] Improve scene lighting, shadows, and camera orbit/zoom/pan behavior
 - [x] Add high-resolution 3D scene download
 - [x] Test responsive 3D controls and image export
+
+## Feature: 3D pricing, transitions, and sharing
+- [x] Add truthful live order-pricing and presentation-configuration summary
+- [x] Add finish-change loading and transition feedback
+- [x] Add shareable 3D configuration link generation and restoration
+- [x] Test pricing clarity, material transitions, and share-link behavior

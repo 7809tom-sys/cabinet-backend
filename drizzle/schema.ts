@@ -605,6 +605,28 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   }).onDelete("set null").onUpdate("cascade"),
 }));
 
+// Public 3D preview links use an unguessable token and a presentation snapshot.
+// The snapshot intentionally excludes user/contact details and remains separate
+// from the editable saved-design record.
+export const threeDRoomShares = mysqlTable("three_d_room_shares", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 48 }).notNull(),
+  kitchenDesignId: int("kitchenDesignId"),
+  configuration: json("configuration").$type<object>().notNull(),
+  orderSubtotal: decimal("orderSubtotal", { precision: 10, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  tokenUnique: uniqueIndex("three_d_room_shares_token_uq").on(t.token),
+  designFk: foreignKey({
+    name: "3drs_design_fk",
+    columns: [t.kitchenDesignId],
+    foreignColumns: [kitchenDesigns.id],
+  }).onDelete("set null").onUpdate("cascade"),
+}));
+export type ThreeDRoomShare = typeof threeDRoomShares.$inferSelect;
+export type InsertThreeDRoomShare = typeof threeDRoomShares.$inferInsert;
+
 // ─── Saved Design Layout Resolution ───────────────────────────────────────────
 // Normalized audit records for the preset that started a design and the exact
 // real distributor SKU that resolved each functional starter-layout zone.

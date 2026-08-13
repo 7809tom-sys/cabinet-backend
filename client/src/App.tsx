@@ -49,6 +49,7 @@ const SurfacesCategory = lazy(() => import("@/pages/SurfacesCategory"));
 const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
 const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
 const DesignPresentation = lazy(() => import("@/pages/DesignPresentation"));
+const SharedRoom3D = lazy(() => import("@/pages/SharedRoom3D"));
 const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
@@ -231,6 +232,15 @@ export default function App() {
             <Suspense fallback={<PageLoader />}>
               <InstallationEstimateDocument token={params.token} />
             </Suspense>
+          )}
+        </Route>
+        <Route path="/3d/:token">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <SharedRoom3D token={params.token} />
+              </Suspense>
+            </AppLayout>
           )}
         </Route>
         {/* Live template preview — no real affiliate needed */}

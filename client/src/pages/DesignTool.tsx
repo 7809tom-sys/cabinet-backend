@@ -109,7 +109,7 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -1775,6 +1775,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     return Array.from(map.values());
   }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
+
+  const interactive3dOrderSummary = useMemo<InteractiveRoomOrderSummary>(() => {
+    let subtotal = 0;
+    let pricedLineCount = 0;
+    let unpricedLineCount = 0;
+    let itemCount = 0;
+    for (const line of cartableLines) {
+      itemCount += line.qty;
+      if (line.unitPrice == null || !Number.isFinite(Number(line.unitPrice))) {
+        unpricedLineCount += 1;
+      } else {
+        pricedLineCount += 1;
+        subtotal += Number(line.unitPrice) * line.qty;
+      }
+    }
+    return { itemCount, pricedLineCount, unpricedLineCount, subtotal };
+  }, [cartableLines]);
 
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
@@ -8671,7 +8688,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : interactive3dScene ? (
-              <InteractiveRoom3D scene={interactive3dScene as InteractiveRoomScene} placed={placed} roomOverride={room} />
+              <InteractiveRoom3D
+                scene={interactive3dScene as InteractiveRoomScene}
+                placed={placed}
+                roomOverride={room}
+                orderSummary={interactive3dOrderSummary}
+                shareContext={selectedStyleDistributorId != null && styleId != null ? {
+                  layoutPresetId: activeSceneLayoutPresetId,
+                  distributorId: selectedStyleDistributorId,
+                  styleId,
+                } : undefined}
+              />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
             )}

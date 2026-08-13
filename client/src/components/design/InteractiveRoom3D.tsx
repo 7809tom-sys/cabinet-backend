@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, Download, Rotate3D, Sparkles } from "lucide-react";
+import { Camera, Download, LoaderCircle, Rotate3D, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 type SceneSku = {
   distributorSkuId: number;
@@ -31,11 +33,26 @@ export type InteractiveRoomScene = {
   } | null;
 };
 
+export type InteractiveRoomOrderSummary = {
+  itemCount: number;
+  pricedLineCount: number;
+  unpricedLineCount: number;
+  subtotal: number;
+};
+
+export type InteractiveRoomPresentation = {
+  cabinetFinish: string;
+  countertopFinish: string;
+};
+
 interface Props {
   scene: InteractiveRoomScene;
   /** Current 2D design items take precedence over starter-layout suggestions. */
   placed?: PlacedCabinet[];
   roomOverride?: RoomData;
+  orderSummary?: InteractiveRoomOrderSummary;
+  initialPresentation?: InteractiveRoomPresentation;
+  shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   className?: string;
 }
 
@@ -224,7 +241,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, initialPresentation, shareContext, className }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -232,17 +249,27 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
-  const [cabinetFinish, setCabinetFinish] = useState("catalog");
-  const [countertopFinish, setCountertopFinish] = useState(scene.materials?.defaults.countertop ?? "#e9e7e2");
+  const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
+  const [countertopFinish, setCountertopFinish] = useState(initialPresentation?.countertopFinish ?? scene.materials?.defaults.countertop ?? "#e9e7e2");
+  const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = placed.length > 0;
   const catalogFinish = sceneCabinetColor(scene);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
+  const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
+  const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
+  const shareMutation = trpc.roomLayouts.createShare.useMutation();
 
   useEffect(() => {
-    setCabinetFinish("catalog");
-    setCountertopFinish(scene.materials?.defaults.countertop ?? "#e9e7e2");
-  }, [scene.materials?.cabinet.color, scene.materials?.cabinet.finish, scene.materials?.defaults.countertop]);
+    setCabinetFinish(initialPresentation?.cabinetFinish ?? "catalog");
+    setCountertopFinish(initialPresentation?.countertopFinish ?? scene.materials?.defaults.countertop ?? "#e9e7e2");
+  }, [scene.materials?.cabinet.color, scene.materials?.cabinet.finish, scene.materials?.defaults.countertop, initialPresentation?.cabinetFinish, initialPresentation?.countertopFinish]);
+
+  useEffect(() => {
+    setMaterialTransitioning(true);
+    const timer = window.setTimeout(() => setMaterialTransitioning(false), 340);
+    return () => window.clearTimeout(timer);
+  }, [cabinetFinish, countertopFinish]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -409,6 +436,31 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     camera.updateProjectionMatrix();
   };
 
+  const shareConfiguration = async () => {
+    if (!shareContext || !roomOverride) {
+      toast.error("Add your room and choose an active catalog door style before sharing.");
+      return;
+    }
+    try {
+      const { token } = await shareMutation.mutateAsync({
+        ...shareContext,
+        room: { ...roomOverride },
+        placed,
+        presentation: { cabinetFinish, countertopFinish },
+        orderSummary,
+      });
+      const url = `${window.location.origin}/3d/${token}`;
+      if (navigator.share) {
+        await navigator.share({ title: "Cabinet Dealz 3D Room", text: "View this Cabinet Dealz 3D room configuration.", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Share link copied to your clipboard.");
+      }
+    } catch (error) {
+      if ((error as DOMException)?.name !== "AbortError") toast.error("Could not create the share link. Please try again.");
+    }
+  };
+
   if ((!scene.roomShape && !roomOverride) || !scene.materials) {
     return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose an active distributor door style and a seeded room layout to generate a real catalog 3D preview.</div>;
   }
@@ -427,6 +479,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
           <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
+          <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
         </div>
       </div>
       <div className="mb-3 grid gap-3 rounded-xl border bg-muted/25 p-3 sm:grid-cols-2">
@@ -451,7 +504,24 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
         </div>
         <p className="sm:col-span-2 text-[11px] text-muted-foreground">Preview materials change this image only. Your active catalog door style and order remain unchanged.</p>
       </div>
-      <div ref={mountRef} className="h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner sm:h-[440px] touch-none" />
+      {orderSummary && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d9c196] bg-[#fffaf1] px-3 py-2.5">
+          <div>
+            <p className="text-xs font-semibold text-[#4b3a20]">Current design pricing</p>
+            <p className="text-[11px] text-[#6e5d42]">{orderSummary.itemCount} item{orderSummary.itemCount === 1 ? "" : "s"} · {orderSummary.pricedLineCount} priced line{orderSummary.pricedLineCount === 1 ? "" : "s"}{orderSummary.unpricedLineCount ? ` · ${orderSummary.unpricedLineCount} awaiting price` : ""}</p>
+            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {cabinetFinishLabel} cabinets · {countertopFinishLabel} countertop</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-semibold tabular-nums text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-[10px] text-[#6e5d42]">Actual catalog-priced subtotal</p>
+          </div>
+          <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
+        </div>
+      )}
+      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`}>
+        <div ref={mountRef} className="h-full w-full" />
+        {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
+      </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit or pan · Scroll or pinch to zoom · Download exports a {THREE_D_EXPORT_SIZE.width} × {THREE_D_EXPORT_SIZE.height} PNG · Cabinet geometry comes from the active distributor catalog</p>
     </section>
   );

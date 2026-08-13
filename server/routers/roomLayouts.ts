@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
@@ -10,12 +11,23 @@ import {
   layoutPresetZones,
   layoutPresets,
   roomShapePresets,
+  threeDRoomShares,
 } from "../../drizzle/schema";
 
 const catalogInput = z.object({
   layoutPresetId: z.string().min(1).max(64),
   distributorId: z.number().int().positive(),
   styleId: z.number().int().positive(),
+});
+
+const sharedConfigurationInput = z.object({
+  layoutPresetId: z.string().min(1).max(64),
+  distributorId: z.number().int().positive(),
+  styleId: z.number().int().positive(),
+  room: z.object({ width: z.number().positive(), depth: z.number().positive(), ceilingHeight: z.number().positive().optional() }).passthrough(),
+  placed: z.array(z.unknown()).max(300),
+  presentation: z.object({ cabinetFinish: z.string().min(1).max(32), countertopFinish: z.string().regex(/^#[0-9a-f]{6}$/i) }),
+  orderSummary: z.object({ itemCount: z.number().int().nonnegative(), pricedLineCount: z.number().int().nonnegative(), unpricedLineCount: z.number().int().nonnegative(), subtotal: z.number().nonnegative() }).optional(),
 });
 
 function asNumber(value: unknown) {
@@ -211,5 +223,32 @@ export const roomLayoutsRouter = router({
       const db = await getDb();
       if (!db) return { layoutPresetId: input.layoutPresetId, roomShape: null, layout: null, zones: [], candidatesByZone: {}, suggestions: [], materials: null };
       return buildRoomScene(db, input);
+    }),
+
+  createShare: publicProcedure
+    .input(sharedConfigurationInput)
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const token = randomBytes(18).toString("base64url");
+      await db.insert(threeDRoomShares).values({
+        token,
+        configuration: input,
+        orderSubtotal: input.orderSummary?.subtotal?.toFixed(2) ?? null,
+      });
+      return { token };
+    }),
+
+  sharedConfiguration: publicProcedure
+    .input(z.object({ token: z.string().min(16).max(48) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [share] = await db
+        .select({ configuration: threeDRoomShares.configuration, orderSubtotal: threeDRoomShares.orderSubtotal, createdAt: threeDRoomShares.createdAt })
+        .from(threeDRoomShares)
+        .where(eq(threeDRoomShares.token, input.token))
+        .limit(1);
+      return share ?? null;
     }),
 });
