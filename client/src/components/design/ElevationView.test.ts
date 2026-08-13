@@ -201,7 +201,7 @@ describe("configured Cabinet Config elevation presentation", () => {
     ).toBe("standard");
   });
 
-  it("renders the configured generic image inside the correctly clipped BEC elevation container", () => {
+  it("keeps BEC end-return catalog drawings out of the live textured elevation container", () => {
     const imageUrl = "https://example.com/bec-24-configured-drawing.webp";
     const markup = renderToStaticMarkup(
       createElement(
@@ -232,7 +232,8 @@ describe("configured Cabinet Config elevation presentation", () => {
       ),
     );
 
-    expect(markup).toContain(`src="${imageUrl}"`);
+    expect(markup).not.toContain(`src="${imageUrl}"`);
+    expect(markup).toContain('data-bec-end-return-face="true"');
     expect(markup).not.toContain("clip-path:polygon(0 0");
     expect(markup).toContain("width:96px");
   });
@@ -435,12 +436,13 @@ describe("non-standard Cabinet Config drawing contract", () => {
       "hood-insert",
     ]);
 
-    for (const profile of nonStandardProfiles) {
+    for (const profile of nonStandardProfiles.filter((profile) => profile.id !== "end-angle")) {
       expect(
         resolveElevationFacePresentation(configuredCabinet, profile.id, imageUrl).renderMode,
         profile.id,
       ).toBe("generic-image");
     }
+    expect(resolveElevationFacePresentation(configuredCabinet, "end-angle", imageUrl).renderMode).toBe("vector-profile");
   });
 
   it("provides a distinct vector shape for every profile that has one", () => {

@@ -159,3 +159,6 @@
 - [x] Add realistic sample renderer coverage for end-return, diagonal, blind, L-corner, and custom-profile cabinet faces
 - [x] Assert realistic sample rendering preserves multi-drawer/multi-door split geometry and elevation dimensions beyond standard cabinet families
 - [x] Add direct realistic-sample geometry assertions for end-return, diagonal, blind, L-corner, corner-drawer, and oven-opening paths
+- [x] Prevent catalog thumbnail/generic drawing images from rendering as floating images in live BA-24/BEC elevations
+- [x] Render BA-24/BEC elevation geometry with the active realistic selected door sample instead of a catalog thumbnail
+- [ ] Verify the corrected BA-24/BEC elevation against the supplied mobile screenshot

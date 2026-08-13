@@ -122,7 +122,14 @@ export function resolveElevationFacePresentation(
 ) {
   const cabinetType = isAppliance ? null : cabinetDrawingType(cabinet);
   const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
-  const renderMode = resolveCustomCabinetRender(customProfile, genericDrawingUrl, isAppliance);
+  // BA/BEC end returns have a meaningful measured 2D face, so their catalog
+  // line drawings remain reference images only. They must not replace the live
+  // textured elevation with a floating white thumbnail.
+  const renderMode = resolveCustomCabinetRender(
+    customProfile,
+    isEndAngle ? null : genericDrawingUrl,
+    isAppliance,
+  );
   return { cabinetType, isEndAngle, renderMode };
 }
 
