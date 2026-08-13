@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import { affiliateSlugFromHost } from "../lib/affiliateSubdomain";
+import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -72,11 +72,17 @@ async function startServer() {
   // and internally rewrites the URL to /store/:slug so the SPA serves the
   // affiliate's white-labeled storefront. API/tRPC/static paths are excluded.
   app.use((req, _res, next) => {
-    // With trust proxy enabled, req.hostname prioritizes X-Forwarded-Host when
-    // the public custom domain is terminated at the deployment edge. This is
-    // essential because req.headers.host can otherwise be only the internal
-    // Manus hostname even though the customer visited an affiliate subdomain.
-    const subdomain = affiliateSlugFromHost(req.hostname);
+    // A CDN/deployment edge may expose the public hostname as X-Original-Host,
+    // X-Forwarded-Host, or X-Host while Host/hostname identify an internal
+    // Manus service. Prefer the public headers in that order so a customer on
+    // the affiliate domain always reaches their branded storefront.
+    const subdomain = affiliateSlugFromHostCandidates([
+      req.headers["x-original-host"],
+      req.headers["x-forwarded-host"],
+      req.headers["x-host"],
+      req.hostname,
+      req.headers.host,
+    ]);
     if (!subdomain) return next();
     // Don't rewrite API calls, static assets, or already-prefixed store paths
     if (req.url.startsWith("/api/") || req.url.startsWith("/store/") || req.url.startsWith("/__manus__") || req.url.startsWith("/manus-storage")) {

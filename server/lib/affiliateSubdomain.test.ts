@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affiliateSlugFromHost } from "./affiliateSubdomain";
+import { affiliateSlugFromHost, affiliateSlugFromHostCandidates } from "./affiliateSubdomain";
 
 describe("affiliate subdomain host resolution", () => {
   it("extracts a single affiliate slug from the public host", () => {
@@ -19,5 +19,12 @@ describe("affiliate subdomain host resolution", () => {
     expect(affiliateSlugFromHost("www.cabinetdealz.com")).toBeNull();
     expect(affiliateSlugFromHost("nested.reaves-way-cabinet-shop.cabinetdealz.com")).toBeNull();
     expect(affiliateSlugFromHost("cabinetz-dq7pucbp.manus.space")).toBeNull();
+  });
+
+  it("prefers the original public host over an internal proxy host", () => {
+    expect(affiliateSlugFromHostCandidates([
+      "reaves-way-cabinet-shop.cabinetdealz.com",
+      "cabinetz-dq7pucbp.manus.space",
+    ])).toBe("reaves-way-cabinet-shop");
   });
 });

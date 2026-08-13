@@ -15,3 +15,19 @@ export function affiliateSlugFromHost(hostHeader: string | null | undefined): st
   if (!candidate || candidate === "www" || candidate.includes(".")) return null;
   return candidate;
 }
+
+/**
+ * Prefer original public-host headers over proxy/internal hosts. Different
+ * deployment layers use different names, so try the standard variants in
+ * caller-supplied priority order and stop at the first valid affiliate slug.
+ */
+export function affiliateSlugFromHostCandidates(
+  hosts: Array<string | string[] | null | undefined>,
+): string | null {
+  for (const host of hosts) {
+    const value = Array.isArray(host) ? host[0] : host;
+    const slug = affiliateSlugFromHost(value);
+    if (slug) return slug;
+  }
+  return null;
+}
