@@ -29,6 +29,26 @@ describe("end-angle elevation face", () => {
       }),
     ).toBe(false);
   });
+
+  it("renders BEC-24 as two distinct 12-inch faces at a 90-degree end return", () => {
+    const markup = renderToStaticMarkup(
+      createElement(DoorFront, {
+        kind: "shaker",
+        edge: "#1a2744",
+        face: "#d8d4c8",
+        doors: 2,
+        drawers: 0,
+        cabinetType: "end-return",
+        cabinetHeightIn: 34.5,
+      }),
+    );
+
+    expect(markup).toContain('data-bec-end-return-face="true"');
+    expect(markup).toContain('data-bec-front-face="12in"');
+    expect(markup).toContain('data-bec-return-face="12in"');
+    expect(markup).toContain('data-bec-return-seam="true"');
+    expect(markup).toContain("transform:skewY(-4deg)");
+  });
 });
 
 describe("Shaker elevation front rendering", () => {

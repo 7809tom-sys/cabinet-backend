@@ -93,9 +93,10 @@ interface Props {
   flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
 }
 
-/** A Base End Angle is an end-of-run cabinet, never a clipped corner face. */
+/** Base end cabinets are end-of-run returns, never room-corner clip paths. */
 export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: string | null): boolean {
-  return customProfile === "end-angle" || cabinetDrawingType(cabinet) === "end-angle";
+  const drawingType = cabinetDrawingType(cabinet);
+  return customProfile === "end-angle" || drawingType === "end-angle" || drawingType === "end-return";
 }
 
 /**
@@ -2355,6 +2356,36 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
           <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
         </div>
       </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: BASE END CORNER / END RETURN ──────────────────────
+  // BEC-24 has a 24x24 footprint and two 12-inch faces meeting at a 90-degree
+  // return. The left/front face stays square to the elevation; the right face
+  // is deliberately foreshortened, so this never reads as a flat 24-inch box
+  // or a 36-inch diagonal/lazy-Susan room corner.
+  if (cabinetType === "end-return") {
+    return withFace(
+      <div data-bec-end-return-face="true" className="absolute inset-0 overflow-hidden">
+        <div data-bec-front-face="12in" className="absolute top-[3%] bottom-[3%] left-[3%]" style={{ width: "49%" }}>
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+        </div>
+        <div
+          data-bec-return-face="12in"
+          className="absolute top-[5%] bottom-[5%]"
+          style={{
+            left: "52%",
+            width: "43%",
+            transform: "skewY(-4deg)",
+            transformOrigin: "left center",
+            boxShadow: `inset 2px 0 0 ${edge}99, -2px 0 3px rgba(0,0,0,0.18)`,
+          }}
+        >
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+        </div>
+        <div data-bec-return-seam="true" className="absolute top-[2%] bottom-[2%]" style={{ left: "51%", width: 2, background: `${edge}bb`, boxShadow: "1px 0 1px rgba(255,255,255,0.38)" }} />
+        <div className="absolute left-[3%] right-[5%] top-[2%] h-px" style={{ background: `${edge}88` }} />
+      </div>,
     );
   }
 

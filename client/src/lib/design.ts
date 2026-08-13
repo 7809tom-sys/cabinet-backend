@@ -704,9 +704,22 @@ export function dim(value: string | null | undefined, fallback: number): number 
   return isNaN(n) || n <= 0 ? fallback : n;
 }
 
+/**
+ * A Base End Corner (BEC) is a 24x24 end return with two 12-inch faces. It is
+ * deliberately not a lazy-Susan, diagonal, blind, or room-corner cabinet.
+ */
+export function isBaseEndCornerCabinet(c: Pick<DesignCabinet, "masterCode" | "description" | "cornerType"> | Pick<PlacedCabinet, "masterCode" | "description" | "cornerType">): boolean {
+  const code = (c.masterCode ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const description = (c.description ?? "").toLowerCase();
+  return c.cornerType === "base-end-corner" || /^bec\d/.test(code) || /base end (corner|angle|cabinet)/.test(description);
+}
+
 export function footprintDepth(c: DesignCabinet): number {
   // Panels/skins are flat 3/4" stock regardless of placement bucket.
   if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
+  // BEC end returns occupy a true 24x24 box, even if historical supplier data
+  // stored a shallow depth. They do not use room-corner snapping or fillers.
+  if (isBaseEndCornerCabinet(c)) return STD.BASE_DEPTH;
   // A diagonal corner cabinet occupies the same span on BOTH walls, so its
   // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
   // standard shallow wall/base depth.
@@ -762,6 +775,12 @@ export function lCornerBoxSide(placement: Placement): number {
 }
 
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
+  // BEC-24 is a square 24x24 end-return box with a distinct two-face graphic.
+  // Its footprint must remain stable through rotation, snapping, and collision
+  // handling without putting it on any L-corner or filler path.
+  if (isBaseEndCornerCabinet(p)) {
+    return { w: STD.BASE_DEPTH, d: STD.BASE_DEPTH };
+  }
   // Cabinet Config may explicitly classify a corner even when a supplier SKU or
   // description is non-standard. Honor that saved configuration first.
   if (p.cornerType === "diagonal") {

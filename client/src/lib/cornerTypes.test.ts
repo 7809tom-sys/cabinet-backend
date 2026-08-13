@@ -3,6 +3,7 @@ import {
   diagonalCornerClipPath,
   isBlindCorner,
   isDiagonalCorner,
+  isBaseEndCornerCabinet,
   isLCornerCabinet,
   placedFootprint,
 } from "./design";
@@ -39,7 +40,7 @@ describe("configured corner cabinet types", () => {
     expect(diagonalCornerClipPath(0)).toContain("polygon");
   });
 
-  it("keeps BEC-24 as an end-of-run footprint, not a diagonal or blind corner", () => {
+  it("keeps BEC-24 as a 24-by-24 end-return, not a diagonal, blind, or lazy-Susan corner", () => {
     const bec = {
       uid: "bec",
       masterCode: "BEC-24",
@@ -50,12 +51,15 @@ describe("configured corner cabinet types", () => {
       y: 0,
       rotation: 0,
       placement: "base",
-      cornerType: "triangle",
+      cornerType: "base-end-corner",
     } as PlacedCabinet;
 
     expect(isDiagonalCorner(bec.masterCode, bec.description)).toBe(false);
     expect(isBlindCorner(bec.masterCode, bec.description)).toBe(false);
+    expect(isLCornerCabinet(bec.masterCode, bec.description)).toBe(false);
+    expect(isBaseEndCornerCabinet(bec)).toBe(true);
     expect(placedFootprint(bec)).toEqual({ w: 24, d: 24 });
+    expect(placedFootprint({ ...bec, rotation: 90 })).toEqual({ w: 24, d: 24 });
   });
 
   it("uses Cabinet Config diagonal, lazy-Susan, and rectangular blind-corner settings in plan geometry", () => {

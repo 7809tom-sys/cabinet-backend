@@ -20,6 +20,7 @@ export type CabinetDrawingType =
   | "oven-tall" // tall oven cabinet: 2 upper doors + appliance opening + drawers
   | "triangle-corner" // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
   | "end-angle" // end-of-run cabinet with an angled outer face, not a room corner
+  | "end-return" // 24x24 base end-corner with two 12-inch return faces, not a room corner
   | "face-pattern"; // specialty open-front cabinet with slats / criss-cross / lattice / open pattern
 
 export interface CabinetLike {
@@ -221,10 +222,15 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "corner-drawer-base";
   }
 
-  // Base End Cabinets have an angled outside face but sit at the end of a run.
-  // They must never inherit any room-corner rule, including a supplier's generic
-  // `triangle` setting. BEC is checked before the triangle-corner branch below.
-  if (/^bec[-\d]?/.test(code) || /base angle.*end of run|base end (?:angle|cabinet)/.test(hay)) {
+  // BEC-24 is a 24x24 Base End Corner / end-return. It has two distinct
+  // 12-inch cabinet faces at a 90-degree return, but never consumes a 36-inch
+  // room corner, corner filler, or lazy-Susan/diagonal rule. Resolve it before
+  // every generic corner branch so stale supplier `triangle` metadata is inert.
+  if (/^bec[-\d]?/.test(code) || /base end corner/.test(hay)) {
+    return "end-return";
+  }
+  // Other base-angle products remain a one-face end-of-run angled cabinet.
+  if (/base angle.*end of run|base end (?:angle|cabinet)/.test(hay)) {
     return "end-angle";
   }
 
@@ -427,6 +433,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
   if (type === "end-angle") return "Base End Angle Cabinet";
+  if (type === "end-return") return "Base End Corner Cabinet";
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
@@ -501,6 +508,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "blind-corner": "blind corner cabinet",
     "diagonal-corner": "diagonal corner cabinet with angled front",
     "end-angle": "base end cabinet with angled outer face",
+    "end-return": "24-by-24 base end-corner cabinet with two 12-inch return faces",
     "l-corner": "L-shaped corner cabinet",
     "corner-drawer-base": "corner drawer base cabinet",
     vanity: "vanity cabinet",

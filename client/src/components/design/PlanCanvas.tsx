@@ -20,14 +20,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 
 export function planCornerGeometry(cabinet: PlacedCabinet) {
-  const isEndAngle = cabinetDrawingType(cabinet) === "end-angle";
-  const configuredCorner = isEndAngle ? null : cabinet.cornerType ?? null;
-  const isCorner = !isEndAngle && (configuredCorner !== null || isCornerCabinet(cabinet.masterCode, cabinet.description));
-  const isTriangle = !isEndAngle && isTriangleCorner(cabinet.masterCode, cabinet.cornerType);
-  const isDiagonal = !isEndAngle && !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description));
-  const isBlind = !isEndAngle && (configuredCorner === "blind-corner" || isBlindCorner(cabinet.masterCode, cabinet.description));
-  const isConfiguredL = !isEndAngle && (configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape");
-  return { isEndAngle, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
+  const drawingType = cabinetDrawingType(cabinet);
+  const isEndAngle = drawingType === "end-angle";
+  const isEndReturn = drawingType === "end-return";
+  const isEndCabinet = isEndAngle || isEndReturn;
+  const configuredCorner = isEndCabinet ? null : cabinet.cornerType ?? null;
+  const isCorner = !isEndCabinet && (configuredCorner !== null || isCornerCabinet(cabinet.masterCode, cabinet.description));
+  const isTriangle = !isEndCabinet && isTriangleCorner(cabinet.masterCode, cabinet.cornerType);
+  const isDiagonal = !isEndCabinet && !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description));
+  const isBlind = !isEndCabinet && (configuredCorner === "blind-corner" || isBlindCorner(cabinet.masterCode, cabinet.description));
+  const isConfiguredL = !isEndCabinet && (configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape");
+  return { isEndAngle, isEndReturn, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
 }
 
 interface IslandZone {
@@ -1082,7 +1085,7 @@ export function PlanCanvas({
             const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
-            const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(p);
+            const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndReturn } = planCornerGeometry(p);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
@@ -1157,6 +1160,22 @@ export function PlanCanvas({
                 title={`${p.masterCode} — ${p.description}`}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+                  {/* BEC-24 is a 24x24 two-face end return. Keep the enclosing
+                      square for collision/snapping, then show the paired 12-inch
+                      faces with a 90-degree fold mark — never a clipped corner. */}
+                  {isEndReturn && !isAppliance && (
+                    <svg
+                      data-bec-end-return="true"
+                      aria-label="24 by 24 base end corner return"
+                      className="absolute inset-0 h-full w-full pointer-events-none"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <path d="M50 3V52H97" fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.9" />
+                      <path d="M4 4H50V50H96" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1.5" />
+                      <path d="M50 52L96 96" fill="none" stroke={edgeColor} strokeWidth="1.4" opacity="0.55" />
+                    </svg>
+                  )}
                   {/* Appliance-specific top-down icons */}
                   {isAppliance && (() => {
                     const mc = (p.masterCode || "").toUpperCase();

@@ -18,7 +18,7 @@ const base = {
 } as const;
 
 describe("plan corner geometry", () => {
-  it("keeps BEC-24 rectangular in plan even when the supplier record carries triangle", () => {
+  it("keeps BEC-24 as a 24-inch square end-return even when a supplier record carries triangle", () => {
     const result = planCornerGeometry({
       ...base,
       masterCode: "BEC-24",
@@ -27,7 +27,8 @@ describe("plan corner geometry", () => {
     } as PlacedCabinet);
 
     expect(result).toEqual({
-      isEndAngle: true,
+      isEndAngle: false,
+      isEndReturn: true,
       isCorner: false,
       isTriangle: false,
       isDiagonal: false,
@@ -77,5 +78,7 @@ describe("plan corner geometry", () => {
     expect(cabinetTag).not.toContain("clip-path");
     expect(cabinetTag).toContain("width:96px");
     expect(cabinetTag).toContain("height:96px");
+    expect(markup).toContain('data-bec-end-return="true"');
+    expect(markup).toContain('aria-label="24 by 24 base end corner return"');
   });
 });

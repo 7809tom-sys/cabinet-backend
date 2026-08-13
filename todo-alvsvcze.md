@@ -110,3 +110,7 @@
 - [x] Add a prominent Designer Drawing Rule section to the main Cabinet Config form with profile and generic-image controls
 - [x] Inspect and record BEC-24's live Cabinet Config fields for category, drawing rule, corner type, and designer visibility
 - [x] Clear BEC-24's obsolete triangle corner type while retaining its Base End Angle category and end-cap product type
+- [x] Define BEC-24 as a 24-by-24 Base End Corner/end-return cabinet with 34.5-inch cabinet height and a 4.5-inch toe kick
+- [x] Render BEC-24’s distinct two-face 90-degree return geometry instead of a flat base rectangle or 36-inch corner cabinet
+- [x] Keep BEC-24 out of lazy-Susan, diagonal-corner, corner-filler, and two-sided corner-snapping rules
+- [ ] Verify the revised BEC-24 plan and elevation against the supplied 24-by-24 two-face reference
