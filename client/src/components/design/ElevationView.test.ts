@@ -90,6 +90,16 @@ describe("Shaker elevation front rendering", () => {
       expect(markup, fixture.label).not.toContain("rounded-");
     }
   });
+
+  it("keeps 3-inch stiles on the true 12-inch pantry and sink-base door faces", () => {
+    const common = { kind: "shaker" as const, edge: "#1a2744", face: "#d8d4c8", cabinetWidthIn: 24, cabinetHeightIn: 84 };
+    const pantry = renderToStaticMarkup(createElement(DoorFront, { ...common, cabinetType: "pantry", doors: 4 }));
+    const sink = renderToStaticMarkup(createElement(DoorFront, { ...common, cabinetType: "sink-base", doors: 2 }));
+
+    // Both paths split a 24in cabinet into 12in physical faces.
+    expect(pantry).toContain("left:25%");
+    expect(sink).toContain("left:25%");
+  });
 });
 
 describe("configured Cabinet Config elevation presentation", () => {
@@ -177,7 +187,7 @@ describe("configured corner elevation rendering", () => {
     expect(markup).toContain("linear-gradient(135deg");
     expect(markup).toContain("linear-gradient(225deg");
     expect(markup).toContain("left-[14%] right-[14%] h-px");
-    expect(markup).toContain("left:12.5%");
+    expect(markup).toMatch(/left:37\.8787/);
     expect(markup).not.toContain("rounded-");
   });
 
@@ -190,9 +200,11 @@ describe("configured corner elevation rendering", () => {
     );
 
     expect(blind).toContain("repeating-linear-gradient(135deg");
-    expect(blind).toContain("left:12.5%");
+    // 60% visible door on a 24in cabinet = 14.4in; 3in stile = 20.8333%.
+    expect(blind).toMatch(/left:20\.8333/);
     expect(lazySusan).toContain("width:6%");
-    expect(lazySusan).toContain("left:12.5%");
+    // 94% of a 24in face = 22.56in; 3in stile = 13.2979%.
+    expect(lazySusan).toMatch(/left:13\.2978/);
     expect(blind).not.toContain("linear-gradient(225deg");
     expect(lazySusan).not.toContain("linear-gradient(225deg");
   });
@@ -232,6 +244,29 @@ describe("non-standard Cabinet Config drawing contract", () => {
 
     expect(markup).toContain('alt="Single oven"');
     expect(markup).toContain("left:12.5%");
+  });
+
+  it("inherits physical Shaker face widths across oven-tall top, bottom, and middle opening paths", () => {
+    for (const openingType of ["top", "bottom", "middle"] as const) {
+      const markup = renderToStaticMarkup(
+        createElement(DoorFront, {
+          kind: "shaker",
+          edge: "#1a2744",
+          face: "#d8d4c8",
+          cabinetType: "oven-tall",
+          cabinetWidthIn: 24,
+          cabinetHeightIn: 90,
+          doors: 2,
+          drawers: 1,
+          openingType,
+          doorHeight: 30,
+          drawerHeight: 6,
+        }),
+      );
+
+      // Each 12in upper door keeps two 3in stiles, leaving a 6in center panel.
+      expect(markup, openingType).toContain("left:25%");
+    }
   });
 
   it("routes every saved Custom Cabinet Rule profile to its configured generic-image path", () => {

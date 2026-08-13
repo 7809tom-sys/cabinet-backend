@@ -20,7 +20,7 @@ import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
 import { resolveCustomCabinetRender } from "@/lib/customCabinetRender";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
@@ -92,6 +92,13 @@ interface Props {
   // Flooring layout pattern: how planks are arranged.
   flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
 }
+
+const ShakerFaceMetricsContext = createContext({
+  widthIn: 24,
+  heightIn: 34.5,
+  doorCount: 1,
+  drawerCount: 1,
+});
 
 /** Base end cabinets are end-of-run returns, never room-corner clip paths. */
 export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: string | null): boolean {
@@ -1782,6 +1789,7 @@ function HardwareOverlay({
 // the door region and for each individual drawer front so a drawer base reads
 // as a real stack of drawer fronts rather than one big door.
 export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSampleUrl, frameInsetPx, faceWidthIn, faceHeightIn }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; frameInsetPx?: number; faceWidthIn?: number; faceHeightIn?: number }) {
+  const inheritedFace = useContext(ShakerFaceMetricsContext);
   // Elevation drawings use schematic geometry rather than tiling a product image
   // across small panels. Product photos remain in the catalog and style inspector.
   const effectiveDoorUrl = null;
@@ -1811,7 +1819,7 @@ export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, dr
     const sideInset = drawerPanelInsetPx(elevationFrameInsetPx(kind, frameInsetPx), isShaker);
     const railInset = isShaker ? sideInset : Math.max(3, Math.min(6, Math.round(sideInset * 0.5)));
     const physicalGeometry = isShaker
-      ? shakerFacePanelGeometry(faceWidthIn ?? 24, faceHeightIn ?? 6)
+      ? shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.drawerCount, faceHeightIn ?? inheritedFace.heightIn / inheritedFace.drawerCount)
       : null;
     return (
       <div
@@ -1956,7 +1964,9 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // This keeps the outer cabinet container transparent (no visible box).
   const withFace = (children: React.ReactNode) => (
     <div className="absolute inset-0" style={{ background: faceBackground }}>
-      {children}
+      <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount) }}>
+        {children}
+      </ShakerFaceMetricsContext.Provider>
     </div>
   );
 
@@ -2371,7 +2381,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
           style={bLeft ? { left: `${100 - visiblePct}%`, width: `${visiblePct}%` } : { left: 0, width: `${visiblePct}%` }}
         >
           <div className={`absolute top-0 bottom-0 ${bLeft ? 'left-0' : 'right-0'}`} style={{ width: 2, background: stroke }} />
-          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth * (visiblePct / 100)} faceHeightIn={faceHeight} />
         </div>
       </>
     );
@@ -2507,7 +2517,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
               bottom: "3%",
             }}
           >
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth * ((doorSlice - 2) / 100)} faceHeightIn={faceHeight * 0.94} />
             {Array.from({ length: visibleShelves }).map((_, shelfIndex) => (
               <div
                 key={`diagonal-shelf-${shelfIndex}`}
@@ -2534,7 +2544,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
       <>
         {/* Single door panel filling the full face — this wall's door face */}
         <div className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%]">
-          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth * 0.94} faceHeightIn={faceHeight * 0.94} />
         </div>
         {/* Subtle corner-return shadow strip on the right edge to hint at the
             L-shape — the door wraps around the corner */}
@@ -2592,7 +2602,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
               {i > 0 && (
                 <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
               )}
-                            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+                            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} faceWidthIn={faceWidth * 0.92} faceHeightIn={faceHeight / dCount} />
             </div>
           ))}
         </div>
@@ -2857,6 +2867,7 @@ function RecessedPanel({ inset, horizontalInset, verticalInset, face, edge, rais
 // outer rail (light top-left / dark bottom-right) plus a RecessedPanel so the
 // door reads as a real 3D door rather than flat outlines.
 export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall, frameInsetPx, faceWidthIn, faceHeightIn }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null; isWall?: boolean; frameInsetPx?: number; faceWidthIn?: number; faceHeightIn?: number }) {
+  const inheritedFace = useContext(ShakerFaceMetricsContext);
   void stroke;
   // Beveled outer rail applied to the whole door face (shared by framed styles).
   // Strong bevel on the outer rail: bright top-left highlight (light hits the
@@ -2872,7 +2883,7 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
   // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
   // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
   const resolvedInset = (fi: number) => elevationFrameInsetPx(kind, frameInsetPx) ?? fi;
-  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? 24, faceHeightIn ?? 34.5);
+  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.heightIn);
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.

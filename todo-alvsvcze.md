@@ -119,3 +119,8 @@
 - [x] Verify a 21-inch Shaker door has a 15-inch interior panel after two 3-inch stiles
 - [ ] Pass real face width and height through every remaining specialty, corner, opening, pantry, and custom-profile Shaker renderer path
 - [ ] Add renderer regressions for physical Shaker proportions on the remaining specialty and configured-opening paths
+- [x] Pass explicit physical dimensions to blind-corner, diagonal-corner, L-corner, corner-drawer, and custom-profile partial Shaker faces
+- [x] Add direct measured Shaker tests for blind-corner, pantry, sink-base, and custom-profile subfaces
+- [ ] Pass explicit face dimensions to every remaining oven-tall partial-height branch and remove inherited fallbacks where subface geometry is known
+- [ ] Add vertical 3-inch rail assertions for partial-height Shaker doors and drawer faces
+- [ ] Audit every SingleDoorPanel and StylePanel call to confirm physical subface dimensions are explicit
