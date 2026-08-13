@@ -41,6 +41,7 @@ import { useSeo } from "@/hooks/useSeo";
 import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
+import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
 
 // ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
 const FALLBACK_CATEGORIES = [
@@ -810,7 +811,7 @@ export default function CabinetDetail({ masterCode }: Props) {
         <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
         <h2 className="font-serif text-2xl font-bold mb-2">Cabinet Not Found</h2>
         <p className="text-muted-foreground mb-4">No cabinet with code "{masterCode}" exists.</p>
-        <Link href="/catalog">
+        <Link href={affiliateCatalogRootHref()}>
           <Button variant="outline">Back to Catalog</Button>
         </Link>
       </div>
@@ -822,14 +823,14 @@ export default function CabinetDetail({ masterCode }: Props) {
       {/* Breadcrumb + floating style pill on the same row */}
       <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/catalog" className="hover:text-foreground flex items-center gap-1">
+          <Link href={affiliateCatalogRootHref()} className="hover:text-foreground flex items-center gap-1">
             <ChevronLeft className="h-3.5 w-3.5" />
             Catalog
           </Link>
           {cabinet.category && (
             <>
               <span>/</span>
-              <Link href={`/catalog?category=${cabinet.category}`} className="hover:text-foreground">
+              <Link href={affiliateCatalogRootHref()} className="hover:text-foreground">
                 {cabinet.category}
               </Link>
             </>
@@ -863,10 +864,10 @@ export default function CabinetDetail({ masterCode }: Props) {
 
       {/* ── Category pills + search within door style ────────────────────────── */}
       {activeStyle != null && (
-        <StyleCategoryNav
-          styleId={activeStyle}
-          currentCategory={cabinet.category}
-          currentMasterCode={masterCode}
+          <StyleCategoryNav
+            styleId={activeStyle}
+            currentCategory={cabinet.category}
+            currentMasterCode={masterCode}
         />
       )}
 
@@ -1035,7 +1036,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               )}
               <div className={selectedRow.roomSceneImageUrl ? "mt-3" : ""}>
                 <Link
-                  href={`/design?style=${selectedRow.styleId}`}
+                  href={affiliateDesignerHref(selectedRow.styleId)}
                   className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-3 px-4 transition-all hover:opacity-90 active:scale-[0.98]"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -2306,7 +2307,7 @@ function StyleCategoryNav({
           {items.map((item: any) => (
             <Link
               key={item.id}
-              href={`/catalog/${item.masterCode}?style=${styleId}`}
+              href={affiliateCabinetHref(item.masterCode, styleId)}
               className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border last:border-0 ${
                 item.masterCode === currentMasterCode ? "bg-primary/5 border-l-2 border-l-primary" : ""
               }`}
@@ -2434,7 +2435,7 @@ function Cabinet3dPreviewSection({
 
           {/* Add to Designer CTA */}
           <Link
-            href={`/design?style=${styleId}`}
+            href={affiliateDesignerHref(styleId)}
             className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-3 px-4 transition-all hover:opacity-90 active:scale-[0.98]"
           >
             <ArrowRight className="h-4 w-4" />
@@ -2475,7 +2476,7 @@ function Cabinet3dPreviewSection({
           {/* Always show Add to Designer CTA even without the 3D preview */}
           <div className="pt-2 border-t border-border">
             <Link
-              href={`/design?style=${styleId}`}
+              href={affiliateDesignerHref(styleId)}
               className="flex items-center justify-center gap-2 w-full rounded-lg border border-primary text-primary font-medium text-sm py-2.5 px-4 transition-all hover:bg-primary/5 active:scale-[0.98]"
             >
               <ArrowRight className="h-4 w-4" />

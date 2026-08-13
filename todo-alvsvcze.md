@@ -131,3 +131,7 @@
 - [x] Make the image and product-information area of every affiliate catalog cabinet card open its cabinet detail page
 - [x] Preserve separate quantity and Add to Cart controls on affiliate mobile catalog cards
 - [ ] Verify affiliate card-to-detail navigation reaches the private cost panel for an authorized owner
+- [x] Keep affiliate cabinet-detail breadcrumbs, related cabinet links, and designer launch links inside the affiliate storefront
+- [x] Add affiliate detail-page navigation isolation regression coverage
+- [x] Normalize dashed affiliate catalog SKUs so every cabinet card opens its matching master detail record
+- [ ] Verify dashed SKU affiliate detail links reach the authorized private cost view without a not-found result

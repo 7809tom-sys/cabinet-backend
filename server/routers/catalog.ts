@@ -29,6 +29,7 @@ import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -1219,10 +1220,18 @@ export const cabinetsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
+      const normalizedCode = normalizeCode(input.masterCode);
       const rows = await db
         .select()
         .from(cabinets)
-        .where(and(eq(cabinets.masterCode, input.masterCode), notInConflict()))
+        .where(and(
+          or(
+            eq(cabinets.masterCode, input.masterCode),
+            eq(cabinets.masterCode, normalizedCode),
+            sql`REPLACE(REPLACE(REPLACE(UPPER(${cabinets.masterCode}), '-', ''), ' ', ''), '_', '') = ${normalizedCode}`,
+          ),
+          notInConflict(),
+        ))
         .limit(1);
       return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
