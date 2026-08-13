@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
+import { affiliateCabinetDetailHref } from "@/lib/affiliateCabinetDetailRoute";
 
 type Brand = { primary: string; accent: string };
 
@@ -854,28 +855,39 @@ function CatalogCard({
     styleId,
     category: showing.category,
   });
+  const detailHref = affiliateCabinetDetailHref({ slug, masterCode: code, styleId });
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-4">
-      {(item.imageUrl || item.catalogImageUrl) && (
-        <div className="mb-3 aspect-square w-full overflow-hidden rounded-lg bg-muted">
-          <img
-            src={item.imageUrl || item.catalogImageUrl!}
-            alt={item.description ?? item.masterCode}
-            loading="lazy"
-            className="h-full w-full object-contain"
-          />
-        </div>
-      )}
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
-          {code}
-        </span>
-        {item.category && (
-          <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
+      <Link
+        href={detailHref}
+        aria-label={`View details for ${code}`}
+        className="group/details -m-1 mb-1 rounded-lg p-1 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-offset-2"
+        style={{ ['--tw-ring-color' as string]: brand.accent }}
+      >
+        {(item.imageUrl || item.catalogImageUrl) && (
+          <div className="mb-3 aspect-square w-full overflow-hidden rounded-lg bg-muted">
+            <img
+              src={item.imageUrl || item.catalogImageUrl!}
+              alt={item.description ?? item.masterCode}
+              loading="lazy"
+              className="h-full w-full object-contain transition-transform duration-200 group-hover/details:scale-[1.02]"
+            />
+          </div>
         )}
-      </div>
-      <p className="line-clamp-2 text-sm text-foreground">{description}</p>
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
+            {code}
+          </span>
+          {item.category && (
+            <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
+          )}
+        </div>
+        <p className="line-clamp-2 text-sm text-foreground">{description}</p>
+        <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: brand.accent }}>
+          View details <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      </Link>
 
       {/* Glass-door upsell — only when a buyable GD twin exists for this line. */}
       {upsell && (

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
-import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation, SingleDoorPanel } from "./ElevationView";
+import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
 describe("end-angle elevation face", () => {
   it("keeps BEC-24 classified as an end cabinet even when its saved corner type is triangle", () => {
@@ -63,6 +63,23 @@ describe("Shaker elevation front rendering", () => {
     // 3in / 21in = 14.2857% on each side, leaving a 15in center panel.
     expect(wide).toMatch(/left:14\.2857/);
     expect(wide).toMatch(/right:14\.2857/);
+  });
+
+  it("draws measured 3-inch top and bottom rails on a 12-inch partial-height Shaker drawer", () => {
+    const markup = renderToStaticMarkup(
+      createElement(StylePanel, {
+        kind: "shaker",
+        edge: "#1a2744",
+        face: "#d8d4c8",
+        drawer: true,
+        faceWidthIn: 12,
+        faceHeightIn: 12,
+      }),
+    );
+
+    // 3in / 12in = 25% at the top and bottom, leaving a 6in drawer panel.
+    expect(markup).toContain("top:25%");
+    expect(markup).toContain("bottom:25%");
   });
 
   it("renders a 3-inch square frame through every representative cabinet-family path", () => {

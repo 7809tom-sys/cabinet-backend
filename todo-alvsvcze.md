@@ -122,8 +122,12 @@
 - [x] Pass explicit physical dimensions to blind-corner, diagonal-corner, L-corner, corner-drawer, and custom-profile partial Shaker faces
 - [x] Add direct measured Shaker tests for blind-corner, pantry, sink-base, and custom-profile subfaces
 - [ ] Pass explicit face dimensions to every remaining oven-tall partial-height branch and remove inherited fallbacks where subface geometry is known
-- [ ] Add vertical 3-inch rail assertions for partial-height Shaker doors and drawer faces
+- [x] Add vertical 3-inch rail assertions for partial-height Shaker doors and drawer faces
 - [ ] Audit every SingleDoorPanel and StylePanel call to confirm physical subface dimensions are explicit
+- [x] Add a renderer-level partial-height Shaker drawer assertion for 3-inch top and bottom rails
 - [x] Show an affiliate owner’s private My Cost, Sells At, and Margin panel on that affiliate’s branded storefront
 - [x] Keep affiliate-private cost data hidden from homeowners, other affiliates, and unauthorized affiliate staff
 - [x] Add private-pricing role and storefront-isolation regression coverage
+- [x] Make the image and product-information area of every affiliate catalog cabinet card open its cabinet detail page
+- [x] Preserve separate quantity and Add to Cart controls on affiliate mobile catalog cards
+- [ ] Verify affiliate card-to-detail navigation reaches the private cost panel for an authorized owner

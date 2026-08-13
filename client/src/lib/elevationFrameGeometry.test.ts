@@ -39,6 +39,21 @@ describe("elevation face-frame geometry", () => {
     expect(shakerFacePanelGeometry(21, 30).horizontalInsetPercent).toBeCloseTo(14.285714, 5);
   });
 
+  it("uses real partial face height for 3-inch top and bottom rails", () => {
+    // A 30-inch oven door keeps a 24-inch center panel after two 3-inch rails.
+    expect(shakerFacePanelGeometry(12, 30)).toMatchObject({
+      railInches: 3,
+      centerPanelHeightInches: 24,
+      verticalInsetPercent: 10,
+    });
+    // A 12-inch partial-height face keeps a 6-inch center panel.
+    expect(shakerFacePanelGeometry(12, 12)).toMatchObject({
+      railInches: 3,
+      centerPanelHeightInches: 6,
+      verticalInsetPercent: 25,
+    });
+  });
+
   it("keeps the same 3-inch square Shaker frame across base, wall, tall, drawer, microwave, and specialty fronts", () => {
     const cabinetFrontFamilies = [
       "base cabinet",

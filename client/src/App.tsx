@@ -220,6 +220,17 @@ export default function App() {
             </Suspense>
           )}
         </Route>
+        <Route path="/store/:slug/catalog/:masterCode">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <ErrorBoundary>
+                  <CabinetDetail masterCode={params.masterCode} />
+                </ErrorBoundary>
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
         <Route path="/store/:slug">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
