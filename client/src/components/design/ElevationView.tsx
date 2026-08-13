@@ -2177,7 +2177,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             {Array.from({ length: ovenDoorCount }).map((_, i) => (
               <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} {...doorPanelProps(ovenDoorCount, upperDoorPct)} />
               </div>
             ))}
           </div>
@@ -2186,7 +2186,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
           {Array.from({ length: ovenDrawerCount }).map((_, i) => (
             <div key={`oven-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${upperDoorPct + drawerH * i}%`, height: `${drawerH}%` }}>
               {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
-              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} />
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} {...drawerPanelProps(1, drawerH)} />
             </div>
           ))}
           {ovenDrawerCount > 0 && <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + drawerAreaPct}%`, height: 2, background: stroke }} />}
@@ -2205,7 +2205,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             {Array.from({ length: ovenDoorCount }).map((_, i) => (
               <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
-                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} />
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} frameInsetPx={frameInsetPx} {...doorPanelProps(ovenDoorCount, upperDoorPct)} />
               </div>
             ))}
           </div>
@@ -2219,7 +2219,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
           {Array.from({ length: ovenDrawerCount }).map((_, i) => (
             <div key={`oven-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${upperDoorPct + openingPct + drawerH * i}%`, height: `${drawerH}%` }}>
               {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
-              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} />
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} {...drawerPanelProps(1, drawerH)} />
             </div>
           ))}
         </>

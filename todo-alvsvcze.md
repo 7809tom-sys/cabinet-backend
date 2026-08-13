@@ -114,16 +114,16 @@
 - [x] Render BEC-24’s distinct two-face 90-degree return geometry instead of a flat base rectangle or 36-inch corner cabinet
 - [x] Keep BEC-24 out of lazy-Susan, diagonal-corner, corner-filler, and two-sided corner-snapping rules
 - [ ] Verify the revised BEC-24 plan and elevation against the supplied 24-by-24 two-face reference
-- [ ] Calibrate Shaker door and drawer stiles/rails to physical 3-inch dimensions at the rendered cabinet scale
+- [x] Calibrate Shaker door and drawer stiles/rails to physical 3-inch dimensions at the rendered cabinet scale
 - [x] Verify a 12-inch Shaker door has a 6-inch interior panel after two 3-inch stiles
 - [x] Verify a 21-inch Shaker door has a 15-inch interior panel after two 3-inch stiles
-- [ ] Pass real face width and height through every remaining specialty, corner, opening, pantry, and custom-profile Shaker renderer path
-- [ ] Add renderer regressions for physical Shaker proportions on the remaining specialty and configured-opening paths
+- [x] Pass real face width and height through every remaining specialty, corner, opening, pantry, and custom-profile Shaker renderer path
+- [x] Add renderer regressions for physical Shaker proportions on the remaining specialty and configured-opening paths
 - [x] Pass explicit physical dimensions to blind-corner, diagonal-corner, L-corner, corner-drawer, and custom-profile partial Shaker faces
 - [x] Add direct measured Shaker tests for blind-corner, pantry, sink-base, and custom-profile subfaces
-- [ ] Pass explicit face dimensions to every remaining oven-tall partial-height branch and remove inherited fallbacks where subface geometry is known
+- [x] Pass explicit face dimensions to every remaining oven-tall partial-height branch and remove inherited fallbacks where subface geometry is known
 - [x] Add vertical 3-inch rail assertions for partial-height Shaker doors and drawer faces
-- [ ] Audit every SingleDoorPanel and StylePanel call to confirm physical subface dimensions are explicit
+- [x] Audit every SingleDoorPanel and StylePanel call to confirm physical subface dimensions are explicit
 - [x] Add a renderer-level partial-height Shaker drawer assertion for 3-inch top and bottom rails
 - [x] Show an affiliate owner’s private My Cost, Sells At, and Margin panel on that affiliate’s branded storefront
 - [x] Keep affiliate-private cost data hidden from homeowners, other affiliates, and unauthorized affiliate staff
