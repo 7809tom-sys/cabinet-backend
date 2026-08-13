@@ -207,7 +207,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
 
     expect(renderProfile("wine-rack")).toContain("<svg");
     expect(renderProfile("open-shelf-side-door")).toContain("w-[62%]");
-    expect(renderProfile("open-shelf-side-door")).toContain("left:12.5%");
+    expect(renderProfile("open-shelf-side-door")).toMatch(/left:32\.8947/);
     expect(renderProfile("curved-open-shelf")).toContain("border-top-right-radius:42% 16%");
     expect(renderProfile("pullout-tower")).toContain("w-[3px]");
     expect(renderProfile("knee-drawer")).toContain("h-[21%]");

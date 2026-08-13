@@ -1850,6 +1850,8 @@ export function CustomProfileFace({
   kind,
   fixedShelves,
   adjustableShelves,
+  faceWidthIn,
+  faceHeightIn,
 }: {
   profile: string;
   face: string;
@@ -1857,6 +1859,8 @@ export function CustomProfileFace({
   kind: DoorPanelKind;
   fixedShelves: number;
   adjustableShelves: number;
+  faceWidthIn?: number;
+  faceHeightIn?: number;
 }) {
   const shelfCount = Math.max(2, fixedShelves || adjustableShelves || 3);
   const rail = `color-mix(in srgb, ${face} 68%, #000)`;
@@ -1910,7 +1914,7 @@ export function CustomProfileFace({
       <div className="absolute inset-0" style={{ border: `3px solid ${edge}`, background: cavity }}>
         <div className="absolute left-0 top-0 bottom-0 w-[62%]" style={{ borderRight: `3px solid ${rail}` }}>{shelves}</div>
         <div className="absolute right-0 top-0 bottom-0 w-[38%]" style={{ background: face }}>
-          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={`${edge}99`} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={`${edge}99`} faceWidthIn={(faceWidthIn ?? 24) * 0.38} faceHeightIn={faceHeightIn ?? 34.5} />
         </div>
       </div>
     );
