@@ -228,7 +228,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // heuristics. They have two 12-inch faces at a 90-degree return and never
   // consume a room corner, filler, or lazy-Susan/diagonal rule.
   if (
-    /base end corner|end corner return|base end angle/.test(sub) ||
+    /base end corner|base end cabinet|end corner return|base end angle/.test(sub) ||
     /^(?:bec|ba)[-_]?\d/.test(code) ||
     /base end corner/.test(hay)
   ) {

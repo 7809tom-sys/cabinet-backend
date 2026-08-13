@@ -167,3 +167,5 @@
 - [x] Set BA-24 and BEC to the dedicated Base End Corner/End Return subcategory instead of a standard base subcategory
 - [x] Make the Base End Corner/End Return subcategory take precedence over standard base drawing rules
 - [x] Verify subcategory-driven BA-24/BEC end-return geometry in catalog, plan, and elevation
+- [x] Use the user-created Base End Cabinet category as the authoritative BA-24/BEC drawing classification
+- [ ] Verify Base End Cabinet category records render as textured two-face end returns in the designer

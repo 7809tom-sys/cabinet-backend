@@ -111,6 +111,15 @@ describe("cabinetDrawingType", () => {
     })).toBe("end-return");
   });
 
+  it("uses the user-created Base End Cabinet subcategory as an authoritative end-return signal", () => {
+    expect(cabinetDrawingType({
+      masterCode: "CUSTOM-END-24",
+      description: '24" Base Cabinet',
+      category: "Base",
+      subCategory: "Base End Cabinet",
+    })).toBe("end-return");
+  });
+
   it("classifies an appliance garage before generic wall logic", () => {
     const cab: CabinetLike = {
       masterCode: "AG-24",
