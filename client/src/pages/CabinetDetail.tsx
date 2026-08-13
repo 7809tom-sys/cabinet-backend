@@ -318,6 +318,11 @@ export default function CabinetDetail({ masterCode }: Props) {
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   })();
+  const cabinetIdParam = (() => {
+    const v = new URLSearchParams(searchStr).get("cabinetId");
+    const n = v ? Number(v) : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  })();
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
   const { user } = useAuth();
   // The viewer's storefront tier: guests/homeowners see retail; logged-in pros
@@ -339,9 +344,15 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [qty, setQty] = useState(1);
   const { t, lang } = useLanguage();
 
-  const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
+  const { data: cabinetById, isLoading: cabinetByIdLoading } = trpc.cabinets.byId.useQuery(
+    { id: cabinetIdParam ?? 0 },
+    { enabled: cabinetIdParam != null },
+  );
+  const { data: cabinetByCode, isLoading: cabinetByCodeLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
-  });
+  }, { enabled: cabinetIdParam == null });
+  const cabinet = cabinetById ?? cabinetByCode;
+  const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;
 
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)

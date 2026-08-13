@@ -872,6 +872,10 @@ export const doorStylesRouter = router({
           );
           return {
             ...r,
+            // The catalog card must carry the master cabinet ID, not only the
+            // human-readable code. Several legacy records share normalized
+            // code text; the exact ID preserves the card's own style and price.
+            id: r.cabinetId,
             // Override category so trim/molding/filler items always land in
             // the Accessories & Trim tab on the Family page.
             category: normCategory,

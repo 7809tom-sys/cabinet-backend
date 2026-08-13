@@ -855,7 +855,7 @@ function CatalogCard({
     styleId,
     category: showing.category,
   });
-  const detailHref = affiliateCabinetDetailHref({ slug, masterCode: code, styleId });
+  const detailHref = affiliateCabinetDetailHref({ slug, masterCode: code, styleId, cabinetId: item.id });
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-4">
