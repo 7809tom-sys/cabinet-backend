@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, existingCabinetTransform, sceneCabinetColor, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, existingCabinetTransform, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -24,5 +24,9 @@ describe("interactive 3D room scene helpers", () => {
       uid: "wall-1", cabinetId: 10, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
       x: 24, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 60,
     })).toEqual({ x: 39, z: 6, rotation: 0, bottom: 60 });
+  });
+
+  it("uses a high-resolution PNG export size suitable for design sharing", () => {
+    expect(THREE_D_EXPORT_SIZE).toEqual({ width: 2000, height: 1400 });
   });
 });

@@ -2010,3 +2010,9 @@
 - [x] Remove the unnecessary seeded-layout requirement from the 3D preview button
 - [x] Render placed cabinets and the current room geometry in the interactive 3D scene
 - [x] Verify desktop and mobile 3D preview access
+
+## Feature: Enhanced interactive 3D presentation
+- [x] Add presentation material controls for cabinet finishes and countertops
+- [x] Improve scene lighting, shadows, and camera orbit/zoom/pan behavior
+- [x] Add high-resolution 3D scene download
+- [x] Test responsive 3D controls and image export

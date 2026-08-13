@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, Rotate3D } from "lucide-react";
+import { Camera, Download, Rotate3D, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
 
@@ -44,6 +44,22 @@ const BASE_DEPTH = 24;
 const WALL_DEPTH = 12;
 const COUNTERTOP_H = 37.5;
 const WALL_BOTTOM = 54;
+const CABINET_FINISHES = [
+  { name: "Catalog finish", color: "catalog" },
+  { name: "Soft White", color: "#f2f0ea" },
+  { name: "Sage", color: "#78826b" },
+  { name: "Navy", color: "#435b77" },
+  { name: "Walnut", color: "#75523e" },
+  { name: "Charcoal", color: "#34363a" },
+] as const;
+const COUNTERTOP_FINISHES = [
+  { name: "Quartz", color: "#e9e7e2" },
+  { name: "Carrara", color: "#d7d7d3" },
+  { name: "Soapstone", color: "#3d4245" },
+  { name: "Sand", color: "#c9b8a1" },
+  { name: "Black", color: "#202124" },
+] as const;
+export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
 
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
@@ -210,11 +226,23 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
 
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, className }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const [cabinetFinish, setCabinetFinish] = useState("catalog");
+  const [countertopFinish, setCountertopFinish] = useState(scene.materials?.defaults.countertop ?? "#e9e7e2");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = placed.length > 0;
+  const catalogFinish = sceneCabinetColor(scene);
+  const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
+
+  useEffect(() => {
+    setCabinetFinish("catalog");
+    setCountertopFinish(scene.materials?.defaults.countertop ?? "#e9e7e2");
+  }, [scene.materials?.cabinet.color, scene.materials?.cabinet.finish, scene.materials?.defaults.countertop]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -226,7 +254,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     const canvasHeight = Math.max(280, mount.clientHeight || 420);
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
     } catch {
       setWebglUnavailable(true);
       return;
@@ -236,6 +264,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     mount.replaceChildren(renderer.domElement);
 
     const threeScene = new THREE.Scene();
@@ -246,7 +276,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    controls.dampingFactor = 0.075;
+    controls.enablePan = true;
+    controls.screenSpacePanning = true;
+    controls.rotateSpeed = 0.68;
+    controls.zoomSpeed = 0.84;
+    controls.panSpeed = 0.72;
+    controls.minPolarAngle = 0.2;
     controls.maxPolarAngle = Math.PI / 2.02;
     controls.minDistance = 3;
     controls.maxDistance = Math.max(14, maxSpan * 3.4);
@@ -254,16 +290,23 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     controls.autoRotateSpeed = 1.1;
     controls.update();
 
-    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#5e6470", 2.4));
-    const keyLight = new THREE.DirectionalLight("#fff7ea", 2.4);
+    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#526174", 2.2));
+    const keyLight = new THREE.DirectionalLight("#fff6e8", 3.1);
     keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
     keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 0.1;
+    keyLight.shadow.camera.far = maxSpan * 4;
     threeScene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight("#b7d1ef", 0.7);
+    const fillLight = new THREE.DirectionalLight("#b7d1ef", 1.05);
     fillLight.position.set(-maxSpan, maxSpan, maxSpan);
     threeScene.add(fillLight);
+    const wallHeight = room.ceilingHeight * INCH;
+    const warmLight = new THREE.PointLight("#ffdca6", 18, maxSpan * 3.2, 2);
+    warmLight.position.set(room.width * INCH * 0.52, wallHeight * 0.76, room.depth * INCH * 0.48);
+    threeScene.add(warmLight);
 
-    const materialDefaults = scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" };
+    const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
     const polygon = roomPolygon(
       roomOverride?.vertices?.length ? { vertices: roomOverride.vertices } : scene.roomShape?.geometryTemplate,
       room.width,
@@ -280,7 +323,6 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
     threeScene.add(floor);
 
     const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide });
-    const wallHeight = room.ceilingHeight * INCH;
     polygon.forEach((start, index) => {
       const end = polygon[(index + 1) % polygon.length];
       const dx = end.x - start.x;
@@ -298,7 +340,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
 
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
-    const finish = sceneCabinetColor(scene);
+    const finish = resolvedCabinetFinish;
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
@@ -311,6 +353,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
       }
     }
     threeScene.add(catalogRoot);
+    rendererRef.current = renderer;
+    sceneRef.current = threeScene;
+    cameraRef.current = camera;
 
     let frame = 0;
     const render = () => {
@@ -334,8 +379,35 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
       disposeObject(threeScene);
       renderer.dispose();
       renderer.domElement.remove();
+      if (rendererRef.current === renderer) rendererRef.current = null;
+      if (sceneRef.current === threeScene) sceneRef.current = null;
+      if (cameraRef.current === camera) cameraRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey]);
+  }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish]);
+
+  const downloadImage = () => {
+    const renderer = rendererRef.current;
+    const threeScene = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!renderer || !threeScene || !camera) return;
+    const currentSize = new THREE.Vector2();
+    renderer.getSize(currentSize);
+    const currentPixelRatio = renderer.getPixelRatio();
+    const { width: exportWidth, height: exportHeight } = THREE_D_EXPORT_SIZE;
+    renderer.setPixelRatio(1);
+    renderer.setSize(exportWidth, exportHeight, false);
+    camera.aspect = exportWidth / exportHeight;
+    camera.updateProjectionMatrix();
+    renderer.render(threeScene, camera);
+    const download = document.createElement("a");
+    download.href = renderer.domElement.toDataURL("image/png");
+    download.download = `cabinet-dealz-3d-room-${Date.now()}.png`;
+    download.click();
+    renderer.setPixelRatio(currentPixelRatio);
+    renderer.setSize(currentSize.x, currentSize.y, false);
+    camera.aspect = currentSize.x / currentSize.y;
+    camera.updateProjectionMatrix();
+  };
 
   if ((!scene.roomShape && !roomOverride) || !scene.materials) {
     return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose an active distributor door style and a seeded room layout to generate a real catalog 3D preview.</div>;
@@ -354,10 +426,33 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, className 
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
+          <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
         </div>
       </div>
+      <div className="mb-3 grid gap-3 rounded-xl border bg-muted/25 p-3 sm:grid-cols-2">
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5 text-[#a87f33]" />Cabinet finish preview</p>
+          <div className="flex flex-wrap gap-1.5">
+            {CABINET_FINISHES.map((option) => {
+              const color = option.color === "catalog" ? catalogFinish : option.color;
+              return <button key={option.name} type="button" onClick={() => setCabinetFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${cabinetFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background hover:bg-muted"}`}>
+                <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: color }} />{option.name}
+              </button>;
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-semibold">Countertop preview</p>
+          <div className="flex flex-wrap gap-1.5">
+            {COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background hover:bg-muted"}`}>
+              <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}
+            </button>)}
+          </div>
+        </div>
+        <p className="sm:col-span-2 text-[11px] text-muted-foreground">Preview materials change this image only. Your active catalog door style and order remain unchanged.</p>
+      </div>
       <div ref={mountRef} className="h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner sm:h-[440px] touch-none" />
-      <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit · Scroll or pinch to zoom · Cabinet geometry comes from the active distributor catalog</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit or pan · Scroll or pinch to zoom · Download exports a {THREE_D_EXPORT_SIZE.width} × {THREE_D_EXPORT_SIZE.height} PNG · Cabinet geometry comes from the active distributor catalog</p>
     </section>
   );
 }
