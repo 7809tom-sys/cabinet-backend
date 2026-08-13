@@ -114,3 +114,8 @@
 - [x] Render BEC-24’s distinct two-face 90-degree return geometry instead of a flat base rectangle or 36-inch corner cabinet
 - [x] Keep BEC-24 out of lazy-Susan, diagonal-corner, corner-filler, and two-sided corner-snapping rules
 - [ ] Verify the revised BEC-24 plan and elevation against the supplied 24-by-24 two-face reference
+- [ ] Calibrate Shaker door and drawer stiles/rails to physical 3-inch dimensions at the rendered cabinet scale
+- [x] Verify a 12-inch Shaker door has a 6-inch interior panel after two 3-inch stiles
+- [x] Verify a 21-inch Shaker door has a 15-inch interior panel after two 3-inch stiles
+- [ ] Pass real face width and height through every remaining specialty, corner, opening, pantry, and custom-profile Shaker renderer path
+- [ ] Add renderer regressions for physical Shaker proportions on the remaining specialty and configured-opening paths

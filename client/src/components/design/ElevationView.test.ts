@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
-import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation } from "./ElevationView";
+import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation, SingleDoorPanel } from "./ElevationView";
 
 describe("end-angle elevation face", () => {
   it("keeps BEC-24 classified as an end cabinet even when its saved corner type is triangle", () => {
@@ -52,6 +52,19 @@ describe("end-angle elevation face", () => {
 });
 
 describe("Shaker elevation front rendering", () => {
+  it("draws measured 3-inch Shaker stiles for 12-inch and 21-inch door faces", () => {
+    const common = { kind: "shaker" as const, edge: "#1a2744", face: "#d8d4c8", stroke: "#1a274499" };
+    const narrow = renderToStaticMarkup(createElement(SingleDoorPanel, { ...common, faceWidthIn: 12, faceHeightIn: 30 }));
+    const wide = renderToStaticMarkup(createElement(SingleDoorPanel, { ...common, faceWidthIn: 21, faceHeightIn: 30 }));
+
+    // 3in / 12in = 25% on each side, leaving a 6in (50%) center panel.
+    expect(narrow).toContain("left:25%");
+    expect(narrow).toContain("right:25%");
+    // 3in / 21in = 14.2857% on each side, leaving a 15in center panel.
+    expect(wide).toMatch(/left:14\.2857/);
+    expect(wide).toMatch(/right:14\.2857/);
+  });
+
   it("renders a 3-inch square frame through every representative cabinet-family path", () => {
     const cabinetFamilies = [
       { label: "base cabinet", cabinetType: "standard-door" as const, doors: 2, drawers: 1 },
@@ -73,7 +86,7 @@ describe("Shaker elevation front rendering", () => {
         }),
       );
 
-      expect(markup, fixture.label).toMatch(/(?:left|inset):12px/);
+      expect(markup, fixture.label).toMatch(/left:\d+(?:\.\d+)?%/);
       expect(markup, fixture.label).not.toContain("rounded-");
     }
   });
@@ -164,7 +177,7 @@ describe("configured corner elevation rendering", () => {
     expect(markup).toContain("linear-gradient(135deg");
     expect(markup).toContain("linear-gradient(225deg");
     expect(markup).toContain("left-[14%] right-[14%] h-px");
-    expect(markup).toMatch(/(?:left|inset):12px/);
+    expect(markup).toContain("left:12.5%");
     expect(markup).not.toContain("rounded-");
   });
 
@@ -177,9 +190,9 @@ describe("configured corner elevation rendering", () => {
     );
 
     expect(blind).toContain("repeating-linear-gradient(135deg");
-    expect(blind).toMatch(/(?:left|inset):12px/);
+    expect(blind).toContain("left:12.5%");
     expect(lazySusan).toContain("width:6%");
-    expect(lazySusan).toMatch(/(?:left|inset):12px/);
+    expect(lazySusan).toContain("left:12.5%");
     expect(blind).not.toContain("linear-gradient(225deg");
     expect(lazySusan).not.toContain("linear-gradient(225deg");
   });
@@ -194,7 +207,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
 
     expect(renderProfile("wine-rack")).toContain("<svg");
     expect(renderProfile("open-shelf-side-door")).toContain("w-[62%]");
-    expect(renderProfile("open-shelf-side-door")).toMatch(/(?:left|inset):12px/);
+    expect(renderProfile("open-shelf-side-door")).toContain("left:12.5%");
     expect(renderProfile("curved-open-shelf")).toContain("border-top-right-radius:42% 16%");
     expect(renderProfile("pullout-tower")).toContain("w-[3px]");
     expect(renderProfile("knee-drawer")).toContain("h-[21%]");
@@ -218,7 +231,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
     );
 
     expect(markup).toContain('alt="Single oven"');
-    expect(markup).toMatch(/(?:left|inset):12px/);
+    expect(markup).toContain("left:12.5%");
   });
 
   it("routes every saved Custom Cabinet Rule profile to its configured generic-image path", () => {

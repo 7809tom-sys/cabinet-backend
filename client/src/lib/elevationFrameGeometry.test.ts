@@ -6,6 +6,7 @@ import {
   isFlatPanelElevationStyle,
   isShakerElevationStyle,
   SHAKER_FACE_FRAME_PX,
+  shakerFacePanelGeometry,
 } from "./elevationFrameGeometry";
 
 describe("elevation face-frame geometry", () => {
@@ -19,6 +20,23 @@ describe("elevation face-frame geometry", () => {
     expect(isShakerElevationStyle("raised")).toBe(false);
     expect(elevationFrameInsetPx("shaker", 6)).toBe(SHAKER_FACE_FRAME_PX);
     expect(drawerPanelInsetPx(6, true)).toBe(SHAKER_FACE_FRAME_PX);
+  });
+
+  it("uses real door width for the Shaker center panel: 12-inch yields 6-inch and 21-inch yields 15-inch", () => {
+    expect(shakerFacePanelGeometry(12, 30)).toMatchObject({
+      stileInches: 3,
+      railInches: 3,
+      centerPanelWidthInches: 6,
+      centerPanelHeightInches: 24,
+      horizontalInsetPercent: 25,
+    });
+    expect(shakerFacePanelGeometry(21, 30)).toMatchObject({
+      stileInches: 3,
+      railInches: 3,
+      centerPanelWidthInches: 15,
+      centerPanelHeightInches: 24,
+    });
+    expect(shakerFacePanelGeometry(21, 30).horizontalInsetPercent).toBeCloseTo(14.285714, 5);
   });
 
   it("keeps the same 3-inch square Shaker frame across base, wall, tall, drawer, microwave, and specialty fronts", () => {

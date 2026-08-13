@@ -2,6 +2,35 @@ export const ELEVATION_PIXELS_PER_INCH = 4;
 export const SHAKER_FACE_FRAME_INCHES = 3;
 export const SHAKER_FACE_FRAME_PX = SHAKER_FACE_FRAME_INCHES * ELEVATION_PIXELS_PER_INCH;
 
+export interface ShakerFacePanelGeometry {
+  stileInches: number;
+  railInches: number;
+  centerPanelWidthInches: number;
+  centerPanelHeightInches: number;
+  horizontalInsetPercent: number;
+  verticalInsetPercent: number;
+}
+
+/**
+ * Physical Shaker face geometry. The stiles and rails are always 3 inches, so
+ * the center panel is the actual face dimension minus six inches. For example,
+ * 12in -> 6in panel and 21in -> 15in panel, independent of screen zoom.
+ */
+export function shakerFacePanelGeometry(faceWidthInches: number, faceHeightInches: number): ShakerFacePanelGeometry {
+  const width = Math.max(0.1, faceWidthInches);
+  const height = Math.max(0.1, faceHeightInches);
+  const stile = Math.min(SHAKER_FACE_FRAME_INCHES, width / 2);
+  const rail = Math.min(SHAKER_FACE_FRAME_INCHES, height / 2);
+  return {
+    stileInches: stile,
+    railInches: rail,
+    centerPanelWidthInches: Math.max(0, width - stile * 2),
+    centerPanelHeightInches: Math.max(0, height - rail * 2),
+    horizontalInsetPercent: (stile / width) * 100,
+    verticalInsetPercent: (rail / height) * 100,
+  };
+}
+
 export function isShakerElevationStyle(kind: string): boolean {
   return kind === "shaker" || kind === "slim-shaker" || kind === "double-shaker";
 }
