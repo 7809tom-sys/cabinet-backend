@@ -82,6 +82,56 @@ describe("Shaker elevation front rendering", () => {
     expect(markup).toContain("bottom:25%");
   });
 
+  it("uses the selected real door sample across the measured Shaker rails and center panel", () => {
+    const sampleUrl = "https://example.com/fresh-sage-real-door.webp";
+    const markup = renderToStaticMarkup(
+      createElement(SingleDoorPanel, {
+        kind: "shaker",
+        edge: "#557155",
+        face: "#8FAF8A",
+        stroke: "#55715599",
+        doorSampleUrl: sampleUrl,
+        faceWidthIn: 12,
+        faceHeightIn: 30,
+      }),
+    );
+
+    // The sample textures both the frame rails and the recessed 6in center,
+    // while the 3in geometry remains intact.
+    expect(markup).toContain(`url(${sampleUrl})`);
+    expect((markup.match(new RegExp(`url\\(${sampleUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`, "g")) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect(markup).toContain("left:25%");
+    expect(markup).toContain("right:25%");
+  });
+
+  it("keeps real door and drawer samples inside the measured multi-face base, wall, pantry, and specialty layouts", () => {
+    const doorSample = "https://example.com/real-door.webp";
+    const drawerSample = "https://example.com/real-drawer.webp";
+    const fixtures = [
+      { label: "base", cabinetType: "standard-door" as const, cabinetWidthIn: 24, cabinetHeightIn: 34.5, doors: 2, drawers: 1, expectsDrawerSample: true },
+      { label: "wall", cabinetType: "standard-door" as const, cabinetWidthIn: 24, cabinetHeightIn: 30, doors: 2, drawers: 0, isWall: true },
+      { label: "pantry", cabinetType: "pantry" as const, cabinetWidthIn: 24, cabinetHeightIn: 84, doors: 4, drawers: 0 },
+      { label: "sink", cabinetType: "sink-base" as const, cabinetWidthIn: 24, cabinetHeightIn: 34.5, doors: 2, drawers: 1 },
+    ];
+
+    for (const fixture of fixtures) {
+      const markup = renderToStaticMarkup(
+        createElement(DoorFront, {
+          kind: "shaker",
+          edge: "#557155",
+          face: "#8FAF8A",
+          doorSampleUrl: doorSample,
+          drawerSampleUrl: drawerSample,
+          ...fixture,
+        }),
+      );
+
+      expect(markup, fixture.label).toContain(`url(${doorSample})`);
+      expect(markup, fixture.label).toContain("left:25%");
+      if (fixture.expectsDrawerSample) expect(markup, fixture.label).toContain(`url(${drawerSample})`);
+    }
+  });
+
   it("renders a 3-inch square frame through every representative cabinet-family path", () => {
     const cabinetFamilies = [
       { label: "base cabinet", cabinetType: "standard-door" as const, doors: 2, drawers: 1 },
@@ -191,6 +241,67 @@ describe("configured Cabinet Config elevation presentation", () => {
 describe("configured corner elevation rendering", () => {
   const common = { kind: "shaker" as const, edge: "#1a2744", face: "#d8d4c8" };
 
+  it("keeps selected real samples inside the measured end-return and corner specialty faces", () => {
+    const doorSample = "https://example.com/real-corner-door.webp";
+    const drawerSample = "https://example.com/real-corner-drawer.webp";
+    const fixtures = [
+      { label: "end return", cabinetType: "end-return" as const, doors: 2, drawers: 0, marker: 'data-bec-end-return-face="true"' },
+      { label: "blind", cabinetType: "blind-corner" as const, doors: 1, drawers: 0, marker: "repeating-linear-gradient(135deg" },
+      { label: "diagonal", cabinetType: "diagonal-corner" as const, doors: 2, drawers: 0, marker: "linear-gradient(225deg" },
+      { label: "L corner", cabinetType: "l-corner" as const, doors: 1, drawers: 0, marker: "width:6%" },
+      { label: "corner drawer", cabinetType: "corner-drawer-base" as const, doors: 0, drawers: 3, marker: "width:8%" },
+    ];
+
+    for (const fixture of fixtures) {
+      const markup = renderToStaticMarkup(createElement(DoorFront, {
+        ...common,
+        ...fixture,
+        cabinetWidthIn: 24,
+        cabinetHeightIn: 34.5,
+        doorSampleUrl: doorSample,
+        drawerSampleUrl: drawerSample,
+      }));
+      expect(markup, fixture.label).toContain(fixture.marker);
+      expect(markup, fixture.label).toContain(`url(${fixture.drawers > 0 ? drawerSample : doorSample})`);
+    }
+  });
+
+  it("preserves explicit specialty face splits when realistic samples are enabled", () => {
+    const doorSample = "https://example.com/split-door.webp";
+    const drawerSample = "https://example.com/split-drawer.webp";
+    const endReturn = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "end-return", doors: 2, cabinetWidthIn: 24, cabinetHeightIn: 34.5, doorSampleUrl: doorSample,
+    }));
+    const diagonal = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "diagonal-corner", doors: 2, cabinetWidthIn: 36, cabinetHeightIn: 34.5, doorSampleUrl: doorSample,
+    }));
+    const blind = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "blind-corner", doors: 1, cabinetWidthIn: 24, cabinetHeightIn: 34.5, doorSampleUrl: doorSample,
+    }));
+    const lCorner = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "l-corner", doors: 1, cabinetWidthIn: 24, cabinetHeightIn: 34.5, doorSampleUrl: doorSample,
+    }));
+    const cornerDrawer = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "corner-drawer-base", doors: 0, drawers: 3, cabinetWidthIn: 36, cabinetHeightIn: 34.5, drawerSampleUrl: drawerSample,
+    }));
+    const oven = renderToStaticMarkup(createElement(DoorFront, {
+      ...common, cabinetType: "oven-tall", doors: 2, drawers: 1, cabinetWidthIn: 24, cabinetHeightIn: 90,
+      openingType: "middle", doorHeight: 30, drawerHeight: 6, doorSampleUrl: doorSample, drawerSampleUrl: drawerSample,
+    }));
+
+    expect(endReturn).toContain("width:49%");
+    expect(endReturn).toContain("width:43%");
+    expect(diagonal).toContain("width:33%");
+    expect(diagonal).toContain("left:15%");
+    expect(blind).toContain("left:40%;width:60%");
+    expect(lCorner).toContain("top-[3%] bottom-[3%] left-[3%] right-[3%]");
+    expect(cornerDrawer).toContain("left:8%;right:0");
+    expect(cornerDrawer).toContain("height:33.333333333333336%");
+    expect(oven).toContain(`url(${doorSample})`);
+    expect(oven).toContain(`url(${drawerSample})`);
+    expect(oven).toContain("height:33.33333333333333%");
+  });
+
   it("renders diagonal corners with a 45-degree face, configured shelves, and square Shaker doors", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {
@@ -241,6 +352,28 @@ describe("non-standard Cabinet Config drawing contract", () => {
     expect(renderProfile("pullout-tower")).toContain("w-[3px]");
     expect(renderProfile("knee-drawer")).toContain("h-[21%]");
     expect(renderProfile("hood-wall-chimney")).toContain("clip-path:polygon(28% 0,72% 0,88% 65%,100% 100%,0 100%,12% 65%)");
+  });
+
+  it("uses the selected real samples on custom side-door and knee-drawer faces", () => {
+    const doorSample = "https://example.com/real-specialty-door.webp";
+    const drawerSample = "https://example.com/real-specialty-drawer.webp";
+    const sideDoor = renderToStaticMarkup(createElement(CustomProfileFace, {
+      ...customFaceProps,
+      profile: "open-shelf-side-door",
+      doorSampleUrl: doorSample,
+      faceWidthIn: 24,
+      faceHeightIn: 34.5,
+    }));
+    const kneeDrawer = renderToStaticMarkup(createElement(CustomProfileFace, {
+      ...customFaceProps,
+      profile: "knee-drawer",
+      drawerSampleUrl: drawerSample,
+    }));
+
+    expect(sideDoor).toContain(`url(${doorSample})`);
+    expect(sideDoor).toContain("left:32.8947");
+    expect(kneeDrawer).toContain(`url(${drawerSample})`);
+    expect(kneeDrawer).toContain("h-[21%]");
   });
 
   it("uses the configured opening dimensions with the saved door and drawer layout", () => {

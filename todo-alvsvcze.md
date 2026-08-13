@@ -135,9 +135,9 @@
 - [x] Add affiliate detail-page navigation isolation regression coverage
 - [x] Normalize dashed affiliate catalog SKUs so every cabinet card opens its matching master detail record
 - [ ] Verify dashed SKU affiliate detail links reach the authorized private cost view without a not-found result
-- [ ] Make every placed cabinet elevation use the active selected door-style sample color consistently
-- [ ] Prevent per-cabinet fallback colors from overriding the selected style sample finish
-- [ ] Add mixed-cabinet elevation regression coverage for selected-style color consistency
+- [x] Make every placed cabinet elevation use the active selected door-style sample color consistently
+- [x] Prevent per-cabinet fallback colors from overriding the selected style sample finish
+- [x] Add mixed-cabinet elevation regression coverage for selected-style color consistency
 - [ ] Add renderer-level mixed-cabinet coverage for active door and drawer sample selection in one-finish mode
 - [ ] Verify the live mixed-placement elevation against the selected sample finish
 - [x] Preserve the exact cabinet ID when an affiliate catalog card opens its detail page
@@ -151,3 +151,11 @@
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
+- [x] Render realistic selected door-style samples and finish textures on designer elevation faces
+- [x] Retain accurate 3-inch Shaker frame, door/drawer layout, and cabinet dimensions under realistic face rendering
+- [ ] Verify realistic selected-style faces against the catalog door sample rather than schematic cartoon fills
+- [x] Add realistic sample renderer regressions for drawer fronts and representative multi-door/multi-drawer layouts
+- [x] Verify realistic samples preserve cabinet/elevation dimensions and door/drawer splits across base, wall, pantry, and specialty cabinets
+- [x] Add realistic sample renderer coverage for end-return, diagonal, blind, L-corner, and custom-profile cabinet faces
+- [x] Assert realistic sample rendering preserves multi-drawer/multi-door split geometry and elevation dimensions beyond standard cabinet families
+- [x] Add direct realistic-sample geometry assertions for end-return, diagonal, blind, L-corner, corner-drawer, and oven-opening paths

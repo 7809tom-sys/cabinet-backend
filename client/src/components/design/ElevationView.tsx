@@ -379,6 +379,10 @@ export function ElevationView({
               kind={cabPanelKind}
               fixedShelves={p.fixedShelfCount ?? 0}
               adjustableShelves={p.adjustableShelfCount ?? 0}
+              doorSampleUrl={cabDoorSampleUrl}
+              drawerSampleUrl={cabDrawerSampleUrl}
+              faceWidthIn={p.width}
+              faceHeightIn={p.height}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1792,9 +1796,9 @@ function HardwareOverlay({
 // as a real stack of drawer fronts rather than one big door.
 export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSampleUrl, frameInsetPx, faceWidthIn, faceHeightIn }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; frameInsetPx?: number; faceWidthIn?: number; faceHeightIn?: number }) {
   const inheritedFace = useContext(ShakerFaceMetricsContext);
-  // Elevation drawings use schematic geometry rather than tiling a product image
-  // across small panels. Product photos remain in the catalog and style inspector.
-  const effectiveDoorUrl = null;
+  // Apply the selected real sample to the individual front. Drawers prefer their
+  // dedicated sample image, then fall back to the selected door sample.
+  const effectiveDoorUrl = drawer ? (drawerSampleUrl ?? doorSampleUrl) : doorSampleUrl;
   // Drawers always read as a slim single recessed front regardless of the door
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
@@ -1829,6 +1833,14 @@ export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, dr
         style={{
           border: `1px solid ${edge}66`,
           boxShadow: `inset 1px 1px 0 rgba(255,255,255,0.35), inset -1px -1px 1px rgba(0,0,0,0.20)`,
+          ...(effectiveDoorUrl
+            ? {
+                backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.10), rgba(0,0,0,0.10)), url(${effectiveDoorUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundBlendMode: "soft-light, normal",
+              }
+            : {}),
         }}
       >
         <div
@@ -1838,7 +1850,9 @@ export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, dr
             right: physicalGeometry ? `${physicalGeometry.horizontalInsetPercent}%` : sideInset,
             top: physicalGeometry ? `${physicalGeometry.verticalInsetPercent}%` : railInset,
             bottom: physicalGeometry ? `${physicalGeometry.verticalInsetPercent}%` : railInset,
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 87%, #000) 0%, color-mix(in srgb, ${face} 95%, #000) 100%)`,
+            ...(effectiveDoorUrl
+              ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 87%, #000) 0%, color-mix(in srgb, ${face} 95%, #000) 100%)` }),
             border: `1px solid ${edge}44`,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.25), inset 0 -1px 0 rgba(255,255,255,0.20)`,
           }}
@@ -1860,6 +1874,8 @@ export function CustomProfileFace({
   kind,
   fixedShelves,
   adjustableShelves,
+  doorSampleUrl,
+  drawerSampleUrl,
   faceWidthIn,
   faceHeightIn,
 }: {
@@ -1869,6 +1885,8 @@ export function CustomProfileFace({
   kind: DoorPanelKind;
   fixedShelves: number;
   adjustableShelves: number;
+  doorSampleUrl?: string | null;
+  drawerSampleUrl?: string | null;
   faceWidthIn?: number;
   faceHeightIn?: number;
 }) {
@@ -1913,7 +1931,16 @@ export function CustomProfileFace({
   if (profile === "knee-drawer") {
     return (
       <div className="absolute inset-0" style={{ background: cavity, border: `3px solid ${edge}` }}>
-        <div className="absolute left-[4%] right-[4%] top-[4%] h-[21%]" style={{ border: `2px solid ${rail}`, background: face }} />
+        <div
+          className="absolute left-[4%] right-[4%] top-[4%] h-[21%]"
+          style={{
+            border: `2px solid ${rail}`,
+            background: face,
+            ...(drawerSampleUrl
+              ? { backgroundImage: `url(${drawerSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : {}),
+          }}
+        />
         <div className="absolute left-[8%] right-[8%] top-[32%] bottom-[6%]" style={{ borderTop: `2px solid ${rail}`, background: "rgba(0,0,0,0.16)" }} />
       </div>
     );
@@ -1924,7 +1951,7 @@ export function CustomProfileFace({
       <div className="absolute inset-0" style={{ border: `3px solid ${edge}`, background: cavity }}>
         <div className="absolute left-0 top-0 bottom-0 w-[62%]" style={{ borderRight: `3px solid ${rail}` }}>{shelves}</div>
         <div className="absolute right-0 top-0 bottom-0 w-[38%]" style={{ background: face }}>
-          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={`${edge}99`} faceWidthIn={(faceWidthIn ?? 24) * 0.38} faceHeightIn={faceHeightIn ?? 34.5} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={`${edge}99`} doorSampleUrl={doorSampleUrl} faceWidthIn={(faceWidthIn ?? 24) * 0.38} faceHeightIn={faceHeightIn ?? 34.5} />
         </div>
       </div>
     );
@@ -2886,6 +2913,14 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
     boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.38), inset -2px -2px 2px rgba(0,0,0,0.28)`,
     borderRadius: 0,
     backgroundColor: face,
+    ...(doorSampleUrl
+      ? {
+          backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0.10), rgba(0,0,0,0.10)), url(${doorSampleUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: isWall ? "center 80%" : "center",
+          backgroundBlendMode: "soft-light, normal",
+        }
+      : {}),
   };
   // Per-style frame inset: how many px from the door edge to the recessed panel.
   // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
@@ -2954,12 +2989,13 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
       );
     case "shaker":
     default:
-      // Draw the actual five-piece Shaker geometry directly. Tiling a product
-      // photo inside small elevation boxes duplicated seams and made drawer and
-      // door rails appear to run through neighboring cabinets.
+      // Keep the actual measured five-piece Shaker geometry while carrying the
+      // selected real door sample across both the rails and recessed center.
+      // Each individual door panel receives its own sample crop, preventing a
+      // single photo from spanning through neighboring cabinet doors.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={0} horizontalInset={`${shakerGeometry.horizontalInsetPercent}%`} verticalInset={`${shakerGeometry.verticalInsetPercent}%`} face={face} edge={edge} doorSampleUrl={null} isWall={isWall} />
+          <RecessedPanel inset={0} horizontalInset={`${shakerGeometry.horizontalInsetPercent}%`} verticalInset={`${shakerGeometry.verticalInsetPercent}%`} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
         </div>
       );
   }
