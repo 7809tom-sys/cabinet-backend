@@ -71,18 +71,27 @@ async function startServer() {
   // Detects affiliate subdomains (e.g., reaves-way-cabinet-shop.cabinetdealz.com)
   // and internally rewrites the URL to /store/:slug so the SPA serves the
   // affiliate's white-labeled storefront. API/tRPC/static paths are excluded.
-  app.use((req, _res, next) => {
+  app.use((req, res, next) => {
     // A CDN/deployment edge may expose the public hostname as X-Original-Host,
     // X-Forwarded-Host, or X-Host while Host/hostname identify an internal
     // Manus service. Prefer the public headers in that order so a customer on
     // the affiliate domain always reaches their branded storefront.
-    const subdomain = affiliateSlugFromHostCandidates([
+    const hostCandidates = [
       req.headers["x-original-host"],
       req.headers["x-forwarded-host"],
       req.headers["x-host"],
       req.hostname,
       req.headers.host,
-    ]);
+    ];
+    const subdomain = affiliateSlugFromHostCandidates(hostCandidates);
+    // Narrow, opt-in deployment diagnostic. It is removed once the edge header
+    // behavior is confirmed and never affects ordinary storefront responses.
+    if (req.query.affiliateRoutingDebug === "1") {
+      res.setHeader("X-Affiliate-Routing-Debug", JSON.stringify({
+        candidates: hostCandidates.map((value) => Array.isArray(value) ? value[0] : value ?? null),
+        slug: subdomain,
+      }));
+    }
     if (!subdomain) return next();
     // Don't rewrite API calls, static assets, or already-prefixed store paths
     if (req.url.startsWith("/api/") || req.url.startsWith("/store/") || req.url.startsWith("/__manus__") || req.url.startsWith("/manus-storage")) {
