@@ -141,8 +141,13 @@
 - [ ] Add renderer-level mixed-cabinet coverage for active door and drawer sample selection in one-finish mode
 - [ ] Verify the live mixed-placement elevation against the selected sample finish
 - [x] Preserve the exact cabinet ID when an affiliate catalog card opens its detail page
-- [ ] Use the exact cabinet ID to load matching door styles, price, and authorized owner cost when SKUs are duplicated
+- [x] Use the exact cabinet ID to load matching door styles, price, and authorized owner cost when SKUs are duplicated
 - [x] Add duplicate-SKU affiliate detail-route regressions
 - [x] Add an affiliate storefront-to-detail regression for duplicate normalized SKU records
 - [ ] Verify the exact duplicate-SKU detail route shows My Cost, Sells At, and Margin for an authenticated affiliate owner
 - [ ] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
+- [ ] Add a CabinetDetail UI regression for authenticated affiliate-owner My Cost, Sells At, and Margin rendering
+- [ ] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
+- [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
+- [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
+- [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

@@ -30,6 +30,7 @@ import { filterStylesByAvailability } from "@shared/styleAvailability";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { priceLadder } from "@shared/pricing";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -2958,6 +2959,12 @@ export const pricingRouter = router({
         access: affiliateAccess,
       });
       const ps = await getPricingSettings();
+      // The Administration fee stack sets the real amount an affiliate owes
+      // Cabinet Dealz. Never expose the platform's raw supplier cost in the
+      // affiliate view: show base cost plus the configured affiliate multiplier.
+      const affiliateFeeSettings = canSeePrivateCost
+        ? await getPlatformPricingSettings()
+        : null;
 
       // ── Alias resolution ────────────────────────────────────────────────────
       // The Master SKU Alias Program maps supplier-variant codes (e.g. "VS-24")
@@ -3095,6 +3102,11 @@ export const pricingRouter = router({
             viewerTier,
             isAdmin,
           );
+          const rawCost = r.yourCost == null ? null : Number(r.yourCost);
+          const affiliateAdjustedCost =
+            rawCost != null && Number.isFinite(rawCost) && affiliateFeeSettings
+              ? (priceLadder(Math.round(rawCost * 100), affiliateFeeSettings).affiliateCents / 100).toFixed(2)
+              : null;
           return {
             styleId: r.styleId,
             styleCode: r.styleCode,
@@ -3110,11 +3122,11 @@ export const pricingRouter = router({
             wholesalePrice: gated.wholesalePrice,
             contractorPrice: gated.contractorPrice,
             homeownerPrice: gated.homeownerPrice,
-            // True acquisition cost is private intelligence. It is available to
-            // the master admin and to the owning affiliate only when browsing
-            // that affiliate's own branded storefront — never to customers,
-            // team members, or a different affiliate.
-            yourCost: canSeePrivateCost ? r.yourCost : null,
+            // Private affiliate cost includes the Administration-configured
+            // affiliate multiplier/fees. The raw supplier cost never leaves the
+            // server, and this amount is omitted for customers, staff, and other
+            // affiliate storefronts.
+            yourCost: canSeePrivateCost ? affiliateAdjustedCost : null,
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,

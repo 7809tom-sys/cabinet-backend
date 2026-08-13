@@ -185,7 +185,7 @@ function applyPromoToPrice(promo: ActivePromo, originalPrice: number): number {
 
 // ─── Price card (tier price + homeowner "Compare at" strike-through) ─────────
 
-function PriceCard({
+export function PriceCard({
   row,
   tier,
   isOwner = false,
@@ -256,7 +256,7 @@ function PriceCard({
         </div>
       </div>
 
-      {owner && owner.myCost != null && (
+      {owner && row.yourCost != null && owner.myCost != null && (
         <div className="mt-3 pt-3 border-t border-dashed border-amber-500/60 rounded-md bg-amber-500/5 px-3 py-2">
           <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1">
             <span>Owner view · not shown to customers</span>
