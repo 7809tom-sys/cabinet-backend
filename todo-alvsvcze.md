@@ -144,12 +144,16 @@
 - [x] Use the exact cabinet ID to load matching door styles, price, and authorized owner cost when SKUs are duplicated
 - [x] Add duplicate-SKU affiliate detail-route regressions
 - [x] Add an affiliate storefront-to-detail regression for duplicate normalized SKU records
-- [ ] Verify the exact duplicate-SKU detail route shows My Cost, Sells At, and Margin for an authenticated affiliate owner
+- [x] Verify the exact duplicate-SKU detail route shows Administration My Cost or authenticated affiliate-owner Affiliate Cost, Sells At, and Margin
 - [x] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
 - [x] Add CabinetDetail UI regressions for Administration My Cost and affiliate-owner Affiliate Cost, Sells At, and Margin rendering
 - [x] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
 - [x] Remove Cabinet Dealz browser title, social metadata, and document branding from affiliate subdomains
 - [x] Add regression coverage for affiliate-specific document metadata and white-label sharing tags
+- [x] Add a routed duplicate-SKU CabinetDetail regression that renders the role-specific cost, Sells At, and Margin panel
+- [ ] Verify an authenticated affiliate owner reaches the branded-storefront Affiliate Cost panel rather than the Administration My Cost panel
+- [ ] Restore affiliate subdomain routing behind the deployment proxy and verify the branded store loads from the original host
+- [ ] Add forwarded-host regression coverage for affiliate subdomain routing
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

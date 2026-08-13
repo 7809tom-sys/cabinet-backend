@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { affiliates, distributorSkus, users } from "../drizzle/schema";
 import { getDb, getPlatformPricingSettings } from "./db";
 import { resolveAffiliateAccess } from "./lib/affiliateAccess";
@@ -7,6 +9,7 @@ import { canViewAffiliatePrivateCost } from "./lib/affiliatePrivateCost";
 import { appRouter } from "./routers";
 import { priceLadder } from "../shared/pricing";
 import { affiliateCabinetDetailHref } from "../client/src/lib/affiliateCabinetDetailRoute";
+import { PriceCard } from "../client/src/pages/CabinetDetail";
 
 describe("affiliate owner private pricing", () => {
   it("uses the exact affiliate catalog-card record and authorizes its private cost only for the matching owner", async () => {
@@ -88,6 +91,23 @@ describe("affiliate owner private pricing", () => {
     expect(ownerStyle!.affiliateCost).not.toBe(rawPriceRow!.yourCost);
     expect(ownerStyle!.yourCost).toBeNull();
 
+    // Render the private card from the exact cabinet record reached by the
+    // branded card URL. This covers the user-visible label, sell tier, and
+    // margin—not only the raw tRPC data that feeds the route.
+    const affiliateMarkup = renderToStaticMarkup(
+      createElement(PriceCard, { row: ownerStyle!, tier: "homeowner", viewerRole: "affiliate-owner" }),
+    );
+    const sellPrice = Number(ownerStyle!.homeownerPrice);
+    const affiliateCost = Number(ownerStyle!.affiliateCost);
+    const marginDollars = Math.round((sellPrice - affiliateCost) * 100) / 100;
+    const marginPct = Math.round((marginDollars / sellPrice) * 1000) / 10;
+    expect(affiliateMarkup).toContain("Affiliate Cost");
+    expect(affiliateMarkup).toContain("Sells At (Homeowner)");
+    expect(affiliateMarkup).toContain("Margin");
+    expect(affiliateMarkup).toContain(`$${affiliateCost.toFixed(2)}`);
+    expect(affiliateMarkup).toContain(`$${marginDollars.toFixed(2)} (${marginPct}%)`);
+    expect(affiliateMarkup).not.toContain("My Cost");
+
     const customerStyles = await publicCaller.pricing.stylesForCabinet({
       cabinetId: catalogCard!.cabinetId,
       affiliateSlug: affiliate!.slug,
@@ -113,5 +133,12 @@ describe("affiliate owner private pricing", () => {
     expect(adminStyle).toBeTruthy();
     expect(adminStyle!.yourCost).toBe(rawPriceRow!.yourCost);
     expect(adminStyle!.affiliateCost).toBeNull();
+    const adminMarkup = renderToStaticMarkup(
+      createElement(PriceCard, { row: adminStyle!, tier: "homeowner", viewerRole: "admin" }),
+    );
+    expect(adminMarkup).toContain("My Cost");
+    expect(adminMarkup).toContain("Sells At (Homeowner)");
+    expect(adminMarkup).toContain("Margin");
+    expect(adminMarkup).not.toContain("Affiliate Cost");
   });
 });
