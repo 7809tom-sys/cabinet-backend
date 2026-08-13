@@ -2825,6 +2825,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 
       const toPlace: PlacedCabinet[] = [];
+      const fridgePanelBands: { leftEdge: boolean; thickness: number }[] = [];
       // Track the bridge height so end panels can be sized to fridge + bridge combined.
       let bridgeHeightPlaced = 0;
 
@@ -3010,12 +3011,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           depth: pDepth,
           height: pHeight,
           rotation: spot.rotation,
+          // Refrigerator end panels are full-height architectural panels. They
+          // always begin on the floor, regardless of a neighboring base cabinet.
+          mountBottom: 0,
           catalogImageUrl: panelRow.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
         });
+        fridgePanelBands.push({ leftEdge, thickness: pThick });
       };
       if (opts.panels === "left" || opts.panels === "both") placePanel(true);
       if (opts.panels === "right" || opts.panels === "both") placePanel(false);
+
+      // A cabinet beside a refrigerator must butt to the OUTSIDE of its finished
+      // end panel, never overlap it or make the panel appear to stop at cabinet height.
+      if (fridgePanelBands.length) {
+        const fridgeStart = horizontal ? fridge.x : fridge.y;
+        const fridgeEnd = fridgeStart + fw;
+        setPlaced((previous) => previous.map((candidate) => {
+          if (candidate.uid === fridge.uid || cabinetWall(candidate, room) !== side || candidate.placement === "appliance") return candidate;
+          const candidateStart = horizontal ? candidate.x : candidate.y;
+          const candidateSize = rotatedSize(candidate);
+          const candidateEnd = candidateStart + candidateSize.w;
+          for (const panel of fridgePanelBands) {
+            if (panel.leftEdge && candidateEnd > fridgeStart - panel.thickness - 1 && candidateEnd <= fridgeStart + 1) {
+              const nextStart = fridgeStart - panel.thickness - candidateSize.w;
+              return horizontal ? { ...candidate, x: Math.max(0, nextStart) } : { ...candidate, y: Math.max(0, nextStart) };
+            }
+            if (!panel.leftEdge && candidateStart < fridgeEnd + panel.thickness + 1 && candidateStart >= fridgeEnd - 1) {
+              const nextStart = fridgeEnd + panel.thickness;
+              return horizontal ? { ...candidate, x: nextStart } : { ...candidate, y: nextStart };
+            }
+          }
+          return candidate;
+        }));
+      }
 
       // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
       // flat-stock item flush to the fridge face; carried as a thin wall panel.

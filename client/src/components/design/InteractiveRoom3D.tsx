@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, ChevronDown, Download, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
+import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
@@ -301,6 +301,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const catalogRootRef = useRef<THREE.Group | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
@@ -309,6 +311,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
+  const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = placed.length > 0;
   const catalogFinish = sceneCabinetColor(scene);
@@ -441,6 +444,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       }
     }
     threeScene.add(catalogRoot);
+    catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
     sceneRef.current = threeScene;
     cameraRef.current = camera;
@@ -470,6 +474,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       if (rendererRef.current === renderer) rendererRef.current = null;
       if (sceneRef.current === threeScene) sceneRef.current = null;
       if (cameraRef.current === camera) cameraRef.current = null;
+      if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
   }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish]);
 
@@ -495,6 +500,56 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     renderer.setSize(currentSize.x, currentSize.y, false);
     camera.aspect = currentSize.x / currentSize.y;
     camera.updateProjectionMatrix();
+  };
+
+  const inspectCabinetAtPoint = (clientX: number, clientY: number) => {
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const root = catalogRootRef.current;
+    if (!renderer || !camera || !root) return;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObjects(root.children, true)[0];
+    renderer.domElement.style.cursor = hit ? "pointer" : "grab";
+    if (!hit) return;
+    let node: THREE.Object3D | null = hit.object;
+    while (node && !node.userData.masterCode) node = node.parent;
+    if (!node?.userData.masterCode) return;
+    setSelectedCabinet({ masterCode: String(node.userData.masterCode), description: node.userData.label ?? null, distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null });
+  };
+
+  const exportPdf = async () => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    try {
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+      pdf.setFontSize(20);
+      pdf.text("Cabinet Dealz — 3D Room Quote", 40, 42);
+      pdf.setFontSize(10);
+      pdf.setTextColor(90);
+      pdf.text(`Generated ${new Date().toLocaleString()} · ${cabinetFinishLabel} cabinets · ${countertopFinishLabel} countertop`, 40, 61);
+      pdf.addImage(renderer.domElement.toDataURL("image/png"), "PNG", 40, 78, 420, 294, undefined, "FAST");
+      pdf.setTextColor(20);
+      pdf.setFontSize(13);
+      pdf.text("Itemized catalog quote", 490, 95);
+      let y = 116;
+      for (const line of orderLines.slice(0, 16)) {
+        pdf.setFontSize(9);
+        pdf.text(pdf.splitTextToSize(`${line.quantity} × ${line.label}${line.lineTotal == null ? " — Quote" : ` — $${line.lineTotal.toFixed(2)}`}`, 255), 490, y);
+        y += 19;
+      }
+      pdf.setFontSize(14);
+      pdf.text(`Catalog-priced subtotal: $${orderSummary?.subtotal.toFixed(2) ?? "0.00"}`, 490, Math.min(388, y + 12));
+      pdf.setFontSize(8);
+      pdf.setTextColor(90);
+      pdf.text("Preview finishes are visual only. Final pricing is based on the orderable catalog selections in the design.", 40, 580);
+      pdf.save(`cabinet-dealz-3d-quote-${Date.now()}.pdf`);
+    } catch {
+      toast.error("The PDF quote could not be created. Please try again.");
+    }
   };
 
   const shareConfiguration = async () => {
@@ -540,6 +595,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
           <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
+          <Button type="button" size="sm" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-3.5 w-3.5" />PDF quote</Button>
           {onSaveToAccount && <Button type="button" size="sm" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-3.5 w-3.5" />Save</Button>}
           <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
         </div>
@@ -591,11 +647,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           </div>
         </div>
       )}
-      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
+      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) inspectCabinetAtPoint(event.clientX, event.clientY); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
+        {selectedCabinet && (() => { const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase())); return <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur"><div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" /><div><p className="font-semibold">{selectedCabinet.masterCode}</p><p className="text-muted-foreground">{selectedCabinet.description ?? "Catalog cabinet"}</p><p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p><p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p></div><button type="button" onClick={() => setSelectedCabinet(null)} className="text-muted-foreground hover:text-foreground">×</button></div></div>; })()}
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit or pan · Scroll or pinch to zoom · Download exports a {THREE_D_EXPORT_SIZE.width} × {THREE_D_EXPORT_SIZE.height} PNG · Cabinet geometry comes from the active distributor catalog</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Click a cabinet for its price and style details · Drag to orbit or pan · Scroll or pinch to zoom · PDF quote includes this rendering and your itemized catalog lines</p>
       <Sheet open={pricingOpen} onOpenChange={setPricingOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader><SheetTitle>Itemized design pricing</SheetTitle></SheetHeader>

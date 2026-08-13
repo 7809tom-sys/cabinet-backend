@@ -2029,3 +2029,9 @@
 - [x] Add a real-catalog accessories and appliances placement panel for the 3D scene
 - [x] Render Shaker, raised-panel, and flat-panel door geometry in the 3D view
 - [x] Validate pricing, saving, placement, and detailed cabinet rendering on desktop and mobile
+
+## Feature: Quote export, 3D cabinet inspection, and refrigerator panels
+- [x] Add PDF export with the current 3D rendering and actual itemized quote lines
+- [x] Add cabinet hover/click inspection for individual real catalog price and style details in 3D
+- [x] Force both refrigerator end panels to start at the floor and separate adjacent cabinets from the refrigerator
+- [x] Validate desktop/mobile export, inspection, and refrigerator panel layout
