@@ -22,7 +22,11 @@ export const getLoginUrl = (provider?: LoginProvider) => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
-  const state = btoa(redirectUri);
+  // Preserve the page that initiated sign-in. This is especially important for
+  // white-label affiliate storefront footers: an authenticated visitor returns
+  // to that affiliate store rather than the generic platform home.
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const state = btoa(JSON.stringify({ redirectUri, returnTo }));
 
   const url = new URL(`${oauthPortalUrl}/app-auth`);
   url.searchParams.set("appId", appId);

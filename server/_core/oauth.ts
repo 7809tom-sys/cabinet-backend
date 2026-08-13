@@ -3,6 +3,9 @@ import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { resolveOAuthReturnPath } from "../oauthReturnPath";
+import { resolveAffiliateAdministrationDestination } from "../oauthAffiliateDestination";
+import { affiliates } from "../../drizzle/schema";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -60,7 +63,23 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, "/");
+      const returnPath = resolveOAuthReturnPath(state);
+      let destination = returnPath;
+      if (returnPath === "/affiliate") {
+        const database = await db.getDb();
+        const signedInUser = await db.getUserByOpenId(userInfo.openId);
+        if (database && signedInUser) {
+          const affiliateRows = await database.select().from(affiliates);
+          destination = resolveAffiliateAdministrationDestination({
+            returnPath,
+            userId: signedInUser.id,
+            email: userInfo.email ?? signedInUser.email,
+            affiliates: affiliateRows,
+          }) ?? returnPath;
+        }
+      }
+
+      res.redirect(302, destination);
     } catch (error) {
       // Surface as much detail as we safely can for diagnosis. Upstream axios
       // errors carry status + response body which pinpoint redirectUri/appId

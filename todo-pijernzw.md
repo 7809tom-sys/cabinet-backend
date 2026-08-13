@@ -164,3 +164,10 @@
 - [x] Allow affiliates to associate an installation estimate with a Cabinet Dealz material order request.
 - [x] Surface an eligible separate installation document on the customer’s material-order confirmation without merging invoice totals.
 - [x] Add focused coverage for customer installation-document URL generation and verify the linked billing presentation.
+- [x] Trace why recognized affiliate Gmail sign-ins return to the generic Cabinet Dealz page instead of the owning affiliate dashboard.
+- [x] Route recognized affiliate users to their own affiliate dashboard immediately after authentication while preserving explicit intended destinations.
+- [x] Add regression coverage for post-login affiliate destination selection and verify the Reaves Way sign-in outcome.
+- [x] Preserve the originating `/store/:slug` path when a visitor uses Gmail sign-in from an affiliate storefront footer.
+- [x] Verify Reaves Way storefront footer sign-in returns to the affiliate management entry, which resolves Reaves Way’s own dashboard, instead of the generic Cabinet Dealz page.
+- [x] Resolve the authenticated Gmail user to an affiliate at OAuth completion and redirect affiliate users directly to their own Administration dashboard.
+- [x] Add regression coverage proving Reaves Way Gmail sign-in routes to `/affiliate?viewAs=<Reaves Way affiliate ID>` or its own equivalent Administration destination.
