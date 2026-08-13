@@ -59,7 +59,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+  finishColors, displayedStyleId, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
@@ -1579,19 +1579,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     return m;
   }, [doorStyles]);
+  const twoToneEnabled = styleA != null && styleB != null && styleA !== styleB;
+  const displayStyleIdForCab = useCallback(
+    (cab: PlacedCabinet) => displayedStyleId(cab, styleId, twoToneEnabled),
+    [styleId, twoToneEnabled],
+  );
   const finishForCab = useCallback(
     (cab: PlacedCabinet) => {
-      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      const sid = displayStyleIdForCab(cab);
       return (sid != null && finishById.get(sid)) || activeFinish;
     },
-    [styleId, finishById, activeFinish]
+    [displayStyleIdForCab, finishById, activeFinish]
   );
   const panelKindForCab = useCallback(
     (cab: PlacedCabinet) => {
-      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      const sid = displayStyleIdForCab(cab);
       return (sid != null && panelKindById.get(sid)) || activePanelKind;
     },
-    [styleId, panelKindById, activePanelKind]
+    [displayStyleIdForCab, panelKindById, activePanelKind]
   );
   // Per-style door sample image URL map (for rendering real door photos on
   // cabinet faces in the elevation view).
@@ -1626,10 +1631,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [doorStyles]);
   const frameInsetForCab = useCallback(
     (cab: PlacedCabinet): number | null => {
-      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      const sid = displayStyleIdForCab(cab);
       return (sid != null && frameInsetById.get(sid)) || null;
     },
-    [styleId, frameInsetById]
+    [displayStyleIdForCab, frameInsetById]
   );
   // Default fallback images shown when no door style is selected yet — gives the
   // elevation view a realistic look even before the user picks a finish.
@@ -1638,19 +1643,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const activeDoorSampleUrl = paletteFinishSwatch ?? DEFAULT_DOOR_SAMPLE_URL;
   const doorSampleForCab = useCallback(
     (cab: PlacedCabinet): string | null => {
-      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      const sid = displayStyleIdForCab(cab);
       return (sid != null && doorSampleById.get(sid)) || activeDoorSampleUrl;
     },
-    [styleId, doorSampleById, activeDoorSampleUrl]
+    [displayStyleIdForCab, doorSampleById, activeDoorSampleUrl]
   );
   // Returns the drawer sample URL for a cabinet (null = fall back to door sample).
   const drawerSampleForCab = useCallback(
     (cab: PlacedCabinet): string | null => {
-      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      const sid = displayStyleIdForCab(cab);
       // Use the style-specific drawer sample, else fall back to the default drawer image.
       return (sid != null && drawerSampleById.get(sid)) || DEFAULT_DRAWER_SAMPLE_URL;
     },
-    [styleId, drawerSampleById]
+    [displayStyleIdForCab, drawerSampleById]
   );
 
   // Distinct finishes actually used across the design (default + per-cabinet

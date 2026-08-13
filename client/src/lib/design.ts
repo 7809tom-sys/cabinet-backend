@@ -445,6 +445,21 @@ export function effectiveStyleId(
   return cab.styleId != null ? cab.styleId : defaultStyleId;
 }
 
+/**
+ * Rendering follows the active selected sample for a normal one-finish design.
+ * Per-cabinet style IDs are honored only after the user has explicitly selected
+ * a distinct second two-tone style; this prevents stale placement metadata from
+ * repainting a single-finish elevation in several unrelated colors.
+ */
+export function displayedStyleId(
+  cab: { styleId?: number | null },
+  activeStyleId: number | null,
+  twoToneEnabled: boolean,
+): number | null {
+  if (activeStyleId == null) return null;
+  return twoToneEnabled ? effectiveStyleId(cab, activeStyleId) : activeStyleId;
+}
+
 // The set of distinct EFFECTIVE finish styleIds used across a design, in first-
 // seen order. The design default (if set) is always first so the primary finish
 // leads the summary; per-cabinet overrides that differ follow. Returns [] when

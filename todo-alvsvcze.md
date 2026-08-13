@@ -135,3 +135,8 @@
 - [x] Add affiliate detail-page navigation isolation regression coverage
 - [x] Normalize dashed affiliate catalog SKUs so every cabinet card opens its matching master detail record
 - [ ] Verify dashed SKU affiliate detail links reach the authorized private cost view without a not-found result
+- [ ] Make every placed cabinet elevation use the active selected door-style sample color consistently
+- [ ] Prevent per-cabinet fallback colors from overriding the selected style sample finish
+- [ ] Add mixed-cabinet elevation regression coverage for selected-style color consistency
+- [ ] Add renderer-level mixed-cabinet coverage for active door and drawer sample selection in one-finish mode
+- [ ] Verify the live mixed-placement elevation against the selected sample finish
