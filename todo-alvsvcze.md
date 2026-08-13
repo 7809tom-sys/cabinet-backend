@@ -169,3 +169,5 @@
 - [x] Verify subcategory-driven BA-24/BEC end-return geometry in catalog, plan, and elevation
 - [x] Use the user-created Base End Cabinet category as the authoritative BA-24/BEC drawing classification
 - [ ] Verify Base End Cabinet category records render as textured two-face end returns in the designer
+- [x] Override stale standard-base drawing metadata on already placed BA-24/BEC cabinets
+- [ ] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh

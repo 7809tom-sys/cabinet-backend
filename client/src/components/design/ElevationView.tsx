@@ -105,7 +105,17 @@ const ShakerFaceMetricsContext = createContext({
 /** Base end cabinets are end-of-run returns, never room-corner clip paths. */
 export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: string | null): boolean {
   const drawingType = cabinetDrawingType(cabinet);
-  return customProfile === "end-angle" || drawingType === "end-angle" || drawingType === "end-return";
+  // `customProfile` is the placed-cabinet copy of Cabinet Config's graphicType.
+  // Existing BA/BEC placements can therefore carry either legacy `end-angle`
+  // or refreshed `base_end_return` metadata even when their stored cabinet
+  // description/subcategory predates the new End Cabinet category.
+  return (
+    customProfile === "end-angle" ||
+    customProfile === "end-return" ||
+    customProfile === "base_end_return" ||
+    drawingType === "end-angle" ||
+    drawingType === "end-return"
+  );
 }
 
 /**

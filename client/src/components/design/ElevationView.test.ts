@@ -43,6 +43,19 @@ describe("end-angle elevation face", () => {
     expect(resolveElevationFacePresentation(ba24, "end-angle", null).cabinetType).toBe("end-return");
   });
 
+  it("redraws a stale standard-base placement when refreshed Cabinet Config supplies base_end_return", () => {
+    const stalePlacedBa = {
+      masterCode: "BA-24",
+      description: "BA-24",
+      category: "Base",
+      subCategory: "Standard Base",
+      width: 24,
+      height: 34.5,
+    };
+
+    expect(resolveElevationFacePresentation(stalePlacedBa, "base_end_return", null).cabinetType).toBe("end-return");
+  });
+
   it("renders BEC-24 as two distinct 12-inch faces at a 90-degree end return", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {
