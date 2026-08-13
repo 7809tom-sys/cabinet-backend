@@ -124,3 +124,6 @@
 - [ ] Pass explicit face dimensions to every remaining oven-tall partial-height branch and remove inherited fallbacks where subface geometry is known
 - [ ] Add vertical 3-inch rail assertions for partial-height Shaker doors and drawer faces
 - [ ] Audit every SingleDoorPanel and StylePanel call to confirm physical subface dimensions are explicit
+- [x] Show an affiliate owner’s private My Cost, Sells At, and Margin panel on that affiliate’s branded storefront
+- [x] Keep affiliate-private cost data hidden from homeowners, other affiliates, and unauthorized affiliate staff
+- [x] Add private-pricing role and storefront-isolation regression coverage

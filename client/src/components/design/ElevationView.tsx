@@ -96,6 +96,8 @@ interface Props {
 const ShakerFaceMetricsContext = createContext({
   widthIn: 24,
   heightIn: 34.5,
+  doorHeightIn: 34.5,
+  drawerHeightIn: 6,
   doorCount: 1,
   drawerCount: 1,
 });
@@ -1819,7 +1821,7 @@ export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, dr
     const sideInset = drawerPanelInsetPx(elevationFrameInsetPx(kind, frameInsetPx), isShaker);
     const railInset = isShaker ? sideInset : Math.max(3, Math.min(6, Math.round(sideInset * 0.5)));
     const physicalGeometry = isShaker
-      ? shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.drawerCount, faceHeightIn ?? inheritedFace.heightIn / inheritedFace.drawerCount)
+      ? shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.drawerCount, faceHeightIn ?? inheritedFace.drawerHeightIn)
       : null;
     return (
       <div
@@ -1954,6 +1956,12 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     faceWidthIn: faceWidth / Math.max(1, count),
     faceHeightIn: faceHeight * (heightPercent / 100),
   });
+  const inheritedDoorHeightIn = cabinetType === "oven-tall"
+    ? doorHeight ?? faceHeight * 0.2
+    : faceHeight;
+  const inheritedDrawerHeightIn = cabinetType === "oven-tall"
+    ? drawerHeight ?? 5
+    : faceHeight / Math.max(1, drawerCount);
   // The face fill (cabinet face frame color) is applied as a full-bleed background
   // on this component's root so the outer container can be transparent (no box).
   // Photorealistic face frame: strong top-light highlight (simulates overhead room
@@ -1964,7 +1972,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // This keeps the outer cabinet container transparent (no visible box).
   const withFace = (children: React.ReactNode) => (
     <div className="absolute inset-0" style={{ background: faceBackground }}>
-      <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount) }}>
+      <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorHeightIn: inheritedDoorHeightIn, drawerHeightIn: inheritedDrawerHeightIn, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount) }}>
         {children}
       </ShakerFaceMetricsContext.Provider>
     </div>
@@ -2883,7 +2891,7 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
   // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
   // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
   const resolvedInset = (fi: number) => elevationFrameInsetPx(kind, frameInsetPx) ?? fi;
-  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.heightIn);
+  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn);
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.

@@ -305,6 +305,11 @@ interface Props {
 export default function CabinetDetail({ masterCode }: Props) {
   const { categoryNames, subCategoriesMap } = useDynamicCategories();
   const searchStr = useSearch();
+  const affiliateSlug = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    const storeRoute = window.location.pathname.match(/^\/store\/([^/]+)/)?.[1];
+    return storeRoute || window.localStorage.getItem("cd_cart_slug_v1") || undefined;
+  }, []);
   // When a shopper arrives from a door-style FAMILY page we pre-lock that style
   // (passed as ?style=<styleId>) so the cabinet shows in the family they picked.
   const styleParam = (() => {
@@ -369,7 +374,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   });
 
   const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(
-    { cabinetId: cabinet?.id ?? 0 },
+    { cabinetId: cabinet?.id ?? 0, affiliateSlug },
     { enabled: !!cabinet?.id }
   );
 
@@ -385,6 +390,10 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
+  // The server supplies `yourCost` only to the master admin or the owner of the
+  // exact affiliate storefront. No customer, staff user, or other affiliate can
+  // make this client-side condition true without that server-authorized field.
+  const canViewPrivateCost = isOwner || selectedRow?.yourCost != null;
 
   // Fetch active promotions for storefront display
   const { data: activePromos } = trpc.promotions.activeForStorefront.useQuery();
@@ -1238,12 +1247,12 @@ export default function CabinetDetail({ masterCode }: Props) {
 
                     {visibleTiers.map((t) => (
                       <TabsContent key={t} value={t} className="mt-3">
-                        <PriceCard row={selectedRow} tier={t} isOwner={isOwner} promo={activePromo} />
+                        <PriceCard row={selectedRow} tier={t} isOwner={canViewPrivateCost} promo={activePromo} />
                       </TabsContent>
                     ))}
                   </Tabs>
                 ) : (
-                  <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} promo={activePromo} />
+                  <PriceCard row={selectedRow} tier="homeowner" isOwner={canViewPrivateCost} promo={activePromo} />
                 )
               ) : (
                 <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-2">

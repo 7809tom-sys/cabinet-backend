@@ -8,6 +8,7 @@ import { getDb, notInConflict, getPricingSettings, updatePricingSettings, getPla
 import {
   cabinets,
   cabinetAliases,
+  affiliates,
   distributors,
   doorStyles,
   distributorSkus,
@@ -26,6 +27,8 @@ import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -2913,7 +2916,7 @@ export const pricingRouter = router({
   // and surface ONLY style metadata + prices. No distributor name/SKU ever
   // leaves the server, so the UI can present purely by door style.
   stylesForCabinet: publicProcedure
-    .input(z.object({ cabinetId: z.number() }))
+    .input(z.object({ cabinetId: z.number(), affiliateSlug: z.string().min(1).max(160).optional() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
@@ -2922,6 +2925,25 @@ export const pricingRouter = router({
       // their assigned tier (guests default to homeowner/retail).
       const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
+      let requestedAffiliateId: number | null = null;
+      let affiliateAccess: Awaited<ReturnType<typeof resolveAffiliateAccess>> | null = null;
+      if (!isAdmin && ctx.user && input.affiliateSlug) {
+        affiliateAccess = await resolveAffiliateAccess(db, ctx.user);
+        if (affiliateAccess?.isOwner && affiliateAccess.affiliateId != null) {
+          const storefront = await db
+            .select({ id: affiliates.id })
+            .from(affiliates)
+            .where(eq(affiliates.slug, input.affiliateSlug))
+            .limit(1);
+          requestedAffiliateId = storefront[0]?.id ?? null;
+        }
+      }
+      const canSeePrivateCost = canViewAffiliatePrivateCost({
+        isAdmin,
+        requestedAffiliateSlug: input.affiliateSlug,
+        requestedAffiliateId,
+        access: affiliateAccess,
+      });
       const ps = await getPricingSettings();
 
       // ── Alias resolution ────────────────────────────────────────────────────
@@ -3075,9 +3097,11 @@ export const pricingRouter = router({
             wholesalePrice: gated.wholesalePrice,
             contractorPrice: gated.contractorPrice,
             homeownerPrice: gated.homeownerPrice,
-            // True acquisition cost is owner-only intelligence — never send it to
-            // non-admin viewers. Used by the owner “My Cost / margin” panel.
-            yourCost: isAdmin ? r.yourCost : null,
+            // True acquisition cost is private intelligence. It is available to
+            // the master admin and to the owning affiliate only when browsing
+            // that affiliate's own branded storefront — never to customers,
+            // team members, or a different affiliate.
+            yourCost: canSeePrivateCost ? r.yourCost : null,
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,
