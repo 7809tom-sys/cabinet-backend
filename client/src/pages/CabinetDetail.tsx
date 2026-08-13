@@ -119,8 +119,11 @@ interface StyleRow {
   wholesalePrice: string | null;
   contractorPrice: string | null;
   homeownerPrice: string | null;
-  // Owner-only true acquisition cost; only present when an admin is logged in.
+  // Administration-only raw supplier acquisition cost.
   yourCost?: string | null;
+  // Affiliate-owner-only amount after Administration multiplier/fees. The raw
+  // supplier acquisition cost must never be returned alongside this value.
+  affiliateCost?: string | null;
   platformSku: string;
   leadTimeDays: number | null;
   distributorId: number | null;
@@ -188,17 +191,28 @@ function applyPromoToPrice(promo: ActivePromo, originalPrice: number): number {
 export function PriceCard({
   row,
   tier,
-  isOwner = false,
+  viewerRole = "customer",
   promo = null,
 }: {
   row: StyleRow;
   tier: PricingTier;
-  isOwner?: boolean;
+  viewerRole?: "admin" | "affiliate-owner" | "customer";
   promo?: ActivePromo | null;
 }) {
   let price = priceNumberForTier(row, tier);
   const compareAt = compareAtPrice(tier, row);
-  const owner = isOwner ? ownerCostBreakdown(row, tier) : null;
+  const privateCost = viewerRole === "admin"
+    ? row.yourCost
+    : viewerRole === "affiliate-owner"
+      ? row.affiliateCost
+      : null;
+  const owner = privateCost != null
+    ? ownerCostBreakdown({ ...row, yourCost: privateCost }, tier)
+    : null;
+  const privateCostLabel = viewerRole === "admin" ? "My Cost" : "Affiliate Cost";
+  const privateViewLabel = viewerRole === "admin"
+    ? "Administration view · not shown to customers"
+    : "Affiliate view · not shown to customers";
 
   // Apply promo discount if active
   let promoActive = false;
@@ -256,14 +270,14 @@ export function PriceCard({
         </div>
       </div>
 
-      {owner && row.yourCost != null && owner.myCost != null && (
+      {owner && owner.myCost != null && (
         <div className="mt-3 pt-3 border-t border-dashed border-amber-500/60 rounded-md bg-amber-500/5 px-3 py-2">
           <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1">
-            <span>Owner view · not shown to customers</span>
+            <span>{privateViewLabel}</span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <div className="text-xs text-muted-foreground">My Cost</div>
+              <div className="text-xs text-muted-foreground">{privateCostLabel}</div>
               <div className="font-semibold text-foreground">${owner.myCost.toFixed(2)}</div>
             </div>
             <div>
@@ -335,8 +349,8 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Pros (assigned a trade tier) may switch between homeowner/contractor/
   // wholesale to compare; pure homeowners/guests only ever see retail.
   const isPro = viewerTier !== "homeowner";
-  // Owner/admin sees an extra "My Cost / Margin" row on the price card. This is
-  // NEVER shown to affiliates or customers.
+  // Administration sees raw My Cost. An authorized affiliate owner sees only a
+  // separate, multiplier-adjusted Affiliate Cost. Customers and staff see neither.
   const isOwner = user?.role === "admin";
   const visibleTiers: PricingTier[] = isPro || isOwner
     ? ["homeowner", "contractor", "wholesale"]
@@ -402,10 +416,15 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
-  // The server supplies `yourCost` only to the master admin or the owner of the
-  // exact affiliate storefront. No customer, staff user, or other affiliate can
-  // make this client-side condition true without that server-authorized field.
-  const canViewPrivateCost = isOwner || selectedRow?.yourCost != null;
+  // The server supplies raw `yourCost` only to Administration and the adjusted
+  // `affiliateCost` only to an owner browsing their own storefront. No client
+  // condition can create either value without server authorization.
+  const viewerRole: "admin" | "affiliate-owner" | "customer" = isOwner
+    ? "admin"
+    : selectedRow?.affiliateCost != null
+      ? "affiliate-owner"
+      : "customer";
+  const canViewPrivateCost = viewerRole !== "customer";
 
   // Fetch active promotions for storefront display
   const { data: activePromos } = trpc.promotions.activeForStorefront.useQuery();
@@ -1259,12 +1278,12 @@ export default function CabinetDetail({ masterCode }: Props) {
 
                     {visibleTiers.map((t) => (
                       <TabsContent key={t} value={t} className="mt-3">
-                        <PriceCard row={selectedRow} tier={t} isOwner={canViewPrivateCost} promo={activePromo} />
+                        <PriceCard row={selectedRow} tier={t} viewerRole={viewerRole} promo={activePromo} />
                       </TabsContent>
                     ))}
                   </Tabs>
                 ) : (
-                  <PriceCard row={selectedRow} tier="homeowner" isOwner={canViewPrivateCost} promo={activePromo} />
+                  <PriceCard row={selectedRow} tier="homeowner" viewerRole={viewerRole} promo={activePromo} />
                 )
               ) : (
                 <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-2">

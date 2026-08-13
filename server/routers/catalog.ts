@@ -2960,9 +2960,11 @@ export const pricingRouter = router({
       });
       const ps = await getPricingSettings();
       // The Administration fee stack sets the real amount an affiliate owes
-      // Cabinet Dealz. Never expose the platform's raw supplier cost in the
-      // affiliate view: show base cost plus the configured affiliate multiplier.
-      const affiliateFeeSettings = canSeePrivateCost
+      // Cabinet Dealz. Administration retains the raw supplier cost as My Cost;
+      // an affiliate owner receives only a separately named, adjusted Affiliate
+      // Cost. Never send the raw supplier cost to an affiliate storefront.
+      const isAffiliateOwnerViewingOwnStore = canSeePrivateCost && !isAdmin;
+      const affiliateFeeSettings = isAffiliateOwnerViewingOwnStore
         ? await getPlatformPricingSettings()
         : null;
 
@@ -3122,11 +3124,13 @@ export const pricingRouter = router({
             wholesalePrice: gated.wholesalePrice,
             contractorPrice: gated.contractorPrice,
             homeownerPrice: gated.homeownerPrice,
-            // Private affiliate cost includes the Administration-configured
-            // affiliate multiplier/fees. The raw supplier cost never leaves the
-            // server, and this amount is omitted for customers, staff, and other
-            // affiliate storefronts.
-            yourCost: canSeePrivateCost ? affiliateAdjustedCost : null,
+            // Keep the two private values distinct. Administration sees its raw
+            // supplier acquisition cost as My Cost. An affiliate owner sees only
+            // the Administration-adjusted amount as Affiliate Cost. Neither
+            // private value leaves the server for customers, staff, or another
+            // affiliate's storefront.
+            yourCost: isAdmin ? r.yourCost : null,
+            affiliateCost: isAffiliateOwnerViewingOwnStore ? affiliateAdjustedCost : null,
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,

@@ -43,7 +43,7 @@ describe("affiliate owner private pricing", () => {
       cabinetId: 9390110,
       affiliateSlug: affiliate!.slug,
     });
-    const ownerStyle = exactRecordStyles.find((style) => style.yourCost != null);
+    const ownerStyle = exactRecordStyles.find((style) => style.affiliateCost != null);
     expect(ownerStyle).toBeTruthy();
 
     const [rawPriceRow] = await db!
@@ -58,7 +58,25 @@ describe("affiliate owner private pricing", () => {
     const expectedAffiliateCost = (
       priceLadder(rawCents, feeSettings).affiliateCents / 100
     ).toFixed(2);
-    expect(ownerStyle!.yourCost).toBe(expectedAffiliateCost);
-    expect(ownerStyle!.yourCost).not.toBe(rawPriceRow!.yourCost);
+    expect(ownerStyle!.affiliateCost).toBe(expectedAffiliateCost);
+    expect(ownerStyle!.affiliateCost).not.toBe(rawPriceRow!.yourCost);
+    expect(ownerStyle!.yourCost).toBeNull();
+
+    const [admin] = await db!
+      .select({ id: users.id, email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+    expect(admin).toBeTruthy();
+
+    const adminCaller = appRouter.createCaller({ user: admin } as any);
+    const adminStyles = await adminCaller.pricing.stylesForCabinet({
+      cabinetId: 9390110,
+      affiliateSlug: affiliate!.slug,
+    });
+    const adminStyle = adminStyles.find((style) => style.platformSku === ownerStyle!.platformSku);
+    expect(adminStyle).toBeTruthy();
+    expect(adminStyle!.yourCost).toBe(rawPriceRow!.yourCost);
+    expect(adminStyle!.affiliateCost).toBeNull();
   });
 });

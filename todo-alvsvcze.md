@@ -146,11 +146,14 @@
 - [x] Add an affiliate storefront-to-detail regression for duplicate normalized SKU records
 - [ ] Verify the exact duplicate-SKU detail route shows My Cost, Sells At, and Margin for an authenticated affiliate owner
 - [ ] Add a storefront catalog-data regression proving the card ID targets the exact priced cabinet record
-- [ ] Add a CabinetDetail UI regression for authenticated affiliate-owner My Cost, Sells At, and Margin rendering
+- [x] Add CabinetDetail UI regressions for Administration My Cost and affiliate-owner Affiliate Cost, Sells At, and Margin rendering
 - [ ] Add a full affiliate card-to-detail route regression with owner-only private pricing visibility
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
+- [x] Preserve raw My Cost in Administration while showing distinct multiplier-adjusted Affiliate Cost to the affiliate
+- [x] Calculate Administration and affiliate margins from their respective raw and adjusted cost values
+- [x] Add role-specific My Cost versus Affiliate Cost label and margin regression coverage
 - [x] Render realistic selected door-style samples and finish textures on designer elevation faces
 - [x] Retain accurate 3-inch Shaker frame, door/drawer layout, and cabinet dimensions under realistic face rendering
 - [ ] Verify realistic selected-style faces against the catalog door sample rather than schematic cartoon fills
