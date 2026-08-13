@@ -95,13 +95,20 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
   });
 
-  it("keeps BA-24's configured end-angle description out of the triangle-corner renderer", () => {
+  it("classifies BA-24's Base End Corner/End Return configuration as the two-face return, not a triangle or standard base", () => {
     expect(cabinetDrawingType({
       masterCode: "BA-24",
-      description: '24" Base End Angle Cabinet',
+      description: "BA-24",
       category: "Base",
+      subCategory: "End Corner Return",
       cornerType: "triangle",
-    })).toBe("end-angle");
+    })).toBe("end-return");
+    expect(cabinetDrawingType({
+      masterCode: "BA-24",
+      description: "BA-24",
+      category: "Base",
+      subCategory: "Standard Base",
+    })).toBe("end-return");
   });
 
   it("classifies an appliance garage before generic wall logic", () => {

@@ -164,3 +164,6 @@
 - [ ] Verify the corrected BA-24/BEC elevation against the supplied mobile screenshot
 - [x] Route BA-24 through the 24-by-24 two-face end-return elevation geometry rather than a standard base face
 - [ ] Verify BA-24 and BEC both show two textured 12-inch return faces in live elevation
+- [x] Set BA-24 and BEC to the dedicated Base End Corner/End Return subcategory instead of a standard base subcategory
+- [x] Make the Base End Corner/End Return subcategory take precedence over standard base drawing rules
+- [x] Verify subcategory-driven BA-24/BEC end-return geometry in catalog, plan, and elevation

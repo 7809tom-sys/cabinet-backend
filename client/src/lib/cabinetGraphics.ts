@@ -222,11 +222,16 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "corner-drawer-base";
   }
 
-  // BEC-24 is a 24x24 Base End Corner / end-return. It has two distinct
-  // 12-inch cabinet faces at a 90-degree return, but never consumes a 36-inch
-  // room corner, corner filler, or lazy-Susan/diagonal rule. Resolve it before
-  // every generic corner branch so stale supplier `triangle` metadata is inert.
-  if (/^bec[-\d]?/.test(code) || /base end corner/.test(hay)) {
+  // Base End Corner / End Return is an explicit Cabinet Config subcategory.
+  // BA/BEC source codes can survive in saved designs with stale descriptions,
+  // so resolve the subcategory and both exact families before standard-base
+  // heuristics. They have two 12-inch faces at a 90-degree return and never
+  // consume a room corner, filler, or lazy-Susan/diagonal rule.
+  if (
+    /base end corner|end corner return|base end angle/.test(sub) ||
+    /^(?:bec|ba)[-_]?\d/.test(code) ||
+    /base end corner/.test(hay)
+  ) {
     return "end-return";
   }
   // Other base-angle products remain a one-face end-of-run angled cabinet.
