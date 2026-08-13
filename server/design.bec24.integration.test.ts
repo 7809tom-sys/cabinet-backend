@@ -1,7 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
+import { getDb } from "./db";
+import { cabinets } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 describe("BEC-24 Ashford designer availability", () => {
+  it("keeps the live Cabinet Config record as a non-corner Base End Angle", async () => {
+    const db = await getDb();
+    expect(db).toBeTruthy();
+    const [record] = await db!
+      .select({
+        masterCode: cabinets.masterCode,
+        category: cabinets.category,
+        placementType: cabinets.placementType,
+        productType: cabinets.productType,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        cornerType: cabinets.cornerType,
+        showInDesigner: cabinets.showInDesigner,
+      })
+      .from(cabinets)
+      .where(eq(cabinets.id, 9450022));
+
+    expect(record).toEqual({
+      masterCode: "BEC-24",
+      category: "Base",
+      placementType: "base",
+      productType: "endCap",
+      isCornerCabinet: false,
+      cornerType: null,
+      showInDesigner: true,
+    });
+  });
+
   it("returns BEC-24 as a base end-angle cabinet for the selected Ashford style", async () => {
     const caller = appRouter.createCaller({} as any);
     const palette = await caller.design.placeableCabinets({
