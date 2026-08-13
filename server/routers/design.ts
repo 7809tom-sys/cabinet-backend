@@ -962,6 +962,7 @@ export const designRouter = router({
         roomData: z.any(),
         placedCabinets: z.any(),
         selectedSurfaces: z.any().optional(),
+        threeDPresentation: z.any().optional(),
         selectedStyleId: z.number().optional(),
         selectedDistributorId: z.number().optional(),
         // Master Project grouping (all optional / backward-compatible).
@@ -987,6 +988,7 @@ export const designRouter = router({
             roomData: input.roomData,
             placedCabinets: input.placedCabinets,
             selectedSurfaces: input.selectedSurfaces ?? null,
+            threeDPresentation: input.threeDPresentation ?? null,
             selectedStyleId: input.selectedStyleId,
             selectedDistributorId: input.selectedDistributorId,
             projectName: input.projectName ?? null,
@@ -1007,6 +1009,7 @@ export const designRouter = router({
         roomData: input.roomData,
         placedCabinets: input.placedCabinets,
         selectedSurfaces: input.selectedSurfaces ?? null,
+        threeDPresentation: input.threeDPresentation ?? null,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
         projectName: input.projectName ?? null,

@@ -68,6 +68,7 @@ interface Props {
   // Pelican surface & fixture picks chosen in the Surfaces tab; persisted so a
   // reloaded design restores its exact surfaces.
   selectedSurfaces: unknown[];
+  threeDPresentation?: object | null;
   styleId: number | null;
   // Locked supply line (distributor) for this design, or null when unlocked.
   lockedDistributorId: number | null;
@@ -99,6 +100,7 @@ interface Props {
     distributorId?: number | null;
     roomType?: string | null;
     selectedSurfaces?: unknown[] | null;
+    threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null;
   }) => void;
 }
 
@@ -335,7 +337,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
+  room, placed, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -409,6 +411,7 @@ export function DesignActions({
       roomData: room,
       placedCabinets: placed,
       selectedSurfaces,
+      threeDPresentation: threeDPresentation ?? undefined,
       selectedStyleId: styleId ?? undefined,
       selectedDistributorId: lockedDistributorId ?? undefined,
       projectName: proj || undefined,
@@ -591,6 +594,7 @@ export function DesignActions({
                               distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
                               roomType: rType ?? null,
                               selectedSurfaces: Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : null,
+                              threeDPresentation: (d as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null }).threeDPresentation ?? null,
                             });
                             setLoadOpen(false);
                             toast.success(t("dt_act_loaded", { name: d.name }));

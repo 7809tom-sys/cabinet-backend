@@ -592,6 +592,9 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   // faucet) chosen in the Surfaces palette tab. Persisted so a reloaded design
   // restores its exact surfaces (cart + 3D gate + 2D render fill).
   selectedSurfaces: json("selectedSurfaces").$type<object[]>(),
+  // Presentation-only cabinet/countertop swatches selected in the interactive
+  // 3D view. These do not alter the ordered distributor SKU or catalog pricing.
+  threeDPresentation: json("threeDPresentation").$type<object>(),
   selectedStyleId: int("selectedStyleId"),
   selectedDistributorId: int("selectedDistributorId"),
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),

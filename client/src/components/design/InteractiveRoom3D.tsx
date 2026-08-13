@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, Download, LoaderCircle, Rotate3D, Share2, Sparkles } from "lucide-react";
+import { Camera, ChevronDown, Download, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -40,6 +41,22 @@ export type InteractiveRoomOrderSummary = {
   subtotal: number;
 };
 
+export type InteractiveRoomOrderLine = {
+  id: string;
+  label: string;
+  detail?: string | null;
+  quantity: number;
+  unitPrice: number | null;
+  lineTotal: number | null;
+};
+
+export type InteractiveRoomCatalogItem = {
+  id: number;
+  masterCode: string;
+  description: string | null;
+  category: "Accessory" | "Appliance";
+};
+
 export type InteractiveRoomPresentation = {
   cabinetFinish: string;
   countertopFinish: string;
@@ -51,8 +68,13 @@ interface Props {
   placed?: PlacedCabinet[];
   roomOverride?: RoomData;
   orderSummary?: InteractiveRoomOrderSummary;
+  orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
+  catalogItems?: InteractiveRoomCatalogItem[];
+  onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
+  onSaveToAccount?: () => void;
+  onPresentationChange?: (presentation: InteractiveRoomPresentation) => void;
   className?: string;
 }
 
@@ -105,6 +127,13 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   return "#f2f0ea";
 }
 
+export function doorProfileKind(doorStyle: string | null | undefined, doorPanelType: string | null | undefined) {
+  const profile = `${doorStyle ?? ""} ${doorPanelType ?? ""}`.toLowerCase();
+  if (/raised|bevel|cathedral/.test(profile)) return "raised" as const;
+  if (/shaker|recessed|frame/.test(profile)) return "shaker" as const;
+  return "flat" as const;
+}
+
 function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
   const geometry = geometryTemplate && typeof geometryTemplate === "object" && !Array.isArray(geometryTemplate)
     ? geometryTemplate as Record<string, unknown>
@@ -140,6 +169,7 @@ function addCabinet(
   roomDepth: number,
   color: string,
   counterColor: string,
+  doorProfile?: { doorStyle: string | null; doorPanelType: string | null },
   transform?: { x: number; z: number; rotation: number; bottom?: number },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
@@ -176,6 +206,7 @@ function addCabinet(
   cabinet.add(body);
 
   const faceMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.02 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.01 });
   const faceDepth = bodyDepth / 2 + 0.015;
   const doorCount = Math.max(1, sku.numberOfDoors ?? (isWall || isTall ? 2 : 1));
   const drawerCount = Math.max(0, sku.numberOfDrawers ?? 0);
@@ -189,6 +220,30 @@ function addCabinet(
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
     frontGroup.add(door);
+    const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
+    const isRaised = profileKind === "raised";
+    const isShaker = profileKind === "shaker";
+    if (isShaker) {
+      const rail = Math.min(0.075, doorWidth * 0.14, doorHeight * 0.09);
+      const pieces = [
+        [doorWidth - 0.02, rail, 0, doorHeight / 2 - rail / 2],
+        [doorWidth - 0.02, rail, 0, -doorHeight / 2 + rail / 2],
+        [rail, doorHeight - rail * 2, -doorWidth / 2 + rail / 2, 0],
+        [rail, doorHeight - rail * 2, doorWidth / 2 - rail / 2, 0],
+      ] as const;
+      for (const [pieceWidth, pieceHeight, x, y] of pieces) {
+        const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
+        railMesh.position.set(door.position.x + x, door.position.y + y, 0.036);
+        frontGroup.add(railMesh);
+      }
+    } else if (isRaised) {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
+      panel.position.set(door.position.x, door.position.y, 0.045);
+      frontGroup.add(panel);
+      const inner = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.57, doorHeight * 0.57, 0.025), faceMaterial);
+      inner.position.set(door.position.x, door.position.y, 0.08);
+      frontGroup.add(inner);
+    }
   }
   for (let i = 0; i < drawerCount; i++) {
     const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, drawerHeight / drawerCount - 0.025, 0.048), faceMaterial);
@@ -241,7 +296,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, initialPresentation, shareContext, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -252,6 +307,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
   const [countertopFinish, setCountertopFinish] = useState(initialPresentation?.countertopFinish ?? scene.materials?.defaults.countertop ?? "#e9e7e2");
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = placed.length > 0;
   const catalogFinish = sceneCabinetColor(scene);
@@ -270,6 +327,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     const timer = window.setTimeout(() => setMaterialTransitioning(false), 340);
     return () => window.clearTimeout(timer);
   }, [cabinetFinish, countertopFinish]);
+
+  useEffect(() => {
+    onPresentationChange?.({ cabinetFinish, countertopFinish });
+  }, [cabinetFinish, countertopFinish, onPresentationChange]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -371,12 +432,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, existingCabinetTransform(cabinet));
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet));
       }
     } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop);
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet);
       }
     }
     threeScene.add(catalogRoot);
@@ -479,6 +540,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
           <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
+          {onSaveToAccount && <Button type="button" size="sm" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-3.5 w-3.5" />Save</Button>}
           <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
         </div>
       </div>
@@ -515,14 +577,35 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
             <p className="text-lg font-semibold tabular-nums text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             <p className="text-[10px] text-[#6e5d42]">Actual catalog-priced subtotal</p>
           </div>
+          <Button type="button" size="sm" variant="outline" onClick={() => setPricingOpen(true)}>Itemized pricing<ChevronDown className="ml-1.5 h-3.5 w-3.5" /></Button>
           <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
         </div>
       )}
-      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`}>
+      {catalogItems.length > 0 && (
+        <div className="mb-3 rounded-xl border bg-background p-3">
+          <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add to this 3D room</p><span className="text-[11px] text-muted-foreground">Drag an item onto the scene; it will be placed on the active wall in the editable design.</span></div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {catalogItems.map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => onAddCatalogItem?.(item)} className="min-w-40 rounded-lg border bg-card p-2 text-left text-xs transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
+              <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block line-clamp-2 text-muted-foreground">{item.description ?? item.category}</span><span className="mt-1 block text-[10px] uppercase tracking-wide text-[#a87f33]">{item.category}</span>
+            </button>)}
+          </div>
+        </div>
+      )}
+      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">Drag to orbit or pan · Scroll or pinch to zoom · Download exports a {THREE_D_EXPORT_SIZE.width} × {THREE_D_EXPORT_SIZE.height} PNG · Cabinet geometry comes from the active distributor catalog</p>
+      <Sheet open={pricingOpen} onOpenChange={setPricingOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader><SheetTitle>Itemized design pricing</SheetTitle></SheetHeader>
+          <p className="mt-2 text-sm text-muted-foreground">Only catalog-priced lines are included in the subtotal. Quote-only materials remain clearly marked.</p>
+          <div className="mt-5 divide-y rounded-lg border">
+            {orderLines.length ? orderLines.map((line) => <div key={line.id} className="flex gap-3 p-3 text-sm"><div className="min-w-0 flex-1"><p className="font-medium">{line.label}</p>{line.detail && <p className="mt-0.5 text-xs text-muted-foreground">{line.detail}</p>}<p className="mt-1 text-xs text-muted-foreground">Qty {line.quantity}{line.unitPrice == null ? " · Price pending" : ` · $${line.unitPrice.toFixed(2)} each`}</p></div><p className="whitespace-nowrap font-semibold">{line.lineTotal == null ? "Quote" : `$${line.lineTotal.toFixed(2)}`}</p></div>) : <p className="p-4 text-sm text-muted-foreground">No orderable cabinet lines have been added yet.</p>}
+          </div>
+          <div className="mt-4 flex items-center justify-between rounded-lg bg-muted p-3"><span className="font-semibold">Catalog-priced subtotal</span><span className="text-lg font-semibold">${orderSummary?.subtotal.toFixed(2) ?? "0.00"}</span></div>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }

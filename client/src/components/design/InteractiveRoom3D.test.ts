@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, existingCabinetTransform, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -28,5 +28,11 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
     expect(THREE_D_EXPORT_SIZE).toEqual({ width: 2000, height: 1400 });
+  });
+
+  it("recognizes Shaker, raised-panel, and flat-panel cabinet door geometry", () => {
+    expect(doorProfileKind("Shaker", null)).toBe("shaker");
+    expect(doorProfileKind("Raised Panel", null)).toBe("raised");
+    expect(doorProfileKind("Slab", "Flat Panel")).toBe("flat");
   });
 });

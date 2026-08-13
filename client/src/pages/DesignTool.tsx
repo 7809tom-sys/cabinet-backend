@@ -109,7 +109,7 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -341,6 +341,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
+  const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -754,6 +755,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
   });
+  const { data: threeDAccessoryCatalog } = trpc.design.placeableCabinets.useQuery({
+    placement: "accessory",
+    styleId: styleId ?? undefined,
+    distributorId: lockedDistributorId ?? undefined,
+  }, { enabled: styleId != null });
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -1793,6 +1799,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return { itemCount, pricedLineCount, unpricedLineCount, subtotal };
   }, [cartableLines]);
 
+  const interactive3dOrderLines = useMemo<InteractiveRoomOrderLine[]>(() => cartableLines.map((line) => {
+    const unitPrice = line.unitPrice == null || !Number.isFinite(Number(line.unitPrice)) ? null : Number(line.unitPrice);
+    return {
+      id: `${line.masterCode}:${line.styleId}:${line.tier}`,
+      label: line.masterCode,
+      detail: `${line.name}${line.styleLabel ? ` · ${line.styleLabel}` : ""}`,
+      quantity: line.qty,
+      unitPrice,
+      lineTotal: unitPrice == null ? null : unitPrice * line.qty,
+    };
+  }), [cartableLines]);
+
+  const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
+    const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const,
+    }));
+    // Appliances are already part of the live Design Tool palette. They are
+    // presentation/plan items unless a distributor exposes a priced SKU, so the
+    // itemized drawer accurately marks them as price pending when applicable.
+    const appliances = appliancePalette.slice(0, 8).map((item) => ({
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const,
+    }));
+    return [...accessories, ...appliances];
+  }, [threeDAccessoryCatalog, appliancePalette]);
+
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
       toast.info(t("dt_cart_nothing"));
@@ -2085,7 +2116,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // ─── Placement actions ──────────────────────────────────────────────────────
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
       if (isAddingRef.current) return;
@@ -2095,7 +2126,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
       // render as a thin board against the run rather than a full 24" box.
-      const isAccessory = paletteType === "accessory" && isPlaceableAccessory(c);
+      const isAccessory = (forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c);
       const accPlacement = isAccessory ? accessoryPlacement(c) : c.placement;
       const isFlatPanel = isAccessory && isPanelItem(c);
       const width = dim(c.width, isAccessory ? 24 : 24);
@@ -2333,6 +2364,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     addCabinet(fillerDef);
     toast.success(t("dt_toast_added_filler", { w }));
   }, [layoutLocked, roomType, addCabinet]);
+
+  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem) => {
+    if (item.category === "Accessory") {
+      const accessory = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
+      if (accessory) addCabinet(accessory, undefined, undefined, true);
+      else toast.error("That accessory is no longer available in the selected catalog.");
+      return;
+    }
+    const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
+    if (appliance) addCabinet(appliance);
+    else toast.error("That appliance is no longer available for this room type.");
+  }, [threeDAccessoryCatalog, appliancePalette, addCabinet]);
 
   // ── Ceiling Filler: place a filler strip on top of wall cabinets to cover the
   // gap between the wall-cabinet top line and the ceiling. The filler is a
@@ -4131,6 +4174,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const room = (savedDesign.roomData ?? null) as RoomData | null;
     const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
     const savedSurfaces = (savedDesign as { selectedSurfaces?: SelectedSurface[] | null }).selectedSurfaces;
+    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null }).threeDPresentation;
     loadSavedDesign({
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
@@ -4139,6 +4183,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       roomType: (savedDesign as { roomType?: string | null }).roomType ?? null,
       selectedSurfaces: Array.isArray(savedSurfaces) ? savedSurfaces : null,
     });
+    if (savedPresentation && typeof savedPresentation.cabinetFinish === "string" && typeof savedPresentation.countertopFinish === "string") {
+      setInteractive3dPresentation({ cabinetFinish: savedPresentation.cabinetFinish, countertopFinish: savedPresentation.countertopFinish });
+    }
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
 
@@ -5665,6 +5712,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             room={room}
             placed={placed}
             selectedSurfaces={selectedSurfaces}
+            threeDPresentation={interactive3dPresentation}
             styleId={styleId}
             lockedDistributorId={lockedDistributorId}
             styleName={activeStyleName}
@@ -5694,12 +5742,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               }
             }}
             onLoad={(d) =>
-              loadSavedDesign({
-                ...d,
-                selectedSurfaces: Array.isArray(d.selectedSurfaces)
-                  ? (d.selectedSurfaces as SelectedSurface[])
-                  : null,
-              })
+              {
+                loadSavedDesign({
+                  ...d,
+                  selectedSurfaces: Array.isArray(d.selectedSurfaces)
+                    ? (d.selectedSurfaces as SelectedSurface[])
+                    : null,
+                });
+                if (d.threeDPresentation && typeof d.threeDPresentation.cabinetFinish === "string" && typeof d.threeDPresentation.countertopFinish === "string") {
+                  setInteractive3dPresentation({ cabinetFinish: d.threeDPresentation.cabinetFinish, countertopFinish: d.threeDPresentation.countertopFinish });
+                }
+              }
             }
           />
           <Button
@@ -8693,6 +8746,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 placed={placed}
                 roomOverride={room}
                 orderSummary={interactive3dOrderSummary}
+                orderLines={interactive3dOrderLines}
+                catalogItems={interactive3dCatalogItems}
+                onAddCatalogItem={addFromInteractive3d}
+                onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+                initialPresentation={interactive3dPresentation ?? undefined}
+                onPresentationChange={setInteractive3dPresentation}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,

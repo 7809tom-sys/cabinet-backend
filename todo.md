@@ -2022,3 +2022,10 @@
 - [x] Add finish-change loading and transition feedback
 - [x] Add shareable 3D configuration link generation and restoration
 - [x] Test pricing clarity, material transitions, and share-link behavior
+
+## Feature: Rich editable 3D room workflow
+- [x] Add an itemized pricing breakdown drawer with actual catalog line pricing
+- [x] Save and restore current 3D room configuration through the signed-in account
+- [x] Add a real-catalog accessories and appliances placement panel for the 3D scene
+- [x] Render Shaker, raised-panel, and flat-panel door geometry in the 3D view
+- [x] Validate pricing, saving, placement, and detailed cabinet rendering on desktop and mobile
