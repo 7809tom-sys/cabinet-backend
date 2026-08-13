@@ -170,6 +170,10 @@ export interface DesignCabinet {
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
   catalogImageUrl?: string | null;
+  // Live Cabinet Config drawing rules. These are refreshed into older placed
+  // designs so a catalog correction applies without re-placing the cabinet.
+  specImageUrl?: string | null;
+  graphicType?: string | null;
   // Manufacturer blind-corner pull range (inches across the corner). Optional;
   // when absent for a blind corner, the design flags a conflict so the admin
   // can enter the spec.
@@ -367,6 +371,36 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.specImageUrl !== undefined ? { genericDrawingUrl: master.specImageUrl } : {}),
     };
   });
+}
+
+/**
+ * Reapplies every currently available Cabinet Config drawing rule to an open
+ * design. Saved designs intentionally retain their placement and dimensions,
+ * but their drawing metadata must never become a stale source of truth after
+ * the catalog configuration changes.
+ */
+export function refreshPlacedCabinetsFromMasterRules(
+  placed: PlacedCabinet[],
+  masters: MasterCabinetDrawingRefresh[],
+): PlacedCabinet[] {
+  const byCabinetId = new Map(masters.map((master) => [master.cabinetId, master]));
+  let changed = false;
+  const refreshed = placed.map((cabinet) => {
+    const master = byCabinetId.get(cabinet.cabinetId);
+    if (!master) return cabinet;
+    const next = refreshPlacedCabinetsFromMasterConfig([cabinet], master)[0]!;
+    if (
+      next.category !== cabinet.category ||
+      next.subCategory !== cabinet.subCategory ||
+      next.customProfile !== cabinet.customProfile ||
+      next.genericDrawingUrl !== cabinet.genericDrawingUrl
+    ) {
+      changed = true;
+      return next;
+    }
+    return cabinet;
+  });
+  return changed ? refreshed : placed;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal

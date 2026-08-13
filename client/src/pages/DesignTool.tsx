@@ -77,7 +77,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -764,6 +764,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
     );
   const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
+
+  // Existing designs must read the current Cabinet Config rules after the
+  // catalog loads. This prevents an older placed BA-24/BEC from retaining a
+  // stale standard-base drawing type after its master category is corrected.
+  const { data: liveMasterCabinets } = trpc.design.placeableCabinets.useQuery(
+    {
+      styleId: styleId ?? undefined,
+      distributorId: lockedDistributorId ?? undefined,
+    },
+    { enabled: styleId != null },
+  );
+  const liveMasterDrawingRules = useMemo(
+    () => ((liveMasterCabinets ?? []) as DesignCabinet[]).map((cabinet) => ({
+      cabinetId: cabinet.id,
+      category: cabinet.category,
+      subCategory: cabinet.subCategory,
+      graphicType: cabinet.graphicType,
+      specImageUrl: cabinet.specImageUrl,
+    })),
+    [liveMasterCabinets],
+  );
+  useEffect(() => {
+    if (liveMasterDrawingRules.length === 0) return;
+    setPlaced((current) => refreshPlacedCabinetsFromMasterRules(current, liveMasterDrawingRules));
+  }, [liveMasterDrawingRules]);
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).

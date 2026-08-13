@@ -171,3 +171,5 @@
 - [ ] Verify Base End Cabinet category records render as textured two-face end returns in the designer
 - [x] Override stale standard-base drawing metadata on already placed BA-24/BEC cabinets
 - [ ] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh
+- [x] Refresh existing placed cabinets from live Cabinet Config drawing rules when a design loads
+- [ ] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
