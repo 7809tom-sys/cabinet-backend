@@ -114,6 +114,27 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Express static middleware may serve index.html for the original root path
+  // before the SPA fallback has a chance to inject the affiliate bootstrap.
+  // Handle affiliate document requests first, while leaving root-level assets
+  // untouched, so a custom domain always begins in its own branded storefront.
+  app.use(async (req, res, next) => {
+    const slug = res.locals.affiliateSlug as string | undefined;
+    const acceptsHtml = req.headers.accept?.includes("text/html") ?? false;
+    if (!slug || req.method !== "GET" || !acceptsHtml) return next();
+    try {
+      const indexHtml = await fs.promises.readFile(
+        path.resolve(distPath, "index.html"),
+        "utf-8",
+      );
+      const branded = await whiteLabelAffiliateHtml(indexHtml, `/store/${slug}`);
+      res.setHeader("Content-Type", "text/html; charset=UTF-8");
+      return res.send(branded);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist

@@ -67,20 +67,6 @@ async function startServer() {
   // No-op for localhost, *.manus.space/.manus.computer, and the www host, so it is
   // safe to run before everything else.
   app.use(apexRedirectMiddleware);
-  // Temporary host-only diagnostic used to identify the CDN header that carries
-  // an affiliate custom domain. It intentionally returns no cookies, identity,
-  // or arbitrary request data and is removed once routing is confirmed.
-  app.get("/__manus__/affiliate-routing-debug", (req, res) => {
-    res.set("Cache-Control", "no-store");
-    res.json({
-      hostname: req.hostname,
-      host: req.headers.host ?? null,
-      xForwardedHost: req.headers["x-forwarded-host"] ?? null,
-      xOriginalHost: req.headers["x-original-host"] ?? null,
-      xHost: req.headers["x-host"] ?? null,
-      cfConnectingIpPresent: Boolean(req.headers["cf-connecting-ip"]),
-    });
-  });
   // ─── Affiliate subdomain routing ─────────────────────────────────────────────
   // Detects affiliate subdomains (e.g., reaves-way-cabinet-shop.cabinetdealz.com)
   // and internally rewrites the URL to /store/:slug so the SPA serves the
@@ -98,22 +84,24 @@ async function startServer() {
       req.headers.host,
     ];
     const subdomain = affiliateSlugFromHostCandidates(hostCandidates);
-    // Narrow, opt-in deployment diagnostic. It is removed once the edge header
-    // behavior is confirmed and never affects ordinary storefront responses.
-    if (req.query.affiliateRoutingDebug === "1") {
-      res.setHeader("X-Affiliate-Routing-Debug", JSON.stringify({
-        candidates: hostCandidates.map((value) => Array.isArray(value) ? value[0] : value ?? null),
-        slug: subdomain,
-      }));
-    }
     if (!subdomain) return next();
-    // Don't rewrite API calls, static assets, or already-prefixed store paths
-    if (req.url.startsWith("/api/") || req.url.startsWith("/store/") || req.url.startsWith("/__manus__") || req.url.startsWith("/manus-storage")) {
+    // Don't rewrite API calls, static assets, or already-prefixed store paths.
+    // The browser must still retrieve its JavaScript/CSS/image assets at the
+    // normal root paths even while the document itself is brand-routed.
+    if (
+      req.url.startsWith("/api/") ||
+      req.url.startsWith("/store/") ||
+      req.url.startsWith("/__manus__") ||
+      req.url.startsWith("/manus-storage") ||
+      req.url.startsWith("/assets/") ||
+      /\.(?:css|js|mjs|map|ico|png|jpe?g|gif|webp|svg|woff2?|ttf)(?:\?|$)/i.test(req.url)
+    ) {
       return next();
     }
     // Rewrite: / → /store/slug, /cart → /store/slug/cart, etc.
     const originalUrl = req.url === "/" ? "" : req.url;
     req.url = `/store/${subdomain}${originalUrl}`;
+    res.locals.affiliateSlug = subdomain;
     next();
   });
   // Stripe webhook MUST be registered before express.json() so the raw body

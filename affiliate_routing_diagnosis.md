@@ -10,4 +10,4 @@
 
 ## Current next step
 
-Deploy the narrowly scoped host diagnostic endpoint, query it through the live custom domain, then use the observed public host value to complete routing and remove the temporary diagnostic endpoint.
+The live custom-domain request still returned the previous main-site application behavior after the temporary diagnostic deployment. Its diagnostic path rendered the SPA 404 page rather than the server endpoint, which shows the custom domain is not yet serving the latest server routing build. The next step is to wait for the custom-domain deployment target to receive the current revision, query the diagnostic endpoint again, then use the observed public host value to complete routing and remove the temporary endpoint.
