@@ -349,6 +349,15 @@ export function diagonalCornerFootprintVertices(bodyWidth: number, bodyDepth: nu
   ];
 }
 
+/**
+ * A WDC's diagonal is the hypotenuse of its two 12-inch returns within the
+ * 24-by-24 footprint: √(12² + 12²) ≈ 17 inches. This is the total two-door
+ * front, not the diagonal across the full enclosing square.
+ */
+export function diagonalCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
+  return Math.hypot(bodyWidth / 2, bodyDepth / 2);
+}
+
 /** Builds the vertical pentagonal extrusion defined by the shared 2D diagonal footprint. */
 function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
   const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
@@ -770,7 +779,7 @@ export function addCabinet(
     // square body. Keeping these faces on the diagonal is particularly important
     // for LS3612: a centered pair makes a correct 36×36 Lazy Susan look like an
     // ordinary rectangular base from the mobile orbit camera.
-    const diagonalWidth = Math.hypot(bodyWidth, bodyDepth) * 0.92;
+    const diagonalWidth = diagonalCornerFrontWidth(bodyWidth, bodyDepth);
     const diagonalDoorWidth = diagonalWidth / 2;
     const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
     const diagonalFaceCenterX = bodyWidth / 4;
