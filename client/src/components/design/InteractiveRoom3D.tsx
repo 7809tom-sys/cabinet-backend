@@ -536,7 +536,9 @@ function addCabinet(
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
-  frontGroup.position.z = faceDepth;
+  // A diagonal wall corner's visible front crosses the square footprint rather
+  // than sitting on the rectangular box edge used by standard cabinets.
+  frontGroup.position.z = specialty.kind === "diagonal-corner" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036) => {
     if (profileKind !== "shaker") return;
@@ -684,6 +686,19 @@ function addCabinet(
       addDoors(ovenLayout.doorZone);
       addOvenCutout();
       addDrawers();
+    }
+  } else if (specialty.kind === "diagonal-corner") {
+    // Match the 2D diagonal corner: a square corner body with two center-meeting
+    // doors along its 45-degree clipped front, not one wide rectangular face.
+    const diagonalWidth = Math.hypot(bodyWidth, bodyDepth) * 0.92;
+    const diagonalDoorWidth = diagonalWidth / 2;
+    const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
+    for (const direction of [-1, 1] as const) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052), faceMaterial);
+      door.position.set(direction * diagonalDoorWidth * 0.24, 0, 0.035);
+      door.rotation.y = Math.PI / 4;
+      door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right" };
+      frontGroup.add(door);
     }
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows

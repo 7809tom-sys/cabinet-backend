@@ -280,7 +280,7 @@
 - [ ] Match every active-design corner cabinet’s persisted 2D footprint and front-face segments exactly in 3D
 - [ ] Match every active-design appliance’s persisted dimensions, position, rotation, floor/mount elevation, and range-hood relationship exactly in 3D
 - [ ] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations
-- [ ] Render active WDC2442 as its saved 24-inch diagonal wall-corner footprint and angled front rather than a centered rectangular box
+- [x] Render active WDC2442 as its saved 24-inch diagonal wall-corner footprint and angled front rather than a centered rectangular box
 - [ ] Reuse the shared 2D appliance elevation rules for every 3D appliance rather than separate placement heuristics
 - [x] Use the shared 2D elevation-box calculation for every 3D wall cabinet and appliance transform
 - [x] Render a loaded 2D design in 3D even when no active door style is selected, using deterministic neutral material defaults
