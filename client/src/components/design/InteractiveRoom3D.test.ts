@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, rangeHoodGeometry, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, threeDSceneInputDiagnostics, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -79,6 +79,18 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ kind: "face-pattern", pattern: "lattice" });
   });
 
+  it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {
+    const placed = [{
+      uid: "live-oven", cabinetId: 9390085, masterCode: "UOC3396", description: '33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers',
+      placement: "tall", x: 24, y: 0, width: 33, depth: 24, height: 96, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0, ovenType: "double", drawerLayout: JSON.stringify([{ count: 1, height: 6 }]), customProfile: "end-angle", facePattern: "lattice",
+    }] as never[];
+    const contract = threeDSceneInputDiagnostics(placed, "/manus-storage/selected-door.png");
+    expect(contract).toMatchObject({ cabinetCount: 1, ovenTowerCount: 1, measuredDrawerCabinetCount: 1, specialtyCabinetCount: 1, doorSampleUrl: "/manus-storage/selected-door.png" });
+    expect(contract.mapped[0]).toMatchObject({ masterCode: "UOC3396", ovenType: "double", drawerLayout: JSON.stringify([{ count: 1, height: 6 }]), graphicType: "end-angle", facePattern: "lattice" });
+    expect(existingCabinetSku(placed[0])).toMatchObject({ height: 96, width: 33, depth: 24 });
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
@@ -145,6 +157,18 @@ describe("interactive 3D room scene helpers", () => {
     expect(hood.chimneyDepth).toBeCloseTo(0.69, 12);
   });
 
+  it("preserves the saved current-design refrigerator width, height, and rotated 2D position in 3D", () => {
+    expect(existingCabinetTransform({
+      uid: "current-fridge", cabinetId: 0, masterCode: "FRIDGE-36", description: "Refrigerator 36 inch", placement: "appliance",
+      x: 0.75, y: 107, width: 36, depth: 30, height: 72, rotation: 90,
+    })).toEqual({ x: 15.75, z: 125, rotation: Math.PI / 2, bottom: 0 });
+  });
+
+  it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
+    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never])).toEqual({ hasRange: true, hasRangeHood: false, needs2DPlacement: true });
+    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never, { masterCode: "HOOD-30" } as never])).toEqual({ hasRange: true, hasRangeHood: true, needs2DPlacement: false });
+  });
+
   it("places a saved 2D window at its exact wall offset in the 3D room", () => {
     expect(openingTransform({
       uid: "window-1", kind: "window", label: "Window", side: "top", offset: 42, width: 36, height: 36, sill: 42,
@@ -162,6 +186,11 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
     expect(THREE_D_EXPORT_SIZE).toEqual({ width: 2000, height: 1400 });
+  });
+
+  it("keeps room walls non-occluding so a mobile orbit cannot hide the cabinet run", () => {
+    expect(THREE_D_WALL_OPACITY).toBe(0.72);
+    expect(THREE_D_WALL_DEPTH_WRITE).toBe(false);
   });
 
   it("writes the active catalog cabinet and countertop names when quote previews stay at their defaults", () => {

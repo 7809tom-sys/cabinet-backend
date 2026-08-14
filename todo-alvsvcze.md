@@ -201,14 +201,14 @@
 - [x] Add a Silva Shaker style-payload-to-3D texture handoff regression
 - [x] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
 - [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
-- [ ] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
+- [x] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
 - [ ] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
 - [x] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
 - [x] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
 - [x] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
 - [x] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
-- [ ] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
-- [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
+- [x] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
+- [x] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
 - [x] Align 3D appliances to their exact saved 2D transforms and mounting heights
 - [x] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
 - [x] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
@@ -222,6 +222,10 @@
 - [x] Correct the low/narrow cabinet’s saved dimensions and 2D-to-3D placement transform
 - [x] Render the saved 2D range hood at its correct wall position and mounting height in 3D
 - [x] Add a focused 2D-to-3D regression covering the reported double oven, low/narrow cabinet, and range hood
+- [x] Align the visible tall-appliance enclosure and its adjacent countertop surfaces to the saved 2D design
+- [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
+- [ ] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
+- [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
 - [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

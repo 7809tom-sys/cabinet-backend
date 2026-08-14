@@ -120,6 +120,8 @@ const COUNTERTOP_FINISHES = [
 ] as const;
 export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.07;
+export const THREE_D_WALL_OPACITY = 0.72;
+export const THREE_D_WALL_DEPTH_WRITE = false;
 
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
@@ -346,6 +348,7 @@ function addCabinet(
   doorProfile?: { doorStyle: string | null; doorPanelType: string | null },
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
+  onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -380,7 +383,10 @@ function addCabinet(
   );
   cabinet.add(body);
 
-  const doorTexture = doorSampleUrl ? new THREE.TextureLoader().load(doorSampleUrl) : null;
+  const doorTexture = doorSampleUrl
+    ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => onDoorTextureState?.("failed"))
+    : null;
+  if (doorTexture) onDoorTextureState?.("loading");
   if (doorTexture) {
     doorTexture.colorSpace = THREE.SRGBColorSpace;
     doorTexture.wrapS = THREE.RepeatWrapping;
@@ -711,7 +717,7 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
   root.add(group);
 }
 
-function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
+export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
     cabinetId: cabinet.cabinetId,
@@ -735,6 +741,24 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
+export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleUrl: string | null | undefined) {
+  const mapped = placed.map(existingCabinetSku);
+  return {
+    cabinetCount: mapped.length,
+    doorSampleUrl: doorSampleUrl ?? null,
+    ovenTowerCount: mapped.filter((item) => Boolean(item.ovenType) || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(`${item.masterCode} ${item.description ?? ""}`)).length,
+    measuredDrawerCabinetCount: mapped.filter((item) => item.drawerLayout != null || item.drawerHeight != null).length,
+    specialtyCabinetCount: mapped.filter((item) => item.graphicType != null || item.facePattern != null || item.cornerType != null).length,
+    mapped,
+  };
+}
+
+export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
+  const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
+  const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
+  return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
+}
+
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -753,8 +777,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = shouldRenderPlacedDesign(placed);
+  const rangeHoodStatus = useMemo(() => rangeHoodSceneStatus(placed), [placed]);
   // The active designer style is the customer’s catalog selection. Prefer its
   // resolved finish color over a sparse style-record color field from the scene
   // endpoint, then fall back to the server-derived catalog material.
@@ -881,7 +907,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     floor.receiveShadow = true;
     threeScene.add(floor);
 
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide });
+    // Room walls must remain visible as context without ever becoming opaque
+    // screens over cabinetry when a mobile orbit moves the camera through them.
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide, transparent: true, opacity: THREE_D_WALL_OPACITY, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     polygon.forEach((start, index) => {
       const end = polygon[(index + 1) % polygon.length];
       const dx = end.x - start.x;
@@ -890,7 +918,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, wallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
-      if (index > 1) (wall.material as THREE.MeshStandardMaterial).transparent = true, (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
+      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
       threeScene.add(wall);
     });
     const grid = new THREE.GridHelper(Math.max(room.width, room.depth) * INCH, 12, "#d9d3c8", "#e7e1d8");
@@ -901,15 +929,21 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = resolvedCabinetFinish;
     const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
+    setDoorTextureState(activeDoorTexture ? "loading" : "not-requested");
+    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture);
+    let disposed = false;
+    const updateDoorTextureState = (state: "loading" | "loaded" | "failed") => {
+      if (!disposed) setDoorTextureState(state);
+    };
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet), activeDoorTexture);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet), activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, undefined, activeDoorTexture);
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, undefined, activeDoorTexture, updateDoorTextureState);
       }
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
@@ -936,6 +970,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     });
     resizeObserver.observe(mount);
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       controls.dispose();
@@ -1153,6 +1188,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
+          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>Door sample texture: {doorTextureState === "not-requested" ? "not selected" : doorTextureState}</p>}
+          {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.</p>}
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
