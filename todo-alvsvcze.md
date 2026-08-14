@@ -152,8 +152,8 @@
 - [x] Add regression coverage for affiliate-specific document metadata and white-label sharing tags
 - [x] Add a routed duplicate-SKU CabinetDetail regression that renders the role-specific cost, Sells At, and Margin panel
 - [ ] Verify an authenticated affiliate owner reaches the branded-storefront Affiliate Cost panel rather than the Administration My Cost panel
-- [ ] Restore affiliate subdomain routing behind the deployment proxy and verify the branded store loads from the original host
-- [ ] Add forwarded-host regression coverage for affiliate subdomain routing
+- [x] Restore affiliate subdomain routing behind the deployment proxy and verify the branded store loads from the original host
+- [x] Add forwarded-host regression coverage for affiliate subdomain routing
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
