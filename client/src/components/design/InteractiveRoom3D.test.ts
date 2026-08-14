@@ -105,10 +105,16 @@ describe("interactive 3D room scene helpers", () => {
     const base = threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a");
     const cabinet = { uid: "cab", cabinetId: 1, masterCode: "B-24", description: "Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0 } as never;
     const opening = { uid: "window", kind: "window", side: "top", offset: 0, width: 30, height: 30, sillHeight: 36 } as never;
+    const sink = { uid: "sink", type: "single_bowl", x: 24, y: 0, width: 30, depth: 20, faucet: true } as never;
+    const furniture = { uid: "table", defId: "table-48", x: 48, y: 60, rotation: 90 } as never;
+    const ponyWall = { uid: "pony", x: 24, y: 24, width: 48, depth: 6, height: 42 } as never;
     expect(threeDSceneRevisionKey(room, [cabinet], [], [], null, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [opening], [], null, [], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [sink], null, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-b")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], { x: 48, y: 48, width: 60, depth: 30 }, [], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], null, [furniture], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], null, [], [ponyWall], "sample-a")).not.toBe(base);
   });
 
   it("shows the exact active 2D entity inventory in the visible 3D plan-sync status", () => {
