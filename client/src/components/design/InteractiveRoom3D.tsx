@@ -1256,6 +1256,14 @@ export function resolvedThreeDCountertopFinish(
     ?? "#e9e7e2";
 }
 
+export function threeDPresentationEmissionKey(cabinetFinish: string, countertopFinish: string) {
+  return `${cabinetFinish}::${countertopFinish}`;
+}
+
+export function shouldEmitThreeDPresentation(previousKey: string | null, cabinetFinish: string, countertopFinish: string) {
+  return previousKey !== threeDPresentationEmissionKey(cabinetFinish, countertopFinish);
+}
+
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -1264,6 +1272,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastEmittedPresentationRef = useRef<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
@@ -1297,9 +1306,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
   useEffect(() => {
-    setCabinetFinish(initialPresentation?.cabinetFinish ?? "catalog");
-    setCountertopFinish(initialPresentation?.countertopFinish ?? scene.materials?.defaults.countertop ?? "#e9e7e2");
-  }, [scene.materials?.cabinet.color, scene.materials?.cabinet.finish, scene.materials?.defaults.countertop, initialPresentation?.cabinetFinish, initialPresentation?.countertopFinish]);
+    const nextCabinetFinish = initialPresentation?.cabinetFinish ?? "catalog";
+    const nextCountertopFinish = resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene);
+    setCabinetFinish((current) => current === nextCabinetFinish ? current : nextCabinetFinish);
+    setCountertopFinish((current: string) => current === nextCountertopFinish ? current : nextCountertopFinish);
+  }, [scene, catalogCountertopColor, initialPresentation?.cabinetFinish, initialPresentation?.countertopFinish]);
 
   useEffect(() => {
     setMaterialTransitioning(true);
@@ -1308,7 +1319,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   }, [cabinetFinish, countertopFinish]);
 
   useEffect(() => {
-    onPresentationChange?.({ cabinetFinish, countertopFinish });
+    if (!onPresentationChange) return;
+    const key = threeDPresentationEmissionKey(cabinetFinish, countertopFinish);
+    if (!shouldEmitThreeDPresentation(lastEmittedPresentationRef.current, cabinetFinish, countertopFinish)) return;
+    lastEmittedPresentationRef.current = key;
+    onPresentationChange({ cabinetFinish, countertopFinish });
   }, [cabinetFinish, countertopFinish, onPresentationChange]);
 
   useEffect(() => {

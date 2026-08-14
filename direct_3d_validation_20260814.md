@@ -36,3 +36,8 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 
 - After adding the shared selected-countertop color handoff and scene-revision input, reloaded active design `8190001` again. The live 2D plan remains at **20 items**, restores **Aspen White**, and preserves the saved `12' × 12'1"` room.
 - The deterministic preview now receives the same selected 2D countertop color as its initial scene material unless the user has explicitly stored a presentation-only override; a persisted countertop selection also participates in the scene rebuild signature.
+
+## Presentation-sync stability confirmation — 2026-08-14
+
+- The preview action briefly exposed a React maximum-update-depth fault after the persisted-material handoff. The 3D presentation callback is now guarded so an unchanged cabinet/countertop pair is emitted only once, and initial finish synchronization is value-stable.
+- Reloaded `8190001` after the guard, opened the live deterministic modal, and confirmed it remains mounted: it reports **20 cabinets from the current design** with the current 2D entity inventory, visible CDB36/WDC corner forms, range cooktop, mounted appliance run, refrigerator, drawer bases, and selected Aspen finish.

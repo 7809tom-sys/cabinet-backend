@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
-import { resolvedThreeDCountertopFinish } from "./InteractiveRoom3D";
+import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -37,6 +37,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDCountertopFinish(undefined, "#2c2f33", baseScene)).toBe("#2c2f33");
     expect(resolvedThreeDCountertopFinish({ cabinetFinish: "catalog", countertopFinish: "#b9824a" }, "#2c2f33", baseScene)).toBe("#b9824a");
     expect(resolvedThreeDCountertopFinish(undefined, null, baseScene)).toBe("#e9e7e2");
+  });
+
+  it("does not re-emit an unchanged presentation back to the parent preview state", () => {
+    const emitted = threeDPresentationEmissionKey("catalog", "#2c2f33");
+    expect(shouldEmitThreeDPresentation(null, "catalog", "#2c2f33")).toBe(true);
+    expect(shouldEmitThreeDPresentation(emitted, "catalog", "#2c2f33")).toBe(false);
+    expect(shouldEmitThreeDPresentation(emitted, "#49604a", "#2c2f33")).toBe(true);
+    expect(shouldEmitThreeDPresentation(emitted, "catalog", "#111111")).toBe(true);
   });
 
   it("carries the exact selected 2D door sample into catalog-finish 3D cabinet faces", () => {
