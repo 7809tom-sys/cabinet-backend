@@ -387,6 +387,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(lCornerDoors).toHaveLength(2);
     expect(lCornerDoors.map((door) => door.userData.lCornerDoor).sort()).toEqual(["back-leg", "side-leg"]);
     expect(lCornerDoors.map((door) => door.rotation.y).sort((a, b) => a - b)).toEqual([0, Math.PI / 2]);
+    for (const door of lCornerDoors) {
+      const mesh = door as THREE.Mesh;
+      expect((mesh.geometry as THREE.BoxGeometry).parameters.width).toBeCloseTo(12 / 12 - 0.09, 12);
+    }
     const shakerFrames: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.selectedStyleFace === "shaker") shakerFrames.push(node); });
     expect(shakerFrames.length).toBeGreaterThan(0);

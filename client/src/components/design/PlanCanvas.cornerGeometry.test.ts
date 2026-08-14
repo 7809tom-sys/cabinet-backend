@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { placedCornerGeometryKind, type PlacedCabinet } from "@/lib/design";
-import { planCabinetClipPath, planCornerGeometry, planDiagonalFrontPath } from "./PlanCanvas";
+import { planCabinetClipPath, planCornerGeometry, planDiagonalFrontPath, planLazySusanTwoFrontPath } from "./PlanCanvas";
 
 describe("PlanCanvas shared corner geometry", () => {
   it("uses the persisted WDC2430 diagonal classification instead of drawing a square or triangle", () => {
@@ -63,5 +63,6 @@ describe("PlanCanvas shared corner geometry", () => {
       "polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 100%)",
     );
     expect(planDiagonalFrontPath(ls36, { width: 144, depth: 120 })).toBeUndefined();
+    expect(planLazySusanTwoFrontPath(ls36)).toBe("M67 67L100 67M67 67L67 100");
   });
 });

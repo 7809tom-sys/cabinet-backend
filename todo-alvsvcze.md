@@ -315,3 +315,4 @@
 - [ ] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
 - [ ] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
 - [ ] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
+- [ ] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D

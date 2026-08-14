@@ -789,15 +789,16 @@ export function addCabinet(
     }
   } else if (specialty.kind === "l-corner") {
     // Preserve the restored 2D Lazy Susan L-outline: each door sits on one
-    // exposed leg, rather than introducing a diagonal front in 3D.
+    // exposed 12-inch leg, rather than introducing a diagonal front in 3D.
     const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+    const exposedFrontWidth = Math.max(0.2, bodyWidth - lShape.sideLeg.width);
     const backFrontZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
-    const backDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.backLeg.width - 0.09, faceHeight, 0.052), faceMaterial);
-    backDoor.position.set(lShape.backLeg.x, 0, backFrontZ);
+    const backDoor = new THREE.Mesh(new THREE.BoxGeometry(exposedFrontWidth - 0.09, faceHeight, 0.052), faceMaterial);
+    backDoor.position.set(bodyWidth / 2 - exposedFrontWidth / 2, 0, backFrontZ);
     backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg" };
     frontGroup.add(backDoor);
-    addShakerFrame(lShape.backLeg.width - 0.09, faceHeight, backDoor.position.x, backDoor.position.y, backDoor.position.z + 0.034);
+    addShakerFrame(exposedFrontWidth - 0.09, faceHeight, backDoor.position.x, backDoor.position.y, backDoor.position.z + 0.034);
 
     const sideFrontX = lShape.sideLeg.x + lShape.sideLeg.width / 2 + 0.03;
     const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.sideLeg.depth - 0.09, faceHeight, 0.052), faceMaterial);

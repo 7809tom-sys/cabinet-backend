@@ -64,6 +64,14 @@ export function planDiagonalFrontPath(cabinet: PlacedCabinet, room: RoomData): s
   }
 }
 
+/** The two exposed 12-inch fronts on a 36-inch Lazy Susan L-corner. */
+export function planLazySusanTwoFrontPath(cabinet: PlacedCabinet): string | undefined {
+  const isLazySusan = /^LS(?:B)?[-_]?\d/i.test(cabinet.masterCode);
+  return isLazySusan && planCornerGeometry(cabinet).isConfiguredL
+    ? "M67 67L100 67M67 67L67 100"
+    : undefined;
+}
+
 interface IslandZone {
   x: number;
   y: number;
@@ -1211,6 +1219,20 @@ export function PlanCanvas({
                     >
                       <path d={planDiagonalFrontPath(p, room)} fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.95" />
                       <path d={planDiagonalFrontPath(p, room)} fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1" transform="translate(0 -1)" />
+                    </svg>
+                  )}
+                  {planLazySusanTwoFrontPath(p) && !isAppliance && (
+                    <svg
+                      data-lazy-susan-two-fronts="true"
+                      aria-label="Lazy Susan L corner with two 12 inch door fronts"
+                      className="absolute inset-0 h-full w-full pointer-events-none"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      {/* A 36-inch L corner leaves a 12-inch exposed front on
+                          each leg: 12 / 36 = 33.33% of the square footprint. */}
+                      <path d={planLazySusanTwoFrontPath(p)} fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.95" />
+                      <path d="M68 66L100 66M68 66L68 100" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1" />
                     </svg>
                   )}
                   {/* BEC-24's configured 45° end face stays inside its 24×24
