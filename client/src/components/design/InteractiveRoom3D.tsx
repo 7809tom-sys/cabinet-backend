@@ -527,6 +527,21 @@ function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
     : [new THREE.Vector2(0, 0), new THREE.Vector2(width * INCH, 0), new THREE.Vector2(width * INCH, -depth * INCH), new THREE.Vector2(0, -depth * INCH)];
 }
 
+/**
+ * The currently edited 2D room is authoritative. A normal 2D room has no
+ * polygon vertices and must stay rectangular rather than inheriting an older
+ * L-shaped starter-layout template.
+ */
+export function activeThreeDRoomGeometry(
+  roomOverride: RoomData | undefined,
+  sceneRoomShape: InteractiveRoomScene["roomShape"] | undefined,
+) {
+  if (roomOverride) {
+    return roomOverride.vertices?.length ? { vertices: roomOverride.vertices } : null;
+  }
+  return sceneRoomShape?.geometryTemplate ?? null;
+}
+
 function disposeObject(root: THREE.Object3D) {
   root.traverse((child) => {
     const mesh = child as THREE.Mesh;
@@ -1825,11 +1840,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     threeScene.add(warmLight);
 
     const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
-    const polygon = roomPolygon(
-      roomOverride?.vertices?.length ? { vertices: roomOverride.vertices } : scene.roomShape?.geometryTemplate,
-      room.width,
-      room.depth,
-    );
+    const polygon = roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
     const floorShape = new THREE.Shape(polygon);
     const floor = new THREE.Mesh(
       new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }),
@@ -2131,11 +2142,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>{threeDMaterialStatusText(visibleMaterialMode, doorTextureState)}</p>}
           {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
-          <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
+          <Button type="button" size="sm" onClick={downloadImage} className="shrink-0"><Download className="mr-1.5 h-3.5 w-3.5" />Download image</Button>
           <Button type="button" size="sm" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-3.5 w-3.5" />PDF quote</Button>
           <Button type="button" size="sm" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-3.5 w-3.5" />Print</Button>
           <Button type="button" size="sm" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}>{emailQuoteMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}{emailQuoteMutation.isPending ? "Sending" : "Email quote"}</Button>

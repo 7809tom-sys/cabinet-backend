@@ -2083,3 +2083,8 @@
 - [x] Inspect the generated PDF content and email attachment handoff
 - [x] Add regression coverage for cabinet-finish and countertop detail inclusion
 - [x] Report verified quote and email-detail behavior
+
+## Fix: Active 2D room shape and 3D image download
+- [x] Make 3D floor geometry match the current rectangular, L-shaped, or custom 2D room
+- [x] Expose a prominent high-resolution image-download action inside the 3D popup
+- [x] Test rectangle, L-shape, and image-download behavior on desktop and mobile
