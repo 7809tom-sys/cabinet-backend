@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -134,5 +134,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(doorProfileKind("Shaker", null)).toBe("shaker");
     expect(doorProfileKind("Raised Panel", null)).toBe("raised");
     expect(doorProfileKind("Slab", "Flat Panel")).toBe("flat");
+  });
+
+  it("uses a physical three-inch rail and stile for twelve- and twenty-one-inch 3D Shaker faces", () => {
+    expect(threeDShakerRailThickness(12 / 12, 24 / 12)).toBe(3 / 12);
+    expect(threeDShakerRailThickness(21 / 12, 30 / 12)).toBe(3 / 12);
   });
 });

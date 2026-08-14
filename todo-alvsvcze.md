@@ -211,8 +211,8 @@
 - [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
 - [ ] Align 3D appliances to their exact saved 2D transforms and mounting heights
 - [x] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
-- [ ] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
-- [ ] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
+- [x] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
+- [x] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
 - [x] Calibrate 3D oven-tower height, cut-out, and drawer sections to the saved 2D cabinet configuration
 - [x] Render the saved 2D sink and faucet fixtures on the correct sink-base location in 3D
 - [x] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets

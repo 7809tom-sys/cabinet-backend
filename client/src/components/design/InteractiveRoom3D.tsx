@@ -234,6 +234,11 @@ export function doorProfileKind(doorStyle: string | null | undefined, doorPanelT
   return "flat" as const;
 }
 
+/** Three-inch physical Shaker rail/stile, reduced only when a very narrow face cannot accommodate it. */
+export function threeDShakerRailThickness(faceWidth: number, faceHeight: number) {
+  return Math.max(0, Math.min(3 * INCH, faceWidth / 2 - 0.01, faceHeight / 2 - 0.01));
+}
+
 function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
   const geometry = geometryTemplate && typeof geometryTemplate === "object" && !Array.isArray(geometryTemplate)
     ? geometryTemplate as Record<string, unknown>
@@ -350,6 +355,23 @@ function addCabinet(
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
+  const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
+  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036) => {
+    if (profileKind !== "shaker") return;
+    const rail = threeDShakerRailThickness(faceWidth, faceHeight);
+    if (!rail) return;
+    const pieces = [
+      [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
+      [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
+      [rail, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + rail / 2, 0],
+      [rail, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - rail / 2, 0],
+    ] as const;
+    for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
+      const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
+      railMesh.position.set(x + offsetX, y + offsetY, z);
+      frontGroup.add(railMesh);
+    }
+  };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isPlacedAppliance) {
@@ -391,6 +413,7 @@ function addCabinet(
         const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
         door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), zoneTop - height / 2, 0.035);
         frontGroup.add(door);
+        addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
       }
       zoneTop -= height;
     };
@@ -401,6 +424,7 @@ function addCabinet(
           const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
           drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), zoneTop - row.height / 2, 0.035);
           frontGroup.add(drawer);
+          addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
         }
         zoneTop -= row.height;
       }
@@ -436,22 +460,9 @@ function addCabinet(
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
     frontGroup.add(door);
-    const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
     const isRaised = profileKind === "raised";
-    const isShaker = profileKind === "shaker";
-    if (isShaker) {
-      const rail = Math.min(0.075, doorWidth * 0.14, doorHeight * 0.09);
-      const pieces = [
-        [doorWidth - 0.02, rail, 0, doorHeight / 2 - rail / 2],
-        [doorWidth - 0.02, rail, 0, -doorHeight / 2 + rail / 2],
-        [rail, doorHeight - rail * 2, -doorWidth / 2 + rail / 2, 0],
-        [rail, doorHeight - rail * 2, doorWidth / 2 - rail / 2, 0],
-      ] as const;
-      for (const [pieceWidth, pieceHeight, x, y] of pieces) {
-        const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
-        railMesh.position.set(door.position.x + x, door.position.y + y, 0.036);
-        frontGroup.add(railMesh);
-      }
+    if (profileKind === "shaker") {
+      addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
     } else if (isRaised) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
       panel.position.set(door.position.x, door.position.y, 0.045);
@@ -471,6 +482,7 @@ function addCabinet(
       const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
       frontGroup.add(drawer);
+      addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
     }
     drawerCursor += hasConfiguredOpening ? row.height : -row.height;
   }
