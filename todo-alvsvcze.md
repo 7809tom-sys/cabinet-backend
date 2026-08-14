@@ -355,3 +355,8 @@
 - [x] Audit every corner-cabinet family in 3D against the shared 2D footprint, front-face, transform, and countertop contract
 - [x] Add cross-family corner-cabinet regressions for standard, blind, diagonal, L-corner, corner-drawer, and end-return profiles
 - [ ] Visually review saved 3D scenes containing each supported corner-cabinet family before declaring corner parity complete
+- [x] Make the saved dishwasher sit flush within its 2D opening with a correctly scaled appliance face and support geometry
+- [x] Restore continuous 4½-inch recessed toe-kick treatment across dishwasher and adjacent base-run transitions
+- [x] Add active-scene regressions for dishwasher flush fit, toe-kick continuity, and countertop/cabinet transitions
+- [x] Audit and correct remaining small visible cabinet-end, appliance, and countertop transition details from the supplied mobile 3D screenshot
+- [x] Visually confirm the corrected dishwasher, toe-kick, and corner transitions in the live mobile 3D scene

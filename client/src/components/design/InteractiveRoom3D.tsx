@@ -589,6 +589,7 @@ export function addCabinet(
   const isWall = placement === "wall";
   const isTall = placement === "tall";
   const isBaseCabinet = placement === "base";
+  const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
@@ -641,16 +642,47 @@ export function addCabinet(
   if (isBaseCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
     const toeKickMaterial = new THREE.MeshStandardMaterial({ color: "#302820", roughness: 0.78 });
-    const toeKick = new THREE.Mesh(
+    const lCornerKind = specialty.kind === "corner-drawer" || specialty.kind === "l-corner";
+    if (lCornerKind) {
+      // L-corner toe kicks follow the same two-leg carcass geometry so the
+      // recessed kick is continuous around the corner rather than a square box.
+      const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio);
+      for (const part of [lShape.backLeg, lShape.sideLeg]) {
+        const legKick = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.max(0.12, part.width - 0.06), toeKickHeight, Math.max(0.12, part.depth - 0.12)),
+          toeKickMaterial,
+        );
+        legKick.position.set(part.x, -bodyHeight / 2 - toeKickHeight / 2, part.z - 0.06);
+        legKick.userData = { baseToeKick: true, lCornerToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
+        cabinet.add(legKick);
+        bodyMeshes.push(legKick);
+      }
+    } else {
+      const toeKick = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
+        toeKickMaterial,
+      );
+      // Recess the toe-kick three inches from the cabinet face, matching the
+      // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
+      toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
+      toeKick.userData = { baseToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
+      cabinet.add(toeKick);
+      bodyMeshes.push(toeKick);
+    }
+  }
+  if (isFloorDishwasher) {
+    // A built-in dishwasher is a floor appliance inside a base opening: its
+    // appliance face begins above the same 4½-inch recessed kick as adjacent
+    // base cabinets, while its full catalog envelope remains authoritative.
+    const toeKickHeight = THREE_D_TOE_KICK * INCH;
+    const dishwasherKick = new THREE.Mesh(
       new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
-      toeKickMaterial,
+      new THREE.MeshStandardMaterial({ color: "#302820", roughness: 0.78 }),
     );
-    // Recess the toe-kick three inches from the cabinet face, matching the
-    // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
-    toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
-    toeKick.userData = { baseToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
-    cabinet.add(toeKick);
-    bodyMeshes.push(toeKick);
+    dishwasherKick.position.set(0, -bodyHeight / 2 + toeKickHeight / 2, -0.125);
+    dishwasherKick.userData = { dishwasherToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK, floorApplianceSupport: true };
+    cabinet.add(dishwasherKick);
+    bodyMeshes.push(dishwasherKick);
   }
   if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
     const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio);
@@ -784,13 +816,20 @@ export function addCabinet(
       intake.position.set(0, -bodyHeight / 2 + hood.canopyHeight * 0.48, 0.07);
       frontGroup.add(intake);
     } else {
-      const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
+      const dishwasherToeKickHeight = THREE_D_TOE_KICK * INCH;
+      const applianceFaceHeight = isFloorDishwasher ? Math.max(0.2, bodyHeight - dishwasherToeKickHeight) : bodyHeight - 0.06;
+      const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, applianceFaceHeight, 0.05), applianceMaterial);
+      if (isFloorDishwasher) applianceFace.position.y = dishwasherToeKickHeight / 2;
+      if (isFloorDishwasher) applianceFace.userData = { applianceCode: sku.masterCode, dishwasherFlushFace: true, floorApplianceFace: true };
       frontGroup.add(applianceFace);
       const rangeLayout = /RANGE/.test(code) ? rangeOvenFrontLayout(bodyHeight) : null;
-      const openingH = rangeLayout?.openingHeight ?? (/FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62);
-      const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
-      opening.position.y = rangeLayout?.openingCenterY ?? (/RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
-      opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
+      const openingH = rangeLayout?.openingHeight ?? (isFloorDishwasher
+        ? Math.max(0.2, bodyHeight - dishwasherToeKickHeight - 0.22)
+        : /FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62);
+      const openingWidth = isFloorDishwasher ? Math.max(0.2, bodyWidth - 0.14) : bodyWidth * 0.68;
+      const opening = new THREE.Mesh(new THREE.BoxGeometry(openingWidth, openingH, 0.064), glassMaterial);
+      opening.position.y = rangeLayout?.openingCenterY ?? (isFloorDishwasher ? dishwasherToeKickHeight / 2 : /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
+      opening.userData = { applianceCode: sku.masterCode, applianceOpening: true, ...(isFloorDishwasher ? { dishwasherOpening: true, dishwasherOpeningWidthIn: openingWidth / INCH } : {}) };
       frontGroup.add(opening);
       if (rangeLayout) {
         const storageDrawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, rangeLayout.drawerHeight, 0.066), applianceMaterial);
@@ -1163,6 +1202,7 @@ export function addCabinet(
       counter.position.y = COUNTERTOP_H * INCH;
       if (specialty.kind === "blind-corner") counter.userData = { blindCornerCountertop: true };
       if (specialty.kind === "end-return") counter.userData = { endReturnCountertop: true };
+      if (isFloorDishwasher) counter.userData = { dishwasherCountertopSupport: true, floorApplianceSupport: true };
       root.add(counter);
     }
   }

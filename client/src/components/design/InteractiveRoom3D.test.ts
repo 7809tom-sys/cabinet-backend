@@ -357,6 +357,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });
 
+  it("preserves a legacy triangle-corner's exact non-square shared 2D envelope in its 3D wedge", () => {
+    const legacyTriangle = {
+      uid: "legacy-btc30", cabinetId: 8, masterCode: "BTC-30", description: "Triangle Corner Base",
+      placement: "base", x: 0, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0,
+      cornerType: "triangle", numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(placedCornerGeometryKind(legacyTriangle)).toBe("triangle");
+    expect(existingCabinetTransform(legacyTriangle)).toEqual({ x: 15, z: 12, rotation: 0, bottom: 0 });
+    expect(existingCabinetSku(legacyTriangle)).toMatchObject({ width: 30, depth: 24, cornerGeometryKind: "triangle" });
+  });
+
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {
     const placed = [{
       uid: "live-oven", cabinetId: 9390085, masterCode: "UOC3396", description: '33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers',
@@ -970,6 +981,50 @@ describe("interactive 3D room scene helpers", () => {
     expect(((carcass!.geometry as THREE.BoxGeometry).parameters.height)).toBeCloseTo(30 / 12, 8);
   });
 
+  it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -24,
+      cabinetId: 24,
+      masterCode: "DW-24",
+      description: '24" Built-In Dishwasher',
+      placementType: "appliance",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+
+    let dishwasherKick: THREE.Mesh | null = null;
+    let dishwasherFace: THREE.Mesh | null = null;
+    let dishwasherOpening: THREE.Mesh | null = null;
+    let countertop: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.dishwasherToeKick) dishwasherKick = node;
+      if (node.userData.dishwasherFlushFace) dishwasherFace = node;
+      if (node.userData.dishwasherOpening) dishwasherOpening = node;
+      if (node.userData.dishwasherCountertopSupport) countertop = node;
+    });
+    expect(dishwasherKick).not.toBeNull();
+    expect(dishwasherFace).not.toBeNull();
+    expect(dishwasherOpening).not.toBeNull();
+    expect(countertop).not.toBeNull();
+    root.updateMatrixWorld(true);
+    const kickBounds = new THREE.Box3().setFromObject(dishwasherKick!);
+    const faceBounds = new THREE.Box3().setFromObject(dishwasherFace!);
+    const counterBounds = new THREE.Box3().setFromObject(countertop!);
+    expect(kickBounds.min.y).toBeCloseTo(0, 8);
+    expect(kickBounds.max.y).toBeCloseTo(4.5 / 12, 8);
+    expect(faceBounds.min.y).toBeCloseTo(4.5 / 12, 8);
+    expect(faceBounds.max.y).toBeCloseTo(34.5 / 12, 8);
+    // The dishwasher opening spans the full appliance face with a 0.14-foot visual inset.
+    expect(((dishwasherOpening!.geometry as THREE.BoxGeometry).parameters.width)).toBeCloseTo((24 / 12) - 0.14, 8);
+    expect(counterBounds.min.y).toBeCloseTo(34.5 / 12, 8);
+    expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
+  });
+
   it("keeps a configured microwave opening within its exact 27-by-17 Cabinet Config envelope", () => {
     const root = new THREE.Group();
     addCabinet(root, {
@@ -1129,7 +1184,9 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.baseToeKick) toeKicks.push(node);
       if (node.userData.catalogApplianceEnvelope) applianceRoots.push(node);
     });
-    expect(toeKicks).toHaveLength(5);
+    // CDB36 is an L-corner: it contributes 2 leg toe kicks instead of 1 rectangular one.
+    // The 5 base cabinets therefore produce 6 toe-kick meshes (CDB36×2 + DB-18×1 + SB-36×1 + DB-30×1 + B-33×1).
+    expect(toeKicks).toHaveLength(6);
     expect(applianceRoots).toHaveLength(3);
     expect(applianceRoots.map((node) => node.userData.masterCode)).toEqual(expect.arrayContaining(["RANGE-30", "HOOD-30", "FRIDGE-36"]));
     expect(applianceRoots.find((node) => node.userData.masterCode === "HOOD-30")!.userData.catalogApplianceEnvelope.mountBottomIn).toBe(66);
