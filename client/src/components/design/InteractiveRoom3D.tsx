@@ -272,6 +272,13 @@ function addCabinet(
   const faceColor = doorTexture ? "#ffffff" : color;
   const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
+  // The cabinet carcass is part of the visible finished run in the 2D design.
+  // Match it to the selected face material so 3D does not introduce white side
+  // panels and apparent gaps between flush placed cabinets.
+  const bodyMaterial = body.material as THREE.MeshStandardMaterial;
+  bodyMaterial.color.set(faceColor);
+  bodyMaterial.map = doorTexture;
+  bodyMaterial.needsUpdate = true;
   const faceDepth = bodyDepth / 2 + 0.015;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
@@ -282,6 +289,7 @@ function addCabinet(
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
   const isPlacedAppliance = placement === "appliance";
+  const isOvenCabinet = !isPlacedAppliance && /(?:^|[-_])(UOC|OC|OVEN)(?:[-_]|$)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? ""));
   if (isPlacedAppliance) {
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
@@ -296,6 +304,30 @@ function addCabinet(
     const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
     control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
     frontGroup.add(control);
+  } else if (isOvenCabinet) {
+    // An oven cabinet is a finished tall enclosure with appliance cut-outs and
+    // configured drawers, not a freestanding grey appliance face.
+    const surround = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.045), faceMaterial);
+    frontGroup.add(surround);
+    const ovenCount = /double/.test((sku.description ?? "").toLowerCase()) ? 2 : 1;
+    const drawerRows = Math.max(drawerCount, ovenCount === 2 ? 1 : 3);
+    const drawerZone = Math.min(bodyHeight * 0.28, Math.max(bodyHeight * 0.16, drawerRows * 0.18));
+    const ovenZone = Math.min(bodyHeight * 0.58, (bodyHeight - drawerZone) / ovenCount - 0.07);
+    const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
+    for (let i = 0; i < ovenCount; i++) {
+      const oven = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.82, ovenZone, 0.07), applianceMaterial);
+      oven.position.set(0, bodyHeight * 0.5 - 0.08 - ovenZone * (i + 0.5), 0.032);
+      frontGroup.add(oven);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.65, ovenZone * 0.62, 0.078), glassMaterial);
+      glass.position.set(0, oven.position.y - ovenZone * 0.05, 0.072);
+      frontGroup.add(glass);
+    }
+    for (let i = 0; i < drawerRows; i++) {
+      const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.1, drawerZone / drawerRows - 0.025, 0.052), faceMaterial);
+      drawer.position.set(0, -bodyHeight / 2 + 0.05 + (drawerZone / drawerRows) * (i + 0.5), 0.035);
+      frontGroup.add(drawer);
+    }
   } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;

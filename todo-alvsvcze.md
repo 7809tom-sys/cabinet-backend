@@ -201,6 +201,12 @@
 - [ ] Add a Silva Shaker style-payload-to-3D texture handoff regression
 - [ ] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
 - [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
+- [ ] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
+- [ ] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
+- [ ] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
+- [ ] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
+- [ ] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
+- [ ] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
