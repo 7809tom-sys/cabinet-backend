@@ -383,6 +383,25 @@ describe("interactive 3D room scene helpers", () => {
     expect(lShape.backLeg.width - lShape.sideLeg.width).toBe(12 / 12);
   });
 
+  it("uses the LS36 36-by-36 L envelope for CDB36 while retaining CDB’s corner-drawer front", () => {
+    const cdb36 = {
+      uid: "cdb36", cabinetId: 9390027, masterCode: "CDB36", description: '36" Corner Drawer Base Cabinet',
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 3, cornerType: "l-shape",
+    } as never;
+    const ls36 = {
+      uid: "ls36", cabinetId: 3612, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0, cornerType: "lazy-susan",
+    } as never;
+    const cdbSku = existingCabinetSku(cdb36);
+    const lsSku = existingCabinetSku(ls36);
+    expect(cdbSku).toMatchObject({ width: 36, depth: 36, height: 34.5 });
+    expect(lsSku).toMatchObject({ width: 36, depth: 36, height: 34.5 });
+    expect(resolvedThreeDSpecialtyProfile(cdbSku)).toEqual({ kind: "corner-drawer", pattern: null });
+    expect(resolvedThreeDSpecialtyProfile(lsSku)).toEqual({ kind: "l-corner", pattern: null });
+  });
+
   it("mounts persisted LS3612 doors and Shaker rails on the restored two-leg L-corner face", () => {
     const ls36 = {
       uid: "live-ls36", cabinetId: 9390049, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",

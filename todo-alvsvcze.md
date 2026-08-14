@@ -345,3 +345,4 @@
 - [x] Restore the saved range cooktop, position its hood above it, and recalibrate the refrigerator to the 2D appliance plan in 3D
 - [ ] Reconstruct design 8190001’s persisted base and appliance records so its live 3D toe kicks, range/cooktop/hood, and refrigerator match the saved 2D scene
 - [x] Align design 8190001’s hood above its saved range and prevent the overlapping microwave placeholder from obscuring the range zone in 3D
+- [x] Make CDB36 share LS36’s 36-by-36 L-shaped footprint and 34½-inch base body while retaining CDB36’s angled corner drawer-stack face
