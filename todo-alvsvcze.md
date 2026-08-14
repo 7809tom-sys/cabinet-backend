@@ -92,7 +92,7 @@
 - [x] Make the designer Edit Config modal use a wide desktop workspace and a compact mobile sheet
 - [x] Render Shaker cabinet doors and drawers with 3-inch square-corner face frames
 - [x] Render flat-panel cabinet doors as unframed slab faces in 2D elevations
-- [ ] Verify the BEC/Base End Corner Cabinet Config record and its designer plan/elevation behavior
+- [x] Verify the BEC/Base End Corner Cabinet Config record and its designer plan/elevation behavior
 - [x] Map BEC-24 to the valid Faircrest style and pricing source for live designer availability
 - [x] Use the Ashford supplier line as the Faircrest BEC-24 pricing and availability source
 - [x] Copy the verified BAC-24 Ashford style and pricing mapping to BEC-24 for designer availability
@@ -257,3 +257,4 @@
 - [ ] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh
 - [x] Refresh existing placed cabinets from live Cabinet Config drawing rules when a design loads
 - [ ] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
+- [x] Clear the stale triangle corner type from canonical BEC-24 so its live config remains a non-corner end-return
