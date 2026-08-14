@@ -52,6 +52,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderPlacedDesign([{ uid: "base-1" } as never])).toBe(true);
   });
 
+  it("keeps a loaded 2D plan eligible for deterministic 3D rendering before a door style is selected", () => {
+    expect(hasPersistedTwoDScene({
+      placed: [{ uid: "base-1" } as never],
+      openings: [],
+      sinks: [],
+      island: null,
+      furniture: [],
+      ponyWalls: [],
+    })).toBe(true);
+  });
+
   it("uses the persisted 2D plan instead of starter suggestions for any saved entity, not only cabinets", () => {
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(false);
     expect(hasPersistedTwoDScene({ placed: [], openings: [{ uid: "window" } as never], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(true);

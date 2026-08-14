@@ -276,8 +276,12 @@
 - [ ] Validate exact room, wall, placement, rotation, measurement, and countertop-boundary geometry before rendering cabinetry details
 - [ ] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks
 - [ ] Eliminate the visibly unchanged 3D scene and validate the actual active 2D design render rather than helper-only assertions
+- [ ] Render a loaded 2D design in 3D even when no active door style is selected, using deterministic neutral material defaults
+- [ ] Make CDB36’s visible 3D drawer faces and counter boundary match its saved L-shaped 2D footprint
+- [ ] Eliminate any countertop area not supported by a saved 2D cabinet, appliance, or explicit island footprint
+- [ ] Match cabinet and appliance vertical positions to their saved 2D mounting and floor-level measurements
 - [ ] Replace the active mobile preview’s stale or simplified 3D path with the deterministic InteractiveRoom3D scene using current 2D data
 - [ ] Force the active 3D preview to rebuild whenever saved 2D placements, openings, sinks, surfaces, or presentation settings change
 - [ ] Render saved island zones, furniture, and pony walls in the active 3D preview from their exact persisted 2D dimensions and coordinates
-- [ ] Render the physical cooktop surface and burner positions for each saved range appliance from its 2D width and depth
+- [x] Render the physical cooktop surface and burner positions for each saved range appliance from its 2D width and depth
 - [x] Eliminate simplified or stale alternate 3D preview paths so every user-facing preview action uses the deterministic current-plan renderer

@@ -1453,8 +1453,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     }
   };
 
-  if ((!scene.roomShape && !roomOverride) || !scene.materials) {
-    return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose an active distributor door style and a seeded room layout to generate a real catalog 3D preview.</div>;
+  if (!scene.roomShape && !roomOverride) {
+    return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose a room layout or open a saved design to generate the deterministic 3D preview.</div>;
   }
   if (webglUnavailable) {
     return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">This device cannot start the interactive 3D view. Your 2D plan and elevation preview remain available.</div>;
