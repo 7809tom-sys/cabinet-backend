@@ -27,6 +27,7 @@ describe("interactive 3D room scene helpers", () => {
   it("carries the exact selected 2D door sample into catalog-finish 3D cabinet faces", () => {
     expect(resolvedThreeDDoorSampleUrl("catalog", "/manus-storage/silva-shaker.png")).toBe("/manus-storage/silva-shaker.png");
     expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png")).toBeNull();
+    expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png", true)).toBe("/manus-storage/silva-shaker.png");
   });
 
   it("renders placed 2D cabinets instead of starter suggestions whenever a design exists", () => {
