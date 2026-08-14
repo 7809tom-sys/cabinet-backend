@@ -199,6 +199,8 @@
 - [x] Add 2D-to-3D appliance, opening, and window continuity regressions
 - [ ] Resolve the live selected door-style sample URL from the style payload and pass it to the 3D preview
 - [ ] Add a Silva Shaker style-payload-to-3D texture handoff regression
+- [ ] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
+- [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

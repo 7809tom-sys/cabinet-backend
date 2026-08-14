@@ -8843,7 +8843,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
-            <DialogDescription>Cabinets shown here are suggested from the selected distributor and active door style. Drag to orbit and use the controls to zoom.</DialogDescription>
+            <DialogDescription>This room renders the active 2D design, including its selected door finish, placements, openings, and windows. Drag to orbit and use the controls to zoom.</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
@@ -8861,7 +8861,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
-                catalogDoorSampleUrl={active3DDoorSampleUrl}
+                catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
                 catalogFinishName={activeStyleName}
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 onPresentationChange={setInteractive3dPresentation}
