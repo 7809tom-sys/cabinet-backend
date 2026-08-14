@@ -376,8 +376,11 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderCountertopOverSceneItem("base", "B-33")).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "RANGE-30")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FILL-3", "3 inch Filler")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("base", "REP2496", "Refrigerator End Panel")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("base", "FRIDGE-36", "36 inch Refrigerator")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("wall", "W-30-42")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("tall", "B-33")).toBe(false);
   });
 
   it("centers the range oven face and reserves a measured lower storage drawer", () => {
