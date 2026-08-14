@@ -648,4 +648,42 @@ describe("interactive 3D room scene helpers", () => {
       expect(frames.every((frame) => frame.children.filter((child) => child.userData.physicalRail).length === 4)).toBe(true);
     }
   });
+
+  it("builds a legacy WDC2430 as one flush diagonal side-skin wedge with two angled front doors, never a generic wall panel", () => {
+    const legacyWdc2430 = existingCabinetSku({
+      uid: "legacy-wdc2430",
+      cabinetId: 9390172,
+      masterCode: "WDC2430",
+      description: '24" x 30" Wall Diagonal Corner Cabinet',
+      category: "Wall",
+      placement: "wall",
+      x: 0,
+      y: 0,
+      width: 24,
+      height: 30,
+      depth: 12,
+      rotation: 0,
+      cornerType: null,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } as never);
+    const root = new THREE.Group();
+    addCabinet(root, legacyWdc2430, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "Recessed Panel" });
+
+    const wedges: THREE.Object3D[] = [];
+    const doors: THREE.Object3D[] = [];
+    const genericFrontPanels: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.diagonalCornerWedge) wedges.push(node);
+      if (node.userData.diagonalDoor) doors.push(node);
+      if (node.userData.cabinetFront) genericFrontPanels.push(node);
+    });
+
+    expect(legacyWdc2430).toMatchObject({ width: 24, depth: 24, cornerType: "diagonal" });
+    expect(wedges).toHaveLength(1);
+    expect(wedges[0]!.userData.selectedStyleSideSkin).toBe(true);
+    expect(doors).toHaveLength(2);
+    expect(doors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
+    expect(genericFrontPanels).toHaveLength(0);
+  });
 });
