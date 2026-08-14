@@ -266,8 +266,12 @@ function addCabinet(
     doorTexture.wrapT = THREE.RepeatWrapping;
     doorTexture.repeat.set(1.35, 1.35);
   }
-  const faceMaterial = new THREE.MeshStandardMaterial({ color, map: doorTexture, roughness: 0.46, metalness: 0.02 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.01 });
+  // A material color multiplies a texture in Three.js. Keep textured faces neutral
+  // so the exact selected 2D sample remains visible rather than being tinted by
+  // the catalog fallback color (which previously turned Silva Shaker flat gold).
+  const faceColor = doorTexture ? "#ffffff" : color;
+  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
   const faceDepth = bodyDepth / 2 + 0.015;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
