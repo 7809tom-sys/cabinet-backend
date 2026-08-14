@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, rangeHoodGeometry, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -76,6 +76,7 @@ describe("interactive 3D room scene helpers", () => {
     }, 2, 3);
     expect(rows.map((row) => row.count)).toEqual([1, 2]);
     expect(rows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
+    expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.07);
   });
 
   it("calibrates an oven tower from the saved 2D door zone, drawer rows, and middle cut-out", () => {
@@ -100,6 +101,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(layout.openingPosition).toBe("bottom");
     expect(layout.drawerRows).toEqual([{ count: 1, height: 0.5 }]);
     expect(layout.openingHeight).toBeGreaterThan(0);
+  });
+
+  it("calibrates a legacy oven tower from its saved 2D opening, door, and drawer description", () => {
+    expect(describedOvenSpecification('33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers')).toEqual({
+      openingWidth: 30,
+      openingHeight: 39.75,
+      doorCount: 2,
+      drawerCount: 3,
+    });
+    const layout = resolvedThreeDOvenLayout({
+      height: 96,
+      description: '33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers',
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      ovenType: "double",
+    });
+    expect(layout.doorCount).toBe(2);
+    expect(layout.drawerRows).toHaveLength(3);
+    expect(layout.openingHeight).toBeCloseTo(39.75 / 12, 12);
+  });
+
+  it("keeps a narrow rotated wall cabinet and a mounted range hood at their saved 2D transforms", () => {
+    expect(existingCabinetTransform({
+      uid: "narrow-wall", cabinetId: 12, masterCode: "W-21-42", description: "21 inch wall cabinet", placement: "wall",
+      x: 0, y: 23, width: 21, depth: 12, height: 42, rotation: 90, mountBottom: 54,
+    })).toEqual({ x: 6, z: 33.5, rotation: Math.PI / 2, bottom: 54 });
+    expect(existingCabinetTransform({
+      uid: "hood", cabinetId: 0, masterCode: "HOOD-30", description: "Range Hood", placement: "appliance",
+      x: 0, y: 45, width: 30, depth: 18, height: 18, rotation: 90, mountBottom: 66,
+    })).toEqual({ x: 9, z: 60, rotation: Math.PI / 2, bottom: 66 });
+    const hood = rangeHoodGeometry(30, 18, 18);
+    expect(hood).toMatchObject({ width: 2.5, depth: 1.5, height: 1.5, chimneyWidth: 1.05 });
+    expect(hood.chimneyDepth).toBeCloseTo(0.69, 12);
   });
 
   it("places a saved 2D window at its exact wall offset in the 3D room", () => {

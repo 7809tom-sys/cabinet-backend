@@ -115,6 +115,7 @@ const COUNTERTOP_FINISHES = [
   { name: "Black", color: "#202124" },
 ] as const;
 export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
+export const THREE_D_DRAWER_REVEAL_DEPTH = 0.07;
 
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
@@ -140,8 +141,22 @@ export function resolvedThreeDDrawerRows(sku: Pick<SceneSku, "drawerLayout">, av
   return count ? Array.from({ length: count }, () => ({ count: 1, height: availableHeight / count })) : [];
 }
 
+export function describedOvenSpecification(description: string | null | undefined) {
+  const source = description ?? "";
+  const opening = source.match(/(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*oven\s+opening/i);
+  const doors = source.match(/(\d+)\s*doors?/i);
+  const drawers = source.match(/(\d+)\s*drawers?/i);
+  return {
+    openingWidth: opening ? Number(opening[1]) : null,
+    openingHeight: opening ? Number(opening[2]) : null,
+    doorCount: doors ? Number(doors[1]) : null,
+    drawerCount: drawers ? Number(drawers[1]) : null,
+  };
+}
+
 export function resolvedThreeDOvenLayout(input: {
   height: unknown;
+  description?: string | null;
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   doorHeight?: number | null;
@@ -152,18 +167,28 @@ export function resolvedThreeDOvenLayout(input: {
 }) {
   const totalHeight = numberValue(input.height, 84) * INCH;
   const usableHeight = Math.max(0.2, totalHeight - 0.08);
+  const described = describedOvenSpecification(input.description);
   const ovenCount = input.ovenType === "double" ? 2 : 1;
-  const doorCount = input.numberOfDoors == null ? 2 : Math.max(0, input.numberOfDoors);
-  const drawerCount = input.numberOfDrawers == null ? (ovenCount === 2 ? 1 : 3) : Math.max(0, input.numberOfDrawers);
+  const doorCount = input.numberOfDoors != null && input.numberOfDoors > 0
+    ? input.numberOfDoors
+    : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2);
+  const drawerCount = input.numberOfDrawers != null && input.numberOfDrawers > 0
+    ? input.numberOfDrawers
+    : described.drawerCount ?? (input.numberOfDrawers === 0 ? 0 : ovenCount === 2 ? 1 : 3);
   const requestedDrawerHeight = input.drawerHeight != null
     ? Math.max(0, Number(input.drawerHeight) * INCH)
     : drawerCount * 5 * INCH;
   const requestedRows = resolvedThreeDDrawerRows({ drawerLayout: input.drawerLayout ?? null }, requestedDrawerHeight, drawerCount);
+  const measuredOpeningHeight = described.openingHeight != null ? described.openingHeight * INCH : null;
   const doorZone = doorCount
-    ? Math.min(usableHeight * 0.7, input.doorHeight != null ? Math.max(0, Number(input.doorHeight) * INCH) : usableHeight * 0.2)
+    ? input.doorHeight != null
+      ? Math.min(usableHeight * 0.7, Math.max(0, Number(input.doorHeight) * INCH))
+      : measuredOpeningHeight != null
+        ? Math.max(0, usableHeight - measuredOpeningHeight - requestedRows.reduce((sum, row) => sum + row.height, 0))
+        : usableHeight * 0.2
     : 0;
   const requestedDrawerZone = requestedRows.reduce((sum, row) => sum + row.height, 0);
-  const availableDrawerZone = Math.max(0, usableHeight - doorZone - usableHeight * 0.15);
+  const availableDrawerZone = Math.max(0, usableHeight - doorZone - (measuredOpeningHeight ?? usableHeight * 0.15));
   const drawerScale = requestedDrawerZone > availableDrawerZone && requestedDrawerZone > 0 ? availableDrawerZone / requestedDrawerZone : 1;
   const drawerRows = requestedRows.map((row) => ({ ...row, height: row.height * drawerScale }));
   const drawerZone = drawerRows.reduce((sum, row) => sum + row.height, 0);
@@ -173,9 +198,25 @@ export function resolvedThreeDOvenLayout(input: {
     doorZone,
     drawerRows,
     drawerZone,
-    openingHeight: Math.max(usableHeight * 0.15, usableHeight - doorZone - drawerZone),
+    openingHeight: Math.max(0.12, usableHeight - doorZone - drawerZone),
     openingPosition: input.openingType === "top" || input.openingType === "bottom" ? input.openingType : "middle" as const,
     ovenCount,
+  };
+}
+
+export function rangeHoodGeometry(widthIn: number, heightIn: number, depthIn: number) {
+  const width = widthIn * INCH;
+  const height = heightIn * INCH;
+  const depth = depthIn * INCH;
+  const canopyHeight = Math.max(0.14, Math.min(height * 0.34, 0.46));
+  return {
+    width,
+    depth,
+    height,
+    canopyHeight,
+    chimneyWidth: Math.max(0.18, width * 0.42),
+    chimneyDepth: Math.max(0.12, depth * 0.46),
+    chimneyHeight: Math.max(0.1, height - canopyHeight),
   };
 }
 
@@ -339,6 +380,7 @@ function addCabinet(
   const faceColor = doorTexture ? "#ffffff" : color;
   const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
+  const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   // The cabinet carcass is part of the visible finished run in the 2D design.
   // Match it to the selected face material so 3D does not introduce white side
   // panels and apparent gaps between flush placed cabinets.
@@ -372,22 +414,45 @@ function addCabinet(
       frontGroup.add(railMesh);
     }
   };
+  const addDrawerReveal = (faceWidth: number, faceHeight: number, x: number, y: number, z = THREE_D_DRAWER_REVEAL_DEPTH) => {
+    const reveal = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(faceWidth, faceHeight, 0.01)),
+      drawerRevealMaterial,
+    );
+    reveal.position.set(x, y, z);
+    frontGroup.add(reveal);
+  };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isPlacedAppliance) {
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
-    const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
-    frontGroup.add(applianceFace);
     const code = sku.masterCode.toUpperCase();
-    const openingH = /FRIDGE/.test(code) ? bodyHeight * 0.67 : /HOOD|SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62;
-    const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
-    opening.position.y = /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04;
-    opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
-    frontGroup.add(opening);
-    const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
-    control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
-    frontGroup.add(control);
+    if (/HOOD/.test(code)) {
+      const hood = rangeHoodGeometry(widthIn, heightIn, depthIn);
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.96, hood.canopyHeight, hood.depth * 0.92), applianceMaterial);
+      canopy.position.set(0, -bodyHeight / 2 + hood.canopyHeight / 2, 0.025);
+      canopy.userData = { applianceCode: sku.masterCode, rangeHoodCanopy: true };
+      frontGroup.add(canopy);
+      const chimney = new THREE.Mesh(new THREE.BoxGeometry(hood.chimneyWidth, hood.chimneyHeight, hood.chimneyDepth), applianceMaterial);
+      chimney.position.set(0, bodyHeight / 2 - hood.chimneyHeight / 2, -hood.depth * 0.13);
+      chimney.userData = { applianceCode: sku.masterCode, rangeHoodChimney: true };
+      frontGroup.add(chimney);
+      const intake = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.72, Math.max(0.035, hood.canopyHeight * 0.14), 0.07), glassMaterial);
+      intake.position.set(0, -bodyHeight / 2 + hood.canopyHeight * 0.48, 0.07);
+      frontGroup.add(intake);
+    } else {
+      const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
+      frontGroup.add(applianceFace);
+      const openingH = /FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62;
+      const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
+      opening.position.y = /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04;
+      opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
+      frontGroup.add(opening);
+      const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
+      control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
+      frontGroup.add(control);
+    }
   } else if (isOvenCabinet) {
     // An oven cabinet is a finished tall enclosure. Its door zone, appliance
     // cut-out, and each drawer row are taken from the saved 2D configuration.
@@ -395,6 +460,7 @@ function addCabinet(
     frontGroup.add(surround);
     const ovenLayout = resolvedThreeDOvenLayout({
       height: sku.height,
+      description: sku.description,
       numberOfDoors: sku.numberOfDoors,
       numberOfDrawers: sku.numberOfDrawers,
       doorHeight: sku.doorHeight,
@@ -424,6 +490,7 @@ function addCabinet(
           const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
           drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), zoneTop - row.height / 2, 0.035);
           frontGroup.add(drawer);
+          addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
           addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
         }
         zoneTop -= row.height;
@@ -482,6 +549,7 @@ function addCabinet(
       const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
       frontGroup.add(drawer);
+      addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
     }
     drawerCursor += hasConfiguredOpening ? row.height : -row.height;

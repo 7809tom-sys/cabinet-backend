@@ -217,6 +217,11 @@
 - [x] Render the saved 2D sink and faucet fixtures on the correct sink-base location in 3D
 - [x] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets
 - [x] Add calibrated 3D regression coverage for the oven tower, drawer bases, sink/faucet, and flush run joins
+- [x] Correct the double-oven 3D vertical position and cut-out against the saved 2D cabinet record
+- [x] Make 3D drawer-front rows visually pronounced while preserving configured measurements and columns
+- [x] Correct the low/narrow cabinet’s saved dimensions and 2D-to-3D placement transform
+- [x] Render the saved 2D range hood at its correct wall position and mounting height in 3D
+- [x] Add a focused 2D-to-3D regression covering the reported double oven, low/narrow cabinet, and range hood
 - [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
