@@ -789,6 +789,23 @@ export function addCabinet(
       addOvenCutout();
       addDrawers();
     }
+  } else if (isTall && /pantry/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) {
+    // The existing 2D pantry rule is authoritative: two doors below the 54-inch
+    // line and two doors above it. This is not a four-door row or an oven tower.
+    const lowerDoorHeight = Math.min(bodyHeight - 0.1, 54 * INCH);
+    const upperDoorHeight = Math.max(0.2, bodyHeight - lowerDoorHeight - 0.1);
+    const addPantryRow = (height: number, centerY: number, row: "lower" | "upper") => {
+      const doorWidth = (bodyWidth - 0.08) / 2;
+      for (let i = 0; i < 2; i++) {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
+        door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), centerY, 0.035);
+        door.userData = { cabinetFront: true, pantryDoorSet: row };
+        frontGroup.add(door);
+        addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
+      }
+    };
+    addPantryRow(lowerDoorHeight, -bodyHeight / 2 + 0.05 + lowerDoorHeight / 2, "lower");
+    addPantryRow(upperDoorHeight, bodyHeight / 2 - 0.05 - upperDoorHeight / 2, "upper");
   } else if (specialty.kind === "diagonal-corner") {
     // Match the 2D diagonal corner: a square corner body with two center-meeting
     // doors on the actual 45-degree clipped front—not in the center plane of the
