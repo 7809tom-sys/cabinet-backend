@@ -357,26 +357,23 @@ describe("interactive 3D room scene helpers", () => {
     ]);
   });
 
-  it("maps LS3612 through the same saved diagonal-front 36-inch corner conversion as its 2D footprint", () => {
+  it("maps LS3612 through the restored saved 36-inch L-corner conversion as its 2D footprint", () => {
     const ls36 = {
       uid: "ls36", cabinetId: 3612, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",
       placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
       numberOfDoors: 2, numberOfDrawers: 0, cornerType: "lazy-susan",
     } as never;
     const mapped = existingCabinetSku(ls36);
-    expect(placedCornerGeometryKind(ls36)).toBe("diagonal");
-    expect(mapped).toMatchObject({ masterCode: "LS3612", width: 36, depth: 36, cornerType: "diagonal" });
-    expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "diagonal-corner", pattern: null });
-    expect(diagonalCornerFootprintVertices(3, 3)).toEqual([
-      { x: -1.5, z: -1.5 },
-      { x: 1.5, z: -1.5 },
-      { x: 1.5, z: 0 },
-      { x: 0, z: 1.5 },
-      { x: -1.5, z: 1.5 },
-    ]);
+    expect(placedCornerGeometryKind(ls36)).toBe("l-shape");
+    expect(mapped).toMatchObject({ masterCode: "LS3612", width: 36, depth: 36, cornerType: "l-shape" });
+    expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "l-corner", pattern: null });
+    expect(lCornerCarcassParts(3, 3)).toMatchObject({
+      backLeg: { width: 3, depth: 2 },
+      sideLeg: { width: 2, depth: 1 },
+    });
   });
 
-  it("mounts persisted LS3612 doors and Shaker rails on the visible 45-degree face instead of the square body center plane", () => {
+  it("mounts persisted LS3612 doors and Shaker rails on the restored two-leg L-corner face", () => {
     const ls36 = {
       uid: "live-ls36", cabinetId: 9390049, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",
       placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
@@ -384,19 +381,12 @@ describe("interactive 3D room scene helpers", () => {
     } as never;
     const root = new THREE.Group();
     addCabinet(root, existingCabinetSku(ls36), null, {}, 144, 120, "#f2f0ea", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(ls36));
-    const diagonalDoors: THREE.Object3D[] = [];
-    root.traverse((node) => { if (node.userData.diagonalDoor) diagonalDoors.push(node); });
+    const lCornerDoors: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.lCornerDoor) lCornerDoors.push(node); });
 
-    expect(diagonalDoors).toHaveLength(2);
-    const diagonalDoorWidth = Math.hypot(3, 3) * 0.92 / 2;
-    const faceNormal = Math.SQRT1_2 * 0.045;
-    const diagonalFaceZ = 3 / 4;
-    const tangentZ = Math.SQRT1_2 * (diagonalDoorWidth / 2);
-    expect(diagonalDoors.map((door) => door.position.z).sort((a, b) => a - b)).toEqual([
-      expect.closeTo(diagonalFaceZ - tangentZ + faceNormal, 12),
-      expect.closeTo(diagonalFaceZ + tangentZ + faceNormal, 12),
-    ]);
-    expect(diagonalDoors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
+    expect(lCornerDoors).toHaveLength(2);
+    expect(lCornerDoors.map((door) => door.userData.lCornerDoor).sort()).toEqual(["back-leg", "side-leg"]);
+    expect(lCornerDoors.map((door) => door.rotation.y).sort((a, b) => a - b)).toEqual([0, Math.PI / 2]);
     const shakerFrames: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.selectedStyleFace === "shaker") shakerFrames.push(node); });
     expect(shakerFrames.length).toBeGreaterThan(0);

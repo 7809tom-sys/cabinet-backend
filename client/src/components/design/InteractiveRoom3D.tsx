@@ -480,6 +480,9 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
   if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
+  if (sku.cornerType === "l-shape" || /^(?:LSB?)[-_]?\d/i.test(sku.masterCode) || /lazy\s*susan/i.test(sku.description ?? "")) {
+    return { kind: "l-corner" as const, pattern: null };
+  }
   if (sku.cornerType === "diagonal" || /^wdc[-_]?\d/i.test(sku.masterCode) || /diagonal wall corner/i.test(sku.description ?? "")) {
     return { kind: "diagonal-corner" as const, pattern: null };
   }
@@ -531,12 +534,12 @@ export function addCabinet(
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
   const bodyMeshes: THREE.Mesh[] = [];
-  if (specialty.kind === "corner-drawer") {
+  if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
     const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
     for (const part of [lShape.backLeg, lShape.sideLeg]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(part.width, bodyHeight, part.depth), bodyMaterial);
       leg.position.set(part.x, 0, part.z);
-      leg.userData = { specialtyProfile: "corner-drawer", lCornerCarcass: true };
+      leg.userData = { specialtyProfile: specialty.kind, lCornerCarcass: true };
       cabinet.add(leg);
       bodyMeshes.push(leg);
     }
@@ -784,6 +787,25 @@ export function addCabinet(
       frontGroup.add(door);
       addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
     }
+  } else if (specialty.kind === "l-corner") {
+    // Preserve the restored 2D Lazy Susan L-outline: each door sits on one
+    // exposed leg, rather than introducing a diagonal front in 3D.
+    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
+    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+    const backFrontZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
+    const backDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.backLeg.width - 0.09, faceHeight, 0.052), faceMaterial);
+    backDoor.position.set(lShape.backLeg.x, 0, backFrontZ);
+    backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg" };
+    frontGroup.add(backDoor);
+    addShakerFrame(lShape.backLeg.width - 0.09, faceHeight, backDoor.position.x, backDoor.position.y, backDoor.position.z + 0.034);
+
+    const sideFrontX = lShape.sideLeg.x + lShape.sideLeg.width / 2 + 0.03;
+    const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.sideLeg.depth - 0.09, faceHeight, 0.052), faceMaterial);
+    sideDoor.position.set(sideFrontX, 0, lShape.sideLeg.z);
+    sideDoor.rotation.y = Math.PI / 2;
+    sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg" };
+    frontGroup.add(sideDoor);
+    addShakerFrame(lShape.sideLeg.depth - 0.09, faceHeight, sideDoor.position.x + 0.034, sideDoor.position.y, sideDoor.position.z, sideDoor.rotation.y);
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
     // the 2D Corner Drawer Base elevation: an 8% corner marker and a full-height
@@ -896,7 +918,7 @@ export function addCabinet(
 
   if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode, sku.description)) {
     const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
-    if (specialty.kind === "corner-drawer") {
+    if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counterGroup = new THREE.Group();
       counterGroup.position.set(cabinet.position.x, COUNTERTOP_H * INCH, cabinet.position.z);
       counterGroup.rotation.y = rotation;
@@ -906,7 +928,7 @@ export function addCabinet(
           counterMaterial,
         );
         slab.position.set(part.x, 0, part.z);
-        slab.userData = { lCornerCountertop: true };
+        slab.userData = { specialtyProfile: specialty.kind, lCornerCountertop: true };
         counterGroup.add(slab);
       }
       root.add(counterGroup);
@@ -1175,7 +1197,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     graphicType: cabinet.customProfile ?? null,
     customProfile: cabinet.customProfile ?? null,
     facePattern: cabinet.facePattern ?? null,
-    cornerType: diagonalCorner ? "diagonal" : cabinet.cornerType ?? null,
+    cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" ? "l-shape" : cabinet.cornerType ?? null,
   };
 }
 

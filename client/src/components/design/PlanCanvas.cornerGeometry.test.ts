@@ -34,7 +34,7 @@ describe("PlanCanvas shared corner geometry", () => {
     expect(planDiagonalFrontPath(wdc, { width: 144, depth: 120 })).toBe("M100 50L50 100");
   });
 
-  it("uses LS36's saved lazy-Susan record as a 36-inch diagonal-front corner instead of an L notch", () => {
+  it("uses LS36's saved lazy-Susan record as the restored 36-inch L-corner footprint", () => {
     const ls36: PlacedCabinet = {
       uid: "ls3612",
       cabinetId: 3612,
@@ -52,16 +52,16 @@ describe("PlanCanvas shared corner geometry", () => {
       cornerType: "lazy-susan",
     };
 
-    expect(placedCornerGeometryKind(ls36)).toBe("diagonal");
+    expect(placedCornerGeometryKind(ls36)).toBe("l-shape");
     expect(planCornerGeometry(ls36)).toMatchObject({
-      isDiagonal: true,
+      isDiagonal: false,
       isTriangle: false,
       isBlind: false,
-      isConfiguredL: false,
+      isConfiguredL: true,
     });
-    expect(planCabinetClipPath(ls36, { width: 144, depth: 120 })).toBe(
+    expect(planCabinetClipPath(ls36, { width: 144, depth: 120 })).not.toBe(
       "polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 100%)",
     );
-    expect(planDiagonalFrontPath(ls36, { width: 144, depth: 120 })).toBe("M100 50L50 100");
+    expect(planDiagonalFrontPath(ls36, { width: 144, depth: 120 })).toBeUndefined();
   });
 });

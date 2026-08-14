@@ -928,15 +928,10 @@ export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometry
   if (isBaseEndCornerCabinet(p)) return "base-end";
   if (isTriangleCorner(p.masterCode, p.cornerType)) return "triangle";
   if (p.cornerType === "diagonal" || isDiagonalCorner(p.masterCode, p.description)) return "diagonal";
-  // A lazy Susan is a true 36 × 36 corner cabinet with a diagonal / pie-cut
-  // front—not an L-notched CDB/easy-reach footprint. Classifying it as diagonal
-  // routes its saved record through the exact same clipped front in plan, elevation,
-  // and deterministic 3D without a renderer-specific LS exception.
-  if (p.cornerType === "lazy-susan" || p.cornerType === "pie-cut" || /^(?:LSB?)[-_]?\d/i.test(p.masterCode) || /lazy\s*susan/i.test(p.description ?? "")) {
-    return "diagonal";
-  }
   if (p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description)) return "blind-corner";
   if (
+    p.cornerType === "lazy-susan" ||
+    p.cornerType === "pie-cut" ||
     p.cornerType === "l-shape" ||
     isLCornerCabinet(p.masterCode, p.description)
   ) return "l-shape";

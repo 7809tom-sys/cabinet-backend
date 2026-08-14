@@ -309,6 +309,9 @@
 - [x] Draw the saved WDC2430 diagonal front line inside its shared clipped plan footprint so mobile selection styling cannot make it look square
 - [x] Apply the selected style’s physical Shaker rails, stiles, and recessed panels to every eligible 3D standard, diagonal-corner, and tall cabinet face
 - [x] Fix the exact saved two-item Slate Echo Ashford mobile preview so its WDC wall corner and selected Shaker faces visibly change in production
-- [ ] Fix LS36 from its saved Cabinet Config so 2D plan/elevation and 3D use its correct corner form rather than a borrowed WDC, CDB, or end-return shape
-- [ ] Fix the exact persisted LS36 placement that remains unchanged on mobile after the shared catalog rule updates
+- [x] Fix LS36 from its saved Cabinet Config so 2D plan/elevation and 3D use its correct corner form rather than a borrowed WDC, CDB, or end-return shape
+- [x] Fix the exact persisted LS36 placement that remains unchanged on mobile after the shared catalog rule updates
 - [ ] Correct LS36 authoritative style pricing and synchronize the designer, 3D itemized preview, cart, and order totals
+- [ ] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
+- [ ] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
+- [ ] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
