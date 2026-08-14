@@ -328,6 +328,32 @@ export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number) {
   };
 }
 
+/**
+ * Plan-space vertices for a true diagonal-corner cabinet. The saved 2D plan
+ * stores the enclosing square, but the cabinet occupies the wall-side triangle
+ * behind its 45-degree face rather than a full rectangular box.
+ */
+export function diagonalCornerFootprintVertices(bodyWidth: number, bodyDepth: number) {
+  return [
+    { x: -bodyWidth / 2, z: -bodyDepth / 2 },
+    { x: bodyWidth / 2, z: -bodyDepth / 2 },
+    { x: -bodyWidth / 2, z: bodyDepth / 2 },
+  ];
+}
+
+/** Builds a vertical triangular wedge from the shared 2D diagonal footprint. */
+function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
+  const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+  const shape = new THREE.Shape();
+  shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
+  for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, -height / 2, 0);
+  return geometry;
+}
+
 export function dimensions(value: unknown) {
   const object = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return {
@@ -494,6 +520,11 @@ function addCabinet(
       cabinet.add(leg);
       bodyMeshes.push(leg);
     }
+  } else if (specialty.kind === "diagonal-corner") {
+    const wedge = new THREE.Mesh(diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight), bodyMaterial);
+    wedge.userData = { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true };
+    cabinet.add(wedge);
+    bodyMeshes.push(wedge);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
     cabinet.add(body);
@@ -840,6 +871,16 @@ function addCabinet(
         counterGroup.add(slab);
       }
       root.add(counterGroup);
+    } else if (specialty.kind === "diagonal-corner") {
+      const counter = new THREE.Mesh(
+        diagonalCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
+        counterMaterial,
+      );
+      counter.position.copy(cabinet.position);
+      counter.rotation.y = rotation;
+      counter.position.y = COUNTERTOP_H * INCH;
+      counter.userData = { diagonalCornerCountertop: true };
+      root.add(counter);
     } else {
       const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12), counterMaterial);
       counter.position.copy(cabinet.position);
