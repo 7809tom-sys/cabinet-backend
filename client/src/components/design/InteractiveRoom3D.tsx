@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, elevationBox, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -830,11 +830,9 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   const depth = numberValue(footprint.d, BASE_DEPTH);
   const savedRotation = Number(cabinet.rotation);
   const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
-  const applianceBottom = APPLIANCES.find((appliance) => appliance.masterCode === cabinet.masterCode)?.elevBottom ?? 0;
-  const bottom = cabinet.placement === "wall"
-    ? numberValue(cabinet.mountBottom, WALL_BOTTOM)
-    : cabinet.placement === "appliance"
-      ? numberValue(cabinet.mountBottom, applianceBottom)
+  const sharedElevation = elevationBox(cabinet);
+  const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"
+    ? sharedElevation.bottom
     : cabinet.placement === "baseTop"
       ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
       : cabinet.placement === "underCabinet"

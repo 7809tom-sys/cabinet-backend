@@ -279,6 +279,9 @@
 - [ ] Compare the active saved 2D plan and user-facing 3D scene entity-by-entity, then remove every remaining non-2D-derived visible geometry path
 - [ ] Match every active-design corner cabinet’s persisted 2D footprint and front-face segments exactly in 3D
 - [ ] Match every active-design appliance’s persisted dimensions, position, rotation, floor/mount elevation, and range-hood relationship exactly in 3D
+- [ ] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations
+- [ ] Reuse the shared 2D appliance elevation rules for every 3D appliance rather than separate placement heuristics
+- [x] Use the shared 2D elevation-box calculation for every 3D wall cabinet and appliance transform
 - [x] Render a loaded 2D design in 3D even when no active door style is selected, using deterministic neutral material defaults
 - [x] Restore the persisted selectedStyleId and distributor lock when loading a saved design so 2D and 3D use the same door finish
 - [x] Resolve a saved design’s selected door style by ID when public availability filtering omits it from the designer picker
