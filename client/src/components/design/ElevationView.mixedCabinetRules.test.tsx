@@ -26,7 +26,7 @@ function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 }
 
 describe("mixed Cabinet Config elevation rules", () => {
-  it("classifies BMC30 as a microwave base and refreshes BA-24 from its end-return Config profile", () => {
+  it("classifies BMC30 as a microwave base and BA-24 as its configured non-corner end-angle profile", () => {
     const bmc30 = {
       masterCode: "BMC30",
       description: '30" Microwave Base Cabinet',
@@ -43,8 +43,8 @@ describe("mixed Cabinet Config elevation rules", () => {
       masterCode: "BA-24",
       description: "Legacy base record",
       subCategory: "Standard Base",
-      customProfile: "base_end_return",
-    }))).toMatchObject({ isEndReturn: true, isCorner: false, isTriangle: false });
+      customProfile: "end-angle",
+    }))).toMatchObject({ isEndAngle: true, isCorner: false, isTriangle: false });
   });
 
   it("renders the mixed BMC30 / BA-24 / FSB-36 run with its authored specialty faces", () => {
@@ -67,7 +67,7 @@ describe("mixed Cabinet Config elevation rules", () => {
         masterCode: "BA-24",
         description: '24" Base End Angle Cabinet',
         subCategory: "Base End Cabinet",
-        customProfile: "base_end_return",
+        customProfile: "end-angle",
         x: 30,
       }),
       baseCabinet({
@@ -100,8 +100,10 @@ describe("mixed Cabinet Config elevation rules", () => {
 
     expect(markup).toContain('data-microwave-base-opening="true"');
     expect(markup).toContain('data-microwave-base-drawer="true"');
-    expect(markup).toContain('data-bec-end-return-face="true"');
-    expect(markup).toContain('data-bec-return-face="12in"');
+    expect(markup).toContain('data-bec-angled-end-face="true"');
+    expect(markup).toContain('data-bec-45-angle="true"');
+    expect(markup).toContain('data-bec-angled-left-door="12in"');
+    expect(markup).toContain('data-bec-angled-right-door="12in"');
     expect(markup).toContain('data-farm-sink-apron="true"');
     expect(markup).toContain('data-farm-sink-mounted="countertop"');
     expect(markup).toContain(`url(${selectedDoor})`);

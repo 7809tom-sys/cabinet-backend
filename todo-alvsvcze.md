@@ -161,9 +161,9 @@
 - [x] Add an FSB-36 regression proving a selected door sample remains on the sink-base cabinet below the farmhouse apron
 - [x] Add explicit desktop and mobile FSB-36 elevation regressions for apron position, visible toe kick, and countertop coexistence
 - [x] Make BMC30 honor its configured one-drawer microwave-base layout instead of rendering two doors plus an extra drawer
-- [ ] Restore BA-24 Base End Cabinet/end-return plan and elevation geometry in the mixed designer run
+- [x] Render BA-24 as the shared 45-degree angled-front Base End Cabinet in the mixed designer run
 - [ ] Correct the FSB-36 apron-front face in the mixed elevation so it sits over the cabinet rather than replacing the cabinet face
-- [ ] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
+- [x] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
 - [x] Enforce BMC30 Cabinet Config as authoritative: zero doors, one drawer, and a top microwave opening with no fallback door faces
 - [x] Trace and remove any stale placed-cabinet or renderer fallback that can invent BMC30 doors
 - [ ] Make Cabinet Config the authoritative source for each designer cabinet’s drawing type, door count, drawer count, opening placement, dimensions, toe kick, and specialty profile
@@ -185,7 +185,10 @@
 - [x] Remove duplicate BA-24/BEC-24 entries from catalog, designer palette, build sheets, carts, and pricing selection
 - [x] Add canonical-and-alias regression coverage for the merged BA-24/BEC-24 item
 - [x] Merge the discovered BEC24 no-dash duplicate into canonical BA-24 alongside BEC-24 and retain both legacy aliases
-- [x] Resolve legacy BEC-24 and BEC24 detail URLs to canonical BA-24 without recreating duplicate catalog records
+- [x] Resolve merged cabinet detail URLs to canonical BEC-24 without recreating duplicate catalog records
+- [x] Promote BEC-24 to the canonical master record and retain BA-24 and BEC24 as aliases without reintroducing duplicates
+- [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
+- [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

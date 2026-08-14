@@ -92,8 +92,8 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
 // These codes are supplier/legacy references for the same physical cabinet.
 // Keep their links working after the catalog is consolidated under BA-24.
 export const LEGACY_CANONICAL_CABINET_CODES: Record<string, string> = {
-  "BEC-24": "BA-24",
-  BEC24: "BA-24",
+  "BA-24": "BEC-24",
+  BEC24: "BEC-24",
 };
 
 export function canonicalCabinetDetailCode(masterCode: string): string {
