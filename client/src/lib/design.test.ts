@@ -1820,7 +1820,7 @@ describe("lazy-Susan / L-corner footprint", () => {
       { cabinet: cab({ masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall", width: 24, depth: 12 }), kind: "diagonal", footprint: { w: 24, d: 24 } },
       { cabinet: cab({ masterCode: "WTC2430", description: "Triangle Wall Corner", placement: "wall", width: 24, depth: 12 }), kind: "triangle", footprint: { w: 24, d: 12 } },
       { cabinet: cab({ masterCode: "BBC-36", description: "Blind Corner Base", width: 36, depth: 24 }), kind: "blind-corner", footprint: { w: 36, d: 24 } },
-      { cabinet: cab({ masterCode: "LSB36", description: "Lazy Susan Base", width: 36, depth: 24 }), kind: "l-shape", footprint: { w: 36, d: 36 } },
+      { cabinet: cab({ masterCode: "LSB36", description: "Lazy Susan Base", width: 36, depth: 24 }), kind: "diagonal", footprint: { w: 36, d: 36 } },
       { cabinet: cab({ masterCode: "BEC-24", description: "Base End Cabinet", width: 24, depth: 24 }), kind: "base-end", footprint: { w: 24, d: 24 } },
     ] as const;
 

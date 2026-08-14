@@ -357,6 +357,25 @@ describe("interactive 3D room scene helpers", () => {
     ]);
   });
 
+  it("maps LS3612 through the same saved diagonal-front 36-inch corner conversion as its 2D footprint", () => {
+    const ls36 = {
+      uid: "ls36", cabinetId: 3612, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0, cornerType: "lazy-susan",
+    } as never;
+    const mapped = existingCabinetSku(ls36);
+    expect(placedCornerGeometryKind(ls36)).toBe("diagonal");
+    expect(mapped).toMatchObject({ masterCode: "LS3612", width: 36, depth: 36, cornerType: "diagonal" });
+    expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "diagonal-corner", pattern: null });
+    expect(diagonalCornerFootprintVertices(3, 3)).toEqual([
+      { x: -1.5, z: -1.5 },
+      { x: 1.5, z: -1.5 },
+      { x: 1.5, z: 0 },
+      { x: 0, z: 1.5 },
+      { x: -1.5, z: 1.5 },
+    ]);
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),

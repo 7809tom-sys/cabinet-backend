@@ -33,4 +33,35 @@ describe("PlanCanvas shared corner geometry", () => {
     );
     expect(planDiagonalFrontPath(wdc, { width: 144, depth: 120 })).toBe("M100 50L50 100");
   });
+
+  it("uses LS36's saved lazy-Susan record as a 36-inch diagonal-front corner instead of an L notch", () => {
+    const ls36: PlacedCabinet = {
+      uid: "ls3612",
+      cabinetId: 3612,
+      masterCode: "LS3612",
+      description: "36 inch Lazy Susan Base Cabinet",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerType: "lazy-susan",
+    };
+
+    expect(placedCornerGeometryKind(ls36)).toBe("diagonal");
+    expect(planCornerGeometry(ls36)).toMatchObject({
+      isDiagonal: true,
+      isTriangle: false,
+      isBlind: false,
+      isConfiguredL: false,
+    });
+    expect(planCabinetClipPath(ls36, { width: 144, depth: 120 })).toBe(
+      "polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 100%)",
+    );
+    expect(planDiagonalFrontPath(ls36, { width: 144, depth: 120 })).toBe("M100 50L50 100");
+  });
 });

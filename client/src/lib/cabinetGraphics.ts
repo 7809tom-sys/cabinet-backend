@@ -303,9 +303,9 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Cabinet Config is the source of truth for intentionally configured corner
   // geometry. These settings must work even when a supplier uses a neutral SKU
   // or description that does not carry the usual corner prefix.
-  if (cab.cornerType === "diagonal") return "diagonal-corner";
+  if (cab.cornerType === "diagonal" || cab.cornerType === "lazy-susan" || cab.cornerType === "pie-cut") return "diagonal-corner";
   if (cab.cornerType === "blind-corner") return "blind-corner";
-  if (cab.cornerType === "lazy-susan" || cab.cornerType === "pie-cut" || cab.cornerType === "l-shape") {
+  if (cab.cornerType === "l-shape") {
     return "l-corner";
   }
 
@@ -320,12 +320,15 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "diagonal-corner";
   }
 
-  // L-shaped corner cabinets (lazy Susan, easy-reach) — NOT blind, NOT diagonal
+  // LS lazy-Susan cabinets use the same diagonal / pie-cut front as the shared
+  // plan and 3D footprint rule. Easy-reach cabinets retain the L-corner form.
   const isBlind = /^(bbc|wbc|bbl|bbr|wbl|wbr)/.test(code) || /-blind|blind/.test(code) || /blind\s*corner/.test(hay);
   // Explicit code-prefix detection for LS## (e.g. LS3612, LS3312), BER## (e.g. BER33, BER36),
   // and ERB## (e.g. ERB33, ERB36). These may not have isCornerCabinet=true in the DB.
-  const isLsOrBer = /^(lsb?|ber|erb)\d/.test(code);
-  if (!isBlind && (isLsOrBer || cab.isCornerCabinet || /corner|easy reach|lazy susan/.test(hay))) {
+  const isLazySusan = /^(lsb?)\d/.test(code) || /lazy\s*susan/.test(hay);
+  if (isLazySusan) return "diagonal-corner";
+  const isBerOrErb = /^(ber|erb)\d/.test(code);
+  if (!isBlind && (isBerOrErb || cab.isCornerCabinet || /corner|easy reach/.test(hay))) {
     return "l-corner";
   }
 
@@ -602,9 +605,9 @@ export function cabinetAltText(cab: CabinetLike): string {
   // Corner cabinets share one L-shaped drawing, but the accessible label should
   // reflect the actual mechanism (lazy-Susan / easy-reach / corner sink) rather
   // than always saying "blind corner cabinet".
-  if (type === "blind-corner" || type === "l-corner") {
+  if (type === "blind-corner" || type === "l-corner" || type === "diagonal-corner") {
     const hay = `${cab.description ?? ""} ${cab.subCategory ?? ""} ${cab.masterCode ?? ""}`.toLowerCase();
-    if (/lazy susan|lazy-susan|\blsb\b/.test(hay)) detail = "lazy-Susan corner base cabinet";
+    if (/lazy\s*-?\s*susan|\blsb?\d/.test(hay)) detail = "lazy-Susan corner base cabinet with diagonal front";
     else if (/easy reach|easy-reach|\berb\b/.test(hay)) detail = "easy-reach corner base cabinet";
     else if (/corner sink|sink/.test(hay)) detail = "corner sink base cabinet";
     else if (/diagonal/.test(hay)) detail = "diagonal corner cabinet";

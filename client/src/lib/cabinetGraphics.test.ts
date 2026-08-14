@@ -137,7 +137,7 @@ describe("cabinetDrawingType", () => {
     const base = { masterCode: "CUSTOM-36", description: '36" Configured Base Cabinet', category: "Base" };
     expect(cabinetDrawingType({ ...base, cornerType: "diagonal" })).toBe("diagonal-corner");
     expect(cabinetDrawingType({ ...base, cornerType: "blind-corner" })).toBe("blind-corner");
-    expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
+    expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("diagonal-corner");
   });
 
   it("uses one explicit angled-front end-cabinet rule for both BA-24 and BEC-24", () => {
@@ -279,6 +279,7 @@ describe("cabinetAltText", () => {
     const alt = cabinetAltText(cab);
     expect(alt).toContain("LSB36");
     expect(alt).toContain("lazy-Susan corner base cabinet");
+    expect(alt).toContain("diagonal front");
     expect(alt).not.toContain("blind corner cabinet");
   });
 
