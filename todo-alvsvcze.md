@@ -340,3 +340,6 @@
 - [x] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
 - [x] Sharpen 3D cabinet door and drawer front definition so their framed faces remain legible in the room preview
 - [x] Render pantry/tall cabinets with two stacked door sets and a bottom drawer section beginning at the confirmed 54-inch line
+- [x] Sync this shared preview with the latest pushed project version
+- [x] Apply a 4½-inch toe kick to every floor/base cabinet in the deterministic 3D scene
+- [x] Restore the saved range cooktop, position its hood above it, and recalibrate the refrigerator to the 2D appliance plan in 3D

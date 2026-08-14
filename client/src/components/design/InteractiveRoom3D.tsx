@@ -113,6 +113,7 @@ interface Props {
 const INCH = 1 / 12;
 const BASE_DEPTH = 24;
 const WALL_DEPTH = 12;
+const THREE_D_TOE_KICK = 4.5;
 // A 1½-inch countertop sits directly on the 34½-inch base cabinet, so its
 // center is 35¼ inches—not the 37½-inch finished-counter height. Keeping this
 // as the slab center prevents a visible vertical gap above every base run.
@@ -554,9 +555,14 @@ export function addCabinet(
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
   const isTall = placement === "tall";
+  const isBaseCabinet = placement === "base";
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
-  const heightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
+  // toe kick. Build only the 30-inch carcass above that kick so every base run
+  // keeps its 2D countertop top while exposing the proper floor recess in 3D.
+  const heightIn = isBaseCabinet ? Math.max(0.1, configuredHeightIn - THREE_D_TOE_KICK) : configuredHeightIn;
   const key = wallKey === "left" ? "left" : wallKey === "right" ? "right" : wallKey === "front" ? "front" : "back";
   const along = cursor[key] ?? 3;
   cursor[key] = along + widthIn + 1.5;
@@ -572,7 +578,7 @@ export function addCabinet(
   const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
   const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
   const bodyHeight = heightIn * INCH;
-  const bottom = transform?.bottom ?? (isWall ? WALL_BOTTOM : 0);
+  const bottom = transform?.bottom ?? (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
   cabinet.rotation.y = rotation;
@@ -581,6 +587,19 @@ export function addCabinet(
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
   const bodyMeshes: THREE.Mesh[] = [];
+  if (isBaseCabinet) {
+    const toeKickHeight = THREE_D_TOE_KICK * INCH;
+    const toeKick = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
+      bodyMaterial,
+    );
+    // Recess the toe-kick three inches from the cabinet face, matching the
+    // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
+    toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
+    toeKick.userData = { baseToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
+    cabinet.add(toeKick);
+    bodyMeshes.push(toeKick);
+  }
   if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
     const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
     for (const part of [lShape.backLeg, lShape.sideLeg]) {
@@ -1259,7 +1278,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
   const cornerBody = threeDCornerBodyDimensions(cabinet);
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const appliance = cabinet.placement === "appliance"
+  const inferredAppliancePlacement = /^(?:fridge|range|hood|dw|wine|mw)/i.test(cabinet.masterCode ?? "");
+  const placementType = cabinet.placement === "appliance" || inferredAppliancePlacement ? "appliance" : cabinet.placement;
+  const appliance = placementType === "appliance"
     ? APPLIANCES.find((item) => {
       const definition = item as typeof item & { id?: string; code?: string };
       const key = `${definition.masterCode ?? definition.id ?? definition.code ?? definition.key ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1271,12 +1292,12 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
-    placementType: cabinet.placement,
+    placementType,
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that
     // created the 2D placement—never the generic 24/12-inch cabinet defaults.
     width: cornerBody?.width ?? footprint?.w ?? cabinet.width ?? appliance?.width,
-    height: cabinet.height ?? appliance?.elevHeight ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
+    height: cabinet.height ?? appliance?.elevHeight ?? (placementType === "wall" ? STD.WALL_HEIGHT : placementType === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,

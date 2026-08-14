@@ -869,4 +869,67 @@ describe("interactive 3D room scene helpers", () => {
     expect(bounds.max.z - bounds.min.z).toBeCloseTo(2, 8);
     expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
   });
+
+  it("builds every standard base cabinet above a recessed four-and-a-half-inch toe kick", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -33,
+      cabinetId: 33,
+      masterCode: "B-33",
+      description: '33" Base Cabinet',
+      placementType: "base",
+      width: 33,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerType: null,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+
+    let toeKick: THREE.Mesh | null = null;
+    let carcass: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.baseToeKick) toeKick = node;
+      if (node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) carcass = node;
+    });
+    expect(toeKick).not.toBeNull();
+    expect(toeKick!.userData.toeKickHeightIn).toBe(4.5);
+    root.updateMatrixWorld(true);
+    const toeKickBounds = new THREE.Box3().setFromObject(toeKick!);
+    expect(toeKickBounds.min.y).toBeCloseTo(0, 8);
+    expect(toeKickBounds.max.y).toBeCloseTo(4.5 / 12, 8);
+    expect(((carcass!.geometry as THREE.BoxGeometry).parameters.height)).toBeCloseTo(30 / 12, 8);
+  });
+
+  it("normalizes legacy range and refrigerator base records into appliance meshes so the saved cooktop and fridge face cannot disappear", () => {
+    const range = existingCabinetSku({
+      uid: "legacy-range", cabinetId: 30, masterCode: "RANGE-30", description: "30 inch Range",
+      placement: "base", x: 36, y: 0, width: 30, depth: 25, height: 36, rotation: 0,
+    } as never);
+    const fridge = existingCabinetSku({
+      uid: "legacy-fridge", cabinetId: 31, masterCode: "FRIDGE-30", description: "30 inch Refrigerator",
+      placement: "base", x: 72, y: 0, width: 30, depth: 24, height: 84, rotation: 0,
+    } as never);
+    expect(range.placementType).toBe("appliance");
+    expect(fridge.placementType).toBe("appliance");
+
+    const root = new THREE.Group();
+    addCabinet(root, range, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    addCabinet(root, fridge, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const cooktops: THREE.Object3D[] = [];
+    const burners: THREE.Object3D[] = [];
+    const refrigeratorFaces: THREE.Object3D[] = [];
+    const accidentalToeKicks: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.rangeCooktop) cooktops.push(node);
+      if (node.userData.rangeBurner) burners.push(node);
+      if (node.userData.applianceCode === "FRIDGE-30" && node.userData.applianceOpening) refrigeratorFaces.push(node);
+      if (node.userData.baseToeKick) accidentalToeKicks.push(node);
+    });
+    expect(cooktops).toHaveLength(1);
+    expect(burners).toHaveLength(4);
+    expect(refrigeratorFaces).toHaveLength(1);
+    expect(accidentalToeKicks).toHaveLength(0);
+  });
 });
