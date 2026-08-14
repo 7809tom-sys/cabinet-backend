@@ -724,6 +724,24 @@ export interface RoomData {
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
   /** Polygon room: wall segments connecting vertices. */
   customWalls?: import("@/lib/polygonRoom").CustomWall[];
+  /**
+   * Complete saved 2D entities that sit alongside the room shell. Persisting
+   * them with the room makes a reloaded 3D scene a deterministic conversion of
+   * the same source plan rather than a partial reconstruction.
+   */
+  persistedEntities?: PersistedDesignEntities;
+}
+
+export interface PersistedDesignEntities {
+  openings: WallOpening[];
+  sinks: SinkFixture[];
+  island: { x: number; y: number; width: number; depth: number } | null;
+  furniture: PlacedFurniture[];
+  ponyWalls: PonyWall[];
+}
+
+export function roomWithPersistedEntities(room: RoomData, entities: PersistedDesignEntities): RoomData {
+  return { ...room, persistedEntities: entities };
 }
 
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).

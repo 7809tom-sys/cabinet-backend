@@ -114,6 +114,7 @@ describe("interactive 3D room scene helpers", () => {
       backLeg: { width: 3, depth: 2, x: 0, z: -0.5 },
       sideLeg: { width: 2, depth: 1, x: -0.5, z: 1 },
     });
+    expect(Object.values(lCornerCarcassParts(3, 3)).filter((part) => typeof part === "object" && part !== null && "width" in part)).toHaveLength(2);
   });
 
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {

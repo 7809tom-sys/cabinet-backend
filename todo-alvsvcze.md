@@ -275,3 +275,4 @@
 - [ ] Replace heuristic 3D scene choices with deterministic conversions from persisted 2D design data only
 - [ ] Validate exact room, wall, placement, rotation, measurement, and countertop-boundary geometry before rendering cabinetry details
 - [ ] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks
+- [ ] Eliminate the visibly unchanged 3D scene and validate the actual active 2D design render rather than helper-only assertions

@@ -1410,6 +1410,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
+      const persisted = d.room?.persistedEntities;
+      setOpenings(Array.isArray(persisted?.openings) ? persisted.openings : []);
+      setSinks(Array.isArray(persisted?.sinks) ? persisted.sinks : []);
+      setIsland(persisted?.island ?? null);
+      setFurniture(Array.isArray(persisted?.furniture) ? persisted.furniture : []);
+      setPonyWalls(Array.isArray(persisted?.ponyWalls) ? persisted.ponyWalls : []);
       // Normalize placement for appliance items — older saved designs may have
       // stored placement:"tall" for FRIDGE-* or RANGE-* items. Correct them here
       // so the elevation view renders them as plain steel boxes (no door lines).
@@ -5825,6 +5831,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <DesignActions
             room={room}
             placed={placed}
+            openings={openings}
+            sinks={sinks}
+            island={island}
+            furniture={furniture}
+            ponyWalls={ponyWalls}
             selectedSurfaces={selectedSurfaces}
             threeDPresentation={interactive3dPresentation}
             styleId={styleId}

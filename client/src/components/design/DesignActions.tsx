@@ -10,7 +10,8 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { PlacedCabinet, RoomData } from "@/lib/design";
+import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PlacedFurniture, PonyWall } from "@/lib/design";
+import { roomWithPersistedEntities } from "@/lib/design";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DesignActions
@@ -65,6 +66,11 @@ function sizeCell(r: BuildSheetRow): string {
 interface Props {
   room: RoomData;
   placed: PlacedCabinet[];
+  openings: WallOpening[];
+  sinks: SinkFixture[];
+  island: { x: number; y: number; width: number; depth: number } | null;
+  furniture: PlacedFurniture[];
+  ponyWalls: PonyWall[];
   // Pelican surface & fixture picks chosen in the Surfaces tab; persisted so a
   // reloaded design restores its exact surfaces.
   selectedSurfaces: unknown[];
@@ -337,7 +343,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -408,7 +414,7 @@ export function DesignActions({
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
       email: contactEmail ?? undefined,
       affiliateSlug: affiliateSlug ?? undefined,
-      roomData: room,
+      roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
       placedCabinets: placed,
       selectedSurfaces,
       threeDPresentation: threeDPresentation ?? undefined,

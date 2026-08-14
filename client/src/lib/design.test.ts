@@ -28,11 +28,28 @@ import {
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote,
+  cabinetAttrNote, roomWithPersistedEntities,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
+
+describe("persisted 2D entity parity", () => {
+  it("keeps every non-cabinet visible 2D entity with the saved room", () => {
+    const saved = roomWithPersistedEntities(ROOM_12x10, {
+      openings: [{ uid: "window", kind: "window", side: "top", offset: 24, width: 36, height: 30, sillHeight: 36 }],
+      sinks: [{ uid: "sink", type: "single", x: 24, y: 0, width: 33, depth: 22, faucet: true }],
+      island: { x: 48, y: 48, width: 60, depth: 30 },
+      furniture: [],
+      ponyWalls: [],
+    });
+    expect(saved.persistedEntities).toMatchObject({
+      openings: [{ uid: "window", offset: 24, width: 36 }],
+      sinks: [{ uid: "sink", faucet: true, width: 33 }],
+      island: { x: 48, y: 48, width: 60, depth: 30 },
+    });
+  });
+});
 
 function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
   return {

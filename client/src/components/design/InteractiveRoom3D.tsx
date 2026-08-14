@@ -736,18 +736,39 @@ function addCabinet(
   }
   }
   cabinet.add(frontGroup);
-  cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
+  for (const bodyMesh of bodyMeshes) {
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(bodyMesh.geometry),
+      new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 }),
+    );
+    edges.position.copy(bodyMesh.position);
+    cabinet.add(edges);
+  }
   root.add(cabinet);
 
   if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode)) {
-    const counter = new THREE.Mesh(
-      new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12),
-      new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
-    );
-    counter.position.copy(cabinet.position);
-    counter.rotation.y = rotation;
-    counter.position.y = COUNTERTOP_H * INCH;
-    root.add(counter);
+    const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
+    if (specialty.kind === "corner-drawer") {
+      const counterGroup = new THREE.Group();
+      counterGroup.position.set(cabinet.position.x, COUNTERTOP_H * INCH, cabinet.position.z);
+      counterGroup.rotation.y = rotation;
+      for (const part of Object.values(lCornerCarcassParts(bodyWidth, bodyDepth)).filter((value): value is { width: number; depth: number; x: number; z: number } => typeof value === "object" && value !== null && "width" in value)) {
+        const slab = new THREE.Mesh(
+          new THREE.BoxGeometry(part.width + 0.12, 1.5 * INCH, part.depth + 0.12),
+          counterMaterial,
+        );
+        slab.position.set(part.x, 0, part.z);
+        slab.userData = { lCornerCountertop: true };
+        counterGroup.add(slab);
+      }
+      root.add(counterGroup);
+    } else {
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12), counterMaterial);
+      counter.position.copy(cabinet.position);
+      counter.rotation.y = rotation;
+      counter.position.y = COUNTERTOP_H * INCH;
+      root.add(counter);
+    }
   }
 }
 
