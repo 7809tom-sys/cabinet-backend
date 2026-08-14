@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -721,12 +721,48 @@ describe("interactive 3D room scene helpers", () => {
   });
 
   it("places a saved sink basin and faucet at the same 2D countertop coordinates", () => {
-    const transform = sinkFixtureTransform({
+    const sink = {
       uid: "sink-1", type: "single_bowl", x: 24, y: 48, width: 30, depth: 22, faucet: true,
-    });
+    } as never;
+    const transform = sinkFixtureTransform(sink);
+    const faucet = sinkFaucetTransform(sink);
     expect(transform.x).toBe(3.25);
     expect(transform.z).toBeCloseTo(4.916666666666667, 12);
     expect(transform.countertopTop).toBeCloseTo(3, 12);
+    expect(faucet.z).toBeLessThan(transform.z);
+    expect(faucet.z).toBeCloseTo(4.348333333333334, 12);
+  });
+
+  it("uses a 24¼-inch countertop depth on every standard supported base run", () => {
+    expect(threeDCountertopDepthIn(24)).toBe(24.25);
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -24, cabinetId: 24, masterCode: "DW-24", description: "Dishwasher", placementType: "appliance",
+      width: 24, height: 30, depth: 24, numberOfDoors: 0, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+    let countertop: THREE.Mesh | null = null;
+    root.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.dishwasherCountertopSupport) countertop = node; });
+    expect(countertop).not.toBeNull();
+    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
+  });
+
+  it("mounts a saved range hood directly to the wall without a cabinet-finish backing box", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -30, cabinetId: 30, masterCode: "HOOD-30", description: "30 inch Range Hood", placementType: "appliance",
+      width: 30, height: 18, depth: 18, numberOfDoors: 0, numberOfDrawers: 0, mountBottom: 66,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 36, z: 12, rotation: 0, bottom: 66 });
+    const hoodRoot = root.children[0]!;
+    const canopies: THREE.Object3D[] = [];
+    const cabinetBackings: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.rangeHoodCanopy) canopies.push(node);
+      if (node.userData.selectedStyleSideSkin) cabinetBackings.push(node);
+    });
+    expect(hoodRoot.userData.wallMountedAppliance).toBe(true);
+    expect(hoodRoot.userData.noCabinetBacking).toBe(true);
+    expect(canopies).toHaveLength(1);
+    expect(cabinetBackings).toHaveLength(0);
   });
 
   it("extends the countertop over a saved dishwasher but not over tall or wall scene items", () => {
@@ -1091,17 +1127,21 @@ describe("interactive 3D room scene helpers", () => {
     addCabinet(root, fridge, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
     const cooktops: THREE.Object3D[] = [];
     const burners: THREE.Object3D[] = [];
-    const refrigeratorFaces: THREE.Object3D[] = [];
+    const refrigeratorDoors: THREE.Object3D[] = [];
+    const refrigeratorFreezers: THREE.Object3D[] = [];
     const accidentalToeKicks: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.rangeCooktop) cooktops.push(node);
       if (node.userData.rangeBurner) burners.push(node);
-      if (node.userData.applianceCode === "FRIDGE-30" && node.userData.applianceOpening) refrigeratorFaces.push(node);
+      if (node.userData.applianceCode === "FRIDGE-30" && node.userData.refrigeratorDoor) refrigeratorDoors.push(node);
+      if (node.userData.applianceCode === "FRIDGE-30" && node.userData.refrigeratorFreezer) refrigeratorFreezers.push(node);
       if (node.userData.baseToeKick) accidentalToeKicks.push(node);
     });
     expect(cooktops).toHaveLength(1);
     expect(burners).toHaveLength(4);
-    expect(refrigeratorFaces).toHaveLength(1);
+    expect(refrigeratorDoors).toHaveLength(2);
+    expect(refrigeratorDoors.map((door) => door.userData.refrigeratorDoor).sort()).toEqual(["left", "right"]);
+    expect(refrigeratorFreezers).toHaveLength(1);
     expect(accidentalToeKicks).toHaveLength(0);
   });
 

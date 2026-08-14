@@ -377,3 +377,10 @@
 - [x] Import a selected linked kitchen design’s existing price into the Kitchen Design invoice line
 - [x] Import the selected linked design’s cabinet and material list as editable itemized invoice lines
 - [x] Add regression coverage and mobile validation for saved-design price and material-list invoice imports
+- [x] Mount range hoods directly to the saved wall plane with no cabinet-finish backing panel
+- [x] Set floor dishwasher enclosure height to 34½ inches and preserve its continuous recessed toe-kick transition
+- [x] Use the confirmed 24¼-inch countertop depth across supported base runs
+- [x] Match the refrigerator and saved appliance enclosure geometry to the active 2D plan
+- [x] Move 3D faucets to the back edge of the sink/countertop based on the shared sink fixture placement rule
+- [x] Restore visible continuous 4½-inch recessed toe kicks across the active base, corner, and dishwasher run
+- [x] Add active-scene regressions for hood wall attachment, dishwasher height, counter depth, refrigerator fit, back-set faucet, and toe-kick continuity
