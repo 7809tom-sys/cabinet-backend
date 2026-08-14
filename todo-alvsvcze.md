@@ -364,3 +364,6 @@
 - [x] Let a quick invoice reference a linked saved design alongside the selected invoice services
 - [x] Generate a protected, mobile-friendly PDF invoice from a CRM lead with selected services and invoice totals
 - [x] Add CRM invoice regression coverage and validate the Quick PDF Invoice flow on mobile
+- [x] Add an editable CRM invoice preview where service line prices can be adjusted before final PDF generation
+- [x] Show live invoice totals in the preview and require explicit final-PDF confirmation
+- [x] Add regression coverage and mobile validation for editable invoice-preview prices and final PDF output

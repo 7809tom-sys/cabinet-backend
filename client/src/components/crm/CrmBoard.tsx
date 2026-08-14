@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
-import { openCrmQuickInvoicePdf, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
+import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
 
 type Lang = CrmLanguage;
 const L = (lang: Lang) => ({
@@ -673,6 +673,7 @@ function QuickInvoiceDialog({
   const [installation, setInstallation] = useState({ enabled: false, amount: "" });
   const [selectedDesignId, setSelectedDesignId] = useState<string>(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
   const [notes, setNotes] = useState("");
+  const [previewLines, setPreviewLines] = useState<CrmQuickInvoiceLine[] | null>(null);
 
   useEffect(() => {
     setCabinetOrder({ enabled: Number(deal.estimatedValue ?? 0) > 0, amount: deal.estimatedValue ?? "" });
@@ -680,6 +681,7 @@ function QuickInvoiceDialog({
     setInstallation({ enabled: false, amount: "" });
     setSelectedDesignId(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
     setNotes("");
+    setPreviewLines(null);
   }, [deal.id, deal.estimatedValue, linkedDesigns.length, linkedDesigns[0]?.id]);
 
   const addActivity = trpc.crm.addActivity.useMutation({
@@ -695,16 +697,26 @@ function QuickInvoiceDialog({
     return { description, amount: parsed };
   }
 
-  function createInvoice() {
-    const lines = [
+  function collectLines(): CrmQuickInvoiceLine[] {
+    return [
       lineFor(cabinetOrder.enabled, label("Cabinet Order", "Pedido de gabinetes"), cabinetOrder.amount),
       lineFor(kitchenDesign.enabled, label("Kitchen Design", "Diseño de cocina"), kitchenDesign.amount),
       lineFor(installation.enabled, label("Installation", "Instalación"), installation.amount),
     ].filter((line): line is CrmQuickInvoiceLine => line !== null);
+  }
+
+  function openPreview() {
+    const lines = collectLines();
     if (!lines.length) {
       toast.error(label("Select at least one service and enter a valid amount.", "Seleccione al menos un servicio e ingrese un importe válido."));
       return;
     }
+    setPreviewLines(lines);
+  }
+
+  function createInvoice() {
+    const lines = previewLines ?? collectLines();
+    if (!lines.length) return;
     const now = new Date();
     const opened = openCrmQuickInvoicePdf({
       invoiceNumber: `CRM-${dealId}-${now.toISOString().slice(0, 10).replaceAll("-", "")}`,
@@ -726,6 +738,7 @@ function QuickInvoiceDialog({
       body: `Quick PDF invoice prepared: ${lines.map((line) => line.description).join(", ")}${selectedDesign ? ` · Linked design: ${selectedDesign.designName}` : ""}.`,
     });
     toast.success(label("Invoice opened. Use Print / Save as PDF to finish.", "Factura abierta. Use Imprimir / Guardar como PDF para finalizar."));
+    setPreviewLines(null);
     setOpen(false);
   }
 
@@ -742,32 +755,60 @@ function QuickInvoiceDialog({
     </div>
   );
 
+  const invoiceTotal = crmQuickInvoiceTotal(previewLines ?? []);
+  const formatMoney = (amount: number) => amount.toLocaleString(undefined, { style: "currency", currency: "USD" });
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setPreviewLines(null); }}>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full bg-card"><FileText className="mr-2 h-4 w-4" />{label("Quick PDF Invoice", "Factura PDF rápida")}</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader><DialogTitle>{label("Quick PDF Invoice", "Factura PDF rápida")}</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. The PDF opens immediately so you can print or save it.", "Seleccione las partes de este prospecto para facturar. El PDF se abre de inmediato para imprimirlo o guardarlo.")}</p>
-        <div className="space-y-2">
-          <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} />
-          <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} />
-          <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} />
-        </div>
-        <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>
-          <Select value={selectedDesignId} onValueChange={setSelectedDesignId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">{label("No linked design", "Sin diseño vinculado")}</SelectItem>
-              {linkedDesigns.map((design) => <SelectItem key={design.id} value={String(design.id)}>{design.designName}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label={label("Invoice notes (optional)", "Notas de la factura (opcional)")}>
-          <Textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={label("Scope, payment terms, or next steps", "Alcance, condiciones de pago o próximos pasos")} />
-        </Field>
-        <DialogFooter><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Open PDF Invoice", "Abrir factura PDF")}</Button></DialogFooter>
+        {previewLines ? (
+          <>
+            <p className="text-sm text-muted-foreground">{label("Review and adjust every price before the final PDF is generated.", "Revise y ajuste cada precio antes de generar el PDF final.")}</p>
+            <div className="overflow-hidden rounded-lg border border-border">
+              <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-3 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground"><span>{label("Line item", "Concepto")}</span><span>{label("Price", "Precio")}</span></div>
+              <div className="divide-y divide-border">
+                {previewLines.map((line, index) => (
+                  <div key={`${line.description}-${index}`} className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-center gap-3 px-3 py-2.5">
+                    <span className="text-sm font-medium">{line.description}</span>
+                    <Input aria-label={`${line.description} final price`} type="number" min="0" step="0.01" value={line.amount} onChange={(event) => {
+                      const amount = Math.max(0, Number(event.target.value) || 0);
+                      setPreviewLines((current) => current?.map((entry, entryIndex) => entryIndex === index ? { ...entry, amount } : entry) ?? current);
+                    }} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between bg-muted/30 px-3 py-3 text-sm font-bold"><span>{label("Invoice total", "Total de la factura")}</span><span>{formatMoney(invoiceTotal)}</span></div>
+            </div>
+            {selectedDesign && <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"><strong>{label("Linked design:", "Diseño vinculado:")}</strong> {selectedDesign.designName}</div>}
+            <DialogFooter className="gap-2 sm:justify-between"><Button variant="outline" onClick={() => setPreviewLines(null)}>{label("Back to selections", "Volver a selecciones")}</Button><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Generate Final PDF", "Generar PDF final")}</Button></DialogFooter>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. You will review and edit the prices before opening the final PDF.", "Seleccione las partes de este prospecto para facturar. Podrá revisar y editar los precios antes de abrir el PDF final.")}</p>
+            <div className="space-y-2">
+              <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} />
+              <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} />
+              <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} />
+            </div>
+            <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>
+              <Select value={selectedDesignId} onValueChange={setSelectedDesignId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{label("No linked design", "Sin diseño vinculado")}</SelectItem>
+                  {linkedDesigns.map((design) => <SelectItem key={design.id} value={String(design.id)}>{design.designName}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label={label("Invoice notes (optional)", "Notas de la factura (opcional)")}>
+              <Textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={label("Scope, payment terms, or next steps", "Alcance, condiciones de pago o próximos pasos")} />
+            </Field>
+            <DialogFooter><Button onClick={openPreview} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Preview Invoice", "Vista previa de factura")}</Button></DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

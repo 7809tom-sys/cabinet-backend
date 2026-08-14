@@ -11,6 +11,17 @@ describe("CRM quick invoice", () => {
     ])).toBe(5750);
   });
 
+  it("recalculates the final amount when a preview price is edited before PDF generation", () => {
+    const lines = [
+      { description: "Cabinet Order", amount: 4200 },
+      { description: "Kitchen Design", amount: 250 },
+      { description: "Installation", amount: 1300 },
+    ];
+    const editedPreviewLines = lines.map((line) => line.description === "Installation" ? { ...line, amount: 1450 } : line);
+
+    expect(crmQuickInvoiceTotal(editedPreviewLines)).toBe(5900);
+  });
+
   it("renders the customer, linked design, selected services, and notes safely into a printable invoice", () => {
     const html = buildCrmQuickInvoiceHtml({
       invoiceNumber: "CRM-42-20260814",
