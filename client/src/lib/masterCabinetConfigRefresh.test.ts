@@ -89,6 +89,8 @@ describe("master Cabinet Config refresh", () => {
       pullMin: 3,
       pullMax: 6,
       mountBottom: 54,
+      layoutSpec: JSON.stringify({ sections: [{ type: "drawers", count: 3, height: 12 }] }),
+      drawerLayout: JSON.stringify([{ count: 3, height: 12 }]),
       graphicType: "corner-drawer-base",
     });
 
@@ -98,6 +100,8 @@ describe("master Cabinet Config refresh", () => {
       pullMin: 3,
       pullMax: 6,
       mountBottom: 54,
+      layoutSpec: JSON.stringify({ sections: [{ type: "drawers", count: 3, height: 12 }] }),
+      drawerLayout: JSON.stringify([{ count: 3, height: 12 }]),
       customProfile: "corner-drawer-base",
       x: 0,
       y: 0,

@@ -189,6 +189,8 @@ export interface DesignCabinet {
   doorHeight?: number | null;
   drawerHeight?: number | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
+  layoutSpec?: string | null;
+  drawerLayout?: string | null;
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }
@@ -370,6 +372,8 @@ export type MasterCabinetDrawingRefresh = {
   doorHeight?: number | null;
   drawerHeight?: number | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
+  layoutSpec?: string | null;
+  drawerLayout?: string | null;
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 };
@@ -404,6 +408,8 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.doorHeight !== undefined ? { doorHeight: master.doorHeight } : {}),
       ...(master.drawerHeight !== undefined ? { drawerHeight: master.drawerHeight } : {}),
       ...(master.doorOrientation !== undefined ? { doorOrientation: master.doorOrientation } : {}),
+      ...(master.layoutSpec !== undefined ? { layoutSpec: master.layoutSpec } : {}),
+      ...(master.drawerLayout !== undefined ? { drawerLayout: master.drawerLayout } : {}),
       ...(master.customProfile !== undefined ? { customProfile: master.customProfile } : {}),
       ...(master.facePattern !== undefined ? { facePattern: master.facePattern } : {}),
     };
@@ -442,6 +448,8 @@ export function refreshPlacedCabinetsFromMasterRules(
       next.doorHeight !== cabinet.doorHeight ||
       next.drawerHeight !== cabinet.drawerHeight ||
       next.doorOrientation !== cabinet.doorOrientation ||
+      next.layoutSpec !== cabinet.layoutSpec ||
+      next.drawerLayout !== cabinet.drawerLayout ||
       next.facePattern !== cabinet.facePattern
     ) {
       changed = true;

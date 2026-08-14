@@ -815,6 +815,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       doorHeight: cabinet.doorHeight,
       drawerHeight: cabinet.drawerHeight,
       doorOrientation: cabinet.doorOrientation,
+      layoutSpec: cabinet.layoutSpec,
+      drawerLayout: cabinet.drawerLayout,
       customProfile: cabinet.customProfile,
       facePattern: cabinet.facePattern,
     })),
