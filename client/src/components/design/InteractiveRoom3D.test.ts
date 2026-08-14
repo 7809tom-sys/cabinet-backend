@@ -258,6 +258,13 @@ describe("interactive 3D room scene helpers", () => {
     expect(hood.chimneyDepth).toBeCloseTo(0.69, 12);
   });
 
+  it("uses the shared 2D appliance elevation when a legacy saved hood omitted mountBottom", () => {
+    expect(existingCabinetTransform({
+      uid: "legacy-hood", cabinetId: 0, masterCode: "HOOD-30", description: "Range Hood", placement: "appliance",
+      x: 24, y: 0, width: 30, depth: 18, height: 18, rotation: 0,
+    })).toEqual({ x: 39, z: 9, rotation: 0, bottom: 66 });
+  });
+
   it("preserves the saved current-design refrigerator width, height, and rotated 2D position in 3D", () => {
     expect(existingCabinetTransform({
       uid: "current-fridge", cabinetId: 0, masterCode: "FRIDGE-36", description: "Refrigerator 36 inch", placement: "appliance",
