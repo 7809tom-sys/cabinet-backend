@@ -41,3 +41,8 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 
 - The preview action briefly exposed a React maximum-update-depth fault after the persisted-material handoff. The 3D presentation callback is now guarded so an unchanged cabinet/countertop pair is emitted only once, and initial finish synchronization is value-stable.
 - Reloaded `8190001` after the guard, opened the live deterministic modal, and confirmed it remains mounted: it reports **20 cabinets from the current design** with the current 2D entity inventory, visible CDB36/WDC corner forms, range cooktop, mounted appliance run, refrigerator, drawer bases, and selected Aspen finish.
+
+## Published full-screen scene check — 2026-08-14
+
+- Reopened the deployed active design after checkpoint `37d182d1` and expanded its deterministic preview. The canvas remained stable after entering full screen.
+- The large rendered view showed physical Shaker door and drawer framing, the range cooktop and oven at the counter run, the mounted over-range appliance stack, refrigerator enclosure, supported countertop breaks, and the cabinet run without a blank scene or repeat-render failure.

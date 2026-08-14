@@ -3,6 +3,7 @@ import { cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFoot
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
+import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -270,6 +271,29 @@ describe("interactive 3D room scene helpers", () => {
     } as never;
     expect(existingCabinetTransform(legacyCdb)).toEqual({ x: 18, z: 18, rotation: 0, bottom: 0 });
     expect(existingCabinetSku(legacyCdb)).toMatchObject({ width: 36, depth: 36, numberOfDoors: 0, numberOfDrawers: 3 });
+  });
+
+  it("uses the shared 2D footprint for every corner family while preserving mesh-local quarter turns", () => {
+    const blind = {
+      uid: "blind", cabinetId: 1, masterCode: "BBC-36", description: "Blind Corner Base",
+      placement: "base", x: 0, y: 0, width: 36, depth: 6, height: 34.5, rotation: 90,
+    } as never;
+    const lCorner = {
+      uid: "easy-reach", cabinetId: 2, masterCode: "ERB-33", description: "Easy Reach Corner",
+      placement: "base", x: 36, y: 0, width: 33, depth: 24, height: 34.5, rotation: 0,
+    } as never;
+    const endReturn = {
+      uid: "end-return", cabinetId: 3, masterCode: "BEC-24", description: "Base End Cabinet",
+      placement: "base", x: 72, y: 0, width: 24, depth: 24, height: 34.5, rotation: 90,
+    } as never;
+
+    expect(threeDCornerBodyDimensions(blind)).toEqual({ width: 36, depth: 24 });
+    expect(existingCabinetTransform(blind)).toMatchObject({ x: 12, z: 18, rotation: Math.PI / 2 });
+    expect(existingCabinetSku(blind)).toMatchObject({ width: 36, depth: 24 });
+    expect(threeDCornerBodyDimensions(lCorner)).toEqual({ width: 36, depth: 36 });
+    expect(existingCabinetSku(lCorner)).toMatchObject({ width: 36, depth: 36 });
+    expect(threeDCornerBodyDimensions(endReturn)).toEqual({ width: 24, depth: 24 });
+    expect(existingCabinetSku(endReturn)).toMatchObject({ width: 24, depth: 24 });
   });
 
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {

@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, elevationBox, isDiagonalCorner, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, elevationBox, isBaseEndCornerCabinet, isBlindCorner, isDiagonalCorner, isLCornerCabinet, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -925,6 +925,28 @@ export function normalizedThreeDFootprint(cabinet: PlacedCabinet) {
   return placedFootprint({ ...cabinet, width: size, depth: size });
 }
 
+/**
+ * Three.js rotates a local cabinet box after its dimensions are applied, while
+ * the 2D placed footprint is already expressed in world axes. Reuse the shared
+ * 2D footprint for every corner family, then reverse a 90°/270° turn only for
+ * the local mesh box. This keeps diagonal, L, blind, and end-return geometry
+ * on the exact 2D envelope without double-applying rotation.
+ */
+export function threeDCornerBodyDimensions(cabinet: PlacedCabinet) {
+  const isSharedCorner = Boolean(cabinet.cornerType)
+    || isDiagonalCorner(cabinet.masterCode, cabinet.description)
+    || isLCornerCabinet(cabinet.masterCode, cabinet.description)
+    || isBlindCorner(cabinet.masterCode, cabinet.description)
+    || isBaseEndCornerCabinet(cabinet);
+  if (!isSharedCorner) return null;
+  const footprint = normalizedThreeDFootprint(cabinet);
+  const rotation = ((Number(cabinet.rotation) % 360) + 360) % 360;
+  const quarterTurn = rotation === 90 || rotation === 270;
+  return quarterTurn
+    ? { width: footprint.d, depth: footprint.w }
+    : { width: footprint.w, depth: footprint.d };
+}
+
 export function sinkFixtureTransform(sink: SinkFixture) {
   return {
     x: (sink.x + sink.width / 2) * INCH,
@@ -1077,6 +1099,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
   const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
   const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
+  const cornerBody = threeDCornerBodyDimensions(cabinet);
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const appliance = cabinet.placement === "appliance"
     ? APPLIANCES.find((item) => {
@@ -1094,9 +1117,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that
     // created the 2D placement—never the generic 24/12-inch cabinet defaults.
-    width: footprint?.w ?? cabinet.width ?? appliance?.width,
+    width: cornerBody?.width ?? footprint?.w ?? cabinet.width ?? appliance?.width,
     height: cabinet.height ?? appliance?.elevHeight ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
-    depth: footprint?.d ?? cabinet.depth ?? appliance?.depth,
+    depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
     openingType: cabinet.openingType ?? null,

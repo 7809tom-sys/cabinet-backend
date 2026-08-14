@@ -279,7 +279,7 @@
 - [ ] Compare the active saved 2D plan and user-facing 3D scene entity-by-entity, then remove every remaining non-2D-derived visible geometry path
 - [x] Match every active-design corner cabinet’s persisted 2D footprint and front-face segments exactly in 3D
 - [x] Match every active-design appliance’s persisted dimensions, position, rotation, floor/mount elevation, and range-hood relationship exactly in 3D
-- [ ] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations
+- [x] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations
 - [x] Render active WDC2442 as its saved 24-inch diagonal wall-corner footprint and angled front rather than a centered rectangular box
 - [x] Normalize legacy WDC/CDB corner codes to their shared 2D corner footprint even when persisted corner metadata is blank
 - [x] Use the same normalized placed footprint for 3D corner transforms as the 2D designer uses for snapping and plan placement
