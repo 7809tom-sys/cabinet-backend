@@ -112,7 +112,11 @@ interface Props {
 const INCH = 1 / 12;
 const BASE_DEPTH = 24;
 const WALL_DEPTH = 12;
-const COUNTERTOP_H = 37.5;
+// A 1½-inch countertop sits directly on the 34½-inch base cabinet, so its
+// center is 35¼ inches—not the 37½-inch finished-counter height. Keeping this
+// as the slab center prevents a visible vertical gap above every base run.
+const COUNTERTOP_H = 35.25;
+const COUNTERTOP_TOP = 36;
 const WALL_BOTTOM = 54;
 const CABINET_FINISHES = [
   { name: "Catalog finish", color: "catalog" },
@@ -498,7 +502,7 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
   if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
-  if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
+  if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic) || /^(?:bec|ba)[-_]?\d/i.test(sku.masterCode) || /base end (?:corner|cabinet|return)/i.test(sku.description ?? "")) return { kind: "end-return" as const, pattern: null };
   if (sku.cornerType === "l-shape" || /^(?:LSB?)[-_]?\d/i.test(sku.masterCode) || /lazy\s*susan/i.test(sku.description ?? "")) {
     return { kind: "l-corner" as const, pattern: null };
   }
@@ -1045,7 +1049,7 @@ export function sinkFixtureTransform(sink: SinkFixture) {
   return {
     x: (sink.x + sink.width / 2) * INCH,
     z: (sink.y + sink.depth / 2) * INCH,
-    countertopTop: COUNTERTOP_H * INCH,
+    countertopTop: COUNTERTOP_TOP * INCH,
   };
 }
 

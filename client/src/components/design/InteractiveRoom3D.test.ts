@@ -591,7 +591,7 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(transform.x).toBe(3.25);
     expect(transform.z).toBeCloseTo(4.916666666666667, 12);
-    expect(transform.countertopTop).toBeCloseTo(3.125, 12);
+    expect(transform.countertopTop).toBeCloseTo(3, 12);
   });
 
   it("extends the countertop over a saved dishwasher but not over tall or wall scene items", () => {
@@ -732,6 +732,31 @@ describe("interactive 3D room scene helpers", () => {
     expect(doors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
     expect(genericFrontPanels).toHaveLength(0);
     expect(unexpectedMeshes).toHaveLength(0);
+  });
+
+  it("normalizes saved BA-24 and BEC-24 records into two-face 3D end returns without refreshed profile metadata", () => {
+    for (const masterCode of ["BA-24", "BEC-24"]) {
+      const sku = {
+        distributorSkuId: -24,
+        cabinetId: 24,
+        masterCode,
+        description: '24" Base End Cabinet',
+        placementType: "base",
+        width: 24,
+        height: 34.5,
+        depth: 24,
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+        cornerType: null,
+      } as never;
+      expect(resolvedThreeDSpecialtyProfile(sku)).toEqual({ kind: "end-return", pattern: null });
+      const root = new THREE.Group();
+      addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+      const returnFaces: THREE.Object3D[] = [];
+      root.traverse((node) => { if (node.userData.returnFace) returnFaces.push(node); });
+      expect(returnFaces).toHaveLength(2);
+      expect(returnFaces.map((face) => face.userData.returnFace).sort()).toEqual(["left", "right"]);
+    }
   });
 
   it("keeps a standard wall cabinet’s selected-finish side skin on the saved 24-by-12 carcass envelope", () => {

@@ -257,16 +257,16 @@
 - [x] Render BA-24/BEC elevation geometry with the active realistic selected door sample instead of a catalog thumbnail
 - [ ] Verify the corrected BA-24/BEC elevation against the supplied mobile screenshot
 - [x] Route BA-24 through the 24-by-24 two-face end-return elevation geometry rather than a standard base face
-- [ ] Verify BA-24 and BEC both show two textured 12-inch return faces in live elevation
+- [x] Verify BA-24 and BEC both show two textured 12-inch return faces in live elevation
 - [x] Set BA-24 and BEC to the dedicated Base End Corner/End Return subcategory instead of a standard base subcategory
 - [x] Make the Base End Corner/End Return subcategory take precedence over standard base drawing rules
 - [x] Verify subcategory-driven BA-24/BEC end-return geometry in catalog, plan, and elevation
 - [x] Use the user-created Base End Cabinet category as the authoritative BA-24/BEC drawing classification
-- [ ] Verify Base End Cabinet category records render as textured two-face end returns in the designer
+- [x] Verify Base End Cabinet category records render as textured two-face end returns in the designer
 - [x] Override stale standard-base drawing metadata on already placed BA-24/BEC cabinets
-- [ ] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh
+- [x] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh
 - [x] Refresh existing placed cabinets from live Cabinet Config drawing rules when a design loads
-- [ ] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
+- [x] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
 - [x] Clear the stale triangle corner type from canonical BEC-24 so its live config remains a non-corner end-return
 - [x] Define and enforce a complete persisted 2D-to-3D parity contract with no design-specific interpretation
 - [x] Add exhaustive parity fixtures that fail when any saved cabinet, appliance, surface, opening, sink, finish, position, or configuration field is omitted or altered in 3D
@@ -331,3 +331,6 @@
 - [x] Render every single-oven appliance opening at 27 inches, centered within its 30-inch cabinet enclosure with a 3-inch total width reduction
 - [x] Enforce three bottom drawers for single-oven cabinets and one bottom drawer for double-oven cabinets in both 2D and 3D
 - [x] Preserve the correct existing 2D oven layout unchanged while making only the 3D oven enclosure match its measured opening and drawer layout
+- [ ] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
+- [ ] Sharpen 3D cabinet door and drawer front definition so their framed faces remain legible in the room preview
+- [ ] Render pantry/tall cabinets with two stacked door sets and a bottom drawer section beginning at the confirmed 54-inch line

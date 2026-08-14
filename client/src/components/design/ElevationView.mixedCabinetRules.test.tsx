@@ -122,6 +122,39 @@ describe("mixed Cabinet Config elevation rules", () => {
     }))).toMatchObject({ isEndAngle: true, isCorner: false, isTriangle: false });
   });
 
+  it("automatically redraws saved BA-24 and BEC-24 records as textured two-face end returns", () => {
+    for (const masterCode of ["BA-24", "BEC-24"]) {
+      const placed = baseCabinet({
+        uid: masterCode,
+        masterCode,
+        description: '24" Base End Cabinet',
+        subCategory: "Standard Base",
+        placement: "base",
+        width: 24,
+        height: 34.5,
+        depth: 24,
+        cornerType: null,
+        customProfile: null,
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+      });
+      expect(resolveElevationFacePresentation(placed).cabinetType).toBe("end-return");
+      const markup = renderToStaticMarkup(
+        createElement(LanguageProvider, null, createElement(ElevationView, {
+          room: { width: 144, depth: 120, ceilingHeight: 96 },
+          cabinets: [placed],
+          selectedUid: null,
+          onSelect: () => undefined,
+          wall: "back",
+          doorSampleUrlFor: () => "https://example.com/selected-texture.webp",
+        })),
+      );
+      expect(markup).toContain('data-bec-end-return-face="true"');
+      expect(markup.match(/data-bec-(?:front|return)-face="12in"/g)).toHaveLength(2);
+      expect(markup).toContain("selected-texture.webp");
+    }
+  });
+
   it("renders the mixed BMC30 / BA-24 / FSB-36 run with its authored specialty faces", () => {
     const selectedDoor = "https://example.com/selected-aston-green.webp";
     const cabinets = [
