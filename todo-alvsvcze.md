@@ -278,3 +278,4 @@
 - [ ] Eliminate the visibly unchanged 3D scene and validate the actual active 2D design render rather than helper-only assertions
 - [ ] Replace the active mobile preview’s stale or simplified 3D path with the deterministic InteractiveRoom3D scene using current 2D data
 - [ ] Force the active 3D preview to rebuild whenever saved 2D placements, openings, sinks, surfaces, or presentation settings change
+- [ ] Render saved island zones, furniture, and pony walls in the active 3D preview from their exact persisted 2D dimensions and coordinates

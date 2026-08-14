@@ -54,12 +54,13 @@ describe("interactive 3D room scene helpers", () => {
 
   it("forces the active WebGL preview to rebuild whenever any saved 2D scene input changes", () => {
     const room = { width: 144, depth: 120 };
-    const base = threeDSceneRevisionKey(room, [], [], [], "sample-a");
+    const base = threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a");
     const cabinet = { uid: "cab", cabinetId: 1, masterCode: "B-24", description: "Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0 } as never;
     const opening = { uid: "window", kind: "window", side: "top", offset: 0, width: 30, height: 30, sillHeight: 36 } as never;
-    expect(threeDSceneRevisionKey(room, [cabinet], [], [], "sample-a")).not.toBe(base);
-    expect(threeDSceneRevisionKey(room, [], [opening], [], "sample-a")).not.toBe(base);
-    expect(threeDSceneRevisionKey(room, [], [], [], "sample-b")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [cabinet], [], [], null, [], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [opening], [], null, [], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-b")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], { x: 48, y: 48, width: 60, depth: 30 }, [], [], "sample-a")).not.toBe(base);
   });
 
   it("preserves a placed cabinet’s current 2D location and wall mounting height", () => {

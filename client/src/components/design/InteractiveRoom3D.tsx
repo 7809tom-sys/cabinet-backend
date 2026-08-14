@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { STD, placedFootprint, type PlacedCabinet, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { FURNITURE_CATALOG, STD, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -80,6 +80,10 @@ interface Props {
   openings?: WallOpening[];
   /** Countertop sink fixtures from the current 2D plan. */
   sinks?: SinkFixture[];
+  /** Island zone, movable furniture, and half walls from the current 2D plan. */
+  island?: { x: number; y: number; width: number; depth: number } | null;
+  furniture?: PlacedFurniture[];
+  ponyWalls?: PonyWall[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
@@ -828,6 +832,53 @@ function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   root.add(spout);
 }
 
+function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, counterColor: string) {
+  const group = new THREE.Group();
+  group.position.set((island.x + island.width / 2) * INCH, 0, (island.y + island.depth / 2) * INCH);
+  group.userData = { island: true };
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(island.width * INCH, STD.BASE_HEIGHT * INCH, island.depth * INCH),
+    new THREE.MeshStandardMaterial({ color: "#b7a795", roughness: 0.7 }),
+  );
+  base.position.y = STD.BASE_HEIGHT * INCH / 2;
+  const counter = new THREE.Mesh(
+    new THREE.BoxGeometry((island.width + 1.5) * INCH, 1.5 * INCH, (island.depth + 1.5) * INCH),
+    new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
+  );
+  counter.position.y = COUNTERTOP_H * INCH;
+  group.add(base, counter);
+  root.add(group);
+}
+
+function addPonyWall(root: THREE.Group, ponyWall: PonyWall) {
+  const wall = new THREE.Mesh(
+    new THREE.BoxGeometry(ponyWall.width * INCH, ponyWall.height * INCH, ponyWall.depth * INCH),
+    new THREE.MeshStandardMaterial({ color: "#ede9e1", roughness: 0.86 }),
+  );
+  wall.position.set((ponyWall.x + ponyWall.width / 2) * INCH, ponyWall.height * INCH / 2, (ponyWall.y + ponyWall.depth / 2) * INCH);
+  wall.userData = { ponyWallUid: ponyWall.uid };
+  root.add(wall);
+}
+
+function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
+  const def = FURNITURE_CATALOG.find((entry) => entry.id === furniture.defId);
+  if (!def) return;
+  const width = def.w * INCH;
+  const depth = def.d * INCH;
+  const group = new THREE.Group();
+  group.position.set((furniture.x + def.w / 2) * INCH, 0, (furniture.y + def.d / 2) * INCH);
+  group.rotation.y = (furniture.rotation || 0) * Math.PI / 180;
+  group.userData = { furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
+  const material = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7 });
+  const height = def.category === "table" ? 2.5 : def.category === "stool" ? 2.1 : 1.5;
+  const body = def.shape === "round"
+    ? new THREE.Mesh(new THREE.CylinderGeometry(width / 2, width / 2, height, 20), material)
+    : new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+  body.position.y = height / 2;
+  group.add(body);
+  root.add(group);
+}
+
 export function openingTransform(opening: WallOpening, roomWidth: number, roomDepth: number) {
   const offset = opening.offset + opening.width / 2;
   if (opening.side === "bottom") return { x: offset, z: roomDepth - 0.06, rotation: Math.PI };
@@ -901,9 +952,12 @@ export function threeDSceneRevisionKey(
   placed: PlacedCabinet[],
   openings: WallOpening[],
   sinks: SinkFixture[],
+  island: { x: number; y: number; width: number; depth: number } | null,
+  furniture: PlacedFurniture[],
+  ponyWalls: PonyWall[],
   doorSampleUrl: string | null | undefined,
 ) {
-  return JSON.stringify({ room, placed, openings, sinks, doorSampleUrl: doorSampleUrl ?? null });
+  return JSON.stringify({ room, placed, openings, sinks, island, furniture, ponyWalls, doorSampleUrl: doorSampleUrl ?? null });
 }
 
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
@@ -912,7 +966,7 @@ export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -1102,6 +1156,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
+    if (island) addIslandZone(catalogRoot, island, materialDefaults.countertop);
+    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
+    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
     threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
@@ -1136,7 +1193,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
