@@ -974,15 +974,26 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
   const footprint = diagonalCorner ? placedFootprint(cabinet) : null;
+  const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const appliance = cabinet.placement === "appliance"
+    ? APPLIANCES.find((item) => {
+      const definition = item as typeof item & { id?: string; code?: string };
+      const key = `${definition.masterCode ?? definition.id ?? definition.code ?? definition.key ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return key === applianceCode;
+    })
+    : undefined;
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
     placementType: cabinet.placement,
-    width: footprint?.w ?? cabinet.width,
-    height: cabinet.height ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
-    depth: footprint?.d ?? cabinet.depth,
+    // The placed record is primary. Older appliance records can lack one of
+    // these dimensions, in which case use the same APPLIANCES definition that
+    // created the 2D placement—never the generic 24/12-inch cabinet defaults.
+    width: footprint?.w ?? cabinet.width ?? appliance?.w,
+    height: cabinet.height ?? appliance?.elevHeight ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
+    depth: footprint?.d ?? cabinet.depth ?? appliance?.d,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
     openingType: cabinet.openingType ?? null,
