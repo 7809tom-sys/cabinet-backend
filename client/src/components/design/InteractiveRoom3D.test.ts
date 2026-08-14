@@ -288,6 +288,10 @@ describe("interactive 3D room scene helpers", () => {
       x: 3.5, y: 45, width: 30, depth: 18, height: 18, rotation: 90, mountBottom: 66,
     })).toEqual({ x: 12.5, z: 60, rotation: Math.PI / 2, bottom: 66 });
     expect(existingCabinetTransform({
+      uid: "microwave", cabinetId: 0, masterCode: "MW-30", description: "Over-Range Microwave", placement: "appliance",
+      x: 0, y: 45, width: 30, depth: 15, height: 17, rotation: 90, mountBottom: 54,
+    })).toEqual({ x: 7.5, z: 60, rotation: Math.PI / 2, bottom: 54 });
+    expect(existingCabinetTransform({
       uid: "range", cabinetId: 0, masterCode: "RANGE-30", description: "Range / Stove 30 inch", placement: "appliance",
       x: 0, y: 45, width: 30, depth: 25, height: 36, rotation: 90, mountBottom: 0,
     })).toMatchObject({ x: 12.5, z: 60, rotation: Math.PI / 2, bottom: 0 });
@@ -306,8 +310,8 @@ describe("interactive 3D room scene helpers", () => {
   it("preserves the saved current-design refrigerator width, height, and rotated 2D position in 3D", () => {
     expect(existingCabinetTransform({
       uid: "current-fridge", cabinetId: 0, masterCode: "FRIDGE-36", description: "Refrigerator 36 inch", placement: "appliance",
-      x: 0.75, y: 107, width: 36, depth: 30, height: 72, rotation: 90,
-    })).toEqual({ x: 15.75, z: 125, rotation: Math.PI / 2, bottom: 0 });
+      x: 0.75, y: 108, width: 36, depth: 30, height: 72, rotation: 90,
+    })).toEqual({ x: 15.75, z: 126, rotation: Math.PI / 2, bottom: 0 });
   });
 
   it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
