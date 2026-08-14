@@ -31,3 +31,8 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 - Loaded saved design `7230001` (**Blue and white**) without editing it. Its 2D designer reported **21 items** in a `12'7" × 10'` room and included a different cabinet mix: `ERB-36`, `FSB-36`, `DW-24`, `RANGE-30`, `FRIDGE-30`, `MW-30`, and varied short, deep, and diagonal wall cabinets.
 - The same deterministic renderer reported **21 cabinets from the current design**, matching the non-active 2D count. It rendered the saved layout with no dependency on the active Aspin corner or appliance configuration.
 - This representative record has no active door sample; the renderer intentionally displayed its documented calibrated fallback rather than an empty room, while retaining the loaded 2D cabinet layout.
+
+## Persisted-surface handoff confirmation — 2026-08-14
+
+- After adding the shared selected-countertop color handoff and scene-revision input, reloaded active design `8190001` again. The live 2D plan remains at **20 items**, restores **Aspen White**, and preserves the saved `12' × 12'1"` room.
+- The deterministic preview now receives the same selected 2D countertop color as its initial scene material unless the user has explicitly stored a presentation-only override; a persisted countertop selection also participates in the scene rebuild signature.
