@@ -321,7 +321,7 @@
 - [ ] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [ ] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [ ] Render doors and drawers only on true cabinet fronts while applying the matching selected-style texture skin to exposed 3D sides and ends
-- [ ] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
+- [x] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
 - [ ] Correct the reported L-corner cabinet to 24-inch legs, 12-inch returns, and 17-inch door fronts in 2D and 3D
 - [ ] Correct WDC wall corners to the confirmed 24-by-24 footprint, 12-inch wall returns, and 17-inch diagonal door front in 2D and 3D
 - [ ] Remove the WDC full-height panel and thin protruding plane reproduced in the live mobile 3D view by correcting mesh transforms

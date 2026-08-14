@@ -682,8 +682,42 @@ describe("interactive 3D room scene helpers", () => {
     expect(legacyWdc2430).toMatchObject({ width: 24, depth: 24, cornerType: "diagonal" });
     expect(wedges).toHaveLength(1);
     expect(wedges[0]!.userData.selectedStyleSideSkin).toBe(true);
+    root.updateMatrixWorld(true);
+    const sideSkinBounds = new THREE.Box3().setFromObject(wedges[0]!);
+    expect(sideSkinBounds.max.x - sideSkinBounds.min.x).toBeCloseTo(2, 8);
+    expect(sideSkinBounds.max.z - sideSkinBounds.min.z).toBeCloseTo(2, 8);
+    expect(sideSkinBounds.max.y - sideSkinBounds.min.y).toBeCloseTo(30 / 12, 8);
     expect(doors).toHaveLength(2);
     expect(doors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
     expect(genericFrontPanels).toHaveLength(0);
+  });
+
+  it("keeps a standard wall cabinet’s selected-finish side skin on the saved 24-by-12 carcass envelope", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -24,
+      cabinetId: 24,
+      masterCode: "W-24-30",
+      description: '24" x 30" Wall Cabinet',
+      placementType: "wall",
+      width: 24,
+      height: 30,
+      depth: 12,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerType: null,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 24, z: 12, rotation: Math.PI / 2 });
+
+    const sideSkins: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin) sideSkins.push(node);
+    });
+
+    expect(sideSkins).toHaveLength(1);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(sideSkins[0]!);
+    expect(bounds.max.x - bounds.min.x).toBeCloseTo(1, 8);
+    expect(bounds.max.z - bounds.min.z).toBeCloseTo(2, 8);
+    expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
   });
 });
