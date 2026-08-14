@@ -422,7 +422,9 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
   if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
-  if (sku.cornerType === "diagonal") return { kind: "diagonal-corner" as const, pattern: null };
+  if (sku.cornerType === "diagonal" || /^wdc[-_]?\d/i.test(sku.masterCode) || /diagonal wall corner/i.test(sku.description ?? "")) {
+    return { kind: "diagonal-corner" as const, pattern: null };
+  }
   if (/\b(?:wine|lattice|plate)\b/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) return { kind: "face-pattern" as const, pattern: "lattice" as const };
   return { kind: "standard" as const, pattern: null };
 }
