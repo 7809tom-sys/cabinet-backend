@@ -973,7 +973,8 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
-  const footprint = diagonalCorner ? placedFootprint(cabinet) : null;
+  const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
+  const footprint = diagonalCorner || cornerDrawer ? placedFootprint(cabinet) : null;
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const appliance = cabinet.placement === "appliance"
     ? APPLIANCES.find((item) => {
