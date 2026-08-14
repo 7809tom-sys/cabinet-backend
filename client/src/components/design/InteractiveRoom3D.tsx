@@ -971,6 +971,24 @@ export function threeDPlanSyncText({
   return `Plan sync: ${placed?.length ?? 0} cabinet items · ${openings?.length ?? 0} openings · ${sinks?.length ?? 0} sinks · ${island ? 1 : 0} island · ${furniture?.length ?? 0} furniture · ${ponyWalls?.length ?? 0} pony walls`;
 }
 
+export function hasPersistedTwoDScene({
+  placed,
+  openings,
+  sinks,
+  island,
+  furniture,
+  ponyWalls,
+}: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">) {
+  return Boolean(
+    (placed?.length ?? 0) ||
+    (openings?.length ?? 0) ||
+    (sinks?.length ?? 0) ||
+    island ||
+    (furniture?.length ?? 0) ||
+    (ponyWalls?.length ?? 0),
+  );
+}
+
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
   const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
@@ -997,7 +1015,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
-  const renderExistingDesign = shouldRenderPlacedDesign(placed);
+  const renderExistingDesign = hasPersistedTwoDScene({ placed, openings, sinks, island, furniture, ponyWalls });
   const rangeHoodStatus = useMemo(() => rangeHoodSceneStatus(placed), [placed]);
   // The active designer style is the customer’s catalog selection. Prefer its
   // resolved finish color over a sparse style-record color field from the scene
