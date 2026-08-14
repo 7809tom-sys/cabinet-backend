@@ -144,6 +144,11 @@ export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinish
   return /^#[0-9a-f]{6}$/i.test(override) ? override : sceneCabinetColor(scene);
 }
 
+export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null) {
+  const sample = catalogDoorSampleUrl?.trim() ?? "";
+  return cabinetFinish === "catalog" && sample ? sample : null;
+}
+
 export function quoteMaterialDetails(input: {
   cabinetPreview: string;
   countertopPreview: string;
@@ -577,7 +582,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = resolvedCabinetFinish;
-    const activeDoorTexture = cabinetFinish === "catalog" ? catalogDoorSampleUrl : null;
+    const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl);
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
