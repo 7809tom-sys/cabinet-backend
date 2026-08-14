@@ -1268,6 +1268,30 @@ export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
 }
 
+/**
+ * Auditable visibility inputs for the objects that can disappear in a dense
+ * room render. The mesh builders consume these same placement and support
+ * contracts, so a regression catches a missing hood, shifted tall appliance,
+ * or unsupported counter run before a visual review is needed.
+ */
+export function threeDSceneVisibilityContract(placed: PlacedCabinet[], room: RoomData) {
+  const hood = placed.find((item) => /^HOOD-/.test(item.masterCode)) ?? null;
+  const tall = placed.filter((item) => item.placement === "tall" || /^(FRIDGE|WR|REP)/.test(item.masterCode));
+  return {
+    hood: hood
+      ? {
+        masterCode: hood.masterCode,
+        transform: existingCabinetTransform(hood, room),
+        geometry: rangeHoodGeometry(hood.width ?? 30, hood.depth ?? 18, hood.height ?? 18),
+      }
+      : null,
+    tall: tall.map((item) => ({ masterCode: item.masterCode, transform: existingCabinetTransform(item, room) })),
+    countertopSupport: placed
+      .filter((item) => shouldRenderCountertopOverSceneItem(item.placement, item.masterCode, item.description))
+      .map((item) => item.masterCode),
+  };
+}
+
 export function resolvedThreeDCountertopFinish(
   initialPresentation: InteractiveRoomPresentation | undefined,
   catalogCountertopColor: string | null | undefined,
