@@ -12,4 +12,11 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).not.toContain("<DesignPreviewModal");
     expect(designToolSource).not.toContain("setPreviewModalOpen");
   });
+
+  it("opens a loaded saved plan in the deterministic renderer even before a door style is selected", () => {
+    expect(designToolSource).toContain("const hasPersistedTwoDPlan");
+    expect(designToolSource).toContain("const savedPlanInteractive3dScene");
+    expect(designToolSource).toContain("resolvedInteractive3dScene");
+    expect(designToolSource).toContain("enabled: canLoadCatalogInteractive3d");
+  });
 });

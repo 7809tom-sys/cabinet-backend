@@ -681,15 +681,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
   const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
-  const canLoadInteractive3d = Boolean(styleId && selectedStyleDistributorId && (placed.length > 0 || selectedLayoutPresetId));
+  const hasPersistedTwoDPlan = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
+  const canLoadCatalogInteractive3d = Boolean(styleId && selectedStyleDistributorId && (placed.length > 0 || selectedLayoutPresetId));
+  const canLoadInteractive3d = hasPersistedTwoDPlan || canLoadCatalogInteractive3d;
   const { data: interactive3dScene, isFetching: interactive3dLoading } = trpc.roomLayouts.scene.useQuery(
     {
       layoutPresetId: activeSceneLayoutPresetId,
       distributorId: selectedStyleDistributorId ?? 0,
       styleId: styleId ?? 0,
     },
-    { enabled: canLoadInteractive3d },
+    { enabled: canLoadCatalogInteractive3d },
   );
+  const savedPlanInteractive3dScene = useMemo<InteractiveRoomScene | null>(() => {
+    if (!hasPersistedTwoDPlan) return null;
+    return {
+      roomShape: { id: "saved-2d-room", name: "Saved 2D room", defaultDimensions: room, geometryTemplate: null },
+      layout: { id: "saved-2d-plan", name: "Saved 2D plan" },
+      suggestions: [],
+      materials: {
+        cabinet: { publicName: "Saved 2D cabinet finish", name: "Saved 2D cabinet finish", color: null, finish: null, doorStyle: null, doorPanelType: null },
+        defaults: { floor: "#ebe5db", countertop: "#3d4245", backsplash: "#f2f0ea", wall: "#f7f5f0" },
+      },
+    };
+  }, [hasPersistedTwoDPlan, room]);
+  const resolvedInteractive3dScene = interactive3dScene ?? savedPlanInteractive3dScene;
   // Two-tone supply-line check: when both Color 1 (slot A) and Color 2 (slot B)
   // are chosen, compare the distributor (supply line) behind each. If they don't
   // share a supply line, the two colors ship from different suppliers, which
@@ -8880,10 +8895,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
-            ) : interactive3dScene ? (
+            ) : resolvedInteractive3dScene ? (
               <InteractiveRoom3D
                 key={interactive3dRevision}
-                scene={interactive3dScene as InteractiveRoomScene}
+                scene={resolvedInteractive3dScene}
                 placed={placed}
                 roomOverride={room}
                 openings={openings}
