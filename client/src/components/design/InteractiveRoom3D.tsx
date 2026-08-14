@@ -960,6 +960,17 @@ export function threeDSceneRevisionKey(
   return JSON.stringify({ room, placed, openings, sinks, island, furniture, ponyWalls, doorSampleUrl: doorSampleUrl ?? null });
 }
 
+export function threeDPlanSyncText({
+  placed,
+  openings,
+  sinks,
+  island,
+  furniture,
+  ponyWalls,
+}: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">) {
+  return `Plan sync: ${placed?.length ?? 0} cabinet items · ${openings?.length ?? 0} openings · ${sinks?.length ?? 0} sinks · ${island ? 1 : 0} island · ${furniture?.length ?? 0} furniture · ${ponyWalls?.length ?? 0} pony walls`;
+}
+
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
   const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
@@ -1399,6 +1410,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
+          {renderExistingDesign && <p data-testid="three-d-plan-sync" className="mt-0.5 text-[10px] text-muted-foreground">{threeDPlanSyncText({ placed, openings, sinks, island, furniture, ponyWalls })}</p>}
           {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>{threeDMaterialStatusText(visibleMaterialMode, doorTextureState)}</p>}
           {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
