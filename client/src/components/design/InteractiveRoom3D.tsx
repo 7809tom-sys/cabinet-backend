@@ -94,6 +94,8 @@ interface Props {
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   catalogCountertopName?: string | null;
+  /** Exact selected 2D countertop fill used when no presentation-only override exists. */
+  catalogCountertopColor?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
@@ -1121,6 +1123,50 @@ export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleU
   };
 }
 
+export type ThreeDDesignParityInput = Pick<Props, "roomOverride" | "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls" | "catalogDoorSampleUrl">;
+
+/**
+ * A single auditable representation of the 2D entities and shared transforms
+ * consumed by the deterministic 3D renderer. Raw source records are retained
+ * beside their renderer inputs so that fields cannot silently disappear during
+ * saved-design hydration or future geometry refactors.
+ */
+export function threeDDesignParitySnapshot({
+  roomOverride,
+  placed = [],
+  openings = [],
+  sinks = [],
+  island = null,
+  furniture = [],
+  ponyWalls = [],
+  catalogDoorSampleUrl,
+}: ThreeDDesignParityInput) {
+  const room = roomOverride ?? { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+  return {
+    room: { width: room.width, depth: room.depth, ceilingHeight: room.ceilingHeight },
+    doorSampleUrl: catalogDoorSampleUrl ?? null,
+    cabinets: placed.map((source) => ({
+      source,
+      footprint: normalizedThreeDFootprint(source),
+      transform: existingCabinetTransform(source, room),
+      sku: existingCabinetSku(source),
+      countertopSupported: shouldRenderCountertopOverSceneItem(source.placement, source.masterCode, source.description),
+    })),
+    openings: openings.map((source) => ({ source, transform: openingTransform(source, room.width, room.depth) })),
+    sinks: sinks.map((source) => ({ source, transform: sinkFixtureTransform(source) })),
+    island: island ? { source: island, transform: islandZoneTransform(island) } : null,
+    furniture: furniture.map((source) => {
+      const definition = FURNITURE_CATALOG.find((entry) => entry.id === source.defId) ?? null;
+      return {
+        source,
+        definition,
+        transform: definition ? furnitureTransform(source, definition.w, definition.d) : null,
+      };
+    }),
+    ponyWalls: ponyWalls.map((source) => ({ source, transform: ponyWallTransform(source) })),
+  };
+}
+
 /** Stable signature of the exact 2D inputs that must create a fresh WebGL scene. */
 export function threeDSceneRevisionKey(
   room: RoomData,
@@ -1131,8 +1177,18 @@ export function threeDSceneRevisionKey(
   furniture: PlacedFurniture[],
   ponyWalls: PonyWall[],
   doorSampleUrl: string | null | undefined,
+  countertopMaterialKey?: string | null,
 ) {
-  return JSON.stringify({ room, placed, openings, sinks, island, furniture, ponyWalls, doorSampleUrl: doorSampleUrl ?? null });
+  return JSON.stringify({ parity: threeDDesignParitySnapshot({
+    roomOverride: room,
+    placed,
+    openings,
+    sinks,
+    island,
+    furniture,
+    ponyWalls,
+    catalogDoorSampleUrl: doorSampleUrl,
+  }), countertopMaterialKey: countertopMaterialKey ?? null });
 }
 
 export function threeDPlanSyncText({
@@ -1170,7 +1226,18 @@ export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
+export function resolvedThreeDCountertopFinish(
+  initialPresentation: InteractiveRoomPresentation | undefined,
+  catalogCountertopColor: string | null | undefined,
+  scene: InteractiveRoomScene,
+) {
+  return initialPresentation?.countertopFinish
+    ?? catalogCountertopColor
+    ?? scene.materials?.defaults.countertop
+    ?? "#e9e7e2";
+}
+
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -1182,7 +1249,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [resetKey, setResetKey] = useState(0);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
-  const [countertopFinish, setCountertopFinish] = useState(initialPresentation?.countertopFinish ?? scene.materials?.defaults.countertop ?? "#e9e7e2");
+  const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);

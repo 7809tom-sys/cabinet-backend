@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
+import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
+import { resolvedThreeDCountertopFinish } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -29,6 +31,12 @@ describe("interactive 3D room scene helpers", () => {
   it("uses the active catalog door-style finish when scene metadata is sparse", () => {
     expect(resolvedCatalogFinish(baseScene, "#49604a")).toBe("#49604a");
     expect(resolvedCatalogFinish(baseScene, "Aero Sage")).toBe(sceneCabinetColor(baseScene));
+  });
+
+  it("uses the saved 2D countertop color unless a presentation-only 3D override is explicitly stored", () => {
+    expect(resolvedThreeDCountertopFinish(undefined, "#2c2f33", baseScene)).toBe("#2c2f33");
+    expect(resolvedThreeDCountertopFinish({ cabinetFinish: "catalog", countertopFinish: "#b9824a" }, "#2c2f33", baseScene)).toBe("#b9824a");
+    expect(resolvedThreeDCountertopFinish(undefined, null, baseScene)).toBe("#e9e7e2");
   });
 
   it("carries the exact selected 2D door sample into catalog-finish 3D cabinet faces", () => {
@@ -100,6 +108,37 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
+  it("retains every persisted 2D entity alongside its deterministic 3D conversion contract", () => {
+    const cabinet = {
+      uid: "contract-base", cabinetId: 5, masterCode: "B-24", description: "Base Cabinet", placement: "base",
+      x: 12, y: 24, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 1,
+      customProfile: "standard_base", drawerLayout: JSON.stringify([{ count: 1, height: 6 }]), styleId: 330001,
+    } as never;
+    const snapshot = threeDDesignParitySnapshot({
+      roomOverride: { width: 144, depth: 120, ceilingHeight: 96 },
+      placed: [cabinet],
+      openings: [{ uid: "window", kind: "window", label: "Window", side: "top", offset: 36, width: 30, height: 36, sill: 42 } as never],
+      sinks: [{ uid: "sink", type: "single", x: 24, y: 48, width: 30, depth: 22, faucet: true } as never],
+      island: { x: 36, y: 48, width: 72, depth: 36 },
+      furniture: [{ uid: "unknown-furniture", defId: "unknown", x: 60, y: 60, rotation: 90 } as never],
+      ponyWalls: [{ uid: "pony", x: 24, y: 36, width: 48, depth: 6, height: 42 } as never],
+      catalogDoorSampleUrl: "/manus-storage/door-sample.png",
+    });
+
+    expect(snapshot).toMatchObject({
+      room: { width: 144, depth: 120, ceilingHeight: 96 },
+      doorSampleUrl: "/manus-storage/door-sample.png",
+      cabinets: [{ source: cabinet, footprint: { w: 24, d: 24 }, transform: { x: 24, z: 36, rotation: 0, bottom: 0 }, countertopSupported: true }],
+      openings: [{ source: { uid: "window" }, transform: { x: 51, z: 0.06, rotation: 0 } }],
+      sinks: [{ source: { uid: "sink" }, transform: { x: 3.25 } }],
+      island: { source: { x: 36, y: 48, width: 72, depth: 36 }, transform: { x: 6, z: 5.5 } },
+      furniture: [{ source: { uid: "unknown-furniture", rotation: 90 }, definition: null, transform: null }],
+      ponyWalls: [{ source: { uid: "pony" }, transform: { x: 4, y: 1.75, z: 3.25 } }],
+    });
+    expect(snapshot.sinks[0]!.transform.z).toBeCloseTo(59 / 12, 12);
+    expect(snapshot.cabinets[0]!.sku).toMatchObject({ masterCode: "B-24", numberOfDoors: 2, numberOfDrawers: 1, graphicType: "standard_base" });
+  });
+
   it("forces the active WebGL preview to rebuild whenever any saved 2D scene input changes", () => {
     const room = { width: 144, depth: 120 };
     const base = threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a");
@@ -112,6 +151,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDSceneRevisionKey(room, [], [opening], [], null, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [sink], null, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-b")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a", "black-granite")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], { x: 48, y: 48, width: 60, depth: 30 }, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [furniture], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [ponyWall], "sample-a")).not.toBe(base);
