@@ -1056,4 +1056,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderSavedSceneCabinet(hood, [range, hood, microwave])).toBe(true);
     expect(shouldRenderSavedSceneCabinet(microwave, [range, hood, microwave])).toBe(false);
   });
+
+  it("reconstructs design 8190001's persisted base run, range, hood, and refrigerator without generic fallbacks", () => {
+    const room = { width: 144, depth: 145, ceilingHeight: 96 } as never;
+    const placed = [
+      { uid: "active-range", cabinetId: 0, masterCode: "RANGE-30", description: 'Range / Stove 30"', placement: "appliance", width: 30, height: 36, depth: 25, rotation: 90, x: 0, y: 45 },
+      { uid: "active-hood", cabinetId: 0, masterCode: "HOOD-30", description: 'Range Hood 30"', placement: "appliance", width: 30, height: 18, depth: 18, rotation: 90, x: 3.5, y: 45, mountBottom: 66 },
+      { uid: "active-fridge", cabinetId: 0, masterCode: "FRIDGE-36", description: 'Refrigerator 36"', placement: "appliance", width: 36, height: 72, depth: 30, rotation: 90, x: 0.75, y: 108 },
+      { uid: "cdb36", cabinetId: 0, masterCode: "CDB36", description: "Corner Drawer Base", placement: "base", width: 36, height: 34.5, depth: 36, rotation: 0, x: 36, y: 0 },
+      { uid: "db18", cabinetId: 0, masterCode: "DB-18-3", description: "Drawer Base", placement: "base", width: 18, height: 34.5, depth: 24, rotation: 0, x: 72, y: 0 },
+      { uid: "sb36", cabinetId: 0, masterCode: "SB-36", description: "Sink Base", placement: "base", width: 36, height: 34.5, depth: 24, rotation: 0, x: 90, y: 0 },
+      { uid: "db30", cabinetId: 0, masterCode: "DB-30-3", description: "Drawer Base", placement: "base", width: 30, height: 34.5, depth: 24, rotation: 0, x: 0, y: 84 },
+      { uid: "b33", cabinetId: 0, masterCode: "B-33", description: "Base Cabinet", placement: "base", width: 33, height: 34.5, depth: 24, rotation: 0, x: 30, y: 84 },
+    ] as never[];
+    const root = new THREE.Group();
+    for (const record of placed) {
+      const sku = existingCabinetSku(record);
+      addCabinet(root, sku, null, {}, room.width, room.depth, "#8a9ba8", "#f8f8f6", undefined, existingCabinetTransform(record, room));
+    }
+    const toeKicks: THREE.Object3D[] = [];
+    const applianceRoots: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.baseToeKick) toeKicks.push(node);
+      if (node.userData.catalogApplianceEnvelope) applianceRoots.push(node);
+    });
+    expect(toeKicks).toHaveLength(5);
+    expect(applianceRoots).toHaveLength(3);
+    expect(applianceRoots.map((node) => node.userData.masterCode)).toEqual(expect.arrayContaining(["RANGE-30", "HOOD-30", "FRIDGE-36"]));
+    expect(applianceRoots.find((node) => node.userData.masterCode === "HOOD-30")!.userData.catalogApplianceEnvelope.mountBottomIn).toBe(66);
+  });
 });

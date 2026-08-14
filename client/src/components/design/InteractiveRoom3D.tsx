@@ -1117,8 +1117,9 @@ export function existingCabinetTransform(
     : savedRotation;
   const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
   const sharedElevation = elevationBox(cabinet, room);
+  const explicitMountBottom = cabinet.mountBottom == null ? null : numberValue(cabinet.mountBottom, 0);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"
-    ? sharedElevation.bottom
+    ? explicitMountBottom ?? sharedElevation.bottom
     : cabinet.placement === "baseTop"
       ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
       : cabinet.placement === "underCabinet"
