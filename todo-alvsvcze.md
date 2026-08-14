@@ -272,11 +272,11 @@
 - [x] Add exhaustive parity fixtures that fail when any saved cabinet, appliance, surface, opening, sink, finish, position, or configuration field is omitted or altered in 3D
 - [x] Inventory every visible 2D entity persisted in a saved design and close every 3D rendering omission before declaring parity
 - [x] Validate the actual rendered 3D scene against saved 2D design imagery rather than claiming completion from data-flow tests alone
-- [ ] Replace heuristic 3D scene choices with deterministic conversions from persisted 2D design data only
+- [x] Replace heuristic 3D scene choices with deterministic conversions from persisted 2D design data only
 - [x] Validate exact room, wall, placement, rotation, measurement, and countertop-boundary geometry before rendering cabinetry details
-- [ ] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks
+- [x] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks
 - [x] Eliminate the visibly unchanged 3D scene and validate the actual active 2D design render rather than helper-only assertions
-- [ ] Compare the active saved 2D plan and user-facing 3D scene entity-by-entity, then remove every remaining non-2D-derived visible geometry path
+- [x] Compare the active saved 2D plan and user-facing 3D scene entity-by-entity, then remove every remaining non-2D-derived visible geometry path
 - [x] Match every active-design corner cabinet’s persisted 2D footprint and front-face segments exactly in 3D
 - [x] Match every active-design appliance’s persisted dimensions, position, rotation, floor/mount elevation, and range-hood relationship exactly in 3D
 - [x] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations

@@ -51,3 +51,8 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 
 - Added a guarded `preview=3d` route input that opens the same deterministic modal only after the saved 2D plan and catalog scene are ready; it is used for repeatable narrow-viewport validation and does not create an alternate renderer.
 - A `375px` mobile capture opened the active plan’s responsive 3D modal, retained its **20 cabinet** plan-sync inventory, and reported the selected door texture as loaded. A tall capture correctly displayed the non-blocking catalog-geometry loading state while the same saved plan hydrated.
+
+## BEC-24 catalog availability check — 2026-08-14
+
+- In the live Ashford designer palette, filtering for `BEC-24` returned one canonical **24-inch Base End Cabinet — 45° Angled Front** under Specialty Bases with the active Aspen White finish.
+- The verification was non-destructive: the current saved plan remained at **20 items** and no placement or save action was issued.
