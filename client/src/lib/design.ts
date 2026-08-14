@@ -744,6 +744,23 @@ export function roomWithPersistedEntities(room: RoomData, entities: PersistedDes
   return { ...room, persistedEntities: entities };
 }
 
+/**
+ * Database rows use selectedStyleId/selectedDistributorId while some legacy
+ * client snapshots use styleId/distributorId. Resolve both without losing the
+ * saved design's active finish during a reload.
+ */
+export function restoredSavedDesignStyle(input: {
+  styleId?: number | null;
+  selectedStyleId?: number | null;
+  distributorId?: number | null;
+  selectedDistributorId?: number | null;
+}) {
+  return {
+    styleId: input.styleId ?? input.selectedStyleId ?? null,
+    distributorId: input.distributorId ?? input.selectedDistributorId ?? null,
+  };
+}
+
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
 export const DEFAULT_CEILING_HEIGHT = 96;
 export const CEILING_HEIGHT_PRESETS = [96, 108, 120] as const;

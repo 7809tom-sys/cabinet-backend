@@ -28,7 +28,7 @@ import {
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, roomWithPersistedEntities,
+  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -48,6 +48,13 @@ describe("persisted 2D entity parity", () => {
       sinks: [{ uid: "sink", faucet: true, width: 33 }],
       island: { x: 48, y: 48, width: 60, depth: 30 },
     });
+  });
+});
+
+describe("saved design style restoration", () => {
+  it("restores database-style field names when legacy client aliases are absent", () => {
+    expect(restoredSavedDesignStyle({ selectedStyleId: 330001, selectedDistributorId: 210001 }))
+      .toEqual({ styleId: 330001, distributorId: 210001 });
   });
 });
 

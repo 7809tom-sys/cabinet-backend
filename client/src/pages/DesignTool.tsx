@@ -77,7 +77,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -1422,9 +1422,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     (d: {
       room: RoomData;
       placed: PlacedCabinet[];
-      styleId: number | null;
+      styleId?: number | null;
+      selectedStyleId?: number | null;
       roomType?: string | null;
       distributorId?: number | null;
+      selectedDistributorId?: number | null;
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
@@ -1444,9 +1446,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           : p
       );
       setPlaced(normalizeLCornerDepths(normalizedPlaced));
-      setStyleId(d.styleId ?? null);
+      const restoredStyle = restoredSavedDesignStyle(d);
+      setStyleId(restoredStyle.styleId);
       // Restore the supply-line lock if the saved design was pinned to one.
-      setLockedDistributorId(typeof d.distributorId === "number" ? d.distributorId : null);
+      setLockedDistributorId(restoredStyle.distributorId);
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
         setRoomType(d.roomType as RoomType);
       }
