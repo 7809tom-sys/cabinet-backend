@@ -19,6 +19,7 @@ type SceneSku = {
   width: unknown;
   height: unknown;
   depth: unknown;
+  mountBottom?: number | null;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   openingType?: string | null;
@@ -580,11 +581,27 @@ export function addCabinet(
   const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
   const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
   const bodyHeight = heightIn * INCH;
-  const bottom = transform?.bottom ?? (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
+  const catalogMountBottom = sku.mountBottom != null
+    ? numberValue(sku.mountBottom, 0)
+    : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
+  const bottom = transform?.bottom ?? catalogMountBottom;
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
   cabinet.rotation.y = rotation;
-  cabinet.userData = { distributorSkuId: sku.distributorSkuId, masterCode: sku.masterCode, label: sku.description ?? sku.masterCode };
+  cabinet.userData = {
+    distributorSkuId: sku.distributorSkuId,
+    masterCode: sku.masterCode,
+    label: sku.description ?? sku.masterCode,
+    ...(placement === "appliance" ? {
+      catalogApplianceEnvelope: {
+        widthIn,
+        heightIn,
+        depthIn,
+        mountBottomIn: bottom,
+        rotation,
+      },
+    } : {}),
+  };
   const specialty = resolvedThreeDSpecialtyProfile(sku);
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });

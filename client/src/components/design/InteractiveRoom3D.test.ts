@@ -1001,6 +1001,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(accidentalToeKicks).toHaveLength(0);
   });
 
+  it("preserves catalog envelopes for refrigerator, range, hood, microwave, dishwasher, and wine appliances", () => {
+    const fixtures = [
+      { masterCode: "FRIDGE-30", width: 30, height: 84, depth: 24, mountBottom: 0, rotation: 0 },
+      { masterCode: "RANGE-30", width: 30, height: 36, depth: 25, mountBottom: 0, rotation: 0 },
+      { masterCode: "HOOD-30", width: 30, height: 18, depth: 18, mountBottom: 66, rotation: 0 },
+      { masterCode: "MW-30", width: 30, height: 17, depth: 15, mountBottom: 54, rotation: 0 },
+      { masterCode: "DW-24", width: 24, height: 34.5, depth: 24, mountBottom: 0, rotation: 0 },
+      { masterCode: "WINE-24", width: 24, height: 34.5, depth: 24, mountBottom: 0, rotation: 0 },
+    ] as const;
+    for (const fixture of fixtures) {
+      const root = new THREE.Group();
+      addCabinet(root, {
+        distributorSkuId: -87,
+        cabinetId: 87,
+        description: fixture.masterCode,
+        placementType: "appliance",
+        x: 0,
+        y: 0,
+        ...fixture,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+      } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+      const applianceRoot = root.children[0]!;
+      expect(applianceRoot.userData.catalogApplianceEnvelope).toMatchObject({
+        widthIn: fixture.width,
+        heightIn: fixture.height,
+        depthIn: fixture.depth,
+        mountBottomIn: fixture.mountBottom,
+        rotation: fixture.rotation,
+      });
+    }
+  });
+
   it("centers the active saved hood on its range and suppresses the overlapping microwave placeholder", () => {
     const range = {
       uid: "active-range", cabinetId: 0, masterCode: "RANGE-30", description: 'Range / Stove 30"',
