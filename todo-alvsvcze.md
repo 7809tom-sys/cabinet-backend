@@ -282,6 +282,9 @@
 - [ ] Reuse the shared 2D footprint rules for every corner cabinet type in 3D rather than centered-box approximations
 - [x] Render active WDC2442 as its saved 24-inch diagonal wall-corner footprint and angled front rather than a centered rectangular box
 - [x] Normalize legacy WDC/CDB corner codes to their shared 2D corner footprint even when persisted corner metadata is blank
+- [x] Use the same normalized placed footprint for 3D corner transforms as the 2D designer uses for snapping and plan placement
+- [x] Split 3D countertop coverage around every non-counter-supported appliance while retaining support over dishwasher openings
+- [x] Resolve the two active saved-design appliance-to-cabinet collisions so the 2D source plan and 3D appliance run are physically valid
 - [x] Preserve placed appliance depth from the saved 2D footprint for fridge, range, microwave, and hood records
 - [ ] Reuse the shared 2D appliance elevation rules for every 3D appliance rather than separate placement heuristics
 - [x] Use the shared 2D elevation-box calculation for every 3D wall cabinet and appliance transform

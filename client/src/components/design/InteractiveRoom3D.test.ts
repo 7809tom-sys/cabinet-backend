@@ -332,7 +332,10 @@ describe("interactive 3D room scene helpers", () => {
 
   it("extends the countertop over a saved dishwasher but not over tall or wall scene items", () => {
     expect(shouldRenderCountertopOverSceneItem("appliance", "DW-24")).toBe(true);
+    expect(shouldRenderCountertopOverSceneItem("appliance", "WINE-24")).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "B-33")).toBe(true);
+    expect(shouldRenderCountertopOverSceneItem("base", "RANGE-30")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("base", "FILL-3", "3 inch Filler")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("wall", "W-30-42")).toBe(false);
   });

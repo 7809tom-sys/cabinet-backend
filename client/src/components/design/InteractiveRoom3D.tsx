@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, elevationBox, isDiagonalCorner, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, elevationBox, isDiagonalCorner, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -141,9 +141,21 @@ export function threeDDoorMaterialFallback(color: string) {
   return { color, map: null as null };
 }
 
-export function shouldRenderCountertopOverSceneItem(placement: string, masterCode: string) {
-  if (placement === "wall" || placement === "tall" || placement === "accessory") return false;
-  return placement !== "appliance" || /^(?:DW-|DISHWASHER)/i.test(masterCode);
+export function shouldRenderCountertopOverSceneItem(
+  placementOrItem: string | Pick<PlacedCabinet, "placement" | "masterCode" | "description" | "subCategory">,
+  masterCode = "",
+  description: string | null = null,
+) {
+  const item = typeof placementOrItem === "string"
+    ? { placement: placementOrItem as PlacedCabinet["placement"], masterCode, description }
+    : placementOrItem;
+  // Keep 3D counter coverage identical to ElevationView: a counter sits over a
+  // genuine counter-bearing base, plus a dishwasher or wine opening. Master
+  // code is deliberately considered even on stale placements, so an appliance
+  // accidentally persisted as "base" can never receive a false counter slab.
+  if (/^(?:DW|DISHWASHER|WINE)[-_]?\d/i.test(item.masterCode ?? "")) return true;
+  if (/^(?:RANGE|FRIDGE|HOOD|MW|MICROWAVE|OVEN)[-_]?\d/i.test(item.masterCode ?? "")) return false;
+  return bearsCountertop(item);
 }
 
 export function rangeOvenFrontLayout(bodyHeight: number) {
@@ -812,7 +824,7 @@ function addCabinet(
   }
   root.add(cabinet);
 
-  if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode)) {
+  if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode, sku.description)) {
     const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
     if (specialty.kind === "corner-drawer") {
       const counterGroup = new THREE.Group();
