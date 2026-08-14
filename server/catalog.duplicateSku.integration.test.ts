@@ -80,4 +80,16 @@ describe("duplicate normalized cabinet codes", () => {
     expect(canonical).toEqual(expect.objectContaining({ id: 9390031, masterCode: "3-DB21" }));
     expect(alias).toEqual(canonical);
   });
+
+  it("keeps duplicate legacy codes separate from an existing canonical master during an attempted rename", async () => {
+    const caller = appRouter.createCaller({ user: { id: 1, role: "admin" } } as any);
+
+    await expect(caller.cabinets.adminUpdateCabinet({
+      id: 9360025,
+      masterCode: "3-DB15",
+    })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("Master Alias"),
+    });
+  });
 });

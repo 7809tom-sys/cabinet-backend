@@ -1896,7 +1896,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                   className="font-mono text-sm"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Renaming the master code automatically saves the old code as an alias so existing designs and orders continue to resolve correctly.
+                  Rename only when this code does not already belong to another cabinet. If this item is a legacy duplicate, leave its code unchanged and add it as a Master Alias on the canonical cabinet instead.
                 </p>
               </div>
 

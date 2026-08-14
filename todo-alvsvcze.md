@@ -391,3 +391,6 @@
 - [x] Resolve 3DB21 to 3-DB21 across catalog, designer, pricing, cart, build sheets, and legacy detail routes
 - [x] Add regression coverage for 3-DB21/3DB21 canonical SKU behavior
 - [x] Show each legacy SKU’s explicit canonical master code in the Cabinet Config Master Alias interface
+- [x] Fix Cabinet Config saves so a duplicate canonical master SKU is never applied to a legacy cabinet record
+- [x] Add regression coverage for editing a normalized-master cabinet such as 3-DB15
+- [x] Block Cabinet Config from renaming a legacy duplicate to an existing canonical master and guide admins to set an alias instead

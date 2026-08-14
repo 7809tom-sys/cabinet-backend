@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
+import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
@@ -1767,14 +1767,26 @@ export const cabinetsRouter = router({
       const patch: Record<string, unknown> = {};
       // If masterCode is being changed, save the old code as an alias first
       if (input.masterCode !== undefined) {
+        const requestedMasterCode = input.masterCode.trim().toUpperCase();
+        const [occupiedMaster] = await db
+          .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+          .from(cabinets)
+          .where(and(eq(cabinets.masterCode, requestedMasterCode), ne(cabinets.id, input.id)))
+          .limit(1);
+        if (occupiedMaster) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Master SKU ${requestedMasterCode} already belongs to another cabinet. Keep this legacy code unchanged and add it as a Master Alias on ${occupiedMaster.masterCode ?? requestedMasterCode}.`,
+          });
+        }
         const [existing] = await db.select({ masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
-        if (existing && existing.masterCode && existing.masterCode !== input.masterCode) {
+        if (existing && existing.masterCode && existing.masterCode !== requestedMasterCode) {
           // Upsert alias: ignore if the old code is already an alias for this cabinet
           await db.insert(cabinetAliases)
             .values({ cabinetId: input.id, alias: existing.masterCode })
             .onDuplicateKeyUpdate({ set: { cabinetId: input.id } });
         }
-        patch.masterCode = input.masterCode;
+        patch.masterCode = requestedMasterCode;
       }
       if (input.description !== undefined) patch.description = input.description;
       if (input.category !== undefined) {
