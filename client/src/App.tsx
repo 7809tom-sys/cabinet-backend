@@ -16,6 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
 import { trpc } from "@/lib/trpc";
+import { affiliateStorefrontFallbackPath } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
 
 // Lazy-loaded pages
@@ -160,12 +161,18 @@ function DesignerRoute() {
 export default function App() {
   const [, navigate] = useLocation();
 
-  // When the server injected window.__AFFILIATE_SLUG__ (affiliate subdomain visit),
-  // redirect the SPA router to /store/:slug so the storefront renders instead of
-  // the main homepage. This runs once on mount, before any route renders.
+  // Prefer the server-provided routing slug, with a browser-host fallback for
+  // transparent custom-domain proxies that serve the SPA without the rewrite.
   useEffect(() => {
     const slug = (window as unknown as Record<string, unknown>).__AFFILIATE_SLUG__ as string | undefined;
-    if (slug && window.location.pathname === "/") {
+    const fallback = affiliateStorefrontFallbackPath(
+      window.location.pathname,
+      window.location.hostname,
+      window.location.search,
+    );
+    if (fallback) {
+      navigate(fallback, { replace: true });
+    } else if (slug && window.location.pathname === "/") {
       navigate(`/store/${slug}`, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

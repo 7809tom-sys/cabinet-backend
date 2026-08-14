@@ -18,3 +18,28 @@ export function affiliateSlugFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/store\/([^/]+)/);
   return m ? m[1] : null;
 }
+
+/** Resolve a single branded CabinetDealz subdomain in the browser. */
+export function affiliateSlugFromHostname(hostname: string | null | undefined): string | null {
+  const host = (hostname ?? "").trim().toLowerCase().replace(/:\d+$/, "");
+  const suffix = ".cabinetdealz.com";
+  if (!host.endsWith(suffix)) return null;
+  const slug = host.slice(0, -suffix.length);
+  return slug && slug !== "www" && !slug.includes(".") ? slug : null;
+}
+
+/**
+ * Fallback SPA route for a transparent proxy that serves the public custom
+ * host without applying the server rewrite. It keeps the customer on their
+ * same subdomain while activating the white-label route tree.
+ */
+export function affiliateStorefrontFallbackPath(
+  pathname: string,
+  hostname: string | null | undefined,
+  search = "",
+): string | null {
+  const slug = affiliateSlugFromHostname(hostname);
+  if (!slug || isAffiliateStorefrontPath(pathname)) return null;
+  const suffix = pathname === "/" ? "" : pathname;
+  return `/store/${slug}${suffix}${search}`;
+}
