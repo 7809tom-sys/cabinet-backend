@@ -137,7 +137,6 @@ import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
-import { DesignPreviewModal } from "@/components/design/DesignPreviewModal";
 import { PelicanCountertopPicker, PelicanSinkPicker } from "@/components/design/PelicanProductPickers";
 
 
@@ -4756,7 +4755,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
 
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
@@ -5153,8 +5151,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         {placed.length > 0 && (
           <button
             type="button"
-            onClick={() => setPreviewModalOpen(true)}
-            title="Preview design"
+            onClick={() => setInteractive3dOpen(true)}
+            title="Open deterministic 3D preview"
             className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
           >
             <Eye className="h-3.5 w-3.5" />
@@ -5493,11 +5491,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <button
                     type="button"
                     disabled={placed.length === 0}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPreviewModalOpen(true), 150); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 150); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
-                    <span className="font-medium">Preview</span>
+                    <span className="font-medium">Interactive 3D Preview</span>
                   </button>
                 </div>
                 <div className="mx-3 my-1 border-t border-border" />
@@ -9041,18 +9039,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Design Preview Modal */}
-      <DesignPreviewModal
-        open={previewModalOpen}
-        onClose={() => setPreviewModalOpen(false)}
-        placed={placed}
-        room={room}
-        activeWall={activeWall}
-        doorStyleName={activeStyleName || undefined}
-        countertopColor={countertopMaterial(countertopMaterialId).fill}
-        countertopName={countertopMaterial(countertopMaterialId).name}
-        hardwareName={hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined}
-      />
     </div>
   );
 }

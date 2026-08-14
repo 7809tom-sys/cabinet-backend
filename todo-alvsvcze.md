@@ -279,3 +279,4 @@
 - [ ] Replace the active mobile preview’s stale or simplified 3D path with the deterministic InteractiveRoom3D scene using current 2D data
 - [ ] Force the active 3D preview to rebuild whenever saved 2D placements, openings, sinks, surfaces, or presentation settings change
 - [ ] Render saved island zones, furniture, and pony walls in the active 3D preview from their exact persisted 2D dimensions and coordinates
+- [x] Eliminate simplified or stale alternate 3D preview paths so every user-facing preview action uses the deterministic current-plan renderer
