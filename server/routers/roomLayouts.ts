@@ -1,13 +1,15 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
+import { emailSettingsReady, sendEmail, sendEmailViaSettings } from "../email";
 import {
   cabinets,
   distributors,
   distributorSkus,
   doorStyles,
+  emailSettings,
   layoutPresetZones,
   layoutPresets,
   roomShapePresets,
@@ -28,6 +30,14 @@ const sharedConfigurationInput = z.object({
   placed: z.array(z.unknown()).max(300),
   presentation: z.object({ cabinetFinish: z.string().min(1).max(32), countertopFinish: z.string().regex(/^#[0-9a-f]{6}$/i) }),
   orderSummary: z.object({ itemCount: z.number().int().nonnegative(), pricedLineCount: z.number().int().nonnegative(), unpricedLineCount: z.number().int().nonnegative(), subtotal: z.number().nonnegative() }).optional(),
+});
+
+const emailQuoteInput = z.object({
+  pdfBase64: z.string().min(100).max(8_000_000),
+  itemCount: z.number().int().nonnegative(),
+  subtotal: z.number().nonnegative(),
+  cabinetFinish: z.string().min(1).max(48),
+  countertopFinish: z.string().min(1).max(48),
 });
 
 function asNumber(value: unknown) {
@@ -250,5 +260,35 @@ export const roomLayoutsRouter = router({
         .where(eq(threeDRoomShares.token, input.token))
         .limit(1);
       return share ?? null;
+    }),
+
+  emailQuote: protectedProcedure
+    .input(emailQuoteInput)
+    .mutation(async ({ ctx, input }) => {
+      const recipient = ctx.user.email?.trim();
+      if (!recipient) throw new Error("Your account does not have an email address. Add one before emailing a quote.");
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const [settings] = await db.select().from(emailSettings).limit(1);
+      const subject = `Your Cabinet Dealz quote — $${input.subtotal.toFixed(2)}`;
+      const text = [
+        "Your Cabinet Dealz 3D room quote is attached.",
+        `Items: ${input.itemCount}`,
+        `Catalog-priced subtotal: $${input.subtotal.toFixed(2)}`,
+        `3D presentation: ${input.cabinetFinish} cabinets · ${input.countertopFinish} countertop`,
+        "Preview finishes are visual only; final pricing is based on the orderable catalog selections in your design.",
+      ].join("\n");
+      const attachment = {
+        filename: "cabinet-dealz-3d-quote.pdf",
+        content: Buffer.from(input.pdfBase64, "base64"),
+        contentType: "application/pdf",
+      };
+      const result = emailSettingsReady(settings)
+        ? await sendEmailViaSettings(settings, { to: recipient, subject, text, attachments: [attachment] })
+        : await sendEmail({ to: recipient, subject, text, attachments: [attachment] });
+      if (!result.success) {
+        throw new Error(result.notConfigured ? "Quote email is not configured yet. Please contact Cabinet Dealz support." : result.error ?? "Quote email could not be sent.");
+      }
+      return { sentTo: recipient };
     }),
 });

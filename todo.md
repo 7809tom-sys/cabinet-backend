@@ -2040,3 +2040,9 @@
 - [x] Generate a top-down current-layout floor-plan image for PDF export
 - [x] Add the 2D floor plan alongside the 3D rendering and itemized quote
 - [x] Validate the combined PDF export layout
+
+## Enhancement: Email and print 3D quote workflow
+- [x] Include selected cabinet finish and countertop details in the generated quote
+- [x] Add a direct print action for the current quote and floor plan
+- [x] Add signed-in account email delivery for the quote PDF
+- [x] Validate quote details, print output, and email-send safeguards

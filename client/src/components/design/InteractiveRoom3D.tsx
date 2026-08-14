@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
+import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STD, placedFootprint, type PlacedCabinet, type RoomData } from "@/lib/design";
@@ -319,6 +319,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
   const shareMutation = trpc.roomLayouts.createShare.useMutation();
+  const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
   useEffect(() => {
     setCabinetFinish(initialPresentation?.cabinetFinish ?? "catalog");
@@ -520,9 +521,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     setSelectedCabinet({ masterCode: String(node.userData.masterCode), description: node.userData.label ?? null, distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null });
   };
 
-  const exportPdf = async () => {
+  const buildQuotePdf = async () => {
     const renderer = rendererRef.current;
-    if (!renderer) return;
+    if (!renderer) throw new Error("3D renderer is not ready");
     try {
       const exportRoom = roomOverride
         ? { width: roomOverride.width, depth: roomOverride.depth }
@@ -596,9 +597,49 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       pdf.setFontSize(8);
       pdf.setTextColor(90);
       pdf.text("Preview finishes are visual only. Final pricing is based on the orderable catalog selections in the design.", 40, 580);
-      pdf.save(`cabinet-dealz-3d-quote-${Date.now()}.pdf`);
+      return pdf;
     } catch {
       toast.error("The PDF quote could not be created. Please try again.");
+      return null;
+    }
+  };
+
+  const exportPdf = async () => {
+    const pdf = await buildQuotePdf();
+    if (pdf) pdf.save(`cabinet-dealz-3d-quote-${Date.now()}.pdf`);
+  };
+
+  const printPdf = async () => {
+    const pdf = await buildQuotePdf();
+    if (!pdf) return;
+    const printWindow = window.open(pdf.output("bloburl"), "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      toast.error("Your browser blocked the print window. Allow pop-ups and try again.");
+      return;
+    }
+    window.setTimeout(() => printWindow.print(), 650);
+  };
+
+  const emailPdf = async () => {
+    if (!orderSummary) {
+      toast.error("Add catalog items before emailing a quote.");
+      return;
+    }
+    const pdf = await buildQuotePdf();
+    if (!pdf) return;
+    try {
+      const dataUri = pdf.output("datauristring") as string;
+      const pdfBase64 = dataUri.slice(dataUri.indexOf(",") + 1);
+      const { sentTo } = await emailQuoteMutation.mutateAsync({
+        pdfBase64,
+        itemCount: orderSummary.itemCount,
+        subtotal: orderSummary.subtotal,
+        cabinetFinish: cabinetFinishLabel,
+        countertopFinish: countertopFinishLabel,
+      });
+      toast.success(`Quote sent to ${sentTo}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Quote email could not be sent.");
     }
   };
 
@@ -646,6 +687,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
           <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
           <Button type="button" size="sm" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-3.5 w-3.5" />PDF quote</Button>
+          <Button type="button" size="sm" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-3.5 w-3.5" />Print</Button>
+          <Button type="button" size="sm" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}>{emailQuoteMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}{emailQuoteMutation.isPending ? "Sending" : "Email quote"}</Button>
           {onSaveToAccount && <Button type="button" size="sm" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-3.5 w-3.5" />Save</Button>}
           <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
         </div>
