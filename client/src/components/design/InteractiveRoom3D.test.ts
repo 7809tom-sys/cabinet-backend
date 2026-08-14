@@ -394,6 +394,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(texturedSideSkins).toHaveLength(2);
     expect(lCornerDoors.every((door) => door.userData.cabinetFront === true)).toBe(true);
     expect(texturedSideSkins.every((skin) => skin.userData.cabinetFront !== true)).toBe(true);
+    expect(texturedSideSkins.every((skin) => {
+      const material = (skin as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      return material.userData.selectedFinishSideSkin === true
+        && material.userData.usesDoorImage === false
+        && material.map === null;
+    })).toBe(true);
     expect(lCornerDoors.map((door) => door.userData.lCornerDoor).sort()).toEqual(["back-leg", "side-leg"]);
     expect(lCornerDoors.map((door) => door.rotation.y).sort((a, b) => a - b)).toEqual([0, Math.PI / 2]);
     root.updateMatrixWorld(true);

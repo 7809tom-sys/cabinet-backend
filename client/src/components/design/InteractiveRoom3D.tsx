@@ -585,13 +585,13 @@ export function addCabinet(
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
   textureMaterials.push(faceMaterial, trimMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
-  // The cabinet carcass is part of the visible finished run in the 2D design.
-  // Match it to the selected face material so 3D does not introduce white side
-  // panels and apparent gaps between flush placed cabinets.
-  bodyMaterial.color.set(faceColor);
-  bodyMaterial.map = doorTexture;
+  // Side skins inherit the selected finish color but must never project the door
+  // sample image or Shaker panel layout onto a cabinet end. The actual door sample
+  // is reserved for true front meshes above; the carcass gets a flush finish skin.
+  bodyMaterial.color.set(color);
+  bodyMaterial.map = null;
   bodyMaterial.needsUpdate = true;
-  textureMaterials.push(bodyMaterial);
+  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: false };
   const faceDepth = bodyDepth / 2 + 0.015;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;

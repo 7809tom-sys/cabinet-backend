@@ -321,3 +321,4 @@
 - [ ] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [ ] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [ ] Render doors and drawers only on true cabinet fronts while applying the matching selected-style texture skin to exposed 3D sides and ends
+- [ ] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
