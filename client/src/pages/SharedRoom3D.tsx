@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { InteractiveRoom3D, type InteractiveRoomOrderSummary, type InteractiveRoomPresentation, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
-import type { PlacedCabinet, RoomData } from "@/lib/design";
+import type { PlacedCabinet, RoomData, SinkFixture, WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 
 type SharedConfiguration = {
@@ -12,6 +12,8 @@ type SharedConfiguration = {
   styleId: number;
   room: RoomData;
   placed: PlacedCabinet[];
+  openings?: WallOpening[];
+  sinks?: SinkFixture[];
   presentation: InteractiveRoomPresentation;
   orderSummary?: InteractiveRoomOrderSummary;
 };
@@ -59,6 +61,8 @@ export default function SharedRoom3D({ token }: { token: string }) {
           scene={scene as InteractiveRoomScene}
           placed={configuration.placed}
           roomOverride={configuration.room}
+          openings={configuration.openings}
+          sinks={configuration.sinks}
           orderSummary={configuration.orderSummary}
           initialPresentation={configuration.presentation}
         />

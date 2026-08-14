@@ -1008,6 +1008,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         ...shareContext,
         room: { ...roomOverride },
         placed,
+        openings,
+        sinks,
         presentation: { cabinetFinish, countertopFinish },
         orderSummary,
       });

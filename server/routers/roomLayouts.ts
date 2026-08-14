@@ -28,6 +28,8 @@ const sharedConfigurationInput = z.object({
   styleId: z.number().int().positive(),
   room: z.object({ width: z.number().positive(), depth: z.number().positive(), ceilingHeight: z.number().positive().optional() }).passthrough(),
   placed: z.array(z.unknown()).max(300),
+  openings: z.array(z.unknown()).max(100).optional(),
+  sinks: z.array(z.unknown()).max(50).optional(),
   presentation: z.object({ cabinetFinish: z.string().min(1).max(32), countertopFinish: z.string().regex(/^#[0-9a-f]{6}$/i) }),
   orderSummary: z.object({ itemCount: z.number().int().nonnegative(), pricedLineCount: z.number().int().nonnegative(), unpricedLineCount: z.number().int().nonnegative(), subtotal: z.number().nonnegative() }).optional(),
 });

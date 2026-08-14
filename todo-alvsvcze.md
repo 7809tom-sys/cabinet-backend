@@ -189,7 +189,7 @@
 - [x] Promote BEC-24 to the canonical master record and retain BA-24 and BEC24 as aliases without reintroducing duplicates
 - [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
 - [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
-- [ ] Make the 3D room preview render the exact 2D placed cabinets and walls rather than unrelated suggested items
+- [x] Make the 3D room preview render the exact 2D placed cabinets and walls rather than unrelated suggested items
 - [ ] Carry active door style and Cabinet Config specialty geometry from 2D placements into the 3D room
 - [ ] Add 2D-to-3D fidelity regressions for placements, cabinet count, wall position, finish, and specialty geometry
 - [x] Apply the active 2D selected door sample texture and finish to every 3D placed cabinet face
@@ -197,9 +197,9 @@
 - [x] Render 2D appliances and appliance openings in 3D at their saved wall positions
 - [x] Render 2D windows in 3D at their saved wall positions and dimensions
 - [x] Add 2D-to-3D appliance, opening, and window continuity regressions
-- [ ] Resolve the live selected door-style sample URL from the style payload and pass it to the 3D preview
-- [ ] Add a Silva Shaker style-payload-to-3D texture handoff regression
-- [ ] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
+- [x] Resolve the live selected door-style sample URL from the style payload and pass it to the 3D preview
+- [x] Add a Silva Shaker style-payload-to-3D texture handoff regression
+- [x] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
 - [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
 - [ ] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
 - [ ] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
@@ -209,7 +209,7 @@
 - [x] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
 - [ ] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
 - [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
-- [ ] Align 3D appliances to their exact saved 2D transforms and mounting heights
+- [x] Align 3D appliances to their exact saved 2D transforms and mounting heights
 - [x] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
 - [x] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
 - [x] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
@@ -217,7 +217,7 @@
 - [x] Render the saved 2D sink and faucet fixtures on the correct sink-base location in 3D
 - [x] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets
 - [x] Add calibrated 3D regression coverage for the oven tower, drawer bases, sink/faucet, and flush run joins
-- [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
+- [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
