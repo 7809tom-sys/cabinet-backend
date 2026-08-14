@@ -2444,6 +2444,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     else toast.error("That appliance is no longer available for this room type.");
   }, [threeDAccessoryCatalog, appliancePalette, addCabinet]);
 
+  const addRangeHoodFromInteractive3d = useCallback(() => {
+    const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
+    const hood = appliancePalette.find((item) => /^HOOD-/.test(item.masterCode));
+    if (!hood) {
+      toast.error("A range hood is not available for this room type.");
+      return;
+    }
+    addCabinet(hood, range?.x, range?.y);
+    toast.success("Range hood added to the 2D plan above the saved range.");
+  }, [appliancePalette, placed, addCabinet]);
+
   // ── Ceiling Filler: place a filler strip on top of wall cabinets to cover the
   // gap between the wall-cabinet top line and the ceiling. The filler is a
   // wall-layer item with mountBottom = wallCabinetTopLine and height = gap.
@@ -8860,6 +8871,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 orderLines={interactive3dOrderLines}
                 catalogItems={interactive3dCatalogItems}
                 onAddCatalogItem={addFromInteractive3d}
+                onAddRangeHood={addRangeHoodFromInteractive3d}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}

@@ -93,6 +93,8 @@ interface Props {
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
+  /** Adds the matching hood to the editable 2D range position when one is absent. */
+  onAddRangeHood?: () => void;
   onSaveToAccount?: () => void;
   onPresentationChange?: (presentation: InteractiveRoomPresentation) => void;
   className?: string;
@@ -777,7 +779,7 @@ export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -1207,7 +1209,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
           {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>Door sample texture: {doorTextureState === "not-requested" ? "not selected" : doorTextureState}</p>}
-          {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.</p>}
+          {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
