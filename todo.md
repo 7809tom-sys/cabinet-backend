@@ -2094,3 +2094,8 @@
 - [x] Prevent collisions during new-item placement, drag moves, and automated surround placement
 - [x] Preserve edge-to-edge adjacency while rejecting true overlap
 - [x] Add regression tests for 3DB15/B33 and appliance-panel collision cases
+
+## Enhancement: Visible image download and overlap feedback
+- [x] Make the 3D image-download action prominent and easy to identify
+- [x] Show a persistent visual overlap warning in the designer after a rejected placement
+- [x] Verify download action and warning behavior on desktop and mobile

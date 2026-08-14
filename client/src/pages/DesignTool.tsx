@@ -9,7 +9,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -452,6 +452,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // index within its section. Populated when the user clicks move-up/move-down.
   const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const [placementWarning, setPlacementWarning] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
     return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
@@ -2463,11 +2464,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
       if (hasCollision(finalCab, prev)) {
-        toast.error(`${finalCab.masterCode} cannot be placed here because it overlaps an existing item.`);
+        const message = `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
+        setPlacementWarning(message);
+        toast.error(message);
         return;
       }
 
       // ── Now do all state updates and side effects exactly once ──────────
+      setPlacementWarning(null);
       justPlacedRef.current = true;
       setSelectedUid(finalCab.uid);
       setPlaced((prev) => [...prev, finalCab]);
@@ -7084,6 +7088,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
         {/* Canvas */}
         <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
+          {placementWarning && (
+            <div role="alert" className="absolute left-3 right-3 top-3 z-40 flex items-start gap-2 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-md">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <p className="min-w-0 flex-1">{placementWarning}</p>
+              <button type="button" onClick={() => setPlacementWarning(null)} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
+            </div>
+          )}
           {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
             <div className="absolute inset-0 z-20">
               <PolygonRoomEditor

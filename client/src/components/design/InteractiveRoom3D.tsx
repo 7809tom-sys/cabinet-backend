@@ -2181,7 +2181,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
   return (
     <section ref={previewRootRef} className={`relative ${isFullscreen ? "h-screen w-screen overflow-y-auto bg-background p-3 sm:p-5" : ""} ${className ?? ""}`} aria-label="Interactive three-dimensional room preview">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="sticky top-0 z-30 mb-3 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 py-2 backdrop-blur">
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
