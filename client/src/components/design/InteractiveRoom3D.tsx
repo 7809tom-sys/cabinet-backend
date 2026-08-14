@@ -149,6 +149,26 @@ export function rangeOvenFrontLayout(bodyHeight: number) {
   };
 }
 
+export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHeight: number) {
+  const cooktopWidth = Math.max(0.2, bodyWidth - 0.12);
+  const cooktopDepth = Math.max(0.2, bodyDepth - 0.12);
+  const burnerRadius = Math.max(0.06, Math.min(cooktopWidth, cooktopDepth) * 0.105);
+  const xOffset = cooktopWidth * 0.24;
+  const zOffset = cooktopDepth * 0.23;
+  return {
+    cooktopWidth,
+    cooktopDepth,
+    topY: bodyHeight / 2 + 0.025,
+    burnerRadius,
+    burnerCenters: [
+      { x: -xOffset, z: -zOffset },
+      { x: xOffset, z: -zOffset },
+      { x: -xOffset, z: zOffset },
+      { x: xOffset, z: zOffset },
+    ],
+  };
+}
+
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
   if (doorSampleUrl && textureState === "loaded") return "selected-texture" as const;
   if (doorSampleUrl && textureState === "loading") return "selected-texture-loading" as const;
@@ -567,6 +587,23 @@ function addCabinet(
         storageDrawer.position.set(0, rangeLayout.drawerCenterY, 0.038);
         storageDrawer.userData = { applianceCode: sku.masterCode, rangeStorageDrawer: true };
         frontGroup.add(storageDrawer);
+        const cooktop = rangeCooktopLayout(bodyWidth, bodyDepth, bodyHeight);
+        const cooktopSurface = new THREE.Mesh(
+          new THREE.BoxGeometry(cooktop.cooktopWidth, 0.045, cooktop.cooktopDepth),
+          new THREE.MeshStandardMaterial({ color: "#20262d", roughness: 0.2, metalness: 0.48 }),
+        );
+        cooktopSurface.position.set(0, cooktop.topY, 0);
+        cooktopSurface.userData = { applianceCode: sku.masterCode, rangeCooktop: true };
+        cabinet.add(cooktopSurface);
+        for (const burnerCenter of cooktop.burnerCenters) {
+          const burner = new THREE.Mesh(
+            new THREE.CylinderGeometry(cooktop.burnerRadius, cooktop.burnerRadius, 0.026, 24),
+            new THREE.MeshStandardMaterial({ color: "#11151a", roughness: 0.25, metalness: 0.58 }),
+          );
+          burner.position.set(burnerCenter.x, cooktop.topY + 0.035, burnerCenter.z);
+          burner.userData = { applianceCode: sku.masterCode, rangeBurner: true };
+          cabinet.add(burner);
+        }
       }
       const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);

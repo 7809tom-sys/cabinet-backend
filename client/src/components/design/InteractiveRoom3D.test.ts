@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -305,6 +305,16 @@ describe("interactive 3D room scene helpers", () => {
     expect(layout.openingCenterY).toBeGreaterThan(0);
     expect(layout.drawerHeight).toBeCloseTo(0.42, 12);
     expect(layout.drawerCenterY).toBeCloseTo(-1.25, 12);
+  });
+
+  it("renders a physical cooktop and four burners from the saved range width and depth", () => {
+    const cooktop = rangeCooktopLayout(30 / 12, 25 / 12, 36 / 12);
+    expect(cooktop.cooktopWidth).toBeCloseTo(2.38, 12);
+    expect(cooktop.cooktopDepth).toBeCloseTo((25 / 12) - 0.12, 12);
+    expect(cooktop.topY).toBeCloseTo(1.525, 12);
+    expect(cooktop.burnerCenters).toHaveLength(4);
+    expect(cooktop.burnerCenters[0]?.x).toBeCloseTo(-0.5712, 12);
+    expect(cooktop.burnerCenters[0]?.z).toBeCloseTo(-0.45156666666666667, 12);
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
