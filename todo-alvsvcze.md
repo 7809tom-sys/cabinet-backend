@@ -304,3 +304,4 @@
 - [x] Make WDC2430 3D consume the exact saved 2D diagonal-corner footprint and classification rule, with no independent square or triangle fallback
 - [x] Make WDC2430 3D consume the exact saved 2D diagonal-corner footprint and classification rule, with no independent square or triangle fallback
 - [x] Route shared plan footprints and 3D corner meshes through one persisted-cabinet geometry classifier for every corner family
+- [x] Add cross-family parity coverage for diagonal, triangle, blind, L-corner, and end-return saved geometry classification

@@ -1815,6 +1815,21 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(placedFootprint(wdc)).toEqual({ w: 24, d: 24 });
   });
 
+  it("uses one shared persisted classifier across diagonal, triangle, blind, L-corner, and end-return families", () => {
+    const cases = [
+      { cabinet: cab({ masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall", width: 24, depth: 12 }), kind: "diagonal", footprint: { w: 24, d: 24 } },
+      { cabinet: cab({ masterCode: "WTC2430", description: "Triangle Wall Corner", placement: "wall", width: 24, depth: 12 }), kind: "triangle", footprint: { w: 24, d: 12 } },
+      { cabinet: cab({ masterCode: "BBC-36", description: "Blind Corner Base", width: 36, depth: 24 }), kind: "blind-corner", footprint: { w: 36, d: 24 } },
+      { cabinet: cab({ masterCode: "LSB36", description: "Lazy Susan Base", width: 36, depth: 24 }), kind: "l-shape", footprint: { w: 36, d: 36 } },
+      { cabinet: cab({ masterCode: "BEC-24", description: "Base End Cabinet", width: 24, depth: 24 }), kind: "base-end", footprint: { w: 24, d: 24 } },
+    ] as const;
+
+    for (const { cabinet, kind, footprint } of cases) {
+      expect(placedCornerGeometryKind(cabinet)).toBe(kind);
+      expect(placedFootprint(cabinet)).toEqual(footprint);
+    }
+  });
+
   it("placedFootprint leaves ordinary cabinets as their rotated size", () => {
     const base = cab({ masterCode: "B-24", description: "Base 24", width: 24, depth: 24, rotation: 0 });
     expect(placedFootprint(base)).toEqual({ w: 24, d: 24 });
