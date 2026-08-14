@@ -908,6 +908,10 @@ export function addCabinet(
   }
   cabinet.add(frontGroup);
   for (const bodyMesh of bodyMeshes) {
+    // The L corner is built from two overlapping carcass legs. Their individual
+    // edge overlays expose the internal construction seam as a false line that
+    // projects into the room. The two door frames remain the visible seam.
+    if (specialty.kind === "l-corner") continue;
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(bodyMesh.geometry),
       new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 }),

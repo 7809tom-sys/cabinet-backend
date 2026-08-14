@@ -394,6 +394,9 @@ describe("interactive 3D room scene helpers", () => {
     const shakerFrames: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.selectedStyleFace === "shaker") shakerFrames.push(node); });
     expect(shakerFrames.length).toBeGreaterThan(0);
+    const interiorEdgeLines: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node instanceof THREE.LineSegments) interiorEdgeLines.push(node); });
+    expect(interiorEdgeLines).toHaveLength(0);
   });
 
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {

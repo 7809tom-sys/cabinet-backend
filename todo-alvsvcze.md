@@ -316,3 +316,4 @@
 - [ ] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
 - [ ] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
 - [ ] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D
+- [ ] Remove the LS36 3D inside-corner line/frame protrusion so both 12-inch fronts end cleanly at the L seam
