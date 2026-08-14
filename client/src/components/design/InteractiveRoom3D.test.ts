@@ -673,10 +673,19 @@ describe("interactive 3D room scene helpers", () => {
     const wedges: THREE.Object3D[] = [];
     const doors: THREE.Object3D[] = [];
     const genericFrontPanels: THREE.Object3D[] = [];
+    const unexpectedMeshes: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.diagonalCornerWedge) wedges.push(node);
       if (node.userData.diagonalDoor) doors.push(node);
       if (node.userData.cabinetFront) genericFrontPanels.push(node);
+      if (
+        node instanceof THREE.Mesh &&
+        !node.userData.diagonalCornerWedge &&
+        !node.userData.diagonalDoor &&
+        !node.userData.physicalRail
+      ) {
+        unexpectedMeshes.push(node);
+      }
     });
 
     expect(legacyWdc2430).toMatchObject({ width: 24, depth: 24, cornerType: "diagonal" });
@@ -690,6 +699,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(doors).toHaveLength(2);
     expect(doors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
     expect(genericFrontPanels).toHaveLength(0);
+    expect(unexpectedMeshes).toHaveLength(0);
   });
 
   it("keeps a standard wall cabinet’s selected-finish side skin on the saved 24-by-12 carcass envelope", () => {
