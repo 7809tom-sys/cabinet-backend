@@ -761,17 +761,28 @@ export function addCabinet(
     }
   } else if (specialty.kind === "diagonal-corner") {
     // Match the 2D diagonal corner: a square corner body with two center-meeting
-    // doors along its 45-degree clipped front, not one wide rectangular face.
+    // doors on the actual 45-degree clipped front—not in the center plane of the
+    // square body. Keeping these faces on the diagonal is particularly important
+    // for LS3612: a centered pair makes a correct 36×36 Lazy Susan look like an
+    // ordinary rectangular base from the mobile orbit camera.
     const diagonalWidth = Math.hypot(bodyWidth, bodyDepth) * 0.92;
     const diagonalDoorWidth = diagonalWidth / 2;
     const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
+    const diagonalFaceCenterX = bodyWidth / 4;
+    const diagonalFaceCenterZ = bodyDepth / 4;
+    const diagonalFaceNormal = Math.SQRT1_2 * 0.045;
+    const tangentOffset = diagonalDoorWidth / 2;
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052), faceMaterial);
-      door.position.set(direction * diagonalDoorWidth * 0.24, 0, 0.035);
+      door.position.set(
+        diagonalFaceCenterX + direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
+        0,
+        diagonalFaceCenterZ - direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
+      );
       door.rotation.y = Math.PI / 4;
       door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right" };
       frontGroup.add(door);
-      addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
+      addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
     }
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
@@ -1127,7 +1138,10 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 }
 
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
-  const diagonalCorner = placedCornerGeometryKind(cabinet) === "diagonal";
+  // The shared saved-placement contract already classifies both a Lazy Susan
+  // and a wall diagonal as the common visible diagonal-front form.
+  const sharedCornerKind = placedCornerGeometryKind(cabinet);
+  const diagonalCorner = sharedCornerKind === "diagonal";
   const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
   const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
   const cornerBody = threeDCornerBodyDimensions(cabinet);

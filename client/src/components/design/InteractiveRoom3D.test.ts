@@ -376,6 +376,32 @@ describe("interactive 3D room scene helpers", () => {
     ]);
   });
 
+  it("mounts persisted LS3612 doors and Shaker rails on the visible 45-degree face instead of the square body center plane", () => {
+    const ls36 = {
+      uid: "live-ls36", cabinetId: 9390049, masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0, cornerType: "lazy-susan",
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(ls36), null, {}, 144, 120, "#f2f0ea", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(ls36));
+    const diagonalDoors: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.diagonalDoor) diagonalDoors.push(node); });
+
+    expect(diagonalDoors).toHaveLength(2);
+    const diagonalDoorWidth = Math.hypot(3, 3) * 0.92 / 2;
+    const faceNormal = Math.SQRT1_2 * 0.045;
+    const diagonalFaceZ = 3 / 4;
+    const tangentZ = Math.SQRT1_2 * (diagonalDoorWidth / 2);
+    expect(diagonalDoors.map((door) => door.position.z).sort((a, b) => a - b)).toEqual([
+      expect.closeTo(diagonalFaceZ - tangentZ + faceNormal, 12),
+      expect.closeTo(diagonalFaceZ + tangentZ + faceNormal, 12),
+    ]);
+    expect(diagonalDoors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
+    const shakerFrames: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.selectedStyleFace === "shaker") shakerFrames.push(node); });
+    expect(shakerFrames.length).toBeGreaterThan(0);
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
