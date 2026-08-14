@@ -669,7 +669,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
-  const { data: doorStyles } = trpc.doorStyles.list.useQuery();
+  const { data: doorStylesRaw } = trpc.doorStyles.list.useQuery();
+  const selectedStyleMissingFromPicker =
+    styleId != null && !(doorStylesRaw ?? []).some((style) => style.id === styleId);
+  const { data: persistedSelectedStyle } = trpc.doorStyles.byId.useQuery(
+    { id: styleId ?? 0 },
+    { enabled: selectedStyleMissingFromPicker },
+  );
+  // A saved design may refer to an otherwise unavailable historic style. Its
+  // loaded 2D and 3D plan must retain that exact catalog sample even if the
+  // style is omitted from the current new-design picker.
+  const doorStyles = useMemo(
+    () =>
+      persistedSelectedStyle && !(doorStylesRaw ?? []).some((style) => style.id === persistedSelectedStyle.id)
+        ? [...(doorStylesRaw ?? []), persistedSelectedStyle]
+        : (doorStylesRaw ?? []),
+    [doorStylesRaw, persistedSelectedStyle],
+  );
   // Neutral, customer-safe distributor labels (white-label safe) used to group the
   // door-style picker by supply line. Never carries the hidden supplier brand.
   const { data: distributorLabels } = trpc.distributors.list.useQuery();

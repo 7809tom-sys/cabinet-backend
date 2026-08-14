@@ -276,8 +276,12 @@
 - [ ] Validate exact room, wall, placement, rotation, measurement, and countertop-boundary geometry before rendering cabinetry details
 - [ ] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks
 - [ ] Eliminate the visibly unchanged 3D scene and validate the actual active 2D design render rather than helper-only assertions
+- [ ] Compare the active saved 2D plan and user-facing 3D scene entity-by-entity, then remove every remaining non-2D-derived visible geometry path
+- [ ] Match every active-design corner cabinet’s persisted 2D footprint and front-face segments exactly in 3D
+- [ ] Match every active-design appliance’s persisted dimensions, position, rotation, floor/mount elevation, and range-hood relationship exactly in 3D
 - [x] Render a loaded 2D design in 3D even when no active door style is selected, using deterministic neutral material defaults
 - [x] Restore the persisted selectedStyleId and distributor lock when loading a saved design so 2D and 3D use the same door finish
+- [x] Resolve a saved design’s selected door style by ID when public availability filtering omits it from the designer picker
 - [ ] Make CDB36’s visible 3D drawer faces and counter boundary match its saved L-shaped 2D footprint
 - [ ] Eliminate any countertop area not supported by a saved 2D cabinet, appliance, or explicit island footprint
 - [ ] Match cabinet and appliance vertical positions to their saved 2D mounting and floor-level measurements
