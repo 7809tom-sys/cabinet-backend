@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, quoteMaterialDetails, resolvedCatalogFinish, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDFaceLayout, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -29,6 +29,15 @@ describe("interactive 3D room scene helpers", () => {
       uid: "wall-1", cabinetId: 10, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
       x: 24, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 60,
     })).toEqual({ x: 39, z: 6, rotation: 0, bottom: 60 });
+  });
+
+  it("preserves a BMC microwave base's configured top opening, zero doors, and one drawer in 3D", () => {
+    expect(resolvedThreeDFaceLayout({
+      placementType: "base",
+      openingType: "top",
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+    })).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {

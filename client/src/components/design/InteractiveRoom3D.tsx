@@ -19,6 +19,9 @@ type SceneSku = {
   depth: unknown;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  openingType?: string | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
 };
 
 export type InteractiveRoomScene = {
@@ -182,6 +185,21 @@ function disposeObject(root: THREE.Object3D) {
   });
 }
 
+export function resolvedThreeDFaceLayout(input: {
+  placementType?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  openingType?: string | null;
+}) {
+  const placement = (input.placementType ?? "base").toLowerCase();
+  const isWallOrTall = placement === "wall" || placement === "tall";
+  return {
+    hasConfiguredOpening: Boolean(input.openingType && input.openingType !== "none"),
+    doorCount: input.numberOfDoors == null ? (isWallOrTall ? 2 : 1) : Math.max(0, input.numberOfDoors),
+    drawerCount: Math.max(0, input.numberOfDrawers ?? 0),
+  };
+}
+
 function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -230,11 +248,12 @@ function addCabinet(
   const faceMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.02 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.01 });
   const faceDepth = bodyDepth / 2 + 0.015;
-  const doorCount = Math.max(1, sku.numberOfDoors ?? (isWall || isTall ? 2 : 1));
-  const drawerCount = Math.max(0, sku.numberOfDrawers ?? 0);
+  const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
-  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.35, drawerCount * 0.3) : 0;
-  const doorHeight = Math.max(0.2, usableHeight - drawerHeight);
+  const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
+  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.6, configuredDrawerHeight || usableHeight * 0.35) : 0;
+  const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
+  const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
   for (let i = 0; i < doorCount; i++) {
@@ -269,8 +288,20 @@ function addCabinet(
   }
   for (let i = 0; i < drawerCount; i++) {
     const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, drawerHeight / drawerCount - 0.025, 0.048), faceMaterial);
-    drawer.position.set(0, bodyHeight / 2 - 0.04 - (drawerHeight / drawerCount) * (i + 0.5), 0.004);
+    drawer.position.set(0, hasConfiguredOpening
+      ? -bodyHeight / 2 + 0.04 + (drawerHeight / drawerCount) * (i + 0.5)
+      : bodyHeight / 2 - 0.04 - (drawerHeight / drawerCount) * (i + 0.5), 0.004);
     frontGroup.add(drawer);
+  }
+  if (hasConfiguredOpening && doorCount === 0) {
+    const openingHeight = Math.max(0.2, usableHeight - drawerHeight);
+    const opening = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth - 0.11, openingHeight - 0.03, 0.052),
+      new THREE.MeshStandardMaterial({ color: "#343a43", roughness: 0.5, metalness: 0.2 }),
+    );
+    opening.position.set(0, bodyHeight / 2 - 0.04 - openingHeight / 2, 0.006);
+    opening.userData = { configuredOpening: true, openingType: sku.openingType };
+    frontGroup.add(opening);
   }
   cabinet.add(frontGroup);
   cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
@@ -315,6 +346,9 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     depth: cabinet.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+    openingType: cabinet.openingType ?? null,
+    doorHeight: cabinet.doorHeight ?? null,
+    drawerHeight: cabinet.drawerHeight ?? null,
   };
 }
 
@@ -781,7 +815,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
         </div>
       )}
-      {catalogItems.length > 0 && (
+      {!renderExistingDesign && catalogItems.length > 0 && (
         <div className="mb-3 rounded-xl border bg-background p-3">
           <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add to this 3D room</p><span className="text-[11px] text-muted-foreground">Drag an item onto the scene; it will be placed on the active wall in the editable design.</span></div>
           <div className="flex gap-2 overflow-x-auto pb-1">

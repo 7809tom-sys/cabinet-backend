@@ -189,6 +189,9 @@
 - [x] Promote BEC-24 to the canonical master record and retain BA-24 and BEC24 as aliases without reintroducing duplicates
 - [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
 - [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
+- [ ] Make the 3D room preview render the exact 2D placed cabinets and walls rather than unrelated suggested items
+- [ ] Carry active door style and Cabinet Config specialty geometry from 2D placements into the 3D room
+- [ ] Add 2D-to-3D fidelity regressions for placements, cabinet count, wall position, finish, and specialty geometry
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
