@@ -135,6 +135,14 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 39, z: 6, rotation: 0, bottom: 60 });
   });
 
+  it("uses the saved room ceiling when a short wall cabinet is top-aligned in 3D", () => {
+    const shortWall = {
+      uid: "short-wall", cabinetId: 11, masterCode: "W-30-24", description: "24 inch Wall Cabinet", placement: "wall",
+      x: 0, y: 0, width: 30, depth: 12, height: 24, rotation: 0,
+    } as never;
+    expect(existingCabinetTransform(shortWall, { ceilingHeight: 108 })).toMatchObject({ bottom: 72 });
+  });
+
   it("uses the rotation-aware 2D footprint center so vertical cabinet runs stay flush in 3D", () => {
     expect(existingCabinetTransform({
       uid: "wall-vertical", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",

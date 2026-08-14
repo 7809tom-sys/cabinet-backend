@@ -293,7 +293,7 @@
 - [x] Resolve a saved design’s selected door style by ID when public availability filtering omits it from the designer picker
 - [x] Make CDB36’s visible 3D drawer faces and counter boundary match its saved L-shaped 2D footprint
 - [x] Eliminate any countertop area not supported by a saved 2D cabinet, appliance, or explicit island footprint
-- [ ] Match cabinet and appliance vertical positions to their saved 2D mounting and floor-level measurements
+- [x] Match cabinet and appliance vertical positions to their saved 2D mounting and floor-level measurements
 - [x] Keep the 3D orbit camera outside the persisted kitchen envelope so mobile rotation cannot clip into cabinet or wall geometry
 - [x] Replace the active mobile preview’s stale or simplified 3D path with the deterministic InteractiveRoom3D scene using current 2D data
 - [x] Force the active 3D preview to rebuild whenever saved 2D placements, openings, sinks, surfaces, or presentation settings change

@@ -891,7 +891,7 @@ function addCabinet(
   }
 }
 
-export function existingCabinetTransform(cabinet: PlacedCabinet) {
+export function existingCabinetTransform(cabinet: PlacedCabinet, room?: Pick<RoomData, "ceilingHeight"> | null) {
   // Placed coordinates are the top-left of the 2D rotation-aware footprint.
   // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
   // producing artificial gaps in the 3D scene.
@@ -900,7 +900,7 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   const depth = numberValue(footprint.d, BASE_DEPTH);
   const savedRotation = Number(cabinet.rotation);
   const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
-  const sharedElevation = elevationBox(cabinet);
+  const sharedElevation = elevationBox(cabinet, room);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"
     ? sharedElevation.bottom
     : cabinet.placement === "baseTop"
@@ -1351,7 +1351,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet), activeDoorTexture, updateDoorTextureState);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet, room), activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {
