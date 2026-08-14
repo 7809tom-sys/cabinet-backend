@@ -2046,3 +2046,9 @@
 - [x] Add a direct print action for the current quote and floor plan
 - [x] Add signed-in account email delivery for the quote PDF
 - [x] Validate quote details, print output, and email-send safeguards
+
+## Fix: Refrigerator surround and sink-base elevation construction rules
+- [x] Force both refrigerator end panels to visibly run floor-to-top in elevation
+- [x] Stop countertops at the outside face of refrigerator end panels
+- [x] Render sink-base drawers and doors at standard base-cabinet proportions
+- [x] Test refrigerator and sink-base elevation rules

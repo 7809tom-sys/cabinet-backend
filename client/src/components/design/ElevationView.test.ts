@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
-import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
+import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
 describe("end-angle elevation face", () => {
   it("keeps BEC-24 classified as an end cabinet even when its saved corner type is triangle", () => {
@@ -78,6 +78,21 @@ describe("end-angle elevation face", () => {
 });
 
 describe("Shaker elevation front rendering", () => {
+  it("treats refrigerator end panels as floor-running architectural skins", () => {
+    expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(true);
+    expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "B33", description: "Base Cabinet" })).toBe(false);
+    expect(isRefrigeratorEndPanel({ placement: "base", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(false);
+  });
+
+  it("gives sink bases the same 20/80 drawer and door proportion as standard bases", () => {
+    const markup = renderToStaticMarkup(createElement(DoorFront, {
+      kind: "shaker", edge: "#1a2744", face: "#d8d4c8", cabinetType: "sink-base", cabinetWidthIn: 36, cabinetHeightIn: 34.5, doors: 2, drawers: 1,
+    }));
+    expect(markup).toContain("height:20%");
+    expect(markup).toContain("top:20%");
+    expect(markup).toContain("top:20%;bottom:0");
+  });
+
   it("draws measured 3-inch Shaker stiles for 12-inch and 21-inch door faces", () => {
     const common = { kind: "shaker" as const, edge: "#1a2744", face: "#d8d4c8", stroke: "#1a274499" };
     const narrow = renderToStaticMarkup(createElement(SingleDoorPanel, { ...common, faceWidthIn: 12, faceHeightIn: 30 }));

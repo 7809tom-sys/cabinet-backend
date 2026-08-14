@@ -118,6 +118,11 @@ export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: stri
   );
 }
 
+/** Refrigerator end panels are exposed architectural skins: floor to top, no toe kick. */
+export function isRefrigeratorEndPanel(cabinet: Pick<PlacedCabinet, "placement" | "masterCode" | "description">): boolean {
+  return cabinet.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`);
+}
+
 /**
  * Resolves the saved Cabinet Config contract before drawing an elevation face.
  * A custom rule can use its configured generic drawing image; otherwise it
@@ -279,11 +284,14 @@ export function ElevationView({
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom: rawBottom, height: rawHeight } = elevationBox(p, room);
     const isWall = p.placement === "wall";
+    const refrigeratorEndPanel = isRefrigeratorEndPanel(p);
     // Toe kick is physical cabinet geometry: raise every floor-level base/tall
     // face above the recessed 4.5-inch zone, independent of the optional trim
     // BOM setting.
     const isBaseOrTall = p.placement === "base" || p.placement === "tall";
-    const toeOffset = toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
+    // Refrigerator end panels are exposed architectural skins, not toe-kicked
+    // cabinets. They must visibly run from the floor to the refrigerator top.
+    const toeOffset = refrigeratorEndPanel ? 0 : toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
     const bottom = rawBottom + toeOffset;
     const height = rawHeight - toeOffset;
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
@@ -392,7 +400,9 @@ export function ElevationView({
             : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
-          zIndex: isDragging ? 10 : 2,
+          // Panels sit in front of an adjacent base face so their full floor-to-
+          // top line remains visible on both sides of the refrigerator opening.
+          zIndex: isDragging ? 10 : refrigeratorEndPanel ? 4 : 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -933,6 +943,16 @@ export function ElevationView({
               return { start: posAlong, end: posAlong + sizeAlong };
             })
             .sort((a, b) => a.start - b.start);
+          // Refrigerator end panels belong to the refrigerator column. A counter
+          // can meet an OUTSIDE panel face, but it must never overhang through the
+          // panel toward the refrigerator opening.
+          const refrigeratorPanels = sorted
+            .filter((p) => p.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${p.masterCode ?? ""} ${p.description ?? ""}`))
+            .map((p) => {
+              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+              const posAlong = horizontal ? p.x : p.y;
+              return { start: posAlong, end: posAlong + sizeAlong };
+            });
           if (spans.length === 0) return null;
           // Merge adjacent/overlapping spans into contiguous runs; a gap larger
           // than TOL (e.g. where the fridge sits) breaks the counter.
@@ -952,8 +972,8 @@ export function ElevationView({
                   key={`ct${i}`}
                   className="absolute z-20 pointer-events-none rounded-[1px]"
                   style={{
-                    left: (r.start - OVERHANG_IN) * ppi,
-                    width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
+                    left: (r.start - (refrigeratorPanels.some((panel) => Math.abs(panel.end - r.start) <= TOL) ? 0 : OVERHANG_IN)) * ppi,
+                    width: (r.end - r.start + (refrigeratorPanels.some((panel) => Math.abs(panel.end - r.start) <= TOL) ? 0 : OVERHANG_IN) + (refrigeratorPanels.some((panel) => Math.abs(panel.start - r.end) <= TOL) ? 0 : OVERHANG_IN)) * ppi,
                     bottom: Math.ceil(STD.BASE_HEIGHT * ppi),
                     height: THICKNESS_IN * ppi,
                     ...(realistic ? {
@@ -2379,20 +2399,17 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // Sink bases have a narrow false tilt-out panel at the top (for the tip-out
   // tray) and two doors below. The false front is thinner than a normal drawer.
   if (cabinetType === "sink-base") {
-    const falseFrontPct = 14; // narrow tilt-out tray panel
+    // Sink bases retain standard base-cabinet face proportions: a 20% top
+    // drawer/tilt-out row and 80% door region. The sink changes hardware, not
+    // the height of the doors.
+    const falseFrontPct = 20;
     const cols = Math.max(1, doorCount || 2);
     const colW = 100 / cols;
     return withFace(
       <>
         {/* false front (tilt-out tray) */}
         <div className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
-          <div
-            className="absolute inset-[1.5px] rounded-[1px]"
-            style={{
-              ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
-            }}
-          />
+          <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 24} faceHeightIn={(cabinetHeightIn ?? 34.5) * (falseFrontPct / 100)} />
         </div>
         {/* rail between false front and doors */}
         <div className="absolute left-0 right-0" style={{ top: `${falseFrontPct}%`, height: 2, background: stroke }} />
@@ -2406,7 +2423,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             {i > 0 && (
               <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
             )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} {...doorPanelProps(cols, 100 - falseFrontPct)} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={(cabinetWidthIn ?? 24) / cols} faceHeightIn={(cabinetHeightIn ?? 34.5) * ((100 - falseFrontPct) / 100)} />
           </div>
         ))}
       </>
