@@ -10,3 +10,5 @@ The canonical BEC-24 rule suite was rerun successfully: **5 test files, 332 asse
 | Catalog identity | `BA-24` and `BEC24` resolve through canonical `BEC-24` without restoring duplicates. |
 
 The live Ashford palette independently showed a single canonical BEC-24 Specialty Base entry using the active Aspen White finish, while the active saved kitchen remained unmodified.
+
+The rendered elevation fixtures were also rerun successfully: **2 test files, 31 assertions**. They confirm the 45-degree non-corner end face has two measured 12-inch doors, a center seam, selected door-sample treatment, and no generic-image fallback; they also cover refreshed stale BA-24 metadata resolving to the same end-return vector profile.
