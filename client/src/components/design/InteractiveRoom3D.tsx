@@ -70,6 +70,8 @@ interface Props {
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
+  /** Active design-tool finish derived from the chosen catalog door style. */
+  catalogFinishOverride?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
@@ -125,6 +127,11 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   if (/(oak|maple|honey|natural)/.test(source)) return "#c69a63";
   if (/(cream|beige|linen|almond)/.test(source)) return "#ded5c1";
   return "#f2f0ea";
+}
+
+export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinishOverride?: string | null) {
+  const override = catalogFinishOverride?.trim() ?? "";
+  return /^#[0-9a-f]{6}$/i.test(override) ? override : sceneCabinetColor(scene);
 }
 
 export function doorProfileKind(doorStyle: string | null | undefined, doorPanelType: string | null | undefined) {
@@ -296,7 +303,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -314,7 +321,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = placed.length > 0;
-  const catalogFinish = sceneCabinetColor(scene);
+  // The active designer style is the customer’s catalog selection. Prefer its
+  // resolved finish color over a sparse style-record color field from the scene
+  // endpoint, then fall back to the server-derived catalog material.
+  const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";

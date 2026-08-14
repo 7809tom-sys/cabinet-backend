@@ -8806,12 +8806,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       </Dialog>
 
       <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
+        <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
             <DialogDescription>Cabinets shown here are suggested from the selected distributor and active door style. Drag to orbit and use the controls to zoom.</DialogDescription>
           </DialogHeader>
-          <div className="p-4 sm:p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : interactive3dScene ? (
@@ -8825,6 +8825,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onAddCatalogItem={addFromInteractive3d}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
+                catalogFinishOverride={activeFinish.face}
                 onPresentationChange={setInteractive3dPresentation}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,

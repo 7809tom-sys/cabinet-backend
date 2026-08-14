@@ -2052,3 +2052,8 @@
 - [x] Stop countertops at the outside face of refrigerator end panels
 - [x] Render sink-base drawers and doors at standard base-cabinet proportions
 - [x] Test refrigerator and sink-base elevation rules
+
+## Fix: 3D workspace size and active catalog finish
+- [x] Expand the 3D preview dialog into a responsive wide workspace
+- [x] Make the active catalog door-style color the default 3D cabinet finish
+- [x] Validate 3D dialog and catalog-finish behavior on desktop and mobile

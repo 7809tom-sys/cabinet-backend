@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, resolvedCatalogFinish, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -17,6 +17,11 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a verified hex style color before applying finish-name fallbacks", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
+  });
+
+  it("uses the active catalog door-style finish when scene metadata is sparse", () => {
+    expect(resolvedCatalogFinish(baseScene, "#49604a")).toBe("#49604a");
+    expect(resolvedCatalogFinish(baseScene, "Aero Sage")).toBe(sceneCabinetColor(baseScene));
   });
 
   it("preserves a placed cabinet’s current 2D location and wall mounting height", () => {
