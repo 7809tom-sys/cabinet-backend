@@ -25,9 +25,9 @@ describe("duplicate normalized cabinet codes", () => {
       masterCode: "W-1230",
       description: '12" Single Door Wall Cabinet with 2 Adjustable Shelves',
     }));
-    // A legacy duplicate may win a code-only lookup, which is why the card
-    // route must preserve the exact master cabinet ID.
-    expect(normalizedFallback?.id).not.toBe(exact?.id);
+    // A normalized legacy route now resolves to the canonical catalog record
+    // whenever an explicit alias mapping exists, rather than reviving a duplicate.
+    expect(normalizedFallback?.id).toBe(exact?.id);
 
     const styles = await caller.pricing.stylesForCabinet({
       cabinetId: exact!.id,
@@ -58,5 +58,17 @@ describe("duplicate normalized cabinet codes", () => {
     expect(noDashAlias).toEqual(expect.objectContaining({ id: 9390014, masterCode: "BEC-24" }));
     expect(alias).toEqual(canonical);
     expect(noDashAlias).toEqual(canonical);
+  });
+
+  it("resolves 3DB12 as the legacy alias of canonical 3-DB12", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const canonical = await caller.cabinets.byCode({ masterCode: "3-DB12" });
+    const alias = await caller.cabinets.byCode({ masterCode: "3DB12" });
+
+    expect(canonical).toEqual(expect.objectContaining({ id: 9390028, masterCode: "3-DB12" }));
+    expect(alias).toEqual(canonical);
+
+    const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
+    expect(styles.length).toBeGreaterThan(0);
   });
 });

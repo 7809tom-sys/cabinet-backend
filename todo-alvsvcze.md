@@ -384,3 +384,6 @@
 - [x] Move 3D faucets to the back edge of the sink/countertop based on the shared sink fixture placement rule
 - [x] Restore visible continuous 4½-inch recessed toe kicks across the active base, corner, and dishwasher run
 - [x] Add active-scene regressions for hood wall attachment, dishwasher height, counter depth, refrigerator fit, back-set faucet, and toe-kick continuity
+- [x] Set 3-DB12 as the canonical master SKU and retain 3DB12 as its legacy alias
+- [x] Resolve 3DB12 to 3-DB12 across catalog, designer, pricing, cart, build sheets, and legacy detail routes
+- [x] Add regression coverage for 3-DB12/3DB12 canonical SKU behavior
