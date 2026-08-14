@@ -56,3 +56,9 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 
 - In the live Ashford designer palette, filtering for `BEC-24` returned one canonical **24-inch Base End Cabinet — 45° Angled Front** under Specialty Bases with the active Aspen White finish.
 - The verification was non-destructive: the current saved plan remained at **20 items** and no placement or save action was issued.
+
+## Final active-plan renderer inspection — 2026-08-14
+
+- Reopened `8190001` through the guarded direct preview route, entered full-screen mode, and inspected the stable WebGL canvas without saving or moving any 2D item.
+- The canvas retained its **20-cabinet** source-plan count and showed the range with physical burners, the over-range mounted appliance stack, refrigerator, dishwasher-supported counter run, configured drawer fronts, Shaker face frames, and the active Aspen White finish.
+- Rotating the same live scene did not cause the prior blank state, state-loop failure, or a stale simplified scene.
