@@ -20,7 +20,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 
 export function planCornerGeometry(cabinet: PlacedCabinet) {
-  const drawingType = cabinetDrawingType(cabinet);
+  // Existing placements copy the current Cabinet Config graphic rule into
+  // customProfile. Use it when resolving BA/BEC so a saved base end cabinet
+  // cannot fall back to a stale standard/triangle plan footprint.
+  const drawingType = cabinetDrawingType({ ...cabinet, graphicType: cabinet.customProfile ?? null });
   const isEndAngle = drawingType === "end-angle";
   const isEndReturn = drawingType === "end-return";
   const isEndCabinet = isEndAngle || isEndReturn;

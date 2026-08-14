@@ -4,6 +4,7 @@
 export type CabinetDrawingType =
   | "standard-door" // 1+ door box (base/wall/tall)
   | "drawer-base" // stacked drawer fronts
+  | "microwave-base" // microwave opening over one configured drawer
   | "sink-base" // false tilt-out top panel + sink cutout indication
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint (blind corner cabinets)
@@ -60,6 +61,8 @@ export interface CabinetLike {
   isDecorativeDoor?: boolean | null;
   /** Face pattern for specialty open-front cabinets: 'slats' | 'criss-cross' | 'lattice' | 'open' | null */
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  /** Cabinet Config graphic type copied into a placed cabinet as customProfile. */
+  graphicType?: string | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -94,7 +97,18 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
 
   const desc = lc(cab.description);
   const sub = lc(cab.subCategory);
+  const code = lc(cab.masterCode);
   const w = toNum(cab.width);
+
+  // Microwave bases are an explicit Cabinet Config contract, not a generic
+  // door-base inference. In particular BMC30 is configured as 0 doors and 1
+  // drawer; never use the width fallback to invent two doors for it.
+  if (/microwave base|base microwave/.test(`${desc} ${sub}`) || /^(?:bmc|mb|bmw)[-_]?\d/.test(code)) {
+    return {
+      doors: Math.max(0, cab.numberOfDoors ?? 0),
+      drawers: Math.max(0, cab.numberOfDrawers ?? 1),
+    };
+  }
 
   // 0) The source description is the primary signal. Numeric fields are often
   // imported as a generic default (including zero) or arrive stale, so treating
@@ -166,7 +180,14 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const sub = lc(cab.subCategory);
   const code = lc(cab.masterCode);
   const desc = lc(cab.description);
+  const graphic = lc(cab.graphicType);
   const hay = `${sub} ${desc} ${code}`;
+
+  // Cabinet Config's explicitly authored graphic type takes precedence over
+  // inconsistent supplier category or corner fields on saved placements.
+  if (/^(?:base_)?end[_-]?(?:return|angle)$/.test(graphic) || graphic === "base_end_return") {
+    return "end-return";
+  }
 
   // Face-pattern override: admin-set facePattern takes priority over all other detection.
   // Auto-detect by code prefix — only CONFIRMED rack/open-front codes:
@@ -276,6 +297,13 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Sink base (false front tilt-out + sink cutout indication).
   if (/sink base|sink/.test(hay) && /base|vanity/.test(`${cat} ${sub} ${desc}`)) {
     return "sink-base";
+  }
+
+  // Microwave bases are a dedicated front: a microwave opening over the
+  // configured drawer(s). They are not normal door bases, even where a supplier
+  // description omits the cabinet's zero-door count.
+  if (/microwave base|base microwave/.test(hay) || /^(?:bmc|mb|bmw)[-_]?\d/.test(code)) {
+    return "microwave-base";
   }
 
   // Glass-front wall cabinets.
@@ -434,6 +462,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "drawer-base") {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
+  if (type === "microwave-base") return "Microwave Base Cabinet";
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
@@ -508,6 +537,7 @@ export function cabinetAltText(cab: CabinetLike): string {
   const detailMap: Record<CabinetDrawingType, string> = {
     "standard-door": doors > 0 ? `${doors}-door cabinet` : "cabinet",
     "drawer-base": drawers > 0 ? `${drawers}-drawer base cabinet` : "drawer base cabinet",
+    "microwave-base": "microwave base cabinet with appliance opening and bottom drawer",
     "sink-base": "sink base cabinet with false tilt-out front",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",

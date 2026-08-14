@@ -10,4 +10,4 @@
 
 ## Current next step
 
-The live custom-domain request still returned the previous main-site application behavior after the temporary diagnostic deployment. Its diagnostic path rendered the SPA 404 page rather than the server endpoint, which shows the custom domain is not yet serving the latest server routing build. The next step is to wait for the custom-domain deployment target to receive the current revision, query the diagnostic endpoint again, then use the observed public host value to complete routing and remove the temporary endpoint.
+The final deployed custom-domain response now includes `window.__AFFILIATE_SLUG__="reaves-way-cabinet-shop"`, the Reeves Way white-label title, and the Reeves Way Open Graph site name. A live browser visit redirected into `/store/reaves-way-cabinet-shop` and rendered the Reaves Way Cabinet Shop storefront rather than the main Cabinet Dealz storefront. The temporary diagnostic endpoint has been removed from the final deployment.
