@@ -8855,6 +8855,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 placed={placed}
                 roomOverride={room}
                 openings={openings}
+                sinks={sinks}
                 orderSummary={interactive3dOrderSummary}
                 orderLines={interactive3dOrderLines}
                 catalogItems={interactive3dCatalogItems}

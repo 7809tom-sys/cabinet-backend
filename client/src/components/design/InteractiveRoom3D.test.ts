@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDFaceLayout, sceneCabinetColor, shouldRenderPlacedDesign, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDFaceLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -55,6 +55,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(openingTransform({
       uid: "window-1", kind: "window", label: "Window", side: "top", offset: 42, width: 36, height: 36, sill: 42,
     }, 144, 120)).toEqual({ x: 60, z: 0.06, rotation: 0 });
+  });
+
+  it("places a saved sink basin and faucet at the same 2D countertop coordinates", () => {
+    const transform = sinkFixtureTransform({
+      uid: "sink-1", type: "single_bowl", x: 24, y: 48, width: 30, depth: 22, faucet: true,
+    });
+    expect(transform.x).toBe(3.25);
+    expect(transform.z).toBeCloseTo(-4.916666666666667, 12);
+    expect(transform.countertopTop).toBe(3.125);
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {

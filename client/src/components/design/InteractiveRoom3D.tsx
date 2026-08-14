@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { STD, placedFootprint, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
+import { STD, placedFootprint, type PlacedCabinet, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -74,6 +74,8 @@ interface Props {
   roomOverride?: RoomData;
   /** Doors, cased openings, and windows from the current 2D plan. */
   openings?: WallOpening[];
+  /** Countertop sink fixtures from the current 2D plan. */
+  sinks?: SinkFixture[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
@@ -437,6 +439,41 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
 }
 
+export function sinkFixtureTransform(sink: SinkFixture) {
+  return {
+    x: (sink.x + sink.width / 2) * INCH,
+    z: -(sink.y + sink.depth / 2) * INCH,
+    countertopTop: COUNTERTOP_H * INCH,
+  };
+}
+
+function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
+  const width = sink.width * INCH;
+  const depth = sink.depth * INCH;
+  const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
+  const rim = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.06, depth),
+    new THREE.MeshStandardMaterial({ color: "#9ba8af", metalness: 0.58, roughness: 0.28 }),
+  );
+  rim.position.set(centerX, countertopTop + 0.025, centerZ);
+  root.add(rim);
+  const bowl = new THREE.Mesh(
+    new THREE.BoxGeometry(Math.max(0.2, width - 0.14), 0.16, Math.max(0.2, depth - 0.14)),
+    new THREE.MeshStandardMaterial({ color: "#33414a", metalness: 0.44, roughness: 0.24 }),
+  );
+  bowl.position.set(centerX, countertopTop - 0.07, centerZ);
+  root.add(bowl);
+  if (!sink.faucet) return;
+  const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#c4d0d7", metalness: 0.76, roughness: 0.16 });
+  const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.52, 12), faucetMaterial);
+  riser.position.set(centerX, countertopTop + 0.27, centerZ + depth * 0.26);
+  root.add(riser);
+  const spout = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 8, 16, Math.PI), faucetMaterial);
+  spout.rotation.x = Math.PI / 2;
+  spout.position.set(centerX, countertopTop + 0.48, centerZ + depth * 0.08);
+  root.add(spout);
+}
+
 export function openingTransform(opening: WallOpening, roomWidth: number, roomDepth: number) {
   const offset = opening.offset + opening.width / 2;
   if (opening.side === "bottom") return { x: offset, z: roomDepth - 0.06, rotation: Math.PI };
@@ -488,7 +525,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -666,6 +703,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       }
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
+    for (const sink of sinks) addSinkFixture(catalogRoot, sink);
     threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
@@ -699,7 +737,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
