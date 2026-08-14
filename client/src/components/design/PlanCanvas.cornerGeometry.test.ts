@@ -65,4 +65,35 @@ describe("PlanCanvas shared corner geometry", () => {
     expect(planDiagonalFrontPath(ls36, { width: 144, depth: 120 })).toBeUndefined();
     expect(planLazySusanTwoFrontPath(ls36)).toBe("M67 67L100 67M67 67L67 100");
   });
+
+  it("keeps BEC-24 as a 24-by-24 Base End Cabinet return without a diagonal or triangle corner clip", () => {
+    const bec24: PlacedCabinet = {
+      uid: "bec24",
+      cabinetId: 24,
+      masterCode: "BEC-24",
+      description: '24 inch Base End Cabinet',
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerType: null,
+      customProfile: "end-return",
+      subCategory: "Base End Cabinet",
+    };
+
+    expect(placedCornerGeometryKind(bec24)).toBe("base-end");
+    expect(planCornerGeometry(bec24)).toMatchObject({
+      isDiagonal: false,
+      isTriangle: false,
+      isBlind: false,
+      isConfiguredL: false,
+    });
+    expect(planCabinetClipPath(bec24, { width: 144, depth: 120 })).toBeUndefined();
+    expect(planDiagonalFrontPath(bec24, { width: 144, depth: 120 })).toBeUndefined();
+  });
 });

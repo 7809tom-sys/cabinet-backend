@@ -275,9 +275,13 @@ export function resolvedThreeDOvenLayout(input: {
   const usableHeight = Math.max(0.2, totalHeight - 0.08);
   const described = describedOvenSpecification(input.description);
   const ovenCount = input.ovenType === "double" ? 2 : 1;
-  const doorCount = input.numberOfDoors != null && input.numberOfDoors > 0
+  // A single oven tower has a fixed two-door upper bridge. Older saved records
+  // can carry `numberOfDoors: 0` even though the visible 2D assembly includes
+  // the bridge, so normalize that stale metadata before building the 3D face.
+  const enforcedDoorCount = input.ovenType === "single" ? 2 : null;
+  const doorCount = enforcedDoorCount ?? (input.numberOfDoors != null && input.numberOfDoors > 0
     ? input.numberOfDoors
-    : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2);
+    : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2));
   // The existing 2D oven cabinet contract is authoritative: a single oven
   // carries three bottom drawers, while a double oven carries one. Explicit
   // saved `ovenType` therefore corrects stale catalog drawer counts instead of

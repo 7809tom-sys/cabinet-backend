@@ -466,6 +466,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(layout.openingPosition).toBe("middle");
   });
 
+  it("restores the two-door single-oven bridge when a legacy saved tower reports zero doors", () => {
+    const layout = resolvedThreeDOvenLayout({
+      height: 84,
+      numberOfDoors: 0,
+      numberOfDrawers: 3,
+      openingType: "middle",
+      ovenType: "single",
+    });
+    expect(layout.doorCount).toBe(2);
+    expect(layout.doorZone).toBe(19.5 / 12);
+    expect(layout.openingHeight).toBe(27 / 12);
+  });
+
   it("uses the 21-inch standard-face boundary in 3D while keeping the diagonal wall corner’s two-door specialty face", () => {
     expect(resolvedThreeDFaceLayout({ width: 21, numberOfDoors: null }).doorCount).toBe(1);
     expect(resolvedThreeDFaceLayout({ width: 22, numberOfDoors: null }).doorCount).toBe(2);

@@ -333,6 +333,7 @@
 - [x] Preserve the correct existing 2D oven layout unchanged while making only the 3D oven enclosure match its measured opening and drawer layout
 - [x] Render the single-oven tower as an integrated assembly with its 27-inch oven opening, 3-inch filler, and attached 12-inch two-door bridge cabinet above
 - [x] Make the single-oven tower’s upper two-door bridge consume the remaining height for 84-, 90-, and 96-inch cabinet configurations
+- [x] Restore the missing two-door upper bridge above the single-oven opening in the live 3D oven-tall scene
 - [x] Enforce one door for cabinet faces at or below 21 inches and two equal doors for faces wider than 21 inches across 2D and 3D
 - [x] Preserve the diagonal wall-corner cabinet’s two equal center-meeting doors as a specialty override to the standard 21-inch door-width rule
 - [x] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
