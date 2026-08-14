@@ -387,3 +387,7 @@
 - [x] Set 3-DB12 as the canonical master SKU and retain 3DB12 as its legacy alias
 - [x] Resolve 3DB12 to 3-DB12 across catalog, designer, pricing, cart, build sheets, and legacy detail routes
 - [x] Add regression coverage for 3-DB12/3DB12 canonical SKU behavior
+- [x] Set 3-DB21 as the canonical master SKU and retain 3DB21 as its legacy alias
+- [x] Resolve 3DB21 to 3-DB21 across catalog, designer, pricing, cart, build sheets, and legacy detail routes
+- [x] Add regression coverage for 3-DB21/3DB21 canonical SKU behavior
+- [x] Show each legacy SKU’s explicit canonical master code in the Cabinet Config Master Alias interface

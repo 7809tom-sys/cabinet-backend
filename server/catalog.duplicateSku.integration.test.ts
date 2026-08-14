@@ -71,4 +71,13 @@ describe("duplicate normalized cabinet codes", () => {
     const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
     expect(styles.length).toBeGreaterThan(0);
   });
+
+  it("resolves 3DB21 as the explicit alias of canonical master 3-DB21", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const canonical = await caller.cabinets.byCode({ masterCode: "3-DB21" });
+    const alias = await caller.cabinets.byCode({ masterCode: "3DB21" });
+
+    expect(canonical).toEqual(expect.objectContaining({ id: 9390031, masterCode: "3-DB21" }));
+    expect(alias).toEqual(canonical);
+  });
 });

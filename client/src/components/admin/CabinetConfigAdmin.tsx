@@ -1824,6 +1824,8 @@ function EditModal({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono font-semibold truncate">{alias.aliasCode}</span>
+                      <span className="text-muted-foreground shrink-0">→</span>
+                      <span className="font-mono text-xs text-muted-foreground truncate">{alias.masterCode}</span>
                       {alias.conflictStatus === "conflict" && (
                         <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 gap-1 shrink-0">
                           <AlertTriangle className="h-3 w-3" />
