@@ -303,9 +303,9 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Cabinet Config is the source of truth for intentionally configured corner
   // geometry. These settings must work even when a supplier uses a neutral SKU
   // or description that does not carry the usual corner prefix.
-  if (cab.cornerType === "diagonal" || cab.cornerType === "lazy-susan" || cab.cornerType === "pie-cut") return "diagonal-corner";
+  if (cab.cornerType === "diagonal" || cab.cornerType === "pie-cut") return "diagonal-corner";
   if (cab.cornerType === "blind-corner") return "blind-corner";
-  if (cab.cornerType === "l-shape") {
+  if (cab.cornerType === "l-shape" || cab.cornerType === "lazy-susan") {
     return "l-corner";
   }
 
@@ -320,13 +320,14 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "diagonal-corner";
   }
 
-  // LS lazy-Susan cabinets use the same diagonal / pie-cut front as the shared
-  // plan and 3D footprint rule. Easy-reach cabinets retain the L-corner form.
+  // LS lazy-Susan cabinets use the confirmed two-leg L-corner form: 36-inch
+  // wall sides with one 12-inch return front on each exposed side. Easy-reach
+  // cabinets use the same L-corner elevation contract.
   const isBlind = /^(bbc|wbc|bbl|bbr|wbl|wbr)/.test(code) || /-blind|blind/.test(code) || /blind\s*corner/.test(hay);
   // Explicit code-prefix detection for LS## (e.g. LS3612, LS3312), BER## (e.g. BER33, BER36),
   // and ERB## (e.g. ERB33, ERB36). These may not have isCornerCabinet=true in the DB.
   const isLazySusan = /^(lsb?)\d/.test(code) || /lazy\s*susan/.test(hay);
-  if (isLazySusan) return "diagonal-corner";
+  if (isLazySusan) return "l-corner";
   const isBerOrErb = /^(ber|erb)\d/.test(code);
   if (!isBlind && (isBerOrErb || cab.isCornerCabinet || /corner|easy reach/.test(hay))) {
     return "l-corner";

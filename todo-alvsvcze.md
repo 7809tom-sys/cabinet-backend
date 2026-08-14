@@ -313,13 +313,14 @@
 - [x] Fix the exact persisted LS36 placement that remains unchanged on mobile after the shared catalog rule updates
 - [ ] Correct LS36 authoritative style pricing and synchronize the designer, 3D itemized preview, cart, and order totals
 - [ ] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
-- [ ] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
-- [ ] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
-- [ ] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D
-- [ ] Remove the LS36 3D inside-corner line/frame protrusion so both 12-inch fronts end cleanly at the L seam
-- [ ] Remove the remaining LS36 3D line reproduced after the first seam cleanup by tracing countertop and face-mesh bounds
-- [ ] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
-- [ ] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D
+- [x] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
+- [x] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
+- [x] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D
+- [x] Remove the LS36 3D inside-corner line/frame protrusion so both 12-inch fronts end cleanly at the L seam
+- [x] Remove the remaining LS36 3D line reproduced after the first seam cleanup by tracing countertop and face-mesh bounds
+- [x] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
+- [x] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D
+- [x] Route LS36 lazy-Susan Cabinet Config records into the L-corner elevation branch instead of the diagonal-corner branch
 - [ ] Render doors and drawers only on true cabinet fronts while applying the matching selected-style texture skin to exposed 3D sides and ends
 - [x] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
 - [ ] Correct the reported L-corner cabinet to 24-inch legs, 12-inch returns, and 17-inch door fronts in 2D and 3D

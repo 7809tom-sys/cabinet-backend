@@ -71,6 +71,36 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(markup.match(/data-diagonal-corner-door="true"/g)).toHaveLength(2);
   });
 
+  it("renders the saved LS36 host elevation as one exposed 12-inch L-corner return face", () => {
+    const ls36 = baseCabinet({
+      uid: "ls3612",
+      cabinetId: 3612,
+      masterCode: "LS3612",
+      description: "36 inch Lazy Susan Base Cabinet",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      height: 34.5,
+      depth: 24,
+      cornerType: "lazy-susan",
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    });
+
+    expect(resolveElevationFacePresentation(ls36).cabinetType).toBe("l-corner");
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [ls36],
+        selectedUid: null,
+        onSelect: () => undefined,
+        wall: "back",
+      })),
+    );
+    expect(markup.match(/data-l-corner-return-face="true"/g)).toHaveLength(1);
+  });
+
   it("classifies BMC30 as a microwave base and BA-24 as its configured non-corner end-angle profile", () => {
     const bmc30 = {
       masterCode: "BMC30",

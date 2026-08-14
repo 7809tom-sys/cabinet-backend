@@ -2745,7 +2745,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     return withFace(
       <>
         {/* Single door panel filling the full face — this wall's door face */}
-        <div className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%]">
+        <div data-l-corner-return-face="true" className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%]">
           <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth * 0.94} faceHeightIn={faceHeight * 0.94} />
         </div>
         {/* Subtle corner-return shadow strip on the right edge to hint at the
