@@ -268,3 +268,10 @@
 - [x] Refresh existing placed cabinets from live Cabinet Config drawing rules when a design loads
 - [ ] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
 - [x] Clear the stale triangle corner type from canonical BEC-24 so its live config remains a non-corner end-return
+- [ ] Define and enforce a complete persisted 2D-to-3D parity contract with no design-specific interpretation
+- [ ] Add exhaustive parity fixtures that fail when any saved cabinet, appliance, surface, opening, sink, finish, position, or configuration field is omitted or altered in 3D
+- [ ] Inventory every visible 2D entity persisted in a saved design and close every 3D rendering omission before declaring parity
+- [ ] Validate the actual rendered 3D scene against saved 2D design imagery rather than claiming completion from data-flow tests alone
+- [ ] Replace heuristic 3D scene choices with deterministic conversions from persisted 2D design data only
+- [ ] Validate exact room, wall, placement, rotation, measurement, and countertop-boundary geometry before rendering cabinetry details
+- [ ] Layer cabinet configuration, appliances, fixtures, and finishes only after the deterministic geometry foundation passes parity checks

@@ -259,6 +259,31 @@ export function rangeHoodGeometry(widthIn: number, heightIn: number, depthIn: nu
   };
 }
 
+/** Matches the 2D Corner Drawer Base face: an 8% corner marker plus a 92% full-height drawer stack. */
+export function cornerDrawerFrontLayout(bodyWidth: number) {
+  const cornerMarkerWidth = Math.max(0.04, bodyWidth * 0.08);
+  return {
+    cornerMarkerWidth,
+    drawerStackWidth: Math.max(0.08, bodyWidth - cornerMarkerWidth),
+  };
+}
+
+/**
+ * The physical L-corner footprint shared by the 2D plan and 3D CDB36 carcass.
+ * With a 36-inch bounding square, the 24-inch legs leave a 12-inch interior notch.
+ */
+export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number) {
+  const legRatio = 2 / 3;
+  const legWidth = bodyWidth * legRatio;
+  const legDepth = bodyDepth * legRatio;
+  return {
+    legWidth,
+    legDepth,
+    backLeg: { width: bodyWidth, depth: legDepth, x: 0, z: -(bodyDepth - legDepth) / 2 },
+    sideLeg: { width: legWidth, depth: bodyDepth - legDepth, x: -(bodyWidth - legWidth) / 2, z: (legDepth) / 2 },
+  };
+}
+
 export function dimensions(value: unknown) {
   const object = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   return {
@@ -410,12 +435,24 @@ function addCabinet(
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
   cabinet.rotation.y = rotation;
   cabinet.userData = { distributorSkuId: sku.distributorSkuId, masterCode: sku.masterCode, label: sku.description ?? sku.masterCode };
+  const specialty = resolvedThreeDSpecialtyProfile(sku);
 
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth),
-    new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 }),
-  );
-  cabinet.add(body);
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
+  const bodyMeshes: THREE.Mesh[] = [];
+  if (specialty.kind === "corner-drawer") {
+    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
+    for (const part of [lShape.backLeg, lShape.sideLeg]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(part.width, bodyHeight, part.depth), bodyMaterial);
+      leg.position.set(part.x, 0, part.z);
+      leg.userData = { specialtyProfile: "corner-drawer", lCornerCarcass: true };
+      cabinet.add(leg);
+      bodyMeshes.push(leg);
+    }
+  } else {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
+    cabinet.add(body);
+    bodyMeshes.push(body);
+  }
 
   const textureMaterials: THREE.MeshStandardMaterial[] = [];
   const applyDoorTextureFallback = () => {
@@ -450,7 +487,6 @@ function addCabinet(
   // The cabinet carcass is part of the visible finished run in the 2D design.
   // Match it to the selected face material so 3D does not introduce white side
   // panels and apparent gaps between flush placed cabinets.
-  const bodyMaterial = body.material as THREE.MeshStandardMaterial;
   bodyMaterial.color.set(faceColor);
   bodyMaterial.map = doorTexture;
   bodyMaterial.needsUpdate = true;
@@ -459,7 +495,12 @@ function addCabinet(
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
   const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
-  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.6, configuredDrawerHeight || usableHeight * 0.35) : 0;
+  // A drawer-only cabinet's authored rows own its whole usable face. The former
+  // generic 35% allowance left an invented blank upper section in 3D even though
+  // the 2D elevation renders the saved drawer stack full height.
+  const drawerHeight = drawerCount
+    ? Math.min(usableHeight, configuredDrawerHeight || (doorCount === 0 && !hasConfiguredOpening ? usableHeight : usableHeight * 0.35))
+    : 0;
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
@@ -491,7 +532,6 @@ function addCabinet(
   };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
-  const specialty = resolvedThreeDSpecialtyProfile(sku);
   if (isPlacedAppliance) {
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
@@ -597,22 +637,24 @@ function addCabinet(
       addDrawers();
     }
   } else if (specialty.kind === "corner-drawer") {
-    // CDB36 occupies a real 36-by-36 corner footprint. Its wall-facing 24-inch
-    // side stays a finished panel while the exposed 12-inch face carries three
-    // stacked drawer fronts, matching the 2D Corner Drawer Base drawing.
-    const blankPanelWidth = bodyWidth * (2 / 3);
-    const drawerFaceWidth = bodyWidth - blankPanelWidth;
-    const sidePanel = new THREE.Mesh(new THREE.BoxGeometry(blankPanelWidth - 0.04, bodyHeight - 0.08, 0.05), faceMaterial);
-    sidePanel.position.set(-bodyWidth / 2 + blankPanelWidth / 2 + 0.02, 0, 0.03);
-    sidePanel.userData = { specialtyProfile: "corner-drawer", cornerDrawerSidePanel: true };
-    frontGroup.add(sidePanel);
+    // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
+    // the 2D Corner Drawer Base elevation: an 8% corner marker and a full-height
+    // 92% stack of measured drawer rows—not a 24-inch blank panel plus a strip.
+    const { cornerMarkerWidth, drawerStackWidth } = cornerDrawerFrontLayout(bodyWidth);
+    const cornerMarker = new THREE.Mesh(
+      new THREE.BoxGeometry(cornerMarkerWidth - 0.01, bodyHeight - 0.08, 0.045),
+      new THREE.MeshStandardMaterial({ color: "#796a5c", roughness: 0.68 }),
+    );
+    cornerMarker.position.set(-bodyWidth / 2 + cornerMarkerWidth / 2 + 0.01, 0, 0.03);
+    cornerMarker.userData = { specialtyProfile: "corner-drawer", cornerDrawerIndicator: true };
+    frontGroup.add(cornerMarker);
     const rows = resolvedThreeDDrawerRows(sku, bodyHeight - 0.1, Math.max(1, drawerCount || 3));
     let rowTop = bodyHeight / 2 - 0.05;
     for (const row of rows) {
-      const drawerWidth = drawerFaceWidth / row.count;
+      const drawerWidth = drawerStackWidth / row.count;
       for (let column = 0; column < row.count; column++) {
         const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
-        drawer.position.set(-bodyWidth / 2 + blankPanelWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
+        drawer.position.set(-bodyWidth / 2 + cornerMarkerWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
         drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true };
         frontGroup.add(drawer);
         addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDShakerRailThickness, threeDSceneInputDiagnostics, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDShakerRailThickness, threeDSceneInputDiagnostics, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -107,6 +107,13 @@ describe("interactive 3D room scene helpers", () => {
     } as never;
     expect(existingCabinetTransform(cdb)).toEqual({ x: 18, z: 18, rotation: 0, bottom: 0 });
     expect(existingCabinetSku(cdb)).toMatchObject({ width: 36, depth: 36, numberOfDoors: 0, numberOfDrawers: 3, graphicType: "corner-drawer-base" });
+    expect(cornerDrawerFrontLayout(3)).toEqual({ cornerMarkerWidth: 0.24, drawerStackWidth: 2.76 });
+    expect(lCornerCarcassParts(3, 3)).toMatchObject({
+      legWidth: 2,
+      legDepth: 2,
+      backLeg: { width: 3, depth: 2, x: 0, z: -0.5 },
+      sideLeg: { width: 2, depth: 1, x: -0.5, z: 1 },
+    });
   });
 
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {
@@ -147,6 +154,18 @@ describe("interactive 3D room scene helpers", () => {
     expect(rows.map((row) => row.count)).toEqual([1, 2]);
     expect(rows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
     expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.07);
+  });
+
+  it("assigns a drawer-only cabinet’s complete usable face to its saved drawer stack", () => {
+    const layout = resolvedThreeDFaceLayout({ placementType: "base", numberOfDoors: 0, numberOfDrawers: 3 });
+    const usableHeight = 34.5 / 12 - 0.08;
+    const drawerZone = layout.doorCount === 0 && !layout.hasConfiguredOpening ? usableHeight : usableHeight * 0.35;
+    expect(drawerZone).toBeCloseTo(usableHeight, 12);
+    expect(resolvedThreeDDrawerRows({ drawerLayout: null }, drawerZone, layout.drawerCount)).toEqual([
+      { count: 1, height: usableHeight / 3 },
+      { count: 1, height: usableHeight / 3 },
+      { count: 1, height: usableHeight / 3 },
+    ]);
   });
 
   it("calibrates an oven tower from the saved 2D door zone, drawer rows, and middle cut-out", () => {
@@ -199,8 +218,12 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 6, z: 33.5, rotation: Math.PI / 2, bottom: 54 });
     expect(existingCabinetTransform({
       uid: "hood", cabinetId: 0, masterCode: "HOOD-30", description: "Range Hood", placement: "appliance",
-      x: 0, y: 45, width: 30, depth: 18, height: 18, rotation: 90, mountBottom: 66,
-    })).toEqual({ x: 9, z: 60, rotation: Math.PI / 2, bottom: 66 });
+      x: 3.5, y: 45, width: 30, depth: 18, height: 18, rotation: 90, mountBottom: 66,
+    })).toEqual({ x: 12.5, z: 60, rotation: Math.PI / 2, bottom: 66 });
+    expect(existingCabinetTransform({
+      uid: "range", cabinetId: 0, masterCode: "RANGE-30", description: "Range / Stove 30 inch", placement: "appliance",
+      x: 0, y: 45, width: 30, depth: 25, height: 36, rotation: 90, mountBottom: 0,
+    })).toMatchObject({ x: 12.5, z: 60, rotation: Math.PI / 2, bottom: 0 });
     const hood = rangeHoodGeometry(30, 18, 18);
     expect(hood).toMatchObject({ width: 2.5, depth: 1.5, height: 1.5, chimneyWidth: 1.05 });
     expect(hood.chimneyDepth).toBeCloseTo(0.69, 12);
