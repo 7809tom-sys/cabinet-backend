@@ -915,6 +915,29 @@ export function lCornerBoxSide(placement: Placement): number {
   return placement === "wall" ? 24 : 36;
 }
 
+/**
+ * The single saved-placement corner classification shared by the 2D plan and
+ * the deterministic 3D renderer.  A renderer must never infer a different
+ * shape from its own SKU heuristics: this exact result decides whether a saved
+ * placement is a diagonal clipped corner, a right triangle, a blind box, an
+ * L-corner, or an ordinary cabinet.
+ */
+export type PlacedCornerGeometryKind = "standard" | "diagonal" | "triangle" | "blind-corner" | "l-shape" | "base-end";
+
+export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometryKind {
+  if (isBaseEndCornerCabinet(p)) return "base-end";
+  if (isTriangleCorner(p.masterCode, p.cornerType)) return "triangle";
+  if (p.cornerType === "diagonal" || isDiagonalCorner(p.masterCode, p.description)) return "diagonal";
+  if (p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description)) return "blind-corner";
+  if (
+    p.cornerType === "lazy-susan" ||
+    p.cornerType === "pie-cut" ||
+    p.cornerType === "l-shape" ||
+    isLCornerCabinet(p.masterCode, p.description)
+  ) return "l-shape";
+  return "standard";
+}
+
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // BEC-24 is a square 24x24 end-return box with a distinct two-face graphic.
   // Its footprint must remain stable through rotation, snapping, and collision

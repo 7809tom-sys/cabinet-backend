@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, snapPosition, orientToWall, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -28,11 +28,12 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
   const isEndReturn = drawingType === "end-return";
   const isEndCabinet = isEndAngle || isEndReturn;
   const configuredCorner = isEndCabinet ? null : cabinet.cornerType ?? null;
+  const sharedKind = placedCornerGeometryKind(cabinet);
   const isCorner = !isEndCabinet && (configuredCorner !== null || isCornerCabinet(cabinet.masterCode, cabinet.description));
-  const isTriangle = !isEndCabinet && isTriangleCorner(cabinet.masterCode, cabinet.cornerType);
-  const isDiagonal = !isEndCabinet && !isTriangle && (configuredCorner === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description));
-  const isBlind = !isEndCabinet && (configuredCorner === "blind-corner" || isBlindCorner(cabinet.masterCode, cabinet.description));
-  const isConfiguredL = !isEndCabinet && (configuredCorner === "lazy-susan" || configuredCorner === "pie-cut" || configuredCorner === "l-shape");
+  const isTriangle = !isEndCabinet && sharedKind === "triangle";
+  const isDiagonal = !isEndCabinet && sharedKind === "diagonal";
+  const isBlind = !isEndCabinet && sharedKind === "blind-corner";
+  const isConfiguredL = !isEndCabinet && sharedKind === "l-shape";
   return { isEndAngle, isEndReturn, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
 }
 

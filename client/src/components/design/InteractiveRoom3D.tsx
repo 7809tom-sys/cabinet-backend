@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, elevationBox, isBaseEndCornerCabinet, isBlindCorner, isDiagonalCorner, isLCornerCabinet, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -335,15 +335,19 @@ export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number) {
  * stores the enclosing square, but the cabinet occupies the wall-side triangle
  * behind its 45-degree face rather than a full rectangular box.
  */
-export function diagonalCornerFootprintVertices(bodyWidth: number, bodyDepth: number) {
+export function diagonalCornerFootprintVertices(bodyWidth: number, bodyDepth: number, legRatio = 0.5) {
+  const cutX = -bodyWidth / 2 + bodyWidth * legRatio;
+  const cutZ = -bodyDepth / 2 + bodyDepth * legRatio;
   return [
     { x: -bodyWidth / 2, z: -bodyDepth / 2 },
     { x: bodyWidth / 2, z: -bodyDepth / 2 },
+    { x: bodyWidth / 2, z: cutZ },
+    { x: cutX, z: bodyDepth / 2 },
     { x: -bodyWidth / 2, z: bodyDepth / 2 },
   ];
 }
 
-/** Builds a vertical triangular wedge from the shared 2D diagonal footprint. */
+/** Builds the vertical pentagonal extrusion defined by the shared 2D diagonal footprint. */
 function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
   const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
   const shape = new THREE.Shape();
@@ -893,7 +897,10 @@ function addCabinet(
   }
 }
 
-export function existingCabinetTransform(cabinet: PlacedCabinet, room?: Pick<RoomData, "ceilingHeight"> | null) {
+export function existingCabinetTransform(
+  cabinet: PlacedCabinet,
+  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
+) {
   // Placed coordinates are the top-left of the 2D rotation-aware footprint.
   // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
   // producing artificial gaps in the 3D scene.
@@ -901,7 +908,12 @@ export function existingCabinetTransform(cabinet: PlacedCabinet, room?: Pick<Roo
   const width = numberValue(footprint.w, 24);
   const depth = numberValue(footprint.d, BASE_DEPTH);
   const savedRotation = Number(cabinet.rotation);
-  const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
+  const sharedKind = placedCornerGeometryKind(cabinet);
+  const hasPlacedRoom = Number.isFinite(room?.width) && Number.isFinite(room?.depth);
+  const planRotation = sharedKind === "diagonal" && hasPlacedRoom
+    ? cornerRotationForPlaced(cabinet, room as RoomData)
+    : savedRotation;
+  const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
   const sharedElevation = elevationBox(cabinet, room);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"
     ? sharedElevation.bottom
@@ -933,11 +945,8 @@ export function normalizedThreeDFootprint(cabinet: PlacedCabinet) {
  * on the exact 2D envelope without double-applying rotation.
  */
 export function threeDCornerBodyDimensions(cabinet: PlacedCabinet) {
-  const isSharedCorner = Boolean(cabinet.cornerType)
-    || isDiagonalCorner(cabinet.masterCode, cabinet.description)
-    || isLCornerCabinet(cabinet.masterCode, cabinet.description)
-    || isBlindCorner(cabinet.masterCode, cabinet.description)
-    || isBaseEndCornerCabinet(cabinet);
+  const sharedKind = placedCornerGeometryKind(cabinet);
+  const isSharedCorner = sharedKind !== "standard";
   if (!isSharedCorner) return null;
   const footprint = normalizedThreeDFootprint(cabinet);
   const rotation = ((Number(cabinet.rotation) % 360) + 360) % 360;
@@ -1096,7 +1105,7 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 }
 
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
-  const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
+  const diagonalCorner = placedCornerGeometryKind(cabinet) === "diagonal";
   const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
   const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
   const cornerBody = threeDCornerBodyDimensions(cabinet);

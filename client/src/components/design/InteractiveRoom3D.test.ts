@@ -4,6 +4,7 @@ import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./In
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
+import { placedCornerGeometryKind } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -334,11 +335,14 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 2, numberOfDrawers: 0,
     } as never;
     const mapped = existingCabinetSku(wdc);
+    expect(placedCornerGeometryKind(wdc)).toBe("diagonal");
     expect(mapped).toMatchObject({ masterCode: "WDC2442", width: 24, depth: 24, cornerType: "diagonal" });
     expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "diagonal-corner", pattern: null });
     expect(diagonalCornerFootprintVertices(2, 2)).toEqual([
       { x: -1, z: -1 },
       { x: 1, z: -1 },
+      { x: 1, z: 0 },
+      { x: 0, z: 1 },
       { x: -1, z: 1 },
     ]);
   });
