@@ -89,6 +89,17 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
   wholesale: "For licensed dealers & high-volume trade accounts",
 };
 
+// These codes are supplier/legacy references for the same physical cabinet.
+// Keep their links working after the catalog is consolidated under BA-24.
+export const LEGACY_CANONICAL_CABINET_CODES: Record<string, string> = {
+  "BEC-24": "BA-24",
+  BEC24: "BA-24",
+};
+
+export function canonicalCabinetDetailCode(masterCode: string): string {
+  return LEGACY_CANONICAL_CABINET_CODES[masterCode.trim().toUpperCase()] ?? masterCode;
+}
+
 function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
   const code = (masterCode || "").toUpperCase();
   if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
@@ -320,6 +331,7 @@ interface Props {
 export default function CabinetDetail({ masterCode }: Props) {
   const { categoryNames, subCategoriesMap } = useDynamicCategories();
   const searchStr = useSearch();
+  const canonicalMasterCode = canonicalCabinetDetailCode(masterCode);
   const affiliateSlug = useMemo(() => {
     if (typeof window === "undefined") return undefined;
     const storeRoute = window.location.pathname.match(/^\/store\/([^/]+)/)?.[1];
@@ -363,7 +375,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     { enabled: cabinetIdParam != null },
   );
   const { data: cabinetByCode, isLoading: cabinetByCodeLoading } = trpc.cabinets.byCode.useQuery({
-    masterCode,
+    masterCode: canonicalMasterCode,
   }, { enabled: cabinetIdParam == null });
   const cabinet = cabinetById ?? cabinetByCode;
   const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;

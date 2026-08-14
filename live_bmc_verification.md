@@ -8,4 +8,4 @@ The published BMC30 route `https://www.cabinetdealz.com/catalog/BMC30?verify=21c
 
 The same published catalog family contains one canonical **BA-24 — 24" Base End Cabinet — 45° Angled Front** card, with no BEC-24 duplicate card visible in the displayed base-cabinet list.
 
-The published legacy route `/catalog/BEC-24?verify=21cf679a` still returned **Cabinet Not Found** during the first production check. The retained database alias therefore needs an additional client or route-resolution repair before the merge can be considered complete.
+The published legacy route `/catalog/BEC-24?verify=21cf679a` returned **Cabinet Not Found** during the first production check. A second check after checkpoint `53e1719d` returned the same result, although the active local server resolves the alias correctly. The production route is still serving a stale or different detail resolver and needs a route-level client fallback before the merge can be considered complete.

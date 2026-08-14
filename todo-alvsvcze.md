@@ -185,6 +185,7 @@
 - [x] Remove duplicate BA-24/BEC-24 entries from catalog, designer palette, build sheets, carts, and pricing selection
 - [x] Add canonical-and-alias regression coverage for the merged BA-24/BEC-24 item
 - [x] Merge the discovered BEC24 no-dash duplicate into canonical BA-24 alongside BEC-24 and retain both legacy aliases
+- [x] Resolve legacy BEC-24 and BEC24 detail URLs to canonical BA-24 without recreating duplicate catalog records
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

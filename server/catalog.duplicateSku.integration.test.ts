@@ -52,7 +52,10 @@ describe("duplicate normalized cabinet codes", () => {
 
     const canonical = await caller.cabinets.byCode({ masterCode: "BA-24" });
     const alias = await caller.cabinets.byCode({ masterCode: "BEC-24" });
+    const noDashAlias = await caller.cabinets.byCode({ masterCode: "BEC24" });
     expect(alias).toEqual(expect.objectContaining({ id: 9390014, masterCode: "BA-24" }));
+    expect(noDashAlias).toEqual(expect.objectContaining({ id: 9390014, masterCode: "BA-24" }));
     expect(alias).toEqual(canonical);
+    expect(noDashAlias).toEqual(canonical);
   });
 });
