@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -456,14 +456,42 @@ describe("interactive 3D room scene helpers", () => {
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
       openingType: "middle", ovenType: "single",
     });
-    expect(layout.doorZone).toBe(1.5);
+    expect(layout.doorZone).toBe(19.5 / 12);
     expect(layout.drawerRows).toEqual([
       { count: 1, height: 11 / 12 },
       { count: 1, height: 11 / 12 },
       { count: 1, height: 11 / 12 },
     ]);
-    expect(layout.openingHeight).toBeCloseTo(2.67, 12);
+    expect(layout.openingHeight).toBeCloseTo(27 / 12, 12);
     expect(layout.openingPosition).toBe("middle");
+  });
+
+  it("uses the 21-inch standard-face boundary in 3D while keeping the diagonal wall corner’s two-door specialty face", () => {
+    expect(resolvedThreeDFaceLayout({ width: 21, numberOfDoors: null }).doorCount).toBe(1);
+    expect(resolvedThreeDFaceLayout({ width: 22, numberOfDoors: null }).doorCount).toBe(2);
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -2430,
+      cabinetId: 2430,
+      masterCode: "WDC2430",
+      description: '24" Wall Diagonal Corner Cabinet',
+      placementType: "wall",
+      width: 24,
+      height: 30,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      cornerType: "diagonal",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const diagonalDoors: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.diagonalDoor) diagonalDoors.push(node); });
+    expect(diagonalDoors).toHaveLength(2);
+  });
+
+  it("uses the exact remaining 84-, 90-, and 96-inch height for the single-oven two-door bridge", () => {
+    expect(singleOvenTowerAssembly(84)).toMatchObject({ baseHeightIn: 34.5, ovenHeightIn: 27, fillerHeightIn: 3, bridgeHeightIn: 19.5 });
+    expect(singleOvenTowerAssembly(90).bridgeHeightIn).toBe(25.5);
+    expect(singleOvenTowerAssembly(96).bridgeHeightIn).toBe(31.5);
   });
 
   it("centers a 27-inch single-oven opening inside a 30-inch cabinet enclosure", () => {
@@ -709,7 +737,7 @@ describe("interactive 3D room scene helpers", () => {
     root.traverse((node) => {
       if (node.userData.diagonalCornerWedge) wedges.push(node);
       if (node.userData.diagonalDoor) doors.push(node);
-      if (node.userData.cabinetFront) genericFrontPanels.push(node);
+      if (node.userData.cabinetFront && !node.userData.diagonalDoor) genericFrontPanels.push(node);
       if (
         node instanceof THREE.Mesh &&
         !node.userData.diagonalCornerWedge &&

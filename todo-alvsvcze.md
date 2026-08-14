@@ -321,7 +321,7 @@
 - [x] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [x] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D
 - [x] Route LS36 lazy-Susan Cabinet Config records into the L-corner elevation branch instead of the diagonal-corner branch
-- [ ] Render doors and drawers only on true cabinet fronts while applying the matching selected-style texture skin to exposed 3D sides and ends
+- [x] Render doors and drawers only on true cabinet fronts while applying the matching selected-style texture skin to exposed 3D sides and ends
 - [x] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
 - [x] Correct the reported 24-inch return cabinet to 24-inch legs, 12-inch returns, and a 17-inch diagonal door front in 2D and 3D
 - [x] Correct WDC wall corners to the confirmed 24-by-24 footprint, 12-inch wall returns, and 17-inch diagonal door front in 2D and 3D
@@ -331,6 +331,10 @@
 - [x] Render every single-oven appliance opening at 27 inches, centered within its 30-inch cabinet enclosure with a 3-inch total width reduction
 - [x] Enforce three bottom drawers for single-oven cabinets and one bottom drawer for double-oven cabinets in both 2D and 3D
 - [x] Preserve the correct existing 2D oven layout unchanged while making only the 3D oven enclosure match its measured opening and drawer layout
+- [x] Render the single-oven tower as an integrated assembly with its 27-inch oven opening, 3-inch filler, and attached 12-inch two-door bridge cabinet above
+- [x] Make the single-oven tower’s upper two-door bridge consume the remaining height for 84-, 90-, and 96-inch cabinet configurations
+- [x] Enforce one door for cabinet faces at or below 21 inches and two equal doors for faces wider than 21 inches across 2D and 3D
+- [x] Preserve the diagonal wall-corner cabinet’s two equal center-meeting doors as a specialty override to the standard 21-inch door-width rule
 - [x] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
 - [x] Sharpen 3D cabinet door and drawer front definition so their framed faces remain legible in the room preview
 - [x] Render pantry/tall cabinets with two stacked door sets and a bottom drawer section beginning at the confirmed 54-inch line

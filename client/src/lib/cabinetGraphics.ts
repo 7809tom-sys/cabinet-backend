@@ -93,6 +93,12 @@ function toNum(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Standard cabinet faces wider than 21 inches are split into two equal doors. */
+export function standardDoorCountForFaceWidth(width: number | string | null | undefined): number {
+  const measuredWidth = toNum(width);
+  return measuredWidth !== null && measuredWidth > 21 ? 2 : 1;
+}
+
 function lc(v: string | null | undefined): string {
   return (v ?? "").toLowerCase();
 }
@@ -193,7 +199,8 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     return { doors: 0, drawers };
   }
 
-  // 4) Fall back to positive numeric fields, then to width (>=24" base/wall = 2 doors).
+  // 4) Fall back to positive numeric fields, then to the shared 21-inch standard
+  // face rule. Specialty families resolve before this generic fallback.
   // A zero is not a reliable no-door flag because it is the schema default; open
   // fronts use the explicit `noDoor` signal above.
   if (doors === 0) {
@@ -201,7 +208,7 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     if (n > 0) doors = n;
   }
   if (doors === 0 && drawers === 0) {
-    doors = w !== null && w >= 24 ? 2 : 1;
+    doors = standardDoorCountForFaceWidth(w);
   }
 
   return { doors, drawers };

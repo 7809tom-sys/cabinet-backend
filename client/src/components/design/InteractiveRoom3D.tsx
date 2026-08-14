@@ -5,6 +5,7 @@ import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maxi
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -178,6 +179,19 @@ export function rangeOvenFrontLayout(bodyHeight: number) {
   };
 }
 
+/** The upper bridge grows with the total 84/90/96-inch single-oven tower. */
+export function singleOvenTowerAssembly(totalHeightIn: number) {
+  const baseHeightIn = 34.5;
+  const ovenHeightIn = 27;
+  const fillerHeightIn = 3;
+  return {
+    baseHeightIn,
+    ovenHeightIn,
+    fillerHeightIn,
+    bridgeHeightIn: Math.max(0, totalHeightIn - baseHeightIn - ovenHeightIn - fillerHeightIn),
+  };
+}
+
 export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHeight: number) {
   const cooktopWidth = Math.max(0.2, bodyWidth - 0.12);
   const cooktopDepth = Math.max(0.2, bodyDepth - 0.12);
@@ -281,15 +295,19 @@ export function resolvedThreeDOvenLayout(input: {
     ? Array.from({ length: drawerCount }, () => ({ count: 1, height: 11 * INCH }))
     : resolvedThreeDDrawerRows({ drawerLayout: input.drawerLayout ?? null }, requestedDrawerHeight, drawerCount);
   const measuredOpeningHeight = described.openingHeight != null ? described.openingHeight * INCH : null;
-  const doorZone = doorCount
+  let doorZone = doorCount
     ? input.doorHeight != null
       ? Math.min(usableHeight * 0.7, Math.max(0, Number(input.doorHeight) * INCH))
       : measuredOpeningHeight != null
         ? Math.max(0, usableHeight - measuredOpeningHeight - requestedRows.reduce((sum, row) => sum + row.height, 0))
         : usableHeight * 0.2
     : 0;
+  const fixedSingleOvenOpening = input.ovenType === "single" ? 27 * INCH : null;
+  if (input.ovenType === "single" && doorCount) {
+    doorZone = singleOvenTowerAssembly(numberValue(input.height, 84)).bridgeHeightIn * INCH;
+  }
   const requestedDrawerZone = requestedRows.reduce((sum, row) => sum + row.height, 0);
-  const availableDrawerZone = Math.max(0, usableHeight - doorZone - (measuredOpeningHeight ?? usableHeight * 0.15));
+  const availableDrawerZone = Math.max(0, usableHeight - doorZone - (fixedSingleOvenOpening ?? measuredOpeningHeight ?? usableHeight * 0.15));
   const drawerScale = requestedDrawerZone > availableDrawerZone && requestedDrawerZone > 0 ? availableDrawerZone / requestedDrawerZone : 1;
   const drawerRows = requestedRows.map((row) => ({ ...row, height: row.height * drawerScale }));
   const drawerZone = drawerRows.reduce((sum, row) => sum + row.height, 0);
@@ -299,7 +317,7 @@ export function resolvedThreeDOvenLayout(input: {
     doorZone,
     drawerRows,
     drawerZone,
-    openingHeight: Math.max(0.12, usableHeight - doorZone - drawerZone),
+    openingHeight: fixedSingleOvenOpening ?? Math.max(0.12, usableHeight - doorZone - drawerZone),
     openingPosition: input.openingType === "top" || input.openingType === "bottom" ? input.openingType : "middle" as const,
     ovenCount,
   };
@@ -485,15 +503,17 @@ function disposeObject(root: THREE.Object3D) {
 
 export function resolvedThreeDFaceLayout(input: {
   placementType?: string | null;
+  width?: unknown;
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   openingType?: string | null;
 }) {
   const placement = (input.placementType ?? "base").toLowerCase();
-  const isWallOrTall = placement === "wall" || placement === "tall";
   return {
     hasConfiguredOpening: Boolean(input.openingType && input.openingType !== "none"),
-    doorCount: input.numberOfDoors == null ? (isWallOrTall ? 2 : 1) : Math.max(0, input.numberOfDoors),
+    doorCount: input.numberOfDoors == null
+      ? standardDoorCountForFaceWidth(typeof input.width === "number" || typeof input.width === "string" ? input.width : null)
+      : Math.max(0, input.numberOfDoors),
     drawerCount: Math.max(0, input.numberOfDrawers ?? 0),
   };
 }
@@ -744,10 +764,20 @@ export function addCabinet(
       for (let i = 0; i < ovenLayout.doorCount; i++) {
         const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
         door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), zoneTop - height / 2, 0.035);
+        door.userData = { cabinetFront: true, ovenCabinetDoor: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
       }
       zoneTop -= height;
+    };
+    const addSingleOvenFiller = () => {
+      if (sku.ovenType !== "single") return;
+      const fillerHeight = 3 * INCH;
+      const filler = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, fillerHeight, 0.048), bodyMaterial);
+      filler.position.set(0, zoneTop - fillerHeight / 2, 0.032);
+      filler.userData = { ovenTowerFiller: true, fillerHeightIn: 3, selectedFinishSideSkin: true };
+      frontGroup.add(filler);
+      zoneTop -= fillerHeight;
     };
     const addDrawers = () => {
       for (const row of ovenLayout.drawerRows) {
@@ -755,6 +785,7 @@ export function addCabinet(
         for (let column = 0; column < row.count; column++) {
           const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
           drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), zoneTop - row.height / 2, 0.035);
+          drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ovenCabinetDrawer: true };
           frontGroup.add(drawer);
           addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
           addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
@@ -776,7 +807,12 @@ export function addCabinet(
       }
       zoneTop -= ovenLayout.openingHeight;
     };
-    if (ovenLayout.openingPosition === "top") {
+    if (sku.ovenType === "single") {
+      addDoors(ovenLayout.doorZone);
+      addSingleOvenFiller();
+      addOvenCutout();
+      addDrawers();
+    } else if (ovenLayout.openingPosition === "top") {
       addOvenCutout();
       addDoors(ovenLayout.doorZone);
       addDrawers();
@@ -827,7 +863,7 @@ export function addCabinet(
         diagonalFaceCenterZ - direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
       );
       door.rotation.y = Math.PI / 4;
-      door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right" };
+      door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
       addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
     }
@@ -870,7 +906,7 @@ export function addCabinet(
       for (let column = 0; column < row.count; column++) {
         const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
         drawer.position.set(-bodyWidth / 2 + cornerMarkerWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
-        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true };
+        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true, cabinetFront: true, cabinetDrawerFront: true };
         frontGroup.add(drawer);
         addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
         addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
@@ -886,7 +922,7 @@ export function addCabinet(
       const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
       door.position.set(direction * faceWidth * 0.24, 0, 0.035);
       door.rotation.y = direction * Math.PI / 4;
-      door.userData = { specialtyProfile: "end-return", returnFace: direction === -1 ? "left" : "right" };
+      door.userData = { specialtyProfile: "end-return", returnFace: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
       addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
     }

@@ -7,6 +7,7 @@ import {
   cabinetTypeLabel,
   resolveConfiguredFaceCounts,
   resolveDoorDrawerCounts,
+  standardDoorCountForFaceWidth,
   baseSubGroup,
   type CabinetLike,
 } from "./cabinetGraphics";
@@ -137,7 +138,7 @@ describe("cabinetDrawingType", () => {
     const base = { masterCode: "CUSTOM-36", description: '36" Configured Base Cabinet', category: "Base" };
     expect(cabinetDrawingType({ ...base, cornerType: "diagonal" })).toBe("diagonal-corner");
     expect(cabinetDrawingType({ ...base, cornerType: "blind-corner" })).toBe("blind-corner");
-    expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("diagonal-corner");
+    expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
   });
 
   it("uses one explicit angled-front end-cabinet rule for both BA-24 and BEC-24", () => {
@@ -357,6 +358,13 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
 });
 
 describe("door-count agreement: label + drawing follow the description, not a wrong subCategory", () => {
+  it("uses one standard door at 21 inches and two equal standard doors above 21 inches", () => {
+    expect(standardDoorCountForFaceWidth(21)).toBe(1);
+    expect(standardDoorCountForFaceWidth(21.01)).toBe(2);
+    expect(resolveDoorDrawerCounts({ masterCode: "W-21", description: '21" Wall Cabinet', width: 21 })).toEqual({ doors: 1, drawers: 0 });
+    expect(resolveDoorDrawerCounts({ masterCode: "W-22", description: '22" Wall Cabinet', width: 22 })).toEqual({ doors: 2, drawers: 0 });
+  });
+
   // Reported bug: a single-door wall whose subCategory is mislabeled
   // "Double Door Wall". The drawing, the resolved count, and the visible
   // tag must all agree on ONE door.
