@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDShakerRailThickness, threeDSceneInputDiagnostics, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDShakerRailThickness, threeDSceneInputDiagnostics, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -32,6 +32,13 @@ describe("interactive 3D room scene helpers", () => {
 
   it("keeps cabinet faces visibly calibrated when a selected 2D door image fails to load", () => {
     expect(threeDDoorMaterialFallback("#b8874e")).toEqual({ color: "#b8874e", map: null });
+  });
+
+  it("renders a selected door sample as texture or calibrated fallback, never an unreported flat-face mode", () => {
+    expect(threeDVisibleMaterialMode("/manus-storage/silva.png", "loading")).toBe("selected-texture-loading");
+    expect(threeDVisibleMaterialMode("/manus-storage/silva.png", "loaded")).toBe("selected-texture");
+    expect(threeDVisibleMaterialMode("/manus-storage/silva.png", "failed")).toBe("calibrated-fallback");
+    expect(threeDVisibleMaterialMode(null, "not-requested")).toBe("calibrated-fallback");
   });
 
   it("renders placed 2D cabinets instead of starter suggestions whenever a design exists", () => {
@@ -75,6 +82,9 @@ describe("interactive 3D room scene helpers", () => {
   });
 
   it("carries saved end-return and open-front Cabinet Config profiles into 3D specialty geometry", () => {
+    expect(resolvedThreeDSpecialtyProfile({
+      masterCode: "CDB36", description: "36 inch Corner Drawer Base Cabinet", graphicType: "corner-drawer-base", customProfile: "corner-drawer-base", facePattern: null, cornerType: "l-shape",
+    })).toEqual({ kind: "corner-drawer", pattern: null });
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "BEC-24", description: "Base End Cabinet", graphicType: "base_end_return", customProfile: "end-angle", facePattern: null, cornerType: null,
     })).toEqual({ kind: "end-return", pattern: null });
@@ -185,7 +195,22 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(transform.x).toBe(3.25);
     expect(transform.z).toBeCloseTo(4.916666666666667, 12);
-    expect(transform.countertopTop).toBe(3.125);
+    expect(transform.countertopTop).toBeCloseTo(3.125, 12);
+  });
+
+  it("extends the countertop over a saved dishwasher but not over tall or wall scene items", () => {
+    expect(shouldRenderCountertopOverSceneItem("appliance", "DW-24")).toBe(true);
+    expect(shouldRenderCountertopOverSceneItem("base", "B-33")).toBe(true);
+    expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("wall", "W-30-42")).toBe(false);
+  });
+
+  it("centers the range oven face and reserves a measured lower storage drawer", () => {
+    const layout = rangeOvenFrontLayout(3);
+    expect(layout.openingHeight).toBeCloseTo(1.62, 12);
+    expect(layout.openingCenterY).toBeGreaterThan(0);
+    expect(layout.drawerHeight).toBeCloseTo(0.42, 12);
+    expect(layout.drawerCenterY).toBeCloseTo(-1.25, 12);
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {

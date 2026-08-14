@@ -129,6 +129,28 @@ export function threeDDoorMaterialFallback(color: string) {
   return { color, map: null as null };
 }
 
+export function shouldRenderCountertopOverSceneItem(placement: string, masterCode: string) {
+  if (placement === "wall" || placement === "tall" || placement === "accessory") return false;
+  return placement !== "appliance" || /^(?:DW-|DISHWASHER)/i.test(masterCode);
+}
+
+export function rangeOvenFrontLayout(bodyHeight: number) {
+  const drawerHeight = Math.max(0.12, bodyHeight * 0.14);
+  const openingHeight = Math.max(0.2, bodyHeight * 0.54);
+  return {
+    openingHeight,
+    openingCenterY: drawerHeight * 0.42,
+    drawerHeight,
+    drawerCenterY: -bodyHeight / 2 + drawerHeight / 2 + 0.04,
+  };
+}
+
+export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
+  if (doorSampleUrl && textureState === "loaded") return "selected-texture" as const;
+  if (doorSampleUrl && textureState === "loading") return "selected-texture-loading" as const;
+  return "calibrated-fallback" as const;
+}
+
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -336,6 +358,7 @@ export function resolvedThreeDFaceLayout(input: {
 export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
   if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
+  if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
   if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
   if (sku.cornerType === "diagonal") return { kind: "diagonal-corner" as const, pattern: null };
   if (/\b(?:wine|lattice|plate)\b/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) return { kind: "face-pattern" as const, pattern: "lattice" as const };
@@ -484,11 +507,18 @@ function addCabinet(
     } else {
       const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
       frontGroup.add(applianceFace);
-      const openingH = /FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62;
+      const rangeLayout = /RANGE/.test(code) ? rangeOvenFrontLayout(bodyHeight) : null;
+      const openingH = rangeLayout?.openingHeight ?? (/FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62);
       const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
-      opening.position.y = /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04;
+      opening.position.y = rangeLayout?.openingCenterY ?? (/RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
       opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
       frontGroup.add(opening);
+      if (rangeLayout) {
+        const storageDrawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, rangeLayout.drawerHeight, 0.066), applianceMaterial);
+        storageDrawer.position.set(0, rangeLayout.drawerCenterY, 0.038);
+        storageDrawer.userData = { applianceCode: sku.masterCode, rangeStorageDrawer: true };
+        frontGroup.add(storageDrawer);
+      }
       const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
       frontGroup.add(control);
@@ -560,6 +590,30 @@ function addCabinet(
       addDoors(ovenLayout.doorZone);
       addOvenCutout();
       addDrawers();
+    }
+  } else if (specialty.kind === "corner-drawer") {
+    // CDB36 occupies a real 36-by-36 corner footprint. Its wall-facing 24-inch
+    // side stays a finished panel while the exposed 12-inch face carries three
+    // stacked drawer fronts, matching the 2D Corner Drawer Base drawing.
+    const blankPanelWidth = bodyWidth * (2 / 3);
+    const drawerFaceWidth = bodyWidth - blankPanelWidth;
+    const sidePanel = new THREE.Mesh(new THREE.BoxGeometry(blankPanelWidth - 0.04, bodyHeight - 0.08, 0.05), faceMaterial);
+    sidePanel.position.set(-bodyWidth / 2 + blankPanelWidth / 2 + 0.02, 0, 0.03);
+    sidePanel.userData = { specialtyProfile: "corner-drawer", cornerDrawerSidePanel: true };
+    frontGroup.add(sidePanel);
+    const rows = resolvedThreeDDrawerRows(sku, bodyHeight - 0.1, Math.max(1, drawerCount || 3));
+    let rowTop = bodyHeight / 2 - 0.05;
+    for (const row of rows) {
+      const drawerWidth = drawerFaceWidth / row.count;
+      for (let column = 0; column < row.count; column++) {
+        const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
+        drawer.position.set(-bodyWidth / 2 + blankPanelWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
+        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true };
+        frontGroup.add(drawer);
+        addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
+        addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
+      }
+      rowTop -= row.height;
     }
   } else if (specialty.kind === "end-return") {
     // BEC / BA end-return cabinets are 24-by-24 end pieces, not flat base boxes.
@@ -638,7 +692,7 @@ function addCabinet(
   cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
   root.add(cabinet);
 
-  if (!isWall && !isTall && placement !== "accessory" && !isPlacedAppliance) {
+  if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode)) {
     const counter = new THREE.Mesh(
       new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12),
       new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
@@ -805,6 +859,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   // resolved finish color over a sparse style-record color field from the scene
   // endpoint, then fall back to the server-derived catalog material.
   const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
+  const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
+  const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
@@ -948,7 +1004,6 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = resolvedCabinetFinish;
-    const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
     setDoorTextureState(activeDoorTexture ? "loading" : "not-requested");
     catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture);
     let disposed = false;
@@ -1208,7 +1263,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
-          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>Door sample texture: {doorTextureState === "not-requested" ? "not selected" : doorTextureState}</p>}
+          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>Cabinet material: {visibleMaterialMode.replaceAll("-", " ")} · Door sample texture: {doorTextureState === "not-requested" ? "not selected" : doorTextureState}</p>}
           {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
         <div className="flex gap-2">

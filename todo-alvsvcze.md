@@ -228,6 +228,13 @@
 - [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
 - [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
 - [x] Add a regression covering failed selected-door texture fallback in the 3D room
+- [x] Center the saved oven cabinet and configure drawers beneath the oven opening
+- [x] Correct the corner door-base cabinet projection to the intended 2D footprint and 3D form
+- [x] Extend the countertop continuously over the saved dishwasher position
+- [x] Configure the specified cabinet slots as drawers instead of generic door faces
+- [x] Add targeted oven, drawer-slot, corner-base, and dishwasher-countertop regressions
+- [x] Replace the active saved lazy-Susan corner with the CDB36 Corner Drawer Base Cabinet
+- [x] Verify CDB36 uses its configured 36-inch corner-drawer plan, elevation, and 3D geometry
 - [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
