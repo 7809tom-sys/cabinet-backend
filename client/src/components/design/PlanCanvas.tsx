@@ -53,6 +53,17 @@ export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): str
   return undefined;
 }
 
+/** Visible 45° WDC door/front seam derived from the same shared diagonal classification. */
+export function planDiagonalFrontPath(cabinet: PlacedCabinet, room: RoomData): string | undefined {
+  if (!planCornerGeometry(cabinet).isDiagonal) return undefined;
+  switch (((cornerRotationForPlaced(cabinet, room) % 360) + 360) % 360) {
+    case 90: return "M50 100L0 50";
+    case 180: return "M0 50L50 0";
+    case 270: return "M50 0L100 50";
+    default: return "M100 50L50 100";
+  }
+}
+
 interface IslandZone {
   x: number;
   y: number;
@@ -1188,6 +1199,18 @@ export function PlanCanvas({
                       <path d="M50 3V52H97" fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.9" />
                       <path d="M4 4H50V50H96" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1.5" />
                       <path d="M50 52L96 96" fill="none" stroke={edgeColor} strokeWidth="1.4" opacity="0.55" />
+                    </svg>
+                  )}
+                  {isDiagonal && !isAppliance && (
+                    <svg
+                      data-diagonal-corner-front="true"
+                      aria-label="Diagonal corner cabinet 45 degree front"
+                      className="absolute inset-0 h-full w-full pointer-events-none"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <path d={planDiagonalFrontPath(p, room)} fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.95" />
+                      <path d={planDiagonalFrontPath(p, room)} fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1" transform="translate(0 -1)" />
                     </svg>
                   )}
                   {/* BEC-24's configured 45° end face stays inside its 24×24
