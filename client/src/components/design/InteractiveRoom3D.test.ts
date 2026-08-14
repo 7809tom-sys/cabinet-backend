@@ -123,11 +123,23 @@ describe("interactive 3D room scene helpers", () => {
       furniture: [{ uid: "unknown-furniture", defId: "unknown", x: 60, y: 60, rotation: 90 } as never],
       ponyWalls: [{ uid: "pony", x: 24, y: 36, width: 48, depth: 6, height: 42 } as never],
       catalogDoorSampleUrl: "/manus-storage/door-sample.png",
+      catalogFinishOverride: "#f6f4ef",
+      catalogFinishName: "Aspen White",
+      catalogCountertopName: "Black Granite",
+      catalogCountertopColor: "#2c2f33",
+      initialPresentation: { cabinetFinish: "#f6f4ef", countertopFinish: "#2c2f33" },
     });
 
     expect(snapshot).toMatchObject({
       room: { width: 144, depth: 120, ceilingHeight: 96 },
-      doorSampleUrl: "/manus-storage/door-sample.png",
+      materials: {
+        doorSampleUrl: "/manus-storage/door-sample.png",
+        cabinetColor: "#f6f4ef",
+        cabinetName: "Aspen White",
+        countertopName: "Black Granite",
+        countertopColor: "#2c2f33",
+        presentation: { cabinetFinish: "#f6f4ef", countertopFinish: "#2c2f33" },
+      },
       cabinets: [{ source: cabinet, footprint: { w: 24, d: 24 }, transform: { x: 24, z: 36, rotation: 0, bottom: 0 }, countertopSupported: true }],
       openings: [{ source: { uid: "window" }, transform: { x: 51, z: 0.06, rotation: 0 } }],
       sinks: [{ source: { uid: "sink" }, transform: { x: 3.25 } }],
@@ -152,6 +164,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDSceneRevisionKey(room, [], [], [sink], null, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-b")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a", "black-granite")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], null, [], [], "sample-a", null, "#49604a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], { x: 48, y: 48, width: 60, depth: 30 }, [], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [furniture], [], "sample-a")).not.toBe(base);
     expect(threeDSceneRevisionKey(room, [], [], [], null, [], [ponyWall], "sample-a")).not.toBe(base);

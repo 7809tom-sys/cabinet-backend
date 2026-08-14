@@ -1411,8 +1411,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [activeStyle]
   );
   const interactive3dRevision = useMemo(
-    () => threeDSceneRevisionKey(room, placed, openings, sinks, island, furniture, ponyWalls, paletteFinishSwatch || active3DDoorSampleUrl, countertopMaterialId),
-    [room, placed, openings, sinks, island, furniture, ponyWalls, paletteFinishSwatch, active3DDoorSampleUrl, countertopMaterialId],
+    () => threeDSceneRevisionKey(room, placed, openings, sinks, island, furniture, ponyWalls, paletteFinishSwatch || active3DDoorSampleUrl, countertopMaterialId, activeFinish.face),
+    [room, placed, openings, sinks, island, furniture, ponyWalls, paletteFinishSwatch, active3DDoorSampleUrl, countertopMaterialId, activeFinish.face],
   );
   // Auto-suggested Hickory finished-end skins, one per exposed cabinet end.
   // Empty unless the selected finish is Hickory. NOTE: the real skin SKU/price

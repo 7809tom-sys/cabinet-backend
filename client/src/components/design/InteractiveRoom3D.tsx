@@ -1123,7 +1123,11 @@ export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleU
   };
 }
 
-export type ThreeDDesignParityInput = Pick<Props, "roomOverride" | "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls" | "catalogDoorSampleUrl">;
+export type ThreeDDesignParityInput = Pick<Props,
+  "roomOverride" | "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls"
+  | "catalogDoorSampleUrl" | "catalogFinishOverride" | "catalogFinishName"
+  | "catalogCountertopName" | "catalogCountertopColor" | "initialPresentation"
+>;
 
 /**
  * A single auditable representation of the 2D entities and shared transforms
@@ -1140,11 +1144,23 @@ export function threeDDesignParitySnapshot({
   furniture = [],
   ponyWalls = [],
   catalogDoorSampleUrl,
+  catalogFinishOverride,
+  catalogFinishName,
+  catalogCountertopName,
+  catalogCountertopColor,
+  initialPresentation,
 }: ThreeDDesignParityInput) {
   const room = roomOverride ?? { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
   return {
     room: { width: room.width, depth: room.depth, ceilingHeight: room.ceilingHeight },
-    doorSampleUrl: catalogDoorSampleUrl ?? null,
+    materials: {
+      doorSampleUrl: catalogDoorSampleUrl ?? null,
+      cabinetColor: catalogFinishOverride ?? null,
+      cabinetName: catalogFinishName ?? null,
+      countertopName: catalogCountertopName ?? null,
+      countertopColor: catalogCountertopColor ?? null,
+      presentation: initialPresentation ?? null,
+    },
     cabinets: placed.map((source) => ({
       source,
       footprint: normalizedThreeDFootprint(source),
@@ -1178,6 +1194,7 @@ export function threeDSceneRevisionKey(
   ponyWalls: PonyWall[],
   doorSampleUrl: string | null | undefined,
   countertopMaterialKey?: string | null,
+  catalogFinishColor?: string | null,
 ) {
   return JSON.stringify({ parity: threeDDesignParitySnapshot({
     roomOverride: room,
@@ -1188,6 +1205,8 @@ export function threeDSceneRevisionKey(
     furniture,
     ponyWalls,
     catalogDoorSampleUrl: doorSampleUrl,
+    catalogCountertopColor: countertopMaterialKey,
+    catalogFinishOverride: catalogFinishColor,
   }), countertopMaterialKey: countertopMaterialKey ?? null });
 }
 
