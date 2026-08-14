@@ -62,6 +62,25 @@ describe("master Cabinet Config refresh", () => {
     expect(refreshed[0]?.genericDrawingUrl).toBeNull();
   });
 
+  it("replaces stale faces with authored zero-door appliance-opening counts", () => {
+    const refreshed = refreshPlacedCabinetsFromMasterConfig(placed, {
+      cabinetId: 701,
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+      doorHeight: 0,
+      drawerHeight: 12,
+    });
+
+    expect(refreshed[0]).toMatchObject({
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+      doorHeight: 0,
+      drawerHeight: 12,
+    });
+  });
+
   it("hydrates stale saved placements from the currently loaded master rules", () => {
     const stale = [{
       ...placed[0],

@@ -182,6 +182,12 @@ export interface DesignCabinet {
   // Corner cabinet type from the catalog config (lazy-susan, blind-corner,
   // diagonal, pie-cut, l-shape, triangle). Optional for backward-compat.
   cornerType?: string | null;
+  openingType?: "top" | "middle" | "bottom" | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  doorOrientation?: "side-by-side" | "stacked" | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -348,6 +354,14 @@ export type MasterCabinetDrawingRefresh = {
   subCategory?: string | null;
   graphicType?: string | null;
   specImageUrl?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  openingType?: "top" | "middle" | "bottom" | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  doorOrientation?: "side-by-side" | "stacked" | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 };
 
 /**
@@ -369,6 +383,14 @@ export function refreshPlacedCabinetsFromMasterConfig(
         ? { customProfile: master.graphicType && master.graphicType !== "standard" ? master.graphicType : null }
         : {}),
       ...(master.specImageUrl !== undefined ? { genericDrawingUrl: master.specImageUrl } : {}),
+      ...(master.numberOfDoors !== undefined ? { numberOfDoors: master.numberOfDoors } : {}),
+      ...(master.numberOfDrawers !== undefined ? { numberOfDrawers: master.numberOfDrawers } : {}),
+      ...(master.openingType !== undefined ? { openingType: master.openingType } : {}),
+      ...(master.doorHeight !== undefined ? { doorHeight: master.doorHeight } : {}),
+      ...(master.drawerHeight !== undefined ? { drawerHeight: master.drawerHeight } : {}),
+      ...(master.doorOrientation !== undefined ? { doorOrientation: master.doorOrientation } : {}),
+      ...(master.customProfile !== undefined ? { customProfile: master.customProfile } : {}),
+      ...(master.facePattern !== undefined ? { facePattern: master.facePattern } : {}),
     };
   });
 }
@@ -393,7 +415,14 @@ export function refreshPlacedCabinetsFromMasterRules(
       next.category !== cabinet.category ||
       next.subCategory !== cabinet.subCategory ||
       next.customProfile !== cabinet.customProfile ||
-      next.genericDrawingUrl !== cabinet.genericDrawingUrl
+      next.genericDrawingUrl !== cabinet.genericDrawingUrl ||
+      next.numberOfDoors !== cabinet.numberOfDoors ||
+      next.numberOfDrawers !== cabinet.numberOfDrawers ||
+      next.openingType !== cabinet.openingType ||
+      next.doorHeight !== cabinet.doorHeight ||
+      next.drawerHeight !== cabinet.drawerHeight ||
+      next.doorOrientation !== cabinet.doorOrientation ||
+      next.facePattern !== cabinet.facePattern
     ) {
       changed = true;
       return next;
