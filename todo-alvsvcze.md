@@ -224,7 +224,7 @@
 - [x] Add a focused 2D-to-3D regression covering the reported double oven, low/narrow cabinet, and range hood
 - [x] Align the visible tall-appliance enclosure and its adjacent countertop surfaces to the saved 2D design
 - [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
-- [ ] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
+- [x] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
 - [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
 - [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
 - [x] Add a regression covering failed selected-door texture fallback in the 3D room
