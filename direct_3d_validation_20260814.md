@@ -8,7 +8,7 @@
 - The active-plan sync summary currently reports no separately persisted openings, sinks, island, furniture, or pony walls for this design.
 - Direct 3D inspection now shows a white Aspen kitchen with the range, refrigerator, microwave, drawer runs, and a visible L-corner form. The preview correctly reports 20 placed cabinets, matching the 2D designer; the separate 24-item figure belongs to pricing lines and is not a scene-count mismatch.
 - The remaining comparison priority remains the CDB36 corner outline and appliance geometry, particularly range/hood and the appliance run.
-Active WDC2442 3D gap: specialty resolver recognizes only explicit diagonal cornerType, while the saved WDC code has cornerType null; carcass falls through to rectangular body path.
+Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normalized from its `WDC` master code before scene construction, producing the shared 24-inch diagonal footprint and diagonal specialty-face path rather than a stale rectangular fallback.
 
 ## Source-plan collision repair — 2026-08-14
 
@@ -16,3 +16,4 @@ Active WDC2442 3D gap: specialty resolver recognizes only explicit diagonal corn
 - The saved plan was repaired by snapping `FRIDGE-36` to the exact adjoining run edge at `x=0.75`, `y=108`; this preserves the design, removes the physical overlap, and keeps the adjacent refrigerator return panel untouched.
 - Reloading the same saved plan with `7809tom@gmail.com` showed no appliance-to-cabinet conflict notice.
 - The deterministic preview opened from the repaired plan and reported **20 cabinets from the current design**, matching the persisted 2D count. Its scene summary also retained `0` separately saved openings, sinks, island, furniture, and pony walls for this specific plan.
+- The current 3D countertop eligibility rule now delegates to the same `bearsCountertop` contract as the 2D elevation: regular counter-bearing bases and `DW`/`WINE` openings support a slab, while `RANGE`, `FRIDGE`, `HOOD`, `MW`, `OVEN`, fillers, panels, walls, and tall units do not.
