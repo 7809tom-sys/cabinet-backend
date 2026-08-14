@@ -33,7 +33,7 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
   const isTriangle = !isEndCabinet && sharedKind === "triangle";
   const isDiagonal = !isEndCabinet && sharedKind === "diagonal";
   const isBlind = !isEndCabinet && sharedKind === "blind-corner";
-  const isConfiguredL = !isEndCabinet && sharedKind === "l-shape";
+  const isConfiguredL = !isEndCabinet && (sharedKind === "l-shape" || sharedKind === "corner-drawer");
   return { isEndAngle, isEndReturn, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
 }
 

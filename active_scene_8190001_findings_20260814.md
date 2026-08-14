@@ -7,3 +7,5 @@ The floor run includes CDB36, DB-18-3, SB-36, DB-30-3, and B-33 base records, al
 ## Live preview access check
 
 On 2026-08-14, the direct URL `/design?load=8190001&preview=3d` reached the public design-verification form rather than the saved scene because the current browser session is not verified for the design owner. The saved scene remains covered by the deterministic renderer regression; a visual mobile-scene review requires the owner session or the verification email associated with the design.
+
+On a subsequent 2026-08-14 review attempt through the production domain, the page reached the Design Tool route but remained in its loading state without an authenticated session. The complete visual audit therefore remains pending the owner or signed-in administrator browser context; no saved-scene geometry was changed by this access check.

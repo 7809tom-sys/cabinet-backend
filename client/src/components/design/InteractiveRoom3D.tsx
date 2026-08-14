@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -33,6 +33,7 @@ type SceneSku = {
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
   cornerType?: string | null;
+  cornerGeometryKind?: PlacedCornerGeometryKind;
 };
 
 export type InteractiveRoomScene = {
@@ -360,10 +361,10 @@ export function cornerDrawerFrontLayout(bodyWidth: number) {
  * The physical L-corner footprint shared by the 2D plan and 3D CDB36 carcass.
  * With a 36-inch bounding square, the 24-inch legs leave a 12-inch interior notch.
  */
-export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number) {
-  const legRatio = 2 / 3;
-  const legWidth = bodyWidth * legRatio;
-  const legDepth = bodyDepth * legRatio;
+export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number, legRatio = 2 / 3) {
+  const boundedLegRatio = Math.max(0.3, Math.min(0.95, legRatio));
+  const legWidth = bodyWidth * boundedLegRatio;
+  const legDepth = bodyDepth * boundedLegRatio;
   return {
     legWidth,
     legDepth,
@@ -398,9 +399,36 @@ export function diagonalCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
   return Math.hypot(bodyWidth / 2, bodyDepth / 2);
 }
 
+/** The full diagonal of a right-triangle corner is its actual angled front. */
+export function triangleCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
+  return Math.hypot(bodyWidth, bodyDepth);
+}
+
+/** The local triangle assumes the wall corner is back-left; shared rotation orients it elsewhere. */
+export function triangleCornerFootprintVertices(bodyWidth: number, bodyDepth: number) {
+  return [
+    { x: -bodyWidth / 2, z: -bodyDepth / 2 },
+    { x: bodyWidth / 2, z: -bodyDepth / 2 },
+    { x: bodyWidth / 2, z: bodyDepth / 2 },
+  ];
+}
+
 /** Builds the vertical pentagonal extrusion defined by the shared 2D diagonal footprint. */
 function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
   const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+  const shape = new THREE.Shape();
+  shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
+  for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, -height / 2, 0);
+  return geometry;
+}
+
+/** Builds the vertical triangular extrusion defined by the shared 2D triangle footprint. */
+function triangleCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
+  const vertices = triangleCornerFootprintVertices(bodyWidth, bodyDepth);
   const shape = new THREE.Shape();
   shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
   for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
@@ -526,17 +554,19 @@ export function resolvedThreeDFaceLayout(input: {
   };
 }
 
-export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "masterCode" | "description">) {
+export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "cornerGeometryKind" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
-  if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
-  if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic) || /^(?:bec|ba)[-_]?\d/i.test(sku.masterCode) || /base end (?:corner|cabinet|return)/i.test(sku.description ?? "")) return { kind: "end-return" as const, pattern: null };
-  if (sku.cornerType === "l-shape" || /^(?:LSB?)[-_]?\d/i.test(sku.masterCode) || /lazy\s*susan/i.test(sku.description ?? "")) {
+  if (sku.cornerGeometryKind === "base-end" || /end-angle|base_end_angle|end-return|base_end_return/.test(graphic) || /^(?:bec|ba)[-_]?\d/i.test(sku.masterCode) || /base end (?:corner|cabinet|return)/i.test(sku.description ?? "")) return { kind: "end-return" as const, pattern: null };
+  if (sku.cornerGeometryKind === "triangle" || sku.cornerType === "triangle" || /^(?:wtc|btc)[-_]?\d/i.test(sku.masterCode)) return { kind: "triangle-corner" as const, pattern: null };
+  if (sku.cornerGeometryKind === "blind-corner" || sku.cornerType === "blind-corner" || /^(?:bbc|wbc|bbl|bbr|wbl|wbr)[-_]?\d/i.test(sku.masterCode)) return { kind: "blind-corner" as const, pattern: null };
+  if (sku.cornerGeometryKind === "l-shape" || sku.cornerType === "l-shape" || /^(?:LSB?)[-_]?\d/i.test(sku.masterCode) || /lazy\s*susan/i.test(sku.description ?? "")) {
     return { kind: "l-corner" as const, pattern: null };
   }
-  if (sku.cornerType === "diagonal" || /^wdc[-_]?\d/i.test(sku.masterCode) || /diagonal wall corner/i.test(sku.description ?? "")) {
+  if (sku.cornerGeometryKind === "diagonal" || sku.cornerType === "diagonal" || /^wdc[-_]?\d/i.test(sku.masterCode) || /diagonal wall corner/i.test(sku.description ?? "")) {
     return { kind: "diagonal-corner" as const, pattern: null };
   }
+  if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
   if (/\b(?:wine|lattice|plate)\b/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) return { kind: "face-pattern" as const, pattern: "lattice" as const };
   return { kind: "standard" as const, pattern: null };
 }
@@ -559,6 +589,7 @@ export function addCabinet(
   const isWall = placement === "wall";
   const isTall = placement === "tall";
   const isBaseCabinet = placement === "base";
+  const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
   const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
@@ -592,6 +623,7 @@ export function addCabinet(
     distributorSkuId: sku.distributorSkuId,
     masterCode: sku.masterCode,
     label: sku.description ?? sku.masterCode,
+    cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,
@@ -621,7 +653,7 @@ export function addCabinet(
     bodyMeshes.push(toeKick);
   }
   if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
-    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
+    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio);
     for (const part of [lShape.backLeg, lShape.sideLeg]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(part.width, bodyHeight, part.depth), bodyMaterial);
       leg.position.set(part.x, 0, part.z);
@@ -634,9 +666,14 @@ export function addCabinet(
     wedge.userData = { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
     bodyMeshes.push(wedge);
+  } else if (specialty.kind === "triangle-corner") {
+    const wedge = new THREE.Mesh(triangleCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight), bodyMaterial);
+    wedge.userData = { specialtyProfile: "triangle-corner", triangleCornerWedge: true, selectedStyleSideSkin: true };
+    cabinet.add(wedge);
+    bodyMeshes.push(wedge);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
-    body.userData = { selectedStyleSideSkin: true };
+    body.userData = { selectedStyleSideSkin: true, ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}) };
     cabinet.add(body);
     bodyMeshes.push(body);
   }
@@ -694,7 +731,7 @@ export function addCabinet(
   // Diagonal and L-corner fronts use absolute local positions on their shared
   // special footprint. Applying the generic rectangular front-depth offset to
   // either one would push their faces and Shaker rails out into the room.
-  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "l-corner" ? 0 : faceDepth;
+  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (profileKind !== "shaker") return;
@@ -910,10 +947,30 @@ export function addCabinet(
       frontGroup.add(door);
       addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
     }
+  } else if (specialty.kind === "triangle-corner") {
+    // A WTC/BTC is a true right triangle: its full hypotenuse is the angled
+    // front, not the shorter clipped face used by a diagonal wall corner.
+    const triangleWidth = triangleCornerFrontWidth(bodyWidth, bodyDepth);
+    const triangleDoorWidth = triangleWidth / 2;
+    const triangleDoorHeight = Math.max(0.2, bodyHeight - 0.1);
+    const triangleFaceNormal = Math.SQRT1_2 * 0.045;
+    const tangentOffset = triangleDoorWidth / 2;
+    for (const direction of [-1, 1] as const) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(triangleDoorWidth - 0.03, triangleDoorHeight, 0.052), faceMaterial);
+      door.position.set(
+        direction * Math.SQRT1_2 * tangentOffset + triangleFaceNormal,
+        0,
+        -direction * Math.SQRT1_2 * tangentOffset + triangleFaceNormal,
+      );
+      door.rotation.y = Math.PI / 4;
+      door.userData = { specialtyProfile: "triangle-corner", triangleDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+      frontGroup.add(door);
+      addShakerFrame(triangleDoorWidth - 0.03, triangleDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
+    }
   } else if (specialty.kind === "l-corner") {
     // Preserve the restored 2D Lazy Susan L-outline: each door sits on one
     // exposed 12-inch leg, rather than introducing a diagonal front in 3D.
-    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth);
+    const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio);
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
     const exposedFrontWidth = Math.max(0.2, bodyWidth - lShape.sideLeg.width);
     const backFrontZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
@@ -1069,7 +1126,7 @@ export function addCabinet(
       const counterGroup = new THREE.Group();
       counterGroup.position.set(cabinet.position.x, COUNTERTOP_H * INCH, cabinet.position.z);
       counterGroup.rotation.y = rotation;
-      for (const part of Object.values(lCornerCarcassParts(bodyWidth, bodyDepth)).filter((value): value is { width: number; depth: number; x: number; z: number } => typeof value === "object" && value !== null && "width" in value)) {
+      for (const part of Object.values(lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio)).filter((value): value is { width: number; depth: number; x: number; z: number } => typeof value === "object" && value !== null && "width" in value)) {
         const slab = new THREE.Mesh(
           new THREE.BoxGeometry(part.width + 0.12, 1.5 * INCH, part.depth + 0.12),
           counterMaterial,
@@ -1089,11 +1146,22 @@ export function addCabinet(
       counter.position.y = COUNTERTOP_H * INCH;
       counter.userData = { diagonalCornerCountertop: true };
       root.add(counter);
+    } else if (specialty.kind === "triangle-corner") {
+      const counter = new THREE.Mesh(
+        triangleCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
+        counterMaterial,
+      );
+      counter.position.copy(cabinet.position);
+      counter.rotation.y = rotation;
+      counter.position.y = COUNTERTOP_H * INCH;
+      counter.userData = { triangleCornerCountertop: true };
+      root.add(counter);
     } else {
       const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12), counterMaterial);
       counter.position.copy(cabinet.position);
       counter.rotation.y = rotation;
       counter.position.y = COUNTERTOP_H * INCH;
+      if (specialty.kind === "blind-corner") counter.userData = { blindCornerCountertop: true };
       root.add(counter);
     }
   }
@@ -1112,7 +1180,7 @@ export function existingCabinetTransform(
   const savedRotation = Number(cabinet.rotation);
   const sharedKind = placedCornerGeometryKind(cabinet);
   const hasPlacedRoom = Number.isFinite(room?.width) && Number.isFinite(room?.depth);
-  const planRotation = sharedKind === "diagonal" && hasPlacedRoom
+  const planRotation = (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer") && hasPlacedRoom
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : savedRotation;
   const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
@@ -1348,12 +1416,10 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 }
 
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
-  // The shared saved-placement contract already classifies both a Lazy Susan
-  // and a wall diagonal as the common visible diagonal-front form.
+  // The shared saved-placement contract owns every corner family. The 3D
+  // renderer receives its classification rather than re-inferring the shape.
   const sharedCornerKind = placedCornerGeometryKind(cabinet);
-  const diagonalCorner = sharedCornerKind === "diagonal";
-  const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
-  const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
+  const footprint = sharedCornerKind !== "standard" ? normalizedThreeDFootprint(cabinet) : null;
   const cornerBody = threeDCornerBodyDimensions(cabinet);
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const inferredAppliancePlacement = /^(?:fridge|range|hood|dw|wine|mw)/i.test(cabinet.masterCode ?? "");
@@ -1389,7 +1455,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     graphicType: cabinet.customProfile ?? null,
     customProfile: cabinet.customProfile ?? null,
     facePattern: cabinet.facePattern ?? null,
-    cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" ? "l-shape" : cabinet.cornerType ?? null,
+    cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" || sharedCornerKind === "corner-drawer" ? "l-shape" : cabinet.cornerType ?? null,
+    cornerGeometryKind: sharedCornerKind,
   };
 }
 

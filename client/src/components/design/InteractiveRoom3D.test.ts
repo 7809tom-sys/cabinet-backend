@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -306,6 +306,44 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetSku(lCorner)).toMatchObject({ width: 36, depth: 36 });
     expect(threeDCornerBodyDimensions(endReturn)).toEqual({ width: 24, depth: 24 });
     expect(existingCabinetSku(endReturn)).toMatchObject({ width: 24, depth: 24 });
+  });
+
+  it("audits every supported corner family through its shared 2D shape, 3D front, and countertop contract", () => {
+    const room = { width: 144, depth: 144, ceilingHeight: 96 } as never;
+    const families = [
+      { uid: "triangle", cabinetId: 1, masterCode: "BTC-24", description: "Triangle Corner Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, cornerType: "triangle", numberOfDoors: 2, numberOfDrawers: 0 },
+      { uid: "blind", cabinetId: 2, masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 90, cornerType: "blind-corner", numberOfDoors: 1, numberOfDrawers: 0 },
+      { uid: "diagonal", cabinetId: 3, masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30, rotation: 0, cornerType: "diagonal", numberOfDoors: 2, numberOfDrawers: 0 },
+      { uid: "l-corner", cabinetId: 4, masterCode: "LS3612", description: "Lazy Susan Base", placement: "base", x: 108, y: 108, width: 36, depth: 24, height: 34.5, rotation: 180, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0 },
+      { uid: "wall-l-corner", cabinetId: 5, masterCode: "WLS2424", description: "Wall Lazy Susan", placement: "wall", x: 108, y: 108, width: 24, depth: 12, height: 30, rotation: 180, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0 },
+      { uid: "corner-drawer", cabinetId: 6, masterCode: "CDB36", description: "Corner Drawer Base", placement: "base", x: 0, y: 108, width: 36, depth: 24, height: 34.5, rotation: 270, cornerType: "l-shape", numberOfDoors: 0, numberOfDrawers: 3 },
+      { uid: "end-return", cabinetId: 7, masterCode: "BEC-24", description: "Base End Cabinet", placement: "base", x: 54, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
+    ] as never[];
+    const expectedKinds = ["triangle", "blind-corner", "diagonal", "l-shape", "l-shape", "corner-drawer", "base-end"];
+    expect(families.map(placedCornerGeometryKind)).toEqual(expectedKinds);
+    const root = new THREE.Group();
+    for (const record of families) {
+      const sku = existingCabinetSku(record);
+      expect(sku.cornerGeometryKind).toBe(placedCornerGeometryKind(record));
+      addCabinet(root, sku, null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(record, room));
+    }
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    expect(nodes.filter((node) => node.userData.triangleCornerWedge)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.triangleDoor)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.triangleCornerCountertop)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.blindCornerBody)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.blindCornerCountertop)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.diagonalCornerWedge)).toHaveLength(1);
+    const lCornerDoors = nodes.filter((node) => node.userData.lCornerDoor) as THREE.Mesh[];
+    expect(lCornerDoors).toHaveLength(4);
+    const wallLCorner = root.children.find((node) => node.userData.masterCode === "WLS2424")!;
+    const wallLegs = wallLCorner.children.filter((node) => node.userData.lCornerCarcass) as THREE.Mesh[];
+    expect(wallLegs.map((leg) => (leg.geometry as THREE.BoxGeometry).parameters).map((parameters) => Math.min(parameters.width, parameters.depth)).sort()).toEqual([1, 1]);
+    expect(nodes.filter((node) => node.userData.cornerDrawerFace)).toHaveLength(3);
+    expect(nodes.filter((node) => node.userData.returnFace)).toHaveLength(2);
+    expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
+    expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });
 
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {

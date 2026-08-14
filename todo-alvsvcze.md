@@ -352,3 +352,6 @@
 - [x] Use distinct configured opening dimensions for wall microwave cabinets and base microwave cabinets when validating 3D microwave fit
 - [x] Add and persist an explicit Cabinet Config opening-height field so microwave and built-in appliance fit is bounded by both configured width and height
 - [x] Allow a signed-in administrator to open a saved design for deterministic 3D validation without creating a duplicate design lead
+- [x] Audit every corner-cabinet family in 3D against the shared 2D footprint, front-face, transform, and countertop contract
+- [x] Add cross-family corner-cabinet regressions for standard, blind, diagonal, L-corner, corner-drawer, and end-return profiles
+- [ ] Visually review saved 3D scenes containing each supported corner-cabinet family before declaring corner parity complete

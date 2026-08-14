@@ -929,10 +929,11 @@ export function lCornerBoxSide(placement: Placement): number {
  * placement is a diagonal clipped corner, a right triangle, a blind box, an
  * L-corner, or an ordinary cabinet.
  */
-export type PlacedCornerGeometryKind = "standard" | "diagonal" | "triangle" | "blind-corner" | "l-shape" | "base-end";
+export type PlacedCornerGeometryKind = "standard" | "diagonal" | "triangle" | "blind-corner" | "l-shape" | "corner-drawer" | "base-end";
 
 export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometryKind {
   if (isBaseEndCornerCabinet(p)) return "base-end";
+  if (/^cdb[-_]?\d/i.test(p.masterCode) || /corner drawer base/i.test(p.description ?? "")) return "corner-drawer";
   if (isTriangleCorner(p.masterCode, p.cornerType)) return "triangle";
   if (p.cornerType === "diagonal" || isDiagonalCorner(p.masterCode, p.description)) return "diagonal";
   if (p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description)) return "blind-corner";
@@ -956,7 +957,7 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // Diagonal and L-corner records share a square plan envelope. The shared
   // classifier above is deliberately the only source of this decision for both
   // PlanCanvas and the deterministic 3D renderer.
-  if (cornerKind === "diagonal" || cornerKind === "l-shape") {
+  if (cornerKind === "diagonal" || cornerKind === "l-shape" || cornerKind === "corner-drawer") {
     const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
   }
