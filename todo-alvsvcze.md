@@ -207,6 +207,8 @@
 - [ ] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
 - [ ] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
 - [ ] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
+- [ ] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
+- [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

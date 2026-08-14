@@ -22,6 +22,8 @@ type SceneSku = {
   openingType?: string | null;
   doorHeight?: number | null;
   drawerHeight?: number | null;
+  drawerLayout?: string | null;
+  ovenType?: "single" | "double" | null;
 };
 
 export type InteractiveRoomScene = {
@@ -115,6 +117,25 @@ export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function resolvedThreeDDrawerRows(sku: SceneSku, availableHeight: number, fallbackCount: number) {
+  try {
+    const parsed = JSON.parse(sku.drawerLayout ?? "null");
+    if (Array.isArray(parsed) && parsed.length) {
+      const rows = parsed
+        .map((row) => ({
+          count: Math.max(1, Number((row as Record<string, unknown>).count) || 1),
+          height: Math.max(0.12, Number((row as Record<string, unknown>).height) * INCH || availableHeight / parsed.length),
+        }))
+        .filter((row) => Number.isFinite(row.count) && Number.isFinite(row.height));
+      if (rows.length) return rows;
+    }
+  } catch {
+    // Older placements may not have a valid JSON drawer layout. Use counts.
+  }
+  const count = Math.max(0, fallbackCount);
+  return count ? Array.from({ length: count }, () => ({ count: 1, height: availableHeight / count })) : [];
 }
 
 export function dimensions(value: unknown) {
@@ -289,7 +310,7 @@ function addCabinet(
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
   const isPlacedAppliance = placement === "appliance";
-  const isOvenCabinet = !isPlacedAppliance && /(?:^|[-_])(UOC|OC|OVEN)(?:[-_]|$)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? ""));
+  const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isPlacedAppliance) {
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
@@ -309,7 +330,7 @@ function addCabinet(
     // configured drawers, not a freestanding grey appliance face.
     const surround = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.045), faceMaterial);
     frontGroup.add(surround);
-    const ovenCount = /double/.test((sku.description ?? "").toLowerCase()) ? 2 : 1;
+    const ovenCount = sku.ovenType === "double" || /double/.test((sku.description ?? "").toLowerCase()) ? 2 : 1;
     const drawerRows = Math.max(drawerCount, ovenCount === 2 ? 1 : 3);
     const drawerZone = Math.min(bodyHeight * 0.28, Math.max(bodyHeight * 0.16, drawerRows * 0.18));
     const ovenZone = Math.min(bodyHeight * 0.58, (bodyHeight - drawerZone) / ovenCount - 0.07);
@@ -359,12 +380,18 @@ function addCabinet(
       frontGroup.add(inner);
     }
   }
-  for (let i = 0; i < drawerCount; i++) {
-    const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, drawerHeight / drawerCount - 0.025, 0.048), faceMaterial);
-    drawer.position.set(0, hasConfiguredOpening
-      ? -bodyHeight / 2 + 0.04 + (drawerHeight / drawerCount) * (i + 0.5)
-      : bodyHeight / 2 - 0.04 - (drawerHeight / drawerCount) * (i + 0.5), 0.004);
-    frontGroup.add(drawer);
+  const drawerRows = resolvedThreeDDrawerRows(sku, drawerHeight, drawerCount);
+  let drawerCursor = hasConfiguredOpening ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
+  for (const row of drawerRows) {
+    const rowHeight = Math.max(0.08, row.height - 0.025);
+    const drawerWidth = (bodyWidth - 0.08) / row.count;
+    for (let column = 0; column < row.count; column++) {
+      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
+      const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
+      drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
+      frontGroup.add(drawer);
+    }
+    drawerCursor += hasConfiguredOpening ? row.height : -row.height;
   }
   if (hasConfiguredOpening && doorCount === 0) {
     const openingHeight = Math.max(0.2, usableHeight - drawerHeight);
@@ -454,6 +481,8 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     openingType: cabinet.openingType ?? null,
     doorHeight: cabinet.doorHeight ?? null,
     drawerHeight: cabinet.drawerHeight ?? null,
+    drawerLayout: cabinet.drawerLayout ?? null,
+    ovenType: cabinet.ovenType ?? null,
   };
 }
 
