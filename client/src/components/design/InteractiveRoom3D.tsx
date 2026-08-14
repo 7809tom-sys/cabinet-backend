@@ -958,30 +958,64 @@ function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   root.add(spout);
 }
 
+export function islandZoneTransform(island: { x: number; y: number; width: number; depth: number }) {
+  return {
+    x: (island.x + island.width / 2) * INCH,
+    z: (island.y + island.depth / 2) * INCH,
+    baseWidth: island.width * INCH,
+    baseDepth: island.depth * INCH,
+    baseHeight: STD.BASE_HEIGHT * INCH,
+    counterWidth: (island.width + 1.5) * INCH,
+    counterDepth: (island.depth + 1.5) * INCH,
+    counterTop: COUNTERTOP_H * INCH,
+  };
+}
+
+export function ponyWallTransform(ponyWall: Pick<PonyWall, "x" | "y" | "width" | "depth" | "height">) {
+  return {
+    x: (ponyWall.x + ponyWall.width / 2) * INCH,
+    y: ponyWall.height * INCH / 2,
+    z: (ponyWall.y + ponyWall.depth / 2) * INCH,
+    width: ponyWall.width * INCH,
+    depth: ponyWall.depth * INCH,
+    height: ponyWall.height * INCH,
+  };
+}
+
+export function furnitureTransform(furniture: Pick<PlacedFurniture, "x" | "y" | "rotation">, widthIn: number, depthIn: number) {
+  return {
+    x: (furniture.x + widthIn / 2) * INCH,
+    z: (furniture.y + depthIn / 2) * INCH,
+    rotation: (furniture.rotation || 0) * Math.PI / 180,
+  };
+}
+
 function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, counterColor: string) {
+  const transform = islandZoneTransform(island);
   const group = new THREE.Group();
-  group.position.set((island.x + island.width / 2) * INCH, 0, (island.y + island.depth / 2) * INCH);
+  group.position.set(transform.x, 0, transform.z);
   group.userData = { island: true };
   const base = new THREE.Mesh(
-    new THREE.BoxGeometry(island.width * INCH, STD.BASE_HEIGHT * INCH, island.depth * INCH),
+    new THREE.BoxGeometry(transform.baseWidth, transform.baseHeight, transform.baseDepth),
     new THREE.MeshStandardMaterial({ color: "#b7a795", roughness: 0.7 }),
   );
-  base.position.y = STD.BASE_HEIGHT * INCH / 2;
+  base.position.y = transform.baseHeight / 2;
   const counter = new THREE.Mesh(
-    new THREE.BoxGeometry((island.width + 1.5) * INCH, 1.5 * INCH, (island.depth + 1.5) * INCH),
+    new THREE.BoxGeometry(transform.counterWidth, 1.5 * INCH, transform.counterDepth),
     new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
   );
-  counter.position.y = COUNTERTOP_H * INCH;
+  counter.position.y = transform.counterTop;
   group.add(base, counter);
   root.add(group);
 }
 
 function addPonyWall(root: THREE.Group, ponyWall: PonyWall) {
+  const transform = ponyWallTransform(ponyWall);
   const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(ponyWall.width * INCH, ponyWall.height * INCH, ponyWall.depth * INCH),
+    new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
     new THREE.MeshStandardMaterial({ color: "#ede9e1", roughness: 0.86 }),
   );
-  wall.position.set((ponyWall.x + ponyWall.width / 2) * INCH, ponyWall.height * INCH / 2, (ponyWall.y + ponyWall.depth / 2) * INCH);
+  wall.position.set(transform.x, transform.y, transform.z);
   wall.userData = { ponyWallUid: ponyWall.uid };
   root.add(wall);
 }
@@ -991,9 +1025,10 @@ function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
   if (!def) return;
   const width = def.w * INCH;
   const depth = def.d * INCH;
+  const transform = furnitureTransform(furniture, def.w, def.d);
   const group = new THREE.Group();
-  group.position.set((furniture.x + def.w / 2) * INCH, 0, (furniture.y + def.d / 2) * INCH);
-  group.rotation.y = (furniture.rotation || 0) * Math.PI / 180;
+  group.position.set(transform.x, 0, transform.z);
+  group.rotation.y = transform.rotation;
   group.userData = { furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
   const material = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7 });
   const height = def.category === "table" ? 2.5 : def.category === "stool" ? 2.1 : 1.5;

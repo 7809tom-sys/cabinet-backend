@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -73,6 +74,30 @@ describe("interactive 3D room scene helpers", () => {
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(false);
     expect(hasPersistedTwoDScene({ placed: [], openings: [{ uid: "window" } as never], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(true);
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: { x: 0, y: 0, width: 48, depth: 24 }, furniture: [], ponyWalls: [] })).toBe(true);
+  });
+
+  it("maps persisted island, pony-wall, and furniture coordinates into the same inch-based 3D positions", () => {
+    expect(islandZoneTransform({ x: 36, y: 48, width: 72, depth: 36 })).toMatchObject({
+      x: 6,
+      z: 5.5,
+      baseWidth: 6,
+      baseDepth: 3,
+      counterWidth: 6.125,
+      counterDepth: 3.125,
+    });
+    expect(ponyWallTransform({ x: 12, y: 24, width: 48, depth: 6, height: 42 })).toEqual({
+      x: 3,
+      y: 1.75,
+      z: 2.25,
+      width: 4,
+      depth: 0.5,
+      height: 3.5,
+    });
+    expect(furnitureTransform({ x: 24, y: 36, rotation: 90 } as never, 48, 30)).toEqual({
+      x: 4,
+      z: 4.25,
+      rotation: Math.PI / 2,
+    });
   });
 
   it("forces the active WebGL preview to rebuild whenever any saved 2D scene input changes", () => {
