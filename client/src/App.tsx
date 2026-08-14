@@ -161,8 +161,9 @@ function DesignerRoute() {
 export default function App() {
   const [, navigate] = useLocation();
 
-  // Prefer the server-provided routing slug, with a browser-host fallback for
-  // transparent custom-domain proxies that serve the SPA without the rewrite.
+  // Canonicalize an affiliate custom-domain visit into the branded route tree.
+  // A full location replacement is intentional: some transparent proxy paths
+  // load the SPA correctly but do not propagate an in-app history update.
   useEffect(() => {
     const slug = (window as unknown as Record<string, unknown>).__AFFILIATE_SLUG__ as string | undefined;
     const fallback = affiliateStorefrontFallbackPath(
@@ -171,9 +172,10 @@ export default function App() {
       window.location.search,
     );
     if (fallback) {
-      navigate(fallback, { replace: true });
-    } else if (slug && window.location.pathname === "/") {
-      navigate(`/store/${slug}`, { replace: true });
+      window.location.replace(fallback);
+    } else if (slug && !window.location.pathname.startsWith("/store/")) {
+      const suffix = window.location.pathname === "/" ? "" : window.location.pathname;
+      window.location.replace(`/store/${slug}${suffix}${window.location.search}`);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

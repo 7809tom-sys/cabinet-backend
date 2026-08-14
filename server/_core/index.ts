@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import { affiliateSlugFromHostCandidates } from "../lib/affiliateSubdomain";
+import { affiliateSlugFromHostCandidates, affiliateStorefrontPath } from "../lib/affiliateSubdomain";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -98,11 +98,11 @@ async function startServer() {
     ) {
       return next();
     }
-    // Rewrite: / → /store/slug, /cart → /store/slug/cart, etc.
-    const originalUrl = req.url === "/" ? "" : req.url;
-    req.url = `/store/${subdomain}${originalUrl}`;
-    res.locals.affiliateSlug = subdomain;
-    next();
+    // Canonicalize the browser URL as well as the server request. A real
+    // redirect makes the white-label route independent of a cached or
+    // transparent client bundle, while keeping the customer on their own
+    // affiliate subdomain.
+    return res.redirect(307, affiliateStorefrontPath(subdomain, req.url));
   });
   // Stripe webhook MUST be registered before express.json() so the raw body
   // is available for signature verification.

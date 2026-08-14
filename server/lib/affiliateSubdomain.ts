@@ -31,3 +31,9 @@ export function affiliateSlugFromHostCandidates(
   }
   return null;
 }
+
+/** Build the canonical SPA path for a public affiliate custom-domain request. */
+export function affiliateStorefrontPath(slug: string, requestedUrl: string): string {
+  const suffix = requestedUrl === "/" ? "" : requestedUrl;
+  return `/store/${slug}${suffix}`;
+}

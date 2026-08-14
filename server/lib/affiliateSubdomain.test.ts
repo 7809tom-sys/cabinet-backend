@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affiliateSlugFromHost, affiliateSlugFromHostCandidates } from "./affiliateSubdomain";
+import { affiliateSlugFromHost, affiliateSlugFromHostCandidates, affiliateStorefrontPath } from "./affiliateSubdomain";
 
 describe("affiliate subdomain host resolution", () => {
   it("extracts a single affiliate slug from the public host", () => {
@@ -26,5 +26,12 @@ describe("affiliate subdomain host resolution", () => {
       "reaves-way-cabinet-shop.cabinetdealz.com",
       "cabinetz-dq7pucbp.manus.space",
     ])).toBe("reaves-way-cabinet-shop");
+  });
+
+  it("builds a canonical branded path without losing catalog detail queries", () => {
+    expect(affiliateStorefrontPath(
+      "reaves-way-cabinet-shop",
+      "/catalog/W-12-30?style=330005&cabinetId=9360055",
+    )).toBe("/store/reaves-way-cabinet-shop/catalog/W-12-30?style=330005&cabinetId=9360055");
   });
 });
