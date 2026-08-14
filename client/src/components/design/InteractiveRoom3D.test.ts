@@ -321,6 +321,15 @@ describe("interactive 3D room scene helpers", () => {
     ] as never[];
     const expectedKinds = ["triangle", "blind-corner", "diagonal", "l-shape", "l-shape", "corner-drawer", "base-end"];
     expect(families.map(placedCornerGeometryKind)).toEqual(expectedKinds);
+    expect(families.map((record) => existingCabinetTransform(record, room).rotation)).toEqual([
+      0,
+      Math.PI / 2,
+      0,
+      Math.PI,
+      Math.PI,
+      Math.PI * 1.5,
+      0,
+    ]);
     const root = new THREE.Group();
     for (const record of families) {
       const sku = existingCabinetSku(record);
@@ -342,6 +351,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(wallLegs.map((leg) => (leg.geometry as THREE.BoxGeometry).parameters).map((parameters) => Math.min(parameters.width, parameters.depth)).sort()).toEqual([1, 1]);
     expect(nodes.filter((node) => node.userData.cornerDrawerFace)).toHaveLength(3);
     expect(nodes.filter((node) => node.userData.returnFace)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.lCornerCountertop)).toHaveLength(4);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });

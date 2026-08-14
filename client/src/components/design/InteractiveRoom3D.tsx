@@ -1162,6 +1162,7 @@ export function addCabinet(
       counter.rotation.y = rotation;
       counter.position.y = COUNTERTOP_H * INCH;
       if (specialty.kind === "blind-corner") counter.userData = { blindCornerCountertop: true };
+      if (specialty.kind === "end-return") counter.userData = { endReturnCountertop: true };
       root.add(counter);
     }
   }
