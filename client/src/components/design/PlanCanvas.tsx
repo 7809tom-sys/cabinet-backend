@@ -37,6 +37,22 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
   return { isEndAngle, isEndReturn, isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL };
 }
 
+/**
+ * The visible plan outline must follow the same saved-cabinet classifier as the
+ * plan footprint and 3D conversion. Keeping the render value here makes a
+ * diagonal WDC impossible to silently fall back to a square box.
+ */
+export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): string | undefined {
+  const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(cabinet);
+  const rotation = cornerRotationForPlaced(cabinet, room);
+  if (isTriangle) return triangleCornerClipPath(rotation);
+  if (isDiagonal) return diagonalCornerClipPath(rotation);
+  if ((isConfiguredL || isCorner) && !isBlind) {
+    return cornerClipPath(rotation, cornerLegRatioForPlaced(cabinet));
+  }
+  return undefined;
+}
+
 interface IslandZone {
   x: number;
   y: number;
@@ -1153,13 +1169,7 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
                   borderRadius: (isCorner && !isBlind) ? 0 : 2,
-                  clipPath: isTriangle
-                    ? triangleCornerClipPath(cornerRotationForPlaced(p, room))
-                    : isDiagonal
-                    ? diagonalCornerClipPath(cornerRotationForPlaced(p, room))
-                    : ((isConfiguredL || isCorner) && !isBlind)
-                    ? cornerClipPath(cornerRotationForPlaced(p, room), cornerLegRatioForPlaced(p))
-                    : undefined,
+                  clipPath: planCabinetClipPath(p, room),
                 }}
                 title={`${p.masterCode} — ${p.description}`}
               >
