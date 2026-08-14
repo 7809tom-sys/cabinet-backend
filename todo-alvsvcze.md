@@ -226,6 +226,7 @@
 - [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
 - [x] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
 - [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
+- [x] Add a mobile-scene visibility contract regression for the tall appliance enclosure, dishwasher-supported countertop surface, and mounted range hood
 - [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
 - [x] Add a regression covering failed selected-door texture fallback in the 3D room
 - [x] Center the saved oven cabinet and configure drawers beneath the oven opening

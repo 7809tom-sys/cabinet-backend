@@ -620,6 +620,21 @@ describe("interactive 3D room scene helpers", () => {
     expect(contract.countertopSupport).toEqual(["DW-24"]);
   });
 
+  it("preserves the mobile scene’s visible hood, tall enclosure, and continuous dishwasher-supported surface", () => {
+    const contract = threeDSceneVisibilityContract([
+      { uid: "hood", cabinetId: 0, masterCode: "HOOD-30", description: "Range Hood", placement: "appliance", x: 3.5, y: 45, width: 30, depth: 18, height: 18, rotation: 90, mountBottom: 66 },
+      { uid: "tall", cabinetId: 0, masterCode: "FRIDGE-36", description: "Refrigerator", placement: "appliance", x: 0.75, y: 108, width: 36, depth: 30, height: 72, rotation: 90 },
+      { uid: "dishwasher", cabinetId: 0, masterCode: "DW-24", description: "Dishwasher", placement: "appliance", x: 24, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0 },
+      { uid: "range", cabinetId: 0, masterCode: "RANGE-30", description: "Range", placement: "appliance", x: 0, y: 45, width: 30, depth: 25, height: 36, rotation: 90, mountBottom: 0 },
+    ] as never, { width: 144, depth: 145, ceilingHeight: 96 });
+
+    expect(contract.hood?.transform.bottom).toBe(66);
+    expect(contract.tall).toHaveLength(1);
+    expect(contract.tall[0]!.transform.bottom).toBe(0);
+    expect(contract.countertopSupport).toEqual(["DW-24"]);
+    expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);
+  });
+
   it("places a saved 2D window at its exact wall offset in the 3D room", () => {
     expect(openingTransform({
       uid: "window-1", kind: "window", label: "Window", side: "top", offset: 42, width: 36, height: 36, sill: 42,
