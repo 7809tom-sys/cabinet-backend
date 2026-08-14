@@ -759,6 +759,32 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -90,
+      cabinetId: 90,
+      masterCode: "PANTRY-2490",
+      description: '24" x 90" Pantry Cabinet',
+      placementType: "tall",
+      width: 24,
+      height: 90,
+      depth: 24,
+      numberOfDoors: 4,
+      numberOfDrawers: 0,
+      cornerType: null,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const lower: THREE.Object3D[] = [];
+    const upper: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pantryDoorSet === "lower") lower.push(node);
+      if (node.userData.pantryDoorSet === "upper") upper.push(node);
+    });
+    expect(lower).toHaveLength(2);
+    expect(upper).toHaveLength(2);
+    expect(((lower[0] as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.height).toBeCloseTo(54 / 12 - 0.025, 12);
+  });
+
   it("keeps a standard wall cabinet’s selected-finish side skin on the saved 24-by-12 carcass envelope", () => {
     const root = new THREE.Group();
     addCabinet(root, {
