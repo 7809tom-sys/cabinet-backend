@@ -8,3 +8,4 @@
 - The active-plan sync summary currently reports no separately persisted openings, sinks, island, furniture, or pony walls for this design.
 - Direct 3D inspection now shows a white Aspen kitchen with the range, refrigerator, microwave, drawer runs, and a visible L-corner form. The preview correctly reports 20 placed cabinets, matching the 2D designer; the separate 24-item figure belongs to pricing lines and is not a scene-count mismatch.
 - The remaining comparison priority remains the CDB36 corner outline and appliance geometry, particularly range/hood and the appliance run.
+Active WDC2442 3D gap: specialty resolver recognizes only explicit diagonal cornerType, while the saved WDC code has cornerType null; carcass falls through to rectangular body path.

@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, elevationBox, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, elevationBox, isDiagonalCorner, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -955,15 +955,17 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 }
 
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
+  const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
+  const footprint = diagonalCorner ? placedFootprint(cabinet) : null;
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
     placementType: cabinet.placement,
-    width: cabinet.width,
+    width: footprint?.w ?? cabinet.width,
     height: cabinet.height ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
-    depth: cabinet.depth,
+    depth: footprint?.d ?? cabinet.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
     openingType: cabinet.openingType ?? null,
@@ -974,7 +976,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     graphicType: cabinet.customProfile ?? null,
     customProfile: cabinet.customProfile ?? null,
     facePattern: cabinet.facePattern ?? null,
-    cornerType: cabinet.cornerType ?? null,
+    cornerType: diagonalCorner ? "diagonal" : cabinet.cornerType ?? null,
   };
 }
 

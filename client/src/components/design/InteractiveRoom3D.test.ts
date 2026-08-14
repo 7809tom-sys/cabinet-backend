@@ -193,6 +193,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(placed[3])).toMatchObject({ x: 15, z: 42, bottom: 54 });
   });
 
+  it("maps the active WDC2442 wall corner through its shared 24-inch diagonal footprint", () => {
+    const wdc = {
+      uid: "active-wdc", cabinetId: 2, masterCode: "WDC2442", description: "24 inch Diagonal Wall Corner Cabinet",
+      placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    const mapped = existingCabinetSku(wdc);
+    expect(mapped).toMatchObject({ masterCode: "WDC2442", width: 24, depth: 24, cornerType: "diagonal" });
+    expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "diagonal-corner", pattern: null });
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
