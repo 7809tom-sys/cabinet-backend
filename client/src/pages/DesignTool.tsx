@@ -111,7 +111,7 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -1379,6 +1379,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const paletteFinishSwatch = useMemo<string | null>(
     () => (activeStyle as { doorSampleImageUrl?: string | null } | null)?.doorSampleImageUrl ?? null,
     [activeStyle]
+  );
+  const interactive3dRevision = useMemo(
+    () => threeDSceneRevisionKey(room, placed, openings, sinks, paletteFinishSwatch || active3DDoorSampleUrl),
+    [room, placed, openings, sinks, paletteFinishSwatch, active3DDoorSampleUrl],
   );
   // Auto-suggested Hickory finished-end skins, one per exposed cabinet end.
   // Empty unless the selected finish is Hickory. NOTE: the real skin SKU/price
@@ -8880,6 +8884,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : interactive3dScene ? (
               <InteractiveRoom3D
+                key={interactive3dRevision}
                 scene={interactive3dScene as InteractiveRoomScene}
                 placed={placed}
                 roomOverride={room}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDShakerRailThickness, threeDSceneInputDiagnostics, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -50,6 +50,16 @@ describe("interactive 3D room scene helpers", () => {
   it("renders placed 2D cabinets instead of starter suggestions whenever a design exists", () => {
     expect(shouldRenderPlacedDesign([])).toBe(false);
     expect(shouldRenderPlacedDesign([{ uid: "base-1" } as never])).toBe(true);
+  });
+
+  it("forces the active WebGL preview to rebuild whenever any saved 2D scene input changes", () => {
+    const room = { width: 144, depth: 120 };
+    const base = threeDSceneRevisionKey(room, [], [], [], "sample-a");
+    const cabinet = { uid: "cab", cabinetId: 1, masterCode: "B-24", description: "Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0 } as never;
+    const opening = { uid: "window", kind: "window", side: "top", offset: 0, width: 30, height: 30, sillHeight: 36 } as never;
+    expect(threeDSceneRevisionKey(room, [cabinet], [], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [opening], [], "sample-a")).not.toBe(base);
+    expect(threeDSceneRevisionKey(room, [], [], [], "sample-b")).not.toBe(base);
   });
 
   it("preserves a placed cabinet’s current 2D location and wall mounting height", () => {

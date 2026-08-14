@@ -895,6 +895,17 @@ export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleU
   };
 }
 
+/** Stable signature of the exact 2D inputs that must create a fresh WebGL scene. */
+export function threeDSceneRevisionKey(
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  sinks: SinkFixture[],
+  doorSampleUrl: string | null | undefined,
+) {
+  return JSON.stringify({ room, placed, openings, sinks, doorSampleUrl: doorSampleUrl ?? null });
+}
+
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
   const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
