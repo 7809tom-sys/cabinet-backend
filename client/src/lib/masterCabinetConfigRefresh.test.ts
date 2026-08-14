@@ -81,6 +81,31 @@ describe("master Cabinet Config refresh", () => {
     });
   });
 
+  it("hydrates corner, pull, and mount rules into saved instances without moving their 2D footprint", () => {
+    const refreshed = refreshPlacedCabinetsFromMasterConfig(placed, {
+      cabinetId: 701,
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      pullMin: 3,
+      pullMax: 6,
+      mountBottom: 54,
+      graphicType: "corner-drawer-base",
+    });
+
+    expect(refreshed[0]).toMatchObject({
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      pullMin: 3,
+      pullMax: 6,
+      mountBottom: 54,
+      customProfile: "corner-drawer-base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+    });
+  });
+
   it("hydrates stale saved placements from the currently loaded master rules", () => {
     const stale = [{
       ...placed[0],

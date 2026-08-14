@@ -151,6 +151,11 @@ export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefin
   return "calibrated-fallback" as const;
 }
 
+export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
+  const textureLabel = textureState === "not-requested" ? "not selected" : textureState;
+  return `Cabinet material: ${mode.replaceAll("-", " ")} · Door sample texture: ${textureLabel}`;
+}
+
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -1263,7 +1268,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
-          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>Cabinet material: {visibleMaterialMode.replaceAll("-", " ")} · Door sample texture: {doorTextureState === "not-requested" ? "not selected" : doorTextureState}</p>}
+          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>{threeDMaterialStatusText(visibleMaterialMode, doorTextureState)}</p>}
           {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
         <div className="flex gap-2">

@@ -235,6 +235,9 @@
 - [x] Add targeted oven, drawer-slot, corner-base, and dishwasher-countertop regressions
 - [x] Replace the active saved lazy-Susan corner with the CDB36 Corner Drawer Base Cabinet
 - [x] Verify CDB36 uses its configured 36-inch corner-drawer plan, elevation, and 3D geometry
+- [x] Remove design-specific 3D patches so every saved 2D design maps through one universal Cabinet Config-driven renderer
+- [x] Carry all placed cabinet, appliance, countertop, corner, opening, sink, and finish data automatically from any saved 2D design into 3D
+- [x] Add multi-design fidelity fixtures that prevent per-design 3D drift from reappearing
 - [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

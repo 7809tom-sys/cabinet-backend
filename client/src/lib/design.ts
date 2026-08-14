@@ -210,6 +210,8 @@ export interface PlacedCabinet {
   // Optional for backward-compat with older saved designs.
   category?: string | null;
   subCategory?: string | null;
+  /** Current master corner classification, refreshed into older saved designs. */
+  isCornerCabinet?: boolean | null;
   placement: Placement;
   x: number;
   y: number;
@@ -355,6 +357,11 @@ export type MasterCabinetDrawingRefresh = {
   cabinetId: number;
   category?: string | null;
   subCategory?: string | null;
+  isCornerCabinet?: boolean | null;
+  cornerType?: string | null;
+  pullMin?: number | null;
+  pullMax?: number | null;
+  mountBottom?: number | null;
   graphicType?: string | null;
   specImageUrl?: string | null;
   numberOfDoors?: number | null;
@@ -382,6 +389,11 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...cabinet,
       ...(master.category !== undefined ? { category: master.category } : {}),
       ...(master.subCategory !== undefined ? { subCategory: master.subCategory } : {}),
+      ...(master.isCornerCabinet !== undefined ? { isCornerCabinet: master.isCornerCabinet } : {}),
+      ...(master.cornerType !== undefined ? { cornerType: master.cornerType } : {}),
+      ...(master.pullMin !== undefined ? { pullMin: master.pullMin } : {}),
+      ...(master.pullMax !== undefined ? { pullMax: master.pullMax } : {}),
+      ...(master.mountBottom !== undefined ? { mountBottom: master.mountBottom } : {}),
       ...(master.graphicType !== undefined
         ? { customProfile: master.graphicType && master.graphicType !== "standard" ? master.graphicType : null }
         : {}),
@@ -417,6 +429,11 @@ export function refreshPlacedCabinetsFromMasterRules(
     if (
       next.category !== cabinet.category ||
       next.subCategory !== cabinet.subCategory ||
+      next.isCornerCabinet !== cabinet.isCornerCabinet ||
+      next.cornerType !== cabinet.cornerType ||
+      next.pullMin !== cabinet.pullMin ||
+      next.pullMax !== cabinet.pullMax ||
+      next.mountBottom !== cabinet.mountBottom ||
       next.customProfile !== cabinet.customProfile ||
       next.genericDrawingUrl !== cabinet.genericDrawingUrl ||
       next.numberOfDoors !== cabinet.numberOfDoors ||
