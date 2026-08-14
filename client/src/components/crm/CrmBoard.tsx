@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
-import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
+import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
 
 type Lang = CrmLanguage;
 const L = (lang: Lang) => ({
@@ -73,6 +73,13 @@ interface DealRow {
   affiliateId?: number | null;
   needsHelpClosing?: boolean;
 }
+
+type CrmInvoicePrefill = {
+  cabinetOrderAmount: string | number | null;
+  cabinetOrderSource: string | null;
+  installationAmount: string | number | null;
+  installationSource: string | null;
+};
 
 const priorityColor: Record<CrmPriority, string> = {
   low: "bg-muted text-muted-foreground",
@@ -544,6 +551,8 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
   const deal = data?.deal as DealRow | undefined;
   const activities = (data?.activities ?? []) as { id: number; kind: string; body: string; createdAt: string | Date }[];
   const linkedDesigns = (data?.linkedDesigns ?? []) as { id: number; designId: number; designName: string }[];
+  const invoiceBrand = (data as { invoiceBrand?: CrmQuickInvoiceBrand } | undefined)?.invoiceBrand;
+  const invoicePrefill = (data as { invoicePrefill?: CrmInvoicePrefill } | undefined)?.invoicePrefill;
   const emails = (data?.emails ?? []) as {
     id: number; toEmail: string; fromEmail: string; subject: string; body: string;
     sentByName: string | null; sentAt: string | Date;
@@ -628,7 +637,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 </div>
               </div>
 
-              <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} lang={lang} />
+              <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} brand={invoiceBrand} prefill={invoicePrefill} lang={lang} />
 
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => remove.mutate({ id: deal.id })} disabled={remove.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" />{lang === "es" ? "Eliminar trato" : "Delete deal"}
@@ -659,33 +668,53 @@ function QuickInvoiceDialog({
   deal,
   dealId,
   linkedDesigns,
+  brand,
+  prefill,
   lang,
 }: {
   deal: DealRow;
   dealId: number;
   linkedDesigns: { id: number; designId: number; designName: string }[];
+  brand?: CrmQuickInvoiceBrand;
+  prefill?: CrmInvoicePrefill;
   lang: Lang;
 }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
-  const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(deal.estimatedValue ?? 0) > 0, amount: deal.estimatedValue ?? "" });
+  const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(prefill?.cabinetOrderAmount ?? deal.estimatedValue ?? 0) > 0, amount: prefill?.cabinetOrderAmount?.toString() ?? deal.estimatedValue ?? "" });
   const [kitchenDesign, setKitchenDesign] = useState({ enabled: false, amount: "" });
-  const [installation, setInstallation] = useState({ enabled: false, amount: "" });
+  const [installation, setInstallation] = useState({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
   const [selectedDesignId, setSelectedDesignId] = useState<string>(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
   const [notes, setNotes] = useState("");
   const [previewLines, setPreviewLines] = useState<CrmQuickInvoiceLine[] | null>(null);
 
   useEffect(() => {
-    setCabinetOrder({ enabled: Number(deal.estimatedValue ?? 0) > 0, amount: deal.estimatedValue ?? "" });
+    setCabinetOrder({ enabled: Number(prefill?.cabinetOrderAmount ?? deal.estimatedValue ?? 0) > 0, amount: prefill?.cabinetOrderAmount?.toString() ?? deal.estimatedValue ?? "" });
     setKitchenDesign({ enabled: false, amount: "" });
-    setInstallation({ enabled: false, amount: "" });
+    setInstallation({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
     setSelectedDesignId(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
     setNotes("");
     setPreviewLines(null);
-  }, [deal.id, deal.estimatedValue, linkedDesigns.length, linkedDesigns[0]?.id]);
+  }, [deal.id, deal.estimatedValue, linkedDesigns.length, linkedDesigns[0]?.id, prefill?.cabinetOrderAmount, prefill?.installationAmount]);
 
   const addActivity = trpc.crm.addActivity.useMutation({
     onSuccess: () => utils.crm.deal.invalidate({ id: dealId }),
+  });
+  const { data: emailReadiness } = trpc.crm.emailReadiness.useQuery(undefined, { enabled: open && previewLines != null });
+  const sendInvoiceEmail = trpc.crm.sendInvoiceEmail.useMutation({
+    onSuccess: () => {
+      toast.success(label("Branded invoice PDF emailed to the customer.", "La factura PDF personalizada se envió al cliente."));
+      utils.crm.deal.invalidate({ id: dealId });
+      utils.crm.board.invalidate();
+      setPreviewLines(null);
+      setOpen(false);
+    },
+    onError: (error) => {
+      const message = error.message;
+      if (message === "missing_recipient") toast.error(label("Add a customer email to this lead before sending the invoice.", "Agregue un correo electrónico del cliente antes de enviar la factura."));
+      else if (message === "not_configured" || message === "disabled") toast.error(CRM_EMAIL_BLOCK_MESSAGES[message][lang]);
+      else toast.error(message || label("Could not send the invoice email.", "No se pudo enviar el correo de la factura."));
+    },
   });
   const selectedDesign = linkedDesigns.find((design) => String(design.id) === selectedDesignId) ?? null;
   const label = (english: string, spanish: string) => lang === "es" ? spanish : english;
@@ -727,6 +756,7 @@ function QuickInvoiceDialog({
       linkedDesignName: selectedDesign?.designName ?? null,
       notes: notes.trim() || null,
       lines,
+      brand,
     });
     if (!opened) {
       toast.error(label("Your browser blocked the PDF window. Please allow pop-ups and try again.", "El navegador bloqueó la ventana de PDF. Permita ventanas emergentes e inténtelo de nuevo."));
@@ -742,21 +772,37 @@ function QuickInvoiceDialog({
     setOpen(false);
   }
 
-  const ServiceRow = ({ id, title, state, setState }: {
+  function emailInvoice() {
+    if (!previewLines?.length) return;
+    sendInvoiceEmail.mutate({
+      dealId,
+      lines: previewLines,
+      linkedDesignId: selectedDesign?.id ?? null,
+      notes: notes.trim() || null,
+    });
+  }
+
+  const ServiceRow = ({ id, title, state, setState, source }: {
     id: string;
     title: string;
     state: { enabled: boolean; amount: string };
     setState: (state: { enabled: boolean; amount: string }) => void;
+    source?: string | null;
   }) => (
-    <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem] items-center gap-2 rounded-md border border-border p-2.5">
-      <Checkbox id={id} checked={state.enabled} onCheckedChange={(checked) => setState({ ...state, enabled: checked === true })} />
-      <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
-      <Input aria-label={`${title} amount`} type="number" min="0" step="0.01" placeholder="$0.00" value={state.amount} onChange={(event) => setState({ ...state, amount: event.target.value })} disabled={!state.enabled} />
+    <div className="rounded-md border border-border p-2.5">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem] items-center gap-2">
+        <Checkbox id={id} checked={state.enabled} onCheckedChange={(checked) => setState({ ...state, enabled: checked === true })} />
+        <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
+        <Input aria-label={`${title} amount`} type="number" min="0" step="0.01" placeholder="$0.00" value={state.amount} onChange={(event) => setState({ ...state, amount: event.target.value })} disabled={!state.enabled} />
+      </div>
+      {source && <p className="mt-1 pl-8 text-[11px] text-muted-foreground">{label("Imported from ", "Importado de ")}{source}</p>}
     </div>
   );
 
   const invoiceTotal = crmQuickInvoiceTotal(previewLines ?? []);
   const formatMoney = (amount: number) => amount.toLocaleString(undefined, { style: "currency", currency: "USD" });
+  const smtpReady = emailReadiness?.configured && emailReadiness.enabled;
+  const customerEmail = deal.contactEmail?.trim();
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setPreviewLines(null); }}>
@@ -784,15 +830,18 @@ function QuickInvoiceDialog({
               <div className="flex items-center justify-between bg-muted/30 px-3 py-3 text-sm font-bold"><span>{label("Invoice total", "Total de la factura")}</span><span>{formatMoney(invoiceTotal)}</span></div>
             </div>
             {selectedDesign && <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"><strong>{label("Linked design:", "Diseño vinculado:")}</strong> {selectedDesign.designName}</div>}
-            <DialogFooter className="gap-2 sm:justify-between"><Button variant="outline" onClick={() => setPreviewLines(null)}>{label("Back to selections", "Volver a selecciones")}</Button><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Generate Final PDF", "Generar PDF final")}</Button></DialogFooter>
+            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"><strong className="text-foreground">{brand?.storeName ?? "Cabinet Dealz"}</strong>{brand?.logoUrl ? label(" logo and colors will appear on both the PDF and customer email.", " aparecerán con su logo y colores en el PDF y el correo al cliente.") : label(" branding will appear on both the PDF and customer email.", " aparecerá en el PDF y el correo al cliente.")}</div>
+            <DialogFooter className="gap-2 sm:justify-between"><Button variant="outline" onClick={() => setPreviewLines(null)}>{label("Back to selections", "Volver a selecciones")}</Button><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={emailInvoice} disabled={!customerEmail || !smtpReady || sendInvoiceEmail.isPending}><Mail className="mr-2 h-4 w-4" />{sendInvoiceEmail.isPending ? label("Sending…", "Enviando…") : label("Email PDF to Customer", "Enviar PDF al cliente")}</Button><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Generate Final PDF", "Generar PDF final")}</Button></div></DialogFooter>
+            {!customerEmail && <p className="text-xs text-amber-700">{label("Add the customer email to this lead to enable direct invoice delivery.", "Agregue el correo del cliente a este prospecto para habilitar el envío directo.")}</p>}
+            {customerEmail && !smtpReady && <p className="text-xs text-amber-700">{label("Configure and enable CRM email to send the PDF directly.", "Configure y habilite el correo CRM para enviar el PDF directamente.")}</p>}
           </>
         ) : (
           <>
             <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. You will review and edit the prices before opening the final PDF.", "Seleccione las partes de este prospecto para facturar. Podrá revisar y editar los precios antes de abrir el PDF final.")}</p>
             <div className="space-y-2">
-              <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} />
+              <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} source={prefill?.cabinetOrderSource} />
               <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} />
-              <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} />
+              <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} source={prefill?.installationSource} />
             </div>
             <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>
               <Select value={selectedDesignId} onValueChange={setSelectedDesignId}>

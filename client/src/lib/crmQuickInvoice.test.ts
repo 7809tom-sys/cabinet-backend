@@ -30,6 +30,7 @@ describe("CRM quick invoice", () => {
       customerEmail: "tom@example.com",
       linkedDesignName: "Aspin kitchen",
       notes: "Cabinet order plus installation.",
+      brand: { storeName: "Reaves Way Cabinet Shop", logoUrl: "https://example.com/reaves-way-logo.png", primaryColor: "#123456", accentColor: "#C79A4B" },
       lines: [
         { description: "Cabinet Order", amount: 4200 },
         { description: "Kitchen Design", amount: 250 },
@@ -43,5 +44,7 @@ describe("CRM quick invoice", () => {
     expect(html).toContain("Kitchen Design");
     expect(html).toContain("Installation");
     expect(html).toContain("$5,750.00");
+    expect(html).toContain("Reaves Way Cabinet Shop");
+    expect(html).toContain("reaves-way-logo.png");
   });
 });

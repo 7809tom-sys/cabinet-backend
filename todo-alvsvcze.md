@@ -367,3 +367,10 @@
 - [x] Add an editable CRM invoice preview where service line prices can be adjusted before final PDF generation
 - [x] Show live invoice totals in the preview and require explicit final-PDF confirmation
 - [x] Add regression coverage and mobile validation for editable invoice-preview prices and final PDF output
+- [x] Add a protected Send PDF to Customer action to the final CRM invoice preview
+- [x] Deliver the generated invoice as a PDF attachment through the configured CRM email service and log it on the lead
+- [x] Add regression coverage and mobile validation for direct customer invoice email delivery
+- [x] Brand CRM invoice PDFs and customer invoice emails with the owning affiliate’s logo, store name, and colors
+- [x] Import cabinet-order totals from the original customer order application into the CRM invoice draft
+- [x] Import installation totals from the original customer installation application into the CRM invoice draft
+- [x] Preserve imported invoice amounts as editable prefilled values and add regression coverage for the mobile invoice modal

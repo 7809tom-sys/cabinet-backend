@@ -12,6 +12,7 @@ import {
   kitchenDesigns,
   affiliates,
   orderRequests,
+  affiliateInstallationEstimates,
   proApplications,
   salesCommissions,
   users,
@@ -32,6 +33,8 @@ import {
   shouldCreateCommission,
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
+import { usableInvoicePrefill } from "../crmInvoicePrefill";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -264,7 +267,71 @@ export const crmRouter = router({
         .from(crmEmailLog)
         .where(eq(crmEmailLog.dealId, deal.id))
         .orderBy(desc(crmEmailLog.sentAt));
-      return { deal, activities, linkedDesigns, emails };
+      const affiliateRows = deal.affiliateId == null
+        ? []
+        : await db.select({
+          storeName: affiliates.storeName,
+          logoUrl: affiliates.logoUrl,
+          primaryColor: affiliates.primaryColor,
+          accentColor: affiliates.accentColor,
+        }).from(affiliates).where(eq(affiliates.id, deal.affiliateId)).limit(1);
+      const affiliate = affiliateRows[0];
+      const invoiceBrand = affiliate ?? {
+        storeName: "Cabinet Dealz",
+        logoUrl: null,
+        primaryColor: "#172033",
+        accentColor: "#B5893D",
+      };
+      // Use the source application amounts as invoice defaults. A direct order
+      // link wins; legacy designer leads may recover a same-affiliate order by
+      // the customer's email address.
+      const orderScope = deal.affiliateId == null
+        ? isNull(orderRequests.affiliateId)
+        : eq(orderRequests.affiliateId, deal.affiliateId);
+      const linkedOrderRows = deal.orderRequestId == null
+        ? []
+        : await db.select().from(orderRequests).where(eq(orderRequests.id, deal.orderRequestId)).limit(1);
+      const matchedOrderRows = linkedOrderRows[0] || !deal.contactEmail
+        ? linkedOrderRows
+        : await db.select().from(orderRequests)
+          .where(and(eq(orderRequests.originatorEmail, deal.contactEmail), orderScope))
+          .orderBy(desc(orderRequests.updatedAt))
+          .limit(1);
+      const invoiceOrder = matchedOrderRows[0] ?? null;
+
+      const installationScope = deal.affiliateId == null
+        ? null
+        : eq(affiliateInstallationEstimates.affiliateId, deal.affiliateId);
+      const linkedInstallationRows = installationScope && invoiceOrder
+        ? await db.select().from(affiliateInstallationEstimates)
+          .where(and(installationScope, eq(affiliateInstallationEstimates.orderRequestId, invoiceOrder.id)))
+          .orderBy(desc(affiliateInstallationEstimates.updatedAt))
+          .limit(1)
+        : [];
+      const matchedInstallationRows = linkedInstallationRows[0] || !installationScope || !deal.contactEmail
+        ? linkedInstallationRows
+        : await db.select().from(affiliateInstallationEstimates)
+          .where(and(installationScope, eq(affiliateInstallationEstimates.customerEmail, deal.contactEmail)))
+          .orderBy(desc(affiliateInstallationEstimates.updatedAt))
+          .limit(5);
+      const invoiceInstallation = matchedInstallationRows.find((estimate) => estimate.status !== "cancelled") ?? null;
+      const cabinetOrderPrefill = usableInvoicePrefill(invoiceOrder ? {
+        totalAmount: invoiceOrder.totalAmount,
+        status: invoiceOrder.status,
+        source: `Order ${invoiceOrder.requestNumber}`,
+      } : null);
+      const installationPrefill = usableInvoicePrefill(invoiceInstallation ? {
+        totalAmount: invoiceInstallation.totalAmount,
+        status: invoiceInstallation.status,
+        source: `Installation estimate #${invoiceInstallation.id}`,
+      } : null);
+      const invoicePrefill = {
+        cabinetOrderAmount: cabinetOrderPrefill.amount,
+        cabinetOrderSource: cabinetOrderPrefill.source,
+        installationAmount: installationPrefill.amount,
+        installationSource: installationPrefill.source,
+      };
+      return { deal, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill };
     }),
 
   // ── Saved designs the caller can attach (their own, by name) ────────────────
@@ -555,6 +622,116 @@ export const crmRouter = router({
       });
       await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
       return { ok: true };
+    }),
+
+  // ── Send a final branded invoice PDF to the CRM lead contact ────────────────
+  // The recipient always comes from the scoped deal itself; callers cannot turn
+  // this into an arbitrary outbound-email endpoint.
+  sendInvoiceEmail: protectedProcedure
+    .input(z.object({
+      dealId: z.number().int(),
+      lines: z.array(z.object({
+        description: z.string().trim().min(1).max(256),
+        amount: z.number().finite().min(0).max(10_000_000),
+      })).min(1).max(30),
+      linkedDesignId: z.number().int().nullable().optional(),
+      notes: z.string().trim().max(8000).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      const to = deal.contactEmail?.trim();
+      if (!to) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "missing_recipient" });
+      }
+
+      const rows = await db.select().from(emailSettings).limit(1);
+      const s = rows[0];
+      const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
+      const blocked = crmEmailBlockedReason({ configured, enabled: s?.enabled ?? false });
+      if (blocked) throw new TRPCError({ code: "PRECONDITION_FAILED", message: blocked });
+
+      let linkedDesignName: string | null = null;
+      if (input.linkedDesignId != null) {
+        const linkedRows = await db.select({ designName: crmDealDesigns.designName })
+          .from(crmDealDesigns)
+          .where(and(eq(crmDealDesigns.id, input.linkedDesignId), eq(crmDealDesigns.dealId, deal.id)))
+          .limit(1);
+        if (!linkedRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Linked design not found." });
+        linkedDesignName = linkedRows[0].designName;
+      }
+
+      const affiliateRows = deal.affiliateId == null
+        ? []
+        : await db.select({
+          storeName: affiliates.storeName,
+          logoUrl: affiliates.logoUrl,
+          primaryColor: affiliates.primaryColor,
+          accentColor: affiliates.accentColor,
+        }).from(affiliates).where(eq(affiliates.id, deal.affiliateId)).limit(1);
+      const brand = affiliateRows[0] ?? {
+        storeName: "Cabinet Dealz",
+        logoUrl: null,
+        primaryColor: "#172033",
+        accentColor: "#B5893D",
+      };
+      const now = new Date();
+      const invoiceNumber = `CRM-${deal.id}-${now.toISOString().slice(0, 10).replaceAll("-", "")}`;
+      const invoice = {
+        invoiceNumber,
+        issuedOn: now.toLocaleDateString("en-US"),
+        customerName: deal.contactName || deal.company || deal.title,
+        customerEmail: to,
+        customerPhone: deal.contactPhone,
+        linkedDesignName,
+        notes: input.notes ?? null,
+        lines: input.lines,
+        brand,
+      };
+      const pdf = await createCrmInvoicePdf(invoice);
+      const subject = `${brand.storeName} invoice ${invoiceNumber}`;
+      const from = (s!.smtpFrom || s!.smtpUser).trim();
+
+      try {
+        const transport = nodemailer.createTransport({
+          host: s!.smtpHost,
+          port: s!.smtpPort,
+          secure: s!.smtpPort === 465,
+          auth: { user: s!.smtpUser, pass: s!.smtpPass },
+        });
+        await transport.sendMail({
+          from,
+          to,
+          subject,
+          text: `Your invoice ${invoiceNumber} from ${brand.storeName} is attached.`,
+          html: buildCrmInvoiceEmailHtml(invoice),
+          attachments: [{
+            filename: `${invoiceNumber}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          }],
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${msg}` });
+      }
+
+      await db.insert(crmEmailLog).values({
+        dealId: deal.id,
+        toEmail: to,
+        fromEmail: from,
+        subject,
+        body: `Branded invoice PDF ${invoiceNumber} attached.`,
+        sentByUserId: ctx.user.id,
+        sentByName: ctx.user.email ?? String(ctx.user.id),
+      });
+      await db.insert(crmActivities).values({
+        dealId: deal.id,
+        authorUserId: ctx.user.id,
+        kind: "email",
+        body: `Branded invoice PDF ${invoiceNumber} sent to ${to}${linkedDesignName ? ` · Linked design: ${linkedDesignName}` : ""}.`,
+      });
+      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+      return { ok: true, invoiceNumber };
     }),
 
   // ── Toggle a task activity done/undone ──────────────────────────────────────
