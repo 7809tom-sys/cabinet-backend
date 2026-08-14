@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
-import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
+import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
 describe("end-angle elevation face", () => {
   it("keeps BEC-24 classified as an end cabinet even when its saved corner type is triangle", () => {
@@ -30,7 +30,7 @@ describe("end-angle elevation face", () => {
     ).toBe(false);
   });
 
-  it("normalizes BA-24's end-angle source type to the two-face end-return elevation geometry", () => {
+  it("preserves an explicit end-angle Config as a non-corner 45-degree end-cabinet face", () => {
     const ba24 = {
       masterCode: "BA-24",
       description: '24" Base End Angle Cabinet',
@@ -40,7 +40,7 @@ describe("end-angle elevation face", () => {
       height: 34.5,
     };
 
-    expect(resolveElevationFacePresentation(ba24, "end-angle", null).cabinetType).toBe("end-return");
+    expect(resolveElevationFacePresentation(ba24, "end-angle", null).cabinetType).toBe("end-angle");
   });
 
   it("redraws a stale standard-base placement when refreshed Cabinet Config supplies base_end_return", () => {
@@ -56,7 +56,7 @@ describe("end-angle elevation face", () => {
     expect(resolveElevationFacePresentation(stalePlacedBa, "base_end_return", null).cabinetType).toBe("end-return");
   });
 
-  it("renders BEC-24 as two distinct 12-inch faces at a 90-degree end return", () => {
+  it("renders BEC-24 as two 12-inch doors meeting on its 45-degree non-corner end face", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {
         kind: "shaker",
@@ -64,20 +64,36 @@ describe("end-angle elevation face", () => {
         face: "#d8d4c8",
         doors: 2,
         drawers: 0,
-        cabinetType: "end-return",
+        cabinetType: "end-angle",
         cabinetHeightIn: 34.5,
       }),
     );
 
-    expect(markup).toContain('data-bec-end-return-face="true"');
-    expect(markup).toContain('data-bec-front-face="12in"');
-    expect(markup).toContain('data-bec-return-face="12in"');
-    expect(markup).toContain('data-bec-return-seam="true"');
-    expect(markup).toContain("transform:skewY(-4deg)");
+    expect(markup).toContain('data-bec-angled-end-face="true"');
+    expect(markup).toContain('data-bec-45-angle="true"');
+    expect(markup).toContain('data-bec-angled-left-door="12in"');
+    expect(markup).toContain('data-bec-angled-right-door="12in"');
+    expect(markup).toContain('data-bec-angled-center-seam="true"');
+    expect(markup).toContain("clip-path:polygon(0 5%, 100% 0, 100% 100%, 0 95%)");
   });
 });
 
 describe("Shaker elevation front rendering", () => {
+  it("treats refrigerator end panels as floor-running architectural skins", () => {
+    expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(true);
+    expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "B33", description: "Base Cabinet" })).toBe(false);
+    expect(isRefrigeratorEndPanel({ placement: "base", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(false);
+  });
+
+  it("gives sink bases the same 20/80 drawer and door proportion as standard bases", () => {
+    const markup = renderToStaticMarkup(createElement(DoorFront, {
+      kind: "shaker", edge: "#1a2744", face: "#d8d4c8", cabinetType: "sink-base", cabinetWidthIn: 36, cabinetHeightIn: 34.5, doors: 2, drawers: 1,
+    }));
+    expect(markup).toContain("height:20%");
+    expect(markup).toContain("top:20%");
+    expect(markup).toContain("top:20%;bottom:0");
+  });
+
   it("draws measured 3-inch Shaker stiles for 12-inch and 21-inch door faces", () => {
     const common = { kind: "shaker" as const, edge: "#1a2744", face: "#d8d4c8", stroke: "#1a274499" };
     const narrow = renderToStaticMarkup(createElement(SingleDoorPanel, { ...common, faceWidthIn: 12, faceHeightIn: 30 }));
@@ -227,7 +243,7 @@ describe("configured Cabinet Config elevation presentation", () => {
     ).toBe("standard");
   });
 
-  it("keeps BEC end-return catalog drawings out of the live textured elevation container", () => {
+  it("keeps BEC angled-end catalog drawings out of the live textured elevation container", () => {
     const imageUrl = "https://example.com/bec-24-configured-drawing.webp";
     const markup = renderToStaticMarkup(
       createElement(
@@ -259,8 +275,10 @@ describe("configured Cabinet Config elevation presentation", () => {
     );
 
     expect(markup).not.toContain(`src="${imageUrl}"`);
-    expect(markup).toContain('data-bec-end-return-face="true"');
-    expect(markup).not.toContain("clip-path:polygon(0 0");
+    expect(markup).toContain('data-bec-angled-end-face="true"');
+    expect(markup).toContain('data-bec-45-angle="true"');
+    expect(markup).toContain('data-bec-angled-center-seam="true"');
+    expect(markup).toContain("clip-path:polygon(0 5%, 100% 0, 100% 100%, 0 95%)");
     expect(markup).toContain("width:96px");
   });
 });

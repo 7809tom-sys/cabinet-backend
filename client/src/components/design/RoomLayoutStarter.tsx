@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import type { RoomData } from "@/lib/design";
 
-type SeededRoomShape = {
+export type SeededRoomShape = {
   id: string;
   name: string;
   description: string | null;
@@ -15,7 +15,7 @@ type SeededRoomShape = {
   defaultDimensions: unknown;
 };
 
-type SeededLayout = {
+export type SeededLayout = {
   id: string;
   roomShapePresetId: string;
   name: string;

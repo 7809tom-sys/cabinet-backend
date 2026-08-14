@@ -4,6 +4,7 @@
 export type CabinetDrawingType =
   | "standard-door" // 1+ door box (base/wall/tall)
   | "drawer-base" // stacked drawer fronts
+  | "microwave-base" // microwave opening over one configured drawer
   | "sink-base" // false tilt-out top panel + sink cutout indication
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint (blind corner cabinets)
@@ -60,6 +61,30 @@ export interface CabinetLike {
   isDecorativeDoor?: boolean | null;
   /** Face pattern for specialty open-front cabinets: 'slats' | 'criss-cross' | 'lattice' | 'open' | null */
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  /** Cabinet Config graphic type copied into a placed cabinet as customProfile. */
+  graphicType?: string | null;
+}
+
+/**
+ * Resolves face counts without ever overwriting an authored Cabinet Config value.
+ * A configured zero is meaningful: it suppresses generic descriptive/width-based
+ * door or drawer inference for appliance openings and custom cabinets.
+ */
+export function resolveConfiguredFaceCounts(input: {
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  hasConfiguredOpening?: boolean;
+  inferredDoors: number;
+  inferredDrawers: number;
+}) {
+  return {
+    doors: input.numberOfDoors != null
+      ? Math.max(0, input.numberOfDoors)
+      : input.hasConfiguredOpening ? 0 : Math.max(0, input.inferredDoors),
+    drawers: input.numberOfDrawers != null
+      ? Math.max(0, input.numberOfDrawers)
+      : input.hasConfiguredOpening ? 0 : Math.max(0, input.inferredDrawers),
+  };
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -94,12 +119,38 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
 
   const desc = lc(cab.description);
   const sub = lc(cab.subCategory);
+  const code = lc(cab.masterCode);
   const w = toNum(cab.width);
 
-  // 0) The source description is the primary signal. Numeric fields are often
-  // imported as a generic default (including zero) or arrive stale, so treating
-  // them as hard overrides can make a single-door cabinet draw as two doors.
-  // `noDoor` above remains the deliberate editor override for truly open fronts.
+  // Microwave bases are an explicit Cabinet Config contract, not a generic
+  // door-base inference. In particular BMC30 is configured as 0 doors and 1
+  // drawer; never use the width fallback to invent two doors for it.
+  if (/microwave base|base microwave/.test(`${desc} ${sub}`) || /^(?:bmc|mb|bmw)[-_]?\d/.test(code)) {
+    return {
+      doors: Math.max(0, cab.numberOfDoors ?? 0),
+      drawers: Math.max(0, cab.numberOfDrawers ?? 1),
+    };
+  }
+
+  // 0) Authored Cabinet Config is authoritative. Legacy supplier counts exist on
+  // older rows too, so only a configuration signal promotes those values above
+  // the legacy description parser. A configured zero then intentionally
+  // suppresses all inferred panels.
+  const hasAuthoredFaceConfig = cab.openingType != null
+    || cab.graphicType != null
+    || cab.cornerType != null
+    || cab.facePattern != null
+    || cab.drawerLayout != null
+    || cab.doorHeight != null
+    || cab.drawerHeight != null
+    || cab.doorOrientation != null
+    || cab.doorsPerRow != null;
+  if (hasAuthoredFaceConfig) {
+    return {
+      doors: Math.max(0, cab.numberOfDoors ?? 0),
+      drawers: Math.max(0, cab.numberOfDrawers ?? 0),
+    };
+  }
 
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;
@@ -166,7 +217,17 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const sub = lc(cab.subCategory);
   const code = lc(cab.masterCode);
   const desc = lc(cab.description);
+  const graphic = lc(cab.graphicType);
   const hay = `${sub} ${desc} ${code}`;
+
+  // Cabinet Config's explicitly authored graphic type takes precedence over
+  // inconsistent supplier category or corner fields on saved placements.
+  if (graphic === "end-angle" || graphic === "base_end_angle") {
+    return "end-angle";
+  }
+  if (/^(?:base_)?end[_-]?return$/.test(graphic) || graphic === "base_end_return") {
+    return "end-return";
+  }
 
   // Face-pattern override: admin-set facePattern takes priority over all other detection.
   // Auto-detect by code prefix — only CONFIRMED rack/open-front codes:
@@ -276,6 +337,13 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Sink base (false front tilt-out + sink cutout indication).
   if (/sink base|sink/.test(hay) && /base|vanity/.test(`${cat} ${sub} ${desc}`)) {
     return "sink-base";
+  }
+
+  // Microwave bases are a dedicated front: a microwave opening over the
+  // configured drawer(s). They are not normal door bases, even where a supplier
+  // description omits the cabinet's zero-door count.
+  if (/microwave base|base microwave/.test(hay) || /^(?:bmc|mb|bmw)[-_]?\d/.test(code)) {
+    return "microwave-base";
   }
 
   // Glass-front wall cabinets.
@@ -434,10 +502,11 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "drawer-base") {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
+  if (type === "microwave-base") return "Microwave Base Cabinet";
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
-  if (type === "end-angle") return "Base End Angle Cabinet";
+  if (type === "end-angle") return "Base End Cabinet — 45° Angled Front";
   if (type === "end-return") return "Base End Corner Cabinet";
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
@@ -508,6 +577,7 @@ export function cabinetAltText(cab: CabinetLike): string {
   const detailMap: Record<CabinetDrawingType, string> = {
     "standard-door": doors > 0 ? `${doors}-door cabinet` : "cabinet",
     "drawer-base": drawers > 0 ? `${drawers}-drawer base cabinet` : "drawer base cabinet",
+    "microwave-base": "microwave base cabinet with appliance opening and bottom drawer",
     "sink-base": "sink base cabinet with false tilt-out front",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",

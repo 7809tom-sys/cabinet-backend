@@ -83,6 +83,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
   switch (type) {
     case "drawer-base":
       return <DrawerBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "microwave-base":
+      return <MicrowaveBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "sink-base":
       return <SinkBaseFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "appliance-garage":
@@ -211,6 +213,46 @@ function DrawerBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">
             rx={0.8}
             fill={STROKE}
           />
+        </g>
+      ))}
+    </g>
+  );
+}
+
+// Microwave base: the Cabinet Config controls the layout. A zero-door record
+// such as BMC30 is a top microwave opening plus its configured drawer fronts;
+// it must never fall through to StandardDoorFront and gain invented doors.
+function MicrowaveBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const counts = resolveDoorDrawerCounts(cabinet ?? {});
+  const doors = Math.max(0, counts.doors);
+  const drawers = Math.max(0, counts.drawers);
+  const inset = 4;
+  const innerW = w - inset * 2;
+  const configuredDrawerHeight = toNum(cabinet.drawerHeight) ?? 0;
+  const configuredCabinetHeight = toNum(cabinet.height) ?? h;
+  const drawerH = drawers > 0
+    ? Math.min(h * 0.42, Math.max(10, configuredDrawerHeight > 0 ? (configuredDrawerHeight / configuredCabinetHeight) * h : h * 0.24))
+    : 0;
+  const openingH = h - inset * 2 - drawerH - (drawers > 0 ? 3 : 0);
+  const doorH = doors > 0 ? Math.max(0, h * 0.22) : 0;
+  const openingTop = y + inset;
+  const doorTop = openingTop + openingH + 3;
+  const drawerTop = doorTop + doorH + (doors > 0 && drawers > 0 ? 3 : 0);
+  const doorW = doors > 0 ? (innerW - (doors - 1) * 3) / doors : 0;
+  const perDrawerH = drawers > 0 ? drawerH / drawers : 0;
+  return (
+    <g data-cabinet-drawing="microwave-base">
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      <rect data-config-microwave-opening="true" x={x + inset} y={openingTop} width={innerW} height={openingH} rx={1.5} fill="#1a1a1a" stroke={STROKE_LIGHT} strokeWidth={1} />
+      {Array.from({ length: doors }).map((_, i) => (
+        <g key={`mw-door-${i}`} data-config-microwave-door="true">
+          <rect x={x + inset + i * (doorW + 3)} y={doorTop} width={doorW} height={doorH} rx={1.5} fill={PANEL_FILL} stroke={STROKE_LIGHT} strokeWidth={1} />
+        </g>
+      ))}
+      {Array.from({ length: drawers }).map((_, i) => (
+        <g key={`mw-drawer-${i}`} data-config-microwave-drawer="true">
+          <rect x={x + inset} y={drawerTop + i * perDrawerH} width={innerW} height={perDrawerH} rx={1.5} fill={PANEL_FILL} stroke={STROKE_LIGHT} strokeWidth={1} />
+          <rect x={x + w / 2 - innerW * 0.18} y={drawerTop + i * perDrawerH + perDrawerH / 2 - 0.8} width={innerW * 0.36} height={1.6} rx={0.8} fill={STROKE} />
         </g>
       ))}
     </g>

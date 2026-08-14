@@ -15,7 +15,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
@@ -118,6 +118,11 @@ export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: stri
   );
 }
 
+/** Refrigerator end panels are exposed architectural skins: floor to top, no toe kick. */
+export function isRefrigeratorEndPanel(cabinet: Pick<PlacedCabinet, "placement" | "masterCode" | "description">): boolean {
+  return cabinet.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`);
+}
+
 /**
  * Resolves the saved Cabinet Config contract before drawing an elevation face.
  * A custom rule can use its configured generic drawing image; otherwise it
@@ -131,13 +136,16 @@ export function resolveElevationFacePresentation(
   isAppliance = false,
 ) {
   const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
-  // The source BA-24 may still carry an `end-angle` drawing type while BEC
-  // carries `end-return`. Both are the same 24-by-24 two-face return in an
-  // elevation, so normalize them before DoorFront selects its geometry.
+  // Preserve the exact authored end-cabinet type. An angled front and a two-face
+  // end return are different Cabinet Config rules and must not be normalized.
+  const configuredDrawingType = cabinetDrawingType({
+    ...cabinet,
+    graphicType: customProfile ?? cabinet.graphicType ?? null,
+  });
   const cabinetType = isAppliance
     ? null
     : isEndAngle
-      ? "end-return"
+      ? configuredDrawingType
       : cabinetDrawingType(cabinet);
   // BA/BEC end returns have a meaningful measured 2D face, so their catalog
   // line drawings remain reference images only. They must not replace the live
@@ -148,6 +156,30 @@ export function resolveElevationFacePresentation(
     isAppliance,
   );
   return { cabinetType, isEndAngle, renderMode };
+}
+
+/**
+ * Farmhouse sinks mount through the countertop rather than replacing the whole
+ * base box. Their visible ceramic apron drops roughly 8.5" below the counter,
+ * leaving the cabinet doors and recessed toe kick visible beneath it.
+ */
+export function farmhouseSinkElevationGeometry(cabinetWidthIn: number) {
+  const apronDropIn = 8.5;
+  const countertopTopIn = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS;
+  const apronBottomIn = STD.BASE_HEIGHT - apronDropIn;
+  const sideInsetIn = Math.min(1.5, Math.max(0.75, cabinetWidthIn * 0.04));
+  const apronWidthIn = Math.max(0, cabinetWidthIn - sideInsetIn * 2);
+  const apronHeightIn = countertopTopIn - apronBottomIn;
+  const basinHeightIn = Math.min(2.8, apronHeightIn * 0.3);
+  return {
+    apronBottomIn,
+    apronHeightIn,
+    apronWidthIn,
+    basinHeightIn,
+    basinTopInsetIn: 1.35,
+    basinWidthIn: apronWidthIn * 0.76,
+    sideInsetIn,
+  };
 }
 
 export function ElevationView({
@@ -255,11 +287,14 @@ export function ElevationView({
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom: rawBottom, height: rawHeight } = elevationBox(p, room);
     const isWall = p.placement === "wall";
+    const refrigeratorEndPanel = isRefrigeratorEndPanel(p);
     // Toe kick is physical cabinet geometry: raise every floor-level base/tall
     // face above the recessed 4.5-inch zone, independent of the optional trim
     // BOM setting.
     const isBaseOrTall = p.placement === "base" || p.placement === "tall";
-    const toeOffset = toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
+    // Refrigerator end panels are exposed architectural skins, not toe-kicked
+    // cabinets. They must visibly run from the floor to the refrigerator top.
+    const toeOffset = refrigeratorEndPanel ? 0 : toeKickHeightForElevation(p.placement, rawBottom, TOE_KICK_HEIGHT_IN);
     const bottom = rawBottom + toeOffset;
     const height = rawHeight - toeOffset;
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
@@ -291,7 +326,29 @@ export function ElevationView({
       : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
+    // Microwave bases are explicitly zero-door Cabinet Config records; their
+    // resolver returns those authored counts without applying a width fallback.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
+    // An authored appliance-opening record owns its face layout. Its numeric
+    // Config counts include meaningful zeroes, so do not let a generic width
+    // heuristic add a door when the Config says there are none.
+    const hasConfiguredOpening = p.openingType != null || cabType === "microwave-base";
+    const configuredCounts = {
+      doors: Math.max(0, p.numberOfDoors ?? 0),
+      drawers: Math.max(0, p.numberOfDrawers ?? 0),
+    };
+    const inferredDoors = resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p));
+    const inferredDrawers = isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p));
+    // An explicit Cabinet Config value, including zero, always wins. A configured
+    // appliance opening with an omitted legacy count also stays open instead of
+    // allowing generic description or width heuristics to invent cabinet faces.
+    const displayCounts = resolveConfiguredFaceCounts({
+      numberOfDoors: p.numberOfDoors,
+      numberOfDrawers: p.numberOfDrawers,
+      hasConfiguredOpening,
+      inferredDoors,
+      inferredDrawers,
+    });
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
     if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);
@@ -352,7 +409,9 @@ export function ElevationView({
             : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
-          zIndex: isDragging ? 10 : 2,
+          // Panels sit in front of an adjacent base face so their full floor-to-
+          // top line remains visible on both sides of the refrigerator opening.
+          zIndex: isDragging ? 10 : refrigeratorEndPanel ? 4 : 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -365,8 +424,8 @@ export function ElevationView({
               kind={cabPanelKind}
               edge={edgeColor}
               face={cabFinish.face}
-              doors={resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p))}
-              drawers={isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p))}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
               drawerSampleUrl={cabDrawerSampleUrl}
@@ -411,8 +470,8 @@ export function ElevationView({
           )}
           {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
@@ -893,6 +952,16 @@ export function ElevationView({
               return { start: posAlong, end: posAlong + sizeAlong };
             })
             .sort((a, b) => a.start - b.start);
+          // Refrigerator end panels belong to the refrigerator column. A counter
+          // can meet an OUTSIDE panel face, but it must never overhang through the
+          // panel toward the refrigerator opening.
+          const refrigeratorPanels = sorted
+            .filter((p) => p.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${p.masterCode ?? ""} ${p.description ?? ""}`))
+            .map((p) => {
+              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+              const posAlong = horizontal ? p.x : p.y;
+              return { start: posAlong, end: posAlong + sizeAlong };
+            });
           if (spans.length === 0) return null;
           // Merge adjacent/overlapping spans into contiguous runs; a gap larger
           // than TOL (e.g. where the fridge sits) breaks the counter.
@@ -912,8 +981,8 @@ export function ElevationView({
                   key={`ct${i}`}
                   className="absolute z-20 pointer-events-none rounded-[1px]"
                   style={{
-                    left: (r.start - OVERHANG_IN) * ppi,
-                    width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
+                    left: (r.start - (refrigeratorPanels.some((panel) => Math.abs(panel.end - r.start) <= TOL) ? 0 : OVERHANG_IN)) * ppi,
+                    width: (r.end - r.start + (refrigeratorPanels.some((panel) => Math.abs(panel.end - r.start) <= TOL) ? 0 : OVERHANG_IN) + (refrigeratorPanels.some((panel) => Math.abs(panel.start - r.end) <= TOL) ? 0 : OVERHANG_IN)) * ppi,
                     bottom: Math.ceil(STD.BASE_HEIGHT * ppi),
                     height: THICKNESS_IN * ppi,
                     ...(realistic ? {
@@ -1390,35 +1459,36 @@ export function ElevationView({
             </svg>
           );
         })}
-        {/* Apron-front (farmhouse) sink: exposed ceramic apron face below countertop.
-            Shown for FSB-* cabinets. Replaces the standard hidden under-mount look
-            with a visible fireclay/cast-iron apron panel. */}
+        {/* Apron-front (farmhouse) sink: a ceramic basin that sits through the
+            countertop with its apron visibly dropping over the upper cabinet face.
+            The cabinet doors and recessed toe kick remain visible below. */}
         {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          // Apron sits from floor (toe kick height) up to countertop bottom
-          const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-          const apronTop = STD.COUNTERTOP_HEIGHT; // 34.5"
-          const apronH = apronTop - apronBottom;
-          const apronPxH = apronH * ppi;
-          const apronPxW = sizeAlong * ppi;
-          const apronLeft = posAlong * ppi;
-          const apronBottomPx = apronBottom * ppi;
-          // Basin cutout: centered, ~80% width, ~55% height of apron
-          const basinW = apronPxW * 0.78;
-          const basinH = apronPxH * 0.52;
+          const geometry = farmhouseSinkElevationGeometry(sizeAlong);
+          const apronPxH = geometry.apronHeightIn * ppi;
+          const apronPxW = geometry.apronWidthIn * ppi;
+          const apronLeft = (posAlong + geometry.sideInsetIn) * ppi;
+          const apronBottomPx = geometry.apronBottomIn * ppi;
+          // Only a shallow interior is visible in front elevation. The white
+          // apron is the primary feature; the dark basin must not consume the
+          // entire cabinet face as it did in the generic sink graphic.
+          const basinW = geometry.basinWidthIn * ppi;
+          const basinH = geometry.basinHeightIn * ppi;
           const basinLeft = (apronPxW - basinW) / 2;
-          const basinBottom = apronPxH * 0.12;
+          const basinBottom = apronPxH - basinH - geometry.basinTopInsetIn * ppi;
           return (
             <div
               key={`apron-${p.uid}`}
               className="absolute pointer-events-none"
+              data-farm-sink-apron="true"
+              data-farm-sink-mounted="countertop"
               style={{
                 left: apronLeft,
                 width: apronPxW,
                 bottom: apronBottomPx,
                 height: apronPxH,
-                zIndex: 6,
+                zIndex: 23,
               }}
             >
               {realistic ? (
@@ -2338,20 +2408,17 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // Sink bases have a narrow false tilt-out panel at the top (for the tip-out
   // tray) and two doors below. The false front is thinner than a normal drawer.
   if (cabinetType === "sink-base") {
-    const falseFrontPct = 14; // narrow tilt-out tray panel
+    // Sink bases retain standard base-cabinet face proportions: a 20% top
+    // drawer/tilt-out row and 80% door region. The sink changes hardware, not
+    // the height of the doors.
+    const falseFrontPct = 20;
     const cols = Math.max(1, doorCount || 2);
     const colW = 100 / cols;
     return withFace(
       <>
         {/* false front (tilt-out tray) */}
         <div className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
-          <div
-            className="absolute inset-[1.5px] rounded-[1px]"
-            style={{
-              ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
-            }}
-          />
+          <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 24} faceHeightIn={(cabinetHeightIn ?? 34.5) * (falseFrontPct / 100)} />
         </div>
         {/* rail between false front and doors */}
         <div className="absolute left-0 right-0" style={{ top: `${falseFrontPct}%`, height: 2, background: stroke }} />
@@ -2365,10 +2432,36 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             {i > 0 && (
               <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
             )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} {...doorPanelProps(cols, 100 - falseFrontPct)} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={(cabinetWidthIn ?? 24) / cols} faceHeightIn={(cabinetHeightIn ?? 34.5) * ((100 - falseFrontPct) / 100)} />
           </div>
         ))}
       </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: MICROWAVE BASE ────────────────────────────────────
+  // BMC30 is configured as zero doors, one top microwave opening, and one
+  // bottom drawer. It must never fall through to the standard door-base face.
+  if (cabinetType === "microwave-base") {
+    const totalHeightIn = cabinetHeightIn ?? 34.5;
+    const configuredDrawerIn = drawerHeight ?? 12;
+    const drawerPct = Math.max(24, Math.min(48, (configuredDrawerIn / totalHeightIn) * 100));
+    const openingPct = 100 - drawerPct;
+    return withFace(
+      <>
+        <div
+          data-microwave-base-opening="true"
+          className="absolute left-0 right-0 top-0 overflow-hidden"
+          style={{ height: `${openingPct}%`, background: "linear-gradient(180deg, #111827 0%, #030712 80%, #1f2937 100%)", boxShadow: "inset 0 0 0 2px rgba(15,23,42,0.72), inset 0 -4px 9px rgba(0,0,0,0.75)" }}
+        >
+          <div className="absolute left-[9%] right-[9%] top-[15%] bottom-[14%] rounded-[2px]" style={{ border: "1px solid rgba(148,163,184,0.52)", background: "linear-gradient(180deg, rgba(55,65,81,0.7), rgba(15,23,42,0.92))", boxShadow: "inset 0 1px 4px rgba(255,255,255,0.10)" }} />
+          <div className="absolute left-[12%] right-[12%] bottom-[8%] h-px" style={{ background: "rgba(203,213,225,0.38)" }} />
+        </div>
+        <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: 2, background: stroke }} />
+        <div data-microwave-base-drawer="true" className="absolute left-0 right-0 bottom-0" style={{ height: `${drawerPct}%` }}>
+          <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} {...drawerPanelProps(1, drawerPct)} />
+        </div>
+      </>,
     );
   }
 
@@ -2472,6 +2565,31 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
         </div>
         <div data-bec-return-seam="true" className="absolute top-[2%] bottom-[2%]" style={{ left: "51%", width: 2, background: `${edge}bb`, boxShadow: "1px 0 1px rgba(255,255,255,0.38)" }} />
         <div className="absolute left-[3%] right-[5%] top-[2%] h-px" style={{ background: `${edge}88` }} />
+      </div>,
+    );
+  }
+
+  // ─── SPECIALTY TYPE: BASE END CABINET, 45° ANGLED FRONT ─────────────────
+  // BEC-24 is a 24-by-24 end cabinet, not a room corner. Its single 45-degree
+  // front plane carries two 12-inch doors which meet on the center seam.
+  if (cabinetType === "end-angle") {
+    return withFace(
+      <div data-bec-angled-end-face="true" data-bec-45-angle="true" className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%] overflow-hidden"
+          style={{
+            clipPath: "polygon(0 5%, 100% 0, 100% 100%, 0 95%)",
+            boxShadow: `inset 0 0 0 2px ${edge}aa, inset 0 -2px 4px rgba(0,0,0,0.14)`,
+          }}
+        >
+          <div data-bec-angled-left-door="12in" className="absolute left-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          </div>
+          <div data-bec-angled-right-door="12in" className="absolute right-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          </div>
+          <div data-bec-angled-center-seam="true" className="absolute top-[3%] bottom-[3%]" style={{ left: "50%", width: 2, background: `${edge}cc`, boxShadow: "1px 0 1px rgba(255,255,255,0.42)" }} />
+        </div>
       </div>,
     );
   }
@@ -2674,11 +2792,15 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   if (openingType && (cabinetType as string) !== "oven-tall") {
     const totalH = cabinetHeightIn ?? 34.5;
     const oPos = openingType;
-    const cabDoorCount = Math.max(1, doorCount || 2);
+    // `0` is a valid authored count: a configured opening can have no doors at
+    // all (e.g. BMC30). Never coerce that zero into generic two-door geometry.
+    const cabDoorCount = Math.max(0, doorCount);
     const cabDrawerCount = drawerCount;
     // Calculate door height percentage
     let doorPct: number;
-    if (doorHeight && doorHeight > 0) {
+    if (cabDoorCount === 0) {
+      doorPct = 0;
+    } else if (doorHeight && doorHeight > 0) {
       doorPct = (doorHeight / totalH) * 100;
     } else {
       doorPct = cabDoorCount > 0 ? 40 : 0;
@@ -2696,7 +2818,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
           <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: 2, background: stroke }} />
           <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: `${doorPct}%` }}>
             {Array.from({ length: cabDoorCount }).map((_, i) => (
-              <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
+              <div key={`mw-door-${i}`} data-config-opening-door="true" className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
                 {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
                 <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} {...doorPanelProps(cabDoorCount, doorPct)} />
               </div>
@@ -2708,7 +2830,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
               {Array.from({ length: cabDrawerCount }).map((_, i) => {
                 const sliceH = drawerPct / cabDrawerCount;
                 return (
-                  <div key={`mw-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${openingPct + doorPct + sliceH * i}%`, height: `${sliceH}%` }}>
+                  <div key={`mw-drw-${i}`} data-config-opening-drawer="true" className="absolute left-0 right-0" style={{ top: `${openingPct + doorPct + sliceH * i}%`, height: `${sliceH}%` }}>
                     {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
                     <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} {...drawerPanelProps(1, sliceH)} />
                   </div>

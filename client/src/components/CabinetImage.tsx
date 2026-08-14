@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { cabinetAltText, type CabinetLike } from "@/lib/cabinetGraphics";
+import { cabinetAltText, cabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 
 interface CabinetImageProps {
   cabinet: CabinetLike;
@@ -24,13 +24,18 @@ interface CabinetImageProps {
 export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
   const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
   const [failed, setFailed] = useState(false);
+  const drawingType = cabinetDrawingType(cabinet);
+  // A master Cabinet Config with an explicit appliance opening and zero doors is
+  // a measured drawing rule. Do not let an older vendor thumbnail with two doors
+  // replace the configuration-authoritative front on catalog cards or details.
+  const configRequiresDrawing = drawingType === "microwave-base" && (cabinet.numberOfDoors ?? 0) === 0;
 
   // Reset the error state if the cabinet (and thus the image) changes.
   useEffect(() => {
     setFailed(false);
   }, [url]);
 
-  if (!url || failed) {
+  if (!url || failed || configRequiresDrawing) {
     return (
       <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />
     );

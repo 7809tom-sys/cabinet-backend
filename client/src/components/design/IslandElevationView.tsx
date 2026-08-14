@@ -31,9 +31,20 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+
+export function islandFarmhouseSinkElevationGeometry(cabinetWidthIn: number) {
+  const apronHeightIn = 8.5;
+  const sideInsetIn = Math.min(1.5, Math.max(0.75, cabinetWidthIn * 0.04));
+  return {
+    apronHeightIn,
+    apronBottomIn: STD.BASE_HEIGHT - apronHeightIn,
+    sideInsetIn,
+    apronWidthIn: Math.max(0, cabinetWidthIn - sideInsetIn * 2),
+  };
+}
 
 // ─── Sub-components (copied from ElevationView for self-containment) ─────────
 
@@ -374,6 +385,14 @@ export function IslandElevationView({
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
+    const hasConfiguredOpening = p.openingType != null || cabType === "microwave-base";
+    const displayCounts = resolveConfiguredFaceCounts({
+      numberOfDoors: p.numberOfDoors,
+      numberOfDrawers: p.numberOfDrawers,
+      hasConfiguredOpening,
+      inferredDoors: resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p)),
+      inferredDrawers: isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p)),
+    });
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (cabPosAlong <= 2) : true;
 
@@ -404,8 +423,8 @@ export function IslandElevationView({
               kind={cabPanelKind}
               edge={edgeColor}
               face={cabFinish.face}
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || displayDrawerCount(p)}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
               drawerSampleUrl={cabDrawerSampleUrl}
@@ -417,8 +436,8 @@ export function IslandElevationView({
           )}
           {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
@@ -719,21 +738,27 @@ export function IslandElevationView({
           {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
             const cabSizeAlong = sizeAlong(p);
             const cabPosAlong = posAlong(p);
-            const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-            const apronTop = STD.COUNTERTOP_HEIGHT;
-            const apronH = apronTop - apronBottom;
+            // A farmhouse sink is installed through the counter: only its shallow
+            // ceramic apron covers the upper face. The styled cabinet and its toe
+            // kick remain visible underneath, exactly as in wall elevations.
+            const geometry = islandFarmhouseSinkElevationGeometry(cabSizeAlong);
+            const apronH = geometry.apronHeightIn;
+            const apronBottom = geometry.apronBottomIn;
+            const sideInset = geometry.sideInsetIn;
             const apronPxH = apronH * ppi;
-            const apronPxW = cabSizeAlong * ppi;
-            const apronLeft = cabPosAlong * ppi;
+            const apronPxW = geometry.apronWidthIn * ppi;
+            const apronLeft = (cabPosAlong + sideInset) * ppi;
             const apronBottomPx = apronBottom * ppi;
             const basinW = apronPxW * 0.78;
-            const basinH = apronPxH * 0.52;
+            const basinH = apronPxH * 0.42;
             const basinLeft = (apronPxW - basinW) / 2;
-            const basinBottom = apronPxH * 0.12;
+            const basinBottom = apronPxH * 0.08;
             return (
               <div
                 key={`apron-${p.uid}`}
                 className="absolute pointer-events-none"
+                data-farm-sink-apron="true"
+                data-farm-sink-mounted="countertop"
                 style={{ left: apronLeft, width: apronPxW, bottom: apronBottomPx, height: apronPxH, zIndex: 6 }}
               >
                 <div
@@ -767,11 +792,6 @@ export function IslandElevationView({
                     }}
                   />
                 </div>
-                {apronPxH > 20 && (
-                  <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: basinBottom + basinH + 2, zIndex: 2 }}>
-                    <span style={{ fontSize: Math.max(7, ppi * 1.8), color: "#8a9bb0", fontWeight: 500 }}>{p.masterCode}</span>
-                  </div>
-                )}
               </div>
             );
           })}

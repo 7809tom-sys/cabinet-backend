@@ -1238,7 +1238,29 @@ export const cabinetsRouter = router({
           notInConflict(),
         ))
         .limit(1);
-      return rows[0] ? scrubCabinet(rows[0]) : null;
+      if (rows[0]) return scrubCabinet(rows[0]);
+
+      // A merged cabinet retains supplier and legacy codes as aliases. Resolve
+      // them here after the direct master-code lookup so a BEC-24 route opens
+      // canonical BA-24 without bringing a duplicate product back into the UI.
+      const aliasCanon = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinetAliases.alias}, '-', ''), ' ', ''), '_', ''))`;
+      const [alias] = await db
+        .select({ cabinetId: cabinetAliases.cabinetId })
+        .from(cabinetAliases)
+        .where(or(
+          eq(cabinetAliases.alias, input.masterCode),
+          eq(cabinetAliases.alias, normalizedCode),
+          sql`${aliasCanon} = ${normalizedCode}`,
+        ))
+        .limit(1);
+      if (!alias) return null;
+
+      const [canonical] = await db
+        .select()
+        .from(cabinets)
+        .where(and(eq(cabinets.id, alias.cabinetId), notInConflict()))
+        .limit(1);
+      return canonical ? scrubCabinet(canonical) : null;
     }),
 
   // ── Admin: Conflict / Needs-Review back office ───────────────────────────

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
+import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { STD, placedFootprint, type PlacedCabinet, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -19,6 +19,15 @@ type SceneSku = {
   depth: unknown;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  openingType?: string | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  drawerLayout?: string | null;
+  ovenType?: "single" | "double" | null;
+  graphicType?: string | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  cornerType?: string | null;
 };
 
 export type InteractiveRoomScene = {
@@ -67,12 +76,25 @@ interface Props {
   /** Current 2D design items take precedence over starter-layout suggestions. */
   placed?: PlacedCabinet[];
   roomOverride?: RoomData;
+  /** Doors, cased openings, and windows from the current 2D plan. */
+  openings?: WallOpening[];
+  /** Countertop sink fixtures from the current 2D plan. */
+  sinks?: SinkFixture[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
+  /** Active design-tool finish derived from the chosen catalog door style. */
+  catalogFinishOverride?: string | null;
+  /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
+  catalogDoorSampleUrl?: string | null;
+  /** Human-readable catalog selections used in PDF and account-email output. */
+  catalogFinishName?: string | null;
+  catalogCountertopName?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
+  /** Adds the matching hood to the editable 2D range position when one is absent. */
+  onAddRangeHood?: () => void;
   onSaveToAccount?: () => void;
   onPresentationChange?: (presentation: InteractiveRoomPresentation) => void;
   className?: string;
@@ -99,10 +121,142 @@ const COUNTERTOP_FINISHES = [
   { name: "Black", color: "#202124" },
 ] as const;
 export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
+export const THREE_D_DRAWER_REVEAL_DEPTH = 0.07;
+export const THREE_D_WALL_OPACITY = 0.72;
+export const THREE_D_WALL_DEPTH_WRITE = false;
+
+export function threeDDoorMaterialFallback(color: string) {
+  return { color, map: null as null };
+}
+
+export function shouldRenderCountertopOverSceneItem(placement: string, masterCode: string) {
+  if (placement === "wall" || placement === "tall" || placement === "accessory") return false;
+  return placement !== "appliance" || /^(?:DW-|DISHWASHER)/i.test(masterCode);
+}
+
+export function rangeOvenFrontLayout(bodyHeight: number) {
+  const drawerHeight = Math.max(0.12, bodyHeight * 0.14);
+  const openingHeight = Math.max(0.2, bodyHeight * 0.54);
+  return {
+    openingHeight,
+    openingCenterY: drawerHeight * 0.42,
+    drawerHeight,
+    drawerCenterY: -bodyHeight / 2 + drawerHeight / 2 + 0.04,
+  };
+}
+
+export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
+  if (doorSampleUrl && textureState === "loaded") return "selected-texture" as const;
+  if (doorSampleUrl && textureState === "loading") return "selected-texture-loading" as const;
+  return "calibrated-fallback" as const;
+}
+
+export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
+  const textureLabel = textureState === "not-requested" ? "not selected" : textureState;
+  return `Cabinet material: ${mode.replaceAll("-", " ")} · Door sample texture: ${textureLabel}`;
+}
 
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function resolvedThreeDDrawerRows(sku: Pick<SceneSku, "drawerLayout">, availableHeight: number, fallbackCount: number) {
+  try {
+    const parsed = JSON.parse(sku.drawerLayout ?? "null");
+    if (Array.isArray(parsed) && parsed.length) {
+      const rows = parsed
+        .map((row) => ({
+          count: Math.max(1, Number((row as Record<string, unknown>).count) || 1),
+          height: Math.max(0.12, Number((row as Record<string, unknown>).height) * INCH || availableHeight / parsed.length),
+        }))
+        .filter((row) => Number.isFinite(row.count) && Number.isFinite(row.height));
+      if (rows.length) return rows;
+    }
+  } catch {
+    // Older placements may not have a valid JSON drawer layout. Use counts.
+  }
+  const count = Math.max(0, fallbackCount);
+  return count ? Array.from({ length: count }, () => ({ count: 1, height: availableHeight / count })) : [];
+}
+
+export function describedOvenSpecification(description: string | null | undefined) {
+  const source = description ?? "";
+  const opening = source.match(/(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*oven\s+opening/i);
+  const doors = source.match(/(\d+)\s*doors?/i);
+  const drawers = source.match(/(\d+)\s*drawers?/i);
+  return {
+    openingWidth: opening ? Number(opening[1]) : null,
+    openingHeight: opening ? Number(opening[2]) : null,
+    doorCount: doors ? Number(doors[1]) : null,
+    drawerCount: drawers ? Number(drawers[1]) : null,
+  };
+}
+
+export function resolvedThreeDOvenLayout(input: {
+  height: unknown;
+  description?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  drawerLayout?: string | null;
+  openingType?: string | null;
+  ovenType?: "single" | "double" | null;
+}) {
+  const totalHeight = numberValue(input.height, 84) * INCH;
+  const usableHeight = Math.max(0.2, totalHeight - 0.08);
+  const described = describedOvenSpecification(input.description);
+  const ovenCount = input.ovenType === "double" ? 2 : 1;
+  const doorCount = input.numberOfDoors != null && input.numberOfDoors > 0
+    ? input.numberOfDoors
+    : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2);
+  const drawerCount = input.numberOfDrawers != null && input.numberOfDrawers > 0
+    ? input.numberOfDrawers
+    : described.drawerCount ?? (input.numberOfDrawers === 0 ? 0 : ovenCount === 2 ? 1 : 3);
+  const requestedDrawerHeight = input.drawerHeight != null
+    ? Math.max(0, Number(input.drawerHeight) * INCH)
+    : drawerCount * 5 * INCH;
+  const requestedRows = resolvedThreeDDrawerRows({ drawerLayout: input.drawerLayout ?? null }, requestedDrawerHeight, drawerCount);
+  const measuredOpeningHeight = described.openingHeight != null ? described.openingHeight * INCH : null;
+  const doorZone = doorCount
+    ? input.doorHeight != null
+      ? Math.min(usableHeight * 0.7, Math.max(0, Number(input.doorHeight) * INCH))
+      : measuredOpeningHeight != null
+        ? Math.max(0, usableHeight - measuredOpeningHeight - requestedRows.reduce((sum, row) => sum + row.height, 0))
+        : usableHeight * 0.2
+    : 0;
+  const requestedDrawerZone = requestedRows.reduce((sum, row) => sum + row.height, 0);
+  const availableDrawerZone = Math.max(0, usableHeight - doorZone - (measuredOpeningHeight ?? usableHeight * 0.15));
+  const drawerScale = requestedDrawerZone > availableDrawerZone && requestedDrawerZone > 0 ? availableDrawerZone / requestedDrawerZone : 1;
+  const drawerRows = requestedRows.map((row) => ({ ...row, height: row.height * drawerScale }));
+  const drawerZone = drawerRows.reduce((sum, row) => sum + row.height, 0);
+  return {
+    usableHeight,
+    doorCount,
+    doorZone,
+    drawerRows,
+    drawerZone,
+    openingHeight: Math.max(0.12, usableHeight - doorZone - drawerZone),
+    openingPosition: input.openingType === "top" || input.openingType === "bottom" ? input.openingType : "middle" as const,
+    ovenCount,
+  };
+}
+
+export function rangeHoodGeometry(widthIn: number, heightIn: number, depthIn: number) {
+  const width = widthIn * INCH;
+  const height = heightIn * INCH;
+  const depth = depthIn * INCH;
+  const canopyHeight = Math.max(0.14, Math.min(height * 0.34, 0.46));
+  return {
+    width,
+    depth,
+    height,
+    canopyHeight,
+    chimneyWidth: Math.max(0.18, width * 0.42),
+    chimneyDepth: Math.max(0.12, depth * 0.46),
+    chimneyHeight: Math.max(0.1, height - canopyHeight),
+  };
 }
 
 export function dimensions(value: unknown) {
@@ -127,11 +281,42 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   return "#f2f0ea";
 }
 
+export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinishOverride?: string | null) {
+  const override = catalogFinishOverride?.trim() ?? "";
+  return /^#[0-9a-f]{6}$/i.test(override) ? override : sceneCabinetColor(scene);
+}
+
+export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null, preferSelectedPlanSample = false) {
+  const sample = catalogDoorSampleUrl?.trim() ?? "";
+  return (preferSelectedPlanSample || cabinetFinish === "catalog") && sample ? sample : null;
+}
+
+export function shouldRenderPlacedDesign(placed: PlacedCabinet[]) {
+  return placed.length > 0;
+}
+
+export function quoteMaterialDetails(input: {
+  cabinetPreview: string;
+  countertopPreview: string;
+  catalogFinishName?: string | null;
+  catalogCountertopName?: string | null;
+}) {
+  return {
+    cabinet: input.cabinetPreview === "Catalog finish" ? input.catalogFinishName?.trim() || "Catalog finish" : input.cabinetPreview,
+    countertop: input.countertopPreview === "Quartz" ? input.catalogCountertopName?.trim() || "Quartz" : input.countertopPreview,
+  };
+}
+
 export function doorProfileKind(doorStyle: string | null | undefined, doorPanelType: string | null | undefined) {
   const profile = `${doorStyle ?? ""} ${doorPanelType ?? ""}`.toLowerCase();
   if (/raised|bevel|cathedral/.test(profile)) return "raised" as const;
   if (/shaker|recessed|frame/.test(profile)) return "shaker" as const;
   return "flat" as const;
+}
+
+/** Three-inch physical Shaker rail/stile, reduced only when a very narrow face cannot accommodate it. */
+export function threeDShakerRailThickness(faceWidth: number, faceHeight: number) {
+  return Math.max(0, Math.min(3 * INCH, faceWidth / 2 - 0.01, faceHeight / 2 - 0.01));
 }
 
 function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
@@ -160,6 +345,31 @@ function disposeObject(root: THREE.Object3D) {
   });
 }
 
+export function resolvedThreeDFaceLayout(input: {
+  placementType?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  openingType?: string | null;
+}) {
+  const placement = (input.placementType ?? "base").toLowerCase();
+  const isWallOrTall = placement === "wall" || placement === "tall";
+  return {
+    hasConfiguredOpening: Boolean(input.openingType && input.openingType !== "none"),
+    doorCount: input.numberOfDoors == null ? (isWallOrTall ? 2 : 1) : Math.max(0, input.numberOfDoors),
+    drawerCount: Math.max(0, input.numberOfDrawers ?? 0),
+  };
+}
+
+export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "masterCode" | "description">) {
+  const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
+  if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
+  if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
+  if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
+  if (sku.cornerType === "diagonal") return { kind: "diagonal-corner" as const, pattern: null };
+  if (/\b(?:wine|lattice|plate)\b/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) return { kind: "face-pattern" as const, pattern: "lattice" as const };
+  return { kind: "standard" as const, pattern: null };
+}
+
 function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -171,6 +381,8 @@ function addCabinet(
   counterColor: string,
   doorProfile?: { doorStyle: string | null; doorPanelType: string | null },
   transform?: { x: number; z: number; rotation: number; bottom?: number },
+  doorSampleUrl?: string | null,
+  onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -205,37 +417,247 @@ function addCabinet(
   );
   cabinet.add(body);
 
-  const faceMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.02 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.01 });
+  const textureMaterials: THREE.MeshStandardMaterial[] = [];
+  const applyDoorTextureFallback = () => {
+    const fallback = threeDDoorMaterialFallback(color);
+    for (const material of textureMaterials) {
+      material.map = fallback.map;
+      material.color.set(fallback.color);
+      material.needsUpdate = true;
+    }
+  };
+  const doorTexture = doorSampleUrl
+    ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => {
+      applyDoorTextureFallback();
+      onDoorTextureState?.("failed");
+    })
+    : null;
+  if (doorTexture) onDoorTextureState?.("loading");
+  if (doorTexture) {
+    doorTexture.colorSpace = THREE.SRGBColorSpace;
+    doorTexture.wrapS = THREE.RepeatWrapping;
+    doorTexture.wrapT = THREE.RepeatWrapping;
+    doorTexture.repeat.set(1.35, 1.35);
+  }
+  // A material color multiplies a texture in Three.js. Keep textured faces neutral
+  // so the exact selected 2D sample remains visible rather than being tinted by
+  // the catalog fallback color (which previously turned Silva Shaker flat gold).
+  const faceColor = doorTexture ? "#ffffff" : color;
+  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
+  textureMaterials.push(faceMaterial, trimMaterial);
+  const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
+  // The cabinet carcass is part of the visible finished run in the 2D design.
+  // Match it to the selected face material so 3D does not introduce white side
+  // panels and apparent gaps between flush placed cabinets.
+  const bodyMaterial = body.material as THREE.MeshStandardMaterial;
+  bodyMaterial.color.set(faceColor);
+  bodyMaterial.map = doorTexture;
+  bodyMaterial.needsUpdate = true;
+  textureMaterials.push(bodyMaterial);
   const faceDepth = bodyDepth / 2 + 0.015;
-  const doorCount = Math.max(1, sku.numberOfDoors ?? (isWall || isTall ? 2 : 1));
-  const drawerCount = Math.max(0, sku.numberOfDrawers ?? 0);
+  const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
-  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.35, drawerCount * 0.3) : 0;
-  const doorHeight = Math.max(0.2, usableHeight - drawerHeight);
+  const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
+  const drawerHeight = drawerCount ? Math.min(usableHeight * 0.6, configuredDrawerHeight || usableHeight * 0.35) : 0;
+  const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
+  const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
+  const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
+  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036) => {
+    if (profileKind !== "shaker") return;
+    const rail = threeDShakerRailThickness(faceWidth, faceHeight);
+    if (!rail) return;
+    const pieces = [
+      [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
+      [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
+      [rail, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + rail / 2, 0],
+      [rail, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - rail / 2, 0],
+    ] as const;
+    for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
+      const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
+      railMesh.position.set(x + offsetX, y + offsetY, z);
+      frontGroup.add(railMesh);
+    }
+  };
+  const addDrawerReveal = (faceWidth: number, faceHeight: number, x: number, y: number, z = THREE_D_DRAWER_REVEAL_DEPTH) => {
+    const reveal = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(faceWidth, faceHeight, 0.01)),
+      drawerRevealMaterial,
+    );
+    reveal.position.set(x, y, z);
+    frontGroup.add(reveal);
+  };
+  const isPlacedAppliance = placement === "appliance";
+  const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
+  const specialty = resolvedThreeDSpecialtyProfile(sku);
+  if (isPlacedAppliance) {
+    const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
+    const code = sku.masterCode.toUpperCase();
+    if (/HOOD/.test(code)) {
+      const hood = rangeHoodGeometry(widthIn, heightIn, depthIn);
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.96, hood.canopyHeight, hood.depth * 0.92), applianceMaterial);
+      canopy.position.set(0, -bodyHeight / 2 + hood.canopyHeight / 2, 0.025);
+      canopy.userData = { applianceCode: sku.masterCode, rangeHoodCanopy: true };
+      frontGroup.add(canopy);
+      const chimney = new THREE.Mesh(new THREE.BoxGeometry(hood.chimneyWidth, hood.chimneyHeight, hood.chimneyDepth), applianceMaterial);
+      chimney.position.set(0, bodyHeight / 2 - hood.chimneyHeight / 2, -hood.depth * 0.13);
+      chimney.userData = { applianceCode: sku.masterCode, rangeHoodChimney: true };
+      frontGroup.add(chimney);
+      const intake = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.72, Math.max(0.035, hood.canopyHeight * 0.14), 0.07), glassMaterial);
+      intake.position.set(0, -bodyHeight / 2 + hood.canopyHeight * 0.48, 0.07);
+      frontGroup.add(intake);
+    } else {
+      const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
+      frontGroup.add(applianceFace);
+      const rangeLayout = /RANGE/.test(code) ? rangeOvenFrontLayout(bodyHeight) : null;
+      const openingH = rangeLayout?.openingHeight ?? (/FRIDGE/.test(code) ? bodyHeight * 0.67 : /SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62);
+      const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
+      opening.position.y = rangeLayout?.openingCenterY ?? (/RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
+      opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
+      frontGroup.add(opening);
+      if (rangeLayout) {
+        const storageDrawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, rangeLayout.drawerHeight, 0.066), applianceMaterial);
+        storageDrawer.position.set(0, rangeLayout.drawerCenterY, 0.038);
+        storageDrawer.userData = { applianceCode: sku.masterCode, rangeStorageDrawer: true };
+        frontGroup.add(storageDrawer);
+      }
+      const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
+      control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
+      frontGroup.add(control);
+    }
+  } else if (isOvenCabinet) {
+    // An oven cabinet is a finished tall enclosure. Its door zone, appliance
+    // cut-out, and each drawer row are taken from the saved 2D configuration.
+    const surround = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.045), faceMaterial);
+    frontGroup.add(surround);
+    const ovenLayout = resolvedThreeDOvenLayout({
+      height: sku.height,
+      description: sku.description,
+      numberOfDoors: sku.numberOfDoors,
+      numberOfDrawers: sku.numberOfDrawers,
+      doorHeight: sku.doorHeight,
+      drawerHeight: sku.drawerHeight,
+      drawerLayout: sku.drawerLayout,
+      openingType: sku.openingType,
+      ovenType: sku.ovenType,
+    });
+    const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
+    let zoneTop = bodyHeight / 2 - 0.04;
+    const addDoors = (height: number) => {
+      if (!height || !ovenLayout.doorCount) return;
+      const doorWidth = (bodyWidth - 0.08) / ovenLayout.doorCount;
+      for (let i = 0; i < ovenLayout.doorCount; i++) {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
+        door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), zoneTop - height / 2, 0.035);
+        frontGroup.add(door);
+        addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
+      }
+      zoneTop -= height;
+    };
+    const addDrawers = () => {
+      for (const row of ovenLayout.drawerRows) {
+        const drawerWidth = (bodyWidth - 0.08) / row.count;
+        for (let column = 0; column < row.count; column++) {
+          const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
+          drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), zoneTop - row.height / 2, 0.035);
+          frontGroup.add(drawer);
+          addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
+          addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
+        }
+        zoneTop -= row.height;
+      }
+    };
+    const addOvenCutout = () => {
+      const oven = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.82, ovenLayout.openingHeight, 0.07), applianceMaterial);
+      oven.position.set(0, zoneTop - ovenLayout.openingHeight / 2, 0.032);
+      frontGroup.add(oven);
+      const singleOvenHeight = ovenLayout.openingHeight / ovenLayout.ovenCount;
+      for (let i = 0; i < ovenLayout.ovenCount; i++) {
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.65, singleOvenHeight * 0.62, 0.078), glassMaterial);
+        glass.position.set(0, zoneTop - singleOvenHeight * (i + 0.5), 0.072);
+        frontGroup.add(glass);
+      }
+      zoneTop -= ovenLayout.openingHeight;
+    };
+    if (ovenLayout.openingPosition === "top") {
+      addOvenCutout();
+      addDoors(ovenLayout.doorZone);
+      addDrawers();
+    } else if (ovenLayout.openingPosition === "bottom") {
+      addDoors(ovenLayout.doorZone);
+      addDrawers();
+      addOvenCutout();
+    } else {
+      addDoors(ovenLayout.doorZone);
+      addOvenCutout();
+      addDrawers();
+    }
+  } else if (specialty.kind === "corner-drawer") {
+    // CDB36 occupies a real 36-by-36 corner footprint. Its wall-facing 24-inch
+    // side stays a finished panel while the exposed 12-inch face carries three
+    // stacked drawer fronts, matching the 2D Corner Drawer Base drawing.
+    const blankPanelWidth = bodyWidth * (2 / 3);
+    const drawerFaceWidth = bodyWidth - blankPanelWidth;
+    const sidePanel = new THREE.Mesh(new THREE.BoxGeometry(blankPanelWidth - 0.04, bodyHeight - 0.08, 0.05), faceMaterial);
+    sidePanel.position.set(-bodyWidth / 2 + blankPanelWidth / 2 + 0.02, 0, 0.03);
+    sidePanel.userData = { specialtyProfile: "corner-drawer", cornerDrawerSidePanel: true };
+    frontGroup.add(sidePanel);
+    const rows = resolvedThreeDDrawerRows(sku, bodyHeight - 0.1, Math.max(1, drawerCount || 3));
+    let rowTop = bodyHeight / 2 - 0.05;
+    for (const row of rows) {
+      const drawerWidth = drawerFaceWidth / row.count;
+      for (let column = 0; column < row.count; column++) {
+        const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
+        drawer.position.set(-bodyWidth / 2 + blankPanelWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
+        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true };
+        frontGroup.add(drawer);
+        addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
+        addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
+      }
+      rowTop -= row.height;
+    }
+  } else if (specialty.kind === "end-return") {
+    // BEC / BA end-return cabinets are 24-by-24 end pieces, not flat base boxes.
+    // Build two center-meeting textured faces to preserve the 2D end-angle read.
+    const faceWidth = (bodyWidth - 0.1) / 2;
+    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+    for (const direction of [-1, 1] as const) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
+      door.position.set(direction * faceWidth * 0.24, 0, 0.035);
+      door.rotation.y = direction * Math.PI / 4;
+      door.userData = { specialtyProfile: "end-return", returnFace: direction === -1 ? "left" : "right" };
+      frontGroup.add(door);
+      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066);
+    }
+  } else if (specialty.kind === "face-pattern") {
+    const recess = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth - 0.1, bodyHeight - 0.1, 0.03),
+      new THREE.MeshStandardMaterial({ color: "#382e26", roughness: 0.7 }),
+    );
+    recess.position.z = 0.018;
+    recess.userData = { specialtyProfile: "face-pattern", pattern: specialty.pattern };
+    frontGroup.add(recess);
+    const barMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42 });
+    const barCount = specialty.pattern === "slats" ? 5 : 4;
+    for (let index = 0; index < barCount; index++) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.055, bodyHeight - 0.14, 0.058), barMaterial);
+      bar.position.set(-bodyWidth / 2 + 0.09 + (bodyWidth - 0.18) * (index / Math.max(1, barCount - 1)), 0, 0.052);
+      if (specialty.pattern === "lattice" || specialty.pattern === "criss-cross") bar.rotation.z = index % 2 ? Math.PI / 4 : -Math.PI / 4;
+      frontGroup.add(bar);
+    }
+  } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
     frontGroup.add(door);
-    const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
     const isRaised = profileKind === "raised";
-    const isShaker = profileKind === "shaker";
-    if (isShaker) {
-      const rail = Math.min(0.075, doorWidth * 0.14, doorHeight * 0.09);
-      const pieces = [
-        [doorWidth - 0.02, rail, 0, doorHeight / 2 - rail / 2],
-        [doorWidth - 0.02, rail, 0, -doorHeight / 2 + rail / 2],
-        [rail, doorHeight - rail * 2, -doorWidth / 2 + rail / 2, 0],
-        [rail, doorHeight - rail * 2, doorWidth / 2 - rail / 2, 0],
-      ] as const;
-      for (const [pieceWidth, pieceHeight, x, y] of pieces) {
-        const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
-        railMesh.position.set(door.position.x + x, door.position.y + y, 0.036);
-        frontGroup.add(railMesh);
-      }
+    if (profileKind === "shaker") {
+      addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
     } else if (isRaised) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
       panel.position.set(door.position.x, door.position.y, 0.045);
@@ -245,16 +667,37 @@ function addCabinet(
       frontGroup.add(inner);
     }
   }
-  for (let i = 0; i < drawerCount; i++) {
-    const drawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, drawerHeight / drawerCount - 0.025, 0.048), faceMaterial);
-    drawer.position.set(0, bodyHeight / 2 - 0.04 - (drawerHeight / drawerCount) * (i + 0.5), 0.004);
-    frontGroup.add(drawer);
+  const drawerRows = resolvedThreeDDrawerRows(sku, drawerHeight, drawerCount);
+  let drawerCursor = hasConfiguredOpening ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
+  for (const row of drawerRows) {
+    const rowHeight = Math.max(0.08, row.height - 0.025);
+    const drawerWidth = (bodyWidth - 0.08) / row.count;
+    for (let column = 0; column < row.count; column++) {
+      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
+      const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
+      drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
+      frontGroup.add(drawer);
+      addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
+      addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
+    }
+    drawerCursor += hasConfiguredOpening ? row.height : -row.height;
+  }
+  if (hasConfiguredOpening && doorCount === 0) {
+    const openingHeight = Math.max(0.2, usableHeight - drawerHeight);
+    const opening = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth - 0.11, openingHeight - 0.03, 0.052),
+      new THREE.MeshStandardMaterial({ color: "#343a43", roughness: 0.5, metalness: 0.2 }),
+    );
+    opening.position.set(0, bodyHeight / 2 - 0.04 - openingHeight / 2, 0.006);
+    opening.userData = { configuredOpening: true, openingType: sku.openingType };
+    frontGroup.add(opening);
+  }
   }
   cabinet.add(frontGroup);
   cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
   root.add(cabinet);
 
-  if (!isWall && !isTall && placement !== "accessory") {
+  if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode)) {
     const counter = new THREE.Mesh(
       new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12),
       new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
@@ -267,12 +710,18 @@ function addCabinet(
 }
 
 export function existingCabinetTransform(cabinet: PlacedCabinet) {
-  const width = numberValue(cabinet.width, 24);
-  const depth = numberValue(cabinet.depth, BASE_DEPTH);
+  // Placed coordinates are the top-left of the 2D rotation-aware footprint.
+  // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
+  // producing artificial gaps in the 3D scene.
+  const footprint = placedFootprint(cabinet);
+  const width = numberValue(footprint.w, 24);
+  const depth = numberValue(footprint.d, BASE_DEPTH);
   const savedRotation = Number(cabinet.rotation);
   const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
   const bottom = cabinet.placement === "wall"
     ? numberValue(cabinet.mountBottom, WALL_BOTTOM)
+    : cabinet.placement === "appliance" && cabinet.mountBottom != null
+      ? numberValue(cabinet.mountBottom, 0)
     : cabinet.placement === "baseTop"
       ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
       : cabinet.placement === "underCabinet"
@@ -281,7 +730,73 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
 }
 
-function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
+export function sinkFixtureTransform(sink: SinkFixture) {
+  return {
+    x: (sink.x + sink.width / 2) * INCH,
+    z: (sink.y + sink.depth / 2) * INCH,
+    countertopTop: COUNTERTOP_H * INCH,
+  };
+}
+
+function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
+  const width = sink.width * INCH;
+  const depth = sink.depth * INCH;
+  const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
+  const rim = new THREE.Mesh(
+    new THREE.BoxGeometry(width, 0.06, depth),
+    new THREE.MeshStandardMaterial({ color: "#9ba8af", metalness: 0.58, roughness: 0.28 }),
+  );
+  rim.position.set(centerX, countertopTop + 0.025, centerZ);
+  root.add(rim);
+  const bowl = new THREE.Mesh(
+    new THREE.BoxGeometry(Math.max(0.2, width - 0.14), 0.16, Math.max(0.2, depth - 0.14)),
+    new THREE.MeshStandardMaterial({ color: "#33414a", metalness: 0.44, roughness: 0.24 }),
+  );
+  bowl.position.set(centerX, countertopTop - 0.07, centerZ);
+  root.add(bowl);
+  if (!sink.faucet) return;
+  const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#c4d0d7", metalness: 0.76, roughness: 0.16 });
+  const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.52, 12), faucetMaterial);
+  riser.position.set(centerX, countertopTop + 0.27, centerZ + depth * 0.26);
+  root.add(riser);
+  const spout = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 8, 16, Math.PI), faucetMaterial);
+  spout.rotation.x = Math.PI / 2;
+  spout.position.set(centerX, countertopTop + 0.48, centerZ + depth * 0.08);
+  root.add(spout);
+}
+
+export function openingTransform(opening: WallOpening, roomWidth: number, roomDepth: number) {
+  const offset = opening.offset + opening.width / 2;
+  if (opening.side === "bottom") return { x: offset, z: roomDepth - 0.06, rotation: Math.PI };
+  if (opening.side === "left") return { x: 0.06, z: offset, rotation: Math.PI / 2 };
+  if (opening.side === "right") return { x: roomWidth - 0.06, z: offset, rotation: -Math.PI / 2 };
+  return { x: offset, z: 0.06, rotation: 0 };
+}
+
+function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: number, roomDepth: number) {
+  const { x, z, rotation } = openingTransform(opening, roomWidth, roomDepth);
+  const group = new THREE.Group();
+  group.position.set(x * INCH, (opening.sill + opening.height / 2) * INCH, z * INCH);
+  group.rotation.y = rotation;
+  group.userData = { openingUid: opening.uid, kind: opening.kind, label: opening.label };
+  const width = opening.width * INCH;
+  const height = opening.height * INCH;
+  group.add(new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.07), new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 })));
+  const isWindow = opening.kind === "window";
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0 }));
+  pane.position.z = 0.01;
+  group.add(pane);
+  if (isWindow) {
+    const muntin = new THREE.MeshStandardMaterial({ color: "#f7f5ef", roughness: 0.45 });
+    group.add(
+      new THREE.Mesh(new THREE.BoxGeometry(0.04, height - 0.05, 0.09), muntin),
+      new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.04, 0.09), muntin),
+    );
+  }
+  root.add(group);
+}
+
+export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
     cabinetId: cabinet.cabinetId,
@@ -293,10 +808,38 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     depth: cabinet.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+    openingType: cabinet.openingType ?? null,
+    doorHeight: cabinet.doorHeight ?? null,
+    drawerHeight: cabinet.drawerHeight ?? null,
+    drawerLayout: cabinet.drawerLayout ?? null,
+    ovenType: cabinet.ovenType ?? null,
+    graphicType: cabinet.customProfile ?? null,
+    customProfile: cabinet.customProfile ?? null,
+    facePattern: cabinet.facePattern ?? null,
+    cornerType: cabinet.cornerType ?? null,
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleUrl: string | null | undefined) {
+  const mapped = placed.map(existingCabinetSku);
+  return {
+    cabinetCount: mapped.length,
+    doorSampleUrl: doorSampleUrl ?? null,
+    ovenTowerCount: mapped.filter((item) => Boolean(item.ovenType) || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(`${item.masterCode} ${item.description ?? ""}`)).length,
+    measuredDrawerCabinetCount: mapped.filter((item) => item.drawerLayout != null || item.drawerHeight != null).length,
+    specialtyCabinetCount: mapped.filter((item) => item.graphicType != null || item.facePattern != null || item.cornerType != null).length,
+    mapped,
+  };
+}
+
+export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
+  const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
+  const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
+  return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
+}
+
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
+  const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -312,13 +855,28 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const [pricingOpen, setPricingOpen] = useState(false);
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
-  const renderExistingDesign = placed.length > 0;
-  const catalogFinish = sceneCabinetColor(scene);
+  const renderExistingDesign = shouldRenderPlacedDesign(placed);
+  const rangeHoodStatus = useMemo(() => rangeHoodSceneStatus(placed), [placed]);
+  // The active designer style is the customer’s catalog selection. Prefer its
+  // resolved finish color over a sparse style-record color field from the scene
+  // endpoint, then fall back to the server-derived catalog material.
+  const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
+  const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
+  const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
+  const quoteMaterials = quoteMaterialDetails({
+    cabinetPreview: cabinetFinishLabel,
+    countertopPreview: countertopFinishLabel,
+    catalogFinishName: catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish,
+    catalogCountertopName,
+  });
   const shareMutation = trpc.roomLayouts.createShare.useMutation();
+  const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
   useEffect(() => {
     setCabinetFinish(initialPresentation?.cabinetFinish ?? "catalog");
@@ -334,6 +892,23 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   useEffect(() => {
     onPresentationChange?.({ cabinetFinish, countertopFinish });
   }, [cabinetFinish, countertopFinish, onPresentationChange]);
+
+  useEffect(() => {
+    const syncFullscreenState = () => setIsFullscreen(document.fullscreenElement === previewRootRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    const element = previewRootRef.current;
+    if (!element) return;
+    try {
+      if (document.fullscreenElement === element) await document.exitFullscreen();
+      else await element.requestFullscreen();
+    } catch {
+      toast.error("Full-screen view is not available in this browser.");
+    }
+  };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -413,7 +988,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     floor.receiveShadow = true;
     threeScene.add(floor);
 
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide });
+    // Room walls must remain visible as context without ever becoming opaque
+    // screens over cabinetry when a mobile orbit moves the camera through them.
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide, transparent: true, opacity: THREE_D_WALL_OPACITY, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     polygon.forEach((start, index) => {
       const end = polygon[(index + 1) % polygon.length];
       const dx = end.x - start.x;
@@ -422,7 +999,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, wallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
-      if (index > 1) (wall.material as THREE.MeshStandardMaterial).transparent = true, (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
+      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
       threeScene.add(wall);
     });
     const grid = new THREE.GridHelper(Math.max(room.width, room.depth) * INCH, 12, "#d9d3c8", "#e7e1d8");
@@ -432,17 +1009,25 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = resolvedCabinetFinish;
+    setDoorTextureState(activeDoorTexture ? "loading" : "not-requested");
+    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture);
+    let disposed = false;
+    const updateDoorTextureState = (state: "loading" | "loaded" | "failed") => {
+      if (!disposed) setDoorTextureState(state);
+    };
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet));
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet), activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet);
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, undefined, activeDoorTexture, updateDoorTextureState);
       }
     }
+    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
+    for (const sink of sinks) addSinkFixture(catalogRoot, sink);
     threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
@@ -465,6 +1050,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     });
     resizeObserver.observe(mount);
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       controls.dispose();
@@ -476,7 +1062,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
@@ -520,35 +1106,125 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     setSelectedCabinet({ masterCode: String(node.userData.masterCode), description: node.userData.label ?? null, distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null });
   };
 
-  const exportPdf = async () => {
+  const buildQuotePdf = async () => {
     const renderer = rendererRef.current;
-    if (!renderer) return;
+    if (!renderer) throw new Error("3D renderer is not ready");
     try {
+      const exportRoom = roomOverride
+        ? { width: roomOverride.width, depth: roomOverride.depth }
+        : dimensions(scene.roomShape?.defaultDimensions);
+      const planCanvas = document.createElement("canvas");
+      planCanvas.width = 1000;
+      planCanvas.height = 720;
+      const plan = planCanvas.getContext("2d");
+      if (!plan) throw new Error("Could not prepare floor plan");
+      const padding = 68;
+      const scale = Math.min((planCanvas.width - padding * 2) / exportRoom.width, (planCanvas.height - padding * 2) / exportRoom.depth);
+      const plotWidth = exportRoom.width * scale;
+      const plotHeight = exportRoom.depth * scale;
+      const offsetX = (planCanvas.width - plotWidth) / 2;
+      const offsetY = (planCanvas.height - plotHeight) / 2;
+      plan.fillStyle = "#faf8f4";
+      plan.fillRect(0, 0, planCanvas.width, planCanvas.height);
+      plan.fillStyle = "#ffffff";
+      plan.fillRect(offsetX, offsetY, plotWidth, plotHeight);
+      plan.strokeStyle = "#26384b";
+      plan.lineWidth = 10;
+      plan.strokeRect(offsetX, offsetY, plotWidth, plotHeight);
+      plan.fillStyle = "#4a3822";
+      plan.font = "600 27px sans-serif";
+      plan.fillText("Top-down 2D floor plan", 38, 42);
+      const planItems = renderExistingDesign ? placed : [];
+      for (const item of planItems) {
+        const footprint = placedFootprint(item);
+        const x = offsetX + item.x * scale;
+        const y = offsetY + item.y * scale;
+        const width = footprint.w * scale;
+        const depth = footprint.d * scale;
+        plan.fillStyle = item.placement === "appliance" ? "#d7dee4" : item.placement === "wall" ? "#d8e3ec" : item.placement === "tall" ? "#d9c3a0" : "#b88f55";
+        plan.fillRect(x, y, width, depth);
+        plan.strokeStyle = "#4a3822";
+        plan.lineWidth = 2;
+        plan.strokeRect(x, y, width, depth);
+        if (width > 34 && depth > 20) {
+          plan.fillStyle = "#1e2934";
+          plan.font = `${Math.max(11, Math.min(18, width / 4))}px sans-serif`;
+          plan.fillText(item.masterCode, x + 4, y + Math.min(depth - 4, 18));
+        }
+      }
+      plan.fillStyle = "#526174";
+      plan.font = "18px sans-serif";
+      plan.fillText(`${exportRoom.width}" × ${exportRoom.depth}" room · ${planItems.length} placed item${planItems.length === 1 ? "" : "s"}`, 38, planCanvas.height - 24);
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
       pdf.setFontSize(20);
       pdf.text("Cabinet Dealz — 3D Room Quote", 40, 42);
       pdf.setFontSize(10);
       pdf.setTextColor(90);
-      pdf.text(`Generated ${new Date().toLocaleString()} · ${cabinetFinishLabel} cabinets · ${countertopFinishLabel} countertop`, 40, 61);
-      pdf.addImage(renderer.domElement.toDataURL("image/png"), "PNG", 40, 78, 420, 294, undefined, "FAST");
+      pdf.text(`Generated ${new Date().toLocaleString()} · Cabinet finish: ${quoteMaterials.cabinet} · Countertop: ${quoteMaterials.countertop}`, 40, 61);
+      pdf.setFontSize(11);
+      pdf.setTextColor(35);
+      pdf.text("3D room view", 40, 78);
+      pdf.addImage(renderer.domElement.toDataURL("image/png"), "PNG", 40, 88, 270, 189, undefined, "FAST");
+      pdf.text("2D floor plan", 40, 300);
+      pdf.addImage(planCanvas.toDataURL("image/png"), "PNG", 40, 310, 270, 194, undefined, "FAST");
       pdf.setTextColor(20);
       pdf.setFontSize(13);
-      pdf.text("Itemized catalog quote", 490, 95);
+      pdf.text("Itemized catalog quote", 340, 95);
       let y = 116;
       for (const line of orderLines.slice(0, 16)) {
         pdf.setFontSize(9);
-        pdf.text(pdf.splitTextToSize(`${line.quantity} × ${line.label}${line.lineTotal == null ? " — Quote" : ` — $${line.lineTotal.toFixed(2)}`}`, 255), 490, y);
+        pdf.text(pdf.splitTextToSize(`${line.quantity} × ${line.label}${line.lineTotal == null ? " — Quote" : ` — $${line.lineTotal.toFixed(2)}`}`, 390), 340, y);
         y += 19;
       }
       pdf.setFontSize(14);
-      pdf.text(`Catalog-priced subtotal: $${orderSummary?.subtotal.toFixed(2) ?? "0.00"}`, 490, Math.min(388, y + 12));
+      pdf.text(`Catalog-priced subtotal: $${orderSummary?.subtotal.toFixed(2) ?? "0.00"}`, 340, Math.min(536, y + 12));
       pdf.setFontSize(8);
       pdf.setTextColor(90);
       pdf.text("Preview finishes are visual only. Final pricing is based on the orderable catalog selections in the design.", 40, 580);
-      pdf.save(`cabinet-dealz-3d-quote-${Date.now()}.pdf`);
+      return pdf;
     } catch {
       toast.error("The PDF quote could not be created. Please try again.");
+      return null;
+    }
+  };
+
+  const exportPdf = async () => {
+    const pdf = await buildQuotePdf();
+    if (pdf) pdf.save(`cabinet-dealz-3d-quote-${Date.now()}.pdf`);
+  };
+
+  const printPdf = async () => {
+    const pdf = await buildQuotePdf();
+    if (!pdf) return;
+    const printWindow = window.open(pdf.output("bloburl"), "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      toast.error("Your browser blocked the print window. Allow pop-ups and try again.");
+      return;
+    }
+    window.setTimeout(() => printWindow.print(), 650);
+  };
+
+  const emailPdf = async () => {
+    if (!orderSummary) {
+      toast.error("Add catalog items before emailing a quote.");
+      return;
+    }
+    const pdf = await buildQuotePdf();
+    if (!pdf) return;
+    try {
+      const dataUri = pdf.output("datauristring") as string;
+      const pdfBase64 = dataUri.slice(dataUri.indexOf(",") + 1);
+      const { sentTo } = await emailQuoteMutation.mutateAsync({
+        pdfBase64,
+        itemCount: orderSummary.itemCount,
+        subtotal: orderSummary.subtotal,
+        cabinetFinish: quoteMaterials.cabinet,
+        countertopFinish: quoteMaterials.countertop,
+      });
+      toast.success(`Quote sent to ${sentTo}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Quote email could not be sent.");
     }
   };
 
@@ -562,6 +1238,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
         ...shareContext,
         room: { ...roomOverride },
         placed,
+        openings,
+        sinks,
         presentation: { cabinetFinish, countertopFinish },
         orderSummary,
       });
@@ -585,17 +1263,22 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   }
 
   return (
-    <section className={className} aria-label="Interactive three-dimensional room preview">
+    <section ref={previewRootRef} className={`relative ${isFullscreen ? "h-screen w-screen overflow-y-auto bg-background p-3 sm:p-5" : ""} ${className ?? ""}`} aria-label="Interactive three-dimensional room preview">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold">Interactive 3D Preview</p>
           <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
+          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>{threeDMaterialStatusText(visibleMaterialMode, doorTextureState)}</p>}
+          {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
+          <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
           <Button type="button" size="sm" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-3.5 w-3.5" />Download</Button>
           <Button type="button" size="sm" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-3.5 w-3.5" />PDF quote</Button>
+          <Button type="button" size="sm" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-3.5 w-3.5" />Print</Button>
+          <Button type="button" size="sm" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}>{emailQuoteMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}{emailQuoteMutation.isPending ? "Sending" : "Email quote"}</Button>
           {onSaveToAccount && <Button type="button" size="sm" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-3.5 w-3.5" />Save</Button>}
           <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
         </div>
@@ -627,7 +1310,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <div>
             <p className="text-xs font-semibold text-[#4b3a20]">Current design pricing</p>
             <p className="text-[11px] text-[#6e5d42]">{orderSummary.itemCount} item{orderSummary.itemCount === 1 ? "" : "s"} · {orderSummary.pricedLineCount} priced line{orderSummary.pricedLineCount === 1 ? "" : "s"}{orderSummary.unpricedLineCount ? ` · ${orderSummary.unpricedLineCount} awaiting price` : ""}</p>
-            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {cabinetFinishLabel} cabinets · {countertopFinishLabel} countertop</p>
+            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {quoteMaterials.cabinet} cabinets · {quoteMaterials.countertop} countertop</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold tabular-nums text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -637,7 +1320,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
         </div>
       )}
-      {catalogItems.length > 0 && (
+      {!renderExistingDesign && catalogItems.length > 0 && (
         <div className="mb-3 rounded-xl border bg-background p-3">
           <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add to this 3D room</p><span className="text-[11px] text-muted-foreground">Drag an item onto the scene; it will be placed on the active wall in the editable design.</span></div>
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -647,7 +1330,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           </div>
         </div>
       )}
-      <div className={`relative h-[360px] overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 sm:h-[440px] touch-none ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) inspectCabinetAtPoint(event.clientX, event.clientY); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${isFullscreen ? "h-[calc(100vh-235px)] min-h-[420px]" : "h-[360px] sm:h-[440px]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) inspectCabinetAtPoint(event.clientX, event.clientY); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {selectedCabinet && (() => { const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase())); return <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur"><div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" /><div><p className="font-semibold">{selectedCabinet.masterCode}</p><p className="text-muted-foreground">{selectedCabinet.description ?? "Catalog cabinet"}</p><p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p><p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p></div><button type="button" onClick={() => setSelectedCabinet(null)} className="text-muted-foreground hover:text-foreground">×</button></div></div>; })()}

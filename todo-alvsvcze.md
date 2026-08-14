@@ -92,7 +92,7 @@
 - [x] Make the designer Edit Config modal use a wide desktop workspace and a compact mobile sheet
 - [x] Render Shaker cabinet doors and drawers with 3-inch square-corner face frames
 - [x] Render flat-panel cabinet doors as unframed slab faces in 2D elevations
-- [ ] Verify the BEC/Base End Corner Cabinet Config record and its designer plan/elevation behavior
+- [x] Verify the BEC/Base End Corner Cabinet Config record and its designer plan/elevation behavior
 - [x] Map BEC-24 to the valid Faircrest style and pricing source for live designer availability
 - [x] Use the Ashford supplier line as the Faircrest BEC-24 pricing and availability source
 - [x] Copy the verified BAC-24 Ashford style and pricing mapping to BEC-24 for designer availability
@@ -154,6 +154,91 @@
 - [ ] Verify an authenticated affiliate owner reaches the branded-storefront Affiliate Cost panel rather than the Administration My Cost panel
 - [x] Restore affiliate subdomain routing behind the deployment proxy and verify the branded store loads from the original host
 - [x] Add forwarded-host regression coverage for affiliate subdomain routing
+- [x] Inspect FSB-36 farm sink base Cabinet Config and elevation classification against its intended farmhouse-sink design
+- [x] Correct the FSB-36 elevation drawing, countertop opening, toe-kick, and selected-style face treatment as needed
+- [x] Add farm sink base rendering regression coverage for mobile and desktop elevations
+- [x] Render FSB-36 with a countertop-mounted basin and a visible apron-front drop over the cabinet face
+- [x] Add an FSB-36 regression proving a selected door sample remains on the sink-base cabinet below the farmhouse apron
+- [x] Add explicit desktop and mobile FSB-36 elevation regressions for apron position, visible toe kick, and countertop coexistence
+- [x] Make BMC30 honor its configured one-drawer microwave-base layout instead of rendering two doors plus an extra drawer
+- [x] Render BA-24 as the shared 45-degree angled-front Base End Cabinet in the mixed designer run
+- [x] Correct the FSB-36 apron-front face in the mixed elevation so it sits over the cabinet rather than replacing the cabinet face
+- [x] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
+- [x] Enforce BMC30 Cabinet Config as authoritative: zero doors, one drawer, and a top microwave opening with no fallback door faces
+- [x] Trace and remove any stale placed-cabinet or renderer fallback that can invent BMC30 doors
+- [x] Make Cabinet Config the authoritative source for each designer cabinet’s drawing type, door count, drawer count, opening placement, dimensions, toe kick, and specialty profile
+- [x] Remove generic renderer fallbacks whenever an explicit Cabinet Config field is present
+- [x] Add cross-family regressions proving configured zero-door, zero-drawer, opening, and specialty rules override inferred layouts
+- [x] Replace BMC30’s stale Double Door Base catalog-card type label and generic drawing with its zero-door, one-drawer microwave-base Config
+- [x] Add catalog-to-designer BMC30 regression coverage proving the card label, drawing, and placed elevation use the same Cabinet Config
+- [x] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data
+- [x] Add BMC-27 and BMC30 product-detail-to-designer regression coverage for zero doors, one drawer, and a top appliance opening
+- [x] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
+- [x] Verify the live BMC-27 detail route rejects inferred Left Door and Right Door panels for the zero-door Config
+- [x] Reconfigure BEC-24 as a 24-by-24 floor base with a 45-degree angled front and two doors meeting at the center
+- [x] Render the BEC-24 45-degree angled front from Cabinet Config in plan and elevation, retaining 34.5-inch height and a 4.5-inch toe kick
+- [x] Add BEC-24 angled-front two-door regression coverage for the exact 24-by-24 geometry
+- [x] Ensure BEC-24 remains excluded from true corner placement, snapping, and wedge geometry while using its angled end-cabinet face
+- [x] Align BA-24 and BEC-24 to one shared 24-by-24 non-corner angled-front end-cabinet Config while retaining their supplier and pricing identities
+- [x] Verify BA-24 and BEC-24 show matching 45-degree two-door plan/elevation geometry and matched Ashford price rows
+- [x] Merge BA-24 and BEC-24 into one canonical master catalog cabinet while preserving the alternate code as an internal alias
+- [x] Remove duplicate BA-24/BEC-24 entries from catalog, designer palette, build sheets, carts, and pricing selection
+- [x] Add canonical-and-alias regression coverage for the merged BA-24/BEC-24 item
+- [x] Merge the discovered BEC24 no-dash duplicate into canonical BA-24 alongside BEC-24 and retain both legacy aliases
+- [x] Resolve merged cabinet detail URLs to canonical BEC-24 without recreating duplicate catalog records
+- [x] Promote BEC-24 to the canonical master record and retain BA-24 and BEC24 as aliases without reintroducing duplicates
+- [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
+- [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
+- [x] Make the 3D room preview render the exact 2D placed cabinets and walls rather than unrelated suggested items
+- [x] Carry active door style and Cabinet Config specialty geometry from 2D placements into the 3D room
+- [x] Add 2D-to-3D fidelity regressions for placements, cabinet count, wall position, finish, and specialty geometry
+- [x] Apply the active 2D selected door sample texture and finish to every 3D placed cabinet face
+- [x] Add a 2D-to-3D material continuity regression for the selected door sample
+- [x] Render 2D appliances and appliance openings in 3D at their saved wall positions
+- [x] Render 2D windows in 3D at their saved wall positions and dimensions
+- [x] Add 2D-to-3D appliance, opening, and window continuity regressions
+- [x] Resolve the live selected door-style sample URL from the style payload and pass it to the 3D preview
+- [x] Add a Silva Shaker style-payload-to-3D texture handoff regression
+- [x] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
+- [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
+- [x] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
+- [x] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
+- [x] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
+- [x] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
+- [x] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
+- [x] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
+- [x] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
+- [x] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
+- [x] Align 3D appliances to their exact saved 2D transforms and mounting heights
+- [x] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
+- [x] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
+- [x] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
+- [x] Calibrate 3D oven-tower height, cut-out, and drawer sections to the saved 2D cabinet configuration
+- [x] Render the saved 2D sink and faucet fixtures on the correct sink-base location in 3D
+- [x] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets
+- [x] Add calibrated 3D regression coverage for the oven tower, drawer bases, sink/faucet, and flush run joins
+- [x] Correct the double-oven 3D vertical position and cut-out against the saved 2D cabinet record
+- [x] Make 3D drawer-front rows visually pronounced while preserving configured measurements and columns
+- [x] Correct the low/narrow cabinet’s saved dimensions and 2D-to-3D placement transform
+- [x] Render the saved 2D range hood at its correct wall position and mounting height in 3D
+- [x] Add a focused 2D-to-3D regression covering the reported double oven, low/narrow cabinet, and range hood
+- [x] Align the visible tall-appliance enclosure and its adjacent countertop surfaces to the saved 2D design
+- [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
+- [ ] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
+- [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
+- [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
+- [x] Add a regression covering failed selected-door texture fallback in the 3D room
+- [x] Center the saved oven cabinet and configure drawers beneath the oven opening
+- [x] Correct the corner door-base cabinet projection to the intended 2D footprint and 3D form
+- [x] Extend the countertop continuously over the saved dishwasher position
+- [x] Configure the specified cabinet slots as drawers instead of generic door faces
+- [x] Add targeted oven, drawer-slot, corner-base, and dishwasher-countertop regressions
+- [x] Replace the active saved lazy-Susan corner with the CDB36 Corner Drawer Base Cabinet
+- [x] Verify CDB36 uses its configured 36-inch corner-drawer plan, elevation, and 3D geometry
+- [x] Remove design-specific 3D patches so every saved 2D design maps through one universal Cabinet Config-driven renderer
+- [x] Carry all placed cabinet, appliance, countertop, corner, opening, sink, and finish data automatically from any saved 2D design into 3D
+- [x] Add multi-design fidelity fixtures that prevent per-design 3D drift from reappearing
+- [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff
@@ -182,3 +267,4 @@
 - [ ] Verify an existing saved BA-24/BEC placement redraws as a textured two-face end return after refresh
 - [x] Refresh existing placed cabinets from live Cabinet Config drawing rules when a design loads
 - [ ] Verify existing BA-24/BEC placements automatically adopt current Base End Cabinet rules without re-placement
+- [x] Clear the stale triangle corner type from canonical BEC-24 so its live config remains a non-corner end-return

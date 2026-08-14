@@ -62,6 +62,54 @@ describe("master Cabinet Config refresh", () => {
     expect(refreshed[0]?.genericDrawingUrl).toBeNull();
   });
 
+  it("replaces stale faces with authored zero-door appliance-opening counts", () => {
+    const refreshed = refreshPlacedCabinetsFromMasterConfig(placed, {
+      cabinetId: 701,
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+      doorHeight: 0,
+      drawerHeight: 12,
+    });
+
+    expect(refreshed[0]).toMatchObject({
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+      doorHeight: 0,
+      drawerHeight: 12,
+    });
+  });
+
+  it("hydrates corner, pull, and mount rules into saved instances without moving their 2D footprint", () => {
+    const refreshed = refreshPlacedCabinetsFromMasterConfig(placed, {
+      cabinetId: 701,
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      pullMin: 3,
+      pullMax: 6,
+      mountBottom: 54,
+      layoutSpec: JSON.stringify({ sections: [{ type: "drawers", count: 3, height: 12 }] }),
+      drawerLayout: JSON.stringify([{ count: 3, height: 12 }]),
+      graphicType: "corner-drawer-base",
+    });
+
+    expect(refreshed[0]).toMatchObject({
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      pullMin: 3,
+      pullMax: 6,
+      mountBottom: 54,
+      layoutSpec: JSON.stringify({ sections: [{ type: "drawers", count: 3, height: 12 }] }),
+      drawerLayout: JSON.stringify([{ count: 3, height: 12 }]),
+      customProfile: "corner-drawer-base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+    });
+  });
+
   it("hydrates stale saved placements from the currently loaded master rules", () => {
     const stale = [{
       ...placed[0],

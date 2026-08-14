@@ -365,6 +365,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [polygonEditMode, setPolygonEditMode] = useState(false);
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+
+  // The public Room Planner stores a selected room shape and starter layout
+  // briefly in session storage before it opens the existing full designer.
+  // Consuming it here keeps the public experience catalog-aware without
+  // creating a second room or product model.
+  const roomLayoutHandoffAppliedRef = useRef(false);
+  useEffect(() => {
+    if (roomLayoutHandoffAppliedRef.current || typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem("cabinetdealz_room_layout_handoff_v1");
+    if (!raw) return;
+    try {
+      const handoff = JSON.parse(raw) as { room?: RoomData; layoutPresetId?: string };
+      if (!handoff.room || !handoff.layoutPresetId) return;
+      if (!Number.isFinite(handoff.room.width) || !Number.isFinite(handoff.room.depth)) return;
+      roomLayoutHandoffAppliedRef.current = true;
+      setRoom(handoff.room);
+      setSelectedLayoutPresetId(handoff.layoutPresetId);
+      setLayoutStarterOpen(true);
+    } finally {
+      window.sessionStorage.removeItem("cabinetdealz_room_layout_handoff_v1");
+    }
+  }, []);
   // ── Undo / Redo for placed cabinets ──────────────────────────────────────
   const undoRedo = useUndoRedo<PlacedCabinet[]>();
   const undoRedoRef = useRef(undoRedo);
@@ -780,8 +802,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       cabinetId: cabinet.id,
       category: cabinet.category,
       subCategory: cabinet.subCategory,
+      isCornerCabinet: cabinet.isCornerCabinet,
+      cornerType: cabinet.cornerType,
+      pullMin: cabinet.pullMin,
+      pullMax: cabinet.pullMax,
+      mountBottom: cabinet.mountBottom,
       graphicType: cabinet.graphicType,
       specImageUrl: cabinet.specImageUrl,
+      numberOfDoors: cabinet.numberOfDoors,
+      numberOfDrawers: cabinet.numberOfDrawers,
+      openingType: cabinet.openingType,
+      doorHeight: cabinet.doorHeight,
+      drawerHeight: cabinet.drawerHeight,
+      doorOrientation: cabinet.doorOrientation,
+      layoutSpec: cabinet.layoutSpec,
+      drawerLayout: cabinet.drawerLayout,
+      customProfile: cabinet.customProfile,
+      facePattern: cabinet.facePattern,
     })),
     [liveMasterCabinets],
   );
@@ -1324,6 +1361,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
       | undefined;
     return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
+  }, [doorStyles, styleId]);
+  const active3DDoorSampleUrl = useMemo(() => {
+    const s = doorStyles?.find((d) => d.id === styleId) as { doorSampleImageUrl?: string | null } | undefined;
+    return s?.doorSampleImageUrl ?? null;
   }, [doorStyles, styleId]);
 
   // Full active door style (with woodSpecies) so we can apply the Hickory-only
@@ -2290,6 +2331,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         facePattern: (c as any).facePattern ?? null,
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
+        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
       };
@@ -2408,6 +2450,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (appliance) addCabinet(appliance);
     else toast.error("That appliance is no longer available for this room type.");
   }, [threeDAccessoryCatalog, appliancePalette, addCabinet]);
+
+  const addRangeHoodFromInteractive3d = useCallback(() => {
+    const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
+    const hood = appliancePalette.find((item) => /^HOOD-/.test(item.masterCode));
+    if (!hood) {
+      toast.error("A range hood is not available for this room type.");
+      return;
+    }
+    addCabinet(hood, range?.x, range?.y);
+    toast.success("Range hood added to the 2D plan above the saved range.");
+  }, [appliancePalette, placed, addCabinet]);
 
   // ── Ceiling Filler: place a filler strip on top of wall cabinets to cover the
   // gap between the wall-cabinet top line and the ceiling. The filler is a
@@ -8806,12 +8859,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       </Dialog>
 
       <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto p-0">
+        <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
-            <DialogDescription>Cabinets shown here are suggested from the selected distributor and active door style. Drag to orbit and use the controls to zoom.</DialogDescription>
+            <DialogDescription>This room renders the active 2D design, including its selected door finish, placements, openings, and windows. Drag to orbit and use the controls to zoom.</DialogDescription>
           </DialogHeader>
-          <div className="p-4 sm:p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : interactive3dScene ? (
@@ -8819,12 +8872,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 scene={interactive3dScene as InteractiveRoomScene}
                 placed={placed}
                 roomOverride={room}
+                openings={openings}
+                sinks={sinks}
                 orderSummary={interactive3dOrderSummary}
                 orderLines={interactive3dOrderLines}
                 catalogItems={interactive3dCatalogItems}
                 onAddCatalogItem={addFromInteractive3d}
+                onAddRangeHood={addRangeHoodFromInteractive3d}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
+                catalogFinishOverride={activeFinish.face}
+                catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+                catalogFinishName={activeStyleName}
+                catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 onPresentationChange={setInteractive3dPresentation}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,

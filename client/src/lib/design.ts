@@ -153,6 +153,7 @@ export function applianceAsDesignCabinet(a: ApplianceDef): DesignCabinet {
     numberOfDrawers: null,
     catalogImageUrl: null,
     isCornerCabinet: false,
+    mountBottom: a.elevBottom,
   };
 }
 
@@ -169,6 +170,8 @@ export interface DesignCabinet {
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
+  /** Floor height for an appliance or configured wall-mounted item. */
+  mountBottom?: number | null;
   catalogImageUrl?: string | null;
   // Live Cabinet Config drawing rules. These are refreshed into older placed
   // designs so a catalog correction applies without re-placing the cabinet.
@@ -182,6 +185,14 @@ export interface DesignCabinet {
   // Corner cabinet type from the catalog config (lazy-susan, blind-corner,
   // diagonal, pie-cut, l-shape, triangle). Optional for backward-compat.
   cornerType?: string | null;
+  openingType?: "top" | "middle" | "bottom" | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  doorOrientation?: "side-by-side" | "stacked" | null;
+  layoutSpec?: string | null;
+  drawerLayout?: string | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -201,6 +212,8 @@ export interface PlacedCabinet {
   // Optional for backward-compat with older saved designs.
   category?: string | null;
   subCategory?: string | null;
+  /** Current master corner classification, refreshed into older saved designs. */
+  isCornerCabinet?: boolean | null;
   placement: Placement;
   x: number;
   y: number;
@@ -346,8 +359,23 @@ export type MasterCabinetDrawingRefresh = {
   cabinetId: number;
   category?: string | null;
   subCategory?: string | null;
+  isCornerCabinet?: boolean | null;
+  cornerType?: string | null;
+  pullMin?: number | null;
+  pullMax?: number | null;
+  mountBottom?: number | null;
   graphicType?: string | null;
   specImageUrl?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  openingType?: "top" | "middle" | "bottom" | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
+  doorOrientation?: "side-by-side" | "stacked" | null;
+  layoutSpec?: string | null;
+  drawerLayout?: string | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
 };
 
 /**
@@ -365,10 +393,25 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...cabinet,
       ...(master.category !== undefined ? { category: master.category } : {}),
       ...(master.subCategory !== undefined ? { subCategory: master.subCategory } : {}),
+      ...(master.isCornerCabinet !== undefined ? { isCornerCabinet: master.isCornerCabinet } : {}),
+      ...(master.cornerType !== undefined ? { cornerType: master.cornerType } : {}),
+      ...(master.pullMin !== undefined ? { pullMin: master.pullMin } : {}),
+      ...(master.pullMax !== undefined ? { pullMax: master.pullMax } : {}),
+      ...(master.mountBottom !== undefined ? { mountBottom: master.mountBottom } : {}),
       ...(master.graphicType !== undefined
         ? { customProfile: master.graphicType && master.graphicType !== "standard" ? master.graphicType : null }
         : {}),
       ...(master.specImageUrl !== undefined ? { genericDrawingUrl: master.specImageUrl } : {}),
+      ...(master.numberOfDoors !== undefined ? { numberOfDoors: master.numberOfDoors } : {}),
+      ...(master.numberOfDrawers !== undefined ? { numberOfDrawers: master.numberOfDrawers } : {}),
+      ...(master.openingType !== undefined ? { openingType: master.openingType } : {}),
+      ...(master.doorHeight !== undefined ? { doorHeight: master.doorHeight } : {}),
+      ...(master.drawerHeight !== undefined ? { drawerHeight: master.drawerHeight } : {}),
+      ...(master.doorOrientation !== undefined ? { doorOrientation: master.doorOrientation } : {}),
+      ...(master.layoutSpec !== undefined ? { layoutSpec: master.layoutSpec } : {}),
+      ...(master.drawerLayout !== undefined ? { drawerLayout: master.drawerLayout } : {}),
+      ...(master.customProfile !== undefined ? { customProfile: master.customProfile } : {}),
+      ...(master.facePattern !== undefined ? { facePattern: master.facePattern } : {}),
     };
   });
 }
@@ -392,8 +435,22 @@ export function refreshPlacedCabinetsFromMasterRules(
     if (
       next.category !== cabinet.category ||
       next.subCategory !== cabinet.subCategory ||
+      next.isCornerCabinet !== cabinet.isCornerCabinet ||
+      next.cornerType !== cabinet.cornerType ||
+      next.pullMin !== cabinet.pullMin ||
+      next.pullMax !== cabinet.pullMax ||
+      next.mountBottom !== cabinet.mountBottom ||
       next.customProfile !== cabinet.customProfile ||
-      next.genericDrawingUrl !== cabinet.genericDrawingUrl
+      next.genericDrawingUrl !== cabinet.genericDrawingUrl ||
+      next.numberOfDoors !== cabinet.numberOfDoors ||
+      next.numberOfDrawers !== cabinet.numberOfDrawers ||
+      next.openingType !== cabinet.openingType ||
+      next.doorHeight !== cabinet.doorHeight ||
+      next.drawerHeight !== cabinet.drawerHeight ||
+      next.doorOrientation !== cabinet.doorOrientation ||
+      next.layoutSpec !== cabinet.layoutSpec ||
+      next.drawerLayout !== cabinet.drawerLayout ||
+      next.facePattern !== cabinet.facePattern
     ) {
       changed = true;
       return next;

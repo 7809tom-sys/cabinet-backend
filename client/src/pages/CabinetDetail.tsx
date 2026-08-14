@@ -89,6 +89,17 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
   wholesale: "For licensed dealers & high-volume trade accounts",
 };
 
+// These codes are supplier/legacy references for the same physical cabinet.
+// Keep their links working after the catalog is consolidated under BA-24.
+export const LEGACY_CANONICAL_CABINET_CODES: Record<string, string> = {
+  "BA-24": "BEC-24",
+  BEC24: "BEC-24",
+};
+
+export function canonicalCabinetDetailCode(masterCode: string): string {
+  return LEGACY_CANONICAL_CABINET_CODES[masterCode.trim().toUpperCase()] ?? masterCode;
+}
+
 function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
   const code = (masterCode || "").toUpperCase();
   if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
@@ -320,6 +331,7 @@ interface Props {
 export default function CabinetDetail({ masterCode }: Props) {
   const { categoryNames, subCategoriesMap } = useDynamicCategories();
   const searchStr = useSearch();
+  const canonicalMasterCode = canonicalCabinetDetailCode(masterCode);
   const affiliateSlug = useMemo(() => {
     if (typeof window === "undefined") return undefined;
     const storeRoute = window.location.pathname.match(/^\/store\/([^/]+)/)?.[1];
@@ -363,14 +375,15 @@ export default function CabinetDetail({ masterCode }: Props) {
     { enabled: cabinetIdParam != null },
   );
   const { data: cabinetByCode, isLoading: cabinetByCodeLoading } = trpc.cabinets.byCode.useQuery({
-    masterCode,
+    masterCode: canonicalMasterCode,
   }, { enabled: cabinetIdParam == null });
   const cabinet = cabinetById ?? cabinetByCode;
   const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;
+  const resolvedMasterCode = cabinet?.masterCode ?? canonicalMasterCode;
 
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)
-    : masterCode;
+    : resolvedMasterCode;
   // Product structured data (no Offer — cabinet pricing is tier/member-gated
   // and must not be published in markup). Memoized so the JSON-LD <script>
   // isn't re-injected on every render.
@@ -380,16 +393,16 @@ export default function CabinetDetail({ masterCode }: Props) {
         ? buildProductJsonLd({
             name: seoName,
             description: translateSpec(cabinet.description ?? "", lang),
-            sku: masterCode,
+            sku: resolvedMasterCode,
             image: cabinet.catalogImageUrl ?? undefined,
             url:
               typeof window !== "undefined"
-                ? `${window.location.origin}/catalog/${masterCode}`
+                ? `${window.location.origin}/catalog/${resolvedMasterCode}`
                 : undefined,
             category: cabinet.category ?? undefined,
           })
         : undefined,
-    [cabinet, seoName, masterCode, lang],
+    [cabinet, seoName, resolvedMasterCode, lang],
   );
   useSeo({
     title: t("seo_cabinet_t", { name: seoName }),
@@ -761,7 +774,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const addRow = (row: StyleRow) => {
     const unitPrice = priceNumberForTier(row, tier);
     const res = addItem({
-      masterCode,
+      masterCode: resolvedMasterCode,
       name: cabinet?.description ?? row.name,
       styleId: row.styleId,
       styleLabel: row.name,
@@ -772,8 +785,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       catalogImageUrl: cabinet?.catalogImageUrl ?? null,
     });
     if (res.ok) {
-      toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
-        description: `${row.name} \u00b7 ${tierLabel(tier)} pricing`,
+      toast.success(`Added ${qty}× ${resolvedMasterCode} to cart`, {
+        description: `${row.name} · ${tierLabel(tier)} pricing`,
       });
     }
     return res;
@@ -806,7 +819,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       });
     } else {
       toast.warning(`Your cart is from another supplier`, {
-        description: `${masterCode} (${selectedRow.name}) is from a different supplier than what's in your cart. Clear the cart to start a new order with it?`,
+        description: `${resolvedMasterCode} (${selectedRow.name}) is from a different supplier than what's in your cart. Clear the cart to start a new order with it?`,
         action: {
           label: "Clear cart & add",
           onClick: () => {
@@ -866,7 +879,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             </>
           )}
           <span>/</span>
-          <span className="text-foreground font-medium">{masterCode}</span>
+          <span className="text-foreground font-medium">{resolvedMasterCode}</span>
         </nav>
         {/* Floating style selector pill — shows the active door style with a
             thumbnail swatch. Tapping it scrolls to the style picker in the
@@ -897,7 +910,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           <StyleCategoryNav
             styleId={activeStyle}
             currentCategory={cabinet.category}
-            currentMasterCode={masterCode}
+            currentMasterCode={resolvedMasterCode}
         />
       )}
 
@@ -1197,7 +1210,7 @@ export default function CabinetDetail({ masterCode }: Props) {
         <div id="pricing">
           <div className="mb-1">
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-              {masterCode}
+              {resolvedMasterCode}
             </span>
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
             {isOwner && cabinet.isActive === false && (
@@ -1374,7 +1387,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               <DialogTitle className="flex items-center gap-2">
                 <Pencil className="h-4 w-4 text-amber-600" />
                 Edit Cabinet
-                <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{masterCode}</span>
+                <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{resolvedMasterCode}</span>
               </DialogTitle>
             </DialogHeader>
 

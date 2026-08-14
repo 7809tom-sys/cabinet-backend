@@ -18,23 +18,37 @@ const base = {
 } as const;
 
 describe("plan corner geometry", () => {
-  it("keeps BEC-24 as a 24-inch square end-return even when a supplier record carries triangle", () => {
+  it("uses BEC-24's explicit end-angle Config while excluding it from true-corner geometry", () => {
     const result = planCornerGeometry({
       ...base,
       masterCode: "BEC-24",
-      description: '24" Base End Angle Cabinet',
+      description: '24" Base End Cabinet — 45° Angled Front',
+      customProfile: "end-angle",
       cornerType: "triangle",
     } as PlacedCabinet);
 
     expect(result).toEqual({
-      isEndAngle: false,
-      isEndReturn: true,
+      isEndAngle: true,
+      isEndReturn: false,
       isCorner: false,
       isTriangle: false,
       isDiagonal: false,
       isBlind: false,
       isConfiguredL: false,
     });
+  });
+
+  it("keeps BA-24 and BEC-24 on the same non-corner angled-end plan path", () => {
+    for (const masterCode of ["BA-24", "BEC-24"]) {
+      const result = planCornerGeometry({
+        ...base,
+        masterCode,
+        description: '24" Base End Cabinet — 45° Angled Front',
+        customProfile: "end-angle",
+        cornerType: "triangle",
+      } as PlacedCabinet);
+      expect(result).toMatchObject({ isEndAngle: true, isEndReturn: false, isCorner: false, isTriangle: false });
+    }
   });
 
   it("continues to use the appropriate corner path for a true configured diagonal cabinet", () => {
@@ -50,12 +64,13 @@ describe("plan corner geometry", () => {
     expect(result.isDiagonal).toBe(true);
   });
 
-  it("does not render a triangle clip path for BEC-24 in the actual plan canvas", () => {
+  it("renders BEC-24 as a 24-by-24 angled end cabinet without a true-corner wedge", () => {
     const bec = {
       ...base,
       uid: "bec-live",
       masterCode: "BEC-24",
-      description: '24" Base End Angle Cabinet',
+      description: '24" Base End Cabinet — 45° Angled Front',
+      customProfile: "end-angle",
       cornerType: "triangle",
     } as PlacedCabinet;
     const markup = renderToStaticMarkup(
@@ -78,7 +93,7 @@ describe("plan corner geometry", () => {
     expect(cabinetTag).not.toContain("clip-path");
     expect(cabinetTag).toContain("width:96px");
     expect(cabinetTag).toContain("height:96px");
-    expect(markup).toContain('data-bec-end-return="true"');
-    expect(markup).toContain('aria-label="24 by 24 base end corner return"');
+    expect(markup).toContain('data-end-angle="true"');
+    expect(markup).toContain('aria-label="24 by 24 base end cabinet with 45 degree angled front"');
   });
 });

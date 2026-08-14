@@ -2035,3 +2035,51 @@
 - [x] Add cabinet hover/click inspection for individual real catalog price and style details in 3D
 - [x] Force both refrigerator end panels to start at the floor and separate adjacent cabinets from the refrigerator
 - [x] Validate desktop/mobile export, inspection, and refrigerator panel layout
+
+## Enhancement: 2D plan included in 3D quote PDF
+- [x] Generate a top-down current-layout floor-plan image for PDF export
+- [x] Add the 2D floor plan alongside the 3D rendering and itemized quote
+- [x] Validate the combined PDF export layout
+
+## Enhancement: Email and print 3D quote workflow
+- [x] Include selected cabinet finish and countertop details in the generated quote
+- [x] Add a direct print action for the current quote and floor plan
+- [x] Add signed-in account email delivery for the quote PDF
+- [x] Validate quote details, print output, and email-send safeguards
+
+## Fix: Refrigerator surround and sink-base elevation construction rules
+- [x] Force both refrigerator end panels to visibly run floor-to-top in elevation
+- [x] Stop countertops at the outside face of refrigerator end panels
+- [x] Render sink-base drawers and doors at standard base-cabinet proportions
+- [x] Test refrigerator and sink-base elevation rules
+
+## Fix: 3D workspace size and active catalog finish
+- [x] Expand the 3D preview dialog into a responsive wide workspace
+- [x] Make the active catalog door-style color the default 3D cabinet finish
+- [x] Validate 3D dialog and catalog-finish behavior on desktop and mobile
+
+## Enhancement: Distraction-free 3D full-screen view
+- [x] Add full-screen entry and exit controls to the interactive 3D preview
+- [x] Synchronize the control state with browser full-screen changes
+- [x] Validate the full-screen 3D workspace on desktop and mobile
+
+## Investigation: Reaves Way storefront branding and routing
+- [ ] Identify the domain or route that selected the Reaves Way storefront
+- [ ] Confirm whether Reaves Way branding is intended for that address
+- [ ] Correct routing only if the displayed brand does not match the intended storefront
+
+## Inspection: Invoice page
+- [x] Locate and open the current invoice page
+- [x] Verify the invoice page content and report any issue
+
+## Feature: Catalog-aware room-layout website from uploaded blueprint
+- [x] Verify existing room preset, zone, and resolved-SKU data contracts
+- [x] Build a clear website entry experience for room shape and layout selection
+- [x] Connect room-layout choices to active, published, available distributor SKUs
+- [x] Preserve existing manual design and account-save behavior
+- [x] Test the room-layout website flow on desktop and mobile
+
+## Verification: 3D PDF quote and account-email finish details
+- [x] Inspect the generated PDF content and email attachment handoff
+- [x] Add regression coverage for cabinet-finish and countertop detail inclusion
+- [x] Report verified quote and email-detail behavior
