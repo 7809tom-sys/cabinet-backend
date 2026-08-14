@@ -22,6 +22,8 @@ type SceneSku = {
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   openingType?: string | null;
+  openingWidth?: number | null;
+  openingHeight?: number | null;
   doorHeight?: number | null;
   drawerHeight?: number | null;
   drawerLayout?: string | null;
@@ -1002,13 +1004,30 @@ export function addCabinet(
     drawerCursor += hasConfiguredOpening ? row.height : -row.height;
   }
   if (hasConfiguredOpening && doorCount === 0) {
-    const openingHeight = Math.max(0.2, usableHeight - drawerHeight);
+    const availableOpeningWidth = Math.max(0.2, bodyWidth - 0.11);
+    const availableOpeningHeight = Math.max(0.2, usableHeight - drawerHeight);
+    // Cabinet Config is authoritative: a built-in appliance/opening can be
+    // smaller than the surrounding box, never wider or taller than its explicit
+    // opening envelope (for example, a 27-by-17 microwave bay).
+    const openingWidth = Math.min(
+      availableOpeningWidth,
+      sku.openingWidth != null ? Math.max(0.2, numberValue(sku.openingWidth, availableOpeningWidth / INCH) * INCH) : availableOpeningWidth,
+    );
+    const openingHeight = Math.min(
+      availableOpeningHeight,
+      sku.openingHeight != null ? Math.max(0.2, numberValue(sku.openingHeight, availableOpeningHeight / INCH) * INCH) : availableOpeningHeight,
+    );
     const opening = new THREE.Mesh(
-      new THREE.BoxGeometry(bodyWidth - 0.11, openingHeight - 0.03, 0.052),
+      new THREE.BoxGeometry(openingWidth, openingHeight - 0.03, 0.052),
       new THREE.MeshStandardMaterial({ color: "#343a43", roughness: 0.5, metalness: 0.2 }),
     );
     opening.position.set(0, bodyHeight / 2 - 0.04 - openingHeight / 2, 0.006);
-    opening.userData = { configuredOpening: true, openingType: sku.openingType };
+    opening.userData = {
+      configuredOpening: true,
+      openingType: sku.openingType,
+      openingWidthIn: openingWidth / INCH,
+      openingHeightIn: openingHeight / INCH,
+    };
     frontGroup.add(opening);
   }
   }
@@ -1343,6 +1362,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
     openingType: cabinet.openingType ?? null,
+    openingWidth: cabinet.openingWidth ?? null,
+    openingHeight: cabinet.openingHeight ?? null,
     doorHeight: cabinet.doorHeight ?? null,
     drawerHeight: cabinet.drawerHeight ?? null,
     drawerLayout: cabinet.drawerLayout ?? null,

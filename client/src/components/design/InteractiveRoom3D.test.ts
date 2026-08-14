@@ -921,6 +921,55 @@ describe("interactive 3D room scene helpers", () => {
     expect(((carcass!.geometry as THREE.BoxGeometry).parameters.height)).toBeCloseTo(30 / 12, 8);
   });
 
+  it("keeps a configured microwave opening within its exact 27-by-17 Cabinet Config envelope", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -27,
+      cabinetId: 27,
+      masterCode: "BMC-30",
+      description: '30" Microwave Base Cabinet',
+      placementType: "base",
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+      openingWidth: 27,
+      openingHeight: 17,
+      drawerHeight: 12,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const openings: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.configuredOpening) openings.push(node); });
+    expect(openings).toHaveLength(1);
+    expect(openings[0]!.userData.openingWidthIn).toBeCloseTo(27, 12);
+    expect(openings[0]!.userData.openingHeightIn).toBeCloseTo(17, 12);
+  });
+
+  it("uses distinct configured envelopes for wall and base microwave cabinets", () => {
+    const fixtures = [
+      { masterCode: "BMC-30", description: "Microwave Base Cabinet", placementType: "base", width: 30, height: 34.5, depth: 24, openingWidth: 27, openingHeight: 17 },
+      { masterCode: "WMC-24", description: "Microwave Wall Cabinet", placementType: "wall", width: 24, height: 30, depth: 12, openingWidth: 22, openingHeight: 14 },
+    ] as const;
+    for (const fixture of fixtures) {
+      const root = new THREE.Group();
+      addCabinet(root, {
+        distributorSkuId: -71,
+        cabinetId: 71,
+        ...fixture,
+        numberOfDoors: 0,
+        numberOfDrawers: 1,
+        openingType: "top",
+        drawerHeight: 8,
+      } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+      const openings: THREE.Object3D[] = [];
+      root.traverse((node) => { if (node.userData.configuredOpening) openings.push(node); });
+      expect(openings).toHaveLength(1);
+      expect(openings[0]!.userData.openingWidthIn).toBeCloseTo(fixture.openingWidth, 12);
+      expect(openings[0]!.userData.openingHeightIn).toBeCloseTo(fixture.openingHeight, 12);
+    }
+  });
+
   it("normalizes legacy range and refrigerator base records into appliance meshes so the saved cooktop and fridge face cannot disappear", () => {
     const range = existingCabinetSku({
       uid: "legacy-range", cabinetId: 30, masterCode: "RANGE-30", description: "30 inch Range",

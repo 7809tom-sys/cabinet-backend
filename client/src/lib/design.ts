@@ -304,6 +304,9 @@ export interface PlacedCabinet {
   ovenType?: "single" | "double" | null;
   // Appliance opening position: 'top' | 'middle' | 'bottom'. Drives elevation layout.
   openingType?: "top" | "middle" | "bottom" | null;
+  // Maximum interior appliance opening envelope from Cabinet Config, in inches.
+  openingWidth?: number | null;
+  openingHeight?: number | null;
   // Door height in inches (for cabinets with appliance openings). Used to
   // calculate exact opening size: opening = totalHeight - doorHeight - drawerHeight.
   doorHeight?: number | null;
@@ -369,6 +372,8 @@ export type MasterCabinetDrawingRefresh = {
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   openingType?: "top" | "middle" | "bottom" | null;
+  openingWidth?: number | null;
+  openingHeight?: number | null;
   doorHeight?: number | null;
   drawerHeight?: number | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
@@ -405,6 +410,8 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.numberOfDoors !== undefined ? { numberOfDoors: master.numberOfDoors } : {}),
       ...(master.numberOfDrawers !== undefined ? { numberOfDrawers: master.numberOfDrawers } : {}),
       ...(master.openingType !== undefined ? { openingType: master.openingType } : {}),
+      ...(master.openingWidth !== undefined ? { openingWidth: master.openingWidth } : {}),
+      ...(master.openingHeight !== undefined ? { openingHeight: master.openingHeight } : {}),
       ...(master.doorHeight !== undefined ? { doorHeight: master.doorHeight } : {}),
       ...(master.drawerHeight !== undefined ? { drawerHeight: master.drawerHeight } : {}),
       ...(master.doorOrientation !== undefined ? { doorOrientation: master.doorOrientation } : {}),

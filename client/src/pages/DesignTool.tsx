@@ -849,6 +849,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       specImageUrl: cabinet.specImageUrl,
       numberOfDoors: cabinet.numberOfDoors,
       numberOfDrawers: cabinet.numberOfDrawers,
+      openingWidth: (cabinet as any).openingWidth,
+      openingHeight: (cabinet as any).openingHeight,
       openingType: cabinet.openingType,
       doorHeight: cabinet.doorHeight,
       drawerHeight: cabinet.drawerHeight,

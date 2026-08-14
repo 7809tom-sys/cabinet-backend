@@ -236,6 +236,8 @@ export const cabinets = mysqlTable("cabinets", {
   fillerRequired: boolean("fillerRequired").default(false),
   // Blind corner specific
   openingWidth: decimal("openingWidth", { precision: 5, scale: 2 }),
+  // Maximum interior opening height in inches for built-in appliance fit.
+  openingHeight: decimal("openingHeight", { precision: 5, scale: 2 }),
   minPull: decimal("minPull", { precision: 5, scale: 2 }),
   maxPull: decimal("maxPull", { precision: 5, scale: 2 }),
   // Lazy Susan specific

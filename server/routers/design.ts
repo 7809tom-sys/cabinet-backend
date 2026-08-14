@@ -102,6 +102,8 @@ export const designRouter = router({
           graphicType: cabinets.graphicType,
           minPull: cabinets.minPull,
           maxPull: cabinets.maxPull,
+          openingWidth: cabinets.openingWidth,
+          openingHeight: cabinets.openingHeight,
           openingType: cabinets.openingType,
           doorHeight: cabinets.doorHeight,
           drawerHeight: cabinets.drawerHeight,

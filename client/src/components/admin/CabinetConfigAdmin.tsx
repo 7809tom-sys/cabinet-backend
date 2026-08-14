@@ -105,6 +105,7 @@ type CabinetRow = {
   minPull: string | null;
   maxPull: string | null;
   openingWidth: string | null;
+  openingHeight: string | null;
   // Appliance opening
   openingType: string | null;
   doorHeight: string | null;
@@ -961,6 +962,7 @@ function EditModal({
       minPull: merged.minPull != null ? parseFloat(merged.minPull) : null,
       maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
+      openingHeight: merged.openingHeight != null ? parseFloat(merged.openingHeight) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
       doorHeight: merged.doorHeight != null ? parseFloat(merged.doorHeight) : null,
       drawerHeight: merged.drawerHeight != null ? parseFloat(merged.drawerHeight) : null,
@@ -1403,6 +1405,13 @@ function EditModal({
                         label="Opening Width"
                         value={merged.openingWidth}
                         onChange={(v) => set("openingWidth", v)}
+                        unit='"'
+                        disabled={busy}
+                      />
+                      <DimInput
+                        label="Opening Height"
+                        value={merged.openingHeight}
+                        onChange={(v) => set("openingHeight", v)}
                         unit='"'
                         disabled={busy}
                       />
