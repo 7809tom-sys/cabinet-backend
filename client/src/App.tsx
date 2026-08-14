@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
 import { trpc } from "@/lib/trpc";
-import { affiliateStorefrontFallbackPath } from "@/lib/affiliateContext";
+import { affiliateStorefrontFallbackPath, affiliateSlugFromHostname } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
 
 // Lazy-loaded pages
@@ -86,9 +86,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function CartWithLayout() {
-  // If the cart was filled from an affiliate storefront, skip the CabinetDealz
-  // header and just show a minimal back-to-store link instead.
-  const slug = typeof localStorage !== "undefined" ? localStorage.getItem("cd_cart_slug_v1") : null;
+  // Use the active custom-domain identity first. This protects a customer who
+  // lands directly on /cart before any cart-localStorage state is available.
+  const slug = typeof window !== "undefined"
+    ? affiliateSlugFromHostname(window.location.hostname) ?? localStorage.getItem("cd_cart_slug_v1")
+    : null;
   if (slug) {
     return (
       <Suspense fallback={<PageLoader />}>

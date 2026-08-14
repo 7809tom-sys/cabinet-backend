@@ -394,3 +394,6 @@
 - [x] Fix Cabinet Config saves so a duplicate canonical master SKU is never applied to a legacy cabinet record
 - [x] Add regression coverage for editing a normalized-master cabinet such as 3-DB15
 - [x] Block Cabinet Config from renaming a legacy duplicate to an existing canonical master and guide admins to set an alias instead
+- [x] Remove CabinetDealz name and logo from affiliate cart headers in favor of the current affiliate brand
+- [x] Apply the affiliate’s logo and store name consistently through affiliate checkout surfaces
+- [x] Add regression coverage for affiliate cart and checkout white-label branding

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isAffiliateStorefrontPath, affiliateSlugFromPath } from "./affiliateContext";
+import { isAffiliateStorefrontPath, affiliateSlugFromHostname, affiliateSlugFromPath } from "./affiliateContext";
 import { buildSheetCsv, type BuildSheetArgs } from "@/components/design/DesignActions";
 
 const ROOT = join(__dirname, "..", "..", "..");
@@ -26,6 +26,11 @@ describe("affiliate storefront context detection", () => {
     expect(affiliateSlugFromPath("/store/reaves-way-cabinet-shop")).toBe("reaves-way-cabinet-shop");
     expect(affiliateSlugFromPath("/store/firstclass/cart")).toBe("firstclass");
     expect(affiliateSlugFromPath("/catalog")).toBeNull();
+  });
+
+  it("extracts an affiliate slug from a direct custom-domain commerce visit", () => {
+    expect(affiliateSlugFromHostname("reaves-way-cabinet-shop.cabinetdealz.com")).toBe("reaves-way-cabinet-shop");
+    expect(affiliateSlugFromHostname("www.cabinetdealz.com")).toBeNull();
   });
 });
 
@@ -55,6 +60,12 @@ describe("no platform branding leaks on the affiliate storefront", () => {
   it("the affiliate shell (cart/order/design) white-labels the head too", () => {
     const src = read("client/src/App.tsx");
     expect(src).toMatch(/useWhiteLabelHead\(\{ storeName: data\?\.storeName/);
+  });
+
+  it("direct affiliate-host cart visits select the affiliate shell before the central layout", () => {
+    const src = read("client/src/App.tsx");
+    expect(src).toMatch(/affiliateSlugFromHostname\(window\.location\.hostname\)/);
+    expect(src).toMatch(/<AffiliateShell slug=\{slug\}/);
   });
 });
 

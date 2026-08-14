@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
 import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/affiliateCartPricing";
+import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -26,10 +27,14 @@ export default function Cart() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
   const { items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug } = useCart();
+  const currentAffiliateSlug = storefrontSlug
+    ?? (typeof window !== "undefined"
+      ? affiliateSlugFromPath(window.location.pathname) ?? affiliateSlugFromHostname(window.location.hostname)
+      : null);
   // Affiliate storefront items already contain the marked-up homeowner price
   // shown to the customer. Do not replace that price with the generic platform
   // tier price returned by the live refresh query.
-  const isAffiliateCart = Boolean(storefrontSlug);
+  const isAffiliateCart = Boolean(currentAffiliateSlug);
   const money = (n: number | null): string =>
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
   const [, navigate] = useLocation();
@@ -158,7 +163,7 @@ export default function Cart() {
     } catch {
       /* ignore */
     }
-    navigate("/order/new");
+    navigate(currentAffiliateSlug ? `/store/${currentAffiliateSlug}/order` : "/order/new");
   };
 
   if (items.length === 0) {
@@ -173,10 +178,10 @@ export default function Cart() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild>
-            <Link href="/catalog">{t("crt_browse_catalog")}</Link>
+            <Link href={currentAffiliateSlug ? `/store/${currentAffiliateSlug}` : "/catalog"}>{t("crt_browse_catalog")}</Link>
           </Button>
           <Button variant="outline" className="bg-background" asChild>
-            <Link href="/design">{t("crt_open_design")}</Link>
+            <Link href={currentAffiliateSlug ? `/store/${currentAffiliateSlug}/design` : "/design"}>{t("crt_open_design")}</Link>
           </Button>
         </div>
       </div>
@@ -443,7 +448,7 @@ export default function Cart() {
             <Check className="mr-1.5 h-4 w-4" /> {t("crt_request_order")}
           </Button>
           <Button variant="outline" className="mt-2 w-full bg-background" asChild>
-            <Link href="/catalog">{t("crt_continue_shopping")}</Link>
+            <Link href={currentAffiliateSlug ? `/store/${currentAffiliateSlug}` : "/catalog"}>{t("crt_continue_shopping")}</Link>
           </Button>
         </div>
       </div>
