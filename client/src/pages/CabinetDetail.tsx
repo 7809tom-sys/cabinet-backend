@@ -379,10 +379,11 @@ export default function CabinetDetail({ masterCode }: Props) {
   }, { enabled: cabinetIdParam == null });
   const cabinet = cabinetById ?? cabinetByCode;
   const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;
+  const resolvedMasterCode = cabinet?.masterCode ?? canonicalMasterCode;
 
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)
-    : masterCode;
+    : resolvedMasterCode;
   // Product structured data (no Offer — cabinet pricing is tier/member-gated
   // and must not be published in markup). Memoized so the JSON-LD <script>
   // isn't re-injected on every render.
@@ -392,16 +393,16 @@ export default function CabinetDetail({ masterCode }: Props) {
         ? buildProductJsonLd({
             name: seoName,
             description: translateSpec(cabinet.description ?? "", lang),
-            sku: masterCode,
+            sku: resolvedMasterCode,
             image: cabinet.catalogImageUrl ?? undefined,
             url:
               typeof window !== "undefined"
-                ? `${window.location.origin}/catalog/${masterCode}`
+                ? `${window.location.origin}/catalog/${resolvedMasterCode}`
                 : undefined,
             category: cabinet.category ?? undefined,
           })
         : undefined,
-    [cabinet, seoName, masterCode, lang],
+    [cabinet, seoName, resolvedMasterCode, lang],
   );
   useSeo({
     title: t("seo_cabinet_t", { name: seoName }),
@@ -773,7 +774,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const addRow = (row: StyleRow) => {
     const unitPrice = priceNumberForTier(row, tier);
     const res = addItem({
-      masterCode,
+      masterCode: resolvedMasterCode,
       name: cabinet?.description ?? row.name,
       styleId: row.styleId,
       styleLabel: row.name,
@@ -878,7 +879,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             </>
           )}
           <span>/</span>
-          <span className="text-foreground font-medium">{masterCode}</span>
+          <span className="text-foreground font-medium">{resolvedMasterCode}</span>
         </nav>
         {/* Floating style selector pill — shows the active door style with a
             thumbnail swatch. Tapping it scrolls to the style picker in the
@@ -909,7 +910,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           <StyleCategoryNav
             styleId={activeStyle}
             currentCategory={cabinet.category}
-            currentMasterCode={masterCode}
+            currentMasterCode={resolvedMasterCode}
         />
       )}
 
