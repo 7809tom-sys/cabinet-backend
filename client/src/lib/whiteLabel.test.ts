@@ -67,6 +67,11 @@ describe("no platform branding leaks on the affiliate storefront", () => {
     expect(src).toMatch(/affiliateSlugFromHostname\(window\.location\.hostname\)/);
     expect(src).toMatch(/<AffiliateShell slug=\{slug\}/);
   });
+
+  it("does not wrap the affiliate dashboard in the central TopNav layout", () => {
+    const src = read("client/src/App.tsx");
+    expect(src).toMatch(/<Route path="\/affiliate">\s*<Suspense fallback=\{<PageLoader \/>\}>\s*<AffiliateDashboard \/>/);
+  });
 });
 
 describe("build sheet export is white-labeled", () => {

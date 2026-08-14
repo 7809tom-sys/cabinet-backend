@@ -397,3 +397,6 @@
 - [x] Remove CabinetDealz name and logo from affiliate cart headers in favor of the current affiliate brand
 - [x] Apply the affiliate’s logo and store name consistently through affiliate checkout surfaces
 - [x] Add regression coverage for affiliate cart and checkout white-label branding
+- [x] Make affiliate dashboard Branded storefront links use the affiliate’s configured custom domain when available
+- [x] Remove central CabinetDealz navigation and branding from affiliate-visible dashboard chrome
+- [x] Add regression coverage for affiliate dashboard custom-domain links and white-label navigation

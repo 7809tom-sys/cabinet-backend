@@ -7,20 +7,20 @@ describe("affiliate storefront URLs", () => {
     expect(affiliateDashboardPath(5730001)).toBe("/affiliate?viewAs=5730001");
   });
 
-  it("keeps First Class and Reaves Way dashboard HTML links isolated", () => {
+  it("uses each affiliate's own production subdomain for dashboard storefront and referral links", () => {
     expect(affiliateDashboardLinks(
       { slug: "firstclass", referralCode: "FIRSTCLASS" },
       "https://www.cabinetdealz.com",
     )).toEqual({
-      storefrontUrl: "https://www.cabinetdealz.com/store/firstclass",
-      referralUrl: "https://www.cabinetdealz.com/order/new?ref=FIRSTCLASS",
+      storefrontUrl: "https://firstclass.cabinetdealz.com",
+      referralUrl: "https://firstclass.cabinetdealz.com/order/new?ref=FIRSTCLASS",
     });
     expect(affiliateDashboardLinks(
       { slug: "reaves-way-cabinet-shop", referralCode: "REAVESWAYCABINETSHOP" },
       "https://www.cabinetdealz.com",
     )).toEqual({
-      storefrontUrl: "https://www.cabinetdealz.com/store/reaves-way-cabinet-shop",
-      referralUrl: "https://www.cabinetdealz.com/order/new?ref=REAVESWAYCABINETSHOP",
+      storefrontUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com",
+      referralUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/order/new?ref=REAVESWAYCABINETSHOP",
     });
   });
 

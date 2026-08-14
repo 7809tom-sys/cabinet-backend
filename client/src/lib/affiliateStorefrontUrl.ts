@@ -1,4 +1,21 @@
 const PRODUCTION_ORIGIN = "https://www.cabinetdealz.com";
+const AFFILIATE_DOMAIN_SUFFIX = ".cabinetdealz.com";
+
+function affiliatePublicOrigin(slug: string, origin?: string): string {
+  const base = (origin || (typeof window !== "undefined" ? window.location.origin : PRODUCTION_ORIGIN)).replace(/\/+$/, "");
+  try {
+    const hostname = new URL(base).hostname.toLowerCase();
+    // Production dashboard links should distribute the affiliate's own domain,
+    // not the central www URL plus an internal /store route. Preview hosts keep
+    // the routed form because they do not own public affiliate subdomains.
+    if (hostname === "www.cabinetdealz.com" || hostname === "cabinetdealz.com") {
+      return `https://${encodeURIComponent(slug.trim().toLowerCase())}${AFFILIATE_DOMAIN_SUFFIX}`;
+    }
+  } catch {
+    // Retain the safe routed fallback below for malformed development origins.
+  }
+  return base;
+}
 
 /**
  * The canonical public address for an affiliate storefront. The application
@@ -19,9 +36,10 @@ export function affiliateDashboardLinks(
   affiliate: { slug: string; referralCode: string },
   origin?: string,
 ): { storefrontUrl: string; referralUrl: string } {
-  const base = (origin || (typeof window !== "undefined" ? window.location.origin : PRODUCTION_ORIGIN)).replace(/\/+$/, "");
+  const base = affiliatePublicOrigin(affiliate.slug, origin);
+  const useDedicatedAffiliateDomain = base.endsWith(AFFILIATE_DOMAIN_SUFFIX);
   return {
-    storefrontUrl: `${base}${affiliateStorefrontPath(affiliate.slug)}`,
+    storefrontUrl: useDedicatedAffiliateDomain ? base : `${base}${affiliateStorefrontPath(affiliate.slug)}`,
     referralUrl: `${base}/order/new?ref=${encodeURIComponent(affiliate.referralCode)}`,
   };
 }

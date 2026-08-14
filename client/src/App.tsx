@@ -443,11 +443,9 @@ export default function App() {
         </Route>
 
         <Route path="/affiliate">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <AffiliateDashboard />
-            </Suspense>
-          </AppLayout>
+          <Suspense fallback={<PageLoader />}>
+            <AffiliateDashboard />
+          </Suspense>
         </Route>
 
         <Route path="/contractor">
