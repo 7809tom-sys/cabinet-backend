@@ -258,13 +258,12 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
   const isOven = isOvenCabinet(cabinet);
 
-  // When the DB has numberOfDoors=0 / numberOfDrawers=0 (admin override or missing data),
-  // fall back to description parsing so the diagram still shows the correct layout.
-  // This handles wall cabinets (e.g. W4230 "Double Door Wall") and oven cabinets alike.
-  // Only skip the fallback if noDoor is explicitly set (open shelf, wine lattice, etc.).
+  // Only legacy records with no authored counts may fall back to description or
+  // width parsing. An explicit zero in Cabinet Config is authoritative.
   let effectiveDoors = doors;
   let effectiveDrawers = drawers;
-  if (doors === 0 && drawers === 0 && !cabinet.noDoor) {
+  const hasExplicitCounts = cabinet.numberOfDoors != null || cabinet.numberOfDrawers != null;
+  if (doors === 0 && drawers === 0 && !cabinet.noDoor && !hasExplicitCounts) {
     const desc = lc(cabinet.description);
     effectiveDrawers = parseDrawers(desc);
     effectiveDoors   = parseDoors(desc);

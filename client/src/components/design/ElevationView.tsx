@@ -15,7 +15,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
@@ -337,12 +337,18 @@ export function ElevationView({
       doors: Math.max(0, p.numberOfDoors ?? 0),
       drawers: Math.max(0, p.numberOfDrawers ?? 0),
     };
-    const displayCounts = hasConfiguredOpening
-      ? configuredCounts
-      : {
-          doors: resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p)),
-          drawers: isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p)),
-        };
+    const inferredDoors = resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p));
+    const inferredDrawers = isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p));
+    // An explicit Cabinet Config value, including zero, always wins. A configured
+    // appliance opening with an omitted legacy count also stays open instead of
+    // allowing generic description or width heuristics to invent cabinet faces.
+    const displayCounts = resolveConfiguredFaceCounts({
+      numberOfDoors: p.numberOfDoors,
+      numberOfDrawers: p.numberOfDrawers,
+      hasConfiguredOpening,
+      inferredDoors,
+      inferredDrawers,
+    });
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
     if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);

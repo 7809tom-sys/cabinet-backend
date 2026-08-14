@@ -5,12 +5,55 @@ import {
   cabinetImageSlug,
   cabinetAltText,
   cabinetTypeLabel,
+  resolveConfiguredFaceCounts,
   resolveDoorDrawerCounts,
   baseSubGroup,
   type CabinetLike,
 } from "./cabinetGraphics";
 
 describe("cabinetDrawingType", () => {
+  it("keeps explicit Cabinet Config zeroes instead of restoring generic door or drawer faces", () => {
+    expect(resolveConfiguredFaceCounts({
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      hasConfiguredOpening: true,
+      inferredDoors: 2,
+      inferredDrawers: 3,
+    })).toEqual({ doors: 0, drawers: 1 });
+    expect(resolveConfiguredFaceCounts({
+      numberOfDoors: null,
+      numberOfDrawers: null,
+      hasConfiguredOpening: false,
+      inferredDoors: 2,
+      inferredDrawers: 3,
+    })).toEqual({ doors: 2, drawers: 3 });
+  });
+
+  it("honors authored face counts across microwave, open-front, and end-angle cabinet families", () => {
+    expect(resolveDoorDrawerCounts({
+      masterCode: "BMC-30",
+      description: '30" Microwave Base Cabinet',
+      subCategory: "Microwave Base Cabinet",
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+      openingType: "top",
+    })).toEqual({ doors: 0, drawers: 1 });
+    expect(resolveDoorDrawerCounts({
+      masterCode: "OPEN-24",
+      description: '24" Open Shelf Base Cabinet',
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      facePattern: "open",
+    })).toEqual({ doors: 0, drawers: 0 });
+    expect(resolveDoorDrawerCounts({
+      masterCode: "BEC-24",
+      description: '24" Base End Cabinet',
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      graphicType: "end-angle",
+    })).toEqual({ doors: 2, drawers: 0 });
+  });
+
   it("classifies an all-drawer base as drawer-base", () => {
     const cab: CabinetLike = {
       masterCode: "DB-12-3",

@@ -166,9 +166,9 @@
 - [x] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
 - [x] Enforce BMC30 Cabinet Config as authoritative: zero doors, one drawer, and a top microwave opening with no fallback door faces
 - [x] Trace and remove any stale placed-cabinet or renderer fallback that can invent BMC30 doors
-- [ ] Make Cabinet Config the authoritative source for each designer cabinet’s drawing type, door count, drawer count, opening placement, dimensions, toe kick, and specialty profile
-- [ ] Remove generic renderer fallbacks whenever an explicit Cabinet Config field is present
-- [ ] Add cross-family regressions proving configured zero-door, zero-drawer, opening, and specialty rules override inferred layouts
+- [x] Make Cabinet Config the authoritative source for each designer cabinet’s drawing type, door count, drawer count, opening placement, dimensions, toe kick, and specialty profile
+- [x] Remove generic renderer fallbacks whenever an explicit Cabinet Config field is present
+- [x] Add cross-family regressions proving configured zero-door, zero-drawer, opening, and specialty rules override inferred layouts
 - [x] Replace BMC30’s stale Double Door Base catalog-card type label and generic drawing with its zero-door, one-drawer microwave-base Config
 - [x] Add catalog-to-designer BMC30 regression coverage proving the card label, drawing, and placed elevation use the same Cabinet Config
 - [x] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data

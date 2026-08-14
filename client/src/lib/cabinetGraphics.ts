@@ -65,6 +65,28 @@ export interface CabinetLike {
   graphicType?: string | null;
 }
 
+/**
+ * Resolves face counts without ever overwriting an authored Cabinet Config value.
+ * A configured zero is meaningful: it suppresses generic descriptive/width-based
+ * door or drawer inference for appliance openings and custom cabinets.
+ */
+export function resolveConfiguredFaceCounts(input: {
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  hasConfiguredOpening?: boolean;
+  inferredDoors: number;
+  inferredDrawers: number;
+}) {
+  return {
+    doors: input.numberOfDoors != null
+      ? Math.max(0, input.numberOfDoors)
+      : input.hasConfiguredOpening ? 0 : Math.max(0, input.inferredDoors),
+    drawers: input.numberOfDrawers != null
+      ? Math.max(0, input.numberOfDrawers)
+      : input.hasConfiguredOpening ? 0 : Math.max(0, input.inferredDrawers),
+  };
+}
+
 function toNum(v: number | string | null | undefined): number | null {
   if (v === null || v === undefined) return null;
   const n = typeof v === "number" ? v : parseFloat(v);
@@ -110,10 +132,25 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     };
   }
 
-  // 0) The source description is the primary signal. Numeric fields are often
-  // imported as a generic default (including zero) or arrive stale, so treating
-  // them as hard overrides can make a single-door cabinet draw as two doors.
-  // `noDoor` above remains the deliberate editor override for truly open fronts.
+  // 0) Authored Cabinet Config is authoritative. Legacy supplier counts exist on
+  // older rows too, so only a configuration signal promotes those values above
+  // the legacy description parser. A configured zero then intentionally
+  // suppresses all inferred panels.
+  const hasAuthoredFaceConfig = cab.openingType != null
+    || cab.graphicType != null
+    || cab.cornerType != null
+    || cab.facePattern != null
+    || cab.drawerLayout != null
+    || cab.doorHeight != null
+    || cab.drawerHeight != null
+    || cab.doorOrientation != null
+    || cab.doorsPerRow != null;
+  if (hasAuthoredFaceConfig) {
+    return {
+      doors: Math.max(0, cab.numberOfDoors ?? 0),
+      drawers: Math.max(0, cab.numberOfDrawers ?? 0),
+    };
+  }
 
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;

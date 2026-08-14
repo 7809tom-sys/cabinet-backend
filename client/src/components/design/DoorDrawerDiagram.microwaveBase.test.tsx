@@ -28,4 +28,24 @@ describe("DoorDrawerDiagram microwave-base Cabinet Config contract", () => {
     expect(markup).not.toContain("Left Door");
     expect(markup).not.toContain("Right Door");
   });
+
+  it("does not infer doors or drawers when an open Cabinet Config explicitly sets both counts to zero", () => {
+    const markup = renderToStaticMarkup(createElement(DoorDrawerDiagram, {
+      cabinet: {
+        masterCode: "OPEN-24",
+        description: '24" Open Shelf Base Cabinet',
+        category: "Base",
+        width: 24,
+        height: 34.5,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+        facePattern: "open" as const,
+      },
+      width: 200,
+    }));
+
+    expect(markup).not.toContain("Left Door");
+    expect(markup).not.toContain("Right Door");
+    expect(markup).not.toContain("Drawer 1");
+  });
 });

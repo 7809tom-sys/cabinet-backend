@@ -31,7 +31,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -385,6 +385,14 @@ export function IslandElevationView({
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
+    const hasConfiguredOpening = p.openingType != null || cabType === "microwave-base";
+    const displayCounts = resolveConfiguredFaceCounts({
+      numberOfDoors: p.numberOfDoors,
+      numberOfDrawers: p.numberOfDrawers,
+      hasConfiguredOpening,
+      inferredDoors: resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p)),
+      inferredDrawers: isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p)),
+    });
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (cabPosAlong <= 2) : true;
 
@@ -415,8 +423,8 @@ export function IslandElevationView({
               kind={cabPanelKind}
               edge={edgeColor}
               face={cabFinish.face}
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || displayDrawerCount(p)}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
               drawerSampleUrl={cabDrawerSampleUrl}
@@ -428,8 +436,8 @@ export function IslandElevationView({
           )}
           {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
+              doors={displayCounts.doors}
+              drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
