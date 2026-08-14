@@ -118,6 +118,21 @@ export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: stri
   );
 }
 
+/**
+ * Older saved WDC records predate the Cabinet Config corner field and therefore
+ * retain `cornerType: null`. WDC is the master family for a wall diagonal
+ * corner, so normalize that legacy omission before resolving an elevation.
+ * This mirrors the persisted-cabinet normalization already used by plan and
+ * 3D geometry; no per-design correction is permitted.
+ */
+export function normalizeElevationCabinetConfig(cabinet: CabinetLike): CabinetLike {
+  const isWallDiagonalCorner = /^WDC[-_]?\d/i.test(cabinet.masterCode ?? "");
+  if (isWallDiagonalCorner && !cabinet.cornerType) {
+    return { ...cabinet, cornerType: "diagonal" };
+  }
+  return cabinet;
+}
+
 /** Refrigerator end panels are exposed architectural skins: floor to top, no toe kick. */
 export function isRefrigeratorEndPanel(cabinet: Pick<PlacedCabinet, "placement" | "masterCode" | "description">): boolean {
   return cabinet.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`);
@@ -135,18 +150,19 @@ export function resolveElevationFacePresentation(
   genericDrawingUrl?: string | null,
   isAppliance = false,
 ) {
-  const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
+  const normalizedCabinet = normalizeElevationCabinetConfig(cabinet);
+  const isEndAngle = !isAppliance && isBaseEndAngleCabinet(normalizedCabinet, customProfile);
   // Preserve the exact authored end-cabinet type. An angled front and a two-face
   // end return are different Cabinet Config rules and must not be normalized.
   const configuredDrawingType = cabinetDrawingType({
-    ...cabinet,
-    graphicType: customProfile ?? cabinet.graphicType ?? null,
+    ...normalizedCabinet,
+    graphicType: customProfile ?? normalizedCabinet.graphicType ?? null,
   });
   const cabinetType = isAppliance
     ? null
     : isEndAngle
       ? configuredDrawingType
-      : cabinetDrawingType(cabinet);
+      : cabinetDrawingType(normalizedCabinet);
   // BA/BEC end returns have a meaningful measured 2D face, so their catalog
   // line drawings remain reference images only. They must not replace the live
   // textured elevation with a floating white thumbnail.
@@ -342,13 +358,21 @@ export function ElevationView({
     // An explicit Cabinet Config value, including zero, always wins. A configured
     // appliance opening with an omitted legacy count also stays open instead of
     // allowing generic description or width heuristics to invent cabinet faces.
-    const displayCounts = resolveConfiguredFaceCounts({
+    const configuredDisplayCounts = resolveConfiguredFaceCounts({
       numberOfDoors: p.numberOfDoors,
       numberOfDrawers: p.numberOfDrawers,
       hasConfiguredOpening,
       inferredDoors,
       inferredDrawers,
     });
+    // WDC is the configured two-door wall-diagonal family. Older saved records
+    // may still carry supplier zeroes in their face-count fields, so normalize
+    // those historic placements to the same contract as a fresh Cabinet Config
+    // placement instead of drawing a generic single-door wall cabinet.
+    const isLegacyWdcDiagonal = /^WDC[-_]?\d/i.test(p.masterCode ?? "") && cabType === "diagonal-corner";
+    const displayCounts = isLegacyWdcDiagonal
+      ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
+      : configuredDisplayCounts;
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
     if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);
@@ -2685,6 +2709,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
         {/* Door panel(s) on the angled face (center area) */}
         {Array.from({ length: dCount }).map((_, i) => (
           <div
+            data-diagonal-corner-door="true"
             key={i}
             className="absolute"
             style={{

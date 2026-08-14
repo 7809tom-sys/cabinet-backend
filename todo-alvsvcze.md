@@ -324,3 +324,5 @@
 - [ ] Fix the wall-cabinet 3D side skin that protrudes instead of sitting flush on the carcass end face
 - [ ] Correct the reported L-corner cabinet to 24-inch legs, 12-inch returns, and 17-inch door fronts in 2D and 3D
 - [ ] Correct WDC wall corners to the confirmed 24-by-24 footprint, 12-inch wall returns, and 17-inch diagonal door front in 2D and 3D
+- [ ] Remove the WDC full-height panel and thin protruding plane reproduced in the live mobile 3D view by correcting mesh transforms
+- [x] Fix WDC2430’s 2D wall elevation so it renders as the configured 24-by-24 diagonal wall corner with a 17-inch front, not a standard narrow wall cabinet

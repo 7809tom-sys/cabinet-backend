@@ -5,7 +5,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { cabinetDrawingType, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { type PlacedCabinet } from "@/lib/design";
 import { planCornerGeometry } from "./PlanCanvas";
-import { DoorFront, ElevationView } from "./ElevationView";
+import { DoorFront, ElevationView, normalizeElevationCabinetConfig, resolveElevationFacePresentation } from "./ElevationView";
 
 function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -26,6 +26,51 @@ function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 }
 
 describe("mixed Cabinet Config elevation rules", () => {
+  it("normalizes legacy WDC2430 records into the configured two-door diagonal wall-corner elevation", () => {
+    const legacyWdc2430 = {
+      masterCode: "WDC2430",
+      description: '24" x 30" Wall Diagonal Corner Cabinet',
+      category: "Wall",
+      placementType: "wall",
+      width: 24,
+      height: 30,
+      depth: 24,
+      cornerType: null,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+
+    expect(normalizeElevationCabinetConfig(legacyWdc2430)).toMatchObject({ cornerType: "diagonal" });
+    expect(resolveElevationFacePresentation(legacyWdc2430).cabinetType).toBe("diagonal-corner");
+
+    const markup = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        null,
+        createElement(ElevationView, {
+          room: { width: 144, depth: 120, ceilingHeight: 96 },
+          cabinets: [baseCabinet({
+            masterCode: "WDC2430",
+            description: legacyWdc2430.description,
+            category: "Wall",
+            placement: "wall",
+            width: 24,
+            height: 30,
+            depth: 24,
+            numberOfDoors: 0,
+            numberOfDrawers: 0,
+            cornerType: null,
+          })],
+          selectedUid: null,
+          onSelect: () => undefined,
+          wall: "back",
+        }),
+      ),
+    );
+
+    expect(markup.match(/data-diagonal-corner-door="true"/g)).toHaveLength(2);
+  });
+
   it("classifies BMC30 as a microwave base and BA-24 as its configured non-corner end-angle profile", () => {
     const bmc30 = {
       masterCode: "BMC30",
