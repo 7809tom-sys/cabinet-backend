@@ -2062,3 +2062,24 @@
 - [x] Add full-screen entry and exit controls to the interactive 3D preview
 - [x] Synchronize the control state with browser full-screen changes
 - [x] Validate the full-screen 3D workspace on desktop and mobile
+
+## Investigation: Reaves Way storefront branding and routing
+- [ ] Identify the domain or route that selected the Reaves Way storefront
+- [ ] Confirm whether Reaves Way branding is intended for that address
+- [ ] Correct routing only if the displayed brand does not match the intended storefront
+
+## Inspection: Invoice page
+- [x] Locate and open the current invoice page
+- [x] Verify the invoice page content and report any issue
+
+## Feature: Catalog-aware room-layout website from uploaded blueprint
+- [x] Verify existing room preset, zone, and resolved-SKU data contracts
+- [x] Build a clear website entry experience for room shape and layout selection
+- [x] Connect room-layout choices to active, published, available distributor SKUs
+- [x] Preserve existing manual design and account-save behavior
+- [x] Test the room-layout website flow on desktop and mobile
+
+## Verification: 3D PDF quote and account-email finish details
+- [x] Inspect the generated PDF content and email attachment handoff
+- [x] Add regression coverage for cabinet-finish and countertop detail inclusion
+- [x] Report verified quote and email-detail behavior

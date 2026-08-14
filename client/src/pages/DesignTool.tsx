@@ -365,6 +365,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [polygonEditMode, setPolygonEditMode] = useState(false);
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+
+  // The public Room Planner stores a selected room shape and starter layout
+  // briefly in session storage before it opens the existing full designer.
+  // Consuming it here keeps the public experience catalog-aware without
+  // creating a second room or product model.
+  const roomLayoutHandoffAppliedRef = useRef(false);
+  useEffect(() => {
+    if (roomLayoutHandoffAppliedRef.current || typeof window === "undefined") return;
+    const raw = window.sessionStorage.getItem("cabinetdealz_room_layout_handoff_v1");
+    if (!raw) return;
+    try {
+      const handoff = JSON.parse(raw) as { room?: RoomData; layoutPresetId?: string };
+      if (!handoff.room || !handoff.layoutPresetId) return;
+      if (!Number.isFinite(handoff.room.width) || !Number.isFinite(handoff.room.depth)) return;
+      roomLayoutHandoffAppliedRef.current = true;
+      setRoom(handoff.room);
+      setSelectedLayoutPresetId(handoff.layoutPresetId);
+      setLayoutStarterOpen(true);
+    } finally {
+      window.sessionStorage.removeItem("cabinetdealz_room_layout_handoff_v1");
+    }
+  }, []);
   // ── Undo / Redo for placed cabinets ──────────────────────────────────────
   const undoRedo = useUndoRedo<PlacedCabinet[]>();
   const undoRedoRef = useRef(undoRedo);
@@ -8834,6 +8856,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
+                catalogFinishName={activeStyleName}
+                catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 onPresentationChange={setInteractive3dPresentation}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,

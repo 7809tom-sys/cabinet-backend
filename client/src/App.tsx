@@ -50,6 +50,7 @@ const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
 const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
 const DesignPresentation = lazy(() => import("@/pages/DesignPresentation"));
 const SharedRoom3D = lazy(() => import("@/pages/SharedRoom3D"));
+const RoomLayouts = lazy(() => import("@/pages/RoomLayouts"));
 const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
@@ -311,6 +312,14 @@ export default function App() {
 
         <Route path="/design">
           <DesignerRoute />
+        </Route>
+
+        <Route path="/room-layouts">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <RoomLayouts />
+            </Suspense>
+          </AppLayout>
         </Route>
 
         <Route path="/pro-network">

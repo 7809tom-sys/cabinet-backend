@@ -72,6 +72,9 @@ interface Props {
   initialPresentation?: InteractiveRoomPresentation;
   /** Active design-tool finish derived from the chosen catalog door style. */
   catalogFinishOverride?: string | null;
+  /** Human-readable catalog selections used in PDF and account-email output. */
+  catalogFinishName?: string | null;
+  catalogCountertopName?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
@@ -132,6 +135,18 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
 export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinishOverride?: string | null) {
   const override = catalogFinishOverride?.trim() ?? "";
   return /^#[0-9a-f]{6}$/i.test(override) ? override : sceneCabinetColor(scene);
+}
+
+export function quoteMaterialDetails(input: {
+  cabinetPreview: string;
+  countertopPreview: string;
+  catalogFinishName?: string | null;
+  catalogCountertopName?: string | null;
+}) {
+  return {
+    cabinet: input.cabinetPreview === "Catalog finish" ? input.catalogFinishName?.trim() || "Catalog finish" : input.cabinetPreview,
+    countertop: input.countertopPreview === "Quartz" ? input.catalogCountertopName?.trim() || "Quartz" : input.countertopPreview,
+  };
 }
 
 export function doorProfileKind(doorStyle: string | null | undefined, doorPanelType: string | null | undefined) {
@@ -303,7 +318,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -330,6 +345,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
+  const quoteMaterials = quoteMaterialDetails({
+    cabinetPreview: cabinetFinishLabel,
+    countertopPreview: countertopFinishLabel,
+    catalogFinishName: catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish,
+    catalogCountertopName,
+  });
   const shareMutation = trpc.roomLayouts.createShare.useMutation();
   const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
@@ -605,7 +626,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       pdf.text("Cabinet Dealz — 3D Room Quote", 40, 42);
       pdf.setFontSize(10);
       pdf.setTextColor(90);
-      pdf.text(`Generated ${new Date().toLocaleString()} · ${cabinetFinishLabel} cabinets · ${countertopFinishLabel} countertop`, 40, 61);
+      pdf.text(`Generated ${new Date().toLocaleString()} · Cabinet finish: ${quoteMaterials.cabinet} · Countertop: ${quoteMaterials.countertop}`, 40, 61);
       pdf.setFontSize(11);
       pdf.setTextColor(35);
       pdf.text("3D room view", 40, 78);
@@ -663,8 +684,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
         pdfBase64,
         itemCount: orderSummary.itemCount,
         subtotal: orderSummary.subtotal,
-        cabinetFinish: cabinetFinishLabel,
-        countertopFinish: countertopFinishLabel,
+        cabinetFinish: quoteMaterials.cabinet,
+        countertopFinish: quoteMaterials.countertop,
       });
       toast.success(`Quote sent to ${sentTo}.`);
     } catch (error) {
@@ -750,7 +771,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
           <div>
             <p className="text-xs font-semibold text-[#4b3a20]">Current design pricing</p>
             <p className="text-[11px] text-[#6e5d42]">{orderSummary.itemCount} item{orderSummary.itemCount === 1 ? "" : "s"} · {orderSummary.pricedLineCount} priced line{orderSummary.pricedLineCount === 1 ? "" : "s"}{orderSummary.unpricedLineCount ? ` · ${orderSummary.unpricedLineCount} awaiting price` : ""}</p>
-            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {cabinetFinishLabel} cabinets · {countertopFinishLabel} countertop</p>
+            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {quoteMaterials.cabinet} cabinets · {quoteMaterials.countertop} countertop</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold tabular-nums text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>

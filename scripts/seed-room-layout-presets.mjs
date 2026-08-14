@@ -117,6 +117,17 @@ const layout = {
   defaultRoomData: { defaultWallKeys: ["back", "left"], applianceZones: ["range", "refrigerator"] },
 };
 
+const rectangleLayout = {
+  id: "kitchen_one_wall_standard",
+  roomShapePresetId: "rectangle",
+  roomType: "kitchen",
+  name: "One-Wall Kitchen",
+  description: "A practical single-wall kitchen starter with a sink base, base run, and matching wall cabinet zone.",
+  minimumWidth: 96,
+  minimumDepth: 84,
+  defaultRoomData: { defaultWallKeys: ["back"], applianceZones: ["range", "refrigerator"] },
+};
+
 // Functional rules only. These rows do not contain product IDs or fabricated
 // codes; runtime matching resolves a real distributor SKU for each zone.
 const zones = [
@@ -124,6 +135,12 @@ const zones = [
   { zoneKey: "sink_base", label: "Sink base", wallKey: "back", sequence: 20, placementType: "base", requiredCategory: "Base", requiredSubCategory: "Sink Base", minWidth: 24, targetWidth: 30, maxWidth: 36, isRequired: true, matchingRules: { requiresSinkCutout: true } },
   { zoneKey: "left_corner", label: "Left corner base", wallKey: "left", sequence: 30, placementType: "base", requiredCategory: "Base", requiredProductType: "corner", minWidth: 30, targetWidth: 36, maxWidth: 42, isRequired: false, matchingRules: { cornerRequired: true } },
   { zoneKey: "back_wall", label: "Back wall cabinet", wallKey: "back", sequence: 40, placementType: "wall", requiredCategory: "Wall", requiredSubCategory: "Standard Wall", minWidth: 18, targetWidth: 30, maxWidth: 36, isRequired: true },
+];
+
+const rectangleZones = [
+  { zoneKey: "base_run", label: "Base cabinet run", wallKey: "back", sequence: 10, placementType: "base", requiredCategory: "Base", requiredSubCategory: "Standard Base", minWidth: 18, targetWidth: 24, maxWidth: 36, isRequired: true },
+  { zoneKey: "sink_base", label: "Sink base", wallKey: "back", sequence: 20, placementType: "base", requiredCategory: "Base", requiredSubCategory: "Sink Base", minWidth: 24, targetWidth: 30, maxWidth: 36, isRequired: true, matchingRules: { requiresSinkCutout: true } },
+  { zoneKey: "wall_cabinet", label: "Wall cabinet", wallKey: "back", sequence: 30, placementType: "wall", requiredCategory: "Wall", requiredSubCategory: "Standard Wall", minWidth: 18, targetWidth: 30, maxWidth: 36, isRequired: true },
 ];
 
 async function upsertPresets() {
@@ -144,37 +161,41 @@ async function upsertPresets() {
     );
   }
 
-  if (!apply) {
-    console.log(`[DRY RUN] Upsert layout: ${layout.id} and ${zones.length} functional zones`);
-    return;
-  }
-  await connection.execute(
-    `INSERT INTO layout_presets
-      (id, roomShapePresetId, roomType, name, description, minimumWidth, minimumDepth, defaultRoomData, sortOrder, isActive, version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 10, TRUE, 1)
-     ON DUPLICATE KEY UPDATE
-       roomShapePresetId = VALUES(roomShapePresetId), roomType = VALUES(roomType), name = VALUES(name),
-       description = VALUES(description), minimumWidth = VALUES(minimumWidth), minimumDepth = VALUES(minimumDepth),
-       defaultRoomData = VALUES(defaultRoomData), isActive = TRUE, version = VALUES(version)`,
-    [layout.id, layout.roomShapePresetId, layout.roomType, layout.name, layout.description, layout.minimumWidth, layout.minimumDepth, JSON.stringify(layout.defaultRoomData)],
-  );
-
-  for (const zone of zones) {
+  const upsertLayoutAndZones = async (preset, presetZones, sortOrder) => {
+    if (!apply) {
+      console.log(`[DRY RUN] Upsert layout: ${preset.id} and ${presetZones.length} functional zones`);
+      return;
+    }
     await connection.execute(
-      `INSERT INTO layout_preset_zones
-        (layoutPresetId, zoneKey, label, wallKey, sequence, placementType, requiredCategory, requiredSubCategory,
-         requiredProductType, minWidth, targetWidth, maxWidth, isRequired, allowCustomSize, matchingRules)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?)
+      `INSERT INTO layout_presets
+        (id, roomShapePresetId, roomType, name, description, minimumWidth, minimumDepth, defaultRoomData, sortOrder, isActive, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, 1)
        ON DUPLICATE KEY UPDATE
-         label = VALUES(label), wallKey = VALUES(wallKey), sequence = VALUES(sequence), placementType = VALUES(placementType),
-         requiredCategory = VALUES(requiredCategory), requiredSubCategory = VALUES(requiredSubCategory),
-         requiredProductType = VALUES(requiredProductType), minWidth = VALUES(minWidth), targetWidth = VALUES(targetWidth),
-         maxWidth = VALUES(maxWidth), isRequired = VALUES(isRequired), matchingRules = VALUES(matchingRules)`,
-      [layout.id, zone.zoneKey, zone.label, zone.wallKey, zone.sequence, zone.placementType, zone.requiredCategory,
-        zone.requiredSubCategory ?? null, zone.requiredProductType ?? null, zone.minWidth, zone.targetWidth, zone.maxWidth,
-        zone.isRequired, zone.matchingRules ? JSON.stringify(zone.matchingRules) : null],
+         roomShapePresetId = VALUES(roomShapePresetId), roomType = VALUES(roomType), name = VALUES(name),
+         description = VALUES(description), minimumWidth = VALUES(minimumWidth), minimumDepth = VALUES(minimumDepth),
+         defaultRoomData = VALUES(defaultRoomData), sortOrder = VALUES(sortOrder), isActive = TRUE, version = VALUES(version)`,
+      [preset.id, preset.roomShapePresetId, preset.roomType, preset.name, preset.description, preset.minimumWidth, preset.minimumDepth, JSON.stringify(preset.defaultRoomData), sortOrder],
     );
-  }
+    for (const zone of presetZones) {
+      await connection.execute(
+        `INSERT INTO layout_preset_zones
+          (layoutPresetId, zoneKey, label, wallKey, sequence, placementType, requiredCategory, requiredSubCategory,
+           requiredProductType, minWidth, targetWidth, maxWidth, isRequired, allowCustomSize, matchingRules)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?)
+         ON DUPLICATE KEY UPDATE
+           label = VALUES(label), wallKey = VALUES(wallKey), sequence = VALUES(sequence), placementType = VALUES(placementType),
+           requiredCategory = VALUES(requiredCategory), requiredSubCategory = VALUES(requiredSubCategory),
+           requiredProductType = VALUES(requiredProductType), minWidth = VALUES(minWidth), targetWidth = VALUES(targetWidth),
+           maxWidth = VALUES(maxWidth), isRequired = VALUES(isRequired), matchingRules = VALUES(matchingRules)`,
+        [preset.id, zone.zoneKey, zone.label, zone.wallKey, zone.sequence, zone.placementType, zone.requiredCategory,
+          zone.requiredSubCategory ?? null, zone.requiredProductType ?? null, zone.minWidth, zone.targetWidth, zone.maxWidth,
+          zone.isRequired, zone.matchingRules ? JSON.stringify(zone.matchingRules) : null],
+      );
+    }
+  };
+
+  await upsertLayoutAndZones(rectangleLayout, rectangleZones, 10);
+  await upsertLayoutAndZones(layout, zones, 20);
 }
 
 async function resolveCandidate(zone) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, resolvedCatalogFinish, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, quoteMaterialDetails, resolvedCatalogFinish, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -33,6 +33,15 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
     expect(THREE_D_EXPORT_SIZE).toEqual({ width: 2000, height: 1400 });
+  });
+
+  it("writes the active catalog cabinet and countertop names when quote previews stay at their defaults", () => {
+    expect(quoteMaterialDetails({
+      cabinetPreview: "Catalog finish",
+      countertopPreview: "Quartz",
+      catalogFinishName: "Aero Sage (Preston)",
+      catalogCountertopName: "Pelican Calacatta Laza Quartz",
+    })).toEqual({ cabinet: "Aero Sage (Preston)", countertop: "Pelican Calacatta Laza Quartz" });
   });
 
   it("recognizes Shaker, raised-panel, and flat-panel cabinet door geometry", () => {
