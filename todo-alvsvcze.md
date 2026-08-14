@@ -317,3 +317,6 @@
 - [ ] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
 - [ ] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D
 - [ ] Remove the LS36 3D inside-corner line/frame protrusion so both 12-inch fronts end cleanly at the L seam
+- [ ] Remove the remaining LS36 3D line reproduced after the first seam cleanup by tracing countertop and face-mesh bounds
+- [ ] Correct LS36 to two 24-inch L legs with one 12-inch return/door front on each exposed side in both 2D and 3D
+- [ ] Correct LS36 to a 36-inch wall side on each leg with one 12-inch return/door front on each exposed side in both 2D and 3D

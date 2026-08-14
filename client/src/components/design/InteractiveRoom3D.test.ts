@@ -367,10 +367,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(placedCornerGeometryKind(ls36)).toBe("l-shape");
     expect(mapped).toMatchObject({ masterCode: "LS3612", width: 36, depth: 36, cornerType: "l-shape" });
     expect(resolvedThreeDSpecialtyProfile(mapped)).toEqual({ kind: "l-corner", pattern: null });
-    expect(lCornerCarcassParts(3, 3)).toMatchObject({
+    const lShape = lCornerCarcassParts(3, 3);
+    expect(lShape).toMatchObject({
       backLeg: { width: 3, depth: 2 },
       sideLeg: { width: 2, depth: 1 },
     });
+    expect(lShape.backLeg.width).toBe(36 / 12);
+    expect(lShape.backLeg.depth).toBe(24 / 12);
+    expect(lShape.backLeg.width - lShape.sideLeg.width).toBe(12 / 12);
   });
 
   it("mounts persisted LS3612 doors and Shaker rails on the restored two-leg L-corner face", () => {
@@ -387,6 +391,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(lCornerDoors).toHaveLength(2);
     expect(lCornerDoors.map((door) => door.userData.lCornerDoor).sort()).toEqual(["back-leg", "side-leg"]);
     expect(lCornerDoors.map((door) => door.rotation.y).sort((a, b) => a - b)).toEqual([0, Math.PI / 2]);
+    root.updateMatrixWorld(true);
+    const cabinet = root.children.find((node) => node.userData.masterCode === "LS3612")!;
+    const cabinetPosition = new THREE.Vector3();
+    cabinet.getWorldPosition(cabinetPosition);
+    for (const door of lCornerDoors) {
+      const doorPosition = new THREE.Vector3();
+      door.getWorldPosition(doorPosition);
+      expect(Math.abs(doorPosition.z - cabinetPosition.z)).toBeLessThanOrEqual(1.55);
+    }
     for (const door of lCornerDoors) {
       const mesh = door as THREE.Mesh;
       expect((mesh.geometry as THREE.BoxGeometry).parameters.width).toBeCloseTo(12 / 12 - 0.09, 12);

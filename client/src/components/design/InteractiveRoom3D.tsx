@@ -604,9 +604,10 @@ export function addCabinet(
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
-  // A diagonal wall corner's visible front crosses the square footprint rather
-  // than sitting on the rectangular box edge used by standard cabinets.
-  frontGroup.position.z = specialty.kind === "diagonal-corner" ? 0 : faceDepth;
+  // Diagonal and L-corner fronts use absolute local positions on their shared
+  // special footprint. Applying the generic rectangular front-depth offset to
+  // either one would push their faces and Shaker rails out into the room.
+  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "l-corner" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (profileKind !== "shaker") return;
