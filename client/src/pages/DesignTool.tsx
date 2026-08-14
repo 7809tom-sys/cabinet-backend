@@ -357,6 +357,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
+  const [requestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
   const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
 
   // Room + placement state
@@ -700,6 +701,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const hasPersistedTwoDPlan = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
   const canLoadCatalogInteractive3d = Boolean(styleId && selectedStyleDistributorId && (placed.length > 0 || selectedLayoutPresetId));
   const canLoadInteractive3d = hasPersistedTwoDPlan || canLoadCatalogInteractive3d;
+
   const { data: interactive3dScene, isFetching: interactive3dLoading } = trpc.roomLayouts.scene.useQuery(
     {
       layoutPresetId: activeSceneLayoutPresetId,
@@ -708,6 +710,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
     { enabled: canLoadCatalogInteractive3d },
   );
+
+  useEffect(() => {
+    if (!requestedThreeDPreview || interactive3dOpen || !canLoadInteractive3d || interactive3dLoading) return;
+    setInteractive3dOpen(true);
+  }, [requestedThreeDPreview, interactive3dOpen, canLoadInteractive3d, interactive3dLoading]);
+
   const savedPlanInteractive3dScene = useMemo<InteractiveRoomScene | null>(() => {
     if (!hasPersistedTwoDPlan) return null;
     return {

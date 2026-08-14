@@ -19,4 +19,11 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).toContain("resolvedInteractive3dScene");
     expect(designToolSource).toContain("enabled: canLoadCatalogInteractive3d");
   });
+
+  it("supports a guarded direct 3D preview link after a saved 2D plan is ready", () => {
+    expect(designToolSource).toContain('get("preview") === "3d"');
+    expect(designToolSource).toContain("requestedThreeDPreview");
+    expect(designToolSource).toContain("!canLoadInteractive3d || interactive3dLoading");
+    expect(designToolSource).toContain("setInteractive3dOpen(true)");
+  });
 });

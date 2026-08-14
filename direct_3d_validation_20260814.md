@@ -46,3 +46,8 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 
 - Reopened the deployed active design after checkpoint `37d182d1` and expanded its deterministic preview. The canvas remained stable after entering full screen.
 - The large rendered view showed physical Shaker door and drawer framing, the range cooktop and oven at the counter run, the mounted over-range appliance stack, refrigerator enclosure, supported countertop breaks, and the cabinet run without a blank scene or repeat-render failure.
+
+## Responsive deterministic-preview route — 2026-08-14
+
+- Added a guarded `preview=3d` route input that opens the same deterministic modal only after the saved 2D plan and catalog scene are ready; it is used for repeatable narrow-viewport validation and does not create an alternate renderer.
+- A `375px` mobile capture opened the active plan’s responsive 3D modal, retained its **20 cabinet** plan-sync inventory, and reported the selected door texture as loaded. A tall capture correctly displayed the non-blocking catalog-geometry loading state while the same saved plan hydrated.
