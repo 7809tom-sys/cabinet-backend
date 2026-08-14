@@ -19,3 +19,9 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 - The current 3D countertop eligibility rule now delegates to the same `bearsCountertop` contract as the 2D elevation: regular counter-bearing bases and `DW`/`WINE` openings support a slab, while `RANGE`, `FRIDGE`, `HOOD`, `MW`, `OVEN`, fillers, panels, walls, and tall units do not.
 - The saved appliance snapshot contains `MW-30` at `x=0`, `y=45`, height `17`, mount bottom `54`, and `HOOD-30` at `x=3.5`, `y=45`, height `18`, mount bottom `66`. Their stored mounting envelopes overlap by five inches; this is retained as a source-plan fact for the next parity pass rather than silently changing appliance placement in 3D.
 - The live renderer now builds `WDC2442` as a clipped 45-degree triangular carcass and a matching clipped countertop slab from the same 24-inch diagonal plan footprint, rather than rendering a rectangular corner mass. The active 20-item 3D scene was reloaded after this update for visual verification.
+
+## Current-checkpoint visual pass — 2026-08-14
+
+- Reloaded design `8190001` under `7809tom@gmail.com` after the room-aware vertical transform update. The 2D plan remains a **20-item** kitchen with no appliance-to-cabinet collision warning.
+- The user-facing deterministic modal reports **20 cabinets from the current design** and shows the active selected material as **Aspen White cabinets · Quartz countertop**.
+- In the direct full-screen scene, the refrigerator, range with physical cooktop, stacked over-range microwave and hood, dishwasher opening, supported countertop run, and adjoining corner runs were all present from the same persisted plan.
