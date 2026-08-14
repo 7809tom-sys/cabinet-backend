@@ -123,6 +123,10 @@ export const THREE_D_DRAWER_REVEAL_DEPTH = 0.07;
 export const THREE_D_WALL_OPACITY = 0.72;
 export const THREE_D_WALL_DEPTH_WRITE = false;
 
+export function threeDDoorMaterialFallback(color: string) {
+  return { color, map: null as null };
+}
+
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -383,8 +387,20 @@ function addCabinet(
   );
   cabinet.add(body);
 
+  const textureMaterials: THREE.MeshStandardMaterial[] = [];
+  const applyDoorTextureFallback = () => {
+    const fallback = threeDDoorMaterialFallback(color);
+    for (const material of textureMaterials) {
+      material.map = fallback.map;
+      material.color.set(fallback.color);
+      material.needsUpdate = true;
+    }
+  };
   const doorTexture = doorSampleUrl
-    ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => onDoorTextureState?.("failed"))
+    ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => {
+      applyDoorTextureFallback();
+      onDoorTextureState?.("failed");
+    })
     : null;
   if (doorTexture) onDoorTextureState?.("loading");
   if (doorTexture) {
@@ -399,6 +415,7 @@ function addCabinet(
   const faceColor = doorTexture ? "#ffffff" : color;
   const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
+  textureMaterials.push(faceMaterial, trimMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   // The cabinet carcass is part of the visible finished run in the 2D design.
   // Match it to the selected face material so 3D does not introduce white side
@@ -407,6 +424,7 @@ function addCabinet(
   bodyMaterial.color.set(faceColor);
   bodyMaterial.map = doorTexture;
   bodyMaterial.needsUpdate = true;
+  textureMaterials.push(bodyMaterial);
   const faceDepth = bodyDepth / 2 + 0.015;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;

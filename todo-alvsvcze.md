@@ -202,7 +202,7 @@
 - [x] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
 - [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
 - [x] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
-- [ ] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
+- [x] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
 - [x] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
 - [x] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
 - [x] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
@@ -226,6 +226,8 @@
 - [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
 - [ ] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
 - [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
+- [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
+- [x] Add a regression covering failed selected-door texture fallback in the 3D room
 - [x] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, threeDSceneInputDiagnostics, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, openingTransform, quoteMaterialDetails, rangeHoodGeometry, rangeHoodSceneStatus, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDShakerRailThickness, threeDSceneInputDiagnostics, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -28,6 +28,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDDoorSampleUrl("catalog", "/manus-storage/silva-shaker.png")).toBe("/manus-storage/silva-shaker.png");
     expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png")).toBeNull();
     expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png", true)).toBe("/manus-storage/silva-shaker.png");
+  });
+
+  it("keeps cabinet faces visibly calibrated when a selected 2D door image fails to load", () => {
+    expect(threeDDoorMaterialFallback("#b8874e")).toEqual({ color: "#b8874e", map: null });
   });
 
   it("renders placed 2D cabinets instead of starter suggestions whenever a design exists", () => {
