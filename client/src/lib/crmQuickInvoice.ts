@@ -1,6 +1,8 @@
 export type CrmQuickInvoiceLine = {
   description: string;
   amount: number;
+  /** Included lines document the design material list but do not increase total due. */
+  kind?: "charge" | "included";
 };
 
 export type CrmQuickInvoiceBrand = {
@@ -32,7 +34,7 @@ const escapeHtml = (value: string) => value
 const safeHex = (value: string | null | undefined, fallback: string) => /^#[0-9a-f]{6}$/i.test(value ?? "") ? value! : fallback;
 
 export function crmQuickInvoiceTotal(lines: CrmQuickInvoiceLine[]): number {
-  return lines.reduce((total, line) => total + Math.max(0, Number(line.amount) || 0), 0);
+  return lines.reduce((total, line) => total + (line.kind === "included" ? 0 : Math.max(0, Number(line.amount) || 0)), 0);
 }
 
 export function buildCrmQuickInvoiceHtml(invoice: CrmQuickInvoice): string {
@@ -47,7 +49,7 @@ export function buildCrmQuickInvoiceHtml(invoice: CrmQuickInvoice): string {
     .map(escapeHtml)
     .join("<br>");
   const lineRows = invoice.lines.map((line) => `
-    <tr><td>${escapeHtml(line.description)}</td><td class="amount">${format(Math.max(0, line.amount))}</td></tr>
+    <tr class="${line.kind === "included" ? "included" : ""}"><td>${escapeHtml(line.description)}</td><td class="amount">${line.kind === "included" ? "Included" : format(Math.max(0, line.amount))}</td></tr>
   `).join("");
 
   return `<!doctype html>
@@ -67,6 +69,7 @@ export function buildCrmQuickInvoiceHtml(invoice: CrmQuickInvoice): string {
     table { border-collapse: collapse; width: 100%; }
     th { background: ${primary}; color: white; font-size: 11px; letter-spacing: .05em; padding: 10px 12px; text-align: left; text-transform: uppercase; }
     td { border-bottom: 1px solid #dce0e6; padding: 12px; }
+    tr.included td { background: #fafbfd; color: #526074; font-size: 12px; }
     .amount { text-align: right; white-space: nowrap; }
     .total { display: flex; justify-content: flex-end; gap: 28px; font-size: 18px; font-weight: 700; padding: 18px 12px; }
     .design, .notes { border-left: 3px solid ${accent}; color: #405065; margin-top: 22px; padding-left: 12px; }

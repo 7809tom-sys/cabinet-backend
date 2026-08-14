@@ -10,6 +10,7 @@ import {
   crmEmailLog,
   emailSettings,
   kitchenDesigns,
+  threeDRoomShares,
   affiliates,
   orderRequests,
   affiliateInstallationEstimates,
@@ -35,6 +36,7 @@ import {
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill } from "../crmInvoicePrefill";
+import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -257,11 +259,38 @@ export const crmRouter = router({
         .from(crmActivities)
         .where(eq(crmActivities.dealId, deal.id))
         .orderBy(desc(crmActivities.createdAt));
-      const linkedDesigns = await db
+      const linkedDesignRows = await db
         .select()
         .from(crmDealDesigns)
         .where(eq(crmDealDesigns.dealId, deal.id))
         .orderBy(desc(crmDealDesigns.createdAt));
+      const linkedDesignIds = linkedDesignRows.map((link) => link.designId);
+      const savedDesignRows = linkedDesignIds.length === 0
+        ? []
+        : await db.select({ id: kitchenDesigns.id, placedCabinets: kitchenDesigns.placedCabinets })
+          .from(kitchenDesigns)
+          .where(inArray(kitchenDesigns.id, linkedDesignIds));
+      const savedDesignById = new Map(savedDesignRows.map((design) => [design.id, design]));
+      const shareRows = linkedDesignIds.length === 0
+        ? []
+        : await db.select({ kitchenDesignId: threeDRoomShares.kitchenDesignId, orderSubtotal: threeDRoomShares.orderSubtotal, updatedAt: threeDRoomShares.updatedAt })
+          .from(threeDRoomShares)
+          .where(inArray(threeDRoomShares.kitchenDesignId, linkedDesignIds))
+          .orderBy(desc(threeDRoomShares.updatedAt));
+      const shareByDesignId = new Map<number, (typeof shareRows)[number]>();
+      for (const share of shareRows) {
+        if (share.kitchenDesignId != null && !shareByDesignId.has(share.kitchenDesignId)) shareByDesignId.set(share.kitchenDesignId, share);
+      }
+      const linkedDesigns = linkedDesignRows.map((link) => {
+        const savedDesign = savedDesignById.get(link.designId);
+        const share = shareByDesignId.get(link.designId);
+        return {
+          ...link,
+          catalogSubtotal: share?.orderSubtotal ?? null,
+          catalogSubtotalSource: share?.orderSubtotal != null ? "Saved design catalog subtotal" : null,
+          materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets),
+        };
+      });
       const emails = await db
         .select()
         .from(crmEmailLog)
@@ -633,6 +662,7 @@ export const crmRouter = router({
       lines: z.array(z.object({
         description: z.string().trim().min(1).max(256),
         amount: z.number().finite().min(0).max(10_000_000),
+        kind: z.enum(["charge", "included"]).optional(),
       })).min(1).max(30),
       linkedDesignId: z.number().int().nullable().optional(),
       notes: z.string().trim().max(8000).nullable().optional(),

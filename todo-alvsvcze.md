@@ -374,3 +374,6 @@
 - [x] Import cabinet-order totals from the original customer order application into the CRM invoice draft
 - [x] Import installation totals from the original customer installation application into the CRM invoice draft
 - [x] Preserve imported invoice amounts as editable prefilled values and add regression coverage for the mobile invoice modal
+- [x] Import a selected linked kitchen design’s existing price into the Kitchen Design invoice line
+- [x] Import the selected linked design’s cabinet and material list as editable itemized invoice lines
+- [x] Add regression coverage and mobile validation for saved-design price and material-list invoice imports

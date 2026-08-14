@@ -22,6 +22,21 @@ describe("CRM quick invoice", () => {
     expect(crmQuickInvoiceTotal(editedPreviewLines)).toBe(5900);
   });
 
+  it("shows imported design materials as included details without adding them again to total due", () => {
+    const lines = [
+      { description: "Kitchen Design — Aspin kitchen", amount: 4875.5 },
+      { description: "Included material · 2 × 24 in Base Cabinet", amount: 0, kind: "included" as const },
+      { description: "Included material · 1 × 30 in Wall Cabinet", amount: 0, kind: "included" as const },
+    ];
+    expect(crmQuickInvoiceTotal(lines)).toBe(4875.5);
+    expect(buildCrmQuickInvoiceHtml({
+      invoiceNumber: "CRM-42-20260814",
+      issuedOn: "August 14, 2026",
+      customerName: "Tom",
+      lines,
+    })).toContain("Included material · 2 × 24 in Base Cabinet");
+  });
+
   it("renders the customer, linked design, selected services, and notes safely into a printable invoice", () => {
     const html = buildCrmQuickInvoiceHtml({
       invoiceNumber: "CRM-42-20260814",

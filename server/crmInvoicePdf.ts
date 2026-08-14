@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 export type CrmInvoicePdfLine = {
   description: string;
   amount: number;
+  kind?: "charge" | "included";
 };
 
 export type CrmInvoiceBrand = {
@@ -26,7 +27,7 @@ export type CrmInvoicePdfInput = {
 
 const safeHex = (value: string | null | undefined, fallback: string) => /^#[0-9a-f]{6}$/i.test(value ?? "") ? value! : fallback;
 const money = (amount: number) => Math.max(0, Number(amount) || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
-const totalOf = (lines: CrmInvoicePdfLine[]) => lines.reduce((total, line) => total + Math.max(0, Number(line.amount) || 0), 0);
+const totalOf = (lines: CrmInvoicePdfLine[]) => lines.reduce((total, line) => total + (line.kind === "included" ? 0 : Math.max(0, Number(line.amount) || 0)), 0);
 const escapeHtml = (value: string) => value
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
@@ -111,8 +112,9 @@ export async function createCrmInvoicePdf(input: CrmInvoicePdfInput): Promise<Bu
   doc.text("AMOUNT", 455, y + 8, { width: 94, align: "right" });
   y += 25;
   for (const line of input.lines) {
-    doc.fillColor(primary).fontSize(11).font("Helvetica").text(line.description, 62, y + 11, { width: 340 });
-    doc.font("Helvetica-Bold").text(money(line.amount), 455, y + 11, { width: 94, align: "right" });
+    const included = line.kind === "included";
+    doc.fillColor(included ? "#526074" : primary).fontSize(included ? 9 : 11).font("Helvetica").text(line.description, 62, y + 11, { width: 340 });
+    doc.font(included ? "Helvetica" : "Helvetica-Bold").text(included ? "Included" : money(line.amount), 455, y + 11, { width: 94, align: "right" });
     doc.moveTo(48, y + 34).lineTo(564, y + 34).lineWidth(0.5).strokeColor("#DCE0E6").stroke();
     y += 35;
   }
