@@ -91,6 +91,8 @@ interface Props {
   catalogFinishOverride?: string | null;
   /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
   catalogDoorSampleUrl?: string | null;
+  /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
+  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null;
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   catalogCountertopName?: string | null;
@@ -390,6 +392,13 @@ export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinish
 export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null, preferSelectedPlanSample = false) {
   const sample = catalogDoorSampleUrl?.trim() ?? "";
   return (preferSelectedPlanSample || cabinetFinish === "catalog") && sample ? sample : null;
+}
+
+export function resolvedThreeDDoorProfile(
+  scene: InteractiveRoomScene,
+  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null,
+) {
+  return catalogDoorProfile ?? scene.materials?.cabinet ?? null;
 }
 
 export function shouldRenderPlacedDesign(placed: PlacedCabinet[]) {
@@ -1333,7 +1342,7 @@ export function shouldEmitThreeDPresentation(previousKey: string | null, cabinet
   return previousKey !== threeDPresentationEmissionKey(cabinetFinish, countertopFinish);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -1360,6 +1369,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   // resolved finish color over a sparse style-record color field from the scene
   // endpoint, then fall back to the server-derived catalog material.
   const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
+  // Saved-plan fallback scenes deliberately carry neutral material metadata.
+  // The active 2D selected style remains authoritative for physical 3D face
+  // geometry, so a Slate Echo Shaker never silently turns into a flat slab.
+  const resolvedDoorProfile = resolvedThreeDDoorProfile(scene, catalogDoorProfile);
   const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
@@ -1521,12 +1534,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet, room), activeDoorTexture, updateDoorTextureState);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, existingCabinetTransform(cabinet, room), activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, undefined, activeDoorTexture, updateDoorTextureState);
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState);
       }
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);

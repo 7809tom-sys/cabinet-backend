@@ -8942,6 +8942,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
                 catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+                catalogDoorProfile={activeStyle ? {
+                  doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
+                  doorPanelType: activeStyle.doorPanelType ?? null,
+                } : null}
                 catalogFinishName={activeStyleName}
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
