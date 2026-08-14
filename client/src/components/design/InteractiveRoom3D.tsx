@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Move3D, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { STD, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { STD, placedFootprint, type PlacedCabinet, type RoomData } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -524,6 +524,51 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     const renderer = rendererRef.current;
     if (!renderer) return;
     try {
+      const exportRoom = roomOverride
+        ? { width: roomOverride.width, depth: roomOverride.depth }
+        : dimensions(scene.roomShape?.defaultDimensions);
+      const planCanvas = document.createElement("canvas");
+      planCanvas.width = 1000;
+      planCanvas.height = 720;
+      const plan = planCanvas.getContext("2d");
+      if (!plan) throw new Error("Could not prepare floor plan");
+      const padding = 68;
+      const scale = Math.min((planCanvas.width - padding * 2) / exportRoom.width, (planCanvas.height - padding * 2) / exportRoom.depth);
+      const plotWidth = exportRoom.width * scale;
+      const plotHeight = exportRoom.depth * scale;
+      const offsetX = (planCanvas.width - plotWidth) / 2;
+      const offsetY = (planCanvas.height - plotHeight) / 2;
+      plan.fillStyle = "#faf8f4";
+      plan.fillRect(0, 0, planCanvas.width, planCanvas.height);
+      plan.fillStyle = "#ffffff";
+      plan.fillRect(offsetX, offsetY, plotWidth, plotHeight);
+      plan.strokeStyle = "#26384b";
+      plan.lineWidth = 10;
+      plan.strokeRect(offsetX, offsetY, plotWidth, plotHeight);
+      plan.fillStyle = "#4a3822";
+      plan.font = "600 27px sans-serif";
+      plan.fillText("Top-down 2D floor plan", 38, 42);
+      const planItems = renderExistingDesign ? placed : [];
+      for (const item of planItems) {
+        const footprint = placedFootprint(item);
+        const x = offsetX + item.x * scale;
+        const y = offsetY + item.y * scale;
+        const width = footprint.w * scale;
+        const depth = footprint.d * scale;
+        plan.fillStyle = item.placement === "appliance" ? "#d7dee4" : item.placement === "wall" ? "#d8e3ec" : item.placement === "tall" ? "#d9c3a0" : "#b88f55";
+        plan.fillRect(x, y, width, depth);
+        plan.strokeStyle = "#4a3822";
+        plan.lineWidth = 2;
+        plan.strokeRect(x, y, width, depth);
+        if (width > 34 && depth > 20) {
+          plan.fillStyle = "#1e2934";
+          plan.font = `${Math.max(11, Math.min(18, width / 4))}px sans-serif`;
+          plan.fillText(item.masterCode, x + 4, y + Math.min(depth - 4, 18));
+        }
+      }
+      plan.fillStyle = "#526174";
+      plan.font = "18px sans-serif";
+      plan.fillText(`${exportRoom.width}" × ${exportRoom.depth}" room · ${planItems.length} placed item${planItems.length === 1 ? "" : "s"}`, 38, planCanvas.height - 24);
       const { jsPDF } = await import("jspdf");
       const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
       pdf.setFontSize(20);
@@ -531,18 +576,23 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       pdf.setFontSize(10);
       pdf.setTextColor(90);
       pdf.text(`Generated ${new Date().toLocaleString()} · ${cabinetFinishLabel} cabinets · ${countertopFinishLabel} countertop`, 40, 61);
-      pdf.addImage(renderer.domElement.toDataURL("image/png"), "PNG", 40, 78, 420, 294, undefined, "FAST");
+      pdf.setFontSize(11);
+      pdf.setTextColor(35);
+      pdf.text("3D room view", 40, 78);
+      pdf.addImage(renderer.domElement.toDataURL("image/png"), "PNG", 40, 88, 270, 189, undefined, "FAST");
+      pdf.text("2D floor plan", 40, 300);
+      pdf.addImage(planCanvas.toDataURL("image/png"), "PNG", 40, 310, 270, 194, undefined, "FAST");
       pdf.setTextColor(20);
       pdf.setFontSize(13);
-      pdf.text("Itemized catalog quote", 490, 95);
+      pdf.text("Itemized catalog quote", 340, 95);
       let y = 116;
       for (const line of orderLines.slice(0, 16)) {
         pdf.setFontSize(9);
-        pdf.text(pdf.splitTextToSize(`${line.quantity} × ${line.label}${line.lineTotal == null ? " — Quote" : ` — $${line.lineTotal.toFixed(2)}`}`, 255), 490, y);
+        pdf.text(pdf.splitTextToSize(`${line.quantity} × ${line.label}${line.lineTotal == null ? " — Quote" : ` — $${line.lineTotal.toFixed(2)}`}`, 390), 340, y);
         y += 19;
       }
       pdf.setFontSize(14);
-      pdf.text(`Catalog-priced subtotal: $${orderSummary?.subtotal.toFixed(2) ?? "0.00"}`, 490, Math.min(388, y + 12));
+      pdf.text(`Catalog-priced subtotal: $${orderSummary?.subtotal.toFixed(2) ?? "0.00"}`, 340, Math.min(536, y + 12));
       pdf.setFontSize(8);
       pdf.setTextColor(90);
       pdf.text("Preview finishes are visual only. Final pricing is based on the orderable catalog selections in the design.", 40, 580);

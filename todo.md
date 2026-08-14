@@ -2035,3 +2035,8 @@
 - [x] Add cabinet hover/click inspection for individual real catalog price and style details in 3D
 - [x] Force both refrigerator end panels to start at the floor and separate adjacent cabinets from the refrigerator
 - [x] Validate desktop/mobile export, inspection, and refrigerator panel layout
+
+## Enhancement: 2D plan included in 3D quote PDF
+- [x] Generate a top-down current-layout floor-plan image for PDF export
+- [x] Add the 2D floor plan alongside the 3D rendering and itemized quote
+- [x] Validate the combined PDF export layout
