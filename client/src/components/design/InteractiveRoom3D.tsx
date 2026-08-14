@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { STD, placedFootprint, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { STD, placedFootprint, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -70,11 +70,15 @@ interface Props {
   /** Current 2D design items take precedence over starter-layout suggestions. */
   placed?: PlacedCabinet[];
   roomOverride?: RoomData;
+  /** Doors, cased openings, and windows from the current 2D plan. */
+  openings?: WallOpening[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
   initialPresentation?: InteractiveRoomPresentation;
   /** Active design-tool finish derived from the chosen catalog door style. */
   catalogFinishOverride?: string | null;
+  /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
+  catalogDoorSampleUrl?: string | null;
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   catalogCountertopName?: string | null;
@@ -211,6 +215,7 @@ function addCabinet(
   counterColor: string,
   doorProfile?: { doorStyle: string | null; doorPanelType: string | null },
   transform?: { x: number; z: number; rotation: number; bottom?: number },
+  doorSampleUrl?: string | null,
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -245,7 +250,14 @@ function addCabinet(
   );
   cabinet.add(body);
 
-  const faceMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.02 });
+  const doorTexture = doorSampleUrl ? new THREE.TextureLoader().load(doorSampleUrl) : null;
+  if (doorTexture) {
+    doorTexture.colorSpace = THREE.SRGBColorSpace;
+    doorTexture.wrapS = THREE.RepeatWrapping;
+    doorTexture.wrapT = THREE.RepeatWrapping;
+    doorTexture.repeat.set(1.35, 1.35);
+  }
+  const faceMaterial = new THREE.MeshStandardMaterial({ color, map: doorTexture, roughness: 0.46, metalness: 0.02 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.38, metalness: 0.01 });
   const faceDepth = bodyDepth / 2 + 0.015;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
@@ -256,6 +268,22 @@ function addCabinet(
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.position.z = faceDepth;
+  const isPlacedAppliance = placement === "appliance";
+  if (isPlacedAppliance) {
+    const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
+    const applianceFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.06, bodyHeight - 0.06, 0.05), applianceMaterial);
+    frontGroup.add(applianceFace);
+    const code = sku.masterCode.toUpperCase();
+    const openingH = /FRIDGE/.test(code) ? bodyHeight * 0.67 : /HOOD|SINK/.test(code) ? bodyHeight * 0.56 : bodyHeight * 0.62;
+    const opening = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.68, openingH, 0.064), glassMaterial);
+    opening.position.y = /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04;
+    opening.userData = { applianceCode: sku.masterCode, applianceOpening: true };
+    frontGroup.add(opening);
+    const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
+    control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
+    frontGroup.add(control);
+  } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
@@ -303,11 +331,12 @@ function addCabinet(
     opening.userData = { configuredOpening: true, openingType: sku.openingType };
     frontGroup.add(opening);
   }
+  }
   cabinet.add(frontGroup);
   cabinet.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth)), new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 })));
   root.add(cabinet);
 
-  if (!isWall && !isTall && placement !== "accessory") {
+  if (!isWall && !isTall && placement !== "accessory" && !isPlacedAppliance) {
     const counter = new THREE.Mesh(
       new THREE.BoxGeometry(bodyWidth + 0.12, 1.5 * INCH, bodyDepth + 0.12),
       new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
@@ -334,6 +363,37 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
 }
 
+export function openingTransform(opening: WallOpening, roomWidth: number, roomDepth: number) {
+  const offset = opening.offset + opening.width / 2;
+  if (opening.side === "bottom") return { x: offset, z: roomDepth - 0.06, rotation: Math.PI };
+  if (opening.side === "left") return { x: 0.06, z: offset, rotation: Math.PI / 2 };
+  if (opening.side === "right") return { x: roomWidth - 0.06, z: offset, rotation: -Math.PI / 2 };
+  return { x: offset, z: 0.06, rotation: 0 };
+}
+
+function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: number, roomDepth: number) {
+  const { x, z, rotation } = openingTransform(opening, roomWidth, roomDepth);
+  const group = new THREE.Group();
+  group.position.set(x * INCH, (opening.sill + opening.height / 2) * INCH, z * INCH);
+  group.rotation.y = rotation;
+  group.userData = { openingUid: opening.uid, kind: opening.kind, label: opening.label };
+  const width = opening.width * INCH;
+  const height = opening.height * INCH;
+  group.add(new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.07), new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 })));
+  const isWindow = opening.kind === "window";
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0 }));
+  pane.position.z = 0.01;
+  group.add(pane);
+  if (isWindow) {
+    const muntin = new THREE.MeshStandardMaterial({ color: "#f7f5ef", roughness: 0.45 });
+    group.add(
+      new THREE.Mesh(new THREE.BoxGeometry(0.04, height - 0.05, 0.09), muntin),
+      new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.04, 0.09), muntin),
+    );
+  }
+  root.add(group);
+}
+
 function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
@@ -352,7 +412,7 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   };
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogFinishName, catalogCountertopName, shareContext, catalogItems = [], onAddCatalogItem, onSaveToAccount, onPresentationChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -517,17 +577,19 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };
     const finish = resolvedCabinetFinish;
+    const activeDoorTexture = cabinetFinish === "catalog" ? catalogDoorSampleUrl : null;
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet));
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, existingCabinetTransform(cabinet), activeDoorTexture);
       }
     } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet);
+        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, scene.materials?.cabinet, undefined, activeDoorTexture);
       }
     }
+    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
@@ -561,7 +623,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, orderSumma
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

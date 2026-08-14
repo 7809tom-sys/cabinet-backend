@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDFaceLayout, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDFaceLayout, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -38,6 +38,12 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 0,
       numberOfDrawers: 1,
     })).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
+  });
+
+  it("places a saved 2D window at its exact wall offset in the 3D room", () => {
+    expect(openingTransform({
+      uid: "window-1", kind: "window", label: "Window", side: "top", offset: 42, width: 36, height: 36, sill: 42,
+    }, 144, 120)).toEqual({ x: 60, z: 0.06, rotation: 0 });
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
