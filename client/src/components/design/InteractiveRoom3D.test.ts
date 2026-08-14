@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, rangeHoodGeometry, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, rangeHoodGeometry, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, threeDShakerRailThickness, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -68,6 +68,15 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 0,
       numberOfDrawers: 1,
     })).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
+  });
+
+  it("carries saved end-return and open-front Cabinet Config profiles into 3D specialty geometry", () => {
+    expect(resolvedThreeDSpecialtyProfile({
+      masterCode: "BEC-24", description: "Base End Cabinet", graphicType: "base_end_return", customProfile: "end-angle", facePattern: null, cornerType: null,
+    })).toEqual({ kind: "end-return", pattern: null });
+    expect(resolvedThreeDSpecialtyProfile({
+      masterCode: "WRC-30", description: "Wine Rack", graphicType: null, customProfile: null, facePattern: "lattice", cornerType: null,
+    })).toEqual({ kind: "face-pattern", pattern: "lattice" });
   });
 
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {

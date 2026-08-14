@@ -190,8 +190,8 @@
 - [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
 - [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
 - [x] Make the 3D room preview render the exact 2D placed cabinets and walls rather than unrelated suggested items
-- [ ] Carry active door style and Cabinet Config specialty geometry from 2D placements into the 3D room
-- [ ] Add 2D-to-3D fidelity regressions for placements, cabinet count, wall position, finish, and specialty geometry
+- [x] Carry active door style and Cabinet Config specialty geometry from 2D placements into the 3D room
+- [x] Add 2D-to-3D fidelity regressions for placements, cabinet count, wall position, finish, and specialty geometry
 - [x] Apply the active 2D selected door sample texture and finish to every 3D placed cabinet face
 - [x] Add a 2D-to-3D material continuity regression for the selected door sample
 - [x] Render 2D appliances and appliance openings in 3D at their saved wall positions

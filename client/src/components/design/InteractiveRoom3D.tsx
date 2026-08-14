@@ -24,6 +24,10 @@ type SceneSku = {
   drawerHeight?: number | null;
   drawerLayout?: string | null;
   ovenType?: "single" | "double" | null;
+  graphicType?: string | null;
+  customProfile?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  cornerType?: string | null;
 };
 
 export type InteractiveRoomScene = {
@@ -321,6 +325,15 @@ export function resolvedThreeDFaceLayout(input: {
   };
 }
 
+export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "masterCode" | "description">) {
+  const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
+  if (sku.facePattern) return { kind: "face-pattern" as const, pattern: sku.facePattern };
+  if (/end-angle|base_end_angle|end-return|base_end_return/.test(graphic)) return { kind: "end-return" as const, pattern: null };
+  if (sku.cornerType === "diagonal") return { kind: "diagonal-corner" as const, pattern: null };
+  if (/\b(?:wine|lattice|plate)\b/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) return { kind: "face-pattern" as const, pattern: "lattice" as const };
+  return { kind: "standard" as const, pattern: null };
+}
+
 function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -424,6 +437,7 @@ function addCabinet(
   };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
+  const specialty = resolvedThreeDSpecialtyProfile(sku);
   if (isPlacedAppliance) {
     const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
@@ -520,6 +534,35 @@ function addCabinet(
       addDoors(ovenLayout.doorZone);
       addOvenCutout();
       addDrawers();
+    }
+  } else if (specialty.kind === "end-return") {
+    // BEC / BA end-return cabinets are 24-by-24 end pieces, not flat base boxes.
+    // Build two center-meeting textured faces to preserve the 2D end-angle read.
+    const faceWidth = (bodyWidth - 0.1) / 2;
+    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+    for (const direction of [-1, 1] as const) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
+      door.position.set(direction * faceWidth * 0.24, 0, 0.035);
+      door.rotation.y = direction * Math.PI / 4;
+      door.userData = { specialtyProfile: "end-return", returnFace: direction === -1 ? "left" : "right" };
+      frontGroup.add(door);
+      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066);
+    }
+  } else if (specialty.kind === "face-pattern") {
+    const recess = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth - 0.1, bodyHeight - 0.1, 0.03),
+      new THREE.MeshStandardMaterial({ color: "#382e26", roughness: 0.7 }),
+    );
+    recess.position.z = 0.018;
+    recess.userData = { specialtyProfile: "face-pattern", pattern: specialty.pattern };
+    frontGroup.add(recess);
+    const barMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42 });
+    const barCount = specialty.pattern === "slats" ? 5 : 4;
+    for (let index = 0; index < barCount; index++) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.055, bodyHeight - 0.14, 0.058), barMaterial);
+      bar.position.set(-bodyWidth / 2 + 0.09 + (bodyWidth - 0.18) * (index / Math.max(1, barCount - 1)), 0, 0.052);
+      if (specialty.pattern === "lattice" || specialty.pattern === "criss-cross") bar.rotation.z = index % 2 ? Math.PI / 4 : -Math.PI / 4;
+      frontGroup.add(bar);
     }
   } else {
   for (let i = 0; i < doorCount; i++) {
@@ -685,6 +728,10 @@ function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     drawerHeight: cabinet.drawerHeight ?? null,
     drawerLayout: cabinet.drawerLayout ?? null,
     ovenType: cabinet.ovenType ?? null,
+    graphicType: cabinet.customProfile ?? null,
+    customProfile: cabinet.customProfile ?? null,
+    facePattern: cabinet.facePattern ?? null,
+    cornerType: cabinet.cornerType ?? null,
   };
 }
 
