@@ -25,3 +25,9 @@ Resolved WDC2442 parity rule: the saved record’s null `cornerType` is normaliz
 - Reloaded design `8190001` under `7809tom@gmail.com` after the room-aware vertical transform update. The 2D plan remains a **20-item** kitchen with no appliance-to-cabinet collision warning.
 - The user-facing deterministic modal reports **20 cabinets from the current design** and shows the active selected material as **Aspen White cabinets · Quartz countertop**.
 - In the direct full-screen scene, the refrigerator, range with physical cooktop, stacked over-range microwave and hood, dishwasher opening, supported countertop run, and adjoining corner runs were all present from the same persisted plan.
+
+## Representative-plan validation — 2026-08-14
+
+- Loaded saved design `7230001` (**Blue and white**) without editing it. Its 2D designer reported **21 items** in a `12'7" × 10'` room and included a different cabinet mix: `ERB-36`, `FSB-36`, `DW-24`, `RANGE-30`, `FRIDGE-30`, `MW-30`, and varied short, deep, and diagonal wall cabinets.
+- The same deterministic renderer reported **21 cabinets from the current design**, matching the non-active 2D count. It rendered the saved layout with no dependency on the active Aspin corner or appliance configuration.
+- This representative record has no active door sample; the renderer intentionally displayed its documented calibrated fallback rather than an empty room, while retaining the loaded 2D cabinet layout.
