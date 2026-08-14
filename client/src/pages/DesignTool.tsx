@@ -39,6 +39,7 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
 import { styleDisplayName } from "@/lib/styleDisplayName";
@@ -310,6 +311,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
+  // Administration can inspect an existing saved design directly. This is a
+  // read-only entry path into the same renderer and intentionally avoids
+  // creating another customer lead merely to validate or support that design.
+  useEffect(() => {
+    if (!canAdminReviewSavedDesign(isAdmin, loadDesignId) || verified) return;
+    setVerifiedEmail((user as { email?: string | null } | null)?.email ?? "admin@cabinetdealz.local");
+    setVerifiedName((user as { name?: string | null } | null)?.name ?? "Administrator");
+    setVerified(true);
+  }, [isAdmin, loadDesignId, user, verified]);
   // Optional bundle deal to pre-load (?bundleId=<id>), e.g. from the Bundle Deals page.
   const bundleIdParam = useMemo(() => {
     const v = new URLSearchParams(search).get("bundleId");

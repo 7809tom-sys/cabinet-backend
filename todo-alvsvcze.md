@@ -351,3 +351,4 @@
 - [x] Enforce a 27-by-17-inch maximum microwave envelope when its configured cabinet opening is 27 inches wide by 17 inches high
 - [x] Use distinct configured opening dimensions for wall microwave cabinets and base microwave cabinets when validating 3D microwave fit
 - [x] Add and persist an explicit Cabinet Config opening-height field so microwave and built-in appliance fit is bounded by both configured width and height
+- [x] Allow a signed-in administrator to open a saved design for deterministic 3D validation without creating a duplicate design lead
