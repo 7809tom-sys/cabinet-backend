@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import * as THREE from "three";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -539,5 +540,32 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a physical three-inch rail and stile for twelve- and twenty-one-inch 3D Shaker faces", () => {
     expect(threeDShakerRailThickness(12 / 12, 24 / 12)).toBe(3 / 12);
     expect(threeDShakerRailThickness(21 / 12, 30 / 12)).toBe(3 / 12);
+  });
+
+  it("keeps diagonal and end-return Shaker frames in the same angled pose as their specialty door faces", () => {
+    expect(threeDShakerFramePose(-0.4, 0, 0.066, Math.PI / 4)).toEqual({ x: -0.4, y: 0, z: 0.066, rotationY: Math.PI / 4 });
+    expect(threeDShakerFramePose(0.4, 0, 0.066, -Math.PI / 4)).toEqual({ x: 0.4, y: 0, z: 0.066, rotationY: -Math.PI / 4 });
+  });
+
+  it("physically builds selected-style Shaker frame groups on standard, tall, diagonal, and end-return faces", () => {
+    const profile = { doorStyle: "Shaker", doorPanelType: "Recessed Panel" };
+    const fixtures = [
+      { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
+      { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
+      { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [-Math.PI / 4, Math.PI / 4] },
+    ];
+
+    for (const fixture of fixtures) {
+      const root = new THREE.Group();
+      addCabinet(root, fixture as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", profile);
+      const frames: THREE.Object3D[] = [];
+      root.traverse((node) => {
+        if (node.userData.physicalRails) frames.push(node);
+      });
+      expect(frames).toHaveLength(fixture.expectedRotations.length);
+      expect(frames.map((frame) => frame.rotation.y)).toEqual(fixture.expectedRotations);
+      expect(frames.every((frame) => frame.children.filter((child) => child.userData.physicalRail).length === 4)).toBe(true);
+    }
   });
 });

@@ -306,3 +306,5 @@
 - [x] Route shared plan footprints and 3D corner meshes through one persisted-cabinet geometry classifier for every corner family
 - [x] Add cross-family parity coverage for diagonal, triangle, blind, L-corner, and end-return saved geometry classification
 - [x] Route the rendered WDC2430 plan clip path through the shared corner classifier and assert it cannot render as a square
+- [ ] Draw the saved WDC2430 diagonal front line inside its shared clipped plan footprint so mobile selection styling cannot make it look square
+- [ ] Apply the selected style’s physical Shaker rails, stiles, and recessed panels to every eligible 3D standard, diagonal-corner, and tall cabinet face

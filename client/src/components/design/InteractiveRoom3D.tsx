@@ -420,6 +420,11 @@ export function threeDShakerRailThickness(faceWidth: number, faceHeight: number)
   return Math.max(0, Math.min(3 * INCH, faceWidth / 2 - 0.01, faceHeight / 2 - 0.01));
 }
 
+/** The physical Shaker frame must share the exact pose of its door face. */
+export function threeDShakerFramePose(x: number, y: number, z: number, rotationY = 0) {
+  return { x, y, z, rotationY };
+}
+
 function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
   const geometry = geometryTemplate && typeof geometryTemplate === "object" && !Array.isArray(geometryTemplate)
     ? geometryTemplate as Record<string, unknown>
@@ -473,7 +478,7 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   return { kind: "standard" as const, pattern: null };
 }
 
-function addCabinet(
+export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
   wallKey: string | null,
@@ -591,10 +596,15 @@ function addCabinet(
   // than sitting on the rectangular box edge used by standard cabinets.
   frontGroup.position.z = specialty.kind === "diagonal-corner" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
-  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036) => {
+  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (profileKind !== "shaker") return;
     const rail = threeDShakerRailThickness(faceWidth, faceHeight);
     if (!rail) return;
+    const frameGroup = new THREE.Group();
+    const pose = threeDShakerFramePose(x, y, z, rotationY);
+    frameGroup.position.set(pose.x, pose.y, pose.z);
+    frameGroup.rotation.y = pose.rotationY;
+    frameGroup.userData = { selectedStyleFace: "shaker", physicalRails: true };
     const pieces = [
       [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
       [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
@@ -603,9 +613,11 @@ function addCabinet(
     ] as const;
     for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
       const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
-      railMesh.position.set(x + offsetX, y + offsetY, z);
-      frontGroup.add(railMesh);
+      railMesh.position.set(offsetX, offsetY, 0);
+      railMesh.userData = { selectedStyleFace: "shaker", physicalRail: true };
+      frameGroup.add(railMesh);
     }
+    frontGroup.add(frameGroup);
   };
   const addDrawerReveal = (faceWidth: number, faceHeight: number, x: number, y: number, z = THREE_D_DRAWER_REVEAL_DEPTH) => {
     const reveal = new THREE.LineSegments(
@@ -750,6 +762,7 @@ function addCabinet(
       door.rotation.y = Math.PI / 4;
       door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right" };
       frontGroup.add(door);
+      addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
     }
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
@@ -788,7 +801,7 @@ function addCabinet(
       door.rotation.y = direction * Math.PI / 4;
       door.userData = { specialtyProfile: "end-return", returnFace: direction === -1 ? "left" : "right" };
       frontGroup.add(door);
-      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066);
+      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(
