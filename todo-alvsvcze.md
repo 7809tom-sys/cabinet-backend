@@ -160,7 +160,7 @@
 - [x] Render FSB-36 with a countertop-mounted basin and a visible apron-front drop over the cabinet face
 - [x] Add an FSB-36 regression proving a selected door sample remains on the sink-base cabinet below the farmhouse apron
 - [x] Add explicit desktop and mobile FSB-36 elevation regressions for apron position, visible toe kick, and countertop coexistence
-- [ ] Make BMC30 honor its configured one-drawer microwave-base layout instead of rendering two doors plus an extra drawer
+- [x] Make BMC30 honor its configured one-drawer microwave-base layout instead of rendering two doors plus an extra drawer
 - [ ] Restore BA-24 Base End Cabinet/end-return plan and elevation geometry in the mixed designer run
 - [ ] Correct the FSB-36 apron-front face in the mixed elevation so it sits over the cabinet rather than replacing the cabinet face
 - [ ] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
@@ -169,11 +169,11 @@
 - [ ] Make Cabinet Config the authoritative source for each designer cabinet’s drawing type, door count, drawer count, opening placement, dimensions, toe kick, and specialty profile
 - [ ] Remove generic renderer fallbacks whenever an explicit Cabinet Config field is present
 - [ ] Add cross-family regressions proving configured zero-door, zero-drawer, opening, and specialty rules override inferred layouts
-- [ ] Replace BMC30’s stale Double Door Base catalog-card type label and generic drawing with its zero-door, one-drawer microwave-base Config
+- [x] Replace BMC30’s stale Double Door Base catalog-card type label and generic drawing with its zero-door, one-drawer microwave-base Config
 - [ ] Add a catalog-to-designer BMC30 regression proving the card label, drawing, and placed elevation use the same Cabinet Config
-- [ ] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data
+- [x] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data
 - [ ] Add BMC-27 and BMC30 product-detail-to-designer regressions for zero doors, one drawer, and a top appliance opening
-- [ ] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
+- [x] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
 - [ ] Add a browser-level BMC-27 detail regression that rejects Left Door and Right Door panels for the zero-door Config
 - [x] Reconfigure BEC-24 as a 24-by-24 floor base with a 45-degree angled front and two doors meeting at the center
 - [x] Render the BEC-24 45-degree angled front from Cabinet Config in plan and elevation, retaining 34.5-inch height and a 4.5-inch toe kick
