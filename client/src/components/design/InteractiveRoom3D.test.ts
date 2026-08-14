@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDFaceLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, sceneCabinetColor, shouldRenderPlacedDesign, sinkFixtureTransform, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -42,6 +42,25 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 39, z: 6, rotation: 0, bottom: 60 });
   });
 
+  it("uses the rotation-aware 2D footprint center so vertical cabinet runs stay flush in 3D", () => {
+    expect(existingCabinetTransform({
+      uid: "wall-vertical", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 0, y: 24, width: 30, depth: 12, height: 30, rotation: 90, mountBottom: 54,
+    })).toEqual({ x: 6, z: 39, rotation: Math.PI / 2, bottom: 54 });
+  });
+
+  it("keeps adjacent rotated 2D cabinet edges contiguous with no artificial 3D run gap", () => {
+    const first = existingCabinetTransform({
+      uid: "run-a", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 0, y: 0, width: 30, depth: 12, height: 30, rotation: 90, mountBottom: 54,
+    });
+    const second = existingCabinetTransform({
+      uid: "run-b", cabinetId: 12, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 0, y: 30, width: 30, depth: 12, height: 30, rotation: 90, mountBottom: 54,
+    });
+    expect(first.z + 15).toBe(second.z - 15);
+  });
+
   it("preserves a BMC microwave base's configured top opening, zero doors, and one drawer in 3D", () => {
     expect(resolvedThreeDFaceLayout({
       placementType: "base",
@@ -49,6 +68,38 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 0,
       numberOfDrawers: 1,
     })).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
+  });
+
+  it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
+    const rows = resolvedThreeDDrawerRows({
+      drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
+    }, 2, 3);
+    expect(rows.map((row) => row.count)).toEqual([1, 2]);
+    expect(rows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
+  });
+
+  it("calibrates an oven tower from the saved 2D door zone, drawer rows, and middle cut-out", () => {
+    const layout = resolvedThreeDOvenLayout({
+      height: 84, numberOfDoors: 2, numberOfDrawers: 3, doorHeight: 18,
+      drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
+      openingType: "middle", ovenType: "single",
+    });
+    expect(layout.doorZone).toBe(1.5);
+    expect(layout.drawerRows.map((row) => row.count)).toEqual([1, 2]);
+    expect(layout.drawerRows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
+    expect(layout.openingHeight).toBeCloseTo(4.503333333333333, 12);
+    expect(layout.openingPosition).toBe("middle");
+  });
+
+  it("preserves a configured double-oven tower and bottom cut-out without applying single-oven defaults", () => {
+    const layout = resolvedThreeDOvenLayout({
+      height: 90, numberOfDoors: 2, numberOfDrawers: 1, doorHeight: 20, drawerHeight: 6,
+      openingType: "bottom", ovenType: "double",
+    });
+    expect(layout.ovenCount).toBe(2);
+    expect(layout.openingPosition).toBe("bottom");
+    expect(layout.drawerRows).toEqual([{ count: 1, height: 0.5 }]);
+    expect(layout.openingHeight).toBeGreaterThan(0);
   });
 
   it("places a saved 2D window at its exact wall offset in the 3D room", () => {
@@ -62,7 +113,7 @@ describe("interactive 3D room scene helpers", () => {
       uid: "sink-1", type: "single_bowl", x: 24, y: 48, width: 30, depth: 22, faucet: true,
     });
     expect(transform.x).toBe(3.25);
-    expect(transform.z).toBeCloseTo(-4.916666666666667, 12);
+    expect(transform.z).toBeCloseTo(4.916666666666667, 12);
     expect(transform.countertopTop).toBe(3.125);
   });
 

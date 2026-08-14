@@ -203,20 +203,20 @@
 - [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
 - [ ] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
 - [ ] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
-- [ ] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
-- [ ] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
-- [ ] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
-- [ ] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
+- [x] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
+- [x] Render complete configured oven/tall cabinet structure around the placed appliance in 3D
+- [x] Remove artificial 3D cabinet-run side gaps and exposed panels so adjacent 2D placements sit flush
+- [x] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
 - [ ] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
 - [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
 - [ ] Align 3D appliances to their exact saved 2D transforms and mounting heights
-- [ ] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
+- [x] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
 - [ ] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
 - [ ] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
-- [ ] Calibrate 3D oven-tower height, cut-out, and drawer sections to the saved 2D cabinet configuration
+- [x] Calibrate 3D oven-tower height, cut-out, and drawer sections to the saved 2D cabinet configuration
 - [x] Render the saved 2D sink and faucet fixtures on the correct sink-base location in 3D
-- [ ] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets
-- [ ] Add calibrated 3D regression coverage for the oven tower, drawer bases, sink/faucet, and flush run joins
+- [x] Resolve 3D cabinet adjacency from exact 2D run edges so no artificial gaps remain between neighboring cabinets
+- [x] Add calibrated 3D regression coverage for the oven tower, drawer bases, sink/faucet, and flush run joins
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
