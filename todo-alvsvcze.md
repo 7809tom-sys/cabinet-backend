@@ -331,6 +331,6 @@
 - [x] Render every single-oven appliance opening at 27 inches, centered within its 30-inch cabinet enclosure with a 3-inch total width reduction
 - [x] Enforce three bottom drawers for single-oven cabinets and one bottom drawer for double-oven cabinets in both 2D and 3D
 - [x] Preserve the correct existing 2D oven layout unchanged while making only the 3D oven enclosure match its measured opening and drawer layout
-- [ ] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
-- [ ] Sharpen 3D cabinet door and drawer front definition so their framed faces remain legible in the room preview
-- [ ] Render pantry/tall cabinets with two stacked door sets and a bottom drawer section beginning at the confirmed 54-inch line
+- [x] Seat 3D countertops directly on the 34½-inch base cabinet tops while retaining the 1½-inch countertop thickness
+- [x] Sharpen 3D cabinet door and drawer front definition so their framed faces remain legible in the room preview
+- [x] Render pantry/tall cabinets with two stacked door sets and a bottom drawer section beginning at the confirmed 54-inch line
