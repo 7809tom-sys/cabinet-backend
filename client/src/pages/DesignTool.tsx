@@ -1355,7 +1355,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       | undefined;
     return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
   }, [doorStyles, styleId]);
-  const activeDoorSampleUrl = useMemo(() => {
+  const active3DDoorSampleUrl = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorSampleImageUrl?: string | null } | undefined;
     return s?.doorSampleImageUrl ?? null;
   }, [doorStyles, styleId]);
@@ -8861,7 +8861,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
-                catalogDoorSampleUrl={activeDoorSampleUrl}
+                catalogDoorSampleUrl={active3DDoorSampleUrl}
                 catalogFinishName={activeStyleName}
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 onPresentationChange={setInteractive3dPresentation}
