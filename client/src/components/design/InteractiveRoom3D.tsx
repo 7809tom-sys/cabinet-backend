@@ -539,17 +539,18 @@ export function addCabinet(
     for (const part of [lShape.backLeg, lShape.sideLeg]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(part.width, bodyHeight, part.depth), bodyMaterial);
       leg.position.set(part.x, 0, part.z);
-      leg.userData = { specialtyProfile: specialty.kind, lCornerCarcass: true };
+      leg.userData = { specialtyProfile: specialty.kind, lCornerCarcass: true, selectedStyleSideSkin: true };
       cabinet.add(leg);
       bodyMeshes.push(leg);
     }
   } else if (specialty.kind === "diagonal-corner") {
     const wedge = new THREE.Mesh(diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight), bodyMaterial);
-    wedge.userData = { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true };
+    wedge.userData = { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
     bodyMeshes.push(wedge);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
+    body.userData = { selectedStyleSideSkin: true };
     cabinet.add(body);
     bodyMeshes.push(body);
   }
@@ -797,7 +798,7 @@ export function addCabinet(
     const backFrontZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
     const backDoor = new THREE.Mesh(new THREE.BoxGeometry(exposedFrontWidth - 0.09, faceHeight, 0.052), faceMaterial);
     backDoor.position.set(bodyWidth / 2 - exposedFrontWidth / 2, 0, backFrontZ);
-    backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg" };
+    backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg", cabinetFront: true };
     frontGroup.add(backDoor);
     addShakerFrame(exposedFrontWidth - 0.09, faceHeight, backDoor.position.x, backDoor.position.y, backDoor.position.z + 0.034);
 
@@ -805,7 +806,7 @@ export function addCabinet(
     const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.sideLeg.depth - 0.09, faceHeight, 0.052), faceMaterial);
     sideDoor.position.set(sideFrontX, 0, lShape.sideLeg.z);
     sideDoor.rotation.y = Math.PI / 2;
-    sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg" };
+    sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg", cabinetFront: true };
     frontGroup.add(sideDoor);
     addShakerFrame(lShape.sideLeg.depth - 0.09, faceHeight, sideDoor.position.x + 0.034, sideDoor.position.y, sideDoor.position.z, sideDoor.rotation.y);
   } else if (specialty.kind === "corner-drawer") {
@@ -868,6 +869,7 @@ export function addCabinet(
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
+    door.userData = { cabinetFront: true };
     frontGroup.add(door);
     const isRaised = profileKind === "raised";
     if (profileKind === "shaker") {
@@ -890,6 +892,7 @@ export function addCabinet(
       const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
       const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
+      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true };
       frontGroup.add(drawer);
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);

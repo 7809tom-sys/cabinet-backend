@@ -387,8 +387,13 @@ describe("interactive 3D room scene helpers", () => {
     addCabinet(root, existingCabinetSku(ls36), null, {}, 144, 120, "#f2f0ea", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(ls36));
     const lCornerDoors: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.lCornerDoor) lCornerDoors.push(node); });
+    const texturedSideSkins: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.selectedStyleSideSkin) texturedSideSkins.push(node); });
 
     expect(lCornerDoors).toHaveLength(2);
+    expect(texturedSideSkins).toHaveLength(2);
+    expect(lCornerDoors.every((door) => door.userData.cabinetFront === true)).toBe(true);
+    expect(texturedSideSkins.every((skin) => skin.userData.cabinetFront !== true)).toBe(true);
     expect(lCornerDoors.map((door) => door.userData.lCornerDoor).sort()).toEqual(["back-leg", "side-leg"]);
     expect(lCornerDoors.map((door) => door.rotation.y).sort((a, b) => a - b)).toEqual([0, Math.PI / 2]);
     root.updateMatrixWorld(true);
