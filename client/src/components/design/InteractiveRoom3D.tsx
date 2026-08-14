@@ -149,6 +149,10 @@ export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSa
   return cabinetFinish === "catalog" && sample ? sample : null;
 }
 
+export function shouldRenderPlacedDesign(placed: PlacedCabinet[]) {
+  return placed.length > 0;
+}
+
 export function quoteMaterialDetails(input: {
   cabinetPreview: string;
   countertopPreview: string;
@@ -436,7 +440,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
-  const renderExistingDesign = placed.length > 0;
+  const renderExistingDesign = shouldRenderPlacedDesign(placed);
   // The active designer style is the customer’s catalog selection. Prefer its
   // resolved finish color over a sparse style-record color field from the scene
   // endpoint, then fall back to the server-derived catalog material.

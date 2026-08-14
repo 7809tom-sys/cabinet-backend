@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDFaceLayout, sceneCabinetColor, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { dimensions, doorProfileKind, existingCabinetTransform, openingTransform, quoteMaterialDetails, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDFaceLayout, sceneCabinetColor, shouldRenderPlacedDesign, THREE_D_EXPORT_SIZE, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -27,6 +27,11 @@ describe("interactive 3D room scene helpers", () => {
   it("carries the exact selected 2D door sample into catalog-finish 3D cabinet faces", () => {
     expect(resolvedThreeDDoorSampleUrl("catalog", "/manus-storage/silva-shaker.png")).toBe("/manus-storage/silva-shaker.png");
     expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png")).toBeNull();
+  });
+
+  it("renders placed 2D cabinets instead of starter suggestions whenever a design exists", () => {
+    expect(shouldRenderPlacedDesign([])).toBe(false);
+    expect(shouldRenderPlacedDesign([{ uid: "base-1" } as never])).toBe(true);
   });
 
   it("preserves a placed cabinet’s current 2D location and wall mounting height", () => {
