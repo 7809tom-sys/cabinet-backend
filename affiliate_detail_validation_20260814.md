@@ -18,3 +18,5 @@ The route-to-private-price contract was strengthened with `CabinetDetail.affilia
 ## Custom-domain routing verification
 
 The local production middleware was exercised with `Host: reaves-way-cabinet-shop.cabinetdealz.com` and the exact catalog-detail query. It returned **307** to `/store/reaves-way-cabinet-shop/catalog/W-12-30?style=330005&cabinetId=9360055`, preserving the complete route and query. The corresponding external custom-domain request was still serving the prior cached deployment at the time of this check, so the browser-level external verification remains explicitly pending rather than being marked complete.
+
+After publication of the inline white-label routing bootstrap, the same external browser request redirected to `/store/reaves-way-cabinet-shop/catalog/W-12-30?style=330005&cabinetId=9360055`. The loaded header, breadcrumbs, catalog links, and cart path all displayed **Reaves Way Cabinet Shop** and remained within `/store/reaves-way-cabinet-shop`, with no CabinetDealz header or footer visible.

@@ -300,4 +300,4 @@
 - [x] Render saved island zones, furniture, and pony walls in the active 3D preview from their exact persisted 2D dimensions and coordinates
 - [x] Render the physical cooktop surface and burner positions for each saved range appliance from its 2D width and depth
 - [x] Eliminate simplified or stale alternate 3D preview paths so every user-facing preview action uses the deterministic current-plan renderer
-- [ ] Fix the reproduced Reaves Way subdomain detail route so it resolves the affiliate storefront and never falls back to CabinetDealz branding
+- [x] Fix the reproduced Reaves Way subdomain detail route so it resolves the affiliate storefront and never falls back to CabinetDealz branding
