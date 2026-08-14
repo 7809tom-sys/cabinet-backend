@@ -53,7 +53,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, placedFootprint, hasCollision, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -2458,7 +2458,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
 
-            // ── Now do all state updates and side effects exactly once ──────────
+      // A free segment or drop coordinate can become stale if the customer adds
+      // several items quickly. Reject a true footprint collision rather than
+      // silently rendering a drawer base, appliance, panel, or accessory over
+      // an existing item. Edge-to-edge cabinet runs remain valid.
+      if (hasCollision(finalCab, prev)) {
+        toast.error(`${finalCab.masterCode} cannot be placed here because it overlaps an existing item.`);
+        return;
+      }
+
+      // ── Now do all state updates and side effects exactly once ──────────
       justPlacedRef.current = true;
       setSelectedUid(finalCab.uid);
       setPlaced((prev) => [...prev, finalCab]);

@@ -2088,3 +2088,9 @@
 - [x] Make 3D floor geometry match the current rectangular, L-shaped, or custom 2D room
 - [x] Expose a prominent high-resolution image-download action inside the 3D popup
 - [x] Test rectangle, L-shape, and image-download behavior on desktop and mobile
+
+## Fix: Prevent overlapping design items
+- [x] Add shared collision detection across cabinets, appliances, panels, and accessories
+- [x] Prevent collisions during new-item placement, drag moves, and automated surround placement
+- [x] Preserve edge-to-edge adjacency while rejecting true overlap
+- [x] Add regression tests for 3DB15/B33 and appliance-panel collision cases
