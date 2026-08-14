@@ -200,7 +200,7 @@
 - [x] Resolve the live selected door-style sample URL from the style payload and pass it to the 3D preview
 - [x] Add a Silva Shaker style-payload-to-3D texture handoff regression
 - [x] Replace the flat 3D cabinet-face appearance with visibly textured selected-style material and Shaker face detail matching 2D
-- [ ] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
+- [x] Add a rendered visual regression that rejects flat fallback faces when a selected 2D door sample exists
 - [x] Instrument the active 3D selected-sample URL and WebGL texture load state to diagnose the persistent flat-face result
 - [x] Replace any failing external texture path with a reliably visible selected-style material source for 3D faces
 - [x] Render 3D drawer-base fronts from each cabinet’s configured drawer count and layout
@@ -247,7 +247,7 @@
 - [x] Add role-specific My Cost versus Affiliate Cost label and margin regression coverage
 - [x] Render realistic selected door-style samples and finish textures on designer elevation faces
 - [x] Retain accurate 3-inch Shaker frame, door/drawer layout, and cabinet dimensions under realistic face rendering
-- [ ] Verify realistic selected-style faces against the catalog door sample rather than schematic cartoon fills
+- [x] Verify realistic selected-style faces against the catalog door sample rather than schematic cartoon fills
 - [x] Add realistic sample renderer regressions for drawer fronts and representative multi-door/multi-drawer layouts
 - [x] Verify realistic samples preserve cabinet/elevation dimensions and door/drawer splits across base, wall, pantry, and specialty cabinets
 - [x] Add realistic sample renderer coverage for end-return, diagonal, blind, L-corner, and custom-profile cabinet faces
