@@ -170,9 +170,9 @@
 - [ ] Remove generic renderer fallbacks whenever an explicit Cabinet Config field is present
 - [ ] Add cross-family regressions proving configured zero-door, zero-drawer, opening, and specialty rules override inferred layouts
 - [x] Replace BMC30’s stale Double Door Base catalog-card type label and generic drawing with its zero-door, one-drawer microwave-base Config
-- [ ] Add a catalog-to-designer BMC30 regression proving the card label, drawing, and placed elevation use the same Cabinet Config
+- [x] Add catalog-to-designer BMC30 regression coverage proving the card label, drawing, and placed elevation use the same Cabinet Config
 - [x] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data
-- [ ] Add BMC-27 and BMC30 product-detail-to-designer regressions for zero doors, one drawer, and a top appliance opening
+- [x] Add BMC-27 and BMC30 product-detail-to-designer regression coverage for zero doors, one drawer, and a top appliance opening
 - [x] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
 - [x] Verify the live BMC-27 detail route rejects inferred Left Door and Right Door panels for the zero-door Config
 - [x] Reconfigure BEC-24 as a 24-by-24 floor base with a 45-degree angled front and two doors meeting at the center
