@@ -2057,3 +2057,8 @@
 - [x] Expand the 3D preview dialog into a responsive wide workspace
 - [x] Make the active catalog door-style color the default 3D cabinet finish
 - [x] Validate 3D dialog and catalog-finish behavior on desktop and mobile
+
+## Enhancement: Distraction-free 3D full-screen view
+- [x] Add full-screen entry and exit controls to the interactive 3D preview
+- [x] Synchronize the control state with browser full-screen changes
+- [x] Validate the full-screen 3D workspace on desktop and mobile
