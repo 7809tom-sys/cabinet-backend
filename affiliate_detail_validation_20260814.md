@@ -10,3 +10,7 @@ Focused owner-specific route and price-card regressions were rerun successfully:
 | Administration separation | Admin markup contains **My Cost** and explicitly excludes **Affiliate Cost**. |
 
 The rerun used `affiliateCabinetDetailRoute`, `CabinetDetail.duplicateSkuRoute`, `CabinetDetail.mergedAlias`, and `CabinetDetail.priceCard` suites.
+
+## Composed owner-flow contract
+
+The route-to-private-price contract was strengthened with `CabinetDetail.affiliateOwnerFlow`: **3 focused test files, 8 assertions** pass. It composes the exact affiliate card URL (including `cabinetId`), the production owner-role resolver, and the rendered `PriceCard`; the resulting panel includes **Affiliate Cost**, **Sells At**, and **Margin**, while excluding **My Cost**. A second assertion retains the same owner role for a dashed SKU route.

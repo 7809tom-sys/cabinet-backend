@@ -322,6 +322,14 @@ export function PriceCard({
   );
 }
 
+export function resolveCabinetDetailViewerRole(
+  isAdministration: boolean,
+  affiliateCost: string | null | undefined,
+): "admin" | "affiliate-owner" | "customer" {
+  if (isAdministration) return "admin";
+  return affiliateCost != null ? "affiliate-owner" : "customer";
+}
+
 // ─── Main Detail Page ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -432,11 +440,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   // The server supplies raw `yourCost` only to Administration and the adjusted
   // `affiliateCost` only to an owner browsing their own storefront. No client
   // condition can create either value without server authorization.
-  const viewerRole: "admin" | "affiliate-owner" | "customer" = isOwner
-    ? "admin"
-    : selectedRow?.affiliateCost != null
-      ? "affiliate-owner"
-      : "customer";
+  const viewerRole = resolveCabinetDetailViewerRole(isOwner, selectedRow?.affiliateCost);
   const canViewPrivateCost = viewerRole !== "customer";
 
   // Fetch active promotions for storefront display
