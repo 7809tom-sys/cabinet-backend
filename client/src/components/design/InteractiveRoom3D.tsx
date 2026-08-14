@@ -589,9 +589,10 @@ export function addCabinet(
   const bodyMeshes: THREE.Mesh[] = [];
   if (isBaseCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
+    const toeKickMaterial = new THREE.MeshStandardMaterial({ color: "#302820", roughness: 0.78 });
     const toeKick = new THREE.Mesh(
       new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
-      bodyMaterial,
+      toeKickMaterial,
     );
     // Recess the toe-kick three inches from the cabinet face, matching the
     // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
@@ -1088,6 +1089,46 @@ export function existingCabinetTransform(
         ? WALL_BOTTOM - numberValue(cabinet.height, 6)
         : 0;
   return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
+}
+
+/**
+ * A hood must share the range center along its wall axis. Older plans can retain
+ * a small manual x/y nudge from drag placement; preserving that offset makes the
+ * hood float beside its cooktop in 3D even though both records represent one
+ * range zone in the 2D plan.
+ */
+export function savedRangeHoodTransform(
+  hood: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room: RoomData,
+) {
+  const transform = existingCabinetTransform(hood, room);
+  if (!/^HOOD[-_]?/i.test(hood.masterCode ?? "")) return transform;
+  const hoodRotation = ((Number(hood.rotation) % 360) + 360) % 360;
+  const range = placed.find((item) => {
+    if (!/^RANGE[-_]?/i.test(item.masterCode ?? "")) return false;
+    const rangeRotation = ((Number(item.rotation) % 360) + 360) % 360;
+    return rangeRotation === hoodRotation;
+  });
+  if (!range) return transform;
+  const rangeTransform = existingCabinetTransform(range, room);
+  // A 90°/270° appliance sits on a left/right wall, so Z is the along-wall
+  // center; otherwise X is the along-wall center.
+  if (hoodRotation === 90 || hoodRotation === 270) return { ...transform, z: rangeTransform.z };
+  return { ...transform, x: rangeTransform.x };
+}
+
+/** When a saved range zone has both an old microwave placeholder and a true hood,
+ * display the explicit hood above the cooktop instead of drawing both appliances
+ * into the same 2D coordinate. */
+export function shouldRenderSavedSceneCabinet(cabinet: PlacedCabinet, placed: PlacedCabinet[]) {
+  if (!/^MW[-_]?/i.test(cabinet.masterCode ?? "")) return true;
+  const microwaveRotation = ((Number(cabinet.rotation) % 360) + 360) % 360;
+  const matchingRange = placed.some((item) => /^RANGE[-_]?/i.test(item.masterCode ?? "")
+    && ((Number(item.rotation) % 360) + 360) % 360 === microwaveRotation);
+  const matchingHood = placed.some((item) => /^HOOD[-_]?/i.test(item.masterCode ?? "")
+    && ((Number(item.rotation) % 360) + 360) % 360 === microwaveRotation);
+  return !(matchingRange && matchingHood);
 }
 
 /**
@@ -1681,8 +1722,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     };
     if (renderExistingDesign) {
       for (const cabinet of placed) {
+        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
         const sku = existingCabinetSku(cabinet);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, existingCabinetTransform(cabinet, room), activeDoorTexture, updateDoorTextureState);
+        const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
+          ? savedRangeHoodTransform(cabinet, placed, room)
+          : existingCabinetTransform(cabinet, room);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, transform, activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {

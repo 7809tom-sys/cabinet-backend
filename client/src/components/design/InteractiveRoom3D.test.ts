@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -931,5 +931,28 @@ describe("interactive 3D room scene helpers", () => {
     expect(burners).toHaveLength(4);
     expect(refrigeratorFaces).toHaveLength(1);
     expect(accidentalToeKicks).toHaveLength(0);
+  });
+
+  it("centers the active saved hood on its range and suppresses the overlapping microwave placeholder", () => {
+    const range = {
+      uid: "active-range", cabinetId: 0, masterCode: "RANGE-30", description: 'Range / Stove 30"',
+      placement: "appliance", width: 30, height: 36, depth: 25, rotation: 90, x: 0, y: 45,
+    } as never;
+    const hood = {
+      uid: "active-hood", cabinetId: 0, masterCode: "HOOD-30", description: 'Range Hood 30"',
+      placement: "appliance", width: 30, height: 18, depth: 18, rotation: 90, x: 3.5, y: 45, mountBottom: 66,
+    } as never;
+    const microwave = {
+      uid: "legacy-over-range-microwave", cabinetId: 0, masterCode: "MW-30", description: 'Over-Range Microwave 30"',
+      placement: "appliance", width: 30, height: 17, depth: 15, rotation: 90, x: 0, y: 45, mountBottom: 54,
+    } as never;
+    const room = { width: 144, depth: 145, ceilingHeight: 96 } as never;
+    const hoodTransform = savedRangeHoodTransform(hood, [range, hood, microwave], room);
+    const rangeTransform = existingCabinetTransform(range, room);
+
+    expect(hoodTransform.z).toBeCloseTo(rangeTransform.z, 12);
+    expect(shouldRenderSavedSceneCabinet(range, [range, hood, microwave])).toBe(true);
+    expect(shouldRenderSavedSceneCabinet(hood, [range, hood, microwave])).toBe(true);
+    expect(shouldRenderSavedSceneCabinet(microwave, [range, hood, microwave])).toBe(false);
   });
 });
