@@ -360,3 +360,7 @@
 - [x] Add active-scene regressions for dishwasher flush fit, toe-kick continuity, and countertop/cabinet transitions
 - [x] Audit and correct remaining small visible cabinet-end, appliance, and countertop transition details from the supplied mobile 3D screenshot
 - [x] Visually confirm the corrected dishwasher, toe-kick, and corner transitions in the live mobile 3D scene
+- [x] Add a Quick PDF Invoice action to CRM lead details with Cabinet Order, Kitchen Design, and Installation selections
+- [x] Let a quick invoice reference a linked saved design alongside the selected invoice services
+- [x] Generate a protected, mobile-friendly PDF invoice from a CRM lead with selected services and invoice totals
+- [x] Add CRM invoice regression coverage and validate the Quick PDF Invoice flow on mobile

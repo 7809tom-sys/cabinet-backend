@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -25,10 +26,11 @@ import {
 } from "@shared/crm";
 import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
-  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2,
+  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText,
 } from "lucide-react";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
+import { openCrmQuickInvoicePdf, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
 
 type Lang = CrmLanguage;
 const L = (lang: Lang) => ({
@@ -626,6 +628,8 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 </div>
               </div>
 
+              <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} lang={lang} />
+
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => remove.mutate({ id: deal.id })} disabled={remove.isPending}>
                 <Trash2 className="h-4 w-4 mr-1" />{lang === "es" ? "Eliminar trato" : "Delete deal"}
               </Button>
@@ -648,6 +652,124 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function QuickInvoiceDialog({
+  deal,
+  dealId,
+  linkedDesigns,
+  lang,
+}: {
+  deal: DealRow;
+  dealId: number;
+  linkedDesigns: { id: number; designId: number; designName: string }[];
+  lang: Lang;
+}) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(deal.estimatedValue ?? 0) > 0, amount: deal.estimatedValue ?? "" });
+  const [kitchenDesign, setKitchenDesign] = useState({ enabled: false, amount: "" });
+  const [installation, setInstallation] = useState({ enabled: false, amount: "" });
+  const [selectedDesignId, setSelectedDesignId] = useState<string>(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    setCabinetOrder({ enabled: Number(deal.estimatedValue ?? 0) > 0, amount: deal.estimatedValue ?? "" });
+    setKitchenDesign({ enabled: false, amount: "" });
+    setInstallation({ enabled: false, amount: "" });
+    setSelectedDesignId(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
+    setNotes("");
+  }, [deal.id, deal.estimatedValue, linkedDesigns.length, linkedDesigns[0]?.id]);
+
+  const addActivity = trpc.crm.addActivity.useMutation({
+    onSuccess: () => utils.crm.deal.invalidate({ id: dealId }),
+  });
+  const selectedDesign = linkedDesigns.find((design) => String(design.id) === selectedDesignId) ?? null;
+  const label = (english: string, spanish: string) => lang === "es" ? spanish : english;
+
+  function lineFor(enabled: boolean, description: string, amount: string): CrmQuickInvoiceLine | null {
+    if (!enabled) return null;
+    const parsed = Number(amount);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return { description, amount: parsed };
+  }
+
+  function createInvoice() {
+    const lines = [
+      lineFor(cabinetOrder.enabled, label("Cabinet Order", "Pedido de gabinetes"), cabinetOrder.amount),
+      lineFor(kitchenDesign.enabled, label("Kitchen Design", "Diseño de cocina"), kitchenDesign.amount),
+      lineFor(installation.enabled, label("Installation", "Instalación"), installation.amount),
+    ].filter((line): line is CrmQuickInvoiceLine => line !== null);
+    if (!lines.length) {
+      toast.error(label("Select at least one service and enter a valid amount.", "Seleccione al menos un servicio e ingrese un importe válido."));
+      return;
+    }
+    const now = new Date();
+    const opened = openCrmQuickInvoicePdf({
+      invoiceNumber: `CRM-${dealId}-${now.toISOString().slice(0, 10).replaceAll("-", "")}`,
+      issuedOn: now.toLocaleDateString(),
+      customerName: deal.contactName || deal.company || deal.title,
+      customerEmail: deal.contactEmail,
+      customerPhone: deal.contactPhone,
+      linkedDesignName: selectedDesign?.designName ?? null,
+      notes: notes.trim() || null,
+      lines,
+    });
+    if (!opened) {
+      toast.error(label("Your browser blocked the PDF window. Please allow pop-ups and try again.", "El navegador bloqueó la ventana de PDF. Permita ventanas emergentes e inténtelo de nuevo."));
+      return;
+    }
+    addActivity.mutate({
+      dealId,
+      kind: "note",
+      body: `Quick PDF invoice prepared: ${lines.map((line) => line.description).join(", ")}${selectedDesign ? ` · Linked design: ${selectedDesign.designName}` : ""}.`,
+    });
+    toast.success(label("Invoice opened. Use Print / Save as PDF to finish.", "Factura abierta. Use Imprimir / Guardar como PDF para finalizar."));
+    setOpen(false);
+  }
+
+  const ServiceRow = ({ id, title, state, setState }: {
+    id: string;
+    title: string;
+    state: { enabled: boolean; amount: string };
+    setState: (state: { enabled: boolean; amount: string }) => void;
+  }) => (
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem] items-center gap-2 rounded-md border border-border p-2.5">
+      <Checkbox id={id} checked={state.enabled} onCheckedChange={(checked) => setState({ ...state, enabled: checked === true })} />
+      <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
+      <Input aria-label={`${title} amount`} type="number" min="0" step="0.01" placeholder="$0.00" value={state.amount} onChange={(event) => setState({ ...state, amount: event.target.value })} disabled={!state.enabled} />
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full bg-card"><FileText className="mr-2 h-4 w-4" />{label("Quick PDF Invoice", "Factura PDF rápida")}</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader><DialogTitle>{label("Quick PDF Invoice", "Factura PDF rápida")}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. The PDF opens immediately so you can print or save it.", "Seleccione las partes de este prospecto para facturar. El PDF se abre de inmediato para imprimirlo o guardarlo.")}</p>
+        <div className="space-y-2">
+          <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} />
+          <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} />
+          <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} />
+        </div>
+        <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>
+          <Select value={selectedDesignId} onValueChange={setSelectedDesignId}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">{label("No linked design", "Sin diseño vinculado")}</SelectItem>
+              {linkedDesigns.map((design) => <SelectItem key={design.id} value={String(design.id)}>{design.designName}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label={label("Invoice notes (optional)", "Notas de la factura (opcional)")}>
+          <Textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={label("Scope, payment terms, or next steps", "Alcance, condiciones de pago o próximos pasos")} />
+        </Field>
+        <DialogFooter><Button onClick={createInvoice} disabled={addActivity.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white"><FileText className="mr-2 h-4 w-4" />{label("Open PDF Invoice", "Abrir factura PDF")}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
