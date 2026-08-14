@@ -1088,7 +1088,7 @@ export function PlanCanvas({
             const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
-            const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndReturn } = planCornerGeometry(p);
+            const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
@@ -1177,6 +1177,22 @@ export function PlanCanvas({
                       <path d="M50 3V52H97" fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.9" />
                       <path d="M4 4H50V50H96" fill="none" stroke="rgba(255,255,255,0.42)" strokeWidth="1.5" />
                       <path d="M50 52L96 96" fill="none" stroke={edgeColor} strokeWidth="1.4" opacity="0.55" />
+                    </svg>
+                  )}
+                  {/* BEC-24's configured 45° end face stays inside its 24×24
+                      bounding footprint. It is an end cabinet, never a room
+                      corner, so this marker must not enable corner snapping. */}
+                  {isEndAngle && !isAppliance && (
+                    <svg
+                      data-end-angle="true"
+                      aria-label="24 by 24 base end cabinet with 45 degree angled front"
+                      className="absolute inset-0 h-full w-full pointer-events-none"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <path d="M4 4H96V54L54 96H4Z" fill="none" stroke={edgeColor} strokeWidth="3" opacity="0.9" />
+                      <path d="M96 54L54 96" fill="none" stroke="rgba(255,255,255,0.48)" strokeWidth="1.5" />
+                      <path d="M88 62L62 88" fill="none" stroke={edgeColor} strokeWidth="1" opacity="0.55" />
                     </svg>
                   )}
                   {/* Appliance-specific top-down icons */}

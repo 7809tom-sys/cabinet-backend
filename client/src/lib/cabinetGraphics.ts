@@ -185,7 +185,10 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
   // inconsistent supplier category or corner fields on saved placements.
-  if (/^(?:base_)?end[_-]?(?:return|angle)$/.test(graphic) || graphic === "base_end_return") {
+  if (graphic === "end-angle" || graphic === "base_end_angle") {
+    return "end-angle";
+  }
+  if (/^(?:base_)?end[_-]?return$/.test(graphic) || graphic === "base_end_return") {
     return "end-return";
   }
 
@@ -466,7 +469,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
-  if (type === "end-angle") return "Base End Angle Cabinet";
+  if (type === "end-angle") return "Base End Cabinet — 45° Angled Front";
   if (type === "end-return") return "Base End Corner Cabinet";
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;

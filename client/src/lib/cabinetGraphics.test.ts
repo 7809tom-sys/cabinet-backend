@@ -71,20 +71,22 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("diagonal-corner");
   });
 
-  it("classifies BEC-24 as a two-face end-return, never as a diagonal corner", () => {
+  it("classifies BEC-24's explicit end-angle Config as a non-corner 45-degree two-door end cabinet", () => {
     const cab: CabinetLike = {
       masterCode: "BEC-24",
-      description: '24" Base Angle Cabinet (End of Run)',
+      description: '24" Base End Cabinet — 45° Angled Front',
       category: "Base",
-      subCategory: "Standard Base",
+      subCategory: "Base End Cabinet",
       width: "24",
+      height: "34.5",
+      depth: "24",
       numberOfDoors: 2,
       isCornerCabinet: false,
-      cornerType: "triangle",
+      graphicType: "end-angle",
     };
-    expect(cabinetDrawingType(cab)).toBe("end-return");
-    expect(cabinetTypeLabel(cab)).toBe("Base End Corner Cabinet");
-    expect(cabinetAltText(cab)).toContain("24-by-24 base end-corner cabinet with two 12-inch return faces");
+    expect(cabinetDrawingType(cab)).toBe("end-angle");
+    expect(cabinetTypeLabel(cab)).toBe("Base End Cabinet — 45° Angled Front");
+    expect(cabinetAltText(cab)).toContain("base end cabinet with angled outer face");
     expect(baseSubGroup(cab)).toBe("specialty");
   });
 
@@ -95,20 +97,25 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
   });
 
-  it("classifies BA-24's Base End Corner/End Return configuration as the two-face return, not a triangle or standard base", () => {
-    expect(cabinetDrawingType({
-      masterCode: "BA-24",
-      description: "BA-24",
-      category: "Base",
-      subCategory: "End Corner Return",
-      cornerType: "triangle",
-    })).toBe("end-return");
-    expect(cabinetDrawingType({
-      masterCode: "BA-24",
-      description: "BA-24",
-      category: "Base",
-      subCategory: "Standard Base",
-    })).toBe("end-return");
+  it("uses one explicit angled-front end-cabinet rule for both BA-24 and BEC-24", () => {
+    for (const masterCode of ["BA-24", "BEC-24"]) {
+      const cabinet = {
+        masterCode,
+        description: '24" Base End Cabinet — 45° Angled Front',
+        category: "Base",
+        subCategory: "Base End Cabinet",
+        width: 24,
+        height: 34.5,
+        depth: 24,
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+        isCornerCabinet: false,
+        graphicType: "end-angle",
+      };
+      expect(cabinetDrawingType(cabinet)).toBe("end-angle");
+      expect(cabinetTypeLabel(cabinet)).toBe("Base End Cabinet — 45° Angled Front");
+      expect(resolveDoorDrawerCounts(cabinet)).toEqual({ doors: 2, drawers: 0 });
+    }
   });
 
   it("uses the user-created Base End Cabinet subcategory as an authoritative end-return signal", () => {

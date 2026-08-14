@@ -175,6 +175,16 @@
 - [ ] Add BMC-27 and BMC30 product-detail-to-designer regressions for zero doors, one drawer, and a top appliance opening
 - [ ] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
 - [ ] Add a browser-level BMC-27 detail regression that rejects Left Door and Right Door panels for the zero-door Config
+- [x] Reconfigure BEC-24 as a 24-by-24 floor base with a 45-degree angled front and two doors meeting at the center
+- [x] Render the BEC-24 45-degree angled front from Cabinet Config in plan and elevation, retaining 34.5-inch height and a 4.5-inch toe kick
+- [x] Add BEC-24 angled-front two-door regression coverage for the exact 24-by-24 geometry
+- [x] Ensure BEC-24 remains excluded from true corner placement, snapping, and wedge geometry while using its angled end-cabinet face
+- [x] Align BA-24 and BEC-24 to one shared 24-by-24 non-corner angled-front end-cabinet Config while retaining their supplier and pricing identities
+- [x] Verify BA-24 and BEC-24 show matching 45-degree two-door plan/elevation geometry and matched Ashford price rows
+- [x] Merge BA-24 and BEC-24 into one canonical master catalog cabinet while preserving the alternate code as an internal alias
+- [x] Remove duplicate BA-24/BEC-24 entries from catalog, designer palette, build sheets, carts, and pricing selection
+- [x] Add canonical-and-alias regression coverage for the merged BA-24/BEC-24 item
+- [x] Merge the discovered BEC24 no-dash duplicate into canonical BA-24 alongside BEC-24 and retain both legacy aliases
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

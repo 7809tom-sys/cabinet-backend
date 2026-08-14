@@ -36,4 +36,23 @@ describe("duplicate normalized cabinet codes", () => {
     expect(styles.length).toBeGreaterThan(0);
     expect(styles.some((style) => style.homeownerPrice != null)).toBe(true);
   });
+
+  it("merges BA-24 and BEC-24 into one canonical catalog card while keeping BEC-24 as a detail alias", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const family = await caller.doorStyles.familyCatalog({ styleId: 330005 });
+    const endCabinets = family.items.filter((item) => ["BA-24", "BEC-24"].includes(item.masterCode));
+
+    expect(endCabinets).toHaveLength(1);
+    expect(endCabinets[0]).toEqual(expect.objectContaining({
+      id: 9390014,
+      cabinetId: 9390014,
+      masterCode: "BA-24",
+      description: '24" Base End Cabinet — 45° Angled Front',
+    }));
+
+    const canonical = await caller.cabinets.byCode({ masterCode: "BA-24" });
+    const alias = await caller.cabinets.byCode({ masterCode: "BEC-24" });
+    expect(alias).toEqual(expect.objectContaining({ id: 9390014, masterCode: "BA-24" }));
+    expect(alias).toEqual(canonical);
+  });
 });

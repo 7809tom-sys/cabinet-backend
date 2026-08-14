@@ -136,13 +136,16 @@ export function resolveElevationFacePresentation(
   isAppliance = false,
 ) {
   const isEndAngle = !isAppliance && isBaseEndAngleCabinet(cabinet, customProfile);
-  // The source BA-24 may still carry an `end-angle` drawing type while BEC
-  // carries `end-return`. Both are the same 24-by-24 two-face return in an
-  // elevation, so normalize them before DoorFront selects its geometry.
+  // Preserve the exact authored end-cabinet type. An angled front and a two-face
+  // end return are different Cabinet Config rules and must not be normalized.
+  const configuredDrawingType = cabinetDrawingType({
+    ...cabinet,
+    graphicType: customProfile ?? cabinet.graphicType ?? null,
+  });
   const cabinetType = isAppliance
     ? null
     : isEndAngle
-      ? "end-return"
+      ? configuredDrawingType
       : cabinetDrawingType(cabinet);
   // BA/BEC end returns have a meaningful measured 2D face, so their catalog
   // line drawings remain reference images only. They must not replace the live
@@ -2556,6 +2559,31 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
         </div>
         <div data-bec-return-seam="true" className="absolute top-[2%] bottom-[2%]" style={{ left: "51%", width: 2, background: `${edge}bb`, boxShadow: "1px 0 1px rgba(255,255,255,0.38)" }} />
         <div className="absolute left-[3%] right-[5%] top-[2%] h-px" style={{ background: `${edge}88` }} />
+      </div>,
+    );
+  }
+
+  // ─── SPECIALTY TYPE: BASE END CABINET, 45° ANGLED FRONT ─────────────────
+  // BEC-24 is a 24-by-24 end cabinet, not a room corner. Its single 45-degree
+  // front plane carries two 12-inch doors which meet on the center seam.
+  if (cabinetType === "end-angle") {
+    return withFace(
+      <div data-bec-angled-end-face="true" data-bec-45-angle="true" className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute top-[3%] bottom-[3%] left-[3%] right-[3%] overflow-hidden"
+          style={{
+            clipPath: "polygon(0 5%, 100% 0, 100% 100%, 0 95%)",
+            boxShadow: `inset 0 0 0 2px ${edge}aa, inset 0 -2px 4px rgba(0,0,0,0.14)`,
+          }}
+        >
+          <div data-bec-angled-left-door="12in" className="absolute left-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          </div>
+          <div data-bec-angled-right-door="12in" className="absolute right-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          </div>
+          <div data-bec-angled-center-seam="true" className="absolute top-[3%] bottom-[3%]" style={{ left: "50%", width: 2, background: `${edge}cc`, boxShadow: "1px 0 1px rgba(255,255,255,0.42)" }} />
+        </div>
       </div>,
     );
   }
