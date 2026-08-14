@@ -5,6 +5,7 @@ import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maxi
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -259,13 +260,22 @@ export function resolvedThreeDOvenLayout(input: {
   const doorCount = input.numberOfDoors != null && input.numberOfDoors > 0
     ? input.numberOfDoors
     : described.doorCount ?? (input.numberOfDoors === 0 ? 0 : 2);
-  const drawerCount = input.numberOfDrawers != null && input.numberOfDrawers > 0
-    ? input.numberOfDrawers
-    : described.drawerCount ?? (input.numberOfDrawers === 0 ? 0 : ovenCount === 2 ? 1 : 3);
+  // The existing 2D oven cabinet contract is authoritative: a single oven
+  // carries three bottom drawers, while a double oven carries one. Explicit
+  // saved `ovenType` therefore corrects stale catalog drawer counts instead of
+  // letting an old supplier row change the visible enclosure in 3D.
+  const enforcedDrawerCount = input.ovenType === "single" ? 3 : input.ovenType === "double" ? 1 : null;
+  const drawerCount = enforcedDrawerCount ?? (
+    input.numberOfDrawers != null && input.numberOfDrawers > 0
+      ? input.numberOfDrawers
+      : described.drawerCount ?? (input.numberOfDrawers === 0 ? 0 : ovenCount === 2 ? 1 : 3)
+  );
   const requestedDrawerHeight = input.drawerHeight != null
     ? Math.max(0, Number(input.drawerHeight) * INCH)
-    : drawerCount * 5 * INCH;
-  const requestedRows = resolvedThreeDDrawerRows({ drawerLayout: input.drawerLayout ?? null }, requestedDrawerHeight, drawerCount);
+    : enforcedDrawerCount != null ? drawerCount * 11 * INCH : drawerCount * 5 * INCH;
+  const requestedRows = enforcedDrawerCount != null
+    ? Array.from({ length: drawerCount }, () => ({ count: 1, height: 11 * INCH }))
+    : resolvedThreeDDrawerRows({ drawerLayout: input.drawerLayout ?? null }, requestedDrawerHeight, drawerCount);
   const measuredOpeningHeight = described.openingHeight != null ? described.openingHeight * INCH : null;
   const doorZone = doorCount
     ? input.doorHeight != null
@@ -749,12 +759,14 @@ export function addCabinet(
       }
     };
     const addOvenCutout = () => {
-      const oven = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.82, ovenLayout.openingHeight, 0.07), applianceMaterial);
+      const ovenOpeningWidth = ovenOpeningGeometry(bodyWidth / INCH, sku.ovenType).width * INCH;
+      const oven = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth, ovenLayout.openingHeight, 0.07), applianceMaterial);
       oven.position.set(0, zoneTop - ovenLayout.openingHeight / 2, 0.032);
+      oven.userData = { ovenOpeningWidthIn: ovenOpeningWidth / INCH, singleOvenInsetIn: ovenOpeningGeometry(bodyWidth / INCH, sku.ovenType).horizontalInset };
       frontGroup.add(oven);
       const singleOvenHeight = ovenLayout.openingHeight / ovenLayout.ovenCount;
       for (let i = 0; i < ovenLayout.ovenCount; i++) {
-        const glass = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.65, singleOvenHeight * 0.62, 0.078), glassMaterial);
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth * 0.79, singleOvenHeight * 0.62, 0.078), glassMaterial);
         glass.position.set(0, zoneTop - singleOvenHeight * (i + 0.5), 0.072);
         frontGroup.add(glass);
       }

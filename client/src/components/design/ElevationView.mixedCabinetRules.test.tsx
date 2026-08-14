@@ -173,4 +173,5 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(markup).not.toContain('data-config-opening-door="true"');
     expect(markup).toContain('data-config-opening-drawer="true"');
   });
+
 });

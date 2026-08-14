@@ -6,6 +6,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
+import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -449,27 +450,58 @@ describe("interactive 3D room scene helpers", () => {
     ]);
   });
 
-  it("calibrates an oven tower from the saved 2D door zone, drawer rows, and middle cut-out", () => {
+  it("uses the existing single-oven 2D drawer contract despite stale saved drawer rows", () => {
     const layout = resolvedThreeDOvenLayout({
       height: 84, numberOfDoors: 2, numberOfDrawers: 3, doorHeight: 18,
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
       openingType: "middle", ovenType: "single",
     });
     expect(layout.doorZone).toBe(1.5);
-    expect(layout.drawerRows.map((row) => row.count)).toEqual([1, 2]);
-    expect(layout.drawerRows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
-    expect(layout.openingHeight).toBeCloseTo(4.503333333333333, 12);
+    expect(layout.drawerRows).toEqual([
+      { count: 1, height: 11 / 12 },
+      { count: 1, height: 11 / 12 },
+      { count: 1, height: 11 / 12 },
+    ]);
+    expect(layout.openingHeight).toBeCloseTo(2.67, 12);
     expect(layout.openingPosition).toBe("middle");
   });
 
-  it("preserves a configured double-oven tower and bottom cut-out without applying single-oven defaults", () => {
+  it("centers a 27-inch single-oven opening inside a 30-inch cabinet enclosure", () => {
+    expect(ovenOpeningGeometry(30, "single")).toEqual({ width: 27, horizontalInset: 1.5 });
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -30,
+      cabinetId: 30,
+      masterCode: "O309024",
+      description: '30" Single Oven Cabinet',
+      placementType: "tall",
+      width: 30,
+      height: 90,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 3,
+      ovenType: "single",
+      openingType: "middle",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+
+    const ovenOpenings: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.ovenOpeningWidthIn != null) ovenOpenings.push(node);
+    });
+    expect(ovenOpenings).toHaveLength(1);
+    expect(ovenOpenings[0]!.userData).toMatchObject({ ovenOpeningWidthIn: 27, singleOvenInsetIn: 1.5 });
+    expect((ovenOpenings[0]!.geometry as THREE.BoxGeometry).parameters.width).toBeCloseTo(27 / 12, 12);
+    expect(ovenOpenings[0]!.position.x).toBe(0);
+  });
+
+  it("uses one 11-inch bottom drawer for a double-oven tower without applying single-oven defaults", () => {
     const layout = resolvedThreeDOvenLayout({
       height: 90, numberOfDoors: 2, numberOfDrawers: 1, doorHeight: 20, drawerHeight: 6,
       openingType: "bottom", ovenType: "double",
     });
     expect(layout.ovenCount).toBe(2);
     expect(layout.openingPosition).toBe("bottom");
-    expect(layout.drawerRows).toEqual([{ count: 1, height: 0.5 }]);
+    expect(layout.drawerRows).toEqual([{ count: 1, height: 11 / 12 }]);
     expect(layout.openingHeight).toBeGreaterThan(0);
   });
 
@@ -488,7 +520,7 @@ describe("interactive 3D room scene helpers", () => {
       ovenType: "double",
     });
     expect(layout.doorCount).toBe(2);
-    expect(layout.drawerRows).toHaveLength(3);
+    expect(layout.drawerRows).toEqual([{ count: 1, height: expect.closeTo(11 / 12, 12) }]);
     expect(layout.openingHeight).toBeCloseTo(39.75 / 12, 12);
   });
 

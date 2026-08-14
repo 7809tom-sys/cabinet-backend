@@ -327,3 +327,6 @@
 - [x] Remove the WDC full-height panel and thin protruding plane reproduced in the live mobile 3D view by correcting mesh transforms
 - [x] Fix WDC2430’s 2D wall elevation so it renders as the configured 24-by-24 diagonal wall corner with a 17-inch front, not a standard narrow wall cabinet
 - [x] Add a WDC2430 mesh-level regression that rejects a generic wall panel and requires one diagonal side-skin wedge with two angled front doors
+- [x] Render every single-oven appliance opening at 27 inches, centered within its 30-inch cabinet enclosure with a 3-inch total width reduction
+- [x] Enforce three bottom drawers for single-oven cabinets and one bottom drawer for double-oven cabinets in both 2D and 3D
+- [x] Preserve the correct existing 2D oven layout unchanged while making only the 3D oven enclosure match its measured opening and drawer layout
