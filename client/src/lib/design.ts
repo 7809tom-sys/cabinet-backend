@@ -939,48 +939,24 @@ export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometry
 }
 
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
+  const cornerKind = placedCornerGeometryKind(p);
   // BEC-24 is a square 24x24 end-return box with a distinct two-face graphic.
   // Its footprint must remain stable through rotation, snapping, and collision
   // handling without putting it on any L-corner or filler path.
-  if (isBaseEndCornerCabinet(p)) {
+  if (cornerKind === "base-end") {
     return { w: STD.BASE_DEPTH, d: STD.BASE_DEPTH };
   }
-  // Cabinet Config may explicitly classify a corner even when a supplier SKU or
-  // description is non-standard. Honor that saved configuration first.
-  if (p.cornerType === "diagonal") {
+  // Diagonal and L-corner records share a square plan envelope. The shared
+  // classifier above is deliberately the only source of this decision for both
+  // PlanCanvas and the deterministic 3D renderer.
+  if (cornerKind === "diagonal" || cornerKind === "l-shape") {
     const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
   }
-  if (p.cornerType === "lazy-susan" || p.cornerType === "pie-cut" || p.cornerType === "l-shape") {
-    const side = lCornerBoxSide(p.placement);
-    return { w: side, d: side };
-  }
-  if (p.cornerType === "blind-corner") {
+  if (cornerKind === "blind-corner") {
     const stdDepth = p.placement === "wall" ? 12 : 24;
     const rot = ((p.rotation % 360) + 360) % 360;
     return rot === 90 || rot === 270 ? { w: stdDepth, d: p.width } : { w: p.width, d: stdDepth };
-  }
-  // True diagonal corners span a room corner with a clipped square plan box.
-  // Base End Cabinets (BEC) are deliberately excluded by isDiagonalCorner: they
-  // are end-of-run cabinets, not room-corner cabinets.
-  if (isDiagonalCorner(p.masterCode, p.description)) {
-    const side = lCornerBoxSide(p.placement);
-    return { w: side, d: side };
-  }
-  if (isLCornerCabinet(p.masterCode, p.description)) {
-    const side = lCornerBoxSide(p.placement);
-    return { w: side, d: side };
-  }
-  // Blind corner cabinets (BBC/WBC) are rectangular boxes. Their stored depth
-  // may be stale (old saves stored the pull dimension or got normalized wrong).
-  // Force the correct standard depth so the full box always renders.
-  if (isBlindCorner(p.masterCode, p.description)) {
-    const stdDepth = p.placement === "wall" ? 12 : 24;
-    const rot = ((p.rotation % 360) + 360) % 360;
-    if (rot === 90 || rot === 270) {
-      return { w: stdDepth, d: p.width };
-    }
-    return { w: p.width, d: stdDepth };
   }
   const sz = rotatedSize(p);
   // Defensive floor: a real cabinet box must never render as an invisible sliver

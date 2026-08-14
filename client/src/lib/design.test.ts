@@ -23,7 +23,7 @@ import {
   blindCornerAutoFiller,
   isStacker,
   isDiagonalCorner, footprintDepth,
-  isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
+  isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
@@ -1800,6 +1800,19 @@ describe("lazy-Susan / L-corner footprint", () => {
     const fp = placedFootprint(rotated);
     expect(fp.w).toBe(36);
     expect(fp.d).toBe(36);
+  });
+
+  it("derives a WDC2430 diagonal wall footprint from the same shared corner classifier used by 3D", () => {
+    const wdc = cab({
+      masterCode: "WDC2430",
+      description: "24 inch Diagonal Wall Corner Cabinet",
+      placement: "wall",
+      width: 24,
+      depth: 12,
+      cornerType: null,
+    });
+    expect(placedCornerGeometryKind(wdc)).toBe("diagonal");
+    expect(placedFootprint(wdc)).toEqual({ w: 24, d: 24 });
   });
 
   it("placedFootprint leaves ordinary cabinets as their rotated size", () => {

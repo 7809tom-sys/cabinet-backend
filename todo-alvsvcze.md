@@ -303,3 +303,4 @@
 - [x] Fix the reproduced Reaves Way subdomain detail route so it resolves the affiliate storefront and never falls back to CabinetDealz branding
 - [x] Make WDC2430 3D consume the exact saved 2D diagonal-corner footprint and classification rule, with no independent square or triangle fallback
 - [x] Make WDC2430 3D consume the exact saved 2D diagonal-corner footprint and classification rule, with no independent square or triangle fallback
+- [x] Route shared plan footprints and 3D corner meshes through one persisted-cabinet geometry classifier for every corner family
