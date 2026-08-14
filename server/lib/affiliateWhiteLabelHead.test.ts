@@ -28,6 +28,7 @@ describe("affiliate white-label HTML head", () => {
     });
 
     expect(html).toContain("window.__AFFILIATE_SLUG__=\"reaves-way-cabinet-shop\"");
+    expect(html).toContain("window.location.replace('/store/'+window.__AFFILIATE_SLUG__+s+window.location.search)");
     expect(html).toContain("<title>Reaves Way Cabinet Shop — Cabinets designed for your home</title>");
     expect(html).toContain('property="og:site_name" content="Reaves Way Cabinet Shop"');
     expect(html).toContain('property="og:image" content="https://cdn.example/reaves-way-logo.png"');

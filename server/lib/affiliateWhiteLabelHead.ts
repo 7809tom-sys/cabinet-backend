@@ -87,8 +87,10 @@ export function injectAffiliateWhiteLabelHead(
   // The shared platform PWA manifest carries the platform name. An affiliate
   // should not install a browser app that exposes Cabinet Dealz branding.
   out = out.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, "");
+  const slugJson = JSON.stringify(brand.slug).replace(/</g, "\\u003c");
+  const routingBootstrap = `<script>window.__AFFILIATE_SLUG__=${slugJson};(function(){var p=window.location.pathname;if(p.indexOf('/store/')===0||p.indexOf('/api/')===0)return;var s=p==='/'?'':p;window.location.replace('/store/'+window.__AFFILIATE_SLUG__+s+window.location.search);})();</script>`;
   return out.replace(
     "<head>",
-    `<head><script>window.__AFFILIATE_SLUG__=${JSON.stringify(brand.slug)};</script>`,
+    `<head>${routingBootstrap}`,
   );
 }
