@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { cornerDrawerFrontLayout, describedOvenSpecification, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, sinkFixtureTransform, threeDCameraDistanceLimits, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDShakerRailThickness, threeDVisibleMaterialMode, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -9,6 +9,12 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+  it("keeps the mobile orbit camera outside a room-scaled furnished envelope", () => {
+    expect(threeDCameraDistanceLimits(12).minDistance).toBeCloseTo(6.6, 12);
+    expect(threeDCameraDistanceLimits(12).maxDistance).toBeCloseTo(40.8, 12);
+    expect(threeDCameraDistanceLimits(8).minDistance).toBe(5.5);
+  });
+
   it("reads seeded room dimensions while preserving safe defaults", () => {
     expect(dimensions({ width: 156, depth: 144, ceilingHeight: 96 })).toEqual({ width: 156, depth: 144, ceilingHeight: 96 });
     expect(dimensions({ width: 0 })).toEqual({ width: 144, depth: 120, ceilingHeight: 96 });

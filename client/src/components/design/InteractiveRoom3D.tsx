@@ -129,6 +129,14 @@ export const THREE_D_DRAWER_REVEAL_DEPTH = 0.07;
 export const THREE_D_WALL_OPACITY = 0.72;
 export const THREE_D_WALL_DEPTH_WRITE = false;
 
+/** Keeps the orbit camera outside the furnished room envelope at every supported room size. */
+export function threeDCameraDistanceLimits(maxSpan: number) {
+  return {
+    minDistance: Math.max(5.5, maxSpan * 0.55),
+    maxDistance: Math.max(14, maxSpan * 3.4),
+  };
+}
+
 export function threeDDoorMaterialFallback(color: string) {
   return { color, map: null as null };
 }
@@ -1133,6 +1141,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     threeScene.background = new THREE.Color("#f6f3ed");
     const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
     const maxSpan = Math.max(room.width, room.depth) * INCH;
+    const cameraDistances = threeDCameraDistanceLimits(maxSpan);
     camera.position.set(maxSpan * 1.15, maxSpan * 0.92, maxSpan * 1.25);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
@@ -1145,8 +1154,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     controls.panSpeed = 0.72;
     controls.minPolarAngle = 0.2;
     controls.maxPolarAngle = Math.PI / 2.02;
-    controls.minDistance = 3;
-    controls.maxDistance = Math.max(14, maxSpan * 3.4);
+    controls.minDistance = cameraDistances.minDistance;
+    controls.maxDistance = cameraDistances.maxDistance;
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 1.1;
     controls.update();
