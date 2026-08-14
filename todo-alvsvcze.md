@@ -162,7 +162,7 @@
 - [x] Add explicit desktop and mobile FSB-36 elevation regressions for apron position, visible toe kick, and countertop coexistence
 - [x] Make BMC30 honor its configured one-drawer microwave-base layout instead of rendering two doors plus an extra drawer
 - [x] Render BA-24 as the shared 45-degree angled-front Base End Cabinet in the mixed designer run
-- [ ] Correct the FSB-36 apron-front face in the mixed elevation so it sits over the cabinet rather than replacing the cabinet face
+- [x] Correct the FSB-36 apron-front face in the mixed elevation so it sits over the cabinet rather than replacing the cabinet face
 - [x] Add a mixed-run regression covering BMC30, BA-24, and FSB-36 at mobile elevation scale
 - [x] Enforce BMC30 Cabinet Config as authoritative: zero doors, one drawer, and a top microwave opening with no fallback door faces
 - [x] Trace and remove any stale placed-cabinet or renderer fallback that can invent BMC30 doors
@@ -189,6 +189,7 @@
 - [x] Promote BEC-24 to the canonical master record and retain BA-24 and BEC24 as aliases without reintroducing duplicates
 - [x] Remap catalog, designer, build-sheet, cart, pricing, and legacy detail routes to canonical BEC-24
 - [x] Add BEC-24 canonical alias regressions for BA-24 and BEC24
+- [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost
 - [x] Verify multiplier-adjusted affiliate cost remains hidden from customers, other affiliates, and unauthorized staff

@@ -13,3 +13,5 @@ The published legacy route `/catalog/BEC-24?verify=21cf679a` returned **Cabinet 
 After checkpoint `203133f6`, the live canonical route `/catalog/BEC-24?verify=203133f6` loaded successfully as **BEC-24 — 24" Base End Cabinet — 45° Angled Front**. The visible catalog list contains one BEC-24 card and no BA-24 card, confirming the published canonical identity and catalog deduplication.
 
 The retained `/catalog/BA-24?verify=203133f6` alias route also loaded the same merged product and the catalog still displayed only one BEC-24 card. The page chrome retained BA-24 in the alias URL breadcrumb and legacy spec image label, so the detail display should next prefer the resolved canonical master code after an alias lookup.
+
+After checkpoint `4cd71723`, `/catalog/BA-24?verify=4cd71723` still loaded the one canonical product and the catalog list still contained only BEC-24. The page retained BA-24 in the alias breadcrumb and legacy spec-image artwork during this immediate edge check, indicating the custom-domain client bundle has not yet reflected the latest display revision; the canonical direct BEC-24 page remains correct.

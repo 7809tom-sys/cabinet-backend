@@ -35,6 +35,17 @@ import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } 
 import { useRef, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+export function islandFarmhouseSinkElevationGeometry(cabinetWidthIn: number) {
+  const apronHeightIn = 8.5;
+  const sideInsetIn = Math.min(1.5, Math.max(0.75, cabinetWidthIn * 0.04));
+  return {
+    apronHeightIn,
+    apronBottomIn: STD.BASE_HEIGHT - apronHeightIn,
+    sideInsetIn,
+    apronWidthIn: Math.max(0, cabinetWidthIn - sideInsetIn * 2),
+  };
+}
+
 // ─── Sub-components (copied from ElevationView for self-containment) ─────────
 
 function RecessedPanel({
@@ -719,21 +730,27 @@ export function IslandElevationView({
           {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
             const cabSizeAlong = sizeAlong(p);
             const cabPosAlong = posAlong(p);
-            const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-            const apronTop = STD.COUNTERTOP_HEIGHT;
-            const apronH = apronTop - apronBottom;
+            // A farmhouse sink is installed through the counter: only its shallow
+            // ceramic apron covers the upper face. The styled cabinet and its toe
+            // kick remain visible underneath, exactly as in wall elevations.
+            const geometry = islandFarmhouseSinkElevationGeometry(cabSizeAlong);
+            const apronH = geometry.apronHeightIn;
+            const apronBottom = geometry.apronBottomIn;
+            const sideInset = geometry.sideInsetIn;
             const apronPxH = apronH * ppi;
-            const apronPxW = cabSizeAlong * ppi;
-            const apronLeft = cabPosAlong * ppi;
+            const apronPxW = geometry.apronWidthIn * ppi;
+            const apronLeft = (cabPosAlong + sideInset) * ppi;
             const apronBottomPx = apronBottom * ppi;
             const basinW = apronPxW * 0.78;
-            const basinH = apronPxH * 0.52;
+            const basinH = apronPxH * 0.42;
             const basinLeft = (apronPxW - basinW) / 2;
-            const basinBottom = apronPxH * 0.12;
+            const basinBottom = apronPxH * 0.08;
             return (
               <div
                 key={`apron-${p.uid}`}
                 className="absolute pointer-events-none"
+                data-farm-sink-apron="true"
+                data-farm-sink-mounted="countertop"
                 style={{ left: apronLeft, width: apronPxW, bottom: apronBottomPx, height: apronPxH, zIndex: 6 }}
               >
                 <div
@@ -767,11 +784,6 @@ export function IslandElevationView({
                     }}
                   />
                 </div>
-                {apronPxH > 20 && (
-                  <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: basinBottom + basinH + 2, zIndex: 2 }}>
-                    <span style={{ fontSize: Math.max(7, ppi * 1.8), color: "#8a9bb0", fontWeight: 500 }}>{p.masterCode}</span>
-                  </div>
-                )}
               </div>
             );
           })}
