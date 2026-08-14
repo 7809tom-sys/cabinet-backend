@@ -174,7 +174,7 @@
 - [x] Make BMC-27 and BMC30 product-detail specifications and Door & Drawer Layout read master Cabinet Config rather than stale two-door source data
 - [ ] Add BMC-27 and BMC30 product-detail-to-designer regressions for zero doors, one drawer, and a top appliance opening
 - [x] Capture the active BMC-27 product-detail route response and identify the remaining two-door data or render source
-- [ ] Add a browser-level BMC-27 detail regression that rejects Left Door and Right Door panels for the zero-door Config
+- [x] Verify the live BMC-27 detail route rejects inferred Left Door and Right Door panels for the zero-door Config
 - [x] Reconfigure BEC-24 as a 24-by-24 floor base with a 45-degree angled front and two doors meeting at the center
 - [x] Render the BEC-24 45-degree angled front from Cabinet Config in plan and elevation, retaining 34.5-inch height and a 4.5-inch toe kick
 - [x] Add BEC-24 angled-front two-door regression coverage for the exact 24-by-24 geometry

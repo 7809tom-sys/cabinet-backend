@@ -785,8 +785,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       catalogImageUrl: cabinet?.catalogImageUrl ?? null,
     });
     if (res.ok) {
-      toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
-        description: `${row.name} \u00b7 ${tierLabel(tier)} pricing`,
+      toast.success(`Added ${qty}× ${resolvedMasterCode} to cart`, {
+        description: `${row.name} · ${tierLabel(tier)} pricing`,
       });
     }
     return res;
@@ -819,7 +819,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       });
     } else {
       toast.warning(`Your cart is from another supplier`, {
-        description: `${masterCode} (${selectedRow.name}) is from a different supplier than what's in your cart. Clear the cart to start a new order with it?`,
+        description: `${resolvedMasterCode} (${selectedRow.name}) is from a different supplier than what's in your cart. Clear the cart to start a new order with it?`,
         action: {
           label: "Clear cart & add",
           onClick: () => {
@@ -1210,7 +1210,7 @@ export default function CabinetDetail({ masterCode }: Props) {
         <div id="pricing">
           <div className="mb-1">
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-              {masterCode}
+              {resolvedMasterCode}
             </span>
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
             {isOwner && cabinet.isActive === false && (
@@ -1387,7 +1387,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               <DialogTitle className="flex items-center gap-2">
                 <Pencil className="h-4 w-4 text-amber-600" />
                 Edit Cabinet
-                <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{masterCode}</span>
+                <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{resolvedMasterCode}</span>
               </DialogTitle>
             </DialogHeader>
 
