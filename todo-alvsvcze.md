@@ -209,6 +209,10 @@
 - [ ] Add 2D-to-3D drawer, oven-cabinet, and flush-join regressions
 - [ ] Instrument the live 3D placed-cabinet scene input to identify configuration fields dropped from the user’s saved design
 - [ ] Add live-record scene-input contracts for the reported drawer-base and oven-tower configurations
+- [ ] Align 3D appliances to their exact saved 2D transforms and mounting heights
+- [ ] Render 3D drawer fronts from configured row count, columns, and measured heights rather than generic slats
+- [ ] Apply measured 3-inch Shaker rail-and-stile geometry to 3D door and drawer faces
+- [ ] Add 2D-to-3D regressions for appliance transforms, drawer measurements, and Shaker-frame dimensions
 - [ ] Verify FSB-36 island elevation uses a shallow countertop-mounted apron and leaves the styled base cabinet and toe kick visible
 - [x] Replace raw supplier cost in affiliate private pricing with the Administration multiplier and fee-adjusted affiliate cost
 - [x] Calculate affiliate private margin from the adjusted affiliate cost rather than raw supplier cost

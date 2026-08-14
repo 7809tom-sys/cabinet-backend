@@ -2324,6 +2324,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         facePattern: (c as any).facePattern ?? null,
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
+        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
       };

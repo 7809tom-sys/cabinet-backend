@@ -427,6 +427,8 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   const rotation = Number.isFinite(savedRotation) ? savedRotation * Math.PI / 180 : 0;
   const bottom = cabinet.placement === "wall"
     ? numberValue(cabinet.mountBottom, WALL_BOTTOM)
+    : cabinet.placement === "appliance" && cabinet.mountBottom != null
+      ? numberValue(cabinet.mountBottom, 0)
     : cabinet.placement === "baseTop"
       ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
       : cabinet.placement === "underCabinet"

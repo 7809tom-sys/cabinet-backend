@@ -153,6 +153,7 @@ export function applianceAsDesignCabinet(a: ApplianceDef): DesignCabinet {
     numberOfDrawers: null,
     catalogImageUrl: null,
     isCornerCabinet: false,
+    mountBottom: a.elevBottom,
   };
 }
 
@@ -169,6 +170,8 @@ export interface DesignCabinet {
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
+  /** Floor height for an appliance or configured wall-mounted item. */
+  mountBottom?: number | null;
   catalogImageUrl?: string | null;
   // Live Cabinet Config drawing rules. These are refreshed into older placed
   // designs so a catalog correction applies without re-placing the cabinet.
