@@ -842,7 +842,7 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
   // Placed coordinates are the top-left of the 2D rotation-aware footprint.
   // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
   // producing artificial gaps in the 3D scene.
-  const footprint = placedFootprint(cabinet);
+  const footprint = normalizedThreeDFootprint(cabinet);
   const width = numberValue(footprint.w, 24);
   const depth = numberValue(footprint.d, BASE_DEPTH);
   const savedRotation = Number(cabinet.rotation);
@@ -856,6 +856,18 @@ export function existingCabinetTransform(cabinet: PlacedCabinet) {
         ? WALL_BOTTOM - numberValue(cabinet.height, 6)
         : 0;
   return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
+}
+
+/**
+ * Older CDB saves sometimes stored only the accessible 24-inch leg depth.
+ * The 2D corner-drawer drawing is nevertheless a full 36-by-36 L footprint,
+ * so normalize before deriving either its scene body or its 2D-to-3D center.
+ */
+export function normalizedThreeDFootprint(cabinet: PlacedCabinet) {
+  const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
+  if (!cornerDrawer) return placedFootprint(cabinet);
+  const size = Math.max(24, Number((cabinet.masterCode.match(/(\d{2})/) ?? [])[1]) || 36);
+  return placedFootprint({ ...cabinet, width: size, depth: size });
 }
 
 export function sinkFixtureTransform(sink: SinkFixture) {
@@ -974,7 +986,7 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   const diagonalCorner = cabinet.cornerType === "diagonal" || isDiagonalCorner(cabinet.masterCode, cabinet.description);
   const cornerDrawer = /^cdb[-_]?\d/i.test(cabinet.masterCode) || /corner drawer base/i.test(cabinet.description ?? "");
-  const footprint = diagonalCorner || cornerDrawer ? placedFootprint(cabinet) : null;
+  const footprint = diagonalCorner || cornerDrawer ? normalizedThreeDFootprint(cabinet) : null;
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const appliance = cabinet.placement === "appliance"
     ? APPLIANCES.find((item) => {
@@ -992,9 +1004,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that
     // created the 2D placement—never the generic 24/12-inch cabinet defaults.
-    width: footprint?.w ?? cabinet.width ?? appliance?.w,
+    width: footprint?.w ?? cabinet.width ?? appliance?.width,
     height: cabinet.height ?? appliance?.elevHeight ?? (cabinet.placement === "wall" ? STD.WALL_HEIGHT : cabinet.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
-    depth: footprint?.d ?? cabinet.depth ?? appliance?.d,
+    depth: footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
     openingType: cabinet.openingType ?? null,

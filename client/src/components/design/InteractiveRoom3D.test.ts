@@ -162,6 +162,16 @@ describe("interactive 3D room scene helpers", () => {
     expect(Object.values(lCornerCarcassParts(3, 3)).filter((part) => typeof part === "object" && part !== null && "width" in part)).toHaveLength(2);
   });
 
+  it("normalizes an older CDB36 accessible-leg save to the shared 36-inch square 2D corner footprint", () => {
+    const legacyCdb = {
+      uid: "legacy-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: "Corner Drawer Base Cabinet",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 3,
+    } as never;
+    expect(existingCabinetTransform(legacyCdb)).toEqual({ x: 18, z: 18, rotation: 0, bottom: 0 });
+    expect(existingCabinetSku(legacyCdb)).toMatchObject({ width: 36, depth: 36, numberOfDoors: 0, numberOfDrawers: 3 });
+  });
+
   it("preserves live saved oven, measured drawer, specialty, and selected door-sample fields in the 3D scene contract", () => {
     const placed = [{
       uid: "live-oven", cabinetId: 9390085, masterCode: "UOC3396", description: '33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers',
