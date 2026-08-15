@@ -844,11 +844,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(layout.drawerCenterY).toBeCloseTo(-1.25, 12);
   });
 
-  it("renders a physical cooktop and four burners from the saved range width and depth", () => {
+  it("renders a physical cooktop and four burners with a 34½-inch finished-floor cooking surface", () => {
     const cooktop = rangeCooktopLayout(30 / 12, 25 / 12, 36 / 12);
     expect(cooktop.cooktopWidth).toBeCloseTo(2.38, 12);
     expect(cooktop.cooktopDepth).toBeCloseTo((25 / 12) - 0.12, 12);
-    expect(cooktop.topY).toBeCloseTo(1.525, 12);
+    expect(cooktop.cookingSurfaceY).toBeCloseTo(1.375, 12);
+    expect(cooktop.topY + cooktop.cooktopThickness / 2).toBeCloseTo(1.375, 12);
     expect(cooktop.burnerCenters).toHaveLength(4);
     expect(cooktop.burnerCenters[0]?.x).toBeCloseTo(-0.5712, 12);
     expect(cooktop.burnerCenters[0]?.z).toBeCloseTo(-0.45156666666666667, 12);
@@ -1161,6 +1162,7 @@ describe("interactive 3D room scene helpers", () => {
 
     let chassis: THREE.Mesh | null = null;
     let toeRecess: THREE.Mesh | null = null;
+    let cooktopSurface: THREE.Mesh | null = null;
     const feet: THREE.Mesh[] = [];
     const visibleFrontFeet: THREE.Mesh[] = [];
     const cabinetSkins: THREE.Mesh[] = [];
@@ -1169,6 +1171,7 @@ describe("interactive 3D room scene helpers", () => {
       if (!(node instanceof THREE.Mesh)) return;
       if (node.userData.freestandingRangeChassis) chassis = node;
       if (node.userData.freestandingRangeToeRecess) toeRecess = node;
+      if (node.userData.rangeCooktop) cooktopSurface = node;
       if (node.userData.freestandingRangeFoot) feet.push(node);
       if (node.userData.visibleFreestandingRangeFoot) visibleFrontFeet.push(node);
       if (node.userData.selectedStyleSideSkin) cabinetSkins.push(node);
@@ -1177,6 +1180,7 @@ describe("interactive 3D room scene helpers", () => {
 
     expect(chassis).not.toBeNull();
     expect(toeRecess).not.toBeNull();
+    expect(cooktopSurface).not.toBeNull();
     expect(feet).toHaveLength(4);
     expect(visibleFrontFeet).toHaveLength(2);
     expect(cabinetSkins).toHaveLength(0);
@@ -1187,12 +1191,14 @@ describe("interactive 3D room scene helpers", () => {
 
     root.updateMatrixWorld(true);
     const chassisBounds = new THREE.Box3().setFromObject(chassis!);
+    const cooktopBounds = new THREE.Box3().setFromObject(cooktopSurface!);
     const footBounds = feet.reduce(
       (bounds, foot) => bounds.union(new THREE.Box3().setFromObject(foot)),
       new THREE.Box3().makeEmpty(),
     );
     expect(footBounds.min.y).toBeCloseTo(0, 8);
     expect(footBounds.max.y).toBeCloseTo(chassisBounds.min.y, 6);
+    expect(cooktopBounds.max.y).toBeCloseTo(34.5 / 12, 6);
     expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);
   });
 

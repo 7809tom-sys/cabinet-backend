@@ -34,6 +34,13 @@ import {
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
 
+describe("universal cooking-surface geometry", () => {
+  it("keeps every range and cooktop burner surface at the 34½-inch finished-floor line", () => {
+    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(34.5);
+    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(STD.BASE_HEIGHT);
+  });
+});
+
 describe("persisted 2D entity parity", () => {
   it("keeps every non-cabinet visible 2D entity with the saved room", () => {
     const saved = roomWithPersistedEntities(ROOM_12x10, {

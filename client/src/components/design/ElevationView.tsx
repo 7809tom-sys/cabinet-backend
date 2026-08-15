@@ -1423,22 +1423,18 @@ export function ElevationView({
           );
         })}
 
-        {/* Range Top / Cooktop: thin surface appliance sitting ON TOP of the countertop.
-            A cooktop is ~3.5" tall and sits flush with the countertop surface. In front
-            elevation it appears as a thin stainless/black strip at the 34.5"-38" zone
-            (just above the base cabinet face, replacing the countertop slab for that section).
-            The cabinet face below remains visible as a normal cabinet. */}
+        {/* Range Top / Cooktop: the burner surface is always 34½" above finished floor.
+            Its visible face extends down into the base zone rather than above that line. */}
         {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          // Cooktop sits on the countertop surface: bottom at BASE_HEIGHT (34.5"),
-          // height ~3.5" (slightly thicker than the 1.5" countertop slab so it
-          // visually reads as an appliance, not just a slab).
+          // The top of this 3½-inch elevation face is the shared 34½" cooking
+          // surface. Its body extends below that exact physical surface line.
           const COOKTOP_THICKNESS = 3.5; // inches — visible front face of cooktop
           const panelW = sizeAlong * ppi;
           const panelH = COOKTOP_THICKNESS * ppi;
           const panelLeft = posAlong * ppi;
-          const panelBottom = STD.BASE_HEIGHT * ppi; // sits on top of 34.5" cabinet
+          const panelBottom = (STD.RANGE_COOKING_SURFACE_HEIGHT - COOKTOP_THICKNESS) * ppi;
           const isGas = p.sinkTopType === "gas";
           const isBlackGlass = p.rangeTopFinish === "black-glass";
           const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top";

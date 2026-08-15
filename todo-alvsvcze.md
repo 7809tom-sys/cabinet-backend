@@ -446,3 +446,6 @@
 - [x] Remove the box-like 3D range base and render a realistic freestanding floor appliance body with visible lower recess and feet
 - [x] Preserve the range’s exact catalog envelope, saved floor placement, cooktop, and realistic product front while refining its floor contact
 - [x] Add measured 3D regression and cross-device visual verification for the freestanding range presentation
+- [x] Set every range and cooktop cooking surface at 34½ inches above the finished floor in shared designer rules
+- [x] Align 2D elevation and 3D cooktop meshes to the 34½-inch cooking-surface rule without changing saved appliance placement
+- [x] Add cross-view height regressions and verify the unified cooking-surface elevation on mobile and desktop
