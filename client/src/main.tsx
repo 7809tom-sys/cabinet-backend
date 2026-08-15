@@ -8,6 +8,7 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import { shouldRedirectToLoginOnError } from "./lib/authRedirect";
+import { fetchTrpcJson } from "./lib/trpcTransport";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -44,10 +45,7 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
+        return fetchTrpcJson(input, init);
       },
     }),
   ],

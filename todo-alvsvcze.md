@@ -400,3 +400,5 @@
 - [x] Make affiliate dashboard Branded storefront links use the affiliate’s configured custom domain when available
 - [x] Remove central CabinetDealz navigation and branding from affiliate-visible dashboard chrome
 - [x] Add regression coverage for affiliate dashboard custom-domain links and white-label navigation
+- [x] Fix the main-page tRPC request that receives the HTML application shell instead of JSON
+- [x] Add regression coverage for the repaired API route and main-page query response
