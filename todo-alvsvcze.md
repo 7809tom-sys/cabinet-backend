@@ -517,3 +517,7 @@
 - [x] Remove the forced canonical wall-rotation mapping that reversed the user-visible saved layout
 - [x] Restore exact saved cabinet transforms while retaining live verification of any separately reversed front meshes
 - [x] Add a regression that keeps countertops seated directly on the finished cabinet top while preserving saved orientation
+- [ ] Enforce decorative door and drawer fronts flush to their physical cabinet face and fully bounded by its outer edges
+- [ ] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
+- [ ] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
+- [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path

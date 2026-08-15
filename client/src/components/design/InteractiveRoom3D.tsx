@@ -2181,22 +2181,24 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (island) addIslandZone(catalogRoot, island, materialDefaults.countertop);
     for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
     for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
-    const activeBecPlacements = placed.filter((cabinet) => /^(?:BEC|BA|BAC)[-_]?\d/i.test(cabinet.masterCode ?? ""));
-    if (activeBecPlacements.length) {
+    if (placed.length) {
       catalogRoot.updateMatrixWorld(true);
       const meshes: Array<Record<string, unknown>> = [];
       catalogRoot.traverse((node) => {
         if (!(node instanceof THREE.Mesh)) return;
         const bounds = new THREE.Box3().setFromObject(node);
+        let owner: THREE.Object3D | null = node;
+        while (owner && !owner.userData.masterCode) owner = owner.parent;
         meshes.push({
           geometry: node.geometry.type,
           visible: node.visible,
+          ownerMasterCode: owner?.userData.masterCode ?? null,
           position: [node.getWorldPosition(new THREE.Vector3()).x, node.getWorldPosition(new THREE.Vector3()).y, node.getWorldPosition(new THREE.Vector3()).z],
           bounds: [bounds.min.x, bounds.min.y, bounds.min.z, bounds.max.x, bounds.max.y, bounds.max.z],
           userData: node.userData,
         });
       });
-      console.error("[BEC-LIVE-SCENE]", JSON.stringify({ placements: activeBecPlacements, meshes }));
+      console.error("[ACTIVE-3D-SCENE-MESHES]", JSON.stringify({ placements: placed, meshes }));
     }
     threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
