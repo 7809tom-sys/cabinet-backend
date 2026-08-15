@@ -1204,9 +1204,11 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
     const oneAppliance = moving.placement === "appliance" || o.placement === "appliance";
     const bothAppliance = moving.placement === "appliance" && o.placement === "appliance";
     if (!samePlacement) {
-      // Cross-placement: only flag when exactly one is an appliance in the same vertical zone.
+      // Cross-placement appliance conflicts use the real vertical envelopes.
+      // A 70-inch refrigerator reaches into the 54-inch wall-cabinet band,
+      // while a standard floor appliance below the counter does not.
       if (!oneAppliance || bothAppliance) continue;
-      if (occupiesUpperZone(moving) !== occupiesUpperZone(o)) continue;
+      if (!verticalEnvelopesOverlap(moving, o)) continue;
       // Sink appliance over a sink-base cabinet is the intended layout — not a collision.
       if (
         (isSinkAppliance(moving) && isSinkBaseCabinet(o)) ||
@@ -1225,6 +1227,16 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
     if (overlap) return true;
   }
   return false;
+}
+
+function verticalEnvelopesOverlap(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  const aBox = elevationBox(a);
+  const bBox = elevationBox(b);
+  const tolerance = 0.01;
+  return (
+    aBox.bottom < bBox.bottom + bBox.height - tolerance &&
+    aBox.bottom + aBox.height > bBox.bottom + tolerance
+  );
 }
 
 // Footprint rectangle (rotation-aware) for a placed item.
@@ -1388,8 +1400,9 @@ export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
       // EXEMPTION: a bridge (short) wall cabinet mounted over an over-range
       // microwave/hood is the intended layout, so it must never be flagged.
       if (isBridgeOverRange(a, b)) continue;
-      // Only items sharing the same vertical zone can truly collide.
-      if (occupiesUpperZone(a) !== occupiesUpperZone(b)) continue;
+      // A floor refrigerator is tall enough to occupy the wall-cabinet band;
+      // standard base appliances remain below it.
+      if (!verticalEnvelopesOverlap(a, b)) continue;
       if (footprintsOverlap(a, b)) {
         conflicts.add(a.uid);
         conflicts.add(b.uid);
@@ -3129,7 +3142,10 @@ export function freeSegmentsOnWall(
   // Which placement LAYER we're tiling. Items only block their own layer: wall
   // cabinets hang ABOVE base cabinets, so a wall cabinet must tile against other
   // wall cabinets only (and vice-versa). Defaults to "base" for back-compat.
-  layer: Placement = "base"
+  layer: Placement = "base",
+  // Full-height floor appliances (refrigerators) reserve the upper wall band
+  // in addition to their normal appliance/base span.
+  reserveUpperZone = false,
 ): WallSegment[] {
   const horizontal = side === "top" || side === "bottom";
   const wallLen = horizontal ? room.width : room.depth;
@@ -3141,6 +3157,7 @@ export function freeSegmentsOnWall(
   // span floor-to-ceiling, so they block BOTH the base and wall layers.
   const blocksThisLayer = (pl: Placement): boolean => {
     if (pl === "tall") return true;
+    if (reserveUpperZone && pl === "wall") return true;
     if (layer === "wall") return pl === "wall";
     // base/appliance share the floor layer
     return pl === "base" || pl === "appliance";

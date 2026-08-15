@@ -2280,7 +2280,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (x != null && y != null) {
         spot = { x, y, rotation: 0 };
       } else {
-        const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9), 0, c.placement);
+        const segs = freeSegmentsOnWall(
+          activeWall,
+          room,
+          prev,
+          openings,
+          Math.min(width, 9),
+          0,
+          c.placement,
+          isRefrigerator({ masterCode: c.masterCode, placement: accPlacement }),
+        );
         const fit = segs.find((s) => s.length >= width) ?? segs[0];
         if (fit) {
           const wallLen = (activeWall === "top" || activeWall === "bottom") ? room.width : room.depth;

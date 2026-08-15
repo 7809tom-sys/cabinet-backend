@@ -1303,6 +1303,15 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(wallSegs).toEqual([{ start: 24, length: 120 }]);
     expect(baseSegs).toEqual([{ start: 24, length: 120 }]);
   });
+
+  it("reserves wall-cabinet spans when finding a segment for a full-height refrigerator", () => {
+    const wall = cab({ uid: "wall", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 30 });
+    const baseLayer = freeSegmentsOnWall("top", ROOM_12x10, [wall], [], 9, 0, "appliance");
+    const refrigeratorLayer = freeSegmentsOnWall("top", ROOM_12x10, [wall], [], 9, 0, "appliance", true);
+
+    expect(baseLayer).toEqual([{ start: 0, length: 144 }]);
+    expect(refrigeratorLayer).toEqual([{ start: 36, length: 108 }]);
+  });
 });
 
 describe("wallPlacementAt", () => {
@@ -1941,6 +1950,22 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const conflicts = conflictingUids([base, range]);
     expect(conflicts.has("b")).toBe(true);
     expect(conflicts.has("r")).toBe(true);
+  });
+
+  it("flags a 70-inch refrigerator that overlaps a wall cabinet in the 54-inch upper zone", () => {
+    const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 0, y: 0, width: 36, depth: 24, height: 70 });
+    const wall = cab({ uid: "wall", masterCode: "WR3624", description: "36 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 30 });
+
+    expect(hasCollision(fridge, [wall])).toBe(true);
+    expect(conflictingUids([fridge, wall])).toEqual(new Set(["fridge", "wall"]));
+  });
+
+  it("keeps ordinary base appliances valid below a standard wall cabinet", () => {
+    const dishwasher = cab({ uid: "dishwasher", masterCode: "DW-24", description: "Dishwasher 24", placement: "appliance", x: 0, y: 0, width: 24, depth: 24, height: 34.5 });
+    const wall = cab({ uid: "wall", masterCode: "WR2424", description: "24 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30 });
+
+    expect(hasCollision(dishwasher, [wall])).toBe(false);
+    expect(conflictingUids([dishwasher, wall])).toEqual(new Set());
   });
 });
 

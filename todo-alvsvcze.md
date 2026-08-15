@@ -402,3 +402,6 @@
 - [x] Add regression coverage for affiliate dashboard custom-domain links and white-label navigation
 - [x] Fix the main-page tRPC request that receives the HTML application shell instead of JSON
 - [x] Add regression coverage for the repaired API route and main-page query response
+- [x] Prevent refrigerator placements from overlapping base and wall cabinet elevation zones in the 2D designer
+- [x] Enforce shared footprint collision rejection between tall appliances and placed cabinet runs
+- [x] Add active-layout regressions for FRIDGE-36, B-24, and WR3624 non-overlap
