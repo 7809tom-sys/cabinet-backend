@@ -492,3 +492,8 @@
 - [ ] Add a BEC exposed-face count and finish regression, then validate it against the latest supplied 3D screenshot
 - [x] Remove the third BEC face entirely; it must not be retained as a finished end skin
 - [x] Add a deterministic BEC regression that rejects a separately projected third face ahead of the physical clipped end plane
+- [ ] Capture the actual user-visible BEC scene inputs and enumerate the live mesh path because the published face correction did not change the preview
+- [ ] Remove the specific live BEC mesh responsible for the still-visible third panel and verify its absence in the refreshed user scene
+- [ ] Identify the user-visible 3D preview route or bundle that did not execute the BEC inventory trace, then repair its live renderer path
+- [x] Replace the clipped BEC body with the direct 24×24 end-cabinet geometry: one 24-inch side on the wall, one 24-inch side attached to the existing cabinet, and two 8½-inch angled door fronts
+- [x] Remove every residual third BEC face so only the two 8½-inch fronts define the exposed 45-degree end

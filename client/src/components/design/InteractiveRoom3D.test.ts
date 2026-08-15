@@ -1070,6 +1070,10 @@ describe("interactive 3D room scene helpers", () => {
       });
       expect(carcasses).toHaveLength(1);
       expect(carcasses[0]!.userData.clippedNonCornerEndReturnBody).toBe(true);
+      expect(carcasses[0]!.userData.hiddenAttachedCarcass).toBe(true);
+      expect(carcasses[0]!.visible).toBe(false);
+      expect(returnFaces).toHaveLength(2);
+      expect(returnFaces.every((face) => face.userData.doorWidthIn === 8.45)).toBe(true);
       root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
       expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12, 6);

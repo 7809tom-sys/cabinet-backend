@@ -778,14 +778,19 @@ export function addCabinet(
       bodyMeshes.push(leg);
     }
   } else if (specialty.kind === "end-return") {
+    // BEC has two boundaries concealed by the wall and its adjacent 24-inch
+    // base cabinet. Do not render that structural carcass into the room: the
+    // only exposed vertical end is its pair of equal 8½-inch angled fronts.
     const clippedBody = new THREE.Mesh(
       diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight),
       bodyMaterial,
     );
+    clippedBody.visible = false;
     clippedBody.userData = {
       specialtyProfile: "end-return",
       nonCornerEndReturnBody: true,
       clippedNonCornerEndReturnBody: true,
+      hiddenAttachedCarcass: true,
       selectedStyleSideSkin: true,
     };
     cabinet.add(clippedBody);
@@ -1387,7 +1392,7 @@ export function addCabinet(
     // The L corner is built from two overlapping carcass legs. Their individual
     // edge overlays expose the internal construction seam as a false line that
     // projects into the room. The two door frames remain the visible seam.
-    if (specialty.kind === "l-corner") continue;
+    if (specialty.kind === "l-corner" || specialty.kind === "end-return") continue;
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(bodyMesh.geometry),
       new THREE.LineBasicMaterial({ color: "#332d25", transparent: true, opacity: 0.34 }),
