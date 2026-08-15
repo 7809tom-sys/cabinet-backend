@@ -28,11 +28,16 @@ describe("realistic designer appliance appearances", () => {
     expect(applianceAppearanceImage("RANGE-30", "/manus-storage/customer-choice.webp")).toBe("/manus-storage/customer-choice.webp");
   });
 
-  it("keeps the measured 2D elevation free of perspective range and hood photos", () => {
+  it("keeps every measured 2D appliance elevation free of product photos while preserving them for the 3D preview", () => {
     expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
     expect(applianceElevationPresentation("RANGE30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD-30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD30")).toBe("vector");
-    expect(applianceElevationPresentation("FRIDGE-36")).toBe("photo");
+    expect(applianceElevationPresentation("FRIDGE-36")).toBe("vector");
+    expect(applianceElevationPresentation("DW-24")).toBe("vector");
+    expect(applianceElevationPresentation("MW-30")).toBe("vector");
+    expect(applianceAppearanceImage("FRIDGE-36")).toContain("lg_french_door_refrigerator_front");
+    expect(applianceAppearanceImage("DW-24")).toContain("whirlpool_dishwasher_front");
+    expect(applianceAppearanceImage("MW-30")).toContain("zline_over_range_microwave_front");
   });
 });

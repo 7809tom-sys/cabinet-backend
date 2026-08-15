@@ -33,3 +33,7 @@ Prepared visual-only assets were verified after edge-connected white canvas remo
 | 36-inch Stainless French-Door Refrigerator | `/manus-storage/lg_french_door_refrigerator_front_b498406f.webp` | 36 W × 30 D × 70 H |
 | 24-inch Stainless Dishwasher | `/manus-storage/whirlpool_dishwasher_front_5c695d52.webp` | 24 W × 24 D × 34.5 H |
 | 30-inch Stainless Over-Range Microwave | `/manus-storage/zline_over_range_microwave_front_4976b7ab.webp` | 30 W × 15 D × 17 H, mount 54 |
+
+## Presentation Boundary
+
+All appliance **2D elevations** now use measured vector fronts rather than product photographs. This includes the supplied range and hood imagery as well as the refrigerator, dishwasher, and microwave additions. The cropped catalog product assets remain available only as transparent front planes on their fixed catalog envelopes in the interactive **3D room preview**. Focused visual-mode, shared-design, and 3D renderer regressions assert that split explicitly.

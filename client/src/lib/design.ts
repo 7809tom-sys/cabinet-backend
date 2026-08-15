@@ -182,10 +182,11 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
 }
 
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
-  // Wall elevations are measured orthographic drawings. Ranges and hoods use
-  // calibrated 2D silhouettes here; their supplied product imagery belongs in
-  // the appliance picker and 3D room preview instead of a perspective elevation.
-  return /^(RANGE|HOOD)[-_]?/i.test(masterCode ?? "") ? "vector" : "photo";
+  // Wall elevations are measured orthographic drawings. Every appliance uses a
+  // calibrated vector face here; original product imagery is reserved for the
+  // appliance picker and dimensionally exact 3D room-preview front plane.
+  void masterCode;
+  return "vector";
 }
 
 export interface DesignCabinet {
