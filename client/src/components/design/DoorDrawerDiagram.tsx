@@ -416,35 +416,39 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     const cTotalSvgH = svgH + 24;
 
     if (isEndReturn) {
-      // BEC/BA cabinets are 24×24 end returns, not standard rectangular door
-      // boxes. Show their 45-degree exposed end and two configured doors in the
-      // selected-cabinet detail panel so it agrees with plan/elevation rendering.
-      const clipped = Math.min(iW, iH) * 0.16;
-      const inset = 6;
+      // BEC/BA cabinets are a 24×24 end return: two separate 12-inch faces
+      // meet at the outer return seam. They are not a flat diagonal front.
+      const faceInset = Math.min(iW * 0.13, 24);
+      const faceRise = Math.min(iH * 0.13, 28);
+      const doorInset = 7;
       const seamX = PAD + iW / 2;
-      const outerPts = [
-        `${PAD + clipped},${PAD}`,
-        `${PAD + iW - clipped},${PAD}`,
-        `${PAD + iW},${PAD + clipped}`,
-        `${PAD + iW},${PAD + iH}`,
-        `${PAD},${PAD + iH}`,
-        `${PAD},${PAD + clipped}`,
+      const leftFacePts = [
+        `${seamX},${PAD}`,
+        `${PAD + faceInset},${PAD + faceRise}`,
+        `${PAD + faceInset},${PAD + iH - faceInset}`,
+        `${seamX},${PAD + iH}`,
+      ].join(" ");
+      const rightFacePts = [
+        `${seamX},${PAD}`,
+        `${PAD + iW - faceInset},${PAD + faceRise}`,
+        `${PAD + iW - faceInset},${PAD + iH - faceInset}`,
+        `${seamX},${PAD + iH}`,
       ].join(" ");
       const leftDoorPts = [
-        `${PAD + clipped + inset},${PAD + inset}`,
-        `${seamX - 2},${PAD + inset}`,
-        `${seamX - 2},${PAD + iH - inset}`,
-        `${PAD + inset},${PAD + iH - inset}`,
-        `${PAD + inset},${PAD + clipped + inset}`,
+        `${seamX - doorInset},${PAD + doorInset}`,
+        `${PAD + faceInset + doorInset},${PAD + faceRise + doorInset}`,
+        `${PAD + faceInset + doorInset},${PAD + iH - faceInset - doorInset}`,
+        `${seamX - doorInset},${PAD + iH - doorInset}`,
       ].join(" ");
       const rightDoorPts = [
-        `${seamX + 2},${PAD + inset}`,
-        `${PAD + iW - clipped - inset},${PAD + inset}`,
-        `${PAD + iW - inset},${PAD + clipped + inset}`,
-        `${PAD + iW - inset},${PAD + iH - inset}`,
-        `${seamX + 2},${PAD + iH - inset}`,
+        `${seamX + doorInset},${PAD + doorInset}`,
+        `${PAD + iW - faceInset - doorInset},${PAD + faceRise + doorInset}`,
+        `${PAD + iW - faceInset - doorInset},${PAD + iH - faceInset - doorInset}`,
+        `${seamX + doorInset},${PAD + iH - doorInset}`,
       ].join(" ");
       const doorLabelY = PAD + iH / 2;
+      const leftLabelX = (seamX + PAD + faceInset) / 2;
+      const rightLabelX = (seamX + PAD + iW - faceInset) / 2;
 
       return (
         <svg
@@ -452,17 +456,25 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
           width={width}
           height={cTotalSvgH}
           className={className}
-          aria-label="BEC-24 two-door 45-degree end-return diagram"
+          aria-label="BEC-24 two-face 24-by-24 end-return diagram"
           role="img"
           data-bec-end-return-detail="true"
         >
           <polygon
-            points={outerPts}
-            fill="none"
+            points={leftFacePts}
+            fill="#dbeafe"
             stroke={CLR.box}
             strokeWidth={2}
             strokeLinejoin="round"
-            data-bec-45-angle="true"
+            data-bec-left-return-face="true"
+          />
+          <polygon
+            points={rightFacePts}
+            fill="#bfdbfe"
+            stroke={CLR.box}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            data-bec-right-return-face="true"
           />
           <polygon
             points={leftDoorPts}
@@ -482,16 +494,16 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
           />
           <line
             x1={seamX}
-            y1={PAD + inset}
+            y1={PAD}
             x2={seamX}
-            y2={PAD + iH - inset}
-            stroke={CLR.doorStroke}
-            strokeWidth={1.5}
+            y2={PAD + iH}
+            stroke={CLR.box}
+            strokeWidth={2}
             data-bec-center-seam="true"
           />
-          <text x={PAD + iW * 0.28} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={10} fontWeight="600" fontFamily="system-ui, sans-serif">Left Door</text>
-          <text x={PAD + iW * 0.72} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={10} fontWeight="600" fontFamily="system-ui, sans-serif">Right Door</text>
-          <text x={width / 2} y={cLegendY + 5} textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">45° angled end · two 12&quot; doors</text>
+          <text x={leftLabelX} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={9} fontWeight="600" fontFamily="system-ui, sans-serif">Left 12&quot; Door</text>
+          <text x={rightLabelX} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={9} fontWeight="600" fontFamily="system-ui, sans-serif">Right 12&quot; Door</text>
+          <text x={width / 2} y={cLegendY + 5} textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">24×24 end return · two 12&quot; faces</text>
         </svg>
       );
     }

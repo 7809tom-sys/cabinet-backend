@@ -461,3 +461,9 @@
 - [x] Replace the BEC-24 detail panel’s flat two-rectangle diagram with its two-door 45-degree angled-end face
 - [x] Preserve BEC-24’s 24×24 end-return placement and two configured doors while correcting the mobile detail presentation
 - [x] Add a BEC detail-panel regression and validate the corrected diagram on mobile, tablet, and desktop
+- [ ] Replace the rejected BEC 45-degree detail card with the true two-face 24×24 end-return presentation
+- [ ] Show a distinct 12-inch left return face and 12-inch right return face in the BEC detail diagram, with the configured doors on those faces
+- [ ] Add a revised BEC two-face detail regression and obtain live mobile confirmation before marking it complete
+- [x] Replace the square-box BEC-24 3D cabinet with its true two-face 24×24 end-return geometry
+- [x] Render a distinct left 12-inch return face and right 12-inch return face in 3D while preserving the BEC floor position and countertop support
+- [ ] Add BEC 3D mesh regressions and verify the corrected end-return form against the reported 3D scene

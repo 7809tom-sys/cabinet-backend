@@ -18,16 +18,17 @@ const bec24 = {
 };
 
 describe("DoorDrawerDiagram BEC-24 end-return detail contract", () => {
-  it("renders the two-door 45-degree end face rather than a flat rectangular door layout", () => {
+  it("renders two distinct 12-inch return faces rather than a flat diagonal or rectangular door layout", () => {
     const markup = renderToStaticMarkup(createElement(DoorDrawerDiagram, { cabinet: bec24, width: 220 }));
 
     expect(cabinetDrawingType(bec24)).toBe("end-return");
     expect(markup).toContain('data-bec-end-return-detail="true"');
-    expect(markup).toContain('data-bec-45-angle="true"');
+    expect(markup).toContain('data-bec-left-return-face="true"');
+    expect(markup).toContain('data-bec-right-return-face="true"');
     expect(markup).toContain('data-bec-angled-door="left"');
     expect(markup).toContain('data-bec-angled-door="right"');
     expect(markup).toContain('data-bec-center-seam="true"');
-    expect(markup).toContain("45° angled end");
-    expect(markup).toContain("two 12&quot; doors");
+    expect(markup).toContain("24×24 end return");
+    expect(markup).toContain("two 12&quot; faces");
   });
 });
