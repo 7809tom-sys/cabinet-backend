@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasCollision, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, hasCollision, removeOverlappingPlacements, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -38,5 +38,27 @@ describe("design placement collision prevention", () => {
     const sink = placed({ uid: "sink", masterCode: "SINK-33", description: "Single bowl sink", placement: "appliance", x: 0, width: 33 });
     expect(hasCollision(range, [b33])).toBe(true);
     expect(hasCollision(sink, [sinkBase])).toBe(false);
+  });
+
+  it("does not append a base cabinet into an existing refrigerator opening", () => {
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const b24 = placed({ uid: "b24", masterCode: "B-24", x: 24, width: 24 });
+    const result = appendCollisionFreePlacements([fridge], [b24]);
+    expect(result.placed).toEqual([fridge]);
+    expect(result.rejected).toEqual([b24]);
+  });
+
+  it("keeps a refrigerator and removes a colliding base from a restored legacy layout", () => {
+    const b24 = placed({ uid: "b24", masterCode: "B-24", x: 24, width: 24 });
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const result = removeOverlappingPlacements([b24, fridge]);
+    expect(result.placed).toEqual([fridge]);
+    expect(result.rejected).toEqual([b24]);
+  });
+
+  it("allows a base cabinet to butt against the refrigerator opening", () => {
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const b24 = placed({ uid: "b24", masterCode: "B-24", x: 0, width: 24 });
+    expect(appendCollisionFreePlacements([fridge], [b24]).placed).toEqual([fridge, b24]);
   });
 });

@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, placedFootprint, hasCollision, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, placedFootprint, hasCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -384,6 +384,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [polygonEditMode, setPolygonEditMode] = useState(false);
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+
+  // Last line of defense for legacy designs and any future placement path that
+  // bypasses an explicit add/move helper. A refrigerator or tall end panel wins
+  // over a base cabinet occupying the same physical opening, so the canvas can
+  // never retain the B-24-inside-refrigerator state shown in the reported plan.
+  useEffect(() => {
+    const resolution = removeOverlappingPlacements(placed);
+    if (resolution.rejected.length > 0) setPlaced(resolution.placed);
+  }, [placed]);
 
   // The public Room Planner stores a selected room shape and starter layout
   // briefly in session storage before it opens the existing full designer.
@@ -1491,7 +1500,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           ? { ...p, placement: "appliance" as const }
           : p
       );
-      setPlaced(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), d.room ?? DEFAULT_ROOM));
+      setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), d.room ?? DEFAULT_ROOM)).placed);
       const restoredStyle = restoredSavedDesignStyle(d);
       setStyleId(restoredStyle.styleId);
       // Restore the supply-line lock if the saved design was pinned to one.
@@ -2639,7 +2648,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       styleId: styleIdRef.current ?? null,
       mountBottom: topLine,
     };
-    setPlaced((prev) => [...prev, newCab]);
+    setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
     setSelectedUid(newCab.uid);
     toast.success(t("dt_ceiling_filler_placed", { w: String(w), h: String(gapH) }));
   }, [layoutLocked, room, placed, openings, activeWall, t]);
@@ -2706,9 +2715,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
           };
-          working = [...working, newCab];
+          const resolution = appendCollisionFreePlacements(working, [newCab]);
+          working = resolution.placed;
           along += width;
-          totalCount++;
+          if (resolution.rejected.length === 0) totalCount++;
         }
         totalFiller += result.fillerInches;
       }
@@ -2778,7 +2788,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
       };
-      setPlaced((prev) => [...prev, newCab]);
+      setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_placed_toast", { code: c.masterCode, len: formatInches(gap.length) }));
     },
@@ -2818,7 +2828,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         catalogImageUrl: null,
         styleId: styleIdRef.current ?? null,
       };
-      setPlaced((prev) => [...prev, newCab]);
+      setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_toast_added_filler", { w }));
     },
@@ -2885,7 +2895,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         catalogImageUrl: null,
         styleId: styleIdRef.current ?? null,
       };
-      setPlaced((prev) => [...prev, newCab, newFiller]);
+      setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab, newFiller]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
     },
@@ -3287,7 +3297,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 
       if (toPlace.length > 0) {
-        setPlaced((prev) => [...prev, ...toPlace]);
+        setPlaced((prev) => appendCollisionFreePlacements(prev, toPlace).placed);
         toast.success(t("dt_fridge_added_toast"));
       }
       setFridgeDialog(null);
@@ -3439,7 +3449,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       remaining -= cw;
     }
 
-    setPlaced((prev) => [...prev, ...out]);
+    setPlaced((prev) => appendCollisionFreePlacements(prev, out).placed);
     // Turn on crown so it wraps the stepped top line of the built-in.
     trimOverride.current.crown = true;
     setCrown(true);
@@ -3599,8 +3609,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               // Stamp the active color so Consultant-placed cabinets keep it.
               styleId: styleIdRef.current ?? null,
             };
-            working = [...working, newCab];
-            total++;
+            const resolution = appendCollisionFreePlacements(working, [newCab]);
+            working = resolution.placed;
+            if (resolution.rejected.length === 0) total++;
           }
         }
         return working;
@@ -3746,6 +3757,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number) => {
     setPlaced((prev) => {
       const cabinet = prev.find((p) => p.uid === uid);
+      if (!cabinet) return prev;
+      const movedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
+      if (hasCollision(movedCabinet, prev.filter((p) => p.uid !== uid))) {
+        const message = `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
       if (cabinet && isSinkBaseCabinet(cabinet)) {
         // Co-move any sink fixtures sitting on this sink base.
         // Calculate the delta from the cabinet's old position to the new one.
@@ -3768,9 +3787,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }));
         }
       }
-      return prev.map((p) => (p.uid === uid
-        ? { ...p, x, y, ...(rotation != null ? { rotation } : {}) }
-        : p));
+      return prev.map((p) => (p.uid === uid ? movedCabinet : p));
     });
   }, [setSinks]);
 
@@ -3808,7 +3825,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           room,
           prev.filter((c) => c.uid !== p.uid && (c.placement === p.placement || c.placement === "appliance" || p.placement === "appliance"))
         );
-        return { ...rotated, x: snapped.x, y: snapped.y };
+        const seated = { ...rotated, x: snapped.x, y: snapped.y };
+        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+          const message = `${p.masterCode} was not rotated because it would overlap an existing item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return p;
+        }
+        return seated;
       })
     );
   };
@@ -3851,7 +3875,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
           : p
       );
-      return clampCabinetsToRoom(moved, room);
+      const clamped = clampCabinetsToRoom(moved, room);
+      const candidate = clamped.find((p) => p.uid === selectedUid);
+      if (candidate && hasCollision(candidate, clamped.filter((p) => p.uid !== selectedUid))) {
+        const message = `${candidate.masterCode} was not moved because it would overlap an existing item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      return clamped;
     });
   }, [selectedUid, room]);
 
@@ -4032,7 +4064,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           room,
           prev.filter((c) => c.uid !== p.uid)
         );
-        return { ...resized, x: snapped.x, y: snapped.y };
+        const seated = { ...resized, x: snapped.x, y: snapped.y };
+        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+          const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return p;
+        }
+        return seated;
       })
     );
   }, [selectedUid, room]);
@@ -4088,7 +4127,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const next = Math.max(MIN_D, Math.min(MAX_D, Math.round(nextRaw * 10) / 10));
         const resized = { ...p, depth: next };
         const snapped = snapPosition(resized, room, prev.filter((c) => c.uid !== p.uid));
-        return { ...resized, x: snapped.x, y: snapped.y };
+        const seated = { ...resized, x: snapped.x, y: snapped.y };
+        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+          const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return p;
+        }
+        return seated;
       })
     );
   }, [selectedUid, room]);
@@ -4557,7 +4603,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 ? { ...p, placement: "appliance" as const }
                 : p
             );
-            setPlaced(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedDraft), d.room ?? DEFAULT_ROOM));
+            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedDraft), d.room ?? DEFAULT_ROOM)).placed);
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);

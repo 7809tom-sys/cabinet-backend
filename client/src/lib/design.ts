@@ -1246,13 +1246,11 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     const samePlacement = o.placement === moving.placement;
-    const oneAppliance = moving.placement === "appliance" || o.placement === "appliance";
-    const bothAppliance = moving.placement === "appliance" && o.placement === "appliance";
     if (!samePlacement) {
-      // Cross-placement appliance conflicts use the real vertical envelopes.
-      // A 70-inch refrigerator reaches into the 54-inch wall-cabinet band,
-      // while a standard floor appliance below the counter does not.
-      if (!oneAppliance || bothAppliance) continue;
+      // Different placement buckets may share a plan footprint only when their
+      // vertical envelopes do not meet. This protects refrigerator end panels,
+      // tall cabinets, appliances, and base cabinets from occupying the same
+      // buildable opening while preserving valid upper-over-base arrangements.
       if (!verticalEnvelopesOverlap(moving, o)) continue;
       // Sink appliance over a sink-base cabinet is the intended layout — not a collision.
       if (
@@ -1272,6 +1270,47 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
     if (overlap) return true;
   }
   return false;
+}
+
+export type CollisionResolution = {
+  placed: PlacedCabinet[];
+  rejected: PlacedCabinet[];
+};
+
+/** Adds a batch only when every new placement clears all accepted footprints. */
+export function appendCollisionFreePlacements(
+  existing: PlacedCabinet[],
+  additions: PlacedCabinet[],
+): CollisionResolution {
+  const placed = [...existing];
+  const rejected: PlacedCabinet[] = [];
+  for (const candidate of additions) {
+    if (hasCollision(candidate, placed)) {
+      rejected.push(candidate);
+      continue;
+    }
+    placed.push(candidate);
+  }
+  return { placed, rejected };
+}
+
+/**
+ * Repairs legacy/imported layouts before they render. Appliances are evaluated
+ * first so a refrigerator is retained instead of a base cabinet hidden within
+ * the appliance opening; original order is then restored for drawing and BOMs.
+ */
+export function removeOverlappingPlacements(placements: PlacedCabinet[]): CollisionResolution {
+  const priority = (placement: PlacedCabinet["placement"]) => placement === "appliance" ? 2 : placement === "tall" ? 1 : 0;
+  const ordered = placements
+    .map((placement, index) => ({ placement, index }))
+    .sort((a, b) => priority(b.placement.placement) - priority(a.placement.placement) || a.index - b.index)
+    .map(({ placement }) => placement);
+  const resolution = appendCollisionFreePlacements([], ordered);
+  const accepted = new Set(resolution.placed.map((placement) => placement.uid));
+  return {
+    placed: placements.filter((placement) => accepted.has(placement.uid)),
+    rejected: placements.filter((placement) => !accepted.has(placement.uid)),
+  };
 }
 
 function verticalEnvelopesOverlap(a: PlacedCabinet, b: PlacedCabinet): boolean {

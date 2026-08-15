@@ -49,6 +49,13 @@
 
 - [x] Ensure fridge end panels are placed with mountBottom = 0 (floor level) — already correct (placement: "tall" → bottom: 0)
 
+## Fix: Refrigerator/base overlap across all placement paths
+
+- [x] Trace and close placement paths that allow a base cabinet to overlap a refrigerator
+- [x] Centralize collision resolution before cabinet state updates are committed
+- [x] Protect refrigerator surround, saved-design restore, and explicit-position placement flows
+- [x] Add refrigerator/base overlap and adjacent-run regression coverage
+
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)
@@ -2099,3 +2106,9 @@
 - [x] Make the 3D image-download action prominent and easy to identify
 - [x] Show a persistent visual overlap warning in the designer after a rejected placement
 - [x] Verify download action and warning behavior on desktop and mobile
+
+## Fix: Refrigerator/base overlap across all placement paths
+- [ ] Trace and close placement paths that allow a base cabinet to overlap a refrigerator
+- [ ] Centralize collision resolution before cabinet state updates are committed
+- [ ] Protect refrigerator surround, saved-design restore, and explicit-position placement flows
+- [ ] Add refrigerator/base overlap and adjacent-run regression coverage
