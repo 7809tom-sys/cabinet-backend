@@ -1105,13 +1105,17 @@ describe("interactive 3D room scene helpers", () => {
     const standardBodies: THREE.Mesh[] = [];
     const becBodies: THREE.Mesh[] = [];
     const becDoors: THREE.Object3D[] = [];
+    const becFrontGroups: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) becBodies.push(node);
       if (node.userData.nonCornerEndReturnDoor) becDoors.push(node);
+      if (node.userData.becPhysicalEndFace) becFrontGroups.push(node);
       if (node.userData.selectedStyleSideSkin && !node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) standardBodies.push(node);
     });
     expect(becBodies).toHaveLength(1);
     expect(becDoors).toHaveLength(2);
+    expect(becFrontGroups).toHaveLength(1);
+    expect(becFrontGroups[0]!.userData.separateProjectedThirdFace).toBe(false);
     root.updateMatrixWorld(true);
     const runBounds = new THREE.Box3().setFromObject(standardBodies[0]!);
     const becBounds = new THREE.Box3().setFromObject(becBodies[0]!);
@@ -1123,7 +1127,10 @@ describe("interactive 3D room scene helpers", () => {
       return center.x + center.z;
     });
     expect(doorPlanes[0]).toBeCloseTo(doorPlanes[1]!, 8);
-    expect(doorPlanes[0]).toBeCloseTo(5.05, 2);
+    // The two doors sit just in front of the actual clipped end plane at x + z = 5;
+    // a generic rectangular front would project a separate third face farther out.
+    expect(doorPlanes[0]).toBeCloseTo(5.035, 3);
+    expect(doorPlanes[0] - 5).toBeLessThan(0.04);
     expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.angledFrontWidthIn === 17)).toBe(true);
   });
 

@@ -487,3 +487,8 @@
 - [x] Orient the clipped 45-degree physical BEC end face toward the open end of its saved 2D run, with two approximately 8½-inch doors on that one 17-inch face
 - [ ] Add a saved-transform BEC end-run regression and validate the repaired 3D rendering against the supplied screenshot
 - [x] Add a saved-transform BEC end-run regression requiring a flush 24-inch run attachment and one exposed 17-inch 45-degree face
+- [x] Remove the extra bare BEC carcass panel shown in the refreshed 3D scene so only the intended two end-of-run faces are exposed
+- [x] Do not retain the removed third BEC face as a matching-finish end skin; the user confirmed it does not belong
+- [ ] Add a BEC exposed-face count and finish regression, then validate it against the latest supplied 3D screenshot
+- [x] Remove the third BEC face entirely; it must not be retained as a finished end skin
+- [x] Add a deterministic BEC regression that rejects a separately projected third face ahead of the physical clipped end plane

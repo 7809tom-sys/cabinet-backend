@@ -901,10 +901,17 @@ export function addCabinet(
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
-  // Diagonal and L-corner fronts use absolute local positions on their shared
-  // special footprint. Applying the generic rectangular front-depth offset to
-  // either one would push their faces and Shaker rails out into the room.
-  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" ? 0 : faceDepth;
+  if (specialty.kind === "end-return") {
+    frontGroup.userData = {
+      becPhysicalEndFace: true,
+      separateProjectedThirdFace: false,
+    };
+  }
+  // Specialty fronts use absolute local positions on their physical footprint.
+  // In particular, BEC must not inherit the generic rectangular front-depth
+  // offset: that offset creates a separate third face ahead of its clipped
+  // 45-degree end plane.
+  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (profileKind !== "shaker") return;
@@ -1275,7 +1282,14 @@ export function addCabinet(
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
       const doorOffset = direction * faceWidth / 2;
-      door.position.set(doorOffset * Math.SQRT1_2, 0, -doorOffset * Math.SQRT1_2 + 0.035);
+      // The clipped body’s true outer end plane runs from (+W/2, 0) to
+      // (0, +D/2). Anchor both doors to that plane, rather than projecting a
+      // second rectangular front in front of it.
+      door.position.set(
+        bodyWidth / 4 + doorOffset * Math.SQRT1_2,
+        0,
+        bodyDepth / 4 - doorOffset * Math.SQRT1_2 + 0.035,
+      );
       door.rotation.y = Math.PI / 4;
       door.userData = {
         specialtyProfile: "end-return",
