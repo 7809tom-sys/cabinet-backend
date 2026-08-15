@@ -985,6 +985,30 @@ describe("interactive 3D room scene helpers", () => {
       root.traverse((node) => { if (node.userData.returnFace) returnFaces.push(node); });
       expect(returnFaces).toHaveLength(2);
       expect(returnFaces.map((face) => face.userData.returnFace).sort()).toEqual(["left", "right"]);
+      expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
+        expect.closeTo(11.04 / 12, 6), expect.closeTo(11.04 / 12, 6),
+      ]);
+      expect(returnFaces.map((face) => face.rotation.y).sort()).toEqual([
+        -Math.PI / 4, Math.PI / 4,
+      ]);
+      const toeKicks: THREE.Object3D[] = [];
+      const counters: THREE.Object3D[] = [];
+      root.traverse((node) => {
+        if (node.userData.baseToeKick) toeKicks.push(node);
+        if (node.userData.endReturnCountertop) counters.push(node);
+      });
+      expect(toeKicks).toHaveLength(1);
+      expect(toeKicks[0]!.userData.toeKickHeightIn).toBe(4.5);
+      expect(counters).toHaveLength(1);
+      expect(counters[0]!.userData.countertopDepthIn).toBe(24.25);
+      const carcasses: THREE.Mesh[] = [];
+      root.traverse((node) => {
+        if (node.userData.selectedStyleSideSkin && node instanceof THREE.Mesh) carcasses.push(node);
+      });
+      expect(carcasses).toHaveLength(1);
+      const carcassGeometry = carcasses[0]!.geometry as THREE.BoxGeometry;
+      expect(carcassGeometry.parameters.width).toBeCloseTo(24 / 12, 6);
+      expect(carcassGeometry.parameters.depth).toBeCloseTo(24 / 12, 6);
     }
   });
 
