@@ -1053,9 +1053,17 @@ describe("interactive 3D room scene helpers", () => {
       expect(toeKicks[0]!.userData.nonCornerEndReturnToeKick).toBe(true);
       expect(toeKicks[0]!.userData.clippedNonCornerEndReturnToeKick).toBe(true);
       expect(toeKicks[0]!.userData.toeKickHeightIn).toBe(4.5);
+      const toeKickMesh = toeKicks[0] as THREE.Mesh;
+      expect(toeKickMesh.geometry.type).toBe("ExtrudeGeometry");
+      const toeKickPositions = toeKickMesh.geometry.getAttribute("position");
+      expect(Math.max(...Array.from({ length: toeKickPositions.count }, (_, index) => toeKickPositions.getX(index) + toeKickPositions.getZ(index)))).toBeCloseTo(21 / 24, 6);
       expect(counters).toHaveLength(1);
       expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
       expect(counters[0]!.userData.clippedNonCornerEndReturnCountertop).toBe(true);
+      const counterMesh = counters[0] as THREE.Mesh;
+      expect(counterMesh.geometry.type).toBe("ExtrudeGeometry");
+      const countertopPositions = counterMesh.geometry.getAttribute("position");
+      expect(Math.max(...Array.from({ length: countertopPositions.count }, (_, index) => countertopPositions.getX(index) + countertopPositions.getZ(index)))).toBeCloseTo(1.06, 6);
       const carcasses: THREE.Mesh[] = [];
       root.traverse((node) => {
         if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) carcasses.push(node);
