@@ -532,5 +532,12 @@
 - [ ] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
 - [ ] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
 - [ ] Capture the actual BEC-24 record in the user’s active design and use it as the sole input for the next 3D correction
+- [ ] Do not make further BEC-24 geometry changes from a generic or substitute cabinet; require the exact active saved record first
+- [x] Replace the rectangular BEC-24 body with the supplied diagram’s rear-apex two-24-inch-side construction
+- [x] Match the diagram’s two connected exterior door faces, rear apex, 34½-inch height, 4½-inch recessed toe kick, and top support without alternate interpretation
+- [x] Replace the rectangular BEC-24 body with the supplied diagram’s rear-apex two-24-inch-side construction
+- [x] Match the diagram’s two connected exterior door faces, rear apex, 34½-inch height, 4½-inch recessed toe kick, and top support without alternate interpretation
+- [x] Treat each Cabinet Config generic diagram and its provided description as authoritative construction facts with no inferred alternative geometry
+- [x] Add regressions that reject any generic fallback which conflicts with configured dimensions, body form, face layout, toe kick, or countertop support
 - [x] Recess every standard, tall, floor-dropped wall, and BEC-24 toe kick exactly 3 inches behind the cabinet body boundary while retaining the 4½-inch height
 - [x] Add exact three-inch toe-kick regression coverage for standard, tall, floor-dropped wall, and BEC-24 support faces

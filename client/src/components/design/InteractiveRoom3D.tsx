@@ -5,7 +5,7 @@ import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maxi
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
-import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
+import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -472,23 +472,41 @@ function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, heigh
 }
 
 /**
- * BEC-24 is a 24×24 end cabinet. Two perpendicular 24-inch cabinet sides are
- * attached to the wall/run boundaries; its two full-height door faces sit
- * directly on the two outward faces and join at their shared outside corner.
+ * BEC-24 follows its Cabinet Config diagram: two 24-inch cabinet sides run
+ * from one rear apex to the two front ends, and its door faces meet at the
+ * shared exterior apex. Its plan is therefore a diamond, not a 24×24 box.
  */
 export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number) {
   const sideLength = Math.min(bodyWidth, bodyDepth);
   const doorWidth = Math.max(0.2, sideLength - 0.08);
-  const apex = { x: bodyWidth / 2, z: bodyDepth / 2 };
+  const halfDiagonal = sideLength / Math.SQRT2;
+  const rearApex = { x: 0, z: -halfDiagonal };
+  const apex = { x: 0, z: halfDiagonal };
   return {
     apex,
+    rearApex,
     sideLength,
     doorWidth,
+    footprint: [rearApex, { x: -halfDiagonal, z: 0 }, apex, { x: halfDiagonal, z: 0 }],
     faces: [
-      { side: "front" as const, x: bodyWidth / 2 - doorWidth / 2, z: bodyDepth / 2 + 0.028, rotation: 0 },
-      { side: "right" as const, x: bodyWidth / 2 + 0.028, z: bodyDepth / 2 - doorWidth / 2, rotation: Math.PI / 2 },
+      { side: "left" as const, x: -halfDiagonal / 2, z: halfDiagonal / 2, rotation: -Math.PI / 4 },
+      { side: "right" as const, x: halfDiagonal / 2, z: halfDiagonal / 2, rotation: Math.PI / 4 },
     ],
   };
+}
+
+/** Extrudes BEC's diagram-defined diamond plan into a vertical cabinet body or top support. */
+function baseEndDiagramGeometry(sideLength: number, height: number) {
+  const layout = baseEndAttachedFrontLayout(sideLength, sideLength);
+  const shape = new THREE.Shape();
+  const [first, ...rest] = layout.footprint;
+  shape.moveTo(first!.x, -first!.z);
+  for (const point of rest) shape.lineTo(point.x, -point.z);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, -height / 2, 0);
+  return geometry;
 }
 
 /** Builds the vertical triangular extrusion defined by the shared 2D triangle footprint. */
@@ -620,17 +638,50 @@ function disposeObject(root: THREE.Object3D) {
 export function resolvedThreeDFaceLayout(input: {
   placementType?: string | null;
   width?: unknown;
+  description?: string | null;
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   openingType?: string | null;
+  graphicType?: string | null;
+  customProfile?: string | null;
+  cornerType?: string | null;
+  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  drawerLayout?: string | null;
+  doorHeight?: number | null;
+  drawerHeight?: number | null;
 }) {
-  const placement = (input.placementType ?? "base").toLowerCase();
+  const hasProvidedFaceDescription = /\b(?:door|drawer|opening)\b/i.test(input.description ?? "");
+  const descriptionFaceCounts = resolveDoorDrawerCounts({
+    masterCode: undefined,
+    description: input.description ?? null,
+    placementType: input.placementType ?? null,
+    width: typeof input.width === "number" || typeof input.width === "string" ? input.width : null,
+    numberOfDoors: input.numberOfDoors ?? null,
+    numberOfDrawers: input.numberOfDrawers ?? null,
+    openingType: input.openingType ?? null,
+    graphicType: input.graphicType ?? input.customProfile ?? null,
+    cornerType: input.cornerType ?? null,
+    facePattern: input.facePattern ?? null,
+    drawerLayout: input.drawerLayout ?? null,
+    doorHeight: input.doorHeight ?? null,
+    drawerHeight: input.drawerHeight ?? null,
+  });
+  // A description that names doors, drawers, or openings is authoritative.
+  // A generic label such as "Base Cabinet" has no face facts, so retain its
+  // explicit Cabinet Config counts instead of discarding them. When neither
+  // source specifies a count, use the shared 21-inch standard-face rule.
+  const configuredFaceCounts = hasProvidedFaceDescription
+    ? descriptionFaceCounts
+    : {
+      doors: input.numberOfDoors == null
+        ? standardDoorCountForFaceWidth(typeof input.width === "number" || typeof input.width === "string" ? input.width : null)
+        : Math.max(0, input.numberOfDoors),
+      drawers: Math.max(0, input.numberOfDrawers ?? 0),
+    };
   return {
     hasConfiguredOpening: Boolean(input.openingType && input.openingType !== "none"),
-    doorCount: input.numberOfDoors == null
-      ? standardDoorCountForFaceWidth(typeof input.width === "number" || typeof input.width === "string" ? input.width : null)
-      : Math.max(0, input.numberOfDoors),
-    drawerCount: Math.max(0, input.numberOfDrawers ?? 0),
+    doorCount: configuredFaceCounts.doors,
+    drawerCount: configuredFaceCounts.drawers,
   };
 }
 
@@ -836,16 +887,15 @@ export function addCabinet(
       bodyMeshes.push(leg);
     }
   } else if (specialty.kind === "end-return") {
-    // Preserve the 24×24 physical base body. Its two outward full-height faces
-    // receive the dedicated front and right door meshes below; no diamond, V,
-    // or detached panel is part of this assembly.
-    const clippedBody = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
+    const diagram = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
+    const clippedBody = new THREE.Mesh(baseEndDiagramGeometry(diagram.sideLength, bodyHeight), bodyMaterial);
     clippedBody.userData = {
       specialtyProfile: "end-return",
       nonCornerEndReturnBody: true,
-      perpendicularTwoSideEndBody: true,
-      wallSideIn: bodyDepth / INCH,
-      runSideIn: bodyWidth / INCH,
+      diagramDefinedRearApexBody: true,
+      sideLengthIn: diagram.sideLength / INCH,
+      rearApex: diagram.rearApex,
+      exteriorApex: diagram.apex,
     };
     cabinet.add(clippedBody);
     bodyMeshes.push(clippedBody);
@@ -1482,9 +1532,10 @@ export function addCabinet(
       }
       root.add(counterGroup);
     } else if (specialty.kind === "end-return") {
-      const counterDepth = threeDCountertopDepthIn(bodyDepth / INCH) * INCH;
+      const diagram = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
+      const countertopSideLength = threeDCountertopDepthIn(diagram.sideLength / INCH) * INCH;
       const counter = new THREE.Mesh(
-        new THREE.BoxGeometry(counterDepth, 1.5 * INCH, counterDepth),
+        baseEndDiagramGeometry(countertopSideLength, 1.5 * INCH),
         counterMaterial,
       );
       counter.position.copy(cabinet.position);
@@ -1494,7 +1545,7 @@ export function addCabinet(
         countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH),
         endReturnCountertop: true,
         nonCornerEndReturnCountertop: true,
-        perpendicularTwoSideEndCountertop: true,
+        diagramDefinedRearApexCountertop: true,
       };
       root.add(counter);
     } else if (specialty.kind === "diagonal-corner") {
