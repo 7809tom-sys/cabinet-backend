@@ -9,3 +9,5 @@ The same saved elevation was reviewed at a 1024-by-768 iPad landscape viewport a
 After publication, the same route was rechecked at both 1024-by-768 tablet and 390-by-844 mobile viewports. The compact **3D** action remained visible in the tablet toolbar, while mobile retained its compact Plan, Elevation, and 3D pill group plus the icon toolbar without horizontal overflow.
 
 The standard rectangular-room wall selector was then reviewed at 1024-by-768 tablet and 1440-by-900 desktop viewports. **Back** is an up arrow, **Left** a left arrow, **Right** a right arrow, and **Front** a down arrow; each retained its adjacent wall lock control, selected-state color, full accessible wall name, and tooltip. The condensed control group fit within the toolbar without overlap.
+
+After publication, the 1024-by-768 tablet and 375-by-812 mobile routes were checked again. The compact desktop/tablet arrow-and-lock group retained its fit, while the mobile toolbar continued to fit its Plan, Elevation, and 3D selector without horizontal overflow. Mobile wall selection remains available through the More sheet using the same directional icons and accessible names.
