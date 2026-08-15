@@ -510,3 +510,7 @@
 - [x] Add mesh contracts for BEC’s visible 24×24 carcass, perpendicular front/right door planes, 24-inch side dimensions, and rejection of 45-degree V rotations
 - [ ] Capture the exact active BEC placement record and enumerate every mesh in the user-visible 3D scene, including the unrelated elevated panels
 - [ ] Remove the confirmed elevated meshes and correct the active BEC transform so it is rendered only at its saved floor placement
+- [x] Flip the shared 3D cabinet-facing transform on every wall so doors and drawer fronts face into the room without moving saved placements
+- [x] Add four-wall regression coverage for inward-facing cabinet fronts and unchanged saved coordinates
+- [x] Enforce a 4½-inch recessed toe kick on every floor-standing cabinet, including tall and floor-placed wall cabinet profiles
+- [x] Add shared regressions that exclude raised wall cabinets while requiring toe kicks for all floor-mounted cabinet families

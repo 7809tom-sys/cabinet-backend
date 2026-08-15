@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -668,10 +668,19 @@ export function addCabinet(
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
   const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  const catalogMountBottom = sku.mountBottom != null
+    ? numberValue(sku.mountBottom, 0)
+    : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
+  const requestedMountBottom = transform?.bottom ?? catalogMountBottom;
+  // A cabinet that physically stands on the floor always has a recessed 4½in
+  // kick. This includes tall cabinets and a wall profile deliberately dropped
+  // to floor level; wall cabinets mounted above the floor are excluded.
+  const isFloorStandingCabinet = placement !== "appliance"
+    && (isBaseCabinet || isTall || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
-  // toe kick. Build only the 30-inch carcass above that kick so every base run
-  // keeps its 2D countertop top while exposing the proper floor recess in 3D.
-  const heightIn = isBaseCabinet
+  // toe kick. Build only the upper carcass over that kick so every floor run
+  // keeps its measured top while exposing the proper floor recess in 3D.
+  const heightIn = isFloorStandingCabinet
     ? Math.max(0.1, configuredHeightIn - THREE_D_TOE_KICK)
     : isFloorDishwasher
       ? 34.5
@@ -691,10 +700,7 @@ export function addCabinet(
   const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
   const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
   const bodyHeight = heightIn * INCH;
-  const catalogMountBottom = sku.mountBottom != null
-    ? numberValue(sku.mountBottom, 0)
-    : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
-  const bottom = transform?.bottom ?? catalogMountBottom;
+  const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
   cabinet.rotation.y = rotation;
@@ -703,6 +709,7 @@ export function addCabinet(
     masterCode: sku.masterCode,
     label: sku.description ?? sku.masterCode,
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
+    ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,
@@ -719,7 +726,7 @@ export function addCabinet(
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
   const bodyMeshes: THREE.Mesh[] = [];
-  if (isBaseCabinet) {
+  if (isFloorStandingCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
     const toeKickMaterial = new THREE.MeshStandardMaterial({ color: "#302820", roughness: 0.78 });
     const lCornerKind = specialty.kind === "corner-drawer" || specialty.kind === "l-corner";
@@ -748,6 +755,7 @@ export function addCabinet(
         toeKick.rotation.y = face.rotation;
         toeKick.userData = {
           baseToeKick: true,
+          floorStandingToeKick: true,
           toeKickHeightIn: THREE_D_TOE_KICK,
           endReturnToeKick: true,
           nonCornerEndReturnToeKick: true,
@@ -767,6 +775,7 @@ export function addCabinet(
       toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
       toeKick.userData = {
         baseToeKick: true,
+        floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
       };
       cabinet.add(toeKick);
@@ -1495,7 +1504,13 @@ export function existingCabinetTransform(
   const planRotation = (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer") && hasPlacedRoom
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : savedRotation;
-  const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
+  // The 2D footprint determines which wall a non-appliance cabinet occupies.
+  // Map that wall to the local +Z door face so cabinet fronts always look into
+  // the room while retaining the exact persisted x/y placement coordinates.
+  const inwardFacingDegrees = hasPlacedRoom && cabinet.placement !== "appliance"
+    ? ({ top: 0, bottom: 180, left: 90, right: -90 } as const)[cabinetWall(cabinet, room as RoomData)]
+    : planRotation;
+  const rotation = Number.isFinite(inwardFacingDegrees) ? inwardFacingDegrees * Math.PI / 180 : 0;
   const sharedElevation = elevationBox(cabinet, room);
   const explicitMountBottom = cabinet.mountBottom == null ? null : numberValue(cabinet.mountBottom, 0);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"

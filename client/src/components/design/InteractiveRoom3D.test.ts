@@ -381,11 +381,11 @@ describe("interactive 3D room scene helpers", () => {
     expect(families.map(placedCornerGeometryKind)).toEqual(expectedKinds);
     expect(families.map((record) => existingCabinetTransform(record, room).rotation)).toEqual([
       0,
-      Math.PI / 2,
+      -Math.PI / 2,
       0,
       Math.PI,
       Math.PI,
-      Math.PI * 1.5,
+      Math.PI / 2,
       0,
     ]);
     const root = new THREE.Group();
@@ -737,6 +737,20 @@ describe("interactive 3D room scene helpers", () => {
       uid: "current-fridge", cabinetId: 0, masterCode: "FRIDGE-36", description: "Refrigerator 36 inch", placement: "appliance",
       x: 0.75, y: 108, width: 36, depth: 30, height: 72, rotation: 90,
     })).toEqual({ x: 15.75, z: 126, rotation: Math.PI / 2, bottom: 0 });
+  });
+
+  it("faces every wall cabinet front into the room while preserving its saved 2D center", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 } as never;
+    const fixtures = [
+      { uid: "top", cabinetId: 1, masterCode: "B-24", description: "Top wall", placement: "base", x: 30, y: 0, width: 24, depth: 12, height: 34.5, rotation: 180, expected: { x: 42, z: 6, rotation: 0 } },
+      { uid: "bottom", cabinetId: 2, masterCode: "B-24", description: "Bottom wall", placement: "base", x: 30, y: 108, width: 24, depth: 12, height: 34.5, rotation: 0, expected: { x: 42, z: 114, rotation: Math.PI } },
+      { uid: "left", cabinetId: 3, masterCode: "B-24", description: "Left wall", placement: "base", x: 0, y: 30, width: 24, depth: 12, height: 34.5, rotation: 270, expected: { x: 6, z: 42, rotation: Math.PI / 2 } },
+      { uid: "right", cabinetId: 4, masterCode: "B-24", description: "Right wall", placement: "base", x: 132, y: 30, width: 24, depth: 12, height: 34.5, rotation: 90, expected: { x: 138, z: 42, rotation: -Math.PI / 2 } },
+    ] as never[];
+    fixtures.forEach((fixture) => {
+      const transform = existingCabinetTransform(fixture, room);
+      expect(transform).toMatchObject({ ...fixture.expected, bottom: 0 });
+    });
   });
 
   it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
@@ -1220,6 +1234,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(toeKickBounds.min.y).toBeCloseTo(0, 8);
     expect(toeKickBounds.max.y).toBeCloseTo(4.5 / 12, 8);
     expect(((carcass!.geometry as THREE.BoxGeometry).parameters.height)).toBeCloseTo(30 / 12, 8);
+  });
+
+  it("adds a four-and-a-half-inch toe kick to every cabinet that rests on the floor, including tall and floor-dropped wall profiles", () => {
+    const root = new THREE.Group();
+    const floorFixtures = [
+      { masterCode: "B-24", description: '24" Base', placementType: "base", width: 24, height: 34.5, depth: 24 },
+      { masterCode: "PANTRY-24", description: '24" Pantry', placementType: "tall", width: 24, height: 84, depth: 24 },
+      { masterCode: "W-2430", description: '24" Wall Cabinet Floor Mounted', placementType: "wall", width: 24, height: 30, depth: 12 },
+    ];
+    floorFixtures.forEach((fixture, index) => {
+      addCabinet(root, { distributorSkuId: -140 - index, cabinetId: 140 + index, numberOfDoors: 2, numberOfDrawers: 0, cornerType: null, ...fixture } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 18 + index * 30, z: 12, rotation: 0, bottom: index === 2 ? 0 : 4.5 });
+    });
+    const kicks: THREE.Mesh[] = [];
+    const floorCabinets: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.floorStandingCabinet) floorCabinets.push(node);
+      if (node instanceof THREE.Mesh && node.userData.floorStandingToeKick) kicks.push(node);
+    });
+    expect(floorCabinets).toHaveLength(3);
+    expect(kicks).toHaveLength(3);
+    root.updateMatrixWorld(true);
+    kicks.forEach((kick) => {
+      const bounds = new THREE.Box3().setFromObject(kick);
+      expect(kick.userData.toeKickHeightIn).toBe(4.5);
+      expect(bounds.min.y).toBeCloseTo(0, 8);
+      expect(bounds.max.y).toBeCloseTo(4.5 / 12, 8);
+    });
+
+    const raisedWallRoot = new THREE.Group();
+    addCabinet(raisedWallRoot, { distributorSkuId: -150, cabinetId: 150, masterCode: "W-2430", description: '24" Wall Cabinet', placementType: "wall", width: 24, height: 30, depth: 12, numberOfDoors: 2, numberOfDrawers: 0 } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 18, z: 12, rotation: 0, bottom: 54 });
+    const raisedKicks: THREE.Object3D[] = [];
+    raisedWallRoot.traverse((node) => { if (node.userData.floorStandingToeKick) raisedKicks.push(node); });
+    expect(raisedKicks).toHaveLength(0);
   });
 
   it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {
