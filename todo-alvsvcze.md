@@ -437,3 +437,6 @@
 - [x] Add compact Plan, Elevation, and 3D view controls that remain visible on mobile and desktop
 - [x] Add a visible affiliate-branded Share Design action for saved designs
 - [x] Add usability regressions for compact view switching and design sharing across mobile and desktop
+- [x] Shorten the interactive preview control label to “3D” and keep the designer toolbar within mobile, tablet, and desktop widths
+- [x] Replace the flat cartoon range elevation with a realistic product-faithful range front while preserving its configured envelope and 2D placement
+- [x] Add responsive toolbar and realistic-range visual regressions across mobile, tablet, and desktop

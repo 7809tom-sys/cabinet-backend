@@ -5037,7 +5037,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           disabled={!canLoadInteractive3d || interactive3dLoading}
           title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
         >
-          <Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D preview
+          <Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D
         </Button>
         <Button
           variant="outline"

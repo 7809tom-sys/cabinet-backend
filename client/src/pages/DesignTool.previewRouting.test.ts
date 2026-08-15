@@ -32,4 +32,10 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).toContain("!canLoadInteractive3d || interactive3dLoading");
     expect(designToolSource).toContain("setInteractive3dOpen(true)");
   });
+
+  it("keeps the desktop preview control compact while retaining the explicit 3D action", () => {
+    expect(designToolSource).toContain('<Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D');
+    expect(designToolSource).not.toContain('<Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D preview');
+    expect(designToolSource).toContain('<Boxes className="h-3.5 w-3.5" />');
+  });
 });

@@ -37,3 +37,5 @@ Prepared visual-only assets were verified after edge-connected white canvas remo
 ## Presentation Boundary
 
 All appliance **2D elevations** now use measured vector fronts rather than product photographs. This includes the supplied range and hood imagery as well as the refrigerator, dishwasher, and microwave additions. The cropped catalog product assets remain available only as transparent front planes on their fixed catalog envelopes in the interactive **3D room preview**. Focused visual-mode, shared-design, and 3D renderer regressions assert that split explicitly.
+
+The calibrated 2D range front is the explicit selling-view exception: the tightly cropped, transparent supplied range image is now drawn within the exact catalog range envelope so the stove no longer reads as a generic cartoon. The hood, refrigerator, dishwasher, and microwave retain their measured vector elevation faces; all appliance images continue to use the catalog envelope and never change placement geometry.

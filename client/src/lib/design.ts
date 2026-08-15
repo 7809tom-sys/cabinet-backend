@@ -182,11 +182,12 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
 }
 
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
-  // Wall elevations are measured orthographic drawings. Every appliance uses a
-  // calibrated vector face here; original product imagery is reserved for the
-  // appliance picker and dimensionally exact 3D room-preview front plane.
-  void masterCode;
-  return "vector";
+  // The customer-selected range front is the sales-critical appliance focal
+  // point in an elevation, so it uses its tightly cropped original product
+  // image inside the exact catalog-defined 30-by-36 envelope. Other appliance
+  // elevations remain calibrated vectors; all product visuals remain exact-
+  // envelope materials in the 3D selling preview.
+  return /^RANGE[-_]?/i.test(masterCode ?? "") ? "photo" : "vector";
 }
 
 export interface DesignCabinet {
