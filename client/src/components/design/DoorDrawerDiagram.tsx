@@ -403,8 +403,9 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
   // These types get a completely different SVG shape (not the standard rectangular box)
   const isDiagonal = type === "diagonal-corner";
   const isLCorner = type === "l-corner";
+  const isEndReturn = type === "end-return";
 
-  if (isDiagonal || isLCorner) {
+  if (isDiagonal || isLCorner || isEndReturn) {
     // Render a custom SVG for diagonal/L-corner cabinets instead of the zone-based approach
     const cornerLegend: { color: string; label: string }[] = [];
     if (effectiveDoors > 0) cornerLegend.push({ color: CLR.door, label: `${effectiveDoors} Door${effectiveDoors > 1 ? "s" : ""}` });
@@ -413,6 +414,87 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
     const cLegendY = svgH + 6;
     const cTotalSvgH = svgH + 24;
+
+    if (isEndReturn) {
+      // BEC/BA cabinets are 24×24 end returns, not standard rectangular door
+      // boxes. Show their 45-degree exposed end and two configured doors in the
+      // selected-cabinet detail panel so it agrees with plan/elevation rendering.
+      const clipped = Math.min(iW, iH) * 0.16;
+      const inset = 6;
+      const seamX = PAD + iW / 2;
+      const outerPts = [
+        `${PAD + clipped},${PAD}`,
+        `${PAD + iW - clipped},${PAD}`,
+        `${PAD + iW},${PAD + clipped}`,
+        `${PAD + iW},${PAD + iH}`,
+        `${PAD},${PAD + iH}`,
+        `${PAD},${PAD + clipped}`,
+      ].join(" ");
+      const leftDoorPts = [
+        `${PAD + clipped + inset},${PAD + inset}`,
+        `${seamX - 2},${PAD + inset}`,
+        `${seamX - 2},${PAD + iH - inset}`,
+        `${PAD + inset},${PAD + iH - inset}`,
+        `${PAD + inset},${PAD + clipped + inset}`,
+      ].join(" ");
+      const rightDoorPts = [
+        `${seamX + 2},${PAD + inset}`,
+        `${PAD + iW - clipped - inset},${PAD + inset}`,
+        `${PAD + iW - inset},${PAD + clipped + inset}`,
+        `${PAD + iW - inset},${PAD + iH - inset}`,
+        `${seamX + 2},${PAD + iH - inset}`,
+      ].join(" ");
+      const doorLabelY = PAD + iH / 2;
+
+      return (
+        <svg
+          viewBox={`0 0 ${width} ${cTotalSvgH}`}
+          width={width}
+          height={cTotalSvgH}
+          className={className}
+          aria-label="BEC-24 two-door 45-degree end-return diagram"
+          role="img"
+          data-bec-end-return-detail="true"
+        >
+          <polygon
+            points={outerPts}
+            fill="none"
+            stroke={CLR.box}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            data-bec-45-angle="true"
+          />
+          <polygon
+            points={leftDoorPts}
+            fill={CLR.door}
+            stroke={CLR.doorStroke}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            data-bec-angled-door="left"
+          />
+          <polygon
+            points={rightDoorPts}
+            fill={CLR.door}
+            stroke={CLR.doorStroke}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            data-bec-angled-door="right"
+          />
+          <line
+            x1={seamX}
+            y1={PAD + inset}
+            x2={seamX}
+            y2={PAD + iH - inset}
+            stroke={CLR.doorStroke}
+            strokeWidth={1.5}
+            data-bec-center-seam="true"
+          />
+          <text x={PAD + iW * 0.28} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={10} fontWeight="600" fontFamily="system-ui, sans-serif">Left Door</text>
+          <text x={PAD + iW * 0.72} y={doorLabelY} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={10} fontWeight="600" fontFamily="system-ui, sans-serif">Right Door</text>
+          <text x={width / 2} y={cLegendY + 5} textAnchor="middle" dominantBaseline="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">45° angled end · two 12&quot; doors</text>
+        </svg>
+      );
+    }
 
     if (isDiagonal) {
       // Pentagon shape: two wall-facing backs + 45° angled front face

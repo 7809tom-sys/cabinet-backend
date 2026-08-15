@@ -458,3 +458,6 @@
 - [x] Add a configurable 12-inch angled wall cabinet drawing rule with a single side-hinged door and two adjustable shelves
 - [x] Render the angled wall cabinet at 12-inch wall depth and 30- or 36-inch configured height in plan, elevation, and 3D
 - [x] Add Cabinet Config, regression, and mobile/tablet/desktop validation for the angled wall cabinet rule
+- [x] Replace the BEC-24 detail panel’s flat two-rectangle diagram with its two-door 45-degree angled-end face
+- [x] Preserve BEC-24’s 24×24 end-return placement and two configured doors while correcting the mobile detail presentation
+- [x] Add a BEC detail-panel regression and validate the corrected diagram on mobile, tablet, and desktop
