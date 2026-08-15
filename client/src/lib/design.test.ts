@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, wallPlacementAt,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
   blindCornerSpecViolations, blindPullRange,
@@ -1351,6 +1351,13 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
 });
 
 describe("wallPlacementAt", () => {
+  it("selects the nearest left or right collision-free position on a wall run", () => {
+    const segments = [{ start: 0, length: 30 }, { start: 54, length: 42 }];
+    expect(nearestAvailableWallStart(segments, 36, 24)).toBe(54);
+    expect(nearestAvailableWallStart(segments, 20, 24)).toBe(6);
+    expect(nearestAvailableWallStart([{ start: 0, length: 18 }], 0, 24)).toBeNull();
+  });
+
   it("pins to the back wall and keeps the run-axis offset (top)", () => {
     const p = wallPlacementAt(24, 36, 24, "top", ROOM_12x10);
     expect(p).toMatchObject({ x: 24, y: 0, rotation: 0 });

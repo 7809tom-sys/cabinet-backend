@@ -70,7 +70,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, wallPlacementAt, cabinetWall,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
   formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -2493,9 +2493,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // several items quickly. Reject a true footprint collision rather than
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
-      const normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+      let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
       finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
       const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
+      if (hasCollision(finalCab, normalizedPrevious)) {
+        const side = cabinetWall(finalCab, room);
+        const requestedAlong = side === "top" || side === "bottom" ? finalCab.x : finalCab.y;
+        const nearestAlong = nearestAvailableWallStart(
+          freeSegmentsOnWall(
+            side,
+            room,
+            normalizedPrevious,
+            openings,
+            Math.min(finalCab.width, 9),
+            0,
+            finalCab.placement,
+            isRefrigerator(finalCab),
+          ),
+          requestedAlong,
+          finalCab.width,
+        );
+        if (nearestAlong != null) {
+          const recoveredSpot = wallPlacementAt(nearestAlong, finalCab.width, finalCab.depth, side, room);
+          const recoveredCab = { ...finalCab, ...recoveredSpot };
+          const recoveredRun = normalizeRefrigeratorBayUppers([...prev, recoveredCab], room);
+          const normalizedRecoveredCab = recoveredRun.find((cabinet) => cabinet.uid === recoveredCab.uid) ?? recoveredCab;
+          if (!hasCollision(normalizedRecoveredCab, normalizedPrevious)) {
+            finalCab = normalizedRecoveredCab;
+            normalizedRun = recoveredRun;
+            toast.success(`${finalCab.masterCode} snapped to the nearest open position.`);
+          }
+        }
+      }
       if (hasCollision(finalCab, normalizedPrevious)) {
         const message = `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);

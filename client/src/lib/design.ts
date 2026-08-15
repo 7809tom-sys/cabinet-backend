@@ -3259,6 +3259,30 @@ export interface WallSegment {
   length: number;
 }
 
+/**
+ * Finds the nearest collision-free start coordinate for a cabinet span on one
+ * wall run. Candidate starts are clamped inside every segment that can contain
+ * the span; distance ties intentionally resolve toward the left/start edge.
+ */
+export function nearestAvailableWallStart(
+  segments: WallSegment[],
+  requestedStart: number,
+  span: number,
+): number | null {
+  if (!Number.isFinite(span) || span <= 0) return null;
+  const candidates = segments
+    .filter((segment) => segment.length + 0.001 >= span)
+    .map((segment) => Math.max(segment.start, Math.min(requestedStart, segment.start + segment.length - span)));
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, candidate) => {
+    const candidateDistance = Math.abs(candidate - requestedStart);
+    const bestDistance = Math.abs(best - requestedStart);
+    return candidateDistance < bestDistance || (candidateDistance === bestDistance && candidate < best)
+      ? candidate
+      : best;
+  });
+}
+
 export function freeSegmentsOnWall(
   side: WallSide,
   room: RoomData,

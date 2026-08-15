@@ -523,3 +523,6 @@
 - [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path
 - [x] Restrict stock, supplier, and generic images to finish or material references; never use them as replacement 2D or 3D cabinet geometry
 - [x] Add spec-driven rendering regressions proving saved dimensions, construction, and placement override every generic image path
+- [x] When a proposed cabinet placement overlaps, automatically snap it to the nearest valid left or right position on the same run
+- [x] Reject a cabinet only when no collision-free run position is available, never allow it to overlap or pass through another cabinet
+- [x] Add regression coverage for automatic adjacent placement, deterministic tie-breaking, and genuinely full-run rejection
