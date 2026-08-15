@@ -408,8 +408,8 @@ describe("interactive 3D room scene helpers", () => {
     const wallLegs = wallLCorner.children.filter((node) => node.userData.lCornerCarcass) as THREE.Mesh[];
     expect(wallLegs.map((leg) => (leg.geometry as THREE.BoxGeometry).parameters).map((parameters) => Math.min(parameters.width, parameters.depth)).sort()).toEqual([1, 1]);
     expect(nodes.filter((node) => node.userData.cornerDrawerFace)).toHaveLength(3);
-    expect(nodes.filter((node) => node.userData.endReturnDoor)).toHaveLength(2);
-    expect(nodes.filter((node) => node.userData.endReturnCarcass)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.nonCornerEndReturnDoor)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.nonCornerEndReturnBody)).toHaveLength(1);
     expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(1);
     expect(nodes.filter((node) => node.userData.lCornerCountertop)).toHaveLength(4);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
@@ -903,7 +903,7 @@ describe("interactive 3D room scene helpers", () => {
       { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
       { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
       { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
-      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [-Math.PI / 4, Math.PI / 4] },
     ];
 
     for (const fixture of fixtures) {
@@ -1029,13 +1029,13 @@ describe("interactive 3D room scene helpers", () => {
       const root = new THREE.Group();
       addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
       const returnFaces: THREE.Object3D[] = [];
-      root.traverse((node) => { if (node.userData.endReturnDoor) returnFaces.push(node); });
+      root.traverse((node) => { if (node.userData.nonCornerEndReturnDoor) returnFaces.push(node); });
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.map((face) => face.userData.endReturnDoor).sort()).toEqual(["left", "right"]);
+      expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(Math.hypot(1, 1) / 2 - 0.03, 6), expect.closeTo(Math.hypot(1, 1) / 2 - 0.03, 6),
+        expect.closeTo(11.04 / 12, 6), expect.closeTo(11.04 / 12, 6),
       ]);
-      expect(returnFaces.map((face) => face.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
+      expect(returnFaces.map((face) => face.rotation.y).sort()).toEqual([-Math.PI / 4, Math.PI / 4]);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {
@@ -1044,17 +1044,18 @@ describe("interactive 3D room scene helpers", () => {
       });
       expect(toeKicks).toHaveLength(1);
       expect(toeKicks[0]!.userData.endReturnToeKick).toBe(true);
+      expect(toeKicks[0]!.userData.nonCornerEndReturnToeKick).toBe(true);
       expect(toeKicks[0]!.userData.toeKickHeightIn).toBe(4.5);
       expect(counters).toHaveLength(1);
-      expect(counters[0]!.userData.endReturnWedge).toBe(true);
+      expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
       const carcasses: THREE.Mesh[] = [];
       root.traverse((node) => {
-        if (node.userData.endReturnCarcass && node instanceof THREE.Mesh) carcasses.push(node);
+        if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) carcasses.push(node);
       });
       expect(carcasses).toHaveLength(1);
-      const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
-      expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12, 6);
-      expect(bounds.max.z - bounds.min.z).toBeCloseTo(24 / 12, 6);
+      const carcassGeometry = carcasses[0]!.geometry as THREE.BoxGeometry;
+      expect(carcassGeometry.parameters.width).toBeCloseTo(24 / 12, 6);
+      expect(carcassGeometry.parameters.depth).toBeCloseTo(24 / 12, 6);
     }
   });
 

@@ -717,19 +717,6 @@ export function addCabinet(
         cabinet.add(legKick);
         bodyMeshes.push(legKick);
       }
-    } else if (specialty.kind === "end-return") {
-      const endReturnKick = new THREE.Mesh(
-        diagonalCornerWedgeGeometry(
-          Math.max(0.12, bodyWidth - 0.08),
-          Math.max(0.12, bodyDepth - 0.25),
-          toeKickHeight,
-        ),
-        toeKickMaterial,
-      );
-      endReturnKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
-      endReturnKick.userData = { baseToeKick: true, endReturnToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
-      cabinet.add(endReturnKick);
-      bodyMeshes.push(endReturnKick);
     } else {
       const toeKick = new THREE.Mesh(
         new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
@@ -738,7 +725,11 @@ export function addCabinet(
       // Recess the toe-kick three inches from the cabinet face, matching the
       // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
       toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
-      toeKick.userData = { baseToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
+      toeKick.userData = {
+        baseToeKick: true,
+        toeKickHeightIn: THREE_D_TOE_KICK,
+        ...(specialty.kind === "end-return" ? { endReturnToeKick: true, nonCornerEndReturnToeKick: true } : {}),
+      };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
     }
@@ -769,18 +760,14 @@ export function addCabinet(
       cabinet.add(leg);
       bodyMeshes.push(leg);
     }
-  } else if (specialty.kind === "diagonal-corner" || specialty.kind === "end-return") {
+  } else if (specialty.kind === "diagonal-corner") {
     const wedge = new THREE.Mesh(
-      specialty.kind === "end-return"
-        ? diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight)
-        : angledWallProfile
+      angledWallProfile
         ? triangleCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight)
         : diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight),
       bodyMaterial,
     );
-    wedge.userData = specialty.kind === "end-return"
-      ? { specialtyProfile: "end-return", endReturnWedge: true, endReturnCarcass: true, selectedStyleSideSkin: true }
-      : angledWallProfile
+    wedge.userData = angledWallProfile
       ? { specialtyProfile: "angled-wall", angledWallWedge: true, selectedStyleSideSkin: true }
       : { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
@@ -826,7 +813,11 @@ export function addCabinet(
     cabinet.add(toeRecess);
   } else if (!isPlacedHood) {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
-    body.userData = { selectedStyleSideSkin: true, ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}) };
+    body.userData = {
+      selectedStyleSideSkin: true,
+      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
+      ...(specialty.kind === "end-return" ? { specialtyProfile: "end-return", nonCornerEndReturnBody: true } : {}),
+    };
     cabinet.add(body);
     bodyMeshes.push(body);
   }
@@ -884,7 +875,7 @@ export function addCabinet(
   // Diagonal and L-corner fronts use absolute local positions on their shared
   // special footprint. Applying the generic rectangular front-depth offset to
   // either one would push their faces and Shaker rails out into the room.
-  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
+  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (profileKind !== "shaker") return;
@@ -1246,24 +1237,17 @@ export function addCabinet(
       rowTop -= row.height;
     }
   } else if (specialty.kind === "end-return") {
-    // BEC / BA cabinets use the 24-by-24 clipped envelope from the shared plan.
-    // Their two doors sit on its actual exposed 17-inch angled return face.
-    const faceWidth = diagonalCornerFrontWidth(bodyWidth, bodyDepth) / 2;
+    // BEC / BA is a full 24×24 *end cabinet*, never a corner carcass. Its two
+    // 12-inch doors form a shallow decorative 45-degree front on that full body.
+    const faceWidth = (bodyWidth - 0.1) / 2;
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
-    const faceCenterX = bodyWidth / 4;
-    const faceCenterZ = bodyDepth / 4;
-    const faceNormal = Math.SQRT1_2 * 0.045;
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
-      door.position.set(
-        faceCenterX + direction * Math.SQRT1_2 * (faceWidth / 2) + faceNormal,
-        0,
-        faceCenterZ - direction * Math.SQRT1_2 * (faceWidth / 2) + faceNormal,
-      );
-      door.rotation.y = Math.PI / 4;
-      door.userData = { specialtyProfile: "end-return", endReturnDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+      door.position.set(direction * faceWidth * 0.24, 0, 0.035);
+      door.rotation.y = direction * Math.PI / 4;
+      door.userData = { specialtyProfile: "end-return", nonCornerEndReturnDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
-      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
+      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(
@@ -1375,7 +1359,7 @@ export function addCabinet(
         counterGroup.add(slab);
       }
       root.add(counterGroup);
-    } else if (specialty.kind === "diagonal-corner" || specialty.kind === "end-return") {
+    } else if (specialty.kind === "diagonal-corner") {
       const counter = new THREE.Mesh(
         diagonalCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
         counterMaterial,
@@ -1383,9 +1367,7 @@ export function addCabinet(
       counter.position.copy(cabinet.position);
       counter.rotation.y = rotation;
       counter.position.y = COUNTERTOP_H * INCH;
-      counter.userData = specialty.kind === "end-return"
-        ? { endReturnCountertop: true, endReturnWedge: true }
-        : { diagonalCornerCountertop: true };
+      counter.userData = { diagonalCornerCountertop: true };
       root.add(counter);
     } else if (specialty.kind === "triangle-corner") {
       const counter = new THREE.Mesh(
@@ -1405,6 +1387,7 @@ export function addCabinet(
       counter.position.y = COUNTERTOP_H * INCH;
       counter.userData = { countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH) };
       if (specialty.kind === "blind-corner") counter.userData = { ...counter.userData, blindCornerCountertop: true };
+      if (specialty.kind === "end-return") counter.userData = { ...counter.userData, endReturnCountertop: true, nonCornerEndReturnCountertop: true };
       if (isFloorDishwasher) counter.userData = { ...counter.userData, dishwasherCountertopSupport: true, floorApplianceSupport: true };
       root.add(counter);
     }

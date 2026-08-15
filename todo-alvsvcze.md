@@ -467,3 +467,6 @@
 - [x] Replace the square-box BEC-24 3D cabinet with its true two-face 24×24 end-return geometry
 - [x] Render a distinct left 12-inch return face and right 12-inch return face in 3D while preserving the BEC floor position and countertop support
 - [ ] Add BEC 3D mesh regressions and verify the corrected end-return form against the reported 3D scene
+- [x] Remove all corner-wedge BEC 3D geometry and restore its non-corner 24×24 base-cabinet carcass
+- [x] Render BEC-24’s 45-degree decorative front and two center-meeting doors on the non-corner base-end body
+- [ ] Verify BEC remains a floor-standing 24×24 base end cabinet with toe kick and countertop support in the reported 3D scene
