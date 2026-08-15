@@ -81,6 +81,25 @@ function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
   };
 }
 
+describe("base end-return shared 2D geometry", () => {
+  it("keeps canonical BEC-24 and legacy BA-24 as 24-by-24 floor end returns", () => {
+    for (const masterCode of ["BEC-24", "BA-24"]) {
+      const endReturn = cab({
+        masterCode,
+        description: '24" Base End Cabinet',
+        placement: "base",
+        width: 24,
+        depth: 24,
+        height: 34.5,
+        customProfile: "base_end_return",
+      });
+      expect(placedCornerGeometryKind(endReturn)).toBe("base-end");
+      expect(placedFootprint(endReturn)).toEqual({ w: 24, d: 24 });
+      expect(elevationBox(endReturn, ROOM_12x10)).toMatchObject({ bottom: 0, height: 34.5 });
+    }
+  });
+});
+
 describe("refrigerator surround enclosure", () => {
   it("shares one 96-inch cap between a 72-inch refrigerator cabinet and its floor-to-cap side panels", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };

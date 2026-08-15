@@ -12,3 +12,5 @@ The nearby historical mobile screenshot `Screenshot_20260813_122610_Chrome.jpg` 
 | No floating catalog thumbnail | Elevation renderer regression | Current live mobile comparison |
 
 The deterministic 3D regression now also measures both legacy `BA-24` and canonical `BEC-24` as two 11.04-inch visible return faces at opposing 45-degree poses, one 4½-inch base toe kick, one 24¼-inch countertop surface, and a 24-by-24-inch carcass. This protects the shared renderer against an accidental fallback to a standard rectangular cabinet, a 36-inch corner profile, a missing toe kick, or a surface-less end return while the final live mobile comparison remains pending.
+
+The shared 2D geometry suite now separately asserts that both canonical `BEC-24` and legacy `BA-24` normalize to the `base-end` placement kind, a 24-by-24-inch plan footprint, and a floor-mounted 34½-inch elevation box. Together with the existing angled-face markup, this protects the 12-inch left/right doors and center seam without requiring a customer-design mutation. The current live mobile comparison remains the only open BEC evidence item.
