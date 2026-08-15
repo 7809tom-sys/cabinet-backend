@@ -70,15 +70,21 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDDoorMaterialFallback("#b8874e")).toEqual({ color: "#b8874e", map: null });
   });
 
-  it("maps supplied original range and hood visuals to the 3D selling preview without assigning them to unrelated appliances", () => {
+  it("maps supplied original visuals to their supported 3D appliance fronts without assigning them to unrelated appliances", () => {
     expect(threeDApplianceFrontVisualUrl({ masterCode: "RANGE-30", catalogImageUrl: "/manus-storage/original-range.webp" }))
       .toBe("/manus-storage/original-range.webp");
     expect(threeDApplianceFrontVisualUrl({ masterCode: "HOOD-30", catalogImageUrl: "/manus-storage/original-hood.webp" }))
       .toBe("/manus-storage/original-hood.webp");
-    expect(threeDApplianceFrontVisualUrl({ masterCode: "FRIDGE-36", catalogImageUrl: "/manus-storage/fridge.webp" })).toBeNull();
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "FRIDGE-36", catalogImageUrl: "/manus-storage/fridge.webp" }))
+      .toBe("/manus-storage/fridge.webp");
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "DW-24", catalogImageUrl: "/manus-storage/dishwasher.webp" }))
+      .toBe("/manus-storage/dishwasher.webp");
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "MW-30", catalogImageUrl: "/manus-storage/microwave.webp" }))
+      .toBe("/manus-storage/microwave.webp");
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "WINE-24", catalogImageUrl: "/manus-storage/wine.webp" })).toBeNull();
   });
 
-  it("adds original 3D range and hood visual fronts without changing their catalog envelopes or hood mount", () => {
+  it("adds original 3D visual fronts without changing catalog envelopes or appliance mounting", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 1, cabinetId: 1, masterCode: "RANGE-30", description: "30 inch range", placementType: "appliance",
@@ -90,16 +96,35 @@ describe("interactive 3D room scene helpers", () => {
       width: 30, height: 18, depth: 18, mountBottom: 66, numberOfDoors: 0, numberOfDrawers: 0,
       catalogImageUrl: "/manus-storage/original-hood.webp",
     }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    addCabinet(root, {
+      distributorSkuId: 3, cabinetId: 3, masterCode: "FRIDGE-36", description: "36 inch refrigerator", placementType: "appliance",
+      width: 36, height: 70, depth: 30, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/original-fridge.webp",
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    addCabinet(root, {
+      distributorSkuId: 4, cabinetId: 4, masterCode: "DW-24", description: "24 inch dishwasher", placementType: "appliance",
+      width: 24, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/original-dishwasher.webp",
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    addCabinet(root, {
+      distributorSkuId: 5, cabinetId: 5, masterCode: "MW-30", description: "30 inch over-range microwave", placementType: "appliance",
+      width: 30, height: 17, depth: 15, mountBottom: 54, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/original-microwave.webp",
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
     const visualPlanes: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.originalProductVisual) visualPlanes.push(node); });
 
-    expect(visualPlanes).toHaveLength(2);
+    expect(visualPlanes).toHaveLength(5);
     expect(visualPlanes.map((node) => node.userData.originalProductVisualUrl)).toEqual([
-      "/manus-storage/original-range.webp", "/manus-storage/original-hood.webp",
+      "/manus-storage/original-range.webp", "/manus-storage/original-hood.webp", "/manus-storage/original-fridge.webp",
+      "/manus-storage/original-dishwasher.webp", "/manus-storage/original-microwave.webp",
     ]);
     expect(visualPlanes.map((node) => node.userData.catalogEnvelope)).toEqual([
       expect.objectContaining({ widthIn: 30, heightIn: 36, depthIn: 25, mountBottomIn: 0 }),
       expect.objectContaining({ widthIn: 30, heightIn: 18, depthIn: 18, mountBottomIn: 66 }),
+      expect.objectContaining({ widthIn: 36, heightIn: 70, depthIn: 30, mountBottomIn: 0 }),
+      expect.objectContaining({ widthIn: 24, heightIn: 34.5, depthIn: 24, mountBottomIn: 0 }),
+      expect.objectContaining({ widthIn: 30, heightIn: 17, depthIn: 15, mountBottomIn: 54 }),
     ]);
   });
 
@@ -1092,6 +1117,48 @@ describe("interactive 3D room scene helpers", () => {
     expect(((dishwasherOpening!.geometry as THREE.BoxGeometry).parameters.width)).toBeCloseTo((24 / 12) - 0.14, 8);
     expect(counterBounds.min.y).toBeCloseTo(34.5 / 12, 8);
     expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
+  });
+
+  it("preserves the saved tall-appliance height, dishwasher-spanning counter, and 66-inch range-hood mount in the actual scene meshes", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -36, cabinetId: 36, masterCode: "FRIDGE-36", description: "36 inch Refrigerator",
+      placementType: "appliance", width: 36, height: 70, depth: 30, numberOfDoors: 0, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 18, z: 18, rotation: 0, bottom: 0 });
+    addCabinet(root, {
+      distributorSkuId: -24, cabinetId: 24, masterCode: "DW-24", description: "24 inch Dishwasher",
+      placementType: "appliance", width: 24, height: 34.5, depth: 24, numberOfDoors: 0, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 66, z: 12, rotation: 0, bottom: 0 });
+    addCabinet(root, {
+      distributorSkuId: -30, cabinetId: 30, masterCode: "HOOD-30", description: "30 inch Range Hood",
+      placementType: "appliance", width: 30, height: 18, depth: 18, mountBottom: 66, numberOfDoors: 0, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 108, z: 12, rotation: 0, bottom: 66 });
+
+    const fridge = root.children.find((node) => node.userData.masterCode === "FRIDGE-36")!;
+    const dishwasher = root.children.find((node) => node.userData.masterCode === "DW-24")!;
+    const hood = root.children.find((node) => node.userData.masterCode === "HOOD-30")!;
+    let dishwasherCounter: THREE.Mesh | null = null;
+    let hoodCanopy: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.dishwasherCountertopSupport) dishwasherCounter = node;
+      if (node.userData.rangeHoodCanopy) hoodCanopy = node;
+    });
+    root.updateMatrixWorld(true);
+
+    const fridgeBounds = new THREE.Box3().setFromObject(fridge);
+    const dishwasherBounds = new THREE.Box3().setFromObject(dishwasher);
+    const dishwasherCounterBounds = new THREE.Box3().setFromObject(dishwasherCounter!);
+    const hoodBounds = new THREE.Box3().setFromObject(hood);
+    expect(fridge.userData.catalogApplianceEnvelope).toMatchObject({ heightIn: 70, mountBottomIn: 0 });
+    expect(fridgeBounds.max.y - fridgeBounds.min.y).toBeCloseTo(70 / 12, 6);
+    expect(dishwasherCounter).not.toBeNull();
+    expect(dishwasherCounterBounds.min.x).toBeCloseTo(dishwasherBounds.min.x, 8);
+    expect(dishwasherCounterBounds.max.x).toBeCloseTo(dishwasherBounds.max.x, 8);
+    expect(dishwasherCounterBounds.min.y).toBeCloseTo(34.5 / 12, 8);
+    expect(hood.userData.catalogApplianceEnvelope).toMatchObject({ mountBottomIn: 66, heightIn: 18 });
+    expect(hoodBounds.min.y).toBeCloseTo(66 / 12, 8);
+    expect(hoodBounds.max.y).toBeCloseTo(84 / 12, 6);
+    expect(hoodCanopy).not.toBeNull();
   });
 
   it("keeps a configured microwave opening within its exact 27-by-17 Cabinet Config envelope", () => {

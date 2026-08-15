@@ -330,7 +330,7 @@ describe("appliances", () => {
   });
 
   it("converts an appliance to a placeable design cabinet with id 0", () => {
-    const range = APPLIANCES.find((a) => a.key === "range")!;
+    const range = APPLIANCES.find((a) => a.key === "range-black-gas")!;
     const dc = applianceAsDesignCabinet(range);
     expect(dc.id).toBe(0); // unpriced
     expect(dc.placement).toBe("appliance");

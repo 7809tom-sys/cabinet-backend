@@ -225,7 +225,7 @@
 - [x] Align the visible tall-appliance enclosure and its adjacent countertop surfaces to the saved 2D design
 - [x] Remove blank or oversized 3D wall/counter surface artifacts visible in the mobile preview
 - [x] Verify the range hood is visible at the saved 2D position in the current mobile 3D design
-- [ ] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
+- [x] Add screenshot-driven regressions for tall appliance, continuous surfaces, and range-hood visibility
 - [x] Add a mobile-scene visibility contract regression for the tall appliance enclosure, dishwasher-supported countertop surface, and mounted range hood
 - [x] Keep 3D cabinet faces visibly finished with a calibrated fallback material when a selected door-sample image fails to load
 - [x] Add a regression covering failed selected-door texture fallback in the 3D room
@@ -425,12 +425,12 @@
 - [x] Add regression coverage for border-free realistic appliance elevation fit
 - [x] Remove the remaining off-white canvas from the black gas range source image and verify a transparent elevation perimeter
 - [x] Render range and hood faces as calibrated 2D appliance elevations rather than perspective product photos
-- [ ] Reserve realistic appliance product visuals for the separate 3D room preview and add visual-mode regression coverage
+- [x] Reserve realistic appliance product visuals for the separate 3D room preview and add visual-mode regression coverage
 - [x] Remove photographic range and hood layers from the active 2D elevation and center calibrated vector appliance fronts on saved measurements
 - [x] Apply supplied original range and hood images as catalog-enveloped realistic fronts in the 3D designer
 - [x] Add 3D regressions proving original appliance visuals preserve exact catalog dimensions, saved position, rotation, and hood mount height
-- [ ] Add supplied or official manufacturer refrigerator, dishwasher, and microwave images to the 3D appliance selling library
-- [ ] Map realistic refrigerator, dishwasher, and microwave visuals to their catalog envelopes and placement rules
+- [x] Add supplied or official manufacturer refrigerator, dishwasher, and microwave images to the 3D appliance selling library
+- [x] Map realistic refrigerator, dishwasher, and microwave visuals to their catalog envelopes and placement rules
 - [x] Keep launch appliance visuals out of cart, quote, invoice, and checkout while preserving their 2D/3D design presence
 - [x] Add a mobile-first Plan, Elevation, and 3D view switcher with persistent Undo and Redo controls
 - [x] Add a one-tap affiliate-branded share link for a saved design and validate key design flows on mobile and desktop

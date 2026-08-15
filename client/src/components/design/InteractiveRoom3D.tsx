@@ -225,9 +225,9 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
   };
 }
 
-/** The 3D selling preview uses original product imagery only on range and hood fronts. */
+/** The 3D selling preview uses original product imagery only on catalog-backed appliance fronts. */
 export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" | "catalogImageUrl">): string | null {
-  if (!/^(?:RANGE|HOOD)[-_]?/i.test(sku.masterCode ?? "")) return null;
+  if (!/^(?:RANGE|HOOD|FRIDGE|DW|MW)[-_]?/i.test(sku.masterCode ?? "")) return null;
   return applianceAppearanceImage(sku.masterCode, sku.catalogImageUrl ?? null);
 }
 
