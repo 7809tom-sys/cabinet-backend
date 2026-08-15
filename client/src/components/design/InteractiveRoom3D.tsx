@@ -457,38 +457,23 @@ function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, heigh
 }
 
 /**
- * BEC-24 has the manufacturer’s two-face end form: two 24-inch cabinet sides
- * produce a diamond footprint, and two full-height door faces meet at the
- * exterior apex. It is still an end-run placement—not a room-corner snap type.
+ * BEC-24 is a 24×24 end cabinet. Two perpendicular 24-inch cabinet sides are
+ * attached to the wall/run boundaries; its two full-height door faces sit
+ * directly on the two outward faces and join at their shared outside corner.
  */
 export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number) {
   const sideLength = Math.min(bodyWidth, bodyDepth);
-  const halfDiagonal = sideLength / Math.SQRT2;
-  const doorWidth = Math.max(0.2, sideLength - 5.625 * INCH); // 18⅜in reference face
-  const apex = { x: 0, z: halfDiagonal };
+  const doorWidth = Math.max(0.2, sideLength - 0.08);
+  const apex = { x: bodyWidth / 2, z: bodyDepth / 2 };
   return {
     apex,
     sideLength,
     doorWidth,
     faces: [
-      { side: "left" as const, x: -halfDiagonal / 2, z: halfDiagonal / 2, rotation: 3 * Math.PI / 4 },
-      { side: "right" as const, x: halfDiagonal / 2, z: halfDiagonal / 2, rotation: Math.PI / 4 },
+      { side: "front" as const, x: bodyWidth / 2 - doorWidth / 2, z: bodyDepth / 2 + 0.028, rotation: 0 },
+      { side: "right" as const, x: bodyWidth / 2 + 0.028, z: bodyDepth / 2 - doorWidth / 2, rotation: Math.PI / 2 },
     ],
   };
-}
-
-function baseEndReferenceBodyGeometry(sideLength: number, height: number) {
-  const halfDiagonal = sideLength / Math.SQRT2;
-  const shape = new THREE.Shape();
-  shape.moveTo(0, halfDiagonal);
-  shape.lineTo(-halfDiagonal, 0);
-  shape.lineTo(0, -halfDiagonal);
-  shape.lineTo(halfDiagonal, 0);
-  shape.closePath();
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
-  geometry.rotateX(-Math.PI / 2);
-  geometry.translate(0, -height / 2, 0);
-  return geometry;
 }
 
 /** Builds the vertical triangular extrusion defined by the shared 2D triangle footprint. */
@@ -815,17 +800,16 @@ export function addCabinet(
       bodyMeshes.push(leg);
     }
   } else if (specialty.kind === "end-return") {
-    // BEC has two boundaries concealed by the wall and its adjacent 24-inch
-    // base cabinet. Do not render that structural carcass into the room: the
-    // only exposed vertical end is its pair of equal 8½-inch angled fronts.
-    const clippedBody = new THREE.Mesh(baseEndReferenceBodyGeometry(Math.min(bodyWidth, bodyDepth), bodyHeight), bodyMaterial);
-    clippedBody.visible = false;
+    // Preserve the 24×24 physical base body. Its two outward full-height faces
+    // receive the dedicated front and right door meshes below; no diamond, V,
+    // or detached panel is part of this assembly.
+    const clippedBody = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
     clippedBody.userData = {
       specialtyProfile: "end-return",
       nonCornerEndReturnBody: true,
-      referenceTwoFaceEndBody: true,
-      hiddenAttachedCarcass: true,
-      selectedStyleSideSkin: true,
+      perpendicularTwoSideEndBody: true,
+      wallSideIn: bodyDepth / INCH,
+      runSideIn: bodyWidth / INCH,
     };
     cabinet.add(clippedBody);
     bodyMeshes.push(clippedBody);
@@ -1312,8 +1296,8 @@ export function addCabinet(
       rowTop -= row.height;
     }
   } else if (specialty.kind === "end-return") {
-    // BEC / BA follows the supplied manufacturer reference: two full-height
-    // door planes meet at the exterior center corner on the 24×24 end body.
+    // BEC / BA has two full-height door planes fixed directly to the two
+    // perpendicular exterior sides of the 24×24 body.
     const attachedFronts = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
     for (const face of attachedFronts.faces) {
@@ -1331,7 +1315,9 @@ export function addCabinet(
         cabinetFront: true,
       };
       frontGroup.add(door);
-      addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x, door.position.y, door.position.z + 0.031, door.rotation.y);
+      const frameNormalX = Math.sin(door.rotation.y) * 0.031;
+      const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
+      addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(
@@ -1444,8 +1430,9 @@ export function addCabinet(
       }
       root.add(counterGroup);
     } else if (specialty.kind === "end-return") {
+      const counterDepth = threeDCountertopDepthIn(bodyDepth / INCH) * INCH;
       const counter = new THREE.Mesh(
-        baseEndReferenceBodyGeometry(threeDCountertopDepthIn(bodyDepth / INCH) * INCH, 1.5 * INCH),
+        new THREE.BoxGeometry(counterDepth, 1.5 * INCH, counterDepth),
         counterMaterial,
       );
       counter.position.copy(cabinet.position);
@@ -1455,7 +1442,7 @@ export function addCabinet(
         countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH),
         endReturnCountertop: true,
         nonCornerEndReturnCountertop: true,
-        referenceTwoFaceEndCountertop: true,
+        perpendicularTwoSideEndCountertop: true,
       };
       root.add(counter);
     } else if (specialty.kind === "diagonal-corner") {

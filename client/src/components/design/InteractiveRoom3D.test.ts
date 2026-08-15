@@ -903,7 +903,7 @@ describe("interactive 3D room scene helpers", () => {
       { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
       { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
       { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
-      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [3 * Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [0, Math.PI / 2] },
     ];
 
     for (const fixture of fixtures) {
@@ -1031,17 +1031,26 @@ describe("interactive 3D room scene helpers", () => {
       const returnFaces: THREE.Object3D[] = [];
       root.traverse((node) => { if (node.userData.nonCornerEndReturnDoor) returnFaces.push(node); });
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
+      expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["front", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(18.375 / 12, 6), expect.closeTo(18.375 / 12, 6),
+        expect.closeTo(23.04 / 12, 6), expect.closeTo(23.04 / 12, 6),
       ]);
       expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
-        expect.closeTo(18.375, 6), expect.closeTo(18.375, 6),
+        expect.closeTo(23.04, 6), expect.closeTo(23.04, 6),
       ]);
-      expect(returnFaces.map((face) => face.rotation.y)).toEqual([3 * Math.PI / 4, Math.PI / 4]);
+      expect(returnFaces.map((face) => face.rotation.y)).toEqual([0, Math.PI / 2]);
       expect(returnFaces.every((face) => face.userData.attachedEndFront)).toBe(true);
       expect(returnFaces.every((face) => face.userData.referenceFaceSideIn === 24)).toBe(true);
-      expect(returnFaces.map((face) => face.userData.sharedExteriorApex)).toEqual([{ x: 0, z: expect.closeTo(Math.SQRT2, 6) }, { x: 0, z: expect.closeTo(Math.SQRT2, 6) }]);
+      expect(returnFaces.map((face) => face.userData.sharedExteriorApex)).toEqual([{ x: 1, z: 1 }, { x: 1, z: 1 }]);
+      const measuredFrontDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "front")!;
+      const measuredRightDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "right")!;
+      // Both faces sit directly against their physical 24in perpendicular sides:
+      // front at +Z and right at +X. No 45-degree V or floating door is valid.
+      expect(measuredFrontDoor.position.z).toBeCloseTo(24 / 24 + 0.028, 6);
+      expect(measuredFrontDoor.position.x).toBeCloseTo((24 - 23.04) / 12 / 2, 6);
+      expect(measuredRightDoor.position.x).toBeCloseTo(24 / 24 + 0.028, 6);
+      expect(measuredRightDoor.position.z).toBeCloseTo((24 - 23.04) / 12 / 2, 6);
+      expect(returnFaces.every((face) => ![Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4].includes(face.rotation.y))).toBe(true);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {
@@ -1049,35 +1058,38 @@ describe("interactive 3D room scene helpers", () => {
         if (node.userData.endReturnCountertop) counters.push(node);
       });
       expect(toeKicks).toHaveLength(2);
-      expect(toeKicks.map((kick) => kick.userData.attachedEndFrontToeKick).sort()).toEqual(["left", "right"]);
+      expect(toeKicks.map((kick) => kick.userData.attachedEndFrontToeKick).sort()).toEqual(["front", "right"]);
       expect(toeKicks.every((kick) => kick.userData.toeKickFaceWidthIn === 24 && kick.userData.toeKickHeightIn === 4.5)).toBe(true);
       expect(toeKicks.map((kick) => ((kick as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
         expect.closeTo(24 / 12, 6), expect.closeTo(24 / 12, 6),
       ]);
       expect(counters).toHaveLength(1);
       expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
-      expect(counters[0]!.userData.referenceTwoFaceEndCountertop).toBe(true);
+      expect(counters[0]!.userData.perpendicularTwoSideEndCountertop).toBe(true);
       const counterMesh = counters[0] as THREE.Mesh;
-      expect(counterMesh.geometry.type).toBe("ExtrudeGeometry");
+      expect(counterMesh.geometry.type).toBe("BoxGeometry");
       const carcasses: THREE.Mesh[] = [];
       root.traverse((node) => {
         if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) carcasses.push(node);
       });
       expect(carcasses).toHaveLength(1);
-      expect(carcasses[0]!.userData.referenceTwoFaceEndBody).toBe(true);
-      expect(carcasses[0]!.userData.hiddenAttachedCarcass).toBe(true);
-      expect(carcasses[0]!.visible).toBe(false);
+      expect(carcasses[0]!.userData.perpendicularTwoSideEndBody).toBe(true);
+      expect(carcasses[0]!.userData.wallSideIn).toBe(24);
+      expect(carcasses[0]!.userData.runSideIn).toBe(24);
+      expect(carcasses[0]!.visible).toBe(true);
+      expect((carcasses[0] as THREE.Mesh).geometry.type).toBe("BoxGeometry");
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.every((face) => face.userData.doorWidthIn === 18.375)).toBe(true);
+      expect(returnFaces.every((face) => face.userData.doorWidthIn === 23.04)).toBe(true);
       root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
-      expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 * Math.SQRT2 / 12, 6);
-      expect(bounds.max.z - bounds.min.z).toBeCloseTo(24 * Math.SQRT2 / 12, 6);
-      const leftDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "left")!;
+      expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12, 6);
+      expect(bounds.max.z - bounds.min.z).toBeCloseTo(24 / 12, 6);
+      const leftDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "front")!;
       const rightDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "right")!;
-      const leftApex = leftDoor.localToWorld(new THREE.Vector3(-12 / 12, 0, 0));
-      const rightApex = rightDoor.localToWorld(new THREE.Vector3(-12 / 12, 0, 0));
-      expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.01);
+      expect(leftDoor.rotation.y).toBeCloseTo(0, 6);
+      expect(rightDoor.rotation.y).toBeCloseTo(Math.PI / 2, 6);
+      expect(leftDoor.userData.attachedEndFront).toBe(true);
+      expect(rightDoor.userData.attachedEndFront).toBe(true);
     }
   });
 
@@ -1113,14 +1125,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(becFrontGroups[0]!.userData.separateProjectedThirdFace).toBe(false);
     root.updateMatrixWorld(true);
     const becBounds = new THREE.Box3().setFromObject(becBodies[0]!);
-    expect(becBounds.max.x - becBounds.min.x).toBeCloseTo(24 * Math.SQRT2 / 12, 6);
-    expect(becBounds.max.z - becBounds.min.z).toBeCloseTo(24 * Math.SQRT2 / 12, 6);
-    const leftDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "left")!;
+    expect(becBounds.max.x - becBounds.min.x).toBeCloseTo(24 / 12, 6);
+    expect(becBounds.max.z - becBounds.min.z).toBeCloseTo(24 / 12, 6);
+    const leftDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "front")!;
     const rightDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "right")!;
-    const leftApex = leftDoor.localToWorld(new THREE.Vector3(-12 / 12, 0, 0));
-    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-12 / 12, 0, 0));
-    expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.01);
-    expect(becDoors.every((door) => door.userData.doorWidthIn === 18.375 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
+    const leftApex = leftDoor.localToWorld(new THREE.Vector3(23.04 / 12 / 2, 0, 0));
+    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-23.04 / 12 / 2, 0, 0));
+    expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.08);
+    expect(becDoors.every((door) => door.userData.doorWidthIn === 23.04 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
   });
 
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {

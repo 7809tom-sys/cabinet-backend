@@ -504,3 +504,7 @@
 - [x] Add an elevation regression for uniform base height and the front-only range silhouette shown in the supplied screenshot
 - [x] Replace the rejected 8½-inch/45-degree BEC fronts with the supplied reference’s two full connected exposed door faces on the 24×24 end cabinet
 - [x] Match BEC-24’s reference two-face 24-inch-side body, toe kick, countertop, and door layout without using diagonal or floating meshes
+- [x] Replace the current BEC V/diamond assembly with two perpendicular 24-inch full-height cabinet sides that meet at the outside corner
+- [x] Attach one full door face directly to each perpendicular BEC side and eliminate all detached, diagonal, and elevated BEC meshes
+- [ ] Add perpendicular-side and no-detachment BEC mesh contracts, then validate them against the latest live screenshot
+- [x] Add mesh contracts for BEC’s visible 24×24 carcass, perpendicular front/right door planes, 24-inch side dimensions, and rejection of 45-degree V rotations
