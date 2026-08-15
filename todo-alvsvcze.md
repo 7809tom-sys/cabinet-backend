@@ -313,7 +313,7 @@
 - [x] Fix LS36 from its saved Cabinet Config so 2D plan/elevation and 3D use its correct corner form rather than a borrowed WDC, CDB, or end-return shape
 - [x] Fix the exact persisted LS36 placement that remains unchanged on mobile after the shared catalog rule updates
 - [ ] Correct LS36 authoritative style pricing and synchronize the designer, 3D itemized preview, cart, and order totals
-- [ ] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
+- [x] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
 - [x] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
 - [x] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
 - [x] Configure LS36 as an L-corner with one 12-inch door front on each exposed side in both 2D and 3D
@@ -346,7 +346,7 @@
 - [x] Reconstruct design 8190001’s persisted base and appliance records so its live 3D toe kicks, range/cooktop/hood, and refrigerator match the saved 2D scene
 - [x] Align design 8190001’s hood above its saved range and prevent the overlapping microwave placeholder from obscuring the range zone in 3D
 - [x] Make CDB36 share LS36’s 36-by-36 L-shaped footprint and 34½-inch base body while retaining CDB36’s angled corner drawer-stack face
-- [ ] Prioritize only deterministic 3D designer parity for the active saved scene until its mobile view matches the saved 2D plan
+- [x] Prioritize only deterministic 3D designer parity for the active saved scene until its mobile view matches the saved 2D plan
 - [x] Make appliance catalog records the authoritative source for deterministic 3D geometry, placement, elevation, and visible features across every appliance family
 - [x] Enforce a 27-by-17-inch maximum microwave envelope when its configured cabinet opening is 27 inches wide by 17 inches high
 - [x] Use distinct configured opening dimensions for wall microwave cabinets and base microwave cabinets when validating 3D microwave fit
