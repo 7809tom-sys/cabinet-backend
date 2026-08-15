@@ -499,3 +499,8 @@
 - [x] Remove every residual third BEC face so only the two 8½-inch fronts define the exposed 45-degree end
 - [x] Replace the floating BEC door with two attached 8½-inch door-front planes that meet at the 45-degree exterior end
 - [x] Measure the BEC’s 24-inch wall attachment, 24-inch adjacent-cabinet attachment, and attached two-front end geometry in the shared renderer
+- [x] Correct the shared 2D elevation so every floor base cabinet measures 34½ inches above its 4½-inch toe kick
+- [x] Remove the horizontal cooktop-surface view from the 2D range elevation while preserving the measured front profile
+- [x] Add an elevation regression for uniform base height and the front-only range silhouette shown in the supplied screenshot
+- [x] Replace the rejected 8½-inch/45-degree BEC fronts with the supplied reference’s two full connected exposed door faces on the 24×24 end cabinet
+- [x] Match BEC-24’s reference two-face 24-inch-side body, toe kick, countertop, and door layout without using diagonal or floating meshes

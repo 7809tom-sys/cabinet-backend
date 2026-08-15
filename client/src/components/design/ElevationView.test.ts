@@ -5,6 +5,43 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
+describe("measured base and range elevations", () => {
+  it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [{ uid: "base-345", cabinetId: 81, masterCode: "B-24", description: '24" Base Cabinet', placement: "base", x: 0, y: 0, width: 24, height: 34.5, depth: 24, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 }],
+        selectedUid: null,
+        onSelect: () => undefined,
+        wall: "back",
+      })),
+    );
+
+    // At the stable four-pixel-per-inch server render scale: 30" face = 120px,
+    // 4½" toe kick = 18px, and the assembled envelope = 34½" / 138px.
+    expect(markup).toContain("bottom:18px;height:120px");
+    expect(markup).toContain("height:18px");
+  });
+
+  it("renders a range as a 34½-inch front elevation with controls and oven door, never a cooktop top view", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [{ uid: "range-front", cabinetId: 82, masterCode: "RANGE-30", description: '30" Freestanding Range', placement: "appliance", x: 24, y: 0, width: 30, height: 36, depth: 25, rotation: 0 }],
+        selectedUid: null,
+        onSelect: () => undefined,
+        wall: "back",
+      })),
+    );
+
+    // 34½" at 4px/in; a 47" backguard must not expand the orthographic front.
+    expect(markup).toContain("height:138px");
+    expect(markup).toContain("height:23%");
+    expect(markup).toContain("top:30%");
+    expect(markup).not.toContain('aspect-ratio:1');
+  });
+});
+
 describe("end-angle elevation face", () => {
   it("keeps BEC-24 classified as an end cabinet even when its saved corner type is triangle", () => {
     expect(

@@ -186,12 +186,10 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
 }
 
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
-  // The customer-selected range front is the sales-critical appliance focal
-  // point in an elevation, so it uses its tightly cropped original product
-  // image inside the exact catalog-defined 30-by-36 envelope. Other appliance
-  // elevations remain calibrated vectors; all product visuals remain exact-
-  // envelope materials in the 3D selling preview.
-  return /^RANGE[-_]?/i.test(masterCode ?? "") ? "photo" : "vector";
+  // Elevation is an orthographic measured drawing. Appliance product images
+  // remain in the selling-oriented 3D room; every appliance elevation uses a
+  // calibrated front vector so a range cannot expose a perspective cooktop.
+  return "vector";
 }
 
 export interface DesignCabinet {

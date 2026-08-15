@@ -28,9 +28,9 @@ describe("realistic designer appliance appearances", () => {
     expect(applianceAppearanceImage("RANGE-30", "/manus-storage/customer-choice.webp")).toBe("/manus-storage/customer-choice.webp");
   });
 
-  it("uses the realistic range front in its measured elevation while preserving vectors for other appliance families", () => {
-    expect(applianceElevationPresentation("RANGE-30")).toBe("photo");
-    expect(applianceElevationPresentation("RANGE30")).toBe("photo");
+  it("uses a calibrated front-only range elevation while preserving realistic appliance imagery in 3D", () => {
+    expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
+    expect(applianceElevationPresentation("RANGE30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD-30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD30")).toBe("vector");
     expect(applianceElevationPresentation("FRIDGE-36")).toBe("vector");

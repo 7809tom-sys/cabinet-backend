@@ -323,10 +323,11 @@ export function ElevationView({
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
     const isFreestandingRange = isAppliance && /^RANGE[-_]?/i.test(p.masterCode ?? "");
-    // A range body may be cataloged at 36 inches while its backguard is a
-    // distinct appliance feature. Elevations use the 47-inch overall range top.
+    // In a front elevation, the range terminates at the same 34½-inch cooking
+    // surface used by all base cabinetry. The 47-inch backguard is a separate
+    // 3D profile detail and must not make this measured front view look taller.
     const displayedHeight = isFreestandingRange
-      ? Math.max(height, STD.RANGE_BACKGUARD_TOP - bottom)
+      ? Math.max(0, STD.RANGE_COOKING_SURFACE_HEIGHT - bottom)
       : height;
     const applianceVisualUrl = isAppliance && applianceElevationPresentation(p.masterCode) === "photo"
       ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
@@ -602,19 +603,19 @@ export function ElevationView({
           )}
           {!applianceVisualUrl && isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
             <>
-              {/* Range: cooktop area at top ~40%, oven door below */}
-              <div className="absolute left-0 right-0" style={{ top: "38%", height: 2, background: "rgba(80,90,110,0.50)" }} />
-              {/* Burner circles on cooktop */}
-              {[{l:"22%",t:"8%"},{l:"58%",t:"8%"},{l:"22%",t:"22%"},{l:"58%",t:"22%"}].map((b,i) => (
-                <div key={i} className="absolute rounded-full" style={{ left: b.l, top: b.t, width: "16%", aspectRatio:"1", border: "1.5px solid rgba(60,70,90,0.55)", background: "radial-gradient(circle, #8a96a8 30%, #6a7888 100%)" }} />
+              {/* Orthographic range FRONT only: control panel, oven door, and
+                  lower kick. Do not draw a horizontal cooktop surface or burner
+                  circles here—the cooking plane belongs to the 3D room view. */}
+              <div className="absolute left-0 right-0 top-0" style={{ height: "23%", background: "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
+              {["18%", "34%", "66%", "82%"].map((left, index) => (
+                <div key={index} className="absolute rounded-full" style={{ left: `calc(${left} - 5px)`, top: "8%", width: 10, height: 10, border: "1px solid rgba(50,60,72,0.85)", background: "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
               ))}
-              {/* Oven door handle */}
               <div
                 className="absolute"
                 style={{
                   left: "15%",
                   right: "15%",
-                  top: "42%",
+                  top: "30%",
                   height: 4,
                   background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
                   boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
@@ -622,7 +623,7 @@ export function ElevationView({
                 }}
               />
               {/* Oven window */}
-              <div className="absolute" style={{ left: "10%", right: "10%", top: "50%", bottom: "15%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+              <div className="absolute" style={{ left: "10%", right: "10%", top: "40%", bottom: "12%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
             </>
           )}
           {!applianceVisualUrl && isAppliance && /^HOOD-/i.test(p.masterCode ?? "") && (
