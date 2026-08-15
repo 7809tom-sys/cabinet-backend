@@ -414,3 +414,4 @@
 - [x] Make the saved refrigerator cabinet visibly render at 72 inches with a 2-inch clearance above the 70-inch refrigerator
 - [x] Extend refrigerator side panels from the floor to the same top line as the dedicated refrigerator cabinet
 - [x] Add regression coverage for full-height refrigerator side panels in saved and newly created surrounds
+- [x] Normalize legacy placed refrigerator side panels to the dedicated refrigerator cabinet top during restore and render

@@ -1989,6 +1989,19 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(normalizedUpper?.mountBottom).toBe(72);
     expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
+
+  it("raises legacy refrigerator end panels to the same 96-inch cap as the refrigerator cabinet", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 24, y: 0, width: 36, depth: 24, height: 70 });
+    const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 24, y: 0, width: 36, depth: 24, height: 24 });
+    const sidePanel = cab({ uid: "panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", x: 23.25, y: 0, width: 0.75, depth: 24, height: 94, mountBottom: 0 });
+
+    const normalized = normalizeRefrigeratorBayUppers([fridge, fridgeWall, sidePanel], room);
+    const normalizedPanel = normalized.find((cabinet) => cabinet.uid === "panel");
+
+    expect(normalizedPanel?.height).toBe(96);
+    expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 96 });
+  });
 });
 
 describe("wall cabinet dropped to floor keeps its own depth", () => {

@@ -2875,17 +2875,53 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
   if (refrigerators.length === 0) return placed;
 
   return placed.map((cabinet) => {
-    if (!isRefrigeratorWallCabinet(cabinet)) return cabinet;
-    const fridge = refrigerators.find((candidate) =>
-      cabinetWall(candidate, room ?? DEFAULT_ROOM) === cabinetWall(cabinet, room ?? DEFAULT_ROOM) &&
-      footprintsOverlap(candidate, cabinet)
+    const enclosure = room ?? DEFAULT_ROOM;
+    const sameWall = (candidate: PlacedCabinet) =>
+      cabinetWall(candidate, enclosure) === cabinetWall(cabinet, enclosure);
+    const fridge = refrigerators.find((candidate) => sameWall(candidate) && footprintsOverlap(candidate, cabinet));
+
+    if (isRefrigeratorWallCabinet(cabinet) && fridge) {
+      const fridgeBox = elevationBox(fridge, room);
+      const fridgeTop = fridgeBox.bottom + fridgeBox.height;
+      const cabinetHeight = cabinet.height ?? elevationBox(cabinet, room).height;
+      const { mountBottom } = refrigeratorSurroundElevation(room, fridgeTop, cabinetHeight);
+      return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
+    }
+
+    // Legacy end panels sit immediately outside a refrigerator, so their thin
+    // plan footprint does not overlap the appliance. Match the two touching run
+    // edges instead, then raise the panel's top to the companion refrigerator
+    // cabinet cap. This makes existing panels finish with the upper enclosure.
+    if (!isPanelItem(cabinet) || (cabinet.placement !== "tall" && cabinet.placement !== "wall")) return cabinet;
+    const side = cabinetWall(cabinet, enclosure);
+    const horizontal = side === "top" || side === "bottom";
+    const panelFootprint = placedFootprint(cabinet);
+    const panelStart = horizontal ? cabinet.x : cabinet.y;
+    const panelEnd = panelStart + (horizontal ? panelFootprint.w : panelFootprint.d);
+    const matchingFridge = refrigerators.find((candidate) => {
+      if (cabinetWall(candidate, enclosure) !== side) return false;
+      const fridgeFootprint = placedFootprint(candidate);
+      const fridgeStart = horizontal ? candidate.x : candidate.y;
+      const fridgeEnd = fridgeStart + (horizontal ? fridgeFootprint.w : fridgeFootprint.d);
+      return Math.abs(panelEnd - fridgeStart) <= 2 || Math.abs(panelStart - fridgeEnd) <= 2;
+    });
+    if (!matchingFridge) return cabinet;
+
+    const matchingUpper = placed.find((candidate) =>
+      isRefrigeratorWallCabinet(candidate) &&
+      cabinetWall(candidate, enclosure) === side &&
+      footprintsOverlap(candidate, matchingFridge)
     );
-    if (!fridge) return cabinet;
-    const fridgeBox = elevationBox(fridge, room);
+    const fridgeBox = elevationBox(matchingFridge, room);
     const fridgeTop = fridgeBox.bottom + fridgeBox.height;
-    const cabinetHeight = cabinet.height ?? elevationBox(cabinet, room).height;
-    const { mountBottom } = refrigeratorSurroundElevation(room, fridgeTop, cabinetHeight);
-    return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
+    const upperHeight = matchingUpper?.height ?? 24;
+    // `placed` still contains the pre-normalization WR mount while this map is
+    // running. Always derive the cap from the shared refrigerator contract so a
+    // legacy 54-inch WR record cannot shorten its adjacent panel to 84 inches.
+    const cap = refrigeratorSurroundElevation(room, fridgeTop, upperHeight).top;
+    return cabinet.height === cap && cabinet.mountBottom === 0
+      ? cabinet
+      : { ...cabinet, height: cap, mountBottom: 0 };
   });
 }
 
