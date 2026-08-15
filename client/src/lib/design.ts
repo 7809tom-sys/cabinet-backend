@@ -2841,6 +2841,38 @@ export function isRefrigerator(p: {
   return /^FRIDGE-/.test((p.masterCode || "").toUpperCase());
 }
 
+/** A dedicated refrigerator-wall/bridge cabinet, not an ordinary upper. */
+export function isRefrigeratorWallCabinet(p: Pick<PlacedCabinet, "masterCode" | "description" | "placement">): boolean {
+  if (p.placement !== "wall") return false;
+  const code = (p.masterCode ?? "").toUpperCase();
+  const description = (p.description ?? "").toLowerCase();
+  return /^WR\d{4}$/.test(code) || /^RW[-\d]/.test(code) || /refrigerator\s*(wall|bridge|cabinet|upper)/.test(description);
+}
+
+/**
+ * Re-seat a dedicated refrigerator wall cabinet on top of its matching
+ * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
+ * at the standard 54-inch wall mount, where it visibly ran into a 70-inch
+ * refrigerator. Ordinary wall cabinets deliberately remain unchanged and are
+ * still rejected by the refrigerator collision rule.
+ */
+export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: RoomData | null): PlacedCabinet[] {
+  const refrigerators = placed.filter(isRefrigerator);
+  if (refrigerators.length === 0) return placed;
+
+  return placed.map((cabinet) => {
+    if (!isRefrigeratorWallCabinet(cabinet)) return cabinet;
+    const fridge = refrigerators.find((candidate) =>
+      cabinetWall(candidate, room ?? DEFAULT_ROOM) === cabinetWall(cabinet, room ?? DEFAULT_ROOM) &&
+      footprintsOverlap(candidate, cabinet)
+    );
+    if (!fridge) return cabinet;
+    const fridgeBox = elevationBox(fridge, room);
+    const fridgeTop = fridgeBox.bottom + fridgeBox.height;
+    return cabinet.mountBottom === fridgeTop ? cabinet : { ...cabinet, mountBottom: fridgeTop };
+  });
+}
+
 // ── Staggered built-in look ────────────────────────────────────────────────
 // A custom "stepped" upper run reads richer than a flat wall of identical
 // cabinets: the ends and the refrigerator/corner cabinet step UP (taller) and

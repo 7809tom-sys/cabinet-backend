@@ -405,3 +405,6 @@
 - [x] Prevent refrigerator placements from overlapping base and wall cabinet elevation zones in the 2D designer
 - [x] Enforce shared footprint collision rejection between tall appliances and placed cabinet runs
 - [x] Add active-layout regressions for FRIDGE-36, B-24, and WR3624 non-overlap
+- [x] Align refrigerator appliance enclosure tops with adjacent tall cabinet top lines in the 2D elevation
+- [x] Exclude standard wall cabinets from refrigerator appliance bays and remove existing invalid upper overlap on design load
+- [x] Add regressions for refrigerator/tall alignment and refrigerator-bay wall-cabinet exclusion

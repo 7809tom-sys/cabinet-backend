@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-  normalizeLCornerDepths,
+  normalizeLCornerDepths, normalizeRefrigeratorBayUppers,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, hasCollision, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
@@ -1482,7 +1482,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           ? { ...p, placement: "appliance" as const }
           : p
       );
-      setPlaced(normalizeLCornerDepths(normalizedPlaced));
+      setPlaced(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), d.room ?? DEFAULT_ROOM));
       const restoredStyle = restoredSavedDesignStyle(d);
       setStyleId(restoredStyle.styleId);
       // Restore the supply-line lock if the saved design was pinned to one.
@@ -2472,7 +2472,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // several items quickly. Reject a true footprint collision rather than
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
-      if (hasCollision(finalCab, prev)) {
+      const normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
+      const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
+      if (hasCollision(finalCab, normalizedPrevious)) {
         const message = `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);
@@ -2483,7 +2486,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       setPlacementWarning(null);
       justPlacedRef.current = true;
       setSelectedUid(finalCab.uid);
-      setPlaced((prev) => [...prev, finalCab]);
+      setPlaced(() => normalizedRun);
 
       // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
       // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
@@ -3086,8 +3089,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             numberOfDrawers: chosen.numberOfDrawers ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
-            // Mount the bridge cabinet directly on top of the fridge.
-            mountBottom: actualFridgeH,
+            // A refrigerator upper must clear the appliance and finish on the
+            // same cap line as adjacent tall cabinetry whenever the ceiling
+            // allows it. The larger bottom wins, preventing a 24" WR cabinet
+            // from cutting into a 70" refrigerator.
+            mountBottom: Math.max(actualFridgeH, wallCabinetTopLine(room) - aHeight),
           });
         }
       }
@@ -3338,7 +3344,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
           rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
           catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-          mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+          // The deep refrigerator upper begins at the refrigerator top rather
+          // than the generic 54" wall mount, while retaining the run cap.
+          mountBottom: Math.max(fridgeDef.elevHeight, staggeredMountBottom(topLine, aHeight)),
         });
       }
       along += fridgeW;
@@ -4496,7 +4504,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 ? { ...p, placement: "appliance" as const }
                 : p
             );
-            setPlaced(normalizeLCornerDepths(normalizedDraft));
+            setPlaced(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedDraft), d.room ?? DEFAULT_ROOM));
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);

@@ -28,7 +28,7 @@ import {
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle,
+  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -1966,6 +1966,18 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 
     expect(hasCollision(dishwasher, [wall])).toBe(false);
     expect(conflictingUids([dishwasher, wall])).toEqual(new Set());
+  });
+
+  it("mounts a refrigerator wall cabinet directly above its matching refrigerator", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 0, y: 0, width: 36, depth: 24, height: 70 });
+    const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 0, y: 0, width: 36, depth: 24, height: 24 });
+
+    const normalized = normalizeRefrigeratorBayUppers([fridge, fridgeWall], room);
+    const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr");
+
+    expect(normalizedUpper?.mountBottom).toBe(70);
+    expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 70, height: 24 });
   });
 });
 
