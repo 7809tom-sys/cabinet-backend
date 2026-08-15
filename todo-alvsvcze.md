@@ -521,6 +521,8 @@
 - [ ] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
 - [ ] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
 - [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path
+- [x] Identify the AW1230 angled wall-cabinet specialty profile and correct its door/front mesh so it is flush to the physical triangular cabinet face
+- [x] Add an AW1230 regression that rejects a door/front rotation or position passing through or extending beyond the triangular cabinet box
 - [x] Restrict stock, supplier, and generic images to finish or material references; never use them as replacement 2D or 3D cabinet geometry
 - [x] Add spec-driven rendering regressions proving saved dimensions, construction, and placement override every generic image path
 - [x] When a proposed cabinet placement overlaps, automatically snap it to the nearest valid left or right position on the same run

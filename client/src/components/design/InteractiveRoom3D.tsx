@@ -434,6 +434,21 @@ export function triangleCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
   return Math.hypot(bodyWidth, bodyDepth);
 }
 
+/** The exposed hypotenuse plane of a triangular angled-wall cabinet. */
+export function triangleCornerFrontPose(bodyWidth: number, bodyDepth: number, outwardOffset = 0.045) {
+  const normalX = -Math.SQRT1_2;
+  const normalZ = Math.SQRT1_2;
+  void bodyWidth;
+  void bodyDepth;
+  return {
+    x: normalX * outwardOffset,
+    z: normalZ * outwardOffset,
+    rotation: -Math.PI / 4,
+    normalX,
+    normalZ,
+  };
+}
+
 /** The local triangle assumes the wall corner is back-left; shared rotation orients it elsewhere. */
 export function triangleCornerFootprintVertices(bodyWidth: number, bodyDepth: number) {
   return [
@@ -1219,9 +1234,10 @@ export function addCabinet(
     const diagonalDoorCount = angledWallProfile ? 1 : 2;
     const diagonalDoorWidth = diagonalWidth / diagonalDoorCount;
     const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
-    const diagonalFaceCenterX = angledWallProfile ? 0 : bodyWidth / 4;
-    const diagonalFaceCenterZ = angledWallProfile ? 0 : bodyDepth / 4;
-    const diagonalFaceNormal = Math.SQRT1_2 * 0.045;
+    const angledWallFace = angledWallProfile ? triangleCornerFrontPose(bodyWidth, bodyDepth) : null;
+    const diagonalFaceCenterX = angledWallFace?.x ?? bodyWidth / 4;
+    const diagonalFaceCenterZ = angledWallFace?.z ?? bodyDepth / 4;
+    const diagonalFaceNormal = angledWallProfile ? 0 : Math.SQRT1_2 * 0.045;
     const tangentOffset = diagonalDoorWidth / 2;
     const directions = angledWallProfile ? [0] : [-1, 1];
     for (const direction of directions) {
@@ -1231,32 +1247,47 @@ export function addCabinet(
         0,
         diagonalFaceCenterZ - direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
       );
-      door.rotation.y = Math.PI / 4;
+      door.rotation.y = angledWallFace?.rotation ?? Math.PI / 4;
       door.userData = angledWallProfile
         ? { specialtyProfile: "angled-wall", angledWallDoor: true, cabinetFront: true }
         : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
-      addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
+      addShakerFrame(
+        diagonalDoorWidth - 0.03,
+        diagonalDoorHeight,
+        door.position.x + (angledWallFace?.normalX ?? 0) * 0.034,
+        door.position.y,
+        door.position.z + (angledWallFace?.normalZ ?? 1) * 0.034,
+        door.rotation.y,
+      );
     }
   } else if (specialty.kind === "triangle-corner") {
-    // A WTC/BTC is a true right triangle: its full hypotenuse is the angled
+    // A WTC/BTC and the AW1230 angled-wall profile use the true triangular
+    // hypotenuse: its full diagonal is the angled
     // front, not the shorter clipped face used by a diagonal wall corner.
     const triangleWidth = triangleCornerFrontWidth(bodyWidth, bodyDepth);
     const triangleDoorWidth = triangleWidth / 2;
     const triangleDoorHeight = Math.max(0.2, bodyHeight - 0.1);
-    const triangleFaceNormal = Math.SQRT1_2 * 0.045;
+    const triangleFace = triangleCornerFrontPose(bodyWidth, bodyDepth);
     const tangentOffset = triangleDoorWidth / 2;
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(triangleDoorWidth - 0.03, triangleDoorHeight, 0.052), faceMaterial);
       door.position.set(
-        direction * Math.SQRT1_2 * tangentOffset + triangleFaceNormal,
+        triangleFace.x + direction * Math.SQRT1_2 * tangentOffset,
         0,
-        -direction * Math.SQRT1_2 * tangentOffset + triangleFaceNormal,
+        triangleFace.z + direction * Math.SQRT1_2 * tangentOffset,
       );
-      door.rotation.y = Math.PI / 4;
+      door.rotation.y = triangleFace.rotation;
       door.userData = { specialtyProfile: "triangle-corner", triangleDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
-      addShakerFrame(triangleDoorWidth - 0.03, triangleDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
+      addShakerFrame(
+        triangleDoorWidth - 0.03,
+        triangleDoorHeight,
+        door.position.x + triangleFace.normalX * 0.034,
+        door.position.y,
+        door.position.z + triangleFace.normalZ * 0.034,
+        door.rotation.y,
+      );
     }
   } else if (specialty.kind === "l-corner") {
     // Preserve the restored 2D Lazy Susan L-outline: each door sits on one
