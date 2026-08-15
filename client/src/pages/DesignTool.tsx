@@ -9,7 +9,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines } from "@/lib/designCartLines";
+import { buildDesignShareUrl } from "@/lib/designShare";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -4892,6 +4893,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   };
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [planImportOpen, setPlanImportOpen] = useState(false);
+  const shareCurrentDesign = async () => {
+    if (loadDesignId == null) {
+      toast.info("Save this design first to create a shareable design link.");
+      return;
+    }
+    const url = buildDesignShareUrl({
+      origin: window.location.origin,
+      designId: loadDesignId,
+      affiliateSlug,
+    });
+    const title = savedDesign?.name?.trim() || "Kitchen design";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: `View ${title}`, url });
+        toast.success("Design share link opened.");
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success("Affiliate-branded design link copied.");
+        return;
+      }
+      window.prompt("Copy this design link", url);
+    } catch (error) {
+      if ((error as { name?: string } | null)?.name !== "AbortError") {
+        toast.error("Could not share this design. Please try again.");
+      }
+    }
+  };
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -5009,6 +5039,41 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         >
           <Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D preview
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden lg:inline-flex shrink-0"
+          onClick={shareCurrentDesign}
+          disabled={loadDesignId == null}
+          title={loadDesignId == null ? "Save this design before sharing" : "Share this affiliate-branded design"}
+        >
+          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share Design
+        </Button>
+
+        <div className="lg:hidden flex shrink-0 items-center rounded-full border border-border bg-muted/30 p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("plan")}
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            Plan
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("elevation")}
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            Elevation
+          </button>
+          <button
+            type="button"
+            onClick={() => setInteractive3dOpen(true)}
+            disabled={!canLoadInteractive3d || interactive3dLoading}
+            className="rounded-full px-2 py-1 text-[10px] font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/25 disabled:opacity-40"
+          >
+            3D
+          </button>
+        </div>
 
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
@@ -5124,6 +5189,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setInteractive3dOpen(true)}
+            disabled={!canLoadInteractive3d || interactive3dLoading}
+            title="Open interactive 3D view"
+            className="inline-flex items-center justify-center h-6 w-7 rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-40"
+          >
+            <Boxes className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("split")}
@@ -8353,25 +8426,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               }}
             />
             <MobileBarButton
-              icon={<Download className="h-5 w-5" />}
-              label="Export"
-              onClick={async () => {
-                const el = canvasExportRef.current;
-                if (!el) return;
-                toast.info("Exporting image\u2026");
-                try {
-                  const { toPng } = await import("html-to-image");
-                  const dataUrl = await toPng(el, { pixelRatio: 2, cacheBust: true });
-                  const link = document.createElement("a");
-                  link.download = `cabinet-design-${activeWall}-${Date.now()}.png`;
-                  link.href = dataUrl;
-                  link.click();
-                  toast.success("Image exported!");
-                } catch (err) {
-                  console.error(err);
-                  toast.error("Export failed");
-                }
-              }}
+              icon={<Share2 className="h-5 w-5" />}
+              label="Share"
+              disabled={loadDesignId == null}
+              onClick={shareCurrentDesign}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
