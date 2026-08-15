@@ -30,7 +30,9 @@ describe("realistic designer appliance appearances", () => {
 
   it("keeps the measured 2D elevation free of perspective range and hood photos", () => {
     expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
+    expect(applianceElevationPresentation("RANGE30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD-30")).toBe("vector");
+    expect(applianceElevationPresentation("HOOD30")).toBe("vector");
     expect(applianceElevationPresentation("FRIDGE-36")).toBe("photo");
   });
 });

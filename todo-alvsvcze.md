@@ -426,3 +426,4 @@
 - [x] Remove the remaining off-white canvas from the black gas range source image and verify a transparent elevation perimeter
 - [x] Render range and hood faces as calibrated 2D appliance elevations rather than perspective product photos
 - [ ] Reserve realistic appliance product visuals for the separate 3D room preview and add visual-mode regression coverage
+- [x] Remove photographic range and hood layers from the active 2D elevation and center calibrated vector appliance fronts on saved measurements

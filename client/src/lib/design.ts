@@ -185,7 +185,7 @@ export function applianceElevationPresentation(masterCode: string | null | undef
   // Wall elevations are measured orthographic drawings. Ranges and hoods use
   // calibrated 2D silhouettes here; their supplied product imagery belongs in
   // the appliance picker and 3D room preview instead of a perspective elevation.
-  return /^(RANGE|HOOD)-/i.test(masterCode ?? "") ? "vector" : "photo";
+  return /^(RANGE|HOOD)[-_]?/i.test(masterCode ?? "") ? "vector" : "photo";
 }
 
 export interface DesignCabinet {
