@@ -28,7 +28,7 @@ import {
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers,
+  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -73,6 +73,16 @@ function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
     ...partial,
   };
 }
+
+describe("refrigerator surround enclosure", () => {
+  it("shares one 96-inch cap between a 72-inch refrigerator cabinet and its floor-to-cap side panels", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const enclosure = refrigeratorSurroundElevation(room, 70, 24);
+
+    expect(enclosure).toEqual({ mountBottom: 72, top: 96 });
+    expect(enclosure.top).toBe(96);
+  });
+});
 
 describe("per-wall ceiling (flat + sloped)", () => {
   it("falls back to the room default when a wall has no override", () => {

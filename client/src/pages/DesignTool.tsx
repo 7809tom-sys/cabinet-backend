@@ -51,7 +51,7 @@ import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-  normalizeLCornerDepths, normalizeRefrigeratorBayUppers,
+  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, hasCollision, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
@@ -2985,6 +2985,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const fridgePanelBands: { leftEdge: boolean; thickness: number }[] = [];
       // Track the bridge height so end panels can be sized to fridge + bridge combined.
       let bridgeHeightPlaced = 0;
+      const actualFridgeHeight = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
+      // Refrigerator end panels are architectural sides of the same enclosure as
+      // the cabinet above. Keep their top as a single shared value rather than
+      // deriving it from the appliance height, which loses the 2-inch clearance.
+      let refrigeratorSurroundTop = actualFridgeHeight;
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
@@ -3070,7 +3075,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           // Determine the actual fridge height for mountBottom:
           // use opts.fridgeHeight if the user changed it, otherwise use the
           // stored fridge height, falling back to the standard 70" catalog height.
-          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
+          const surroundElevation = refrigeratorSurroundElevation(room, actualFridgeHeight, aHeight);
+          const mountBottom = surroundElevation.mountBottom;
+          refrigeratorSurroundTop = surroundElevation.top;
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -3093,7 +3100,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             // same cap line as adjacent tall cabinetry whenever the ceiling
             // allows it. The larger bottom wins, preventing a 24" WR cabinet
             // from cutting into a 70" refrigerator.
-            mountBottom: Math.max(actualFridgeH, wallCabinetTopLine(room) - aHeight),
+            mountBottom,
           });
         }
       }
@@ -3102,11 +3109,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Use the user-selected panel id if provided, otherwise fall back to best-width match.
       // If the catalog has no matching panel, create a synthetic placeholder so the panel
       // always appears in the drawing with the correct dimensions.
-      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
-      const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
       const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
         ? opts.panelHeight
-        : fridgeHForPanel + (bridgeHeightPlaced > 0 ? bridgeHeightPlaced : 0);
+        : refrigeratorSurroundTop;
       const panelRow: DesignCabinet = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? {
         id: 0,
         masterCode: `PANEL-${syntheticPanelHeight}`,
@@ -3138,16 +3143,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
           ? rawPanelW
           : inferredDepth;
-        // Panel height = fridge height + bridge height (if any), so the panel covers
-        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
-        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
-        const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
-        // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
-        const pHeight = opts.panelHeight && opts.panelHeight > 0
-          ? opts.panelHeight
-          : opts.above !== "none" && bridgeHeightPlaced > 0
-            ? fridgeH + bridgeHeightPlaced
-            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
+        // End panels must finish at the same cap as the dedicated refrigerator
+        // cabinet, not at the 70" appliance top. This gives a finished full-height
+        // enclosure while preserving the 2" clearance beneath the upper cabinet.
+        const pHeight = opts.above !== "none"
+          ? refrigeratorSurroundTop
+          : (opts.panelHeight && opts.panelHeight > 0
+            ? opts.panelHeight
+            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight));
         // Along-wall position: just outside the fridge edge on the chosen side.
         // Clamp to room bounds so the panel never lands outside the room.
         let along: number;

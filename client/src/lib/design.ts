@@ -2850,6 +2850,18 @@ export function isRefrigeratorWallCabinet(p: Pick<PlacedCabinet, "masterCode" | 
 }
 
 /**
+ * The cabinet above a refrigerator starts two inches above the appliance, while
+ * both it and the finished side panels terminate on one enclosure cap. Returning
+ * the shared top lets the designer size every refrigerator surround piece from
+ * the exact same physical elevation.
+ */
+export function refrigeratorSurroundElevation(room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
+  const enclosure = room ?? DEFAULT_ROOM;
+  const mountBottom = Math.max(fridgeTop + 2, wallCabinetTopLine(enclosure) - upperHeight);
+  return { mountBottom, top: mountBottom + upperHeight };
+}
+
+/**
  * Re-seat a dedicated refrigerator wall cabinet on top of its matching
  * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
  * at the standard 54-inch wall mount, where it visibly ran into a 70-inch
@@ -2871,10 +2883,8 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
     if (!fridge) return cabinet;
     const fridgeBox = elevationBox(fridge, room);
     const fridgeTop = fridgeBox.bottom + fridgeBox.height;
-    const clearanceBottom = fridgeTop + 2;
     const cabinetHeight = cabinet.height ?? elevationBox(cabinet, room).height;
-    const capAlignedBottom = wallCabinetTopLine(room ?? DEFAULT_ROOM) - cabinetHeight;
-    const mountBottom = Math.max(clearanceBottom, capAlignedBottom);
+    const { mountBottom } = refrigeratorSurroundElevation(room, fridgeTop, cabinetHeight);
     return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
   });
 }
