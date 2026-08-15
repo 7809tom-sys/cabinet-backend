@@ -473,3 +473,6 @@
 - [x] Set BEC-24’s decorative angled front to 17 inches with two equal doors just under 9 inches wide
 - [x] Preserve BEC-24’s non-corner 24×24 body, toe kick, countertop, and centered two-door angled front while applying the confirmed door width
 - [x] Add a measured 17-inch BEC front and equal-door regression before publishing the confirmed rule
+- [x] Place both BEC-24 doors coplanar on one 17-inch 45-degree decorative front instead of folding them into a V
+- [x] Preserve the full non-corner 24×24 base body, toe kick, countertop, center seam, and equal just-under-nine-inch door widths
+- [ ] Add coplanar door-plane mesh regressions and verify the revised BEC front against the reported 3D scene

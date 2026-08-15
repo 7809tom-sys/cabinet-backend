@@ -1245,17 +1245,20 @@ export function addCabinet(
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
-      door.position.set(direction * faceWidth / 2, 0, 0.035);
-      door.rotation.y = direction * Math.PI / 4;
+      const doorOffset = direction * faceWidth / 2;
+      door.position.set(doorOffset * Math.SQRT1_2, 0, -doorOffset * Math.SQRT1_2 + 0.035);
+      door.rotation.y = Math.PI / 4;
       door.userData = {
         specialtyProfile: "end-return",
         nonCornerEndReturnDoor: direction === -1 ? "left" : "right",
         angledFrontWidthIn: 17,
         doorWidthIn: faceWidth / INCH,
+        coplanarAngledFront: true,
+        angledFrontPlaneRotation: Math.PI / 4,
         cabinetFront: true,
       };
       frontGroup.add(door);
-      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
+      addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, door.position.z + 0.031, door.rotation.y);
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(

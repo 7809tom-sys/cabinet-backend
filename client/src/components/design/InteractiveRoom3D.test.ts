@@ -903,7 +903,7 @@ describe("interactive 3D room scene helpers", () => {
       { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
       { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
       { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
-      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [-Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [Math.PI / 4, Math.PI / 4] },
     ];
 
     for (const fixture of fixtures) {
@@ -1039,7 +1039,9 @@ describe("interactive 3D room scene helpers", () => {
       expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
         expect.closeTo(8.45, 6), expect.closeTo(8.45, 6),
       ]);
-      expect(returnFaces.map((face) => face.rotation.y).sort()).toEqual([-Math.PI / 4, Math.PI / 4]);
+      expect(returnFaces.map((face) => face.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
+      expect(returnFaces.every((face) => face.userData.coplanarAngledFront)).toBe(true);
+      expect(returnFaces[0]!.position.x + returnFaces[0]!.position.z).toBeCloseTo(returnFaces[1]!.position.x + returnFaces[1]!.position.z, 8);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {
