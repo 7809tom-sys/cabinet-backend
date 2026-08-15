@@ -1,6 +1,6 @@
 # Supplied Realistic Appliance Appearance Assets
 
-The following customer-supplied product images are the selected appearance source for the kitchen designer. Each visual is displayed at the appliance catalog's measured width, depth, mount height, and collision footprint; the image does not define geometry.
+The following customer-supplied product images are cropped to remove the edge-connected white product canvas before use in the kitchen designer. Each visual fills the appliance's measured elevation box; the image does not define geometry.
 
 | Appearance | Stored visual URL | Catalog envelope |
 | --- | --- | --- |

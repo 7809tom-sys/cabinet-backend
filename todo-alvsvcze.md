@@ -421,3 +421,5 @@
 - [ ] Render selected realistic range and hood product visuals on 3D appliance fronts without changing their catalog envelopes
 - [ ] Add deterministic 3D regression coverage for realistic appliance front visuals and preserved geometry
 - [x] Replace generic range and hood drawings on existing saved placements with supplied realistic default product visuals
+- [x] Crop supplied realistic range and hood images to the appliance silhouette so no white product canvas appears in elevation
+- [x] Add regression coverage for border-free realistic appliance elevation fit

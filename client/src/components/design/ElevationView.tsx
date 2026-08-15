@@ -503,7 +503,7 @@ export function ElevationView({
             <img
               src={applianceVisualUrl}
               alt={p.description || p.masterCode}
-              className="absolute inset-0 h-full w-full object-contain bg-white"
+              className="absolute inset-0 h-full w-full object-fill bg-transparent"
               draggable={false}
               style={{ zIndex: 3 }}
             />
