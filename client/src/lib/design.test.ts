@@ -1976,8 +1976,8 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalized = normalizeRefrigeratorBayUppers([fridge, fridgeWall], room);
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr");
 
-    expect(normalizedUpper?.mountBottom).toBe(70);
-    expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 70, height: 24 });
+    expect(normalizedUpper?.mountBottom).toBe(72);
+    expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
 });
 

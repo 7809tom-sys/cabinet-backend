@@ -2853,8 +2853,10 @@ export function isRefrigeratorWallCabinet(p: Pick<PlacedCabinet, "masterCode" | 
  * Re-seat a dedicated refrigerator wall cabinet on top of its matching
  * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
  * at the standard 54-inch wall mount, where it visibly ran into a 70-inch
- * refrigerator. Ordinary wall cabinets deliberately remain unchanged and are
- * still rejected by the refrigerator collision rule.
+ * refrigerator. A dedicated refrigerator cabinet starts two inches above the
+ * appliance (72 inches for the confirmed 70-inch refrigerator) and then tops
+ * out at the surrounding tall-cabinet cap. Ordinary wall cabinets deliberately
+ * remain unchanged and are still rejected by the refrigerator collision rule.
  */
 export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: RoomData | null): PlacedCabinet[] {
   const refrigerators = placed.filter(isRefrigerator);
@@ -2869,7 +2871,11 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
     if (!fridge) return cabinet;
     const fridgeBox = elevationBox(fridge, room);
     const fridgeTop = fridgeBox.bottom + fridgeBox.height;
-    return cabinet.mountBottom === fridgeTop ? cabinet : { ...cabinet, mountBottom: fridgeTop };
+    const clearanceBottom = fridgeTop + 2;
+    const cabinetHeight = cabinet.height ?? elevationBox(cabinet, room).height;
+    const capAlignedBottom = wallCabinetTopLine(room ?? DEFAULT_ROOM) - cabinetHeight;
+    const mountBottom = Math.max(clearanceBottom, capAlignedBottom);
+    return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
   });
 }
 

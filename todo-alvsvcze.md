@@ -408,3 +408,6 @@
 - [x] Align refrigerator appliance enclosure tops with adjacent tall cabinet top lines in the 2D elevation
 - [x] Exclude standard wall cabinets from refrigerator appliance bays and remove existing invalid upper overlap on design load
 - [x] Add regressions for refrigerator/tall alignment and refrigerator-bay wall-cabinet exclusion
+- [x] Set refrigerator appliances to 70 inches high and dedicated refrigerator wall cabinets to a 72-inch floor mount
+- [x] Preserve the confirmed 2-inch clearance above a refrigerator while retaining tall-cabinet composition
+- [x] Add regression coverage for the 70-inch refrigerator and 72-inch refrigerator-cabinet elevation contract
