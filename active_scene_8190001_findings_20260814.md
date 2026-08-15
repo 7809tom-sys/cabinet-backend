@@ -25,3 +25,5 @@ At a 390-by-1600 mobile viewport, the same modal remained fully usable: its titl
 ## LS36 Saved-Scene Review
 
 The saved design **8610001 — “Hickeys house”** contains both `LS3612` and `WDC2442` placements. Its deterministic 3D modal was reviewed at 1280×1600 desktop and 390×1600 mobile viewports. It reported a 16-item plan sync with one opening, one sink, and one island; the selected Silva Shaker texture was loaded. The visible scene retains the L-corner base transition, diagonal wall-corner composition, continuous counter run, and aligned base/wall cabinetry at both viewport sizes. This review changed no catalog price, placement, or cabinet configuration.
+
+A read-only saved-design and 3D-share inventory found only the reviewed LS/WDC design and the active CDB/WDC design among records containing supported corner-family codes. No persisted scene currently contains the blind-corner, triangle-corner, or base-end-return family needed to complete the remaining all-family visual review. The corresponding deterministic cross-family mesh assertions remain in place; the visual-review checklist stays open rather than introducing sample customer data.
