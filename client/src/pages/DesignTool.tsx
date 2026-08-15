@@ -7038,7 +7038,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     }
                     return (
                     <button
-                      key={c.masterCode}
+                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
                       onDragStart={() => { dragDataRef.current = c; }}
                       onClick={() => addCabinet(c)}

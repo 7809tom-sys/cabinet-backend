@@ -99,6 +99,8 @@ export interface ApplianceDef {
   depth: number;
   elevBottom: number; // inches from floor
   elevHeight: number; // visible height in elevation
+  /** Product visual selected in the designer palette; geometry remains catalog-owned. */
+  catalogImageUrl?: string | null;
   // Which room types this fixture/appliance shows up in. Kitchen items default
   // to ["kitchen"]; shared items (e.g. a sink) can list multiple rooms.
   rooms: RoomType[];
@@ -106,13 +108,22 @@ export interface ApplianceDef {
 
 export const APPLIANCES: ApplianceDef[] = [
   // ── Kitchen ──────────────────────────────────────────────────────────────
-  { key: "range", masterCode: "RANGE-30", description: 'Range / Stove 30"', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, rooms: ["kitchen"] },
+  { key: "range-black-gas", masterCode: "RANGE-30", description: '30" Black Gas Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideBlackGasRange_36cfca6b.webp", rooms: ["kitchen"] },
+  { key: "range-black-stainless-front-control", masterCode: "RANGE-30", description: '30" Black Stainless Front-Control Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30InchWideBlackStainlessSteelFrontControlRange_7cd9253e.webp", rooms: ["kitchen"] },
+  { key: "range-white-electric-front-control", masterCode: "RANGE-30", description: '30" White Electric Front-Control Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30InchZlineFrontControlWhiteElectricRange_62f49682.avif", rooms: ["kitchen"] },
+  { key: "range-stainless-electric", masterCode: "RANGE-30", description: '30" Stainless Electric Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideStainlessSteelElectricRange_3c3e8629.webp", rooms: ["kitchen"] },
+  { key: "range-stainless-front-control", masterCode: "RANGE-30", description: '30" Stainless Front-Control Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30InchWideStainlessSteelFrontControlRange_17cf2bce.webp", rooms: ["kitchen"] },
+  { key: "range-stainless-gas", masterCode: "RANGE-30", description: '30" Stainless Gas Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideStainlessSteelGasRange.webp_3111419a.webp", rooms: ["kitchen"] },
+  { key: "range-white-electric", masterCode: "RANGE-30", description: '30" White Electric Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideWhiteElectricrange_e81bd7a4.webp", rooms: ["kitchen"] },
+  { key: "range-white-gas", masterCode: "RANGE-30", description: '30" White Gas Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideWhiteGasRange_c006d014.webp", rooms: ["kitchen"] },
   { key: "fridge30", masterCode: "FRIDGE-30", description: 'Refrigerator 30"', width: 30, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
   { key: "fridge", masterCode: "FRIDGE-36", description: 'Refrigerator 36"', width: 36, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
   { key: "dishwasher", masterCode: "DW-24", description: 'Dishwasher 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5, rooms: ["kitchen"] },
   { key: "winecooler", masterCode: "WINE-24", description: 'Wine Cooler 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5, rooms: ["kitchen"] },
   { key: "sink", masterCode: "SINK-33", description: 'Sink 33"', width: 33, depth: 22, elevBottom: 30, elevHeight: 6, rooms: ["kitchen"] },
-  { key: "hood", masterCode: "HOOD-30", description: 'Range Hood 30"', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, rooms: ["kitchen"] },
+  { key: "hood-glass-stainless", masterCode: "HOOD-30", description: '30" Glass Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchGlassStainlessRangeHood_765722d3.avif", rooms: ["kitchen"] },
+  { key: "hood-stainless-30", masterCode: "HOOD-30", description: '30" Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchWideStainlessRangeHood_9b452c9e.avif", rooms: ["kitchen"] },
+  { key: "hood-stainless-36", masterCode: "HOOD-36", description: '36" Stainless Range Hood', width: 36, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/36InchStainlessRangeHood_c06c8cf7.webp", rooms: ["kitchen"] },
   { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17, rooms: ["kitchen"] },
   // ── Bathroom fixtures (layout-only props, quoted separately) ──────────────
   { key: "shower", masterCode: "FIX-SHOWER-36", description: 'Shower 36"', width: 36, depth: 36, elevBottom: 0, elevHeight: 78, rooms: ["bathroom"] },
@@ -151,10 +162,23 @@ export function applianceAsDesignCabinet(a: ApplianceDef): DesignCabinet {
     placement: "appliance",
     numberOfDoors: null,
     numberOfDrawers: null,
-    catalogImageUrl: null,
+    catalogImageUrl: a.catalogImageUrl ?? null,
     isCornerCabinet: false,
     mountBottom: a.elevBottom,
   };
+}
+
+/**
+ * Keeps an explicitly selected appliance visual on a saved placement. Older
+ * placements did not persist visual choices, so a deterministic first supplied
+ * appearance is used for the matching appliance family instead of falling back
+ * to a generic drawing.
+ */
+export function applianceAppearanceImage(masterCode: string | null | undefined, selectedUrl?: string | null): string | null {
+  const explicit = selectedUrl?.trim();
+  if (explicit) return explicit;
+  const normalized = `${masterCode ?? ""}`.toUpperCase();
+  return APPLIANCES.find((item) => item.masterCode === normalized)?.catalogImageUrl ?? null;
 }
 
 export interface DesignCabinet {

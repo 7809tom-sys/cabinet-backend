@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers,
+  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -322,6 +322,7 @@ export function ElevationView({
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
+    const applianceVisualUrl = isAppliance ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl) : null;
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
@@ -498,6 +499,15 @@ export function ElevationView({
               faceHeightIn={p.height}
             />
           )}
+          {applianceVisualUrl && (
+            <img
+              src={applianceVisualUrl}
+              alt={p.description || p.masterCode}
+              className="absolute inset-0 h-full w-full object-contain bg-white"
+              draggable={false}
+              style={{ zIndex: 3 }}
+            />
+          )}
           {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
               doors={displayCounts.doors}
@@ -515,7 +525,7 @@ export function ElevationView({
             />
           )}
           {/* Appliance-specific detail overlays */}
-          {isAppliance && /^FRIDGE-/i.test(p.masterCode ?? "") && (
+          {!applianceVisualUrl && isAppliance && /^FRIDGE-/i.test(p.masterCode ?? "") && (
             <>
               {/* Fridge body: two-door french-door style split at 65% from bottom */}
               {/* Bottom freezer drawer line */}
@@ -563,7 +573,7 @@ export function ElevationView({
               />
             </>
           )}
-          {isAppliance && /^(DW|WINE)-/i.test(p.masterCode ?? "") && (
+          {!applianceVisualUrl && isAppliance && /^(DW|WINE)-/i.test(p.masterCode ?? "") && (
             <>
               {/* Dishwasher / wine cooler: control panel strip at top */}
               <div className="absolute left-0 right-0 top-0" style={{ height: "12%", background: "linear-gradient(180deg, #b0bac8 0%, #8a96a8 100%)", borderBottom: "1px solid rgba(60,70,90,0.4)" }} />
@@ -582,7 +592,7 @@ export function ElevationView({
               />
             </>
           )}
-          {isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
+          {!applianceVisualUrl && isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
             <>
               {/* Range: cooktop area at top ~40%, oven door below */}
               <div className="absolute left-0 right-0" style={{ top: "38%", height: 2, background: "rgba(80,90,110,0.50)" }} />
@@ -607,11 +617,11 @@ export function ElevationView({
               <div className="absolute" style={{ left: "10%", right: "10%", top: "50%", bottom: "15%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
             </>
           )}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
+          {!applianceVisualUrl && <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
             <span className="text-[8px] font-bold truncate px-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
               {p.masterCode}
             </span>
-          </div>
+          </div>}
         </div>
       </div>
     );

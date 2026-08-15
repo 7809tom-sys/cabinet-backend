@@ -415,3 +415,6 @@
 - [x] Extend refrigerator side panels from the floor to the same top line as the dedicated refrigerator cabinet
 - [x] Add regression coverage for full-height refrigerator side panels in saved and newly created surrounds
 - [x] Normalize legacy placed refrigerator side panels to the dedicated refrigerator cabinet top during restore and render
+- [x] Add supplied realistic 30-inch range and range-hood image assets to the designer appliance appearance library
+- [x] Map realistic appliance appearances to the corresponding range and hood catalog choices without changing their dimensions or placement
+- [x] Render selected realistic range and hood appearances in the designer preview and add mobile regression coverage
