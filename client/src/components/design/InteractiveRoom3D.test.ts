@@ -1079,9 +1079,15 @@ describe("interactive 3D room scene helpers", () => {
       expect(toeKicks).toHaveLength(2);
       expect(toeKicks.map((kick) => kick.userData.attachedEndFrontToeKick).sort()).toEqual(["front", "right"]);
       expect(toeKicks.every((kick) => kick.userData.toeKickFaceWidthIn === 24 && kick.userData.toeKickHeightIn === 4.5)).toBe(true);
+      expect(toeKicks.every((kick) => kick.userData.toeKickRecessIn === 3)).toBe(true);
       expect(toeKicks.map((kick) => ((kick as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
         expect.closeTo(24 / 12, 6), expect.closeTo(24 / 12, 6),
       ]);
+      const frontKick = toeKicks.find((kick) => kick.userData.attachedEndFrontToeKick === "front") as THREE.Mesh;
+      const rightKick = toeKicks.find((kick) => kick.userData.attachedEndFrontToeKick === "right") as THREE.Mesh;
+      // The outer toe-kick surface is exactly 3in behind each 24in body face.
+      expect(frontKick.position.z + 0.04).toBeCloseTo(1 - 3 / 12, 8);
+      expect(rightKick.position.x + 0.04).toBeCloseTo(1 - 3 / 12, 8);
       expect(counters).toHaveLength(1);
       expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
       expect(counters[0]!.userData.perpendicularTwoSideEndCountertop).toBe(true);
@@ -1234,10 +1240,13 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(toeKick).not.toBeNull();
     expect(toeKick!.userData.toeKickHeightIn).toBe(4.5);
+    expect(toeKick!.userData.toeKickRecessIn).toBe(3);
     root.updateMatrixWorld(true);
     const toeKickBounds = new THREE.Box3().setFromObject(toeKick!);
+    const carcassBounds = new THREE.Box3().setFromObject(carcass!);
     expect(toeKickBounds.min.y).toBeCloseTo(0, 8);
     expect(toeKickBounds.max.y).toBeCloseTo(4.5 / 12, 8);
+    expect(carcassBounds.max.z - toeKickBounds.max.z).toBeCloseTo(3 / 12, 8);
     expect(((carcass!.geometry as THREE.BoxGeometry).parameters.height)).toBeCloseTo(30 / 12, 8);
   });
 
@@ -1263,6 +1272,7 @@ describe("interactive 3D room scene helpers", () => {
     kicks.forEach((kick) => {
       const bounds = new THREE.Box3().setFromObject(kick);
       expect(kick.userData.toeKickHeightIn).toBe(4.5);
+      expect(kick.userData.toeKickRecessIn).toBe(3);
       expect(bounds.min.y).toBeCloseTo(0, 8);
       expect(bounds.max.y).toBeCloseTo(4.5 / 12, 8);
     });

@@ -761,12 +761,22 @@ export function addCabinet(
       }
     } else if (specialty.kind === "end-return") {
       const attachedFronts = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
+      const toeKickRecess = 3 * INCH;
+      const toeKickThickness = 0.08;
       for (const face of attachedFronts.faces) {
         const toeKick = new THREE.Mesh(
-          new THREE.BoxGeometry(attachedFronts.sideLength, toeKickHeight, 0.08),
+          new THREE.BoxGeometry(attachedFronts.sideLength, toeKickHeight, toeKickThickness),
           toeKickMaterial,
         );
-        toeKick.position.set(face.x, -bodyHeight / 2 - toeKickHeight / 2, face.z);
+        const normalX = Math.sin(face.rotation);
+        const normalZ = Math.cos(face.rotation);
+        // The decorative face belongs at the cabinet boundary; the 4½-inch
+        // support begins three inches behind that boundary, not flush with it.
+        toeKick.position.set(
+          face.x - normalX * (toeKickRecess + 0.028 + toeKickThickness / 2),
+          -bodyHeight / 2 - toeKickHeight / 2,
+          face.z - normalZ * (toeKickRecess + 0.028 + toeKickThickness / 2),
+        );
         toeKick.rotation.y = face.rotation;
         toeKick.userData = {
           baseToeKick: true,
@@ -776,6 +786,7 @@ export function addCabinet(
           nonCornerEndReturnToeKick: true,
           attachedEndFrontToeKick: face.side,
           toeKickFaceWidthIn: attachedFronts.sideLength / INCH,
+          toeKickRecessIn: 3,
         };
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);
@@ -792,6 +803,7 @@ export function addCabinet(
         baseToeKick: true,
         floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
+        toeKickRecessIn: 3,
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);

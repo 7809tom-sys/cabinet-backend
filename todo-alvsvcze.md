@@ -528,3 +528,9 @@
 - [x] When a proposed cabinet placement overlaps, automatically snap it to the nearest valid left or right position on the same run
 - [x] Reject a cabinet only when no collision-free run position is available, never allow it to overlap or pass through another cabinet
 - [x] Add regression coverage for automatic adjacent placement, deterministic tie-breaking, and genuinely full-run rejection
+- [ ] Restore distinct base construction: floor position, 4½-inch toe kick, 34½-inch cabinet top, configured door/drawer face layout, and direct countertop support
+- [ ] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
+- [ ] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
+- [ ] Capture the actual BEC-24 record in the user’s active design and use it as the sole input for the next 3D correction
+- [x] Recess every standard, tall, floor-dropped wall, and BEC-24 toe kick exactly 3 inches behind the cabinet body boundary while retaining the 4½-inch height
+- [x] Add exact three-inch toe-kick regression coverage for standard, tall, floor-dropped wall, and BEC-24 support faces
