@@ -418,8 +418,8 @@
 - [x] Add supplied realistic 30-inch range and range-hood image assets to the designer appliance appearance library
 - [x] Map realistic appliance appearances to the corresponding range and hood catalog choices without changing their dimensions or placement
 - [x] Render selected realistic range and hood appearances in the designer preview and add mobile regression coverage
-- [ ] Render selected realistic range and hood product visuals on 3D appliance fronts without changing their catalog envelopes
-- [ ] Add deterministic 3D regression coverage for realistic appliance front visuals and preserved geometry
+- [x] Render selected realistic range and hood product visuals on 3D appliance fronts without changing their catalog envelopes
+- [x] Add deterministic 3D regression coverage for realistic appliance front visuals and preserved geometry
 - [x] Replace generic range and hood drawings on existing saved placements with supplied realistic default product visuals
 - [x] Crop supplied realistic range and hood images to the appliance silhouette so no white product canvas appears in elevation
 - [x] Add regression coverage for border-free realistic appliance elevation fit
@@ -427,3 +427,10 @@
 - [x] Render range and hood faces as calibrated 2D appliance elevations rather than perspective product photos
 - [ ] Reserve realistic appliance product visuals for the separate 3D room preview and add visual-mode regression coverage
 - [x] Remove photographic range and hood layers from the active 2D elevation and center calibrated vector appliance fronts on saved measurements
+- [x] Apply supplied original range and hood images as catalog-enveloped realistic fronts in the 3D designer
+- [x] Add 3D regressions proving original appliance visuals preserve exact catalog dimensions, saved position, rotation, and hood mount height
+- [ ] Add supplied or official manufacturer refrigerator, dishwasher, and microwave images to the 3D appliance selling library
+- [ ] Map realistic refrigerator, dishwasher, and microwave visuals to their catalog envelopes and placement rules
+- [ ] Keep launch appliance visuals out of cart, quote, invoice, and checkout while preserving their 2D/3D design presence
+- [ ] Add a mobile-first Plan, Elevation, and 3D view switcher with persistent Undo and Redo controls
+- [ ] Add a one-tap affiliate-branded share link for a saved design and validate key design flows on mobile and desktop

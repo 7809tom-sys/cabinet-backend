@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -68,6 +68,39 @@ describe("interactive 3D room scene helpers", () => {
 
   it("keeps cabinet faces visibly calibrated when a selected 2D door image fails to load", () => {
     expect(threeDDoorMaterialFallback("#b8874e")).toEqual({ color: "#b8874e", map: null });
+  });
+
+  it("maps supplied original range and hood visuals to the 3D selling preview without assigning them to unrelated appliances", () => {
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "RANGE-30", catalogImageUrl: "/manus-storage/original-range.webp" }))
+      .toBe("/manus-storage/original-range.webp");
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "HOOD-30", catalogImageUrl: "/manus-storage/original-hood.webp" }))
+      .toBe("/manus-storage/original-hood.webp");
+    expect(threeDApplianceFrontVisualUrl({ masterCode: "FRIDGE-36", catalogImageUrl: "/manus-storage/fridge.webp" })).toBeNull();
+  });
+
+  it("adds original 3D range and hood visual fronts without changing their catalog envelopes or hood mount", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 1, cabinetId: 1, masterCode: "RANGE-30", description: "30 inch range", placementType: "appliance",
+      width: 30, height: 36, depth: 25, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/original-range.webp",
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    addCabinet(root, {
+      distributorSkuId: 2, cabinetId: 2, masterCode: "HOOD-30", description: "30 inch hood", placementType: "appliance",
+      width: 30, height: 18, depth: 18, mountBottom: 66, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/original-hood.webp",
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    const visualPlanes: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.originalProductVisual) visualPlanes.push(node); });
+
+    expect(visualPlanes).toHaveLength(2);
+    expect(visualPlanes.map((node) => node.userData.originalProductVisualUrl)).toEqual([
+      "/manus-storage/original-range.webp", "/manus-storage/original-hood.webp",
+    ]);
+    expect(visualPlanes.map((node) => node.userData.catalogEnvelope)).toEqual([
+      expect.objectContaining({ widthIn: 30, heightIn: 36, depthIn: 25, mountBottomIn: 0 }),
+      expect.objectContaining({ widthIn: 30, heightIn: 18, depthIn: 18, mountBottomIn: 66 }),
+    ]);
   });
 
   it("renders a selected door sample as texture or calibrated fallback, never an unreported flat-face mode", () => {

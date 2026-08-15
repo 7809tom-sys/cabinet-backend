@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -34,6 +34,8 @@ type SceneSku = {
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
   cornerType?: string | null;
   cornerGeometryKind?: PlacedCornerGeometryKind;
+  /** Original product visual selected in the 2D appliance palette. */
+  catalogImageUrl?: string | null;
 };
 
 export type InteractiveRoomScene = {
@@ -221,6 +223,12 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
       { x: xOffset, z: zOffset },
     ],
   };
+}
+
+/** The 3D selling preview uses original product imagery only on range and hood fronts. */
+export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" | "catalogImageUrl">): string | null {
+  if (!/^(?:RANGE|HOOD)[-_]?/i.test(sku.masterCode ?? "")) return null;
+  return applianceAppearanceImage(sku.masterCode, sku.catalogImageUrl ?? null);
 }
 
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
@@ -904,6 +912,34 @@ export function addCabinet(
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
       frontGroup.add(control);
     }
+
+    const originalVisualUrl = threeDApplianceFrontVisualUrl(sku);
+    if (originalVisualUrl) {
+      // Vitest builds the deterministic mesh graph without a DOM. Preserve the
+      // front plane and its selected-image contract there, while only requesting
+      // the browser image texture in a real WebGL document context.
+      const originalTexture = typeof document === "undefined"
+        ? null
+        : new THREE.TextureLoader().load(originalVisualUrl);
+      if (originalTexture) {
+        originalTexture.colorSpace = THREE.SRGBColorSpace;
+        originalTexture.minFilter = THREE.LinearFilter;
+      }
+      const originalFront = new THREE.Mesh(
+        new THREE.PlaneGeometry(Math.max(0.12, bodyWidth - 0.035), Math.max(0.12, bodyHeight - 0.035)),
+        new THREE.MeshBasicMaterial({ map: originalTexture, transparent: true, alphaTest: 0.02, side: THREE.FrontSide, depthWrite: false }),
+      );
+      // frontGroup already sits at the true front plane. This small offset shows
+      // the original product visual without changing envelope or placement.
+      originalFront.position.set(0, 0, 0.085);
+      originalFront.userData = {
+        applianceCode: sku.masterCode,
+        originalProductVisual: true,
+        originalProductVisualUrl: originalVisualUrl,
+        catalogEnvelope: { widthIn, heightIn, depthIn, mountBottomIn: bottom, rotation },
+      };
+      frontGroup.add(originalFront);
+    }
   } else if (isOvenCabinet) {
     // An oven cabinet is a finished tall enclosure. Its door zone, appliance
     // cut-out, and each drawer row are taken from the saved 2D configuration.
@@ -1560,6 +1596,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     facePattern: cabinet.facePattern ?? null,
     cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" || sharedCornerKind === "corner-drawer" ? "l-shape" : cabinet.cornerType ?? null,
     cornerGeometryKind: sharedCornerKind,
+    catalogImageUrl: cabinet.catalogImageUrl ?? appliance?.catalogImageUrl ?? null,
   };
 }
 
