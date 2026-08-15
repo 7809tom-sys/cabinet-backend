@@ -381,11 +381,11 @@ describe("interactive 3D room scene helpers", () => {
     expect(families.map(placedCornerGeometryKind)).toEqual(expectedKinds);
     expect(families.map((record) => existingCabinetTransform(record, room).rotation)).toEqual([
       0,
-      -Math.PI / 2,
+      Math.PI / 2,
       0,
       Math.PI,
       Math.PI,
-      Math.PI / 2,
+      Math.PI * 1.5,
       0,
     ]);
     const root = new THREE.Group();
@@ -739,13 +739,13 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 15.75, z: 126, rotation: Math.PI / 2, bottom: 0 });
   });
 
-  it("faces every wall cabinet front into the room while preserving its saved 2D center", () => {
+  it("preserves every wall cabinet's saved 2D center and rotation without globally remapping the layout", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 } as never;
     const fixtures = [
-      { uid: "top", cabinetId: 1, masterCode: "B-24", description: "Top wall", placement: "base", x: 30, y: 0, width: 24, depth: 12, height: 34.5, rotation: 180, expected: { x: 42, z: 6, rotation: 0 } },
-      { uid: "bottom", cabinetId: 2, masterCode: "B-24", description: "Bottom wall", placement: "base", x: 30, y: 108, width: 24, depth: 12, height: 34.5, rotation: 0, expected: { x: 42, z: 114, rotation: Math.PI } },
-      { uid: "left", cabinetId: 3, masterCode: "B-24", description: "Left wall", placement: "base", x: 0, y: 30, width: 24, depth: 12, height: 34.5, rotation: 270, expected: { x: 6, z: 42, rotation: Math.PI / 2 } },
-      { uid: "right", cabinetId: 4, masterCode: "B-24", description: "Right wall", placement: "base", x: 132, y: 30, width: 24, depth: 12, height: 34.5, rotation: 90, expected: { x: 138, z: 42, rotation: -Math.PI / 2 } },
+      { uid: "top", cabinetId: 1, masterCode: "B-24", description: "Top wall", placement: "base", x: 30, y: 0, width: 24, depth: 12, height: 34.5, rotation: 180, expected: { x: 42, z: 6, rotation: Math.PI } },
+      { uid: "bottom", cabinetId: 2, masterCode: "B-24", description: "Bottom wall", placement: "base", x: 30, y: 108, width: 24, depth: 12, height: 34.5, rotation: 0, expected: { x: 42, z: 114, rotation: 0 } },
+      { uid: "left", cabinetId: 3, masterCode: "B-24", description: "Left wall", placement: "base", x: 0, y: 30, width: 24, depth: 12, height: 34.5, rotation: 270, expected: { x: 6, z: 42, rotation: Math.PI * 1.5 } },
+      { uid: "right", cabinetId: 4, masterCode: "B-24", description: "Right wall", placement: "base", x: 132, y: 30, width: 24, depth: 12, height: 34.5, rotation: 90, expected: { x: 138, z: 42, rotation: Math.PI / 2 } },
     ] as never[];
     fixtures.forEach((fixture) => {
       const transform = existingCabinetTransform(fixture, room);

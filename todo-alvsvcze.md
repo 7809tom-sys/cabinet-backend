@@ -514,3 +514,6 @@
 - [x] Add four-wall regression coverage for inward-facing cabinet fronts and unchanged saved coordinates
 - [x] Enforce a 4½-inch recessed toe kick on every floor-standing cabinet, including tall and floor-placed wall cabinet profiles
 - [x] Add shared regressions that exclude raised wall cabinets while requiring toe kicks for all floor-mounted cabinet families
+- [x] Remove the forced canonical wall-rotation mapping that reversed the user-visible saved layout
+- [x] Restore exact saved cabinet transforms while retaining live verification of any separately reversed front meshes
+- [x] Add a regression that keeps countertops seated directly on the finished cabinet top while preserving saved orientation

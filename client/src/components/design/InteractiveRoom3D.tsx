@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -1504,13 +1504,10 @@ export function existingCabinetTransform(
   const planRotation = (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer") && hasPlacedRoom
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : savedRotation;
-  // The 2D footprint determines which wall a non-appliance cabinet occupies.
-  // Map that wall to the local +Z door face so cabinet fronts always look into
-  // the room while retaining the exact persisted x/y placement coordinates.
-  const inwardFacingDegrees = hasPlacedRoom && cabinet.placement !== "appliance"
-    ? ({ top: 0, bottom: 180, left: 90, right: -90 } as const)[cabinetWall(cabinet, room as RoomData)]
-    : planRotation;
-  const rotation = Number.isFinite(inwardFacingDegrees) ? inwardFacingDegrees * Math.PI / 180 : 0;
+  // Saved 2D rotation remains authoritative for every cabinet transform. Front
+  // mesh direction must be corrected locally rather than rotating the entire
+  // saved scene away from its measured plan orientation.
+  const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
   const sharedElevation = elevationBox(cabinet, room);
   const explicitMountBottom = cabinet.mountBottom == null ? null : numberValue(cabinet.mountBottom, 0);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"
