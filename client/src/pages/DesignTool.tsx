@@ -45,7 +45,7 @@ import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
-import { buildDesignCabinetCartLines } from "@/lib/designCartLines";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -1684,6 +1684,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return Array.from(map.values());
   }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines]);
 
+  // The interactive 3D quote mirrors the visible cabinet-design estimate. It
+  // deliberately excludes trim, surfaces, fixtures, and visual-only appliances
+  // that belong to the broader shopping-cart scope rather than this subtotal.
+  const interactive3dPricingLines = useMemo(() => buildDesignPreviewPricingLines({
+    placed,
+    styleId,
+    distributorId: lockedDistributorId ?? null,
+    tier: DESIGN_TIER_TO_SHARED[tier],
+    styleNameById,
+    unitPriceFor,
+  }), [placed, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor]);
+
 
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
   // note for the build sheet — carries no price (hardware is not a catalog SKU).
@@ -1929,7 +1941,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     let pricedLineCount = 0;
     let unpricedLineCount = 0;
     let itemCount = 0;
-    for (const line of cartableLines) {
+    for (const line of interactive3dPricingLines) {
       itemCount += line.qty;
       if (line.unitPrice == null || !Number.isFinite(Number(line.unitPrice))) {
         unpricedLineCount += 1;
@@ -1939,9 +1951,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
     }
     return { itemCount, pricedLineCount, unpricedLineCount, subtotal };
-  }, [cartableLines]);
+  }, [interactive3dPricingLines]);
 
-  const interactive3dOrderLines = useMemo<InteractiveRoomOrderLine[]>(() => cartableLines.map((line) => {
+  const interactive3dOrderLines = useMemo<InteractiveRoomOrderLine[]>(() => interactive3dPricingLines.map((line) => {
     const unitPrice = line.unitPrice == null || !Number.isFinite(Number(line.unitPrice)) ? null : Number(line.unitPrice);
     return {
       id: `${line.masterCode}:${line.styleId}:${line.tier}`,
@@ -1951,7 +1963,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       unitPrice,
       lineTotal: unitPrice == null ? null : unitPrice * line.qty,
     };
-  }), [cartableLines]);
+  }), [interactive3dPricingLines]);
 
   const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
     const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({

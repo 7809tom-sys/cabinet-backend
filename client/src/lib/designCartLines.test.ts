@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildDesignCabinetCartLines, calculateCartSubtotal } from "./designCartLines";
-import type { PlacedCabinet } from "@/lib/design";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, calculateCartSubtotal } from "./designCartLines";
+import { CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 
 const bec = {
   uid: "bec-one",
@@ -67,5 +67,22 @@ describe("designer cabinet cart lines", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ masterCode: "BEC-24", qty: 1 });
     expect(calculateCartSubtotal(lines)).toBe(365.95);
+  });
+
+  it("keeps the 3D cabinet-design subtotal aligned with discounts and custom-size fees while excluding visual appliances", () => {
+    const discountedBec = { ...bec, discountPct: -10 } as PlacedCabinet;
+    const customBec = { ...bec, uid: "custom-bec", width: 25, nominalWidth: 24 } as PlacedCabinet;
+    const visualRange = { ...bec, uid: "range-one", masterCode: "RANGE-30", placement: "appliance" } as PlacedCabinet;
+    const lines = buildDesignPreviewPricingLines({
+      placed: [discountedBec, customBec, visualRange],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 100,
+    });
+    expect(lines).toHaveLength(2);
+    expect(lines.map((line) => line.masterCode)).not.toContain("RANGE-30");
+    expect(calculateCartSubtotal(lines)).toBe(90 + 100 + CUSTOM_SIZE_FEE);
   });
 });

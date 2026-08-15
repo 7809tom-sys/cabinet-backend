@@ -452,3 +452,6 @@
 - [x] Set every freestanding range cooktop at 34½ inches and the top of its backguard at 47 inches above the finished floor
 - [x] Preserve the saved range position, catalog width/depth, product front, and floor feet while applying the 47-inch backguard profile
 - [x] Add measured 3D range-profile regressions and review the 47-inch backguard on mobile and desktop
+- [x] Trace the active saved design’s pricing inputs and identify the cause of the incorrect displayed total
+- [x] Correct the verified design pricing calculation without pricing visual-only appliances or changing LS36 pricing without an authoritative source
+- [x] Add a regression for the corrected active-design total and verify the displayed price on mobile and desktop
