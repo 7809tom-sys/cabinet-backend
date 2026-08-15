@@ -178,7 +178,7 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
   const explicit = selectedUrl?.trim();
   if (explicit) return explicit;
   const normalized = `${masterCode ?? ""}`.toUpperCase();
-  return APPLIANCES.find((item) => item.masterCode === normalized)?.catalogImageUrl ?? null;
+  return APPLIANCES.find((item) => item.masterCode === normalized && Boolean(item.catalogImageUrl))?.catalogImageUrl ?? null;
 }
 
 export interface DesignCabinet {
