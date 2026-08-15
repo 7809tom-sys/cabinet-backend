@@ -181,6 +181,13 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
   return APPLIANCES.find((item) => item.masterCode === normalized && Boolean(item.catalogImageUrl))?.catalogImageUrl ?? null;
 }
 
+export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
+  // Wall elevations are measured orthographic drawings. Ranges and hoods use
+  // calibrated 2D silhouettes here; their supplied product imagery belongs in
+  // the appliance picker and 3D room preview instead of a perspective elevation.
+  return /^(RANGE|HOOD)-/i.test(masterCode ?? "") ? "vector" : "photo";
+}
+
 export interface DesignCabinet {
   id: number;
   masterCode: string;

@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage,
+  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -322,7 +322,9 @@ export function ElevationView({
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
-    const applianceVisualUrl = isAppliance ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl) : null;
+    const applianceVisualUrl = isAppliance && applianceElevationPresentation(p.masterCode) === "photo"
+      ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
+      : null;
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
@@ -615,6 +617,14 @@ export function ElevationView({
               />
               {/* Oven window */}
               <div className="absolute" style={{ left: "10%", right: "10%", top: "50%", bottom: "15%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+            </>
+          )}
+          {!applianceVisualUrl && isAppliance && /^HOOD-/i.test(p.masterCode ?? "") && (
+            <>
+              {/* Measured 2D hood: chimney, canopy, and baffle lines. */}
+              <div className="absolute" style={{ left: "34%", right: "34%", top: 0, height: "38%", background: "linear-gradient(90deg, #9ba7b4, #e8edf2 45%, #929eab)", border: "1px solid #697684" }} />
+              <div className="absolute" style={{ left: "8%", right: "8%", top: "32%", height: "42%", clipPath: "polygon(18% 0, 82% 0, 100% 100%, 0 100%)", background: "linear-gradient(180deg, #f3f6f8, #aab5c0 78%, #778491)", border: "1px solid #667483" }} />
+              <div className="absolute" style={{ left: "18%", right: "18%", top: "61%", height: 3, background: "#4d5965", boxShadow: "0 4px 0 #4d5965, 0 8px 0 #4d5965" }} />
             </>
           )}
           {!applianceVisualUrl && <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

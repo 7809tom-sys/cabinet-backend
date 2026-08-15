@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APPLIANCES, applianceAppearanceImage, applianceAsDesignCabinet } from "./design";
+import { APPLIANCES, applianceAppearanceImage, applianceAsDesignCabinet, applianceElevationPresentation, type Appliance } from "@/lib/design";
 
 describe("realistic designer appliance appearances", () => {
   it("offers the supplied 30-inch range visuals without changing the RANGE-30 envelope", () => {
@@ -26,5 +26,11 @@ describe("realistic designer appliance appearances", () => {
     expect(applianceAppearanceImage("RANGE-30")).toContain("-silhouette_");
     expect(applianceAppearanceImage("HOOD-30")).toContain("-cropped_");
     expect(applianceAppearanceImage("RANGE-30", "/manus-storage/customer-choice.webp")).toBe("/manus-storage/customer-choice.webp");
+  });
+
+  it("keeps the measured 2D elevation free of perspective range and hood photos", () => {
+    expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
+    expect(applianceElevationPresentation("HOOD-30")).toBe("vector");
+    expect(applianceElevationPresentation("FRIDGE-36")).toBe("photo");
   });
 });
