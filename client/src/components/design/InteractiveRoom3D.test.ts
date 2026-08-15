@@ -903,7 +903,7 @@ describe("interactive 3D room scene helpers", () => {
       { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
       { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
       { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
-      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [-Math.PI / 4, Math.PI / 4] },
     ];
 
     for (const fixture of fixtures) {
@@ -1010,7 +1010,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
   });
 
-  it("normalizes saved BA-24 and BEC-24 records into one 45-degree 3D end face without refreshed profile metadata", () => {
+  it("normalizes saved BA-24 and BEC-24 records into two attached 8½-inch exterior end faces without refreshed profile metadata", () => {
     for (const masterCode of ["BA-24", "BEC-24"]) {
       const sku = {
         distributorSkuId: -24,
@@ -1033,64 +1033,56 @@ describe("interactive 3D room scene helpers", () => {
       expect(returnFaces).toHaveLength(2);
       expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(8.45 / 12 - 0.03, 6), expect.closeTo(8.45 / 12 - 0.03, 6),
+        expect.closeTo(8.5 / 12, 6), expect.closeTo(8.5 / 12, 6),
       ]);
-      expect(returnFaces.map((face) => face.userData.angledFrontWidthIn)).toEqual([17, 17]);
       expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
-        expect.closeTo(8.45, 6), expect.closeTo(8.45, 6),
+        expect.closeTo(8.5, 6), expect.closeTo(8.5, 6),
       ]);
-      expect(returnFaces.map((face) => face.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
-      expect(returnFaces.every((face) => face.userData.coplanarAngledFront)).toBe(true);
-      expect(returnFaces[0]!.position.x + returnFaces[0]!.position.z).toBeCloseTo(returnFaces[1]!.position.x + returnFaces[1]!.position.z, 8);
+      expect(returnFaces.map((face) => face.rotation.y)).toEqual([-Math.PI / 4, Math.PI / 4]);
+      expect(returnFaces.every((face) => face.userData.attachedEndFront)).toBe(true);
+      expect(returnFaces.map((face) => face.userData.sharedExteriorApex)).toEqual([{ x: 0, z: 1 }, { x: 0, z: 1 }]);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {
         if (node.userData.baseToeKick) toeKicks.push(node);
         if (node.userData.endReturnCountertop) counters.push(node);
       });
-      expect(toeKicks).toHaveLength(1);
-      expect(toeKicks[0]!.userData.endReturnToeKick).toBe(true);
-      expect(toeKicks[0]!.userData.nonCornerEndReturnToeKick).toBe(true);
-      expect(toeKicks[0]!.userData.clippedNonCornerEndReturnToeKick).toBe(true);
-      expect(toeKicks[0]!.userData.toeKickHeightIn).toBe(4.5);
-      const toeKickMesh = toeKicks[0] as THREE.Mesh;
-      expect(toeKickMesh.geometry.type).toBe("ExtrudeGeometry");
-      const toeKickPositions = toeKickMesh.geometry.getAttribute("position");
-      expect(Math.max(...Array.from({ length: toeKickPositions.count }, (_, index) => toeKickPositions.getX(index) + toeKickPositions.getZ(index)))).toBeCloseTo(21 / 24, 6);
+      expect(toeKicks).toHaveLength(2);
+      expect(toeKicks.map((kick) => kick.userData.attachedEndFrontToeKick).sort()).toEqual(["left", "right"]);
+      expect(toeKicks.every((kick) => kick.userData.toeKickFaceWidthIn === 8.5 && kick.userData.toeKickHeightIn === 4.5)).toBe(true);
+      expect(toeKicks.map((kick) => ((kick as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
+        expect.closeTo(8.5 / 12, 6), expect.closeTo(8.5 / 12, 6),
+      ]);
       expect(counters).toHaveLength(1);
       expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
-      expect(counters[0]!.userData.clippedNonCornerEndReturnCountertop).toBe(true);
+      expect(counters[0]!.userData.attached24By24EndCountertop).toBe(true);
       const counterMesh = counters[0] as THREE.Mesh;
-      expect(counterMesh.geometry.type).toBe("ExtrudeGeometry");
-      const countertopPositions = counterMesh.geometry.getAttribute("position");
-      expect(Math.max(...Array.from({ length: countertopPositions.count }, (_, index) => countertopPositions.getX(index) + countertopPositions.getZ(index)))).toBeCloseTo(1.06, 6);
+      expect(counterMesh.geometry.type).toBe("BoxGeometry");
+      expect((counterMesh.geometry as THREE.BoxGeometry).parameters.width).toBeCloseTo(24 / 12, 6);
+      expect((counterMesh.geometry as THREE.BoxGeometry).parameters.depth).toBeCloseTo(24.25 / 12, 6);
       const carcasses: THREE.Mesh[] = [];
       root.traverse((node) => {
         if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) carcasses.push(node);
       });
       expect(carcasses).toHaveLength(1);
-      expect(carcasses[0]!.userData.clippedNonCornerEndReturnBody).toBe(true);
+      expect(carcasses[0]!.userData.attached24By24EndBody).toBe(true);
       expect(carcasses[0]!.userData.hiddenAttachedCarcass).toBe(true);
       expect(carcasses[0]!.visible).toBe(false);
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.every((face) => face.userData.doorWidthIn === 8.45)).toBe(true);
+      expect(returnFaces.every((face) => face.userData.doorWidthIn === 8.5)).toBe(true);
       root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
       expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12, 6);
       expect(bounds.max.z - bounds.min.z).toBeCloseTo(24 / 12, 6);
-      const localPositions = carcasses[0]!.geometry.getAttribute("position");
-      const clippedFrontPlane = Math.max(...Array.from({ length: localPositions.count }, (_, index) => localPositions.getX(index) + localPositions.getZ(index)));
-      expect(clippedFrontPlane).toBeCloseTo(12 / 12, 6);
-      const physicalFrontPoint = carcasses[0]!.localToWorld(new THREE.Vector3(12 / 12, 0, 0));
-      const physicalFrontPlane = physicalFrontPoint.x + physicalFrontPoint.z;
-      const doorCenter = returnFaces[0]!.getWorldPosition(new THREE.Vector3());
-      const doorPlane = doorCenter.x + doorCenter.z;
-      expect(doorPlane).toBeGreaterThan(physicalFrontPlane);
-      expect(doorPlane - physicalFrontPlane).toBeLessThan(0.08);
+      const leftDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "left")!;
+      const rightDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "right")!;
+      const leftApex = leftDoor.localToWorld(new THREE.Vector3(8.5 / 24, 0, 0));
+      const rightApex = rightDoor.localToWorld(new THREE.Vector3(-8.5 / 24, 0, 0));
+      expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.01);
     }
   });
 
-  it("attaches a saved BEC-24 flush to a 24-inch base run while exposing one 17-inch 45-degree end face", () => {
+  it("attaches a saved BEC-24 flush to a 24-inch base run while exposing two attached 8½-inch end faces", () => {
     const base = {
       uid: "base-run-24", cabinetId: 11, masterCode: "B-24", description: '24" Base Cabinet', placement: "base",
       x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
@@ -1113,7 +1105,7 @@ describe("interactive 3D room scene helpers", () => {
     root.traverse((node) => {
       if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) becBodies.push(node);
       if (node.userData.nonCornerEndReturnDoor) becDoors.push(node);
-      if (node.userData.becPhysicalEndFace) becFrontGroups.push(node);
+      if (node.userData.becAttachedTwoFaceEnd) becFrontGroups.push(node);
       if (node.userData.selectedStyleSideSkin && !node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) standardBodies.push(node);
     });
     expect(becBodies).toHaveLength(1);
@@ -1126,16 +1118,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(runBounds.max.x).toBeCloseTo(becBounds.min.x, 8);
     expect(runBounds.min.z).toBeCloseTo(becBounds.min.z, 8);
     expect(runBounds.max.z).toBeCloseTo(becBounds.max.z, 8);
-    const doorPlanes = becDoors.map((door) => {
-      const center = door.getWorldPosition(new THREE.Vector3());
-      return center.x + center.z;
-    });
-    expect(doorPlanes[0]).toBeCloseTo(doorPlanes[1]!, 8);
-    // The two doors sit just in front of the actual clipped end plane at x + z = 5;
-    // a generic rectangular front would project a separate third face farther out.
-    expect(doorPlanes[0]).toBeCloseTo(5.035, 3);
-    expect(doorPlanes[0] - 5).toBeLessThan(0.04);
-    expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.angledFrontWidthIn === 17)).toBe(true);
+    const leftDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "left")!;
+    const rightDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "right")!;
+    const leftApex = leftDoor.localToWorld(new THREE.Vector3(8.5 / 24, 0, 0));
+    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-8.5 / 24, 0, 0));
+    expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.01);
+    expect(leftApex.x).toBeCloseTo(3, 6);
+    expect(leftApex.z).toBeCloseTo(2, 6);
+    expect(becDoors.every((door) => door.userData.doorWidthIn === 8.5 && door.userData.attachedEndFront)).toBe(true);
   });
 
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {

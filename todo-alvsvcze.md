@@ -497,3 +497,5 @@
 - [ ] Identify the user-visible 3D preview route or bundle that did not execute the BEC inventory trace, then repair its live renderer path
 - [x] Replace the clipped BEC body with the direct 24×24 end-cabinet geometry: one 24-inch side on the wall, one 24-inch side attached to the existing cabinet, and two 8½-inch angled door fronts
 - [x] Remove every residual third BEC face so only the two 8½-inch fronts define the exposed 45-degree end
+- [x] Replace the floating BEC door with two attached 8½-inch door-front planes that meet at the 45-degree exterior end
+- [x] Measure the BEC’s 24-inch wall attachment, 24-inch adjacent-cabinet attachment, and attached two-front end geometry in the shared renderer
