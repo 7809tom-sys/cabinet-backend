@@ -470,3 +470,6 @@
 - [x] Remove all corner-wedge BEC 3D geometry and restore its non-corner 24×24 base-cabinet carcass
 - [x] Render BEC-24’s 45-degree decorative front and two center-meeting doors on the non-corner base-end body
 - [ ] Verify BEC remains a floor-standing 24×24 base end cabinet with toe kick and countertop support in the reported 3D scene
+- [x] Set BEC-24’s decorative angled front to 17 inches with two equal doors just under 9 inches wide
+- [x] Preserve BEC-24’s non-corner 24×24 body, toe kick, countertop, and centered two-door angled front while applying the confirmed door width
+- [x] Add a measured 17-inch BEC front and equal-door regression before publishing the confirmed rule

@@ -1033,7 +1033,11 @@ describe("interactive 3D room scene helpers", () => {
       expect(returnFaces).toHaveLength(2);
       expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(11.04 / 12, 6), expect.closeTo(11.04 / 12, 6),
+        expect.closeTo(8.45 / 12 - 0.03, 6), expect.closeTo(8.45 / 12 - 0.03, 6),
+      ]);
+      expect(returnFaces.map((face) => face.userData.angledFrontWidthIn)).toEqual([17, 17]);
+      expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
+        expect.closeTo(8.45, 6), expect.closeTo(8.45, 6),
       ]);
       expect(returnFaces.map((face) => face.rotation.y).sort()).toEqual([-Math.PI / 4, Math.PI / 4]);
       const toeKicks: THREE.Object3D[] = [];

@@ -1238,14 +1238,22 @@ export function addCabinet(
     }
   } else if (specialty.kind === "end-return") {
     // BEC / BA is a full 24×24 *end cabinet*, never a corner carcass. Its two
-    // 12-inch doors form a shallow decorative 45-degree front on that full body.
-    const faceWidth = (bodyWidth - 0.1) / 2;
+    // doors form the confirmed 17-inch decorative angled section: two equal
+    // 8.45-inch faces meeting at center, inside the full rectangular body.
+    const angledFrontWidth = 17 * INCH;
+    const faceWidth = angledFrontWidth / 2 - 0.05 * INCH;
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
     for (const direction of [-1, 1] as const) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(faceWidth - 0.03, faceHeight, 0.05), faceMaterial);
-      door.position.set(direction * faceWidth * 0.24, 0, 0.035);
+      door.position.set(direction * faceWidth / 2, 0, 0.035);
       door.rotation.y = direction * Math.PI / 4;
-      door.userData = { specialtyProfile: "end-return", nonCornerEndReturnDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+      door.userData = {
+        specialtyProfile: "end-return",
+        nonCornerEndReturnDoor: direction === -1 ? "left" : "right",
+        angledFrontWidthIn: 17,
+        doorWidthIn: faceWidth / INCH,
+        cabinetFront: true,
+      };
       frontGroup.add(door);
       addShakerFrame(faceWidth - 0.03, faceHeight, door.position.x, door.position.y, 0.066, door.rotation.y);
     }
