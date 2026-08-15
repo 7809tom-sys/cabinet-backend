@@ -24,7 +24,10 @@ export function buildDesignCabinetCartLines({
   if (!styleId) return [];
   const lines = new Map<string, CartItem>();
   for (const cabinet of placed) {
-    if (isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
+    // Launch appliances are visual-only design context. They remain in the 2D
+    // plan and 3D selling view but are intentionally excluded from all cabinet
+    // cart/quote/invoice/checkout commerce until appliance sales are enabled.
+    if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
     const unitPrice = unitPriceFor(cabinet);
     if (unitPrice == null) continue;
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;

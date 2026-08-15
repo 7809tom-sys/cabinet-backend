@@ -431,6 +431,6 @@
 - [x] Add 3D regressions proving original appliance visuals preserve exact catalog dimensions, saved position, rotation, and hood mount height
 - [ ] Add supplied or official manufacturer refrigerator, dishwasher, and microwave images to the 3D appliance selling library
 - [ ] Map realistic refrigerator, dishwasher, and microwave visuals to their catalog envelopes and placement rules
-- [ ] Keep launch appliance visuals out of cart, quote, invoice, and checkout while preserving their 2D/3D design presence
+- [x] Keep launch appliance visuals out of cart, quote, invoice, and checkout while preserving their 2D/3D design presence
 - [ ] Add a mobile-first Plan, Elevation, and 3D view switcher with persistent Undo and Redo controls
 - [ ] Add a one-tap affiliate-branded share link for a saved design and validate key design flows on mobile and desktop
