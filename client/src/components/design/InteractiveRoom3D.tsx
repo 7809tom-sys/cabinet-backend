@@ -620,6 +620,7 @@ export function addCabinet(
   const isBaseCabinet = placement === "base";
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const isPlacedHood = placement === "appliance" && /HOOD/i.test(sku.masterCode);
+  const isFreestandingRange = placement === "appliance" && /RANGE/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
@@ -741,6 +742,40 @@ export function addCabinet(
     wedge.userData = { specialtyProfile: "triangle-corner", triangleCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
     bodyMeshes.push(wedge);
+  } else if (isFreestandingRange) {
+    // A range is a floor appliance, not a cabinet carcass. A dedicated chassis,
+    // lower recess, and four feet keep the product front from reading as a box.
+    const footHeight = Math.min(0.12, bodyHeight * 0.06);
+    const topClearance = 0.06;
+    const chassisHeight = Math.max(0.2, bodyHeight - footHeight - topClearance);
+    const chassisMaterial = new THREE.MeshStandardMaterial({ color: "#1b2026", roughness: 0.34, metalness: 0.58 });
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.045, chassisHeight, bodyDepth - 0.035), chassisMaterial);
+    chassis.position.y = -bodyHeight / 2 + footHeight + chassisHeight / 2;
+    chassis.userData = { applianceCode: sku.masterCode, freestandingRangeChassis: true, rangeFloorClearanceIn: footHeight / INCH };
+    cabinet.add(chassis);
+
+    const footWidth = Math.max(0.07, Math.min(0.11, bodyWidth * 0.055));
+    const footDepth = Math.max(0.09, Math.min(0.14, bodyDepth * 0.07));
+    for (const xSign of [-1, 1] as const) {
+      for (const zSign of [-1, 1] as const) {
+        const foot = new THREE.Mesh(new THREE.BoxGeometry(footWidth, footHeight, footDepth), chassisMaterial);
+        const isFrontFoot = zSign === 1;
+        foot.position.set(
+          xSign * (bodyWidth / 2 - footWidth * 0.8),
+          -bodyHeight / 2 + footHeight / 2,
+          isFrontFoot ? bodyDepth / 2 + 0.12 : -bodyDepth / 2 + footDepth * 0.8,
+        );
+        foot.userData = { applianceCode: sku.masterCode, freestandingRangeFoot: true, visibleFreestandingRangeFoot: isFrontFoot, floorApplianceSupport: true };
+        cabinet.add(foot);
+      }
+    }
+    const toeRecess = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth * 0.72, Math.max(0.06, footHeight * 0.78), 0.028),
+      new THREE.MeshStandardMaterial({ color: "#080b0e", roughness: 0.5, metalness: 0.28 }),
+    );
+    toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
+    toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
+    cabinet.add(toeRecess);
   } else if (!isPlacedHood) {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
     body.userData = { selectedStyleSideSkin: true, ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}) };
@@ -925,17 +960,22 @@ export function addCabinet(
         originalTexture.colorSpace = THREE.SRGBColorSpace;
         originalTexture.minFilter = THREE.LinearFilter;
       }
+      const rangeFootClearance = isFreestandingRange ? Math.min(0.12, bodyHeight * 0.06) : 0;
       const originalFront = new THREE.Mesh(
-        new THREE.PlaneGeometry(Math.max(0.12, bodyWidth - 0.035), Math.max(0.12, bodyHeight - 0.035)),
+        new THREE.PlaneGeometry(
+          Math.max(0.12, bodyWidth - 0.035),
+          Math.max(0.12, bodyHeight - 0.035 - rangeFootClearance),
+        ),
         new THREE.MeshBasicMaterial({ map: originalTexture, transparent: true, alphaTest: 0.02, side: THREE.FrontSide, depthWrite: false }),
       );
       // frontGroup already sits at the true front plane. This small offset shows
       // the original product visual without changing envelope or placement.
-      originalFront.position.set(0, 0, 0.085);
+      originalFront.position.set(0, rangeFootClearance / 2, 0.085);
       originalFront.userData = {
         applianceCode: sku.masterCode,
         originalProductVisual: true,
         originalProductVisualUrl: originalVisualUrl,
+        ...(isFreestandingRange ? { freestandingRangeProductVisual: true, rangeFootClearanceIn: rangeFootClearance / INCH } : {}),
         catalogEnvelope: { widthIn, heightIn, depthIn, mountBottomIn: bottom, rotation },
       };
       frontGroup.add(originalFront);

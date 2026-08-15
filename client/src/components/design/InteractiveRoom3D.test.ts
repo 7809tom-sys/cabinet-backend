@@ -1143,6 +1143,59 @@ describe("interactive 3D room scene helpers", () => {
     expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
   });
 
+  it("renders a range as a freestanding floor appliance rather than a cabinet box", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -30,
+      cabinetId: 30,
+      masterCode: "RANGE-30",
+      description: '30" Freestanding Gas Range',
+      placementType: "appliance",
+      width: 30,
+      height: 36,
+      depth: 25,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/range-test-front.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+
+    let chassis: THREE.Mesh | null = null;
+    let toeRecess: THREE.Mesh | null = null;
+    const feet: THREE.Mesh[] = [];
+    const visibleFrontFeet: THREE.Mesh[] = [];
+    const cabinetSkins: THREE.Mesh[] = [];
+    const productFronts: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.freestandingRangeChassis) chassis = node;
+      if (node.userData.freestandingRangeToeRecess) toeRecess = node;
+      if (node.userData.freestandingRangeFoot) feet.push(node);
+      if (node.userData.visibleFreestandingRangeFoot) visibleFrontFeet.push(node);
+      if (node.userData.selectedStyleSideSkin) cabinetSkins.push(node);
+      if (node.userData.originalProductVisual) productFronts.push(node);
+    });
+
+    expect(chassis).not.toBeNull();
+    expect(toeRecess).not.toBeNull();
+    expect(feet).toHaveLength(4);
+    expect(visibleFrontFeet).toHaveLength(2);
+    expect(cabinetSkins).toHaveLength(0);
+    expect(productFronts).toHaveLength(1);
+    expect(productFronts[0]!.userData.catalogEnvelope).toMatchObject({ widthIn: 30, heightIn: 36, depthIn: 25, mountBottomIn: 0 });
+    expect(productFronts[0]!.userData).toMatchObject({ freestandingRangeProductVisual: true });
+    expect(productFronts[0]!.userData.rangeFootClearanceIn).toBeGreaterThan(0);
+
+    root.updateMatrixWorld(true);
+    const chassisBounds = new THREE.Box3().setFromObject(chassis!);
+    const footBounds = feet.reduce(
+      (bounds, foot) => bounds.union(new THREE.Box3().setFromObject(foot)),
+      new THREE.Box3().makeEmpty(),
+    );
+    expect(footBounds.min.y).toBeCloseTo(0, 8);
+    expect(footBounds.max.y).toBeCloseTo(chassisBounds.min.y, 6);
+    expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);
+  });
+
   it("preserves the saved tall-appliance height, dishwasher-spanning counter, and 66-inch range-hood mount in the actual scene meshes", () => {
     const root = new THREE.Group();
     addCabinet(root, {

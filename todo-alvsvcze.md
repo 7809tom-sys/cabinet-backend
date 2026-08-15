@@ -443,3 +443,6 @@
 - [x] Replace text wall controls with directional arrows: left for Left, right for Right, up for Back, and down for Front
 - [x] Preserve selected-wall state, lock indicators, and accessible wall labels with the compact arrow controls
 - [x] Verify the directional wall selector fits and functions on mobile, tablet, and desktop
+- [x] Remove the box-like 3D range base and render a realistic freestanding floor appliance body with visible lower recess and feet
+- [x] Preserve the range’s exact catalog envelope, saved floor placement, cooktop, and realistic product front while refining its floor contact
+- [x] Add measured 3D regression and cross-device visual verification for the freestanding range presentation
