@@ -521,3 +521,5 @@
 - [ ] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
 - [ ] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
 - [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path
+- [x] Restrict stock, supplier, and generic images to finish or material references; never use them as replacement 2D or 3D cabinet geometry
+- [x] Add spec-driven rendering regressions proving saved dimensions, construction, and placement override every generic image path

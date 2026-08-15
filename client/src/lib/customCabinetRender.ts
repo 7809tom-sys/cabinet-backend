@@ -4,7 +4,8 @@ export type CustomCabinetRenderMode = "standard" | "generic-image" | "vector-pro
 
 /**
  * Resolves the source of a non-standard cabinet elevation face. A configured
- * generic drawing always wins over the vector fallback for the selected rule.
+ * image can inform Cabinet Config styling, but dimensions and profile rules
+ * always own the visible geometry.
  */
 export function resolveCustomCabinetRender(
   profile: string | null | undefined,
@@ -12,5 +13,6 @@ export function resolveCustomCabinetRender(
   isAppliance: boolean,
 ): CustomCabinetRenderMode {
   if (isAppliance || !isCustomCabinetProfile(profile)) return "standard";
-  return genericDrawingUrl ? "generic-image" : "vector-profile";
+  void genericDrawingUrl;
+  return "vector-profile";
 }

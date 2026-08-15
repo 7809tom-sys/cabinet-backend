@@ -255,14 +255,14 @@ describe("configured Cabinet Config elevation presentation", () => {
     category: "Base",
   };
 
-  it("uses a saved generic drawing image ahead of a custom-rule vector fallback", () => {
+  it("keeps a saved generic drawing as a reference while retaining custom-rule vector geometry", () => {
     expect(
       resolveElevationFacePresentation(
         specialtyCabinet,
         "wine-rack",
         "https://example.com/configured-wine-rack.webp",
       ).renderMode,
-    ).toBe("generic-image");
+    ).toBe("vector-profile");
   });
 
   it("retains the rule-specific vector fallback when no generic image is configured", () => {
@@ -502,7 +502,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
     }
   });
 
-  it("routes every saved Custom Cabinet Rule profile to its configured generic-image path", () => {
+  it("keeps every saved Custom Cabinet Rule profile specification-derived when a reference image is present", () => {
     const imageUrl = "https://example.com/configured-profile.webp";
     const nonStandardProfiles = CUSTOM_CABINET_PROFILES.filter((profile) => profile.id !== "standard");
 
@@ -519,13 +519,12 @@ describe("non-standard Cabinet Config drawing contract", () => {
       "hood-insert",
     ]);
 
-    for (const profile of nonStandardProfiles.filter((profile) => profile.id !== "end-angle")) {
+    for (const profile of nonStandardProfiles) {
       expect(
         resolveElevationFacePresentation(configuredCabinet, profile.id, imageUrl).renderMode,
         profile.id,
-      ).toBe("generic-image");
+      ).toBe("vector-profile");
     }
-    expect(resolveElevationFacePresentation(configuredCabinet, "end-angle", imageUrl).renderMode).toBe("vector-profile");
   });
 
   it("provides a distinct vector shape for every profile that has one", () => {
@@ -547,7 +546,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
     }
   });
 
-  it("renders a configured generic-image rule in the actual elevation container", () => {
+  it("does not render a configured generic image as the actual elevation geometry", () => {
     const imageUrl = "https://example.com/generic-rule.webp";
     const markup = renderToStaticMarkup(
       createElement(
@@ -578,7 +577,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
       ),
     );
 
-    expect(markup).toContain(`src="${imageUrl}"`);
+    expect(markup).not.toContain(`src="${imageUrl}"`);
     expect(markup).toContain("width:96px");
     expect(markup).not.toContain("clip-path:polygon(0 0");
   });

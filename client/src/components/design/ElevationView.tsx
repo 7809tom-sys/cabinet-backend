@@ -140,9 +140,9 @@ export function isRefrigeratorEndPanel(cabinet: Pick<PlacedCabinet, "placement" 
 
 /**
  * Resolves the saved Cabinet Config contract before drawing an elevation face.
- * A custom rule can use its configured generic drawing image; otherwise it
- * falls back to the rule's vector profile while standard cabinets keep their
- * normal door/drawer geometry.
+ * A configured generic drawing can inform style, but the elevation always uses
+ * the rule's vector profile and physical dimensions. Standard cabinets keep
+ * their normal door/drawer geometry.
  */
 export function resolveElevationFacePresentation(
   cabinet: CabinetLike,
@@ -348,7 +348,6 @@ export function ElevationView({
     const cabType: CabinetDrawingType | null = facePresentation.cabinetType;
     const isEndAngle = facePresentation.isEndAngle;
     const customRenderMode = facePresentation.renderMode;
-    const showGenericDrawing = customRenderMode === "generic-image";
     const showProfileFallback = customRenderMode === "vector-profile" && !isEndAngle;
     // Face fill: clean cabinet-box background behind the vector face geometry.
     // Product photos are intentionally not tiled into elevations because their
@@ -459,7 +458,7 @@ export function ElevationView({
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}
-          {!isAppliance && !showGenericDrawing && !showProfileFallback && (
+          {!isAppliance && !showProfileFallback && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
@@ -484,14 +483,6 @@ export function ElevationView({
               facePattern={p.facePattern ?? null}
               shelfCount={(p.fixedShelfCount ?? 0) + (p.adjustableShelfCount ?? 0)}
               frameInsetPx={cabFrameInset ?? undefined}
-            />
-          )}
-          {showGenericDrawing && (
-            <img
-              src={p.genericDrawingUrl ?? undefined}
-              alt={`${p.description} configured drawing`}
-              className="absolute inset-0 h-full w-full object-contain bg-white/90"
-              draggable={false}
             />
           )}
           {showProfileFallback && (
