@@ -423,3 +423,4 @@
 - [x] Replace generic range and hood drawings on existing saved placements with supplied realistic default product visuals
 - [x] Crop supplied realistic range and hood images to the appliance silhouette so no white product canvas appears in elevation
 - [x] Add regression coverage for border-free realistic appliance elevation fit
+- [x] Remove the remaining off-white canvas from the black gas range source image and verify a transparent elevation perimeter

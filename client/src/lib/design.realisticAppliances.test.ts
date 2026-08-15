@@ -23,7 +23,7 @@ describe("realistic designer appliance appearances", () => {
   it("gives legacy range and hood placements a supplied default while preserving a chosen visual", () => {
     expect(applianceAppearanceImage("RANGE-30")).toBe(APPLIANCES.find((item) => item.masterCode === "RANGE-30" && item.catalogImageUrl)?.catalogImageUrl);
     expect(applianceAppearanceImage("HOOD-30")).toBe(APPLIANCES.find((item) => item.masterCode === "HOOD-30" && item.catalogImageUrl)?.catalogImageUrl);
-    expect(applianceAppearanceImage("RANGE-30")).toContain("-cropped_");
+    expect(applianceAppearanceImage("RANGE-30")).toContain("-silhouette_");
     expect(applianceAppearanceImage("HOOD-30")).toContain("-cropped_");
     expect(applianceAppearanceImage("RANGE-30", "/manus-storage/customer-choice.webp")).toBe("/manus-storage/customer-choice.webp");
   });

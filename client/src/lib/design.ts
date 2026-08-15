@@ -108,7 +108,7 @@ export interface ApplianceDef {
 
 export const APPLIANCES: ApplianceDef[] = [
   // ── Kitchen ──────────────────────────────────────────────────────────────
-  { key: "range-black-gas", masterCode: "RANGE-30", description: '30" Black Gas Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-cropped_f15027e3.webp", rooms: ["kitchen"] },
+  { key: "range-black-gas", masterCode: "RANGE-30", description: '30" Black Gas Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-silhouette_0a25e71c.webp", rooms: ["kitchen"] },
   { key: "range-black-stainless-front-control", masterCode: "RANGE-30", description: '30" Black Stainless Front-Control Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30InchWideBlackStainlessSteelFrontControlRange-cropped_96100940.webp", rooms: ["kitchen"] },
   { key: "range-white-electric-front-control", masterCode: "RANGE-30", description: '30" White Electric Front-Control Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30InchZlineFrontControlWhiteElectricRange-cropped_e5144787.webp", rooms: ["kitchen"] },
   { key: "range-stainless-electric", masterCode: "RANGE-30", description: '30" Stainless Electric Range', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, catalogImageUrl: "/manus-storage/30inchWideStainlessSteelElectricRange-cropped_c6f3d3e6.webp", rooms: ["kitchen"] },
