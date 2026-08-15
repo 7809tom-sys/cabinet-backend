@@ -455,3 +455,6 @@
 - [x] Trace the active saved design’s pricing inputs and identify the cause of the incorrect displayed total
 - [x] Correct the verified design pricing calculation without pricing visual-only appliances or changing LS36 pricing without an authoritative source
 - [x] Add a regression for the corrected active-design total and verify the displayed price on mobile and desktop
+- [x] Add a configurable 12-inch angled wall cabinet drawing rule with a single side-hinged door and two adjustable shelves
+- [x] Render the angled wall cabinet at 12-inch wall depth and 30- or 36-inch configured height in plan, elevation, and 3D
+- [x] Add Cabinet Config, regression, and mobile/tablet/desktop validation for the angled wall cabinet rule

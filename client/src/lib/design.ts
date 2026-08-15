@@ -991,6 +991,16 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   if (cornerKind === "base-end") {
     return { w: STD.BASE_DEPTH, d: STD.BASE_DEPTH };
   }
+  // AW1230-style angled wall cabinets use a true 12-by-12 triangular envelope:
+  // each 12-inch side is against a wall and the single door spans the 45-degree
+  // outer face. They share corner rotation with WDC cabinets but must never be
+  // inflated to WDC's 24-by-24 wall-corner envelope.
+  if (cornerKind === "diagonal" && isAngledWallCabinet(p.masterCode, p.description)) {
+    return {
+      w: Math.max(6, p.width || STD.WALL_DEPTH),
+      d: Math.max(6, p.depth || STD.WALL_DEPTH),
+    };
+  }
   // Diagonal and L-corner records share a square plan envelope. The shared
   // classifier above is deliberately the only source of this decision for both
   // PlanCanvas and the deterministic 3D renderer.

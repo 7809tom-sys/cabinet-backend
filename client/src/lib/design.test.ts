@@ -1860,6 +1860,20 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(placedFootprint(wdc)).toEqual({ w: 24, d: 24 });
   });
 
+  it("keeps AW1230 as the illustrated compact 12-by-12 angled wall cabinet instead of inflating it to a WDC footprint", () => {
+    const aw = cab({
+      masterCode: "AW1230",
+      description: '12" Single Door Angled Wall Cabinet with 2 Adjustable Shelves',
+      placement: "wall",
+      width: 12,
+      depth: 12,
+      height: 30,
+      customProfile: "wall_angle",
+    });
+    expect(placedCornerGeometryKind(aw)).toBe("diagonal");
+    expect(placedFootprint(aw)).toEqual({ w: 12, d: 12 });
+  });
+
   it("uses one shared persisted classifier across diagonal, triangle, blind, L-corner, and end-return families", () => {
     const cases = [
       { cabinet: cab({ masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall", width: 24, depth: 12 }), kind: "diagonal", footprint: { w: 24, d: 24 } },

@@ -616,6 +616,13 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   return { kind: "standard" as const, pattern: null };
 }
 
+function isAngledWallProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "masterCode" | "description">) {
+  const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
+  return /(?:^|\s)wall_angle(?:\s|$)|angled-wall/.test(graphic)
+    || /^aw[-_]?\d/i.test(sku.masterCode)
+    || /\bangled wall\b/i.test(sku.description ?? "");
+}
+
 export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -688,6 +695,7 @@ export function addCabinet(
     ...(isPlacedHood ? { wallMountedAppliance: true, noCabinetBacking: true } : {}),
   };
   const specialty = resolvedThreeDSpecialtyProfile(sku);
+  const angledWallProfile = isAngledWallProfile(sku);
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
   const bodyMeshes: THREE.Mesh[] = [];
@@ -749,8 +757,15 @@ export function addCabinet(
       bodyMeshes.push(leg);
     }
   } else if (specialty.kind === "diagonal-corner") {
-    const wedge = new THREE.Mesh(diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight), bodyMaterial);
-    wedge.userData = { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
+    const wedge = new THREE.Mesh(
+      angledWallProfile
+        ? triangleCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight)
+        : diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight),
+      bodyMaterial,
+    );
+    wedge.userData = angledWallProfile
+      ? { specialtyProfile: "angled-wall", angledWallWedge: true, selectedStyleSideSkin: true }
+      : { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
     bodyMeshes.push(wedge);
   } else if (specialty.kind === "triangle-corner") {
@@ -1122,14 +1137,18 @@ export function addCabinet(
     // square body. Keeping these faces on the diagonal is particularly important
     // for LS3612: a centered pair makes a correct 36×36 Lazy Susan look like an
     // ordinary rectangular base from the mobile orbit camera.
-    const diagonalWidth = diagonalCornerFrontWidth(bodyWidth, bodyDepth);
-    const diagonalDoorWidth = diagonalWidth / 2;
+    const diagonalWidth = angledWallProfile
+      ? triangleCornerFrontWidth(bodyWidth, bodyDepth)
+      : diagonalCornerFrontWidth(bodyWidth, bodyDepth);
+    const diagonalDoorCount = angledWallProfile ? 1 : 2;
+    const diagonalDoorWidth = diagonalWidth / diagonalDoorCount;
     const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
-    const diagonalFaceCenterX = bodyWidth / 4;
-    const diagonalFaceCenterZ = bodyDepth / 4;
+    const diagonalFaceCenterX = angledWallProfile ? 0 : bodyWidth / 4;
+    const diagonalFaceCenterZ = angledWallProfile ? 0 : bodyDepth / 4;
     const diagonalFaceNormal = Math.SQRT1_2 * 0.045;
     const tangentOffset = diagonalDoorWidth / 2;
-    for (const direction of [-1, 1] as const) {
+    const directions = angledWallProfile ? [0] : [-1, 1];
+    for (const direction of directions) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052), faceMaterial);
       door.position.set(
         diagonalFaceCenterX + direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
@@ -1137,7 +1156,9 @@ export function addCabinet(
         diagonalFaceCenterZ - direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
       );
       door.rotation.y = Math.PI / 4;
-      door.userData = { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+      door.userData = angledWallProfile
+        ? { specialtyProfile: "angled-wall", angledWallDoor: true, cabinetFront: true }
+        : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
       addShakerFrame(diagonalDoorWidth - 0.03, diagonalDoorHeight, door.position.x, door.position.y, door.position.z + 0.034, door.rotation.y);
     }

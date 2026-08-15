@@ -2103,6 +2103,23 @@ export function CustomProfileFace({
     );
   }
 
+  if (profile === "wall_angle") {
+    // AW1230: a compact angled wall cabinet with two adjustable shelves behind
+    // one side-hinged door. The diagonal casing records its 45-degree plan form;
+    // the front stays a single practical door instead of being split like WDC.
+    return (
+      <div data-cabinet-profile="angled-wall" className="absolute inset-0 overflow-hidden" style={{ border: `3px solid ${edge}`, background: cavity }}>
+        <div className="absolute left-0 top-0 bottom-0 w-[60%]" style={{ borderRight: `2px solid ${rail}` }}>
+          {shelves}
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-[40%]" style={{ background: face, borderLeft: `2px solid ${edge}` }}>
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={`${edge}99`} doorSampleUrl={doorSampleUrl} faceWidthIn={(faceWidthIn ?? 12) * 0.4} faceHeightIn={faceHeightIn ?? 30} />
+        </div>
+        <div className="absolute left-[4%] right-[4%] top-[3%] h-[2px]" style={{ background: rail, transform: "rotate(-8deg)", transformOrigin: "left center" }} />
+      </div>
+    );
+  }
+
   const isCurved = profile === "curved-open-shelf";
   return (
     <div

@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, snapPosition, orientToWall, hasCollision,
-  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
+  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide,
@@ -46,7 +46,11 @@ export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): str
   const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(cabinet);
   const rotation = cornerRotationForPlaced(cabinet, room);
   if (isTriangle) return triangleCornerClipPath(rotation);
-  if (isDiagonal) return diagonalCornerClipPath(rotation);
+  // AW1230 is a compact angled wall cabinet: two 12-inch wall legs and one
+  // full-length 45-degree hinged face. It is not a 24-inch WDC pentagon.
+  if (isDiagonal) return isAngledWallCabinet(cabinet.masterCode, cabinet.description)
+    ? triangleCornerClipPath(rotation)
+    : diagonalCornerClipPath(rotation);
   if ((isConfiguredL || isCorner) && !isBlind) {
     return cornerClipPath(rotation, cornerLegRatioForPlaced(cabinet));
   }
@@ -56,6 +60,7 @@ export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): str
 /** Visible 45° WDC door/front seam derived from the same shared diagonal classification. */
 export function planDiagonalFrontPath(cabinet: PlacedCabinet, room: RoomData): string | undefined {
   if (!planCornerGeometry(cabinet).isDiagonal) return undefined;
+  if (isAngledWallCabinet(cabinet.masterCode, cabinet.description)) return undefined;
   switch (((cornerRotationForPlaced(cabinet, room) % 360) + 360) % 360) {
     case 90: return "M50 100L0 50";
     case 180: return "M0 50L50 0";

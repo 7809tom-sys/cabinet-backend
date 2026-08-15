@@ -1,5 +1,6 @@
 export const CUSTOM_CABINET_PROFILES = [
   { id: "standard", label: "Standard cabinet (automatic drawing)", usesGenericImage: false },
+  { id: "wall_angle", label: "Angled wall cabinet (12×12 diagonal, side-hinged door)", usesGenericImage: true },
   { id: "end-angle", label: "Base end angle cabinet", usesGenericImage: true },
   { id: "generic-image", label: "Generic drawing image", usesGenericImage: true },
   { id: "open-shelf-side-door", label: "Open shelf with side-hinged door", usesGenericImage: true },

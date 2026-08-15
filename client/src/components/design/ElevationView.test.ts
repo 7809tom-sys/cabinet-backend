@@ -397,6 +397,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
     expect(renderProfile("pullout-tower")).toContain("w-[3px]");
     expect(renderProfile("knee-drawer")).toContain("h-[21%]");
     expect(renderProfile("hood-wall-chimney")).toContain("clip-path:polygon(28% 0,72% 0,88% 65%,100% 100%,0 100%,12% 65%)");
+    expect(renderProfile("wall_angle")).toContain('data-cabinet-profile="angled-wall"');
   });
 
   it("uses the selected real samples on custom side-door and knee-drawer faces", () => {
@@ -469,6 +470,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
     const nonStandardProfiles = CUSTOM_CABINET_PROFILES.filter((profile) => profile.id !== "standard");
 
     expect(nonStandardProfiles.map((profile) => profile.id)).toEqual([
+      "wall_angle",
       "end-angle",
       "generic-image",
       "open-shelf-side-door",
@@ -492,6 +494,7 @@ describe("non-standard Cabinet Config drawing contract", () => {
   it("provides a distinct vector shape for every profile that has one", () => {
     const vectorMarkers = {
       "open-shelf-side-door": "w-[62%]",
+      "wall_angle": 'data-cabinet-profile="angled-wall"',
       "curved-open-shelf": "border-top-right-radius:42% 16%",
       "wine-rack": "<svg",
       "pullout-tower": "w-[3px]",

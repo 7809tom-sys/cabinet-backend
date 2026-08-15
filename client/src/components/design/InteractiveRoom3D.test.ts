@@ -971,6 +971,44 @@ describe("interactive 3D room scene helpers", () => {
     expect(unexpectedMeshes).toHaveLength(0);
   });
 
+  it("builds AW1230 as a 12-by-12 angled wall wedge with one side-hinged diagonal door and two adjustable shelves configured", () => {
+    const aw1230 = existingCabinetSku({
+      uid: "aw1230",
+      cabinetId: 9360146,
+      masterCode: "AW1230",
+      description: '12" Single Door Wall Cabinet with 2 Adjustable Shelves',
+      category: "Wall",
+      placement: "wall",
+      x: 0,
+      y: 0,
+      width: 12,
+      height: 30,
+      depth: 12,
+      rotation: 0,
+      cornerType: null,
+      customProfile: "wall_angle",
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+      adjustableShelfCount: 2,
+    } as never);
+    const root = new THREE.Group();
+    addCabinet(root, aw1230, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "Recessed Panel" });
+    const wedges: THREE.Object3D[] = [];
+    const doors: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.angledWallWedge) wedges.push(node);
+      if (node.userData.angledWallDoor) doors.push(node);
+    });
+    expect(aw1230).toMatchObject({ width: 12, depth: 12, cornerType: "diagonal" });
+    expect(wedges).toHaveLength(1);
+    expect(doors).toHaveLength(1);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(wedges[0]!);
+    expect(bounds.max.x - bounds.min.x).toBeCloseTo(1, 8);
+    expect(bounds.max.z - bounds.min.z).toBeCloseTo(1, 8);
+    expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
+  });
+
   it("normalizes saved BA-24 and BEC-24 records into two-face 3D end returns without refreshed profile metadata", () => {
     for (const masterCode of ["BA-24", "BEC-24"]) {
       const sku = {
