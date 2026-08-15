@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -855,6 +855,13 @@ describe("interactive 3D room scene helpers", () => {
     expect(cooktop.burnerCenters[0]?.z).toBeCloseTo(-0.45156666666666667, 12);
   });
 
+  it("uses a 47-inch backguard top above the shared 34½-inch freestanding range cooktop", () => {
+    const profile = freestandingRangeHeightProfile(0, 36 / 12);
+    expect(profile.cookingSurfaceIn).toBe(34.5);
+    expect(profile.backguardTopIn).toBe(47);
+    expect(profile.backguardHeight * 12).toBeCloseTo(12.5, 8);
+  });
+
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
     expect(THREE_D_EXPORT_SIZE).toEqual({ width: 2000, height: 1400 });
   });
@@ -1163,6 +1170,7 @@ describe("interactive 3D room scene helpers", () => {
     let chassis: THREE.Mesh | null = null;
     let toeRecess: THREE.Mesh | null = null;
     let cooktopSurface: THREE.Mesh | null = null;
+    let backguard: THREE.Mesh | null = null;
     const feet: THREE.Mesh[] = [];
     const visibleFrontFeet: THREE.Mesh[] = [];
     const cabinetSkins: THREE.Mesh[] = [];
@@ -1172,6 +1180,7 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.freestandingRangeChassis) chassis = node;
       if (node.userData.freestandingRangeToeRecess) toeRecess = node;
       if (node.userData.rangeCooktop) cooktopSurface = node;
+      if (node.userData.rangeBackguard) backguard = node;
       if (node.userData.freestandingRangeFoot) feet.push(node);
       if (node.userData.visibleFreestandingRangeFoot) visibleFrontFeet.push(node);
       if (node.userData.selectedStyleSideSkin) cabinetSkins.push(node);
@@ -1181,6 +1190,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(chassis).not.toBeNull();
     expect(toeRecess).not.toBeNull();
     expect(cooktopSurface).not.toBeNull();
+    expect(backguard).not.toBeNull();
     expect(feet).toHaveLength(4);
     expect(visibleFrontFeet).toHaveLength(2);
     expect(cabinetSkins).toHaveLength(0);
@@ -1192,6 +1202,7 @@ describe("interactive 3D room scene helpers", () => {
     root.updateMatrixWorld(true);
     const chassisBounds = new THREE.Box3().setFromObject(chassis!);
     const cooktopBounds = new THREE.Box3().setFromObject(cooktopSurface!);
+    const backguardBounds = new THREE.Box3().setFromObject(backguard!);
     const footBounds = feet.reduce(
       (bounds, foot) => bounds.union(new THREE.Box3().setFromObject(foot)),
       new THREE.Box3().makeEmpty(),
@@ -1199,6 +1210,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(footBounds.min.y).toBeCloseTo(0, 8);
     expect(footBounds.max.y).toBeCloseTo(chassisBounds.min.y, 6);
     expect(cooktopBounds.max.y).toBeCloseTo(34.5 / 12, 6);
+    expect(backguardBounds.max.y).toBeCloseTo(47 / 12, 6);
+    expect(backguard!.userData.rangeBackguardTopIn).toBe(47);
     expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);
   });
 

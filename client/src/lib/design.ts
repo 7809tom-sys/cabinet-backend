@@ -5,6 +5,8 @@ export const STD = {
   BASE_HEIGHT: 34.5,
   // All range and cooktop burner surfaces align to this finished-floor height.
   RANGE_COOKING_SURFACE_HEIGHT: 34.5,
+  // Freestanding range backguards rise above the cooktop to this finished-floor top line.
+  RANGE_BACKGUARD_TOP: 47,
   BASE_DEPTH: 24,
   COUNTERTOP_THICKNESS: 1.5,
   COUNTERTOP_HEIGHT: 36,

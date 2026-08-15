@@ -322,6 +322,12 @@ export function ElevationView({
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
+    const isFreestandingRange = isAppliance && /^RANGE[-_]?/i.test(p.masterCode ?? "");
+    // A range body may be cataloged at 36 inches while its backguard is a
+    // distinct appliance feature. Elevations use the 47-inch overall range top.
+    const displayedHeight = isFreestandingRange
+      ? Math.max(height, STD.RANGE_BACKGUARD_TOP - bottom)
+      : height;
     const applianceVisualUrl = isAppliance && applianceElevationPresentation(p.masterCode) === "photo"
       ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
       : null;
@@ -426,7 +432,7 @@ export function ElevationView({
           left: posAlong * ppi,
           width: sizeAlong * ppi,
           bottom: bottom * ppi,
-          height: height * ppi,
+          height: displayedHeight * ppi,
           // The outer container carries the face fill as its background so that
           // no interior/wall color bleeds through at the top or bottom of the
           // cabinet face. DoorFront renders on top with the door/drawer details.

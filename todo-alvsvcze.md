@@ -449,3 +449,6 @@
 - [x] Set every range and cooktop cooking surface at 34½ inches above the finished floor in shared designer rules
 - [x] Align 2D elevation and 3D cooktop meshes to the 34½-inch cooking-surface rule without changing saved appliance placement
 - [x] Add cross-view height regressions and verify the unified cooking-surface elevation on mobile and desktop
+- [x] Set every freestanding range cooktop at 34½ inches and the top of its backguard at 47 inches above the finished floor
+- [x] Preserve the saved range position, catalog width/depth, product front, and floor feet while applying the 47-inch backguard profile
+- [x] Add measured 3D range-profile regressions and review the 47-inch backguard on mobile and desktop

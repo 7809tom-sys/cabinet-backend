@@ -231,6 +231,16 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
   };
 }
 
+/** Shared freestanding-range vertical profile, measured from finished floor. */
+export function freestandingRangeHeightProfile(mountBottomIn = 0, bodyHeight = 0) {
+  const cookingSurfaceIn = STD.RANGE_COOKING_SURFACE_HEIGHT;
+  const backguardTopIn = STD.RANGE_BACKGUARD_TOP;
+  const backguardHeight = Math.max(0, (backguardTopIn - cookingSurfaceIn) * INCH);
+  const cookingSurfaceY = (cookingSurfaceIn - mountBottomIn) * INCH - bodyHeight / 2;
+  const backguardTopY = (backguardTopIn - mountBottomIn) * INCH - bodyHeight / 2;
+  return { cookingSurfaceIn, backguardTopIn, backguardHeight, cookingSurfaceY, backguardTopY };
+}
+
 /** The 3D selling preview uses original product imagery only on catalog-backed appliance fronts. */
 export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" | "catalogImageUrl">): string | null {
   if (!/^(?:RANGE|HOOD|FRIDGE|DW|MW)[-_]?/i.test(sku.masterCode ?? "")) return null;
@@ -932,6 +942,7 @@ export function addCabinet(
         storageDrawer.userData = { applianceCode: sku.masterCode, rangeStorageDrawer: true };
         frontGroup.add(storageDrawer);
         const cooktop = rangeCooktopLayout(bodyWidth, bodyDepth, bodyHeight, bottom);
+        const rangeProfile = freestandingRangeHeightProfile(bottom, bodyHeight);
         const cooktopSurface = new THREE.Mesh(
           new THREE.BoxGeometry(cooktop.cooktopWidth, cooktop.cooktopThickness, cooktop.cooktopDepth),
           new THREE.MeshStandardMaterial({ color: "#20262d", roughness: 0.2, metalness: 0.48 }),
@@ -948,6 +959,22 @@ export function addCabinet(
           burner.userData = { applianceCode: sku.masterCode, rangeBurner: true };
           cabinet.add(burner);
         }
+        // A freestanding range keeps a distinct backguard above its 34½-inch
+        // cooktop. This feature reaches the shared 47-inch range top line.
+        const backguard = new THREE.Mesh(
+          new THREE.BoxGeometry(bodyWidth * 0.76, rangeProfile.backguardHeight, 0.075),
+          new THREE.MeshStandardMaterial({ color: "#242a31", roughness: 0.3, metalness: 0.62 }),
+        );
+        backguard.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight / 2, -bodyDepth * 0.28);
+        backguard.userData = { applianceCode: sku.masterCode, rangeBackguard: true, rangeBackguardTopIn: rangeProfile.backguardTopIn };
+        cabinet.add(backguard);
+        const controls = new THREE.Mesh(
+          new THREE.BoxGeometry(bodyWidth * 0.56, Math.min(0.13, rangeProfile.backguardHeight * 0.22), 0.026),
+          new THREE.MeshStandardMaterial({ color: "#0c1015", roughness: 0.24, metalness: 0.54 }),
+        );
+        controls.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight * 0.38, -bodyDepth * 0.28 + 0.052);
+        controls.userData = { applianceCode: sku.masterCode, rangeBackguardControlPanel: true };
+        cabinet.add(controls);
       }
       const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
