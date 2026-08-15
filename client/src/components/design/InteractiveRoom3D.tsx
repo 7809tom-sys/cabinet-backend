@@ -717,6 +717,24 @@ export function addCabinet(
         cabinet.add(legKick);
         bodyMeshes.push(legKick);
       }
+    } else if (specialty.kind === "end-return") {
+      // BEC / BA remains a normal base-end placement, but its exposed 24×24
+      // body is clipped at the front to form one 45° decorative plane.
+      const endReturnKickSpan = Math.max(0.12, Math.min(bodyWidth, bodyDepth) - 0.25);
+      const toeKick = new THREE.Mesh(
+        diagonalCornerWedgeGeometry(endReturnKickSpan, endReturnKickSpan, toeKickHeight),
+        toeKickMaterial,
+      );
+      toeKick.position.set(-0.125, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
+      toeKick.userData = {
+        baseToeKick: true,
+        toeKickHeightIn: THREE_D_TOE_KICK,
+        endReturnToeKick: true,
+        nonCornerEndReturnToeKick: true,
+        clippedNonCornerEndReturnToeKick: true,
+      };
+      cabinet.add(toeKick);
+      bodyMeshes.push(toeKick);
     } else {
       const toeKick = new THREE.Mesh(
         new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
@@ -728,7 +746,6 @@ export function addCabinet(
       toeKick.userData = {
         baseToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
-        ...(specialty.kind === "end-return" ? { endReturnToeKick: true, nonCornerEndReturnToeKick: true } : {}),
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
@@ -760,6 +777,19 @@ export function addCabinet(
       cabinet.add(leg);
       bodyMeshes.push(leg);
     }
+  } else if (specialty.kind === "end-return") {
+    const clippedBody = new THREE.Mesh(
+      diagonalCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight),
+      bodyMaterial,
+    );
+    clippedBody.userData = {
+      specialtyProfile: "end-return",
+      nonCornerEndReturnBody: true,
+      clippedNonCornerEndReturnBody: true,
+      selectedStyleSideSkin: true,
+    };
+    cabinet.add(clippedBody);
+    bodyMeshes.push(clippedBody);
   } else if (specialty.kind === "diagonal-corner") {
     const wedge = new THREE.Mesh(
       angledWallProfile
@@ -816,7 +846,6 @@ export function addCabinet(
     body.userData = {
       selectedStyleSideSkin: true,
       ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
-      ...(specialty.kind === "end-return" ? { specialtyProfile: "end-return", nonCornerEndReturnBody: true } : {}),
     };
     cabinet.add(body);
     bodyMeshes.push(body);
@@ -1237,9 +1266,9 @@ export function addCabinet(
       rowTop -= row.height;
     }
   } else if (specialty.kind === "end-return") {
-    // BEC / BA is a full 24×24 *end cabinet*, never a corner carcass. Its two
-    // doors form the confirmed 17-inch decorative angled section: two equal
-    // 8.45-inch faces meeting at center, inside the full rectangular body.
+    // BEC / BA is a 24×24 *end cabinet*, never a room-corner placement. Its
+    // clipped physical body has one 17-inch 45° front, carrying two equal
+    // 8.45-inch doors that meet at the center on that same plane.
     const angledFrontWidth = 17 * INCH;
     const faceWidth = angledFrontWidth / 2 - 0.05 * INCH;
     const faceHeight = Math.max(0.2, bodyHeight - 0.1);
@@ -1370,6 +1399,21 @@ export function addCabinet(
         counterGroup.add(slab);
       }
       root.add(counterGroup);
+    } else if (specialty.kind === "end-return") {
+      const counter = new THREE.Mesh(
+        diagonalCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
+        counterMaterial,
+      );
+      counter.position.copy(cabinet.position);
+      counter.rotation.y = rotation;
+      counter.position.y = COUNTERTOP_H * INCH;
+      counter.userData = {
+        countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH),
+        endReturnCountertop: true,
+        nonCornerEndReturnCountertop: true,
+        clippedNonCornerEndReturnCountertop: true,
+      };
+      root.add(counter);
     } else if (specialty.kind === "diagonal-corner") {
       const counter = new THREE.Mesh(
         diagonalCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
@@ -1398,7 +1442,6 @@ export function addCabinet(
       counter.position.y = COUNTERTOP_H * INCH;
       counter.userData = { countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH) };
       if (specialty.kind === "blind-corner") counter.userData = { ...counter.userData, blindCornerCountertop: true };
-      if (specialty.kind === "end-return") counter.userData = { ...counter.userData, endReturnCountertop: true, nonCornerEndReturnCountertop: true };
       if (isFloorDishwasher) counter.userData = { ...counter.userData, dishwasherCountertopSupport: true, floorApplianceSupport: true };
       root.add(counter);
     }

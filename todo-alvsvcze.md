@@ -476,3 +476,10 @@
 - [x] Place both BEC-24 doors coplanar on one 17-inch 45-degree decorative front instead of folding them into a V
 - [x] Preserve the full non-corner 24×24 base body, toe kick, countertop, center seam, and equal just-under-nine-inch door widths
 - [ ] Add coplanar door-plane mesh regressions and verify the revised BEC front against the reported 3D scene
+- [ ] Identify the exact saved BEC placement and profile used by the unchanged user-visible 3D scene
+- [ ] Route that live BEC placement through the confirmed non-corner coplanar 17-inch angled-front renderer
+- [ ] Verify the user-visible BEC 3D scene changes after the live renderer-path correction
+- [x] Build BEC-24 as a clipped 24×24 non-corner base-end body with one 45-degree 17-inch front, not a rectangular box or room-corner wedge
+- [x] Align the two equal BEC doors directly on the clipped body’s single 45-degree front plane with toe kick and countertop matching the same clip
+- [ ] Add a clipped-body mesh regression and verify the refreshed BEC scene against the reported 3D evidence
+- [x] Add mesh-level regression coverage for BEC’s clipped body, toe kick, countertop, 17-inch front, and coplanar door plane

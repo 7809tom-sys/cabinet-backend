@@ -1051,17 +1051,30 @@ describe("interactive 3D room scene helpers", () => {
       expect(toeKicks).toHaveLength(1);
       expect(toeKicks[0]!.userData.endReturnToeKick).toBe(true);
       expect(toeKicks[0]!.userData.nonCornerEndReturnToeKick).toBe(true);
+      expect(toeKicks[0]!.userData.clippedNonCornerEndReturnToeKick).toBe(true);
       expect(toeKicks[0]!.userData.toeKickHeightIn).toBe(4.5);
       expect(counters).toHaveLength(1);
       expect(counters[0]!.userData.nonCornerEndReturnCountertop).toBe(true);
+      expect(counters[0]!.userData.clippedNonCornerEndReturnCountertop).toBe(true);
       const carcasses: THREE.Mesh[] = [];
       root.traverse((node) => {
         if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) carcasses.push(node);
       });
       expect(carcasses).toHaveLength(1);
-      const carcassGeometry = carcasses[0]!.geometry as THREE.BoxGeometry;
-      expect(carcassGeometry.parameters.width).toBeCloseTo(24 / 12, 6);
-      expect(carcassGeometry.parameters.depth).toBeCloseTo(24 / 12, 6);
+      expect(carcasses[0]!.userData.clippedNonCornerEndReturnBody).toBe(true);
+      root.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
+      expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12, 6);
+      expect(bounds.max.z - bounds.min.z).toBeCloseTo(24 / 12, 6);
+      const localPositions = carcasses[0]!.geometry.getAttribute("position");
+      const clippedFrontPlane = Math.max(...Array.from({ length: localPositions.count }, (_, index) => localPositions.getX(index) + localPositions.getZ(index)));
+      expect(clippedFrontPlane).toBeCloseTo(12 / 12, 6);
+      const physicalFrontPoint = carcasses[0]!.localToWorld(new THREE.Vector3(12 / 12, 0, 0));
+      const physicalFrontPlane = physicalFrontPoint.x + physicalFrontPoint.z;
+      const doorCenter = returnFaces[0]!.getWorldPosition(new THREE.Vector3());
+      const doorPlane = doorCenter.x + doorCenter.z;
+      expect(doorPlane).toBeGreaterThan(physicalFrontPlane);
+      expect(doorPlane - physicalFrontPlane).toBeLessThan(0.08);
     }
   });
 
