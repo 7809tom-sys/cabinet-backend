@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial,
+  flooringMaterial, normalizeRefrigeratorBayUppers,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -261,9 +261,15 @@ export function ElevationView({
   const horizontal = side === "top" || side === "bottom";
   const planSpan = horizontal ? room.width : room.depth;
 
+  // Normalize the refrigerator bay at render time too. A legacy plan can stay
+  // live in local React state through an HMR refresh or a direct elevation view
+  // before DesignTool's restore normalizer runs; rendering the same shared rule
+  // prevents its refrigerator upper from visibly collapsing onto the appliance.
+  const elevationCabinets = normalizeRefrigeratorBayUppers(cabinets, room);
+
   // Only show cabinets that actually sit on the wall being viewed, so other
   // walls' cabinets don't bleed into this elevation.
-  const onThisWall = cabinets.filter((c) => cabinetWall(c, room) === side);
+  const onThisWall = elevationCabinets.filter((c) => cabinetWall(c, room) === side);
 
   useEffect(() => {
     const el = ref.current;

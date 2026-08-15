@@ -411,3 +411,4 @@
 - [x] Set refrigerator appliances to 70 inches high and dedicated refrigerator wall cabinets to a 72-inch floor mount
 - [x] Preserve the confirmed 2-inch clearance above a refrigerator while retaining tall-cabinet composition
 - [x] Add regression coverage for the 70-inch refrigerator and 72-inch refrigerator-cabinet elevation contract
+- [x] Make the saved refrigerator cabinet visibly render at 72 inches with a 2-inch clearance above the 70-inch refrigerator
