@@ -270,6 +270,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
+  // Compact, spatially intuitive icons for standard rectangular-room walls.
+  // Their accessible text continues to use the localized full wall names.
+  const wallDirectionIcon: Record<WallSide, typeof ArrowUp> = {
+    top: ArrowUp,
+    bottom: ArrowDown,
+    left: ArrowLeft,
+    right: ArrowRight,
+  };
   // Contact gate (email required; name + phone optional)
   const [verified, setVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState("");
@@ -5112,16 +5120,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               // Classic rectangle mode: 4 fixed walls
               (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
                 const wLocked = layoutLocked || lockedWalls.has(w);
+                const DirectionIcon = wallDirectionIcon[w];
                 return (
                   <div key={w} className="flex items-center">
                     <button
                       onClick={() => { setActiveWall(w); setDrawMode(false); }}
                       title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      aria-label={wallLabel[w]}
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${
                         activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {wallLabel[w]}
+                      <DirectionIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="sr-only">{wallLabel[w]}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -5422,17 +5433,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       </button>
                     ))
                   ) : (
-                    (["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
-                      <button
-                        key={w}
-                        onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
-                          activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {wallLabel[w]}
-                      </button>
-                    ))
+                    (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
+                      const DirectionIcon = wallDirectionIcon[w];
+                      return (
+                        <button
+                          key={w}
+                          onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                          title={wallLabel[w]}
+                          aria-label={wallLabel[w]}
+                          className={`inline-flex items-center justify-center rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                            activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <DirectionIcon className="h-4 w-4" aria-hidden="true" />
+                          <span className="sr-only">{wallLabel[w]}</span>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
 

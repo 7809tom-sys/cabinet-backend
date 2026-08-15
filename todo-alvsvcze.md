@@ -440,3 +440,6 @@
 - [x] Shorten the interactive preview control label to “3D” and keep the designer toolbar within mobile, tablet, and desktop widths
 - [x] Replace the flat cartoon range elevation with a realistic product-faithful range front while preserving its configured envelope and 2D placement
 - [x] Add responsive toolbar and realistic-range visual regressions across mobile, tablet, and desktop
+- [x] Replace text wall controls with directional arrows: left for Left, right for Right, up for Back, and down for Front
+- [x] Preserve selected-wall state, lock indicators, and accessible wall labels with the compact arrow controls
+- [x] Verify the directional wall selector fits and functions on mobile, tablet, and desktop

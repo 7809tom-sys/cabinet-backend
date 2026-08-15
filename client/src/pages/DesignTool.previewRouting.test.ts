@@ -38,4 +38,13 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).not.toContain('<Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D preview');
     expect(designToolSource).toContain('<Boxes className="h-3.5 w-3.5" />');
   });
+
+  it("uses intuitive compact arrows for the standard Back, Front, Left, and Right wall controls", () => {
+    expect(designToolSource).toContain("const wallDirectionIcon: Record<WallSide, typeof ArrowUp> = {");
+    expect(designToolSource).toContain("top: ArrowUp,");
+    expect(designToolSource).toContain("bottom: ArrowDown,");
+    expect(designToolSource).toContain("left: ArrowLeft,");
+    expect(designToolSource).toContain("right: ArrowRight,");
+    expect(designToolSource).toContain('aria-label={wallLabel[w]}');
+  });
 });
