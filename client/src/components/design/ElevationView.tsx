@@ -2640,7 +2640,8 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
 
   // ─── SPECIALTY TYPE: BASE END CABINET, 45° ANGLED FRONT ─────────────────
   // BEC-24 is a 24-by-24 end cabinet, not a room corner. Its single 45-degree
-  // front plane carries two 12-inch doors which meet on the center seam.
+  // front plane is approximately 17 inches wide and carries two equal 8.45-inch
+  // doors which meet on the center seam.
   if (cabinetType === "end-angle") {
     return withFace(
       <div data-bec-angled-end-face="true" data-bec-45-angle="true" className="absolute inset-0 overflow-hidden">
@@ -2651,11 +2652,11 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             boxShadow: `inset 0 0 0 2px ${edge}aa, inset 0 -2px 4px rgba(0,0,0,0.14)`,
           }}
         >
-          <div data-bec-angled-left-door="12in" className="absolute left-0 top-0 bottom-0" style={{ width: "50%" }}>
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          <div data-bec-angled-left-door="8.45in" className="absolute left-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={8.45} faceHeightIn={cabinetHeightIn ?? 34.5} />
           </div>
-          <div data-bec-angled-right-door="12in" className="absolute right-0 top-0 bottom-0" style={{ width: "50%" }}>
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={12} faceHeightIn={cabinetHeightIn ?? 34.5} />
+          <div data-bec-angled-right-door="8.45in" className="absolute right-0 top-0 bottom-0" style={{ width: "50%" }}>
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={8.45} faceHeightIn={cabinetHeightIn ?? 34.5} />
           </div>
           <div data-bec-angled-center-seam="true" className="absolute top-[3%] bottom-[3%]" style={{ left: "50%", width: 2, background: `${edge}cc`, boxShadow: "1px 0 1px rgba(255,255,255,0.42)" }} />
         </div>

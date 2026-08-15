@@ -162,13 +162,28 @@ describe("cabinetDrawingType", () => {
     }
   });
 
+  it("upgrades legacy BEC base_end_return metadata to the same single 45-degree end face", () => {
+    expect(cabinetDrawingType({
+      masterCode: "BEC-24",
+      description: '24" Base End Cabinet — 45° Angled Front',
+      category: "Base",
+      subCategory: "Base End Cabinet",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      graphicType: "base_end_return",
+    })).toBe("end-angle");
+  });
+
   it("uses the user-created Base End Cabinet subcategory as an authoritative end-return signal", () => {
     expect(cabinetDrawingType({
       masterCode: "CUSTOM-END-24",
       description: '24" Base Cabinet',
       category: "Base",
       subCategory: "Base End Cabinet",
-    })).toBe("end-return");
+    })).toBe("end-angle");
   });
 
   it("classifies an appliance garage before generic wall logic", () => {

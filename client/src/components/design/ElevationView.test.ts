@@ -43,7 +43,7 @@ describe("end-angle elevation face", () => {
     expect(resolveElevationFacePresentation(ba24, "end-angle", null).cabinetType).toBe("end-angle");
   });
 
-  it("redraws a stale standard-base placement when refreshed Cabinet Config supplies base_end_return", () => {
+  it("redraws a stale BA-24 placement as the confirmed single 45-degree end cabinet when refreshed Config supplies base_end_return", () => {
     const stalePlacedBa = {
       masterCode: "BA-24",
       description: "BA-24",
@@ -53,10 +53,10 @@ describe("end-angle elevation face", () => {
       height: 34.5,
     };
 
-    expect(resolveElevationFacePresentation(stalePlacedBa, "base_end_return", null).cabinetType).toBe("end-return");
+    expect(resolveElevationFacePresentation(stalePlacedBa, "base_end_return", null).cabinetType).toBe("end-angle");
   });
 
-  it("renders BEC-24 as two 12-inch doors meeting on its 45-degree non-corner end face", () => {
+  it("renders BEC-24 as two 8.45-inch doors meeting on its 17-inch 45-degree non-corner end face", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {
         kind: "shaker",
@@ -71,8 +71,8 @@ describe("end-angle elevation face", () => {
 
     expect(markup).toContain('data-bec-angled-end-face="true"');
     expect(markup).toContain('data-bec-45-angle="true"');
-    expect(markup).toContain('data-bec-angled-left-door="12in"');
-    expect(markup).toContain('data-bec-angled-right-door="12in"');
+    expect(markup).toContain('data-bec-angled-left-door="8.45in"');
+    expect(markup).toContain('data-bec-angled-right-door="8.45in"');
     expect(markup).toContain('data-bec-angled-center-seam="true"');
     expect(markup).toContain("clip-path:polygon(0 5%, 100% 0, 100% 100%, 0 95%)");
   });

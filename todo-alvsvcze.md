@@ -483,3 +483,7 @@
 - [x] Align the two equal BEC doors directly on the clipped body’s single 45-degree front plane with toe kick and countertop matching the same clip
 - [ ] Add a clipped-body mesh regression and verify the refreshed BEC scene against the reported 3D evidence
 - [x] Add mesh-level regression coverage for BEC’s clipped body, toe kick, countertop, 17-inch front, and coplanar door plane
+- [x] Correct BEC-24’s shared saved-plan routing so its 24-inch cabinet back/side mates to the existing base run rather than reading as a room-corner placement
+- [x] Orient the clipped 45-degree physical BEC end face toward the open end of its saved 2D run, with two approximately 8½-inch doors on that one 17-inch face
+- [ ] Add a saved-transform BEC end-run regression and validate the repaired 3D rendering against the supplied screenshot
+- [x] Add a saved-transform BEC end-run regression requiring a flush 24-inch run attachment and one exposed 17-inch 45-degree face

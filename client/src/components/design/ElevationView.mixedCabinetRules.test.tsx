@@ -122,7 +122,7 @@ describe("mixed Cabinet Config elevation rules", () => {
     }))).toMatchObject({ isEndAngle: true, isCorner: false, isTriangle: false });
   });
 
-  it("automatically redraws saved BA-24 and BEC-24 records as textured two-face end returns", () => {
+  it("automatically redraws saved BA-24 and BEC-24 records as textured 17-inch single angled end faces", () => {
     for (const masterCode of ["BA-24", "BEC-24"]) {
       const placed = baseCabinet({
         uid: masterCode,
@@ -138,7 +138,7 @@ describe("mixed Cabinet Config elevation rules", () => {
         numberOfDoors: 2,
         numberOfDrawers: 0,
       });
-      expect(resolveElevationFacePresentation(placed).cabinetType).toBe("end-return");
+      expect(resolveElevationFacePresentation(placed).cabinetType).toBe("end-angle");
       const markup = renderToStaticMarkup(
         createElement(LanguageProvider, null, createElement(ElevationView, {
           room: { width: 144, depth: 120, ceilingHeight: 96 },
@@ -149,8 +149,8 @@ describe("mixed Cabinet Config elevation rules", () => {
           doorSampleUrlFor: () => "https://example.com/selected-texture.webp",
         })),
       );
-      expect(markup).toContain('data-bec-end-return-face="true"');
-      expect(markup.match(/data-bec-(?:front|return)-face="12in"/g)).toHaveLength(2);
+      expect(markup).toContain('data-bec-angled-end-face="true"');
+      expect(markup.match(/data-bec-angled-(?:left|right)-door="8\.45in"/g)).toHaveLength(2);
       expect(markup).toContain("selected-texture.webp");
     }
   });
@@ -210,8 +210,8 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(markup).toContain('data-microwave-base-drawer="true"');
     expect(markup).toContain('data-bec-angled-end-face="true"');
     expect(markup).toContain('data-bec-45-angle="true"');
-    expect(markup).toContain('data-bec-angled-left-door="12in"');
-    expect(markup).toContain('data-bec-angled-right-door="12in"');
+    expect(markup).toContain('data-bec-angled-left-door="8.45in"');
+    expect(markup).toContain('data-bec-angled-right-door="8.45in"');
     expect(markup).toContain('data-farm-sink-apron="true"');
     expect(markup).toContain('data-farm-sink-mounted="countertop"');
     expect(markup).toContain(`url(${selectedDoor})`);

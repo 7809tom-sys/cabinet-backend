@@ -232,6 +232,17 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   if (graphic === "end-angle" || graphic === "base_end_angle") {
     return "end-angle";
   }
+  // Canonical BEC / BA is a 24-inch *end-of-run* cabinet. Some already-saved
+  // records still carry the historic `base_end_return` graphic token, which
+  // drew two folded 12-inch faces. Reinterpret only this confirmed family as
+  // its one physical 45-degree end face; leave generic end-return profiles
+  // available for unrelated Cabinet Config records.
+  if (
+    (/^(?:base_)?end[_-]?return$/.test(graphic) || graphic === "base_end_return")
+    && (/^(?:bec|ba)[-_]?\d/.test(code) || /base end (?:cabinet|angle)/.test(`${sub} ${desc}`))
+  ) {
+    return "end-angle";
+  }
   if (/^(?:base_)?end[_-]?return$/.test(graphic) || graphic === "base_end_return") {
     return "end-return";
   }
@@ -290,17 +301,16 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "corner-drawer-base";
   }
 
-  // Base End Corner / End Return is an explicit Cabinet Config subcategory.
-  // BA/BEC source codes can survive in saved designs with stale descriptions,
-  // so resolve the subcategory and both exact families before standard-base
-  // heuristics. They have two 12-inch faces at a 90-degree return and never
-  // consume a room corner, filler, or lazy-Susan/diagonal rule.
+  // BEC / BA are explicit 24-by-24 end-of-run cabinets. Their body mates to
+  // the existing 24-inch base run and the exposed end is one 45-degree,
+  // 17-inch face carrying two approximately 8½-inch doors—never a room corner
+  // or two folded 12-inch return faces.
   if (
     /base end corner|base end cabinet|end corner return|base end angle/.test(sub) ||
     /^(?:bec|ba)[-_]?\d/.test(code) ||
     /base end corner/.test(hay)
   ) {
-    return "end-return";
+    return "end-angle";
   }
   // Other base-angle products remain a one-face end-of-run angled cabinet.
   if (/base angle.*end of run|base end (?:angle|cabinet)/.test(hay)) {

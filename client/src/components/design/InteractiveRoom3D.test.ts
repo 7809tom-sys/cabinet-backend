@@ -1010,7 +1010,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
   });
 
-  it("normalizes saved BA-24 and BEC-24 records into two-face 3D end returns without refreshed profile metadata", () => {
+  it("normalizes saved BA-24 and BEC-24 records into one 45-degree 3D end face without refreshed profile metadata", () => {
     for (const masterCode of ["BA-24", "BEC-24"]) {
       const sku = {
         distributorSkuId: -24,
@@ -1084,6 +1084,47 @@ describe("interactive 3D room scene helpers", () => {
       expect(doorPlane).toBeGreaterThan(physicalFrontPlane);
       expect(doorPlane - physicalFrontPlane).toBeLessThan(0.08);
     }
+  });
+
+  it("attaches a saved BEC-24 flush to a 24-inch base run while exposing one 17-inch 45-degree end face", () => {
+    const base = {
+      uid: "base-run-24", cabinetId: 11, masterCode: "B-24", description: '24" Base Cabinet', placement: "base",
+      x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    const bec = {
+      uid: "bec-run-end", cabinetId: 9390014, masterCode: "BEC-24", description: '24" Base End Cabinet — 45° Angled Front', placement: "base",
+      x: 24, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
+      customProfile: "base_end_return",
+    } as never;
+    expect(existingCabinetTransform(base)).toMatchObject({ x: 12, z: 12, rotation: 0, bottom: 0 });
+    expect(existingCabinetTransform(bec)).toMatchObject({ x: 36, z: 12, rotation: 0, bottom: 0 });
+
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(base), null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, existingCabinetTransform(base));
+    addCabinet(root, existingCabinetSku(bec), null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, existingCabinetTransform(bec));
+    const standardBodies: THREE.Mesh[] = [];
+    const becBodies: THREE.Mesh[] = [];
+    const becDoors: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) becBodies.push(node);
+      if (node.userData.nonCornerEndReturnDoor) becDoors.push(node);
+      if (node.userData.selectedStyleSideSkin && !node.userData.nonCornerEndReturnBody && node instanceof THREE.Mesh) standardBodies.push(node);
+    });
+    expect(becBodies).toHaveLength(1);
+    expect(becDoors).toHaveLength(2);
+    root.updateMatrixWorld(true);
+    const runBounds = new THREE.Box3().setFromObject(standardBodies[0]!);
+    const becBounds = new THREE.Box3().setFromObject(becBodies[0]!);
+    expect(runBounds.max.x).toBeCloseTo(becBounds.min.x, 8);
+    expect(runBounds.min.z).toBeCloseTo(becBounds.min.z, 8);
+    expect(runBounds.max.z).toBeCloseTo(becBounds.max.z, 8);
+    const doorPlanes = becDoors.map((door) => {
+      const center = door.getWorldPosition(new THREE.Vector3());
+      return center.x + center.z;
+    });
+    expect(doorPlanes[0]).toBeCloseTo(doorPlanes[1]!, 8);
+    expect(doorPlanes[0]).toBeCloseTo(5.05, 2);
+    expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.angledFrontWidthIn === 17)).toBe(true);
   });
 
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {
