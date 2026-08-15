@@ -508,3 +508,5 @@
 - [x] Attach one full door face directly to each perpendicular BEC side and eliminate all detached, diagonal, and elevated BEC meshes
 - [ ] Add perpendicular-side and no-detachment BEC mesh contracts, then validate them against the latest live screenshot
 - [x] Add mesh contracts for BEC’s visible 24×24 carcass, perpendicular front/right door planes, 24-inch side dimensions, and rejection of 45-degree V rotations
+- [ ] Capture the exact active BEC placement record and enumerate every mesh in the user-visible 3D scene, including the unrelated elevated panels
+- [ ] Remove the confirmed elevated meshes and correct the active BEC transform so it is rendered only at its saved floor placement
