@@ -288,6 +288,16 @@ export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefin
   return "calibrated-fallback" as const;
 }
 
+/**
+ * Door sample photos are catalog swatches, not seamless PBR texture sets. Tiling
+ * them over multiple 3D door meshes creates the blotchy, uneven cabinet faces
+ * visible in the customer preview. The 3D renderer instead uses the selected
+ * catalog color with controlled roughness and physical panel construction.
+ */
+export function threeDUsesDoorSampleTexture() {
+  return false;
+}
+
 export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
   const textureLabel = textureState === "not-requested" ? "not selected" : textureState;
   return `Cabinet material: ${mode.replaceAll("-", " ")} · Door sample texture: ${textureLabel}`;
@@ -1025,7 +1035,8 @@ export function addCabinet(
       material.needsUpdate = true;
     }
   };
-  const doorTexture = doorSampleUrl
+  const useDoorTexture = threeDUsesDoorSampleTexture();
+  const doorTexture = useDoorTexture && doorSampleUrl
     ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => {
       applyDoorTextureFallback();
       onDoorTextureState?.("failed");
@@ -1038,12 +1049,13 @@ export function addCabinet(
     doorTexture.wrapT = THREE.RepeatWrapping;
     doorTexture.repeat.set(1.35, 1.35);
   }
-  // A material color multiplies a texture in Three.js. Keep textured faces neutral
-  // so the exact selected 2D sample remains visible rather than being tinted by
-  // the catalog fallback color (which previously turned Silva Shaker flat gold).
-  const faceColor = doorTexture ? "#ffffff" : color;
-  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.02 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
+  // A catalog swatch may still be used elsewhere in the 2D product experience,
+  // but the 3D cabinet face is a smooth calibrated finish. Keeping the selected
+  // catalog color intact prevents image tiling, broken UV seams, and uneven
+  // highlights across adjacent doors and drawers.
+  const faceColor = color;
+  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.36, metalness: 0.01 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.31, metalness: 0.01 });
   textureMaterials.push(faceMaterial, trimMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
@@ -2548,7 +2560,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   // The active 2D selected style remains authoritative for physical 3D face
   // geometry, so a Slate Echo Shaker never silently turns into a flat slab.
   const resolvedDoorProfile = resolvedThreeDDoorProfile(scene, catalogDoorProfile);
-  const activeDoorTexture = resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign);
+  // Catalog door images remain useful in 2D product selection, but are usually
+  // single swatch photographs rather than seamless PBR texture sets. Do not tile
+  // those swatches across 3D faces: use the selected catalog finish with physical
+  // face-frame and panel construction for a smooth presentation instead.
+  const activeDoorTexture = threeDUsesDoorSampleTexture()
+    ? resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign)
+    : null;
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
   const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";

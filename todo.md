@@ -286,6 +286,21 @@
 - [x] Define how selected asset variants map to real Cabinet Dealz appliance catalog records
 - [x] Recommend a licensed sourcing and phased integration plan before importing any external models
 
+## Fix: Cabinet faces look uneven and textures do not render smoothly in 3D
+
+- [x] Trace cabinet texture selection, UV/repeat behavior, material roughness, lighting response, and face-frame overlap
+- [x] Prevent door sample imagery from becoming an uncontrolled whole-face texture in the 3D renderer
+- [x] Apply a smooth finish material with stable cabinet-color mapping and panel-level detail
+- [x] Add cabinet finish material regressions
+- [ ] Verify the smooth finish material in the reported populated 3D design
+
+## Asset plan: Licensed generic appliance families
+
+- [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood
+- [x] Establish legal intake records and budget limits before acquiring any third-party asset
+- [ ] Source only approved commercially usable generic models and optimize delivery GLBs
+- [ ] Map approved generic assets to the current catalog-variant resolver without changing SKU, price, or dimensions
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses
