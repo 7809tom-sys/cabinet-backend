@@ -222,6 +222,24 @@
 - [x] Verify the front-control upper-front assembly keeps the oven handle in its correct door position
 - [x] Add explicit front-control gas and electric 3D construction regressions
 
+## Refinement: Rear-control ranges need raised back panels and front knobs
+
+- [x] Preserve the flat-top front-control range construction unchanged
+- [x] Refine rear-control ranges with a raised back panel and integrated display
+- [x] Keep the cooktop in front of the back panel and knobs on the front fascia
+- [x] Add explicit rear-control gas and electric construction regressions
+- [ ] Verify rear-control variants against the supplied references
+- [x] Add explicit rear-control electric range geometry and control-placement regression coverage
+
+## Feature: Catalog-variant-driven stove rendering
+
+- [x] Define range variant attributes for fuel, control location, finish, cooktop, back panel, burner layout, and oven configuration
+- [x] Resolve the selected range catalog variant into a reusable 2D/3D construction profile
+- [x] Preserve the already-correct front-control and rear-control behaviors as explicit variant profile values
+- [x] Support representative gas/electric, front/rear-control, and finish variants without a generic fallback appearance
+- [x] Add representative range-style regression coverage
+- [ ] Verify selected catalog variants in the elevation and 3D views
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses

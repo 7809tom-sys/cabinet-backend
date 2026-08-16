@@ -42,6 +42,13 @@ describe("realistic designer appliance appearances", () => {
     expect(rangeVisualAppearance({ description: '30" Stainless Electric Range' }).controlPosition).toBe("rear");
   });
 
+  it("resolves gas and electric range construction profiles without a generic fallback", () => {
+    expect(rangeVisualAppearance({ description: '30" Black Gas Range' }))
+      .toMatchObject({ fuel: "gas", cooktopStyle: "gas-grate", backPanel: "raised", controlCount: 5, ovenConfiguration: "single" });
+    expect(rangeVisualAppearance({ description: '30" White Electric Front-Control Range' }))
+      .toMatchObject({ fuel: "electric", cooktopStyle: "electric-glass", backPanel: "none", controlCount: 4, ovenConfiguration: "single" });
+  });
+
   it("uses a calibrated front-only range elevation while preserving realistic appliance imagery in 3D", () => {
     expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
     expect(applianceElevationPresentation("RANGE30")).toBe("vector");

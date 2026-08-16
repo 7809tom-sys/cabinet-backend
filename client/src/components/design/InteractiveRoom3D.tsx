@@ -1253,11 +1253,23 @@ export function addCabinet(
             new THREE.MeshStandardMaterial({ color: "#11151a", roughness: 0.25, metalness: 0.58 }),
           );
           burner.position.set(burnerCenter.x, cooktop.cookingSurfaceY + 0.013, burnerCenter.z);
-          burner.userData = { applianceCode: sku.masterCode, rangeBurner: true, rangeFuel: rangeAppearance?.fuel ?? "electric" };
+          burner.userData = { applianceCode: sku.masterCode, rangeBurner: true, rangeFuel: rangeAppearance?.fuel ?? "electric", rangeCooktopStyle: rangeAppearance?.cooktopStyle ?? "electric-glass" };
           cabinet.add(burner);
+          if (rangeAppearance?.cooktopStyle === "gas-grate") {
+            for (const rotation of [0, Math.PI / 2]) {
+              const grate = new THREE.Mesh(
+                new THREE.BoxGeometry(cooktop.burnerRadius * 1.75, 0.018, 0.026),
+                new THREE.MeshStandardMaterial({ color: "#14191e", roughness: 0.34, metalness: 0.56 }),
+              );
+              grate.rotation.y = rotation;
+              grate.position.set(burnerCenter.x, cooktop.cookingSurfaceY + 0.034, burnerCenter.z);
+              grate.userData = { applianceCode: sku.masterCode, rangeGasGrate: true, dimensionalApplianceDetail: true };
+              cabinet.add(grate);
+            }
+          }
         }
         const frontControlRange = rangeAppearance?.controlPosition === "front";
-        if (!frontControlRange) {
+        if (rangeAppearance?.backPanel !== "none") {
           // A rear-control freestanding range keeps its control panel on a
           // backguard above the shared 34½-inch cooktop line.
           const backguard = new THREE.Mesh(
@@ -1274,6 +1286,13 @@ export function addCabinet(
           controls.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight * 0.38, -bodyDepth * 0.28 + 0.052);
           controls.userData = { applianceCode: sku.masterCode, rangeBackguardControlPanel: true, rangeControlPosition: "rear" };
           cabinet.add(controls);
+          const display = new THREE.Mesh(
+            new THREE.BoxGeometry(bodyWidth * 0.18, 0.045, 0.016),
+            new THREE.MeshStandardMaterial({ color: "#101923", roughness: 0.2, metalness: 0.38 }),
+          );
+          display.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight * 0.25, -bodyDepth * 0.28 + 0.095);
+          display.userData = { applianceCode: sku.masterCode, rangeRearControlDisplay: true, rangeControlPosition: "rear", dimensionalApplianceDetail: true };
+          cabinet.add(display);
         } else {
           const controls = new THREE.Mesh(
             new THREE.BoxGeometry(bodyWidth * 0.76, 0.12, 0.052),
@@ -1292,7 +1311,7 @@ export function addCabinet(
         }
         const knobMaterial = new THREE.MeshStandardMaterial({ color: "#d8dce0", roughness: 0.18, metalness: 0.86 });
         const gasRange = rangeAppearance?.fuel === "gas";
-        const controlCount = gasRange ? 5 : 4;
+        const controlCount = rangeAppearance?.controlCount ?? (gasRange ? 5 : 4);
         const controlRadius = gasRange ? 0.033 : 0.027;
         for (let index = 0; index < controlCount; index++) {
           const knob = new THREE.Mesh(new THREE.CylinderGeometry(controlRadius, controlRadius, 0.026, 16), knobMaterial);

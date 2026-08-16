@@ -1707,14 +1707,44 @@ describe("interactive 3D room scene helpers", () => {
       catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-silhouette_0a25e71c.webp",
     } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
     const gasControls: THREE.Mesh[] = [];
+    const gasGrates: THREE.Mesh[] = [];
+    const rearDisplays: THREE.Mesh[] = [];
     let chassis: THREE.Mesh | null = null;
     root.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return;
       if (node.userData.freestandingRangeChassis) chassis = node;
       if (node.userData.rangeControlType === "gas-knob") gasControls.push(node);
+      if (node.userData.rangeGasGrate) gasGrates.push(node);
+      if (node.userData.rangeRearControlDisplay) rearDisplays.push(node);
     });
     expect(gasControls).toHaveLength(5);
+    expect(gasGrates).toHaveLength(8);
+    expect(rearDisplays).toHaveLength(1);
     expect(chassis?.userData).toMatchObject({ rangeFinish: "black", rangeFuel: "gas" });
+  });
+
+  it("renders a rear-control electric range with a raised display, front controls, and glass cooktop", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -34, cabinetId: 30, masterCode: "RANGE-30", description: '30" Stainless Electric Range', placementType: "appliance",
+      width: 30, height: 36, depth: 25, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/30inchWideStainlessSteelElectricRange-cropped_c6f3d3e6.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+    const electricControls: THREE.Mesh[] = [];
+    const backguards: THREE.Mesh[] = [];
+    const rearDisplays: THREE.Mesh[] = [];
+    const cooktops: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.rangeControlType === "electric-control" && node.userData.rangeControlPosition === "rear") electricControls.push(node);
+      if (node.userData.rangeBackguard) backguards.push(node);
+      if (node.userData.rangeRearControlDisplay) rearDisplays.push(node);
+      if (node.userData.rangeCooktopStyle === "electric-glass") cooktops.push(node);
+    });
+    expect(electricControls).toHaveLength(4);
+    expect(backguards).toHaveLength(1);
+    expect(rearDisplays).toHaveLength(1);
+    expect(cooktops).toHaveLength(4);
   });
 
   it("renders front-control ranges with an integrated display and no raised rear backguard", () => {

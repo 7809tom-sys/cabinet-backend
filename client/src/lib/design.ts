@@ -224,6 +224,10 @@ export type RangeVisualAppearance = {
   finish: "stainless" | "black-stainless" | "white" | "black";
   fuel: "gas" | "electric";
   controlPosition: "front" | "rear";
+  cooktopStyle: "gas-grate" | "electric-glass";
+  backPanel: "raised" | "none";
+  controlCount: number;
+  ovenConfiguration: "single" | "double";
   bodyColor: string;
   controlColor: string;
 };
@@ -240,13 +244,17 @@ export function rangeVisualAppearance(input: { description?: string | null; cata
         : "stainless";
   const fuel = /\bgas\b/.test(source) ? "gas" : "electric";
   const controlPosition = /front[\s-]*control/.test(source) ? "front" : "rear";
+  const cooktopStyle = fuel === "gas" ? "gas-grate" : "electric-glass";
+  const backPanel = controlPosition === "rear" ? "raised" : "none";
+  const controlCount = fuel === "gas" ? 5 : 4;
+  const ovenConfiguration = /double[\s-]*oven/.test(source) ? "double" : "single";
   const colors: Record<RangeVisualAppearance["finish"], Pick<RangeVisualAppearance, "bodyColor" | "controlColor">> = {
     stainless: { bodyColor: "#c7cbd0", controlColor: "#3b4147" },
     "black-stainless": { bodyColor: "#343a40", controlColor: "#12161b" },
     white: { bodyColor: "#f1f3f5", controlColor: "#aeb6c0" },
     black: { bodyColor: "#15191e", controlColor: "#070a0e" },
   };
-  return { finish, fuel, controlPosition, ...colors[finish] };
+  return { finish, fuel, controlPosition, cooktopStyle, backPanel, controlCount, ovenConfiguration, ...colors[finish] };
 }
 
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
