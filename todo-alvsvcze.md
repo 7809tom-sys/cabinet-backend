@@ -554,3 +554,33 @@
 - [x] Enforce AW1230’s door flush to its true angled physical face with no penetration or overhang
 - [ ] Compare the current BEC-24 3D output directly with the authoritative diagram and short-door measurements before another geometry edit
 - [x] Apply and test the same physical face-plane and boundary constraint across all cabinet door families
+- [ ] Trace the live BEC-24 path shown in the supplied screenshot, which renders one narrow front beside a broad blank rectangular panel instead of two exterior end-return doors
+- [ ] Remove the demonstrated blank BEC-24 panel and require two short exterior fronts meeting at the saved end-return center
+- [ ] Add a screenshot-derived mesh regression that rejects the single-front-plus-blank-panel BEC-24 composition
+- [ ] Generate a controlled BEC-24 reference image that visually confirms the rear apex, two 24-inch construction sides, two short exterior doors, recessed toe kick, and countertop support before changing the renderer
+- [ ] Use the approved BEC-24 reference image only as a construction review aid while keeping Cabinet Config dimensions and saved 2D data authoritative for 3D geometry
+- [ ] Replace the invalid generated BEC-24 product image, which repeated the blank side-panel failure, with a measured deterministic geometry reference
+- [ ] Use the measured BEC-24 reference diagram to reject a blank exterior panel where one of the two short end-return door faces must appear
+- [ ] Conceal BEC-24’s two 24-inch construction sides from the exposed end and extend the two exterior door fronts to form the complete visible angled end
+- [ ] Add a BEC-24 regression that rejects any visible blank panel outside the two configured exterior door faces
+- [ ] Preserve BEC-24’s confirmed two 24-inch construction areas without changing their dimensions, body geometry, footprint, or attachment position; change only exposed end-front treatment
+- [ ] Iterate the BEC-24 image reference until its visible end construction is correct before changing the shared 3D programming
+- [ ] Treat the accepted BEC-24 image as the visual target for subsequent deterministic 3D mesh work while retaining saved 2D measurements as the dimensional authority
+- [ ] Match the supplied BEC-24 diagram: retain the rear-apex two 24-inch construction sides and place two full exposed door faces from the outer side corners to the shared front center point
+- [ ] Reject BEC-24 layouts that place short detached doors only near the apex or leave any portion of either exposed exterior face as a blank cabinet panel
+- [ ] Match BEC-24’s supplied door specification in the visual target: two approximately 8.45-inch-wide by 29.5-inch-high doors above the 4.5-inch toe kick and 30-inch box opening
+- [ ] Reject every square-box BEC-24 visual reference; begin the next reference with the required non-square diamond/rear-apex silhouette before adding finish or door details
+- [ ] Pause all BEC-24 implementation changes pending a renewed authoritative visual target; do not modify its confirmed construction areas
+- [ ] Preserve the user-supplied future invariant that two mirrored BEC end cabinets nearly form an O/pointed-oval peninsula tip
+- [ ] Create a side-by-side image comparison of the supplied BEC-24 diagram and the current generated reference to make the shape mismatch explicit
+- [ ] Reject the generated quarter-octagon BEC interpretation; use the supplied rear-apex diagram as the only visual reference for any future BEC work
+- [ ] Assemble four rotated copies of the supplied BEC-24 diagram with all 90-degree corners meeting at the center and review the resulting shared shape
+- [ ] Rebuild the four-copy BEC-24 puzzle using only unaltered copies of the supplied diagram and apex alignment, with no generated or interpreted geometry
+- [ ] Create a simple 2-by-2 grid of four identical unaltered copies of the supplied BEC-24 diagram with no rotation, overlap, or interpretation
+- [ ] Arrange four supplied BEC-24 diagrams so their flat 24-inch side edges touch one another, without generating or redrawing cabinetry
+- [ ] Arrange all four supplied BEC-24 diagrams with their 24-inch sides touching along full lengths so the outside group measures 48 inches on its longest side
+- [ ] Generate a single visual reference of four BEC-24 units based on the supplied diagram, joined at their flat 24-inch sides with no renderer-code changes
+- [ ] Pause all BEC-24 image and renderer work: the user explicitly rejected every square cabinet interpretation and instructed no more squares
+- [ ] Preserve the clarified BEC-24 construction statement for future work: two straight 24-inch projections, then 45-degree end turns, yielding an approximately 17–18-inch exposed end split into two approximately 8.5-inch fronts
+- [x] Treat AW1230, AW1236, and AW1242 as one angled-wall family and seat each decorative door exactly flush and centered on the true angled exterior face
+- [x] Add physical-face regression coverage for AW1230, AW1236, and AW1242 so no door can float, penetrate, or offset from the angled wall-cabinet body

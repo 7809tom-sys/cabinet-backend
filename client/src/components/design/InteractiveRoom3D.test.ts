@@ -1271,6 +1271,40 @@ describe("interactive 3D room scene helpers", () => {
     expect(fronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
   });
 
+  it("routes AW1230, AW1236, and AW1242 to one centered door on the true angled-wall hypotenuse", () => {
+    const root = new THREE.Group();
+    const awCodes = ["AW1230", "AW1236", "AW1242"];
+    awCodes.forEach((masterCode, index) => {
+      addCabinet(root, {
+        distributorSkuId: -220 - index,
+        cabinetId: 220 + index,
+        masterCode,
+        description: `12\" Angled Wall Cabinet ${masterCode.slice(-2)}\" High`,
+        placementType: "wall",
+        width: 12,
+        height: Number(masterCode.slice(-2)),
+        depth: 12,
+        numberOfDoors: 1,
+        numberOfDrawers: 0,
+      } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: index * 3, z: 0, rotation: 0, bottom: 54 });
+    });
+    root.updateMatrixWorld(true);
+    for (const masterCode of awCodes) {
+      const cabinet = root.children.find((node) => node.userData.masterCode === masterCode)!;
+      const wedge = cabinet.children.find((node) => node instanceof THREE.Mesh && node.userData.angledWallWedge) as THREE.Mesh;
+      const doors: THREE.Mesh[] = [];
+      cabinet.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.angledWallDoor) doors.push(node); });
+      expect(wedge).toBeDefined();
+      expect(doors).toHaveLength(1);
+      expect(doors[0]!.userData.flushPhysicalFace).toBe(true);
+      expect(doors[0]!.rotation.y).toBeCloseTo(-Math.PI / 4, 8);
+      const bodyBounds = new THREE.Box3().setFromObject(wedge);
+      const doorBounds = new THREE.Box3().setFromObject(doors[0]!);
+      expect(doorBounds.max.x).toBeLessThanOrEqual(bodyBounds.max.x + 1e-8);
+      expect(doorBounds.min.z).toBeGreaterThanOrEqual(bodyBounds.min.z - 1e-8);
+    }
+  });
+
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {
     const root = new THREE.Group();
     addCabinet(root, {
