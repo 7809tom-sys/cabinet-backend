@@ -8515,7 +8515,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-10 h-14">
+          <div
+            data-testid="mobile-designer-action-strip"
+            className="flex h-16 flex-nowrap items-stretch overflow-x-auto overscroll-x-contain px-1 pb-[env(safe-area-inset-bottom,0px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -9376,7 +9379,7 @@ function MobileBarButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
+      className={`relative flex h-full w-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
         danger ? "text-destructive" : active ? "text-amber-500" : "text-foreground"
       }`}
     >

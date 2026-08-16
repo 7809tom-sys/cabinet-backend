@@ -598,3 +598,6 @@
 - [x] Preserve collision rejection for truly incompatible appliance overlaps and add hood-over-range placement regressions
 - [x] Add a persistent high-visibility on-screen status indicator whenever temporary Custom placement collision override is active
 - [x] Add responsive visual-state coverage for the active collision-override indicator
+- [x] Fix the mobile designer bottom action bar so Catalog, Cart, and all actions do not wrap or overlap
+- [x] Keep mobile designer actions reachable through a non-wrapping horizontally scrollable action strip
+- [x] Add responsive regression coverage for separated Catalog and Cart controls on narrow screens
