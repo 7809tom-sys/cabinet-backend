@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, placedFootprint, hasCollision, collisionReason, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -611,6 +611,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Cabinet lock: when true, placed cabinets cannot be moved, deleted, or have
   // new ones dropped. The room/walls/openings/island are still editable.
   const [cabinetsLocked, setCabinetsLocked] = useState(false);
+  // Explicit temporary override for intentional custom overlaps. Normal
+  // collision-safe snapping is restored immediately when this is disabled.
+  const [customPlacementMode, setCustomPlacementMode] = useState(false);
   // D-pad nudge step size: 1" (normal) or 0.25" (fine)
   const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
   // Accordion: which palette group headers the user has explicitly collapsed.
@@ -3764,10 +3767,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const cabinet = prev.find((p) => p.uid === uid);
       if (!cabinet) return prev;
       const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
-      const edgeSnap = snapPosition(requestedCabinet, room, prev.filter((p) => p.uid !== uid), island);
+      const peers = prev.filter((p) => p.uid !== uid);
+      const edgeSnap = customPlacementMode ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
       const movedCabinet = { ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y };
-      if (hasCollision(movedCabinet, prev.filter((p) => p.uid !== uid))) {
-        const message = collisionReason(movedCabinet, prev.filter((p) => p.uid !== uid)) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
+      if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)) {
+        const message = collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -3796,7 +3800,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       return prev.map((p) => (p.uid === uid ? movedCabinet : p));
     });
-  }, [setSinks, room, island]);
+  }, [setSinks, room, island, customPlacementMode]);
 
   const swingSelected = () => {
     if (!selectedUid) return;
@@ -3884,7 +3888,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       );
       const clamped = clampCabinetsToRoom(moved, room);
       const candidate = clamped.find((p) => p.uid === selectedUid);
-      if (candidate && hasCollision(candidate, clamped.filter((p) => p.uid !== selectedUid))) {
+      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode)) {
         const message = collisionReason(candidate, clamped.filter((p) => p.uid !== selectedUid)) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
@@ -3892,7 +3896,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       return clamped;
     });
-  }, [selectedUid, room]);
+  }, [selectedUid, room, customPlacementMode]);
 
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
@@ -7312,6 +7316,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               <button type="button" onClick={() => setPlacementWarning(null)} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
             </div>
           )}
+          {customPlacementMode && (
+            <div role="status" className="absolute left-3 right-3 top-14 z-40 flex items-start gap-2 rounded-lg border border-rose-400 bg-rose-50 px-3 py-2 text-sm text-rose-950 shadow-md sm:right-auto sm:max-w-md">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
+              <p className="min-w-0 flex-1"><strong>Custom placement active.</strong> Collision blocking and neighbor snapping are temporarily disabled.</p>
+            </div>
+          )}
           {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
             <div className="absolute inset-0 z-20">
               <PolygonRoomEditor
@@ -8547,6 +8557,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onClick={() => {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
+              }}
+            />
+            <MobileBarButton
+              icon={<Move className="h-5 w-5" />}
+              label="Custom"
+              active={customPlacementMode}
+              disabled={cabinetsLocked}
+              onClick={() => {
+                setCustomPlacementMode((enabled) => {
+                  const next = !enabled;
+                  toast.success(next ? "Custom placement enabled — collision blocking is off" : "Custom placement disabled — collision blocking is on");
+                  return next;
+                });
               }}
             />
             <MobileBarButton

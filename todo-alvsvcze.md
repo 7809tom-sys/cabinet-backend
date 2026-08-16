@@ -591,3 +591,8 @@
 - [x] Keep collision zones placement-aware: wall-vs-wall and base-vs-base block overlap, while wall cabinets may coexist above base cabinets
 - [x] Show a clear in-designer explanation whenever a proposed move is rejected for collision
 - [x] Add elevation movement regressions for flush wall-cabinet adjacency, cross-placement coexistence, and explained collision rejection
+- [x] Add a visible Custom placement allow-overlap toggle that temporarily bypasses collision blocking only when explicitly enabled
+- [x] Show an active custom-placement warning while collisions are bypassed and restore normal protection when disabled
+- [x] Add placement regression coverage proving collisions block by default and persist only when the temporary override is enabled
+- [x] Allow a compatible range hood to be placed above its matching range without a plan-collision rejection
+- [x] Preserve collision rejection for truly incompatible appliance overlaps and add hood-over-range placement regressions

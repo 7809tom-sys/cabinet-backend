@@ -25,7 +25,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, orientToWall, hasCollision, collisionReason,
+  snapPosition, orientToWall, hasCollision, collisionReason, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -2411,6 +2411,22 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     const movingWall = cab({ uid: "moving-wall", placement: "wall", masterCode: "W-18", x: 6, y: 0, width: 18, depth: 12, height: 30, mountBottom: 54 });
     expect(collisionReason(movingWall, [base])).toBeNull();
     expect(collisionReason(movingWall, [wall])).toBe('Cannot place W-18 here: it overlaps W-24, another wall cabinet. Cabinets may touch edge-to-edge but cannot overlap.');
+  });
+
+  it("blocks a true collision by default and permits it only with explicit custom placement", () => {
+    const existing = cab({ uid: "existing", placement: "base", masterCode: "B-24", x: 0, y: 0, width: 24, depth: 24 });
+    const moving = cab({ uid: "moving", placement: "base", masterCode: "B-18", x: 6, y: 0, width: 18, depth: 24 });
+    expect(shouldBlockPlacementCollision(moving, [existing])).toBe(true);
+    expect(shouldBlockPlacementCollision(moving, [existing], true)).toBe(false);
+  });
+
+  it("allows a range hood above its matching range while retaining appliance collision blocking for unrelated items", () => {
+    const range = cab({ uid: "range", placement: "appliance", masterCode: "RANGE-30", description: "30 inch Range", x: 36, y: 0, width: 30, depth: 24, height: 34.5 });
+    const hood = cab({ uid: "hood", placement: "appliance", masterCode: "HOOD-30", description: "30 inch Range Hood", x: 36, y: 0, width: 30, depth: 12, height: 30, mountBottom: 54 });
+    const microwave = cab({ uid: "microwave", placement: "appliance", masterCode: "MICRO-30", description: "30 inch Microwave", x: 36, y: 0, width: 30, depth: 12, height: 17, mountBottom: 54 });
+    expect(isHoodOverRangePair(hood, range)).toBe(true);
+    expect(hasCollision(hood, [range])).toBe(false);
+    expect(hasCollision(microwave, [range])).toBe(true);
   });
 });
 

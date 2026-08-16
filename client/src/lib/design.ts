@@ -1308,6 +1308,11 @@ export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[]):
   return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}. Cabinets may touch edge-to-edge but cannot overlap.`;
 }
 
+/** Custom placement is an explicit, temporary opt-in; normal placement always blocks true collisions. */
+export function shouldBlockPlacementCollision(moving: PlacedCabinet, others: PlacedCabinet[], customPlacement = false): boolean {
+  return !customPlacement && hasCollision(moving, others);
+}
+
 /**
  * Items reserve the same plan run only when their placement category matches or
  * their physical elevation envelopes intersect. This allows a wall cabinet to
@@ -1315,6 +1320,7 @@ export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[]):
  * base-to-base collision prevention.
  */
 export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  if (isHoodOverRangePair(a, b)) return false;
   if (a.placement === b.placement) return true;
   if (!verticalEnvelopesOverlap(a, b)) return false;
   if (
@@ -1322,6 +1328,13 @@ export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boo
     (isSinkAppliance(b) && isSinkBaseCabinet(a))
   ) return false;
   return !isBridgeOverRange(a, b);
+}
+
+/** A wall-mounted range hood intentionally occupies the same plan projection as the range below it. */
+export function isHoodOverRangePair(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  const isHood = (item: PlacedCabinet) => /^HOOD-/.test((item.masterCode || "").toUpperCase());
+  const isRange = (item: PlacedCabinet) => isRangeOrOven(item.masterCode, item.description);
+  return (isHood(a) && isRange(b)) || (isHood(b) && isRange(a));
 }
 
 export type CollisionResolution = {
