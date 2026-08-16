@@ -328,7 +328,7 @@
 - [x] Restore the missing left floor-to-ceiling refrigerator end panel
 - [x] Render both refrigerator end panels as finished architectural skins without cabinet door/drawer hardware
 - [x] Add left/right refrigerator enclosure panel and no-handle regressions
-- [ ] Verify the reported 3D scene
+- [x] Verify the reported 3D scene
 
 ## Fix: Left refrigerator end panel is absent from the saved elevation layout
 
@@ -336,7 +336,15 @@
 - [x] Ensure both left and right refrigerator end panels persist as distinct placements
 - [x] Prevent collision cleanup or placement deduplication from dropping either panel
 - [x] Add saved-elevation regressions for both panels
-- [ ] Verify the reported wall
+- [x] Verify the reported wall
+
+## Fix: Orphaned sink remains after deleting its sink base
+
+- [x] Trace sink fixture state, ownership metadata, and current delete behavior
+- [x] Delete the attached sink and faucet when its sink base is removed
+- [x] Allow a standalone selected sink fixture to be removed directly
+- [x] Add sink-base deletion and orphan-cleanup regressions
+- [ ] Verify the corrected plan after deleting a sink base
 
 ## Asset plan: Licensed generic appliance families
 

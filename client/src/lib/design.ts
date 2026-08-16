@@ -1527,6 +1527,20 @@ export function isSinkBaseCabinet(c: {
   );
 }
 
+/** A sink fixture belongs to a sink base when its center lies inside that cabinet's true footprint. */
+export function fixtureIsOnCabinetFootprint(
+  fixture: { x: number; y: number; width: number; depth: number },
+  cabinet: PlacedCabinet,
+): boolean {
+  const footprint = placedFootprint(cabinet);
+  const centerX = fixture.x + fixture.width / 2;
+  const centerY = fixture.y + fixture.depth / 2;
+  return (
+    centerX >= cabinet.x && centerX <= cabinet.x + footprint.w &&
+    centerY >= cabinet.y && centerY <= cabinet.y + footprint.d
+  );
+}
+
 /**
  * Returns true if the cabinet is a farmer's / apron-front sink base (FSB-*).
  * These have an exposed apron face below the countertop and no bottom rail.

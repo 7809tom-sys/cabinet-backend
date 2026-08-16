@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -3686,6 +3686,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setSelectedSinkUid((cur) => (cur === uid ? null : cur));
   }, []);
 
+  const deleteAttachedSinkFixtures = useCallback((cabinet: PlacedCabinet | undefined) => {
+    if (!cabinet || !isSinkBaseCabinet(cabinet)) return;
+    setSinks((previous) => previous.filter((sink) => !fixtureIsOnCabinetFootprint(sink, cabinet)));
+    setSelectedSinkUid(null);
+  }, []);
+
   const toggleSinkFaucet = useCallback((uid: string) => {
     setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, faucet: !s.faucet } : s)));
   }, []);
@@ -3859,6 +3865,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // removable from the same Delete control (mobile toolbar + Delete/Backspace key).
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
+      deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === selectedUid));
       setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
       setSelectedUid(null);
       return;
@@ -4352,9 +4359,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // cabinet can always be removed regardless of category/placement or how it
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
+    deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === uid));
     setPlaced((prev) => prev.filter((p) => p.uid !== uid));
     setSelectedUid((cur) => (cur === uid ? null : cur));
-  }, []);
+  }, [placed, deleteAttachedSinkFixtures]);
 
   // Rotate a specific cabinet by uid (used by the on-canvas rotate handle so a
   // touch user can turn any cabinet they tap, not just via the toolbar/keyboard).

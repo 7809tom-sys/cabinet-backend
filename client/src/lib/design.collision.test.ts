@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, hasCollision, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, fixtureIsOnCabinetFootprint, hasCollision, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -29,6 +29,12 @@ describe("design placement collision prevention", () => {
     const b33 = placed({ uid: "b33", masterCode: "B33", x: 0 });
     const drawerBase = placed({ uid: "3db15", masterCode: "3DB15", x: 33, width: 15 });
     expect(hasCollision(drawerBase, [b33])).toBe(false);
+  });
+
+  it("identifies sinks attached to a sink base while leaving standalone sinks independent", () => {
+    const sinkBase = placed({ uid: "sb36", masterCode: "SB36", description: "Sink Base 36", x: 24, y: 0, width: 36, depth: 24 });
+    expect(fixtureIsOnCabinetFootprint({ x: 34, y: 5, width: 20, depth: 18 }, sinkBase)).toBe(true);
+    expect(fixtureIsOnCabinetFootprint({ x: 80, y: 40, width: 20, depth: 18 }, sinkBase)).toBe(false);
   });
 
   it("rejects an appliance overlapping a base cabinet but preserves the sink-over-sink-base exception", () => {
