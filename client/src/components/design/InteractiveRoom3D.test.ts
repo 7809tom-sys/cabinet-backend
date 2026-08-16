@@ -1717,6 +1717,55 @@ describe("interactive 3D room scene helpers", () => {
     expect(chassis?.userData).toMatchObject({ rangeFinish: "black", rangeFuel: "gas" });
   });
 
+  it("renders front-control ranges with an integrated display and no raised rear backguard", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -32, cabinetId: 30, masterCode: "RANGE-30", description: '30" White Electric Front-Control Range', placementType: "appliance",
+      width: 30, height: 36, depth: 25, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/30InchZlineFrontControlWhiteElectricRange-cropped_e5144787.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+    const displays: THREE.Mesh[] = [];
+    const panels: THREE.Mesh[] = [];
+    const backguards: THREE.Mesh[] = [];
+    const flatCooktops: THREE.Mesh[] = [];
+    let ovenHandle: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.rangeFrontControlDisplay) displays.push(node);
+      if (node.userData.rangeFrontControlPanel) panels.push(node);
+      if (node.userData.rangeBackguard) backguards.push(node);
+      if (node.userData.rangeFrontControlFlatCooktop) flatCooktops.push(node);
+      if (node.userData.rangeOvenHandle) ovenHandle = node;
+    });
+    expect(displays).toHaveLength(1);
+    expect(panels).toHaveLength(1);
+    expect(backguards).toHaveLength(0);
+    expect(flatCooktops).toHaveLength(1);
+    expect(ovenHandle).not.toBeNull();
+    expect(displays[0].position.y).toBeGreaterThan(ovenHandle!.position.y);
+  });
+
+  it("keeps front-control gas ranges flat-topped with five integrated front knobs", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -33, cabinetId: 30, masterCode: "RANGE-30", description: '30" Black Stainless Front-Control Gas Range', placementType: "appliance",
+      width: 30, height: 36, depth: 25, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/30InchWideBlackStainlessSteelFrontControlRange-cropped_96100940.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+    const gasControls: THREE.Mesh[] = [];
+    const flatCooktops: THREE.Mesh[] = [];
+    const backguards: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.rangeControlType === "gas-knob" && node.userData.rangeControlPosition === "front") gasControls.push(node);
+      if (node.userData.rangeFrontControlFlatCooktop) flatCooktops.push(node);
+      if (node.userData.rangeBackguard) backguards.push(node);
+    });
+    expect(gasControls).toHaveLength(5);
+    expect(flatCooktops).toHaveLength(1);
+    expect(backguards).toHaveLength(0);
+  });
+
   it("preserves the saved tall-appliance height, dishwasher-spanning counter, and 66-inch range-hood mount in the actual scene meshes", () => {
     const root = new THREE.Group();
     addCabinet(root, {

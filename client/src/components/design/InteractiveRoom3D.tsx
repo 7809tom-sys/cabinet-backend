@@ -222,9 +222,12 @@ export function singleOvenTowerAssembly(totalHeightIn: number) {
   };
 }
 
-export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHeight: number, mountBottomIn = 0) {
-  const cooktopWidth = Math.max(0.2, bodyWidth - 0.12);
-  const cooktopDepth = Math.max(0.2, bodyDepth - 0.12);
+export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHeight: number, mountBottomIn = 0, controlPosition: "front" | "rear" = "rear") {
+  // A front-control range has one continuous, full-depth cooking surface. Rear
+  // control ranges reserve a slightly larger perimeter for their backguard.
+  const perimeterInset = controlPosition === "front" ? 0.04 : 0.12;
+  const cooktopWidth = Math.max(0.2, bodyWidth - perimeterInset);
+  const cooktopDepth = Math.max(0.2, bodyDepth - perimeterInset);
   const cooktopThickness = 0.045;
   const burnerRadius = Math.max(0.06, Math.min(cooktopWidth, cooktopDepth) * 0.105);
   const xOffset = cooktopWidth * 0.24;
@@ -239,6 +242,8 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
     cooktopThickness,
     topY: cookingSurfaceY - cooktopThickness / 2,
     cookingSurfaceY,
+    controlPosition,
+    flatFrontControlTop: controlPosition === "front",
     burnerRadius,
     burnerCenters: [
       { x: -xOffset, z: -zOffset },
@@ -1233,14 +1238,14 @@ export function addCabinet(
         storageDrawer.position.set(0, rangeLayout.drawerCenterY, 0.038);
         storageDrawer.userData = { applianceCode: sku.masterCode, rangeStorageDrawer: true };
         frontGroup.add(storageDrawer);
-        const cooktop = rangeCooktopLayout(bodyWidth, bodyDepth, bodyHeight, bottom);
+        const cooktop = rangeCooktopLayout(bodyWidth, bodyDepth, bodyHeight, bottom, rangeAppearance?.controlPosition ?? "rear");
         const rangeProfile = freestandingRangeHeightProfile(bottom, bodyHeight);
         const cooktopSurface = new THREE.Mesh(
           new THREE.BoxGeometry(cooktop.cooktopWidth, cooktop.cooktopThickness, cooktop.cooktopDepth),
           new THREE.MeshStandardMaterial({ color: "#20262d", roughness: 0.2, metalness: 0.48 }),
         );
         cooktopSurface.position.set(0, cooktop.topY, 0);
-        cooktopSurface.userData = { applianceCode: sku.masterCode, rangeCooktop: true };
+        cooktopSurface.userData = { applianceCode: sku.masterCode, rangeCooktop: true, rangeControlPosition: cooktop.controlPosition, ...(cooktop.flatFrontControlTop ? { rangeFrontControlFlatCooktop: true } : {}) };
         cabinet.add(cooktopSurface);
         for (const burnerCenter of cooktop.burnerCenters) {
           const burner = new THREE.Mesh(
@@ -1277,6 +1282,13 @@ export function addCabinet(
           controls.position.set(0, bodyHeight / 2 - 0.105, 0.088);
           controls.userData = { applianceCode: sku.masterCode, rangeFrontControlPanel: true, rangeControlPosition: "front" };
           frontGroup.add(controls);
+          const display = new THREE.Mesh(
+            new THREE.BoxGeometry(bodyWidth * 0.16, 0.045, 0.016),
+            new THREE.MeshStandardMaterial({ color: "#101923", roughness: 0.2, metalness: 0.38 }),
+          );
+          display.position.set(0, bodyHeight / 2 - 0.09, 0.121);
+          display.userData = { applianceCode: sku.masterCode, rangeFrontControlDisplay: true, rangeControlPosition: "front", dimensionalApplianceDetail: true };
+          frontGroup.add(display);
         }
         const knobMaterial = new THREE.MeshStandardMaterial({ color: "#d8dce0", roughness: 0.18, metalness: 0.86 });
         const gasRange = rangeAppearance?.fuel === "gas";

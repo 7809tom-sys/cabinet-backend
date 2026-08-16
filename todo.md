@@ -211,6 +211,17 @@
 - [x] Add four-variant range-control regression coverage
 - [ ] Verify the four selected range variants in the reported elevation and 3D views
 
+## Refinement: Front-control ranges need flat tops and integrated upper-front controls
+
+- [x] Keep rear-control range backguards unchanged
+- [x] Give front-control range variants a flat cooktop without a raised rear backguard
+- [x] Integrate control panel, display, knobs, and handle in the upper front zone
+- [x] Add front-control gas/electric construction regressions
+- [ ] Verify front-control gas/electric variants against the supplied references
+- [x] Add front-control-specific flat cooktop profiles for gas and electric variants
+- [x] Verify the front-control upper-front assembly keeps the oven handle in its correct door position
+- [x] Add explicit front-control gas and electric 3D construction regressions
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses

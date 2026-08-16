@@ -608,6 +608,9 @@ export function ElevationView({
               {(rangeAppearance?.fuel === "gas" ? ["14%", "31%", "50%", "69%", "86%"] : ["18%", "34%", "66%", "82%"]).map((left, index) => (
                 <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: rangeAppearance?.controlPosition === "front" ? "28%" : "7%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
               ))}
+              {rangeAppearance?.controlPosition === "front" && (
+                <div data-range-front-control-display="true" className="absolute" style={{ left: "42%", right: "42%", top: "27%", height: "7%", background: "linear-gradient(180deg, #111820, #28333e)", border: "1px solid rgba(210,220,230,0.25)", borderRadius: 2 }} />
+              )}
               <div
                 className="absolute"
                 style={{
