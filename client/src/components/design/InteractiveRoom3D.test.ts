@@ -340,6 +340,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "WRC-30", description: "Wine Rack", graphicType: null, customProfile: null, facePattern: "lattice", cornerType: null,
     })).toEqual({ kind: "face-pattern", pattern: "lattice" });
+    expect(resolvedThreeDSpecialtyProfile({
+      masterCode: "FSB-36", description: '36" Farmhouse Sink Base', graphicType: null, customProfile: null, facePattern: null, cornerType: null,
+    })).toEqual({ kind: "farmhouse-sink", pattern: null });
+  });
+
+  it("keeps ERB36's two exposed L-corner fronts on the room side at the top-right room corner", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const erb = {
+      uid: "erb36-top-right", cabinetId: 36, masterCode: "ERB-36", description: "Easy Reach Corner Base",
+      placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
+  it("mounts FSB36's apron on the room-facing side of a right-wall placement", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const fsb = {
+      uid: "fsb36-right", cabinetId: 36, masterCode: "FSB-36", description: '36" Farmhouse Sink Base',
+      placement: "base", x: 96, y: 36, width: 36, depth: 24, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(existingCabinetTransform(fsb, room).rotation).toBeCloseTo(-Math.PI / 2, 12);
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(fsb), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(fsb, room));
+    root.updateMatrixWorld(true);
+    const cabinet = root.children.find((node) => node.userData.masterCode === "FSB-36")!;
+    let apron: THREE.Object3D | undefined;
+    root.traverse((node) => { if (node.userData.farmhouseApronFront) apron = node; });
+    const cabinetPosition = new THREE.Vector3();
+    const apronPosition = new THREE.Vector3();
+    cabinet.getWorldPosition(cabinetPosition);
+    expect(apron).toBeDefined();
+    apron.getWorldPosition(apronPosition);
+    expect(apronPosition.x).toBeLessThan(cabinetPosition.x);
   });
 
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {

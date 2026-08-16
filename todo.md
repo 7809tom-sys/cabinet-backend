@@ -99,11 +99,18 @@
 - [x] Add 2D-to-3D parity regressions for ERB36 and FSB36
 - [ ] Verify the specialty cabinets in the interactive 3D preview
 
+## Fix: ERB36 and FSB36 room-facing orientation
+
+- [x] Compare current ERB36 and FSB36 overhead placement with the 3D transforms
+- [x] Correct only ERB36 and FSB36 so their fronts face into the room
+- [x] Add focused ERB36 and FSB36 orientation regression coverage
+- [ ] Verify the two cabinet types in the interactive 3D preview
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
-- [ ] Resolve and publish the AW renderer update without modifying other cabinet families
-- [ ] Preserve the AW's two 12-inch wall legs and one hinged angled exterior door
-- [ ] Add or retain AW12x30, AW12x36, and AW12x42 3D regression coverage
+- [x] Resolve and publish the AW renderer update without modifying other cabinet families
+- [x] Preserve the AW's two 12-inch wall legs and one hinged angled exterior door
+- [x] Add or retain AW12x30, AW12x36, and AW12x42 3D regression coverage
 - [ ] Verify only the AW cabinet in the interactive 3D preview
 
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap

@@ -694,6 +694,7 @@ export function resolvedThreeDFaceLayout(input: {
 
 export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "cornerGeometryKind" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
+  if (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? "")) return { kind: "farmhouse-sink" as const, pattern: null };
   // AW1230, AW1236, and AW1242 are one angled-wall family. Catalog rows do
   // not consistently store diagonal corner metadata, so code/description must
   // route each one through the true triangular hypotenuse branch first.
@@ -1444,6 +1445,32 @@ export function addCabinet(
       const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
+  } else if (specialty.kind === "farmhouse-sink") {
+    // FSB farmhouse bases carry their apron on the positive-Z local face. The
+    // cabinet's resolved wall transform keeps that feature facing the room.
+    const apronWidth = Math.max(0.3, bodyWidth * 0.68);
+    const apronHeight = Math.max(0.22, bodyHeight * 0.56);
+    const apron = new THREE.Mesh(
+      new THREE.BoxGeometry(apronWidth, apronHeight, 0.066),
+      new THREE.MeshStandardMaterial({ color: "#ece9e1", roughness: 0.34, metalness: 0.04 }),
+    );
+    apron.position.set(0, -bodyHeight * 0.1, 0.038);
+    apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
+    frontGroup.add(apron);
+    const falseFrontHeight = Math.max(0.1, bodyHeight * 0.18);
+    const falseFront = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, falseFrontHeight, 0.048), faceMaterial);
+    falseFront.position.set(0, bodyHeight / 2 - falseFrontHeight / 2 - 0.04, 0.028);
+    falseFront.userData = { specialtyProfile: "farmhouse-sink", farmhouseFalseFront: true, cabinetFront: true };
+    frontGroup.add(falseFront);
+    addShakerFrame(bodyWidth - 0.08, falseFrontHeight, falseFront.position.x, falseFront.position.y, 0.062);
+    const sideDoorWidth = Math.max(0.1, (bodyWidth - apronWidth - 0.12) / 2);
+    for (const side of [-1, 1] as const) {
+      const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(sideDoorWidth, apronHeight, 0.052), faceMaterial);
+      sideDoor.position.set(side * (apronWidth + sideDoorWidth) / 2, apron.position.y, 0.032);
+      sideDoor.userData = { specialtyProfile: "farmhouse-sink", farmhouseSideDoor: side === -1 ? "left" : "right", cabinetFront: true };
+      frontGroup.add(sideDoor);
+      addShakerFrame(sideDoorWidth, apronHeight, sideDoor.position.x, sideDoor.position.y, 0.066);
+    }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(
       new THREE.BoxGeometry(bodyWidth - 0.1, bodyHeight - 0.1, 0.03),
@@ -1637,6 +1664,11 @@ export function threeDRoomFacingRotation(
 ) {
   if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
+  const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  // ERB / BER easy-reach bases use a local 3D carcass handedness opposite the
+  // clockwise 2D corner turn. Mirror that turn so their exposed fronts point
+  // into the room while their backs remain at the two corner walls.
+  if (kind === "l-shape" && /^(?:ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
   if (kind !== "standard") return fallbackRotation;
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
