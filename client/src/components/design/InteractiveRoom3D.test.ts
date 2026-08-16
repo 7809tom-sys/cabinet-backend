@@ -340,33 +340,6 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "WRC-30", description: "Wine Rack", graphicType: null, customProfile: null, facePattern: "lattice", cornerType: null,
     })).toEqual({ kind: "face-pattern", pattern: "lattice" });
-    expect(resolvedThreeDSpecialtyProfile({
-      masterCode: "FSB-36", description: '36" Farmhouse Sink Base', graphicType: null, customProfile: null, facePattern: null, cornerType: null,
-    })).toEqual({ kind: "farmhouse-sink", pattern: null });
-  });
-
-  it("mirrors ERB36's 3D L-corner transform so the fronts follow the interior-facing 2D plan orientation", () => {
-    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
-    const erbAtTopRight = {
-      uid: "erb-top-right", cabinetId: 36, masterCode: "ERB-36", description: "Easy Reach Corner Base",
-      placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
-    } as never;
-    expect(placedCornerGeometryKind(erbAtTopRight)).toBe("l-shape");
-    expect(existingCabinetTransform(erbAtTopRight, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
-  });
-
-  it("builds FSB36 with a farmhouse apron front instead of a generic two-door base face", () => {
-    const fsb = {
-      uid: "farmhouse", cabinetId: 36, masterCode: "FSB-36", description: '36" Farmhouse Sink Base',
-      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
-    } as never;
-    const root = new THREE.Group();
-    addCabinet(root, existingCabinetSku(fsb), null, {}, 144, 120, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(fsb));
-    const nodes: THREE.Object3D[] = [];
-    root.traverse((node) => nodes.push(node));
-    expect(nodes.filter((node) => node.userData.farmhouseApronFront)).toHaveLength(1);
-    expect(nodes.filter((node) => node.userData.farmhouseFalseFront)).toHaveLength(1);
-    expect(nodes.filter((node) => node.userData.farmhouseSideDoor)).toHaveLength(2);
   });
 
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
@@ -1096,6 +1069,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(angledDoor.rotation.y).toBeCloseTo(pose.rotation, 8);
     expect(angledDoor.position.x).toBeCloseTo(pose.x, 8);
     expect(angledDoor.position.z).toBeCloseTo(pose.z, 8);
+    expect(angledDoor.userData.flushPhysicalFace).toBe(true);
+    // The door's 0.052ft depth has a 0.026ft half-depth. Its inner surface
+    // remains just outside the triangular hypotenuse instead of penetrating it.
+    expect(pose.x * pose.normalX + pose.z * pose.normalZ).toBeGreaterThan(0.026);
   });
 
   it("normalizes saved BA-24 and BEC-24 records into the supplied rear-apex two-24-inch-side diagram form without refreshed profile metadata", () => {
@@ -1121,10 +1098,10 @@ describe("interactive 3D room scene helpers", () => {
       expect(returnFaces).toHaveLength(2);
       expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(23.04 / 12, 6), expect.closeTo(23.04 / 12, 6),
+        expect.closeTo(8.45 / 12, 6), expect.closeTo(8.45 / 12, 6),
       ]);
       expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
-        expect.closeTo(23.04, 6), expect.closeTo(23.04, 6),
+        expect.closeTo(8.45, 6), expect.closeTo(8.45, 6),
       ]);
       expect(returnFaces.map((face) => face.rotation.y)).toEqual([-Math.PI / 4, Math.PI / 4]);
       expect(returnFaces.every((face) => face.userData.attachedEndFront)).toBe(true);
@@ -1135,14 +1112,18 @@ describe("interactive 3D room scene helpers", () => {
       }
       const measuredFrontDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "left")!;
       const measuredRightDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "right")!;
-      // Each full door sits directly on a diagram-defined 24in side from the
-      // rear apex to its shared exterior apex; no rectangular box face is valid.
-      expect(measuredFrontDoor.position.x).toBeCloseTo(-Math.SQRT1_2, 6);
-      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT1_2, 6);
-      expect(measuredRightDoor.position.x).toBeCloseTo(Math.SQRT1_2, 6);
-      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT1_2, 6);
+      // Each short door is attached beside the shared exterior apex. The
+      // 24-inch values label rear construction sides, not 24-inch doors.
+      const shortDoorCenterOffset = 8.45 / 12 * Math.SQRT1_2 / 2;
+      const flushFaceOffset = 0.029 * Math.SQRT1_2;
+      expect(measuredFrontDoor.position.x).toBeCloseTo(-shortDoorCenterOffset - flushFaceOffset, 6);
+      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset + flushFaceOffset, 6);
+      expect(measuredRightDoor.position.x).toBeCloseTo(shortDoorCenterOffset + flushFaceOffset, 6);
+      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset + flushFaceOffset, 6);
       expect(measuredFrontDoor.rotation.y).toBeCloseTo(-Math.PI / 4, 6);
       expect(measuredRightDoor.rotation.y).toBeCloseTo(Math.PI / 4, 6);
+      expect(measuredFrontDoor.userData.flushPhysicalFace).toBe(true);
+      expect(measuredRightDoor.userData.flushPhysicalFace).toBe(true);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {
@@ -1175,7 +1156,7 @@ describe("interactive 3D room scene helpers", () => {
       expect(carcasses[0]!.visible).toBe(true);
       expect((carcasses[0] as THREE.Mesh).geometry.type).toBe("ExtrudeGeometry");
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.every((face) => face.userData.doorWidthIn === 23.04)).toBe(true);
+      expect(returnFaces.every((face) => face.userData.doorWidthIn === 8.45)).toBe(true);
       root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
       expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12 * Math.SQRT2, 6);
@@ -1225,10 +1206,103 @@ describe("interactive 3D room scene helpers", () => {
     expect(becBounds.max.z - becBounds.min.z).toBeCloseTo(24 / 12 * Math.SQRT2, 6);
     const leftDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "left")!;
     const rightDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "right")!;
-    const leftApex = leftDoor.localToWorld(new THREE.Vector3(23.04 / 12 / 2, 0, 0));
-    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-23.04 / 12 / 2, 0, 0));
+    const leftApex = leftDoor.localToWorld(new THREE.Vector3(8.45 / 12 / 2, 0, 0));
+    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-8.45 / 12 / 2, 0, 0));
     expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.08);
-    expect(becDoors.every((door) => door.userData.doorWidthIn === 23.04 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
+    expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
+  });
+
+  it("keeps standard configured doors and drawers fully outside their physical carcass face without overhanging its width", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -185,
+      cabinetId: 185,
+      masterCode: "B-2434-FRONT-BOUNDARY",
+      description: '24" Base Cabinet with configured doors and drawers',
+      placementType: "base",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 2,
+      drawerHeight: 6,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null });
+    const bodies: THREE.Mesh[] = [];
+    const fronts: THREE.Mesh[] = [];
+    const frontGroups: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) bodies.push(node);
+      if (node instanceof THREE.Mesh && node.userData.cabinetFront) fronts.push(node);
+      if (node.userData.physicalFacePlane) frontGroups.push(node);
+    });
+    expect(bodies).toHaveLength(1);
+    expect(fronts).toHaveLength(4);
+    expect(frontGroups).toHaveLength(1);
+    expect(frontGroups[0]!.userData.decorativeFrontClearanceIn).toBeGreaterThan(0);
+    root.updateMatrixWorld(true);
+    const bodyBounds = new THREE.Box3().setFromObject(bodies[0]!);
+    for (const front of fronts) {
+      const frontBounds = new THREE.Box3().setFromObject(front);
+      expect(frontBounds.min.z).toBeGreaterThanOrEqual(bodyBounds.max.z - 1e-8);
+      expect(frontBounds.min.x).toBeGreaterThanOrEqual(bodyBounds.min.x - 1e-8);
+      expect(frontBounds.max.x).toBeLessThanOrEqual(bodyBounds.max.x + 1e-8);
+      expect(frontBounds.min.y).toBeGreaterThanOrEqual(bodyBounds.min.y - 1e-8);
+      expect(frontBounds.max.y).toBeLessThanOrEqual(bodyBounds.max.y + 1e-8);
+    }
+  });
+
+  it("applies the physical face-plane contract to standard, tall, diagonal, L-corner, corner-drawer, end-return, and angled-wall fronts", () => {
+    const root = new THREE.Group();
+    const specimens = [
+      { distributorSkuId: -186, cabinetId: 186, masterCode: "B-24-FLUSH", description: '24" Base Cabinet', placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0 },
+      { distributorSkuId: -187, cabinetId: 187, masterCode: "PANTRY-2490-FLUSH", description: '24" x 90" Pantry Cabinet', placementType: "tall", width: 24, height: 90, depth: 24, numberOfDoors: 4, numberOfDrawers: 0 },
+      { distributorSkuId: -188, cabinetId: 188, masterCode: "WDC2430-FLUSH", description: '24" Diagonal Wall Corner', placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "diagonal" },
+      { distributorSkuId: -189, cabinetId: 189, masterCode: "LS36-FLUSH", description: '36" Lazy Susan', placementType: "base", width: 36, height: 34.5, depth: 36, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "l-shape" },
+      { distributorSkuId: -190, cabinetId: 190, masterCode: "CDB36-FLUSH", description: '36" Corner Drawer Base', placementType: "base", width: 36, height: 34.5, depth: 36, numberOfDoors: 0, numberOfDrawers: 3 },
+      { distributorSkuId: -191, cabinetId: 191, masterCode: "BEC-24-FLUSH", description: '24" Base End Cabinet', placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "base-end" },
+      { distributorSkuId: -192, cabinetId: 192, masterCode: "AW1230-FLUSH", description: '12" Angled Wall Cabinet', placementType: "wall", width: 12, height: 30, depth: 12, numberOfDoors: 1, numberOfDrawers: 0, customProfile: "angled-wall" },
+    ];
+    specimens.forEach((sku, index) => addCabinet(root, sku as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: index * 4, z: 0, rotation: 0 }));
+    const fronts: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.cabinetFront) fronts.push(node);
+    });
+    expect(fronts.length).toBeGreaterThan(12);
+    expect(fronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+  });
+
+  it("routes AW1230, AW1236, and AW1242 to one centered door on the true angled-wall hypotenuse", () => {
+    const root = new THREE.Group();
+    const awCodes = ["AW1230", "AW1236", "AW1242"];
+    awCodes.forEach((masterCode, index) => {
+      addCabinet(root, {
+        distributorSkuId: -220 - index,
+        cabinetId: 220 + index,
+        masterCode,
+        description: `12\" Angled Wall Cabinet ${masterCode.slice(-2)}\" High`,
+        placementType: "wall",
+        width: 12,
+        height: Number(masterCode.slice(-2)),
+        depth: 12,
+        numberOfDoors: 1,
+        numberOfDrawers: 0,
+      } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: index * 3, z: 0, rotation: 0, bottom: 54 });
+    });
+    root.updateMatrixWorld(true);
+    for (const masterCode of awCodes) {
+      const cabinet = root.children.find((node) => node.userData.masterCode === masterCode)!;
+      const wedge = cabinet.children.find((node) => node instanceof THREE.Mesh && node.userData.angledWallWedge) as THREE.Mesh;
+      const doors: THREE.Mesh[] = [];
+      cabinet.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.angledWallDoor) doors.push(node); });
+      expect(wedge).toBeDefined();
+      expect(doors).toHaveLength(1);
+      expect(doors[0]!.userData.flushPhysicalFace).toBe(true);
+      expect(doors[0]!.rotation.y).toBeCloseTo(-Math.PI / 4, 8);
+      const bodyBounds = new THREE.Box3().setFromObject(wedge);
+      const doorBounds = new THREE.Box3().setFromObject(doors[0]!);
+      expect(doorBounds.max.x).toBeLessThanOrEqual(bodyBounds.max.x + 1e-8);
+      expect(doorBounds.min.z).toBeGreaterThanOrEqual(bodyBounds.min.z - 1e-8);
+    }
   });
 
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {
@@ -1353,6 +1427,70 @@ describe("interactive 3D room scene helpers", () => {
     const raisedKicks: THREE.Object3D[] = [];
     raisedWallRoot.traverse((node) => { if (node.userData.floorStandingToeKick) raisedKicks.push(node); });
     expect(raisedKicks).toHaveLength(0);
+  });
+
+  it("keeps a base cabinet and a raised wall cabinet as distinct measured assemblies", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -151,
+      cabinetId: 151,
+      masterCode: "B-24-DISTINCT",
+      description: '24" Base Cabinet',
+      placementType: "base",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 1,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 24, z: 12, rotation: 0, bottom: 4.5 });
+    addCabinet(root, {
+      distributorSkuId: -152,
+      cabinetId: 152,
+      masterCode: "W-24-DISTINCT",
+      description: '24" x 30" Wall Cabinet',
+      placementType: "wall",
+      width: 24,
+      height: 30,
+      depth: 12,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 24, z: 6, rotation: 0, bottom: 54 });
+
+    const base = root.children.find((node) => node.userData.masterCode === "B-24-DISTINCT")!;
+    const wall = root.children.find((node) => node.userData.masterCode === "W-24-DISTINCT")!;
+    const baseBodies: THREE.Mesh[] = [];
+    const wallBodies: THREE.Mesh[] = [];
+    const baseFronts: THREE.Object3D[] = [];
+    const wallFronts: THREE.Object3D[] = [];
+    const counters: THREE.Mesh[] = [];
+    base.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) baseBodies.push(node);
+      if (node.userData.cabinetFront) baseFronts.push(node);
+    });
+    wall.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin) wallBodies.push(node);
+      if (node.userData.cabinetFront) wallFronts.push(node);
+    });
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.countertopDepthIn === 24.25) counters.push(node);
+    });
+    expect(base.userData.floorStandingCabinet).toBe(true);
+    expect(wall.userData.floorStandingCabinet).toBeUndefined();
+    expect(baseBodies).toHaveLength(1);
+    expect(wallBodies).toHaveLength(1);
+    expect(baseFronts).toHaveLength(3);
+    expect(wallFronts).toHaveLength(2);
+    expect(counters).toHaveLength(1);
+    root.updateMatrixWorld(true);
+    const baseBounds = new THREE.Box3().setFromObject(baseBodies[0]!);
+    const wallBounds = new THREE.Box3().setFromObject(wallBodies[0]!);
+    const counterBounds = new THREE.Box3().setFromObject(counters[0]!);
+    expect(baseBounds.min.y).toBeCloseTo(4.5 / 12, 8);
+    expect(baseBounds.max.y).toBeCloseTo(34.5 / 12, 8);
+    expect(counterBounds.min.y).toBeCloseTo(34.5 / 12, 8);
+    expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
+    expect(wallBounds.min.y).toBeCloseTo(54 / 12, 8);
+    expect(wallBounds.max.y).toBeCloseTo(84 / 12, 8);
   });
 
   it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {

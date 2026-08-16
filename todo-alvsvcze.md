@@ -517,9 +517,9 @@
 - [x] Remove the forced canonical wall-rotation mapping that reversed the user-visible saved layout
 - [x] Restore exact saved cabinet transforms while retaining live verification of any separately reversed front meshes
 - [x] Add a regression that keeps countertops seated directly on the finished cabinet top while preserving saved orientation
-- [ ] Enforce decorative door and drawer fronts flush to their physical cabinet face and fully bounded by its outer edges
-- [ ] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
-- [ ] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
+- [x] Enforce decorative door and drawer fronts flush to their physical cabinet face and fully bounded by its outer edges
+- [x] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
+- [x] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
 - [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path
 - [x] Identify the AW1230 angled wall-cabinet specialty profile and correct its door/front mesh so it is flush to the physical triangular cabinet face
 - [x] Add an AW1230 regression that rejects a door/front rotation or position passing through or extending beyond the triangular cabinet box
@@ -528,8 +528,8 @@
 - [x] When a proposed cabinet placement overlaps, automatically snap it to the nearest valid left or right position on the same run
 - [x] Reject a cabinet only when no collision-free run position is available, never allow it to overlap or pass through another cabinet
 - [x] Add regression coverage for automatic adjacent placement, deterministic tie-breaking, and genuinely full-run rejection
-- [ ] Restore distinct base construction: floor position, 4½-inch toe kick, 34½-inch cabinet top, configured door/drawer face layout, and direct countertop support
-- [ ] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
+- [x] Restore distinct base construction: floor position, 4½-inch toe kick, 34½-inch cabinet top, configured door/drawer face layout, and direct countertop support
+- [x] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
 - [ ] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
 - [ ] Capture the actual BEC-24 record in the user’s active design and use it as the sole input for the next 3D correction
 - [ ] Do not make further BEC-24 geometry changes from a generic or substitute cabinet; require the exact active saved record first
@@ -541,3 +541,46 @@
 - [x] Add regressions that reject any generic fallback which conflicts with configured dimensions, body form, face layout, toe kick, or countertop support
 - [x] Recess every standard, tall, floor-dropped wall, and BEC-24 toe kick exactly 3 inches behind the cabinet body boundary while retaining the 4½-inch height
 - [x] Add exact three-inch toe-kick regression coverage for standard, tall, floor-dropped wall, and BEC-24 support faces
+- [ ] Remove the square-filled BEC body and countertop support still visible in the refreshed 3D screenshot
+- [ ] Render only the diagram-defined non-square two-side BEC construction without filling its bounding area
+- [ ] Move BEC doors and toe kicks from the measured rear sides to the diagram’s two exterior front sides meeting at the front center point
+- [x] Set each BEC exterior front door to approximately 9 inches and never use the 24-inch rear construction side as a door width
+- [x] Set each BEC exterior front door to 8.45 inches and preserve the 24-inch rear construction sides as non-door dimensions
+- [x] Add BEC regression coverage for short exterior door spans, shared front apex attachment, and non-substitution of the 24-inch side length
+- [x] Preserve the confirmed BEC body shape without further body or countertop reinterpretation
+- [x] Reattach BEC’s short exterior doors to their physical front faces and remove the detached V appearance
+- [x] Recess BEC toe-kick pieces three inches behind their actual exterior front faces without forward projection
+- [ ] Identify the incorrect pricing surface and authoritative replacement amount before changing any price
+- [x] Enforce AW1230’s door flush to its true angled physical face with no penetration or overhang
+- [ ] Compare the current BEC-24 3D output directly with the authoritative diagram and short-door measurements before another geometry edit
+- [x] Apply and test the same physical face-plane and boundary constraint across all cabinet door families
+- [ ] Trace the live BEC-24 path shown in the supplied screenshot, which renders one narrow front beside a broad blank rectangular panel instead of two exterior end-return doors
+- [ ] Remove the demonstrated blank BEC-24 panel and require two short exterior fronts meeting at the saved end-return center
+- [ ] Add a screenshot-derived mesh regression that rejects the single-front-plus-blank-panel BEC-24 composition
+- [ ] Generate a controlled BEC-24 reference image that visually confirms the rear apex, two 24-inch construction sides, two short exterior doors, recessed toe kick, and countertop support before changing the renderer
+- [ ] Use the approved BEC-24 reference image only as a construction review aid while keeping Cabinet Config dimensions and saved 2D data authoritative for 3D geometry
+- [ ] Replace the invalid generated BEC-24 product image, which repeated the blank side-panel failure, with a measured deterministic geometry reference
+- [ ] Use the measured BEC-24 reference diagram to reject a blank exterior panel where one of the two short end-return door faces must appear
+- [ ] Conceal BEC-24’s two 24-inch construction sides from the exposed end and extend the two exterior door fronts to form the complete visible angled end
+- [ ] Add a BEC-24 regression that rejects any visible blank panel outside the two configured exterior door faces
+- [ ] Preserve BEC-24’s confirmed two 24-inch construction areas without changing their dimensions, body geometry, footprint, or attachment position; change only exposed end-front treatment
+- [ ] Iterate the BEC-24 image reference until its visible end construction is correct before changing the shared 3D programming
+- [ ] Treat the accepted BEC-24 image as the visual target for subsequent deterministic 3D mesh work while retaining saved 2D measurements as the dimensional authority
+- [ ] Match the supplied BEC-24 diagram: retain the rear-apex two 24-inch construction sides and place two full exposed door faces from the outer side corners to the shared front center point
+- [ ] Reject BEC-24 layouts that place short detached doors only near the apex or leave any portion of either exposed exterior face as a blank cabinet panel
+- [ ] Match BEC-24’s supplied door specification in the visual target: two approximately 8.45-inch-wide by 29.5-inch-high doors above the 4.5-inch toe kick and 30-inch box opening
+- [ ] Reject every square-box BEC-24 visual reference; begin the next reference with the required non-square diamond/rear-apex silhouette before adding finish or door details
+- [ ] Pause all BEC-24 implementation changes pending a renewed authoritative visual target; do not modify its confirmed construction areas
+- [ ] Preserve the user-supplied future invariant that two mirrored BEC end cabinets nearly form an O/pointed-oval peninsula tip
+- [ ] Create a side-by-side image comparison of the supplied BEC-24 diagram and the current generated reference to make the shape mismatch explicit
+- [ ] Reject the generated quarter-octagon BEC interpretation; use the supplied rear-apex diagram as the only visual reference for any future BEC work
+- [ ] Assemble four rotated copies of the supplied BEC-24 diagram with all 90-degree corners meeting at the center and review the resulting shared shape
+- [ ] Rebuild the four-copy BEC-24 puzzle using only unaltered copies of the supplied diagram and apex alignment, with no generated or interpreted geometry
+- [ ] Create a simple 2-by-2 grid of four identical unaltered copies of the supplied BEC-24 diagram with no rotation, overlap, or interpretation
+- [ ] Arrange four supplied BEC-24 diagrams so their flat 24-inch side edges touch one another, without generating or redrawing cabinetry
+- [ ] Arrange all four supplied BEC-24 diagrams with their 24-inch sides touching along full lengths so the outside group measures 48 inches on its longest side
+- [ ] Generate a single visual reference of four BEC-24 units based on the supplied diagram, joined at their flat 24-inch sides with no renderer-code changes
+- [ ] Pause all BEC-24 image and renderer work: the user explicitly rejected every square cabinet interpretation and instructed no more squares
+- [ ] Preserve the clarified BEC-24 construction statement for future work: two straight 24-inch projections, then 45-degree end turns, yielding an approximately 17–18-inch exposed end split into two approximately 8.5-inch fronts
+- [x] Treat AW1230, AW1236, and AW1242 as one angled-wall family and seat each decorative door exactly flush and centered on the true angled exterior face
+- [x] Add physical-face regression coverage for AW1230, AW1236, and AW1242 so no door can float, penetrate, or offset from the angled wall-cabinet body

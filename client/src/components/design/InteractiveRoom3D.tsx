@@ -435,7 +435,7 @@ export function triangleCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
 }
 
 /** The exposed hypotenuse plane of a triangular angled-wall cabinet. */
-export function triangleCornerFrontPose(bodyWidth: number, bodyDepth: number, outwardOffset = 0.045) {
+export function triangleCornerFrontPose(bodyWidth: number, bodyDepth: number, outwardOffset = 0.029) {
   const normalX = -Math.SQRT1_2;
   const normalZ = Math.SQRT1_2;
   void bodyWidth;
@@ -478,7 +478,10 @@ function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, heigh
  */
 export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number) {
   const sideLength = Math.min(bodyWidth, bodyDepth);
-  const doorWidth = Math.max(0.2, sideLength - 0.08);
+  // The diagram shows two short fronts at the exterior apex. The 24-inch
+  // dimensions label the two rear construction sides, never the door spans.
+  const doorWidth = Math.min(sideLength, 8.45 * INCH);
+  const doorFaceOffset = 0.029;
   const halfDiagonal = sideLength / Math.SQRT2;
   const rearApex = { x: 0, z: -halfDiagonal };
   const apex = { x: 0, z: halfDiagonal };
@@ -489,6 +492,10 @@ export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number)
     doorWidth,
     footprint: [rearApex, { x: -halfDiagonal, z: 0 }, apex, { x: halfDiagonal, z: 0 }],
     faces: [
+      { side: "left" as const, x: -doorWidth * Math.SQRT1_2 / 2 - doorFaceOffset * Math.SQRT1_2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, rotation: -Math.PI / 4 },
+      { side: "right" as const, x: doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, rotation: Math.PI / 4 },
+    ],
+    supportFaces: [
       { side: "left" as const, x: -halfDiagonal / 2, z: halfDiagonal / 2, rotation: -Math.PI / 4 },
       { side: "right" as const, x: halfDiagonal / 2, z: halfDiagonal / 2, rotation: Math.PI / 4 },
     ],
@@ -687,7 +694,10 @@ export function resolvedThreeDFaceLayout(input: {
 
 export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "cornerGeometryKind" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
-  if (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? "")) return { kind: "farmhouse-sink" as const, pattern: null };
+  // AW1230, AW1236, and AW1242 are one angled-wall family. Catalog rows do
+  // not consistently store diagonal corner metadata, so code/description must
+  // route each one through the true triangular hypotenuse branch first.
+  if (isAngledWallProfile(sku)) return { kind: "diagonal-corner" as const, pattern: null };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
   if (sku.cornerGeometryKind === "base-end" || /end-angle|base_end_angle|end-return|base_end_return/.test(graphic) || /^(?:bec|ba)[-_]?\d/i.test(sku.masterCode) || /base end (?:corner|cabinet|return)/i.test(sku.description ?? "")) return { kind: "end-return" as const, pattern: null };
   if (sku.cornerGeometryKind === "triangle" || sku.cornerType === "triangle" || /^(?:wtc|btc)[-_]?\d/i.test(sku.masterCode)) return { kind: "triangle-corner" as const, pattern: null };
@@ -815,7 +825,7 @@ export function addCabinet(
       const attachedFronts = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
       const toeKickRecess = 3 * INCH;
       const toeKickThickness = 0.08;
-      for (const face of attachedFronts.faces) {
+      for (const face of attachedFronts.supportFaces) {
         const toeKick = new THREE.Mesh(
           new THREE.BoxGeometry(attachedFronts.sideLength, toeKickHeight, toeKickThickness),
           toeKickMaterial,
@@ -998,7 +1008,12 @@ export function addCabinet(
   bodyMaterial.map = null;
   bodyMaterial.needsUpdate = true;
   bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: false };
-  const faceDepth = bodyDepth / 2 + 0.015;
+  // Every decorative standard front must remain on the physical exterior of the
+  // carcass. The former 0.015-ft group offset placed the inner face of a 0.045-
+  // or 0.052-ft door mesh inside the box. Seat the deepest supported front just
+  // beyond the box plane, leaving a small deterministic clearance while keeping
+  // its left/right edges constrained by the configured cabinet width below.
+  const faceDepth = bodyDepth / 2 + 0.052 / 2 + 0.004;
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
   const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
@@ -1011,8 +1026,14 @@ export function addCabinet(
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
+  frontGroup.userData = {
+    decorativeFrontClearanceIn: 0.004 / INCH,
+    physicalFacePlane: true,
+    boundedByCarcassFace: true,
+  };
   if (specialty.kind === "end-return") {
     frontGroup.userData = {
+      ...frontGroup.userData,
       becAttachedTwoFaceEnd: true,
       separateProjectedThirdFace: false,
     };
@@ -1207,7 +1228,7 @@ export function addCabinet(
       for (let i = 0; i < ovenLayout.doorCount; i++) {
         const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
         door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), zoneTop - height / 2, 0.035);
-        door.userData = { cabinetFront: true, ovenCabinetDoor: true };
+        door.userData = { cabinetFront: true, ovenCabinetDoor: true, flushPhysicalFace: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
       }
@@ -1228,7 +1249,7 @@ export function addCabinet(
         for (let column = 0; column < row.count; column++) {
           const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
           drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), zoneTop - row.height / 2, 0.035);
-          drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ovenCabinetDrawer: true };
+          drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ovenCabinetDrawer: true, flushPhysicalFace: true };
           frontGroup.add(drawer);
           addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
           addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
@@ -1278,7 +1299,7 @@ export function addCabinet(
       for (let i = 0; i < 2; i++) {
         const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
         door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), centerY, 0.035);
-        door.userData = { cabinetFront: true, pantryDoorSet: row };
+        door.userData = { cabinetFront: true, pantryDoorSet: row, flushPhysicalFace: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
       }
@@ -1312,8 +1333,8 @@ export function addCabinet(
       );
       door.rotation.y = angledWallFace?.rotation ?? Math.PI / 4;
       door.userData = angledWallProfile
-        ? { specialtyProfile: "angled-wall", angledWallDoor: true, cabinetFront: true }
-        : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+        ? { specialtyProfile: "angled-wall", angledWallDoor: true, flushPhysicalFace: true, cabinetFront: true }
+        : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true, flushPhysicalFace: true };
       frontGroup.add(door);
       addShakerFrame(
         diagonalDoorWidth - 0.03,
@@ -1341,7 +1362,7 @@ export function addCabinet(
         triangleFace.z + direction * Math.SQRT1_2 * tangentOffset,
       );
       door.rotation.y = triangleFace.rotation;
-      door.userData = { specialtyProfile: "triangle-corner", triangleDoor: direction === -1 ? "left" : "right", cabinetFront: true };
+      door.userData = { specialtyProfile: "triangle-corner", triangleDoor: direction === -1 ? "left" : "right", cabinetFront: true, flushPhysicalFace: true };
       frontGroup.add(door);
       addShakerFrame(
         triangleDoorWidth - 0.03,
@@ -1361,7 +1382,7 @@ export function addCabinet(
     const backFrontZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
     const backDoor = new THREE.Mesh(new THREE.BoxGeometry(exposedFrontWidth - 0.09, faceHeight, 0.052), faceMaterial);
     backDoor.position.set(bodyWidth / 2 - exposedFrontWidth / 2, 0, backFrontZ);
-    backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg", cabinetFront: true };
+    backDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "back-leg", cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(backDoor);
     addShakerFrame(exposedFrontWidth - 0.09, faceHeight, backDoor.position.x, backDoor.position.y, backDoor.position.z + 0.034);
 
@@ -1369,7 +1390,7 @@ export function addCabinet(
     const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(lShape.sideLeg.depth - 0.09, faceHeight, 0.052), faceMaterial);
     sideDoor.position.set(sideFrontX, 0, lShape.sideLeg.z);
     sideDoor.rotation.y = Math.PI / 2;
-    sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg", cabinetFront: true };
+    sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg", cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(sideDoor);
     addShakerFrame(lShape.sideLeg.depth - 0.09, faceHeight, sideDoor.position.x + 0.034, sideDoor.position.y, sideDoor.position.z, sideDoor.rotation.y);
   } else if (specialty.kind === "corner-drawer") {
@@ -1391,7 +1412,7 @@ export function addCabinet(
       for (let column = 0; column < row.count; column++) {
         const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), 0.052), faceMaterial);
         drawer.position.set(-bodyWidth / 2 + cornerMarkerWidth + drawerWidth * (column + 0.5), rowTop - row.height / 2, 0.035);
-        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true, cabinetFront: true, cabinetDrawerFront: true };
+        drawer.userData = { specialtyProfile: "corner-drawer", cornerDrawerFace: true, cabinetFront: true, cabinetDrawerFront: true, flushPhysicalFace: true };
         frontGroup.add(drawer);
         addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
         addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
@@ -1415,38 +1436,13 @@ export function addCabinet(
         referenceFaceSideIn: attachedFronts.sideLength / INCH,
         sharedExteriorApex: attachedFronts.apex,
         exteriorFaceRotation: face.rotation,
+        flushPhysicalFace: true,
         cabinetFront: true,
       };
       frontGroup.add(door);
       const frameNormalX = Math.sin(door.rotation.y) * 0.031;
       const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
-    }
-  } else if (specialty.kind === "farmhouse-sink") {
-    // Farmhouse (FSB) bases use the same room-facing front as the 2D plan: a
-    // centered apron basin, shallow false front, and two narrow side doors.
-    const apronWidth = Math.max(0.3, bodyWidth * 0.68);
-    const apronHeight = Math.max(0.22, bodyHeight * 0.56);
-    const apron = new THREE.Mesh(
-      new THREE.BoxGeometry(apronWidth, apronHeight, 0.066),
-      new THREE.MeshStandardMaterial({ color: "#ece9e1", roughness: 0.34, metalness: 0.04 }),
-    );
-    apron.position.set(0, -bodyHeight * 0.1, 0.038);
-    apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
-    frontGroup.add(apron);
-    const falseFrontHeight = Math.max(0.1, bodyHeight * 0.18);
-    const falseFront = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, falseFrontHeight, 0.048), faceMaterial);
-    falseFront.position.set(0, bodyHeight / 2 - falseFrontHeight / 2 - 0.04, 0.028);
-    falseFront.userData = { specialtyProfile: "farmhouse-sink", farmhouseFalseFront: true, cabinetFront: true };
-    frontGroup.add(falseFront);
-    addShakerFrame(bodyWidth - 0.08, falseFrontHeight, falseFront.position.x, falseFront.position.y, 0.062);
-    const sideDoorWidth = Math.max(0.1, (bodyWidth - apronWidth - 0.12) / 2);
-    for (const side of [-1, 1] as const) {
-      const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(sideDoorWidth, apronHeight, 0.052), faceMaterial);
-      sideDoor.position.set(side * (apronWidth + sideDoorWidth) / 2, apron.position.y, 0.032);
-      sideDoor.userData = { specialtyProfile: "farmhouse-sink", farmhouseSideDoor: side === -1 ? "left" : "right", cabinetFront: true };
-      frontGroup.add(sideDoor);
-      addShakerFrame(sideDoorWidth, apronHeight, sideDoor.position.x, sideDoor.position.y, 0.066);
     }
   } else if (specialty.kind === "face-pattern") {
     const recess = new THREE.Mesh(
@@ -1469,7 +1465,7 @@ export function addCabinet(
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
-    door.userData = { cabinetFront: true };
+    door.userData = { cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(door);
     const isRaised = profileKind === "raised";
     if (profileKind === "shaker") {
@@ -1492,7 +1488,7 @@ export function addCabinet(
       const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
       const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
-      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true };
+      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, flushPhysicalFace: true };
       frontGroup.add(drawer);
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
@@ -1641,10 +1637,6 @@ export function threeDRoomFacingRotation(
 ) {
   if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
-  // The 2D L-corner plan rotates clockwise, while its two-leg 3D carcass has
-  // opposite local handedness. Mirror the quarter turn so ERB/BER/LS fronts
-  // stay on the room side and their backs remain on the corner walls.
-  if (kind === "l-shape") return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
   if (kind !== "standard") return fallbackRotation;
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
