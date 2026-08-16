@@ -599,6 +599,10 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   const color = scene.materials?.cabinet.color?.trim() ?? "";
   if (/^#[0-9a-f]{6}$/i.test(color)) return color;
   const source = `${scene.materials?.cabinet.finish ?? ""} ${color}`.toLowerCase();
+  // Calibrated from the verified Preston Aero Sage door, drawer, full-door,
+  // and room-scene references supplied by the catalog owner. This specific
+  // finish intentionally takes precedence over the broad generic sage fallback.
+  if (/(aero sage|aston green)/.test(source)) return "#4f5549";
   if (/(black|charcoal|obsidian|graphite)/.test(source)) return "#34363a";
   if (/(navy|blue|ocean)/.test(source)) return "#435b77";
   if (/(green|sage|forest)/.test(source)) return "#78826b";
@@ -3073,10 +3077,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
             ] as const).map(([preset, label]) => <Button key={preset} type="button" size="sm" variant={cameraPreset === preset ? "default" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setCameraPreset(preset)}>{label}</Button>)}
           </div>
           <Button type="button" size="sm" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Clear stage" : "Room context"}</Button>
-          <label className="flex h-8 items-center gap-1 rounded-md border bg-background px-2 text-[11px] font-medium" title="3D wall height from 1 inch to 10 feet">
-            Wall
-            <Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-6 w-12 border-0 bg-transparent p-0 text-center text-[11px] shadow-none focus-visible:ring-0" />
-            in
+          <label data-testid="three-d-wall-height-control" className="flex h-9 items-center gap-1.5 rounded-md border border-[#a87f33]/60 bg-[#fffaf1] px-2.5 text-[11px] font-semibold text-[#4b3a20] shadow-sm" title="Adjust 3D wall height from 1 inch to 10 feet">
+            <span>Wall height</span>
+            <Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-7 w-14 border border-[#d9c196] bg-background p-0 text-center text-[11px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
+            <span>in</span>
           </label>
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>

@@ -61,6 +61,7 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a verified hex style color before applying finish-name fallbacks", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
+    expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Aero Sage (Preston)", finish: "Matching" } } })).toBe("#4f5549");
   });
 
   it("constrains adjustable 3D wall height from one inch through ten feet", () => {

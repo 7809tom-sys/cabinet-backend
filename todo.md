@@ -313,6 +313,15 @@
 - [x] Add hinge-aware pull-position regressions
 - [ ] Verify the populated 3D scene and obtain a verified Preston Aero Sage finish reference
 
+## Fix: Reference-calibrated Aero Sage material and visible wall-height control
+
+- [x] Derive a stable Preston Aero Sage material target from the supplied verified door, drawer, full-door, and room-scene images
+- [x] Persist the calibrated Aero Sage finish mapping for the Preston catalog style
+- [x] Apply the calibrated Aero Sage material to all cabinet fronts, frames, sides, tops, bottoms, and toe kicks
+- [x] Make the 1–120 inch wall-height field clearly labeled and discoverable in the 3D toolbar
+- [x] Add calibrated-finish and wall-height control regressions
+- [ ] Verify the populated 3D scene
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood
