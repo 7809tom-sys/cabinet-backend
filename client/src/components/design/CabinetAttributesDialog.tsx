@@ -28,6 +28,7 @@ import {
   isCustomDepth,
   isBlindCorner,
   blindPullRange,
+  fillerWidthRange,
 } from "@/lib/design";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
@@ -42,6 +43,9 @@ function Dim({
   custom,
   min,
   max,
+  step = 1,
+  inputStep = 0.25,
+  snapTypedValue = false,
   onSet,
 }: {
   label: string;
@@ -49,6 +53,9 @@ function Dim({
   custom: boolean;
   min: number;
   max: number;
+  step?: number;
+  inputStep?: number;
+  snapTypedValue?: boolean;
   onSet: (v: number) => void;
 }) {
   const { t } = useLanguage();
@@ -64,13 +71,13 @@ function Dim({
           size="sm"
           className="h-8 w-8 p-0"
           title={t("dt_ca_dim_dec", { name: full })}
-          onClick={() => onSet(Math.max(min, Math.round((value - 1) * 10) / 10))}
+          onClick={() => onSet(Math.max(min, Math.round((value - step) / step) * step))}
         >
           <Minus className="h-3.5 w-3.5" />
         </Button>
         <Input
           type="number"
-          step="0.25"
+          step={inputStep}
           min={min}
           max={max}
           value={value}
@@ -80,7 +87,10 @@ function Dim({
           )}
           onChange={(e) => {
             const v = Number(e.target.value);
-            if (Number.isFinite(v) && v > 0) onSet(Math.max(min, Math.min(max, v)));
+            if (Number.isFinite(v) && v > 0) {
+              const next = snapTypedValue ? Math.round(v / step) * step : v;
+              onSet(Math.max(min, Math.min(max, next)));
+            }
           }}
           aria-label={t("dt_ca_dim_aria", { name: full })}
         />
@@ -90,7 +100,7 @@ function Dim({
           size="sm"
           className="h-8 w-8 p-0"
           title={t("dt_ca_dim_inc", { name: full })}
-          onClick={() => onSet(Math.min(max, Math.round((value + 1) * 10) / 10))}
+          onClick={() => onSet(Math.min(max, Math.round((value + step) / step) * step))}
         >
           <Plus className="h-3.5 w-3.5" />
         </Button>
@@ -221,13 +231,18 @@ export function CabinetAttributesDialog({
                 </div>
               )}
             </div>
-            <div className="flex items-end gap-3">
+            {(() => {
+              const fillerRange = fillerWidthRange(cabinet);
+              return <div className="flex items-end gap-3">
               <Dim
                 label="W"
-                value={Math.round(cabinet.width * 10) / 10}
+                value={fillerRange ? Math.round(cabinet.width * 8) / 8 : Math.round(cabinet.width * 10) / 10}
                 custom={isCustomWidth(cabinet)}
-                min={6}
-                max={48}
+                min={fillerRange?.min ?? 6}
+                max={fillerRange?.max ?? 48}
+                step={fillerRange ? 0.125 : 1}
+                inputStep={fillerRange ? 0.125 : 0.25}
+                snapTypedValue={Boolean(fillerRange)}
                 onSet={(v) => onSetWidth(uid, v)}
               />
               <Dim
@@ -246,7 +261,8 @@ export function CabinetAttributesDialog({
                 max={36}
                 onSet={(v) => onSetDepth(uid, v)}
               />
-            </div>
+            </div>;
+            })()}
           </section>
 
           {/* Oven Type — only for oven-tall cabinets */}

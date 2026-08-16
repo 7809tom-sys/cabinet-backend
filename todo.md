@@ -83,6 +83,15 @@
 - [ ] Add UI regression coverage for accordion header clicks, expansion, and visible item rendering
 - [ ] Capture live desktop and mobile interaction evidence for the repaired category controls
 
+## Fix: Fillers must trim below 6 inches
+
+- [x] Trace filler width constraints in the cabinet attributes dialog and geometry helpers
+- [x] Allow fillers to resize from 1/8 inch through 3 inches in 1/8-inch increments
+- [x] Keep normal cabinet dimension limits unchanged
+- [x] Add filler sizing regression coverage and verify the dialog
+- [ ] Verify the live dialog with a 3-inch filler and a larger filler
+- [ ] Confirm normal cabinet typed resizing still accepts quarter-inch input steps
+
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)

@@ -67,6 +67,35 @@ export function isPlaceableAccessory(c: {
   return false;
 }
 
+/** True for physical filler strips, including compact catalog codes such as F342. */
+export function isFillerItem(c: {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+}) {
+  const code = `${c.masterCode ?? ""}`.trim().toUpperCase();
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  return /^F(?:ILL)?[-_]?\d/.test(code) || /\bfiller\b/.test(hay);
+}
+
+export const FILLER_MIN_WIDTH_IN = 0.125;
+
+/** A filler may trim down to 1/8in, but never grows beyond its own catalog width. */
+export function fillerWidthRange(c: {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+  width?: number | null;
+  nominalWidth?: number | null;
+}) {
+  if (!isFillerItem(c)) return null;
+  const catalogWidth = Number(c.nominalWidth ?? c.width);
+  return {
+    min: FILLER_MIN_WIDTH_IN,
+    max: Number.isFinite(catalogWidth) && catalogWidth > 0 ? catalogWidth : 3,
+  };
+}
+
 // Which placement a placeable accessory should take when dropped. Panels/skins
 // and appliance garages mounted high read as wall items; everything else sits
 // on the floor as a base-zone object.

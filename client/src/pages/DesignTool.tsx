@@ -55,7 +55,7 @@ import {
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, hasCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
-  isPlaceableAccessory, accessoryPlacement, isPanelItem,
+  isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -4060,10 +4060,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
-        const roomMax = p.placement === "wall" || p.placement === "base" || p.placement === "tall"
-          ? Math.max(MIN_W, Math.min(MAX_W, room.width))
-          : MAX_W;
-        const next = Math.max(MIN_W, Math.min(roomMax, Math.round(nextWidthRaw * 10) / 10));
+        const fillerRange = fillerWidthRange(p);
+        const minWidth = fillerRange?.min ?? MIN_W;
+        const maxWidth = fillerRange?.max ?? MAX_W;
+        const roomMax = fillerRange
+          ? maxWidth
+          : p.placement === "wall" || p.placement === "base" || p.placement === "tall"
+            ? Math.max(MIN_W, Math.min(MAX_W, room.width))
+            : MAX_W;
+        const increment = fillerRange ? 0.125 : 0.1;
+        const next = Math.max(minWidth, Math.min(roomMax, Math.round(nextWidthRaw / increment) * increment));
         const resized = { ...p, width: next };
         // Re-seat against the wall so the new width sits cleanly in-bounds.
         const snapped = snapPosition(

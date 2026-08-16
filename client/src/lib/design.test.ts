@@ -29,7 +29,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-  type PlacedCabinet, type RoomData, type WallOpening,
+  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -2346,6 +2346,19 @@ describe("accessory placement (item 5: accessories into the drawing)", () => {
     expect(accessoryPlacement({ masterCode: "FS-30", description: "Floating Shelf 30 inch" })).toBe("wall");
     expect(accessoryPlacement({ masterCode: "WS-12-42", description: "Wall Skin" })).toBe("wall");
     expect(accessoryPlacement({ masterCode: "AG-24", description: "Appliance Garage" })).toBe("wall");
+  });
+});
+
+describe("filler identity", () => {
+  it("recognizes both compact F342 and FILL-3 catalog codes as trimmable fillers", () => {
+    expect(isFillerItem({ masterCode: "F342", description: '3" x 42" Filler' })).toBe(true);
+    expect(isFillerItem({ masterCode: "FILL-3", subCategory: "Filler" })).toBe(true);
+    expect(isFillerItem({ masterCode: "B-24", description: "Base cabinet" })).toBe(false);
+  });
+
+  it("allows a 3-inch filler to trim in eighths while preserving a larger filler's catalog maximum", () => {
+    expect(fillerWidthRange({ masterCode: "F342", width: 6, nominalWidth: 3 })).toEqual({ min: 0.125, max: 3 });
+    expect(fillerWidthRange({ masterCode: "FILL-6", width: 6, nominalWidth: 6 })).toEqual({ min: 0.125, max: 6 });
   });
 });
 
