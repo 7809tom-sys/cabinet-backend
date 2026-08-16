@@ -279,6 +279,13 @@
 - [x] Upgrade microwave appliance meshes and oven-related 3D assemblies using their resolved catalog construction profiles
 - [x] Add focused microwave and oven variant construction regressions
 
+## Research: Realistic appliance assets for the 3D designer
+
+- [x] Research manufacturer-provided, commercially licensed, and permissively licensed 3D appliance sources
+- [x] Compare file formats, browser rendering suitability, dimension accuracy, licensing, and performance budgets
+- [x] Define how selected asset variants map to real Cabinet Dealz appliance catalog records
+- [x] Recommend a licensed sourcing and phased integration plan before importing any external models
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses
