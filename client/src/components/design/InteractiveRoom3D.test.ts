@@ -511,6 +511,20 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.rangeHoodControl)).toHaveLength(2);
   });
 
+  it("uses vertical hinge-opposite pulls at the correct upper and lower pantry door zones", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 1, cabinetId: 1, masterCode: "P-24-90", description: "24 inch Pantry Cabinet",
+      placementType: "tall", width: 24, height: 90, depth: 24, mountBottom: 0, numberOfDoors: 4, numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.cabinetPull === "door") pulls.push(node); });
+    expect(pulls).toHaveLength(4);
+    expect(pulls.filter((node) => node.userData.pullDoorZone === "upper")).toHaveLength(2);
+    expect(pulls.filter((node) => node.userData.pullDoorZone === "lower")).toHaveLength(2);
+    expect(pulls.every((node) => node.userData.verticalPull && node.userData.pullEdge === "opposite-hinge")).toBe(true);
+  });
+
   it("keeps cabinet shell and toe kick in the selected finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
     const root = new THREE.Group();
     addCabinet(root, {

@@ -1182,16 +1182,28 @@ export function addCabinet(
     shadow.userData = { cabinetFaceShadowGap: true, dimensionalCabinetDetail: true };
     frontGroup.add(shadow);
   };
-  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086) => {
-    const pullWidth = Math.min(Math.max(0.12, faceWidth * (drawer ? 0.48 : 0.28)), 0.62);
-    const pull = new THREE.Mesh(new THREE.BoxGeometry(pullWidth, 0.022, 0.026), hardwareMaterial);
-    pull.position.set(drawer ? x : x + Math.sign(x || 1) * Math.max(0.035, faceWidth * 0.24), drawer ? y : y + faceHeight * 0.08, z);
-    pull.userData = { cabinetHardware: true, cabinetPull: drawer ? "drawer" : "door", dimensionalCabinetDetail: true };
+  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower") => {
+    const pullLength = Math.min(Math.max(0.12, (drawer ? faceWidth : faceHeight) * (drawer ? 0.48 : 0.28)), drawer ? 0.62 : 0.86);
+    const pull = new THREE.Mesh(new THREE.BoxGeometry(drawer ? pullLength : 0.022, drawer ? 0.022 : pullLength, 0.026), hardwareMaterial);
+    // Doors swing from their outside edge. Pulls therefore sit vertically at
+    // the center meeting edge (opposite hinge). Upper doors pull from the
+    // lower part; lower/pantry doors pull from the upper part.
+    const pullX = drawer ? x : x - Math.sign(x || 1) * Math.max(0.035, faceWidth * 0.24);
+    const pullY = drawer ? y : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
+    pull.position.set(pullX, pullY, z);
+    pull.userData = {
+      cabinetHardware: true,
+      cabinetPull: drawer ? "drawer" : "door",
+      verticalPull: !drawer,
+      pullDoorZone: drawer ? null : doorZone,
+      pullEdge: drawer ? "center" : "opposite-hinge",
+      dimensionalCabinetDetail: true,
+    };
     frontGroup.add(pull);
     for (const offset of [-1, 1] as const) {
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
       stem.rotation.x = Math.PI / 2;
-      stem.position.set(pull.position.x + offset * pullWidth * 0.34, pull.position.y, z - 0.018);
+      stem.position.set(drawer ? pull.position.x + offset * pullLength * 0.34 : pull.position.x, drawer ? pull.position.y : pull.position.y + offset * pullLength * 0.34, z - 0.018);
       stem.userData = { cabinetHardwareMount: true };
       frontGroup.add(stem);
     }
@@ -1579,6 +1591,8 @@ export function addCabinet(
         door.userData = { cabinetFront: true, pantryDoorSet: row, flushPhysicalFace: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
+        addFaceShadow(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y);
+        addPull(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, false, 0.086, row);
       }
     };
     addPantryRow(lowerDoorHeight, -bodyHeight / 2 + 0.05 + lowerDoorHeight / 2, "lower");
@@ -1808,7 +1822,7 @@ export function addCabinet(
     frontGroup.add(door);
     if (profileKind === 'shaker') addShakerFrame(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
     addFaceShadow(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
-    addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
+    addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y, false, 0.086, "lower");
   } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
@@ -1817,7 +1831,7 @@ export function addCabinet(
     door.userData = { cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(door);
     addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
-    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
+    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower");
     const isRaised = profileKind === "raised";
     if (profileKind === "shaker") {
       addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);

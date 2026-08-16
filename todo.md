@@ -303,6 +303,16 @@
 - [x] Add cabinet-face and wall-height regressions
 - [ ] Verify the reported populated 3D design
 
+## Fix: Preston Aero Sage finish and upper/pantry pull placement in 3D
+
+- [x] Trace the current 3D fallback path and confirm the saved Aero Sage record has no verified color value or verified door sample
+- [ ] Map verified Preston Aero Sage color to the catalog finish material in 3D
+- [x] Place upper-cabinet vertical pulls at the bottom, opposite the hinge edge
+- [x] Place pantry upper-door pulls at the bottom and pantry lower-door pulls at the top, opposite their hinges
+- [x] Ensure four-door pantry assemblies show all four pulls in their correct upper/lower positions
+- [x] Add hinge-aware pull-position regressions
+- [ ] Verify the populated 3D scene and obtain a verified Preston Aero Sage finish reference
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood
