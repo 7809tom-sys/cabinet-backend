@@ -266,6 +266,19 @@
 - [ ] Add automated guided-flow coverage for numbered selection, active feedback, and room-layout handoff
 - [ ] Verify the complete guided-layout-to-3D presentation flow on desktop and mobile, including camera presets and the room-context toggle
 
+## Phase 2: Catalog-faithful 3D construction realism
+
+- [x] Define measurable cabinet, appliance, opening, material, lighting, and shadow detail targets from the supplied reference
+- [x] Add cabinet carcass side skins, face-frame depth, recessed door panels, toe-kick shadowing, and countertop edge detail
+- [x] Build real 3D door/window openings with trim and depth rather than flat indicators
+- [x] Upgrade refrigerator, range, dishwasher, oven, microwave, and hood variants using their resolved catalog construction profiles
+- [x] Add context geometry for flooring, wall openings, and visible structural edges
+- [x] Refine PBR-like material roughness, lighting, contact shadows, and camera composition
+- [x] Add construction-realism regressions
+- [ ] Verify the interactive preview on desktop and mobile with a populated design
+- [x] Upgrade microwave appliance meshes and oven-related 3D assemblies using their resolved catalog construction profiles
+- [x] Add focused microwave and oven variant construction regressions
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses

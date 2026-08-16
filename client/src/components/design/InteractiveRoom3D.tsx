@@ -1061,6 +1061,32 @@ export function addCabinet(
   // beyond the box plane, leaving a small deterministic clearance while keeping
   // its left/right edges constrained by the configured cabinet width below.
   const faceDepth = bodyDepth / 2 + 0.052 / 2 + 0.004;
+  // Standard catalog cabinets need a visible constructed face frame behind their
+  // door/drawer fronts. This keeps slab, raised-panel, and shaker selections
+  // equally dimensional instead of relying on the Shaker rail overlay alone.
+  const usesConstructedFaceFrame = placement !== "appliance"
+    && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
+  if (usesConstructedFaceFrame) {
+    const frameMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.43, metalness: 0.01 });
+    const frameDepth = 0.028;
+    const frameWidth = Math.min(0.095, Math.max(0.055, Math.min(bodyWidth, bodyHeight) * 0.075));
+    const frameGroup = new THREE.Group();
+    frameGroup.position.z = faceDepth - frameDepth * 0.65;
+    frameGroup.userData = { cabinetFaceFrame: true, constructedCarcassDetail: true, faceFrameWidthIn: frameWidth / INCH };
+    const framePieces = [
+      [bodyWidth, frameWidth, 0, bodyHeight / 2 - frameWidth / 2],
+      [bodyWidth, frameWidth, 0, -bodyHeight / 2 + frameWidth / 2],
+      [frameWidth, Math.max(0.02, bodyHeight - frameWidth * 2), -bodyWidth / 2 + frameWidth / 2, 0],
+      [frameWidth, Math.max(0.02, bodyHeight - frameWidth * 2), bodyWidth / 2 - frameWidth / 2, 0],
+    ] as const;
+    for (const [pieceWidth, pieceHeight, x, y] of framePieces) {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, frameDepth), frameMaterial);
+      frame.position.set(x, y, 0);
+      frame.userData = { cabinetFaceFrame: true, constructedCarcassDetail: true };
+      frameGroup.add(frame);
+    }
+    cabinet.add(frameGroup);
+  }
   const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
   const usableHeight = bodyHeight - 0.08;
   const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
@@ -1217,6 +1243,16 @@ export function addCabinet(
         dispenser.position.set(-refrigeratorDoorWidth * 0.5, bodyHeight / 2 - upperHeight * 0.6, 0.088);
         dispenser.userData = { applianceCode: sku.masterCode, refrigeratorDispenser: true, dimensionalApplianceDetail: true };
         frontGroup.add(dispenser);
+        const refrigeratorVent = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.52, 0.028, 0.042), applianceHandleMaterial);
+        refrigeratorVent.position.set(0, bodyHeight / 2 - 0.045, 0.084);
+        refrigeratorVent.userData = { applianceCode: sku.masterCode, refrigeratorTopVent: true, dimensionalApplianceDetail: true };
+        frontGroup.add(refrigeratorVent);
+        for (const side of [-1, 1] as const) {
+          const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.04, 0.06), applianceHandleMaterial);
+          hinge.position.set(side * (bodyWidth * 0.32), bodyHeight / 2 - 0.055, 0.078);
+          hinge.userData = { applianceCode: sku.masterCode, refrigeratorHingeCap: side === -1 ? "left" : "right", dimensionalApplianceDetail: true };
+          frontGroup.add(hinge);
+        }
         const refrigeratorFootMaterial = new THREE.MeshStandardMaterial({ color: "#161a1e", roughness: 0.48, metalness: 0.56 });
         for (const side of [-1, 1] as const) {
           const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.075, 0.12), refrigeratorFootMaterial);
@@ -1233,6 +1269,34 @@ export function addCabinet(
         opening.position.y = rangeLayout?.openingCenterY ?? (isFloorDishwasher ? dishwasherToeKickHeight / 2 : /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
         opening.userData = { applianceCode: sku.masterCode, applianceOpening: true, ...(isPanelReadyAppliance ? { panelReadyFinish: true } : {}), ...(isFloorDishwasher ? { dishwasherOpening: true, dishwasherOpeningWidthIn: openingWidth / INCH } : {}) };
         frontGroup.add(opening);
+        const isMicrowaveAppliance = /(?:^|[-_])MW|MICROWAVE/.test(code);
+        const isOvenAppliance = !isMicrowaveAppliance && /(?:^|[-_])OVEN|SINGLE[-_]?OVEN|DOUBLE[-_]?OVEN/.test(code);
+        if (isMicrowaveAppliance || isOvenAppliance) {
+          const applianceTrimMaterial = new THREE.MeshStandardMaterial({ color: "#3d444c", roughness: 0.28, metalness: 0.7 });
+          const bezelDepth = 0.04;
+          const bezelWidth = Math.min(0.08, openingWidth * 0.09);
+          const bezelHeight = Math.min(0.08, openingH * 0.1);
+          const bezelParts = [
+            [openingWidth + bezelWidth * 2, bezelHeight, 0, opening.position.y + openingH / 2 + bezelHeight / 2],
+            [openingWidth + bezelWidth * 2, bezelHeight, 0, opening.position.y - openingH / 2 - bezelHeight / 2],
+            [bezelWidth, openingH, -openingWidth / 2 - bezelWidth / 2, opening.position.y],
+            [bezelWidth, openingH, openingWidth / 2 + bezelWidth / 2, opening.position.y],
+          ] as const;
+          for (const [bezelW, bezelH, bezelX, bezelY] of bezelParts) {
+            const bezel = new THREE.Mesh(new THREE.BoxGeometry(bezelW, bezelH, bezelDepth), applianceTrimMaterial);
+            bezel.position.set(bezelX, bezelY, 0.095);
+            bezel.userData = { applianceCode: sku.masterCode, applianceBezel: isMicrowaveAppliance ? "microwave" : "oven", dimensionalApplianceDetail: true };
+            frontGroup.add(bezel);
+          }
+          const display = new THREE.Mesh(new THREE.BoxGeometry(openingWidth * 0.32, Math.min(0.05, openingH * 0.12), 0.018), new THREE.MeshStandardMaterial({ color: "#111920", roughness: 0.18, metalness: 0.38 }));
+          display.position.set(0, opening.position.y + openingH / 2 + bezelHeight * 0.55, 0.122);
+          display.userData = { applianceCode: sku.masterCode, applianceDisplay: isMicrowaveAppliance ? "microwave" : "oven", dimensionalApplianceDetail: true };
+          frontGroup.add(display);
+          const handle = new THREE.Mesh(new THREE.BoxGeometry(openingWidth * (isMicrowaveAppliance ? 0.42 : 0.62), 0.03, 0.052), applianceTrimMaterial);
+          handle.position.set(0, opening.position.y + openingH * 0.3, 0.118);
+          handle.userData = { applianceCode: sku.masterCode, applianceDoorHandle: isMicrowaveAppliance ? "microwave" : "oven", dimensionalApplianceDetail: true };
+          frontGroup.add(handle);
+        }
         if (isFloorDishwasher) {
           const dishwasherDetailMaterial = new THREE.MeshStandardMaterial({ color: "#4a5158", roughness: 0.24, metalness: 0.72 });
           const controlStrip = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.14, 0.075, 0.032), dishwasherDetailMaterial);
@@ -1243,6 +1307,16 @@ export function addCabinet(
           dishwasherHandle.position.set(0, bodyHeight / 2 - 0.14, 0.09);
           dishwasherHandle.userData = { applianceCode: sku.masterCode, dishwasherHandle: true, dimensionalApplianceDetail: true };
           frontGroup.add(dishwasherHandle);
+          for (let index = 0; index < 4; index++) {
+            const button = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.016, 0.018), new THREE.MeshStandardMaterial({ color: "#171c21", roughness: 0.34, metalness: 0.4 }));
+            button.position.set(-bodyWidth * 0.14 + index * bodyWidth * 0.09, bodyHeight / 2 - 0.055, 0.106);
+            button.userData = { applianceCode: sku.masterCode, dishwasherControlButton: index + 1, dimensionalApplianceDetail: true };
+            frontGroup.add(button);
+          }
+          const dishwasherDoorReveal = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.2, 0.018, 0.02), dishwasherDetailMaterial);
+          dishwasherDoorReveal.position.set(0, bodyHeight * 0.05, 0.083);
+          dishwasherDoorReveal.userData = { applianceCode: sku.masterCode, dishwasherDoorReveal: true, dimensionalApplianceDetail: true };
+          frontGroup.add(dishwasherDoorReveal);
         }
       }
       if (rangeLayout) {
@@ -2161,7 +2235,7 @@ export function openingTransform(opening: WallOpening, roomWidth: number, roomDe
   return { x: offset, z: 0.06, rotation: 0 };
 }
 
-function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: number, roomDepth: number) {
+export function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: number, roomDepth: number) {
   const { x, z, rotation } = openingTransform(opening, roomWidth, roomDepth);
   const group = new THREE.Group();
   group.position.set(x * INCH, (opening.sill + opening.height / 2) * INCH, z * INCH);
@@ -2169,17 +2243,50 @@ function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: numb
   group.userData = { openingUid: opening.uid, kind: opening.kind, label: opening.label };
   const width = opening.width * INCH;
   const height = opening.height * INCH;
-  group.add(new THREE.Mesh(new THREE.BoxGeometry(width + 0.08, height + 0.08, 0.07), new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 })));
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 });
+  const openingDepth = 0.12;
+  const trimWidth = Math.min(0.12, Math.max(0.055, width * 0.075));
+  const backing = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2, height + trimWidth * 2, 0.07), trimMaterial);
+  backing.userData = { architecturalOpeningBacking: true };
+  group.add(backing);
+  const trimPieces = [
+    [width + trimWidth * 2, trimWidth, 0, height / 2 + trimWidth / 2],
+    [width + trimWidth * 2, trimWidth, 0, -height / 2 - trimWidth / 2],
+    [trimWidth, height, -width / 2 - trimWidth / 2, 0],
+    [trimWidth, height, width / 2 + trimWidth / 2, 0],
+  ] as const;
+  for (const [pieceWidth, pieceHeight, pieceX, pieceY] of trimPieces) {
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, openingDepth), trimMaterial);
+    trim.position.set(pieceX, pieceY, openingDepth / 2);
+    trim.userData = { architecturalOpeningTrim: true, openingKind: opening.kind };
+    group.add(trim);
+  }
   const isWindow = opening.kind === "window";
   const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0 }));
   pane.position.z = 0.01;
   group.add(pane);
   if (isWindow) {
     const muntin = new THREE.MeshStandardMaterial({ color: "#f7f5ef", roughness: 0.45 });
-    group.add(
-      new THREE.Mesh(new THREE.BoxGeometry(0.04, height - 0.05, 0.09), muntin),
-      new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.04, 0.09), muntin),
-    );
+    const vertical = new THREE.Mesh(new THREE.BoxGeometry(0.04, height - 0.05, 0.09), muntin);
+    const horizontal = new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.04, 0.09), muntin);
+    vertical.userData = { windowMuntin: "vertical" };
+    horizontal.userData = { windowMuntin: "horizontal" };
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2.7, trimWidth * 1.5, 0.2), trimMaterial);
+    sill.position.set(0, -height / 2 - trimWidth * 0.85, 0.12);
+    sill.userData = { architecturalWindowSill: true };
+    group.add(vertical, horizontal, sill);
+  } else {
+    const doorPanelMaterial = new THREE.MeshStandardMaterial({ color: "#6f503b", roughness: 0.54 });
+    const upperPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.26, 0.035), doorPanelMaterial);
+    const lowerPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.43, 0.035), doorPanelMaterial);
+    upperPanel.position.set(0, height * 0.19, 0.065);
+    lowerPanel.position.set(0, -height * 0.2, 0.065);
+    const handle = new THREE.Mesh(new THREE.SphereGeometry(0.028, 12, 10), new THREE.MeshStandardMaterial({ color: "#c7b287", roughness: 0.28, metalness: 0.6 }));
+    handle.position.set(width * 0.36, 0, 0.1);
+    upperPanel.userData = { architecturalDoorPanel: "upper" };
+    lowerPanel.userData = { architecturalDoorPanel: "lower" };
+    handle.userData = { architecturalDoorHandle: true };
+    group.add(upperPanel, lowerPanel, handle);
   }
   root.add(group);
 }
@@ -2514,7 +2621,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.02;
     mount.replaceChildren(renderer.domElement);
 
     const threeScene = new THREE.Scene();
@@ -2540,7 +2647,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     controls.autoRotateSpeed = 1.1;
     controls.update();
 
-    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#526174", 2.2));
+    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#526174", 2.45));
     const keyLight = new THREE.DirectionalLight("#fff6e8", 3.1);
     keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
     keyLight.castShadow = true;
@@ -2548,7 +2655,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     keyLight.shadow.camera.near = 0.1;
     keyLight.shadow.camera.far = maxSpan * 4;
     threeScene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight("#b7d1ef", 1.05);
+    const fillLight = new THREE.DirectionalLight("#b7d1ef", 1.25);
     fillLight.position.set(-maxSpan, maxSpan, maxSpan);
     threeScene.add(fillLight);
     const wallHeight = room.ceilingHeight * INCH;
@@ -2561,7 +2668,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const floorShape = new THREE.Shape(polygon);
     const floor = new THREE.Mesh(
       new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }),
-      new THREE.MeshStandardMaterial({ color: materialDefaults.floor, roughness: 0.78 }),
+      new THREE.MeshStandardMaterial({ color: materialDefaults.floor, roughness: 0.62, metalness: 0.02 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.08;
@@ -2570,7 +2677,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+    const roomEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#d1cbc1", roughness: 0.58, metalness: 0.04 });
     polygon.forEach((start, index) => {
       const end = polygon[(index + 1) % polygon.length];
       const dx = end.x - start.x;
@@ -2581,10 +2689,28 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       wall.rotation.y = Math.atan2(dz, dx);
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
+      const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);
+      baseboard.position.set((start.x + end.x) / 2, 0.04, (-start.y + -end.y) / 2);
+      baseboard.rotation.y = Math.atan2(dz, dx);
+      baseboard.userData = { roomBaseboard: true, architecturalContextDetail: true };
+      threeScene.add(baseboard);
+      const ceilingEdge = new THREE.Mesh(new THREE.BoxGeometry(length, 0.035, 0.035), roomEdgeMaterial);
+      ceilingEdge.position.set((start.x + end.x) / 2, wallHeight - 0.018, (-start.y + -end.y) / 2);
+      ceilingEdge.rotation.y = Math.atan2(dz, dx);
+      ceilingEdge.userData = { roomCeilingEdge: true, architecturalContextDetail: true };
+      threeScene.add(ceilingEdge);
     });
-    const grid = new THREE.GridHelper(Math.max(room.width, room.depth) * INCH, 12, "#d9d3c8", "#e7e1d8");
-    grid.position.set(room.width * INCH / 2, 0.01, room.depth * INCH / 2);
-    threeScene.add(grid);
+    // Keep the floor visually warm and uncluttered; physical room edges and
+    // cabinet shadows provide scale better than a generic editor grid.
+    const floorContact = new THREE.Mesh(
+      new THREE.CircleGeometry(Math.max(room.width, room.depth) * INCH * 0.32, 48),
+      new THREE.MeshBasicMaterial({ color: "#73685b", transparent: true, opacity: 0.07, depthWrite: false }),
+    );
+    floorContact.rotation.x = -Math.PI / 2;
+    floorContact.position.set(room.width * INCH * 0.52, 0.006, room.depth * INCH * 0.48);
+    floorContact.scale.set(1.35, 0.72, 1);
+    floorContact.userData = { presentationContactShadow: true };
+    threeScene.add(floorContact);
 
     const catalogRoot = new THREE.Group();
     const cursor = { back: 3, left: 3, right: 3, front: 3 };

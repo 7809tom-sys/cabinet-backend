@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -34,6 +34,22 @@ describe("interactive 3D room scene helpers", () => {
     expect(front.z).toBeGreaterThan(presentation.z);
     expect(wide.y).toBeGreaterThan(presentation.y);
     expect(detail.length()).toBeLessThan(presentation.length());
+  });
+
+  it("builds architectural trim, sill, muntins, door panels, and hardware for room openings", () => {
+    const root = new THREE.Group();
+    addWallOpening(root, { uid: "window-1", kind: "window", label: "Window", side: "back", offset: 24, width: 36, sill: 36, height: 42 } as never, 144, 120);
+    addWallOpening(root, { uid: "door-1", kind: "door", label: "Door", side: "left", offset: 18, width: 30, sill: 0, height: 80 } as never, 144, 120);
+    const details: string[] = [];
+    root.traverse((node) => {
+      if (node.userData.architecturalOpeningTrim) details.push("trim");
+      if (node.userData.architecturalWindowSill) details.push("sill");
+      if (node.userData.windowMuntin) details.push("muntin");
+      if (node.userData.architecturalDoorPanel) details.push("door-panel");
+      if (node.userData.architecturalDoorHandle) details.push("door-handle");
+    });
+    expect(details.filter((detail) => detail === "trim")).toHaveLength(8);
+    expect(details).toEqual(expect.arrayContaining(["sill", "muntin", "door-panel", "door-handle"]));
   });
 
   it("reads seeded room dimensions while preserving safe defaults", () => {
@@ -139,6 +155,29 @@ describe("interactive 3D room scene helpers", () => {
       expect.objectContaining({ widthIn: 24, heightIn: 34.5, depthIn: 24, mountBottomIn: 0 }),
       expect.objectContaining({ widthIn: 30, heightIn: 17, depthIn: 15, mountBottomIn: 54 }),
     ]);
+  });
+
+  it("builds dimensional microwave and oven appliance bezels, displays, and door handles", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 51, cabinetId: 51, masterCode: "MW-30", description: "30 inch over-range microwave", placementType: "appliance",
+      width: 30, height: 17, depth: 15, mountBottom: 54, numberOfDoors: 0, numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    addCabinet(root, {
+      distributorSkuId: 52, cabinetId: 52, masterCode: "OVEN-30", description: "30 inch single oven", placementType: "appliance",
+      width: 30, height: 28, depth: 24, mountBottom: 30, numberOfDoors: 0, numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#6b7567", "#eeeeee");
+    const bezels: THREE.Object3D[] = [];
+    const displays: string[] = [];
+    const handles: string[] = [];
+    root.traverse((node) => {
+      if (node.userData.applianceBezel) bezels.push(node);
+      if (node.userData.applianceDisplay) displays.push(node.userData.applianceDisplay);
+      if (node.userData.applianceDoorHandle) handles.push(node.userData.applianceDoorHandle);
+    });
+    expect(bezels).toHaveLength(8);
+    expect(displays).toEqual(expect.arrayContaining(["microwave", "oven"]));
+    expect(handles).toEqual(expect.arrayContaining(["microwave", "oven"]));
   });
 
   it("renders a selected door sample as texture or calibrated fallback, never an unreported flat-face mode", () => {
@@ -444,10 +483,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.refrigeratorHandle)).toHaveLength(2);
     expect(nodes.filter((node) => node.userData.refrigeratorFoot)).toHaveLength(2);
     expect(nodes.some((node) => node.userData.refrigeratorDispenser)).toBe(true);
+    expect(nodes.some((node) => node.userData.refrigeratorTopVent)).toBe(true);
+    expect(nodes.filter((node) => node.userData.refrigeratorHingeCap)).toHaveLength(2);
     expect(nodes.filter((node) => node.userData.rangeControlKnob)).toHaveLength(4);
     expect(nodes.some((node) => node.userData.rangeOvenHandle)).toBe(true);
     expect(nodes.some((node) => node.userData.dishwasherControlStrip)).toBe(true);
     expect(nodes.some((node) => node.userData.dishwasherHandle)).toBe(true);
+    expect(nodes.filter((node) => node.userData.dishwasherControlButton)).toHaveLength(4);
+    expect(nodes.some((node) => node.userData.dishwasherDoorReveal)).toBe(true);
     expect(nodes.filter((node) => node.userData.panelReadyFinish)).toHaveLength(2);
     expect(nodes.some((node) => node.userData.farmhouseSinkBasin)).toBe(true);
     expect(nodes.some((node) => node.userData.farmhouseSinkFaucetSpout)).toBe(true);
@@ -1473,6 +1516,27 @@ describe("interactive 3D room scene helpers", () => {
     expect(bounds.max.x - bounds.min.x).toBeCloseTo(1, 8);
     expect(bounds.max.z - bounds.min.z).toBeCloseTo(2, 8);
     expect(bounds.max.y - bounds.min.y).toBeCloseTo(30 / 12, 8);
+  });
+
+  it("builds a dimensional face frame behind standard cabinet doors without changing the carcass envelope", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -241,
+      cabinetId: 241,
+      masterCode: "B-24-FRAME",
+      description: '24" Base Cabinet',
+      placementType: "base",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 1,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const frames: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.cabinetFaceFrame) frames.push(node); });
+    expect(frames.length).toBeGreaterThanOrEqual(5);
+    expect(frames.some((node) => node.userData.constructedCarcassDetail)).toBe(true);
+    expect(root.children.find((node) => node.userData.masterCode === "B-24-FRAME")?.userData.floorStandingCabinet).toBe(true);
   });
 
   it("builds every standard base cabinet above a recessed four-and-a-half-inch toe kick", () => {
