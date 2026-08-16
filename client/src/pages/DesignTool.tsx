@@ -2502,9 +2502,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // several items quickly. Reject a true footprint collision rather than
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
+      const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
+      const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
+      finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
       finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
-      const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
       if (hasCollision(finalCab, normalizedPrevious)) {
         const side = cabinetWall(finalCab, room);
         const requestedAlong = side === "top" || side === "bottom" ? finalCab.x : finalCab.y;
@@ -2567,7 +2569,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-    [room, activeWall, openings, placed, setSinks, setSelectedSinkUid, setCountertop]
+    [room, activeWall, openings, placed, island, setSinks, setSelectedSinkUid, setCountertop]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -3758,7 +3760,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPlaced((prev) => {
       const cabinet = prev.find((p) => p.uid === uid);
       if (!cabinet) return prev;
-      const movedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
+      const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
+      const edgeSnap = snapPosition(requestedCabinet, room, prev.filter((p) => p.uid !== uid), island);
+      const movedCabinet = { ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y };
       if (hasCollision(movedCabinet, prev.filter((p) => p.uid !== uid))) {
         const message = `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
@@ -3789,7 +3793,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       return prev.map((p) => (p.uid === uid ? movedCabinet : p));
     });
-  }, [setSinks]);
+  }, [setSinks, room, island]);
 
   const swingSelected = () => {
     if (!selectedUid) return;

@@ -567,17 +567,17 @@ export function PlanCanvas({
       // appliances (fridge, range, dishwasher, etc.) and don't slide through them.
       const others = cabinets.filter(
         (c) => c.uid !== cabinet.uid &&
-          (c.placement === cabinet.placement || c.placement === "appliance" || cabinet.placement === "appliance")
+          (c.placement === cabinet.placement || c.placement === "appliance" || cabinet.placement === "appliance" || c.placement === "tall" || cabinet.placement === "tall")
       );
       const targetRot = orientToWall(candidate, room, island);
       if (targetRot != null) {
         candidate = { ...candidate, rotation: targetRot };
       }
       const snapped = snapPosition(candidate, room, others, island);
-      setHoverSnap(snapped.snappedWall || snapped.snappedIsland);
+      setHoverSnap(snapped.snappedWall || snapped.snappedIsland || snapped.snappedCabinet);
       onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },
-    [dragUid, cabinets, ppi, room, onMove]
+    [dragUid, cabinets, ppi, room, island, onMove]
   );
 
   const handlePointerUp = (e: React.PointerEvent) => {

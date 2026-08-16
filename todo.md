@@ -56,6 +56,23 @@
 - [x] Protect refrigerator surround, saved-design restore, and explicit-position placement flows
 - [x] Add refrigerator/base overlap and adjacent-run regression coverage
 
+## Feature: Collision-safe snap-to-edge alignment
+
+- [x] Review existing cabinet and wall snapping behavior
+- [x] Snap moved and newly placed cabinets flush to compatible cabinet, refrigerator, panel, and room edges
+- [x] Preserve collision protection after snapping and surface an alignment indication
+- [x] Add flush-alignment regression coverage and verify the designer
+- [x] Verify snap-to-edge behavior in the live designer UI and capture evidence
+- [ ] Launch the designer canvas and verify wall, cabinet, and refrigerator/panel edge snapping with live interactions
+- [ ] Capture live in-designer evidence showing flush alignment and the snap indicator
+
+## Fix: 3D cabinet and appliance fronts must face into the room
+
+- [x] Trace 3D wall transforms and front-face generation for cabinets and appliances
+- [x] Correct front orientation on back, front, left, and right room walls
+- [x] Add regression coverage for room-facing fronts and wall-facing backs
+- [ ] Verify the corrected 3D preview with a mixed cabinet and appliance layout
+
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)

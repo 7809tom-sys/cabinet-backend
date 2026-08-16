@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlanSyncText, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
@@ -155,6 +155,33 @@ describe("interactive 3D room scene helpers", () => {
       furniture: [],
       ponyWalls: [],
     })).toBe(true);
+  });
+
+  it("orients every cabinet and appliance front toward the usable room side of its wall", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    const placedAt = (wall: "back" | "front" | "left" | "right", appliance = false) => ({
+      uid: `${wall}-${appliance ? "appliance" : "cabinet"}`,
+      cabinetId: 1,
+      masterCode: appliance ? "FRIDGE-36" : "B-24",
+      description: appliance ? "Refrigerator" : "Base cabinet",
+      placement: appliance ? "appliance" : "base",
+      x: wall === "left" ? 0 : wall === "right" ? 120 : 48,
+      y: wall === "back" ? 0 : wall === "front" ? 96 : 36,
+      width: wall === "left" || wall === "right" ? 24 : appliance ? 36 : 24,
+      depth: wall === "left" || wall === "right" ? 24 : 24,
+      height: appliance ? 70 : 34.5,
+      rotation: 0,
+    }) as never;
+    const expected = { back: 0, front: Math.PI, left: Math.PI / 2, right: -Math.PI / 2 };
+
+    for (const wall of ["back", "front", "left", "right"] as const) {
+      const cabinet = placedAt(wall);
+      const appliance = placedAt(wall, true);
+      expect(threeDPlacedWall(cabinet, room)).toBe(wall);
+      expect(threeDRoomFacingRotation(cabinet, room)).toBeCloseTo(expected[wall], 12);
+      expect(existingCabinetTransform(cabinet, room).rotation).toBeCloseTo(expected[wall], 12);
+      expect(existingCabinetTransform(appliance, room).rotation).toBeCloseTo(expected[wall], 12);
+    }
   });
 
   it("uses the persisted 2D plan instead of starter suggestions for any saved entity, not only cabinets", () => {
@@ -754,13 +781,13 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 15.75, z: 126, rotation: Math.PI / 2, bottom: 0 });
   });
 
-  it("preserves every wall cabinet's saved 2D center and rotation without globally remapping the layout", () => {
+  it("keeps every wall cabinet's saved 2D center while turning its front into the room", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 } as never;
     const fixtures = [
-      { uid: "top", cabinetId: 1, masterCode: "B-24", description: "Top wall", placement: "base", x: 30, y: 0, width: 24, depth: 12, height: 34.5, rotation: 180, expected: { x: 42, z: 6, rotation: Math.PI } },
-      { uid: "bottom", cabinetId: 2, masterCode: "B-24", description: "Bottom wall", placement: "base", x: 30, y: 108, width: 24, depth: 12, height: 34.5, rotation: 0, expected: { x: 42, z: 114, rotation: 0 } },
-      { uid: "left", cabinetId: 3, masterCode: "B-24", description: "Left wall", placement: "base", x: 0, y: 30, width: 24, depth: 12, height: 34.5, rotation: 270, expected: { x: 6, z: 42, rotation: Math.PI * 1.5 } },
-      { uid: "right", cabinetId: 4, masterCode: "B-24", description: "Right wall", placement: "base", x: 132, y: 30, width: 24, depth: 12, height: 34.5, rotation: 90, expected: { x: 138, z: 42, rotation: Math.PI / 2 } },
+      { uid: "top", cabinetId: 1, masterCode: "B-24", description: "Back wall", placement: "base", x: 30, y: 0, width: 24, depth: 12, height: 34.5, rotation: 180, expected: { x: 42, z: 6, rotation: 0 } },
+      { uid: "bottom", cabinetId: 2, masterCode: "B-24", description: "Front wall", placement: "base", x: 30, y: 108, width: 24, depth: 12, height: 34.5, rotation: 0, expected: { x: 42, z: 114, rotation: Math.PI } },
+      { uid: "left", cabinetId: 3, masterCode: "B-24", description: "Left wall", placement: "base", x: 0, y: 30, width: 24, depth: 12, height: 34.5, rotation: 270, expected: { x: 6, z: 42, rotation: Math.PI / 2 } },
+      { uid: "right", cabinetId: 4, masterCode: "B-24", description: "Right wall", placement: "base", x: 132, y: 30, width: 24, depth: 12, height: 34.5, rotation: 90, expected: { x: 138, z: 42, rotation: -Math.PI / 2 } },
     ] as never[];
     fixtures.forEach((fixture) => {
       const transform = existingCabinetTransform(fixture, room);

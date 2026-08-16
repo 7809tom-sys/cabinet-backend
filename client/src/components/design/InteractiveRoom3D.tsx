@@ -1582,6 +1582,49 @@ export function addCabinet(
   }
 }
 
+export type ThreeDPlacedWall = "back" | "front" | "left" | "right";
+
+/** Resolves the room wall that owns a rectangular placed item from its 2D footprint. */
+export function threeDPlacedWall(
+  cabinet: PlacedCabinet,
+  room: Pick<RoomData, "width" | "depth">,
+): ThreeDPlacedWall | null {
+  const footprint = normalizedThreeDFootprint(cabinet);
+  const distances: Array<{ wall: ThreeDPlacedWall; distance: number }> = [
+    { wall: "back", distance: Math.abs(cabinet.y) },
+    { wall: "front", distance: Math.abs(room.depth - (cabinet.y + footprint.d)) },
+    { wall: "left", distance: Math.abs(cabinet.x) },
+    { wall: "right", distance: Math.abs(room.width - (cabinet.x + footprint.w)) },
+  ];
+  const nearest = distances.reduce((closest, candidate) => candidate.distance < closest.distance ? candidate : closest);
+  // Interior/island cabinets retain their explicit user rotation. Only an item
+  // seated at a room boundary has an unambiguous wall-facing direction.
+  return nearest.distance <= 1.5 ? nearest.wall : null;
+}
+
+/**
+ * Local fronts are modeled on positive Z. Convert each 2D room-wall placement
+ * to a world rotation that points those fronts into usable room space while the
+ * cabinet/appliance back remains against the wall.
+ */
+export function threeDRoomFacingRotation(
+  cabinet: PlacedCabinet,
+  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
+  fallbackRotation = 0,
+) {
+  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
+  const kind = placedCornerGeometryKind(cabinet);
+  if (kind !== "standard") return fallbackRotation;
+  const facing: Record<ThreeDPlacedWall, number> = {
+    back: 0,
+    front: Math.PI,
+    left: Math.PI / 2,
+    right: -Math.PI / 2,
+  };
+  const wall = threeDPlacedWall(cabinet, room as Pick<RoomData, "width" | "depth">);
+  return wall ? facing[wall] : fallbackRotation;
+}
+
 export function existingCabinetTransform(
   cabinet: PlacedCabinet,
   room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
@@ -1598,10 +1641,12 @@ export function existingCabinetTransform(
   const planRotation = (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer") && hasPlacedRoom
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : savedRotation;
-  // Saved 2D rotation remains authoritative for every cabinet transform. Front
-  // mesh direction must be corrected locally rather than rotating the entire
-  // saved scene away from its measured plan orientation.
-  const rotation = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
+  // 2D horizontal walls share a 0° rotation and vertical walls share 90°, which
+  // is sufficient for a plan footprint but cannot distinguish back/front or
+  // left/right in a 3D room. Resolve orientation from the placed wall so every
+  // front projects into the room and every back sits against its wall.
+  const savedRotationRadians = Number.isFinite(planRotation) ? planRotation * Math.PI / 180 : 0;
+  const rotation = threeDRoomFacingRotation(cabinet, room, savedRotationRadians);
   const sharedElevation = elevationBox(cabinet, room);
   const explicitMountBottom = cabinet.mountBottom == null ? null : numberValue(cabinet.mountBottom, 0);
   const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance"

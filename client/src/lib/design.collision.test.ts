@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, hasCollision, removeOverlappingPlacements, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, hasCollision, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -60,5 +60,24 @@ describe("design placement collision prevention", () => {
     const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
     const b24 = placed({ uid: "b24", masterCode: "B-24", x: 0, width: 24 });
     expect(appendCollisionFreePlacements([fridge], [b24]).placed).toEqual([fridge, b24]);
+  });
+
+  it("snaps a cabinet flush to a refrigerator edge without creating a collision", () => {
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const b24 = placed({ uid: "b24", masterCode: "B-24", x: 1, width: 24 });
+    const snapped = snapPosition(b24, DEFAULT_ROOM, [fridge]);
+    const aligned = { ...b24, x: snapped.x, y: snapped.y };
+    expect(snapped.snappedCabinet).toBe(true);
+    expect(aligned.x + aligned.width).toBe(fridge.x);
+    expect(hasCollision(aligned, [fridge])).toBe(false);
+  });
+
+  it("snaps a cabinet flush to an adjacent cabinet edge without changing its perpendicular position", () => {
+    const b24 = placed({ uid: "b24", masterCode: "B-24", x: 24, y: 12, width: 24 });
+    const b18 = placed({ uid: "b18", masterCode: "B-18", x: 7, y: 12, width: 18 });
+    const snapped = snapPosition(b18, DEFAULT_ROOM, [b24]);
+    expect(snapped.snappedCabinet).toBe(true);
+    expect(snapped.x + b18.width).toBe(b24.x);
+    expect(snapped.y).toBe(12);
   });
 });

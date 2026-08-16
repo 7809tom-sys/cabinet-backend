@@ -1075,7 +1075,7 @@ export function snapPosition(
   room: RoomData,
   others: PlacedCabinet[],
   island?: { x: number; y: number; width: number; depth: number } | null
-): { x: number; y: number; snappedWall: boolean; snappedIsland: boolean } {
+): { x: number; y: number; snappedWall: boolean; snappedIsland: boolean; snappedCabinet: boolean } {
   // Use the PLAN footprint (not the raw rotated size) so L-corner cabinets
   // (lazy-Susan / corner base) snap by their true SQUARE box. Their stored depth
   // can be the shallow ~24" leg depth, which would leave the box short of the
@@ -1085,6 +1085,7 @@ export function snapPosition(
   let y = moving.y;
   let snappedWall = false;
   let snappedIsland = false;
+  let snappedCabinet = false;
 
   const T = STD.SNAP_THRESHOLD;
 
@@ -1123,14 +1124,14 @@ export function snapPosition(
 
     const yOverlap = y < o.y + os.d && y + d > o.y;
     if (yOverlap) {
-      if (Math.abs(x + w - o.x) <= T) { x = o.x - w; y = o.y; }
-      if (Math.abs(x - (o.x + os.w)) <= T) { x = o.x + os.w; y = o.y; }
+      if (Math.abs(x + w - o.x) <= T) { x = o.x - w; snappedCabinet = true; }
+      if (Math.abs(x - (o.x + os.w)) <= T) { x = o.x + os.w; snappedCabinet = true; }
     }
 
     const xOverlap = x < o.x + os.w && x + w > o.x;
     if (xOverlap) {
-      if (Math.abs(y + d - o.y) <= T) { y = o.y - d; x = o.x; }
-      if (Math.abs(y - (o.y + os.d)) <= T) { y = o.y + os.d; x = o.x; }
+      if (Math.abs(y + d - o.y) <= T) { y = o.y - d; snappedCabinet = true; }
+      if (Math.abs(y - (o.y + os.d)) <= T) { y = o.y + os.d; snappedCabinet = true; }
     }
   }
 
@@ -1167,7 +1168,7 @@ export function snapPosition(
   x = Math.max(0, Math.min(x, room.width - w));
   y = Math.max(0, Math.min(y, room.depth - d));
 
-  return { x, y, snappedWall, snappedIsland };
+  return { x, y, snappedWall, snappedIsland, snappedCabinet };
 }
 
 // Auto-orientation: when a cabinet is dragged near a wall, it should turn so its
