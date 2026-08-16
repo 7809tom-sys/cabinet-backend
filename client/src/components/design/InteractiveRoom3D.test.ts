@@ -1212,6 +1212,65 @@ describe("interactive 3D room scene helpers", () => {
     expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
   });
 
+  it("keeps standard configured doors and drawers fully outside their physical carcass face without overhanging its width", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -185,
+      cabinetId: 185,
+      masterCode: "B-2434-FRONT-BOUNDARY",
+      description: '24" Base Cabinet with configured doors and drawers',
+      placementType: "base",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 2,
+      drawerHeight: 6,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null });
+    const bodies: THREE.Mesh[] = [];
+    const fronts: THREE.Mesh[] = [];
+    const frontGroups: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) bodies.push(node);
+      if (node instanceof THREE.Mesh && node.userData.cabinetFront) fronts.push(node);
+      if (node.userData.physicalFacePlane) frontGroups.push(node);
+    });
+    expect(bodies).toHaveLength(1);
+    expect(fronts).toHaveLength(4);
+    expect(frontGroups).toHaveLength(1);
+    expect(frontGroups[0]!.userData.decorativeFrontClearanceIn).toBeGreaterThan(0);
+    root.updateMatrixWorld(true);
+    const bodyBounds = new THREE.Box3().setFromObject(bodies[0]!);
+    for (const front of fronts) {
+      const frontBounds = new THREE.Box3().setFromObject(front);
+      expect(frontBounds.min.z).toBeGreaterThanOrEqual(bodyBounds.max.z - 1e-8);
+      expect(frontBounds.min.x).toBeGreaterThanOrEqual(bodyBounds.min.x - 1e-8);
+      expect(frontBounds.max.x).toBeLessThanOrEqual(bodyBounds.max.x + 1e-8);
+      expect(frontBounds.min.y).toBeGreaterThanOrEqual(bodyBounds.min.y - 1e-8);
+      expect(frontBounds.max.y).toBeLessThanOrEqual(bodyBounds.max.y + 1e-8);
+    }
+  });
+
+  it("applies the physical face-plane contract to standard, tall, diagonal, L-corner, corner-drawer, end-return, and angled-wall fronts", () => {
+    const root = new THREE.Group();
+    const specimens = [
+      { distributorSkuId: -186, cabinetId: 186, masterCode: "B-24-FLUSH", description: '24" Base Cabinet', placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0 },
+      { distributorSkuId: -187, cabinetId: 187, masterCode: "PANTRY-2490-FLUSH", description: '24" x 90" Pantry Cabinet', placementType: "tall", width: 24, height: 90, depth: 24, numberOfDoors: 4, numberOfDrawers: 0 },
+      { distributorSkuId: -188, cabinetId: 188, masterCode: "WDC2430-FLUSH", description: '24" Diagonal Wall Corner', placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "diagonal" },
+      { distributorSkuId: -189, cabinetId: 189, masterCode: "LS36-FLUSH", description: '36" Lazy Susan', placementType: "base", width: 36, height: 34.5, depth: 36, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "l-shape" },
+      { distributorSkuId: -190, cabinetId: 190, masterCode: "CDB36-FLUSH", description: '36" Corner Drawer Base', placementType: "base", width: 36, height: 34.5, depth: 36, numberOfDoors: 0, numberOfDrawers: 3 },
+      { distributorSkuId: -191, cabinetId: 191, masterCode: "BEC-24-FLUSH", description: '24" Base End Cabinet', placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerGeometryKind: "base-end" },
+      { distributorSkuId: -192, cabinetId: 192, masterCode: "AW1230-FLUSH", description: '12" Angled Wall Cabinet', placementType: "wall", width: 12, height: 30, depth: 12, numberOfDoors: 1, numberOfDrawers: 0, customProfile: "angled-wall" },
+    ];
+    specimens.forEach((sku, index) => addCabinet(root, sku as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: index * 4, z: 0, rotation: 0 }));
+    const fronts: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.cabinetFront) fronts.push(node);
+    });
+    expect(fronts.length).toBeGreaterThan(12);
+    expect(fronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+  });
+
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {
     const root = new THREE.Group();
     addCabinet(root, {

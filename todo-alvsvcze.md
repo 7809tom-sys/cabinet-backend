@@ -517,9 +517,9 @@
 - [x] Remove the forced canonical wall-rotation mapping that reversed the user-visible saved layout
 - [x] Restore exact saved cabinet transforms while retaining live verification of any separately reversed front meshes
 - [x] Add a regression that keeps countertops seated directly on the finished cabinet top while preserving saved orientation
-- [ ] Enforce decorative door and drawer fronts flush to their physical cabinet face and fully bounded by its outer edges
-- [ ] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
-- [ ] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
+- [x] Enforce decorative door and drawer fronts flush to their physical cabinet face and fully bounded by its outer edges
+- [x] Apply the flush-front boundary rule to standard, specialty, corner, end-return, and quarter-round cabinet forms
+- [x] Add mesh regressions that reject floating or overhanging decorative fronts across cabinet families
 - [ ] Capture the specific detached front and panel meshes visible in the supplied 3D screenshot and remove their generation path
 - [x] Identify the AW1230 angled wall-cabinet specialty profile and correct its door/front mesh so it is flush to the physical triangular cabinet face
 - [x] Add an AW1230 regression that rejects a door/front rotation or position passing through or extending beyond the triangular cabinet box
@@ -550,6 +550,7 @@
 - [x] Preserve the confirmed BEC body shape without further body or countertop reinterpretation
 - [x] Reattach BEC’s short exterior doors to their physical front faces and remove the detached V appearance
 - [x] Recess BEC toe-kick pieces three inches behind their actual exterior front faces without forward projection
+- [ ] Identify the incorrect pricing surface and authoritative replacement amount before changing any price
 - [x] Enforce AW1230’s door flush to its true angled physical face with no penetration or overhang
 - [ ] Compare the current BEC-24 3D output directly with the authoritative diagram and short-door measurements before another geometry edit
-- [ ] Apply and test the same physical face-plane and boundary constraint across all cabinet door families
+- [x] Apply and test the same physical face-plane and boundary constraint across all cabinet door families
