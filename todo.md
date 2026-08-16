@@ -73,6 +73,16 @@
 - [x] Add regression coverage for room-facing fronts and wall-facing backs
 - [ ] Verify the corrected 3D preview with a mixed cabinet and appliance layout
 
+## Fix: Nonresponsive catalog category controls
+
+- [x] Trace the catalog category accordion state and click handling
+- [x] Correct blocked click, overlay, and event-propagation behavior
+- [x] Add regression coverage for category expand and collapse behavior
+- [ ] Verify category controls on desktop and mobile
+- [ ] Diagnose and fix any real catalog-header click-target, overlay, z-index, or event-propagation issue
+- [ ] Add UI regression coverage for accordion header clicks, expansion, and visible item rendering
+- [ ] Capture live desktop and mobile interaction evidence for the repaired category controls
+
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)

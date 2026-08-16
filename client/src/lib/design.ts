@@ -54,9 +54,14 @@ export function isPlaceableAccessory(c: {
   masterCode?: string | null;
   subCategory?: string | null;
 }): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  // Fillers and floating shelves are physical pieces that belong on the plan.
+  // They must be considered before the loose-trim exclusion because some vendor
+  // catalogs file them under a broad Trim & Molding category.
+  if (/\bf(?:ill)?[-_]?\d|\bfiller\b/.test(hay)) return true;
+  if (/floating shelf|\bopen shelf\b/.test(hay)) return true;
   if (isLooseTrimItem(c)) return false;
   if (isPanelItem(c)) return true; // end panels / skins / decorative panels
-  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   // Appliance garages sit on the counter as a real box.
   if (/appliance garage|\bag-?\d/.test(hay)) return true;
   return false;
@@ -72,6 +77,7 @@ export function accessoryPlacement(c: {
 }): Placement {
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   if (/appliance garage|\bag-?\d/.test(hay)) return "wall";
+  if (/floating shelf|\bopen shelf\b/.test(hay)) return "wall";
   if (/wall ?skin|\bws\b|wall panel|refrigerator panel/.test(hay)) return "wall";
   return "base";
 }

@@ -1159,7 +1159,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // height, which is meaningless for loose trim/hardware.
     if (paletteType === "accessory") {
       const bySub = new Map<string, DesignCabinet[]>();
-      for (const c of filteredPalette) {
+      // Build accordion sections only from items that can be put on the 2D plan.
+      // Previously headings used all catalog add-ons while their bodies silently
+      // filtered non-placeable lines, producing rows that opened to a blank area.
+      for (const c of filteredPalette.filter(isPlaceableAccessory)) {
         const label = (c.subCategory || "Other").trim() || "Other";
         const arr = bySub.get(label);
         if (arr) arr.push(c);
@@ -7171,15 +7174,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 // Accordion: each height/category group collapses. Keyed per-tab.
                 // Force-open while searching so no matching item is ever hidden.
                 const groupKey = `${paletteType}:${group.label}`;
+                const groupId = `catalog-group-${groupKey.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
                 const searching = normalizePaletteSearch(paletteSearch).length > 0;
                 const open = searching || !collapsedGroups.has(groupKey);
                 return (
                 <div key={group.label} className="space-y-1.5">
                   <button
                     type="button"
-                    onClick={() => toggleGroup(groupKey)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleGroup(groupKey);
+                    }}
                     aria-expanded={open}
-                    className="sticky top-0 z-10 -mx-1 w-[calc(100%+0.5rem)] flex items-center gap-1.5 px-2 py-1.5 bg-background/95 backdrop-blur text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border hover:text-foreground transition-colors"
+                    aria-controls={groupId}
+                    data-testid={`catalog-group-toggle-${groupId}`}
+                    className="relative z-10 -mx-1 w-[calc(100%+0.5rem)] touch-manipulation flex items-center gap-1.5 px-2 py-1.5 bg-background/95 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border hover:text-foreground transition-colors lg:sticky lg:top-0 lg:backdrop-blur"
                   >
                     <ChevronDown
                       className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
@@ -7188,7 +7198,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{group.label}</span>
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
-                  {open && group.items.map((c) => {
+                  {open && <div id={groupId} data-testid={`catalog-group-content-${groupId}`}>{group.items.map((c) => {
                     // Accessories & Trim: only PHYSICAL placeable items
                     // (decorative/end panels, skins, appliance garages) appear —
                     // they drop onto the drawing like a cabinet box. Loose
@@ -7259,7 +7269,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                     </button>
                     );
-                  })}
+                  })}</div>}
                 </div>
                 );
               })

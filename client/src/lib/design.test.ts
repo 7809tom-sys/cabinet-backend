@@ -2319,9 +2319,11 @@ describe("per-cabinet door/hardware attributes (right-click dialog)", () => {
 import { isPlaceableAccessory, accessoryPlacement, isLooseTrimItem } from "./design";
 
 describe("accessory placement (item 5: accessories into the drawing)", () => {
-  it("treats panels, skins and appliance garages as placeable", () => {
+  it("treats panels, fillers, floating shelves, skins and appliance garages as placeable", () => {
     expect(isPlaceableAccessory({ masterCode: "BDEP", description: "Base Decorative End Panel", subCategory: "Decorative End Panels" })).toBe(true);
     expect(isPlaceableAccessory({ masterCode: "DWEP", description: "Dishwasher End Panel" })).toBe(true);
+    expect(isPlaceableAccessory({ masterCode: "FILL-3", description: "3 inch Filler", subCategory: "Filler" })).toBe(true);
+    expect(isPlaceableAccessory({ masterCode: "FS-30", description: "Floating Shelf 30 inch", subCategory: "Floating Shelf" })).toBe(true);
     expect(isPlaceableAccessory({ masterCode: "WS-12-42", description: "Wall Skin", subCategory: "Skin Panels" })).toBe(true);
     expect(isPlaceableAccessory({ masterCode: "AG-24", description: "Appliance Garage 24" })).toBe(true);
   });
@@ -2341,6 +2343,7 @@ describe("accessory placement (item 5: accessories into the drawing)", () => {
 
   it("assigns base placement to floor panels and wall placement to skins/garages", () => {
     expect(accessoryPlacement({ masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe("base");
+    expect(accessoryPlacement({ masterCode: "FS-30", description: "Floating Shelf 30 inch" })).toBe("wall");
     expect(accessoryPlacement({ masterCode: "WS-12-42", description: "Wall Skin" })).toBe("wall");
     expect(accessoryPlacement({ masterCode: "AG-24", description: "Appliance Garage" })).toBe("wall");
   });
