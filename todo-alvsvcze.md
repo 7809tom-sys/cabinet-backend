@@ -541,3 +541,9 @@
 - [x] Add regressions that reject any generic fallback which conflicts with configured dimensions, body form, face layout, toe kick, or countertop support
 - [x] Recess every standard, tall, floor-dropped wall, and BEC-24 toe kick exactly 3 inches behind the cabinet body boundary while retaining the 4½-inch height
 - [x] Add exact three-inch toe-kick regression coverage for standard, tall, floor-dropped wall, and BEC-24 support faces
+- [ ] Remove the square-filled BEC body and countertop support still visible in the refreshed 3D screenshot
+- [ ] Render only the diagram-defined non-square two-side BEC construction without filling its bounding area
+- [ ] Move BEC doors and toe kicks from the measured rear sides to the diagram’s two exterior front sides meeting at the front center point
+- [x] Set each BEC exterior front door to approximately 9 inches and never use the 24-inch rear construction side as a door width
+- [x] Set each BEC exterior front door to 8.45 inches and preserve the 24-inch rear construction sides as non-door dimensions
+- [x] Add BEC regression coverage for short exterior door spans, shared front apex attachment, and non-substitution of the 24-inch side length

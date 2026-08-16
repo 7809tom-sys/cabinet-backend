@@ -1094,10 +1094,10 @@ describe("interactive 3D room scene helpers", () => {
       expect(returnFaces).toHaveLength(2);
       expect(returnFaces.map((face) => face.userData.nonCornerEndReturnDoor).sort()).toEqual(["left", "right"]);
       expect(returnFaces.map((face) => ((face as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width)).toEqual([
-        expect.closeTo(23.04 / 12, 6), expect.closeTo(23.04 / 12, 6),
+        expect.closeTo(8.45 / 12, 6), expect.closeTo(8.45 / 12, 6),
       ]);
       expect(returnFaces.map((face) => face.userData.doorWidthIn)).toEqual([
-        expect.closeTo(23.04, 6), expect.closeTo(23.04, 6),
+        expect.closeTo(8.45, 6), expect.closeTo(8.45, 6),
       ]);
       expect(returnFaces.map((face) => face.rotation.y)).toEqual([-Math.PI / 4, Math.PI / 4]);
       expect(returnFaces.every((face) => face.userData.attachedEndFront)).toBe(true);
@@ -1108,12 +1108,13 @@ describe("interactive 3D room scene helpers", () => {
       }
       const measuredFrontDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "left")!;
       const measuredRightDoor = returnFaces.find((face) => face.userData.nonCornerEndReturnDoor === "right")!;
-      // Each full door sits directly on a diagram-defined 24in side from the
-      // rear apex to its shared exterior apex; no rectangular box face is valid.
-      expect(measuredFrontDoor.position.x).toBeCloseTo(-Math.SQRT1_2, 6);
-      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT1_2, 6);
-      expect(measuredRightDoor.position.x).toBeCloseTo(Math.SQRT1_2, 6);
-      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT1_2, 6);
+      // Each short door is attached beside the shared exterior apex. The
+      // 24-inch values label rear construction sides, not 24-inch doors.
+      const shortDoorCenterOffset = 8.45 / 12 * Math.SQRT1_2 / 2;
+      expect(measuredFrontDoor.position.x).toBeCloseTo(-shortDoorCenterOffset, 6);
+      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset, 6);
+      expect(measuredRightDoor.position.x).toBeCloseTo(shortDoorCenterOffset, 6);
+      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset, 6);
       expect(measuredFrontDoor.rotation.y).toBeCloseTo(-Math.PI / 4, 6);
       expect(measuredRightDoor.rotation.y).toBeCloseTo(Math.PI / 4, 6);
       const toeKicks: THREE.Object3D[] = [];
@@ -1148,7 +1149,7 @@ describe("interactive 3D room scene helpers", () => {
       expect(carcasses[0]!.visible).toBe(true);
       expect((carcasses[0] as THREE.Mesh).geometry.type).toBe("ExtrudeGeometry");
       expect(returnFaces).toHaveLength(2);
-      expect(returnFaces.every((face) => face.userData.doorWidthIn === 23.04)).toBe(true);
+      expect(returnFaces.every((face) => face.userData.doorWidthIn === 8.45)).toBe(true);
       root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(carcasses[0]!);
       expect(bounds.max.x - bounds.min.x).toBeCloseTo(24 / 12 * Math.SQRT2, 6);
@@ -1198,10 +1199,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(becBounds.max.z - becBounds.min.z).toBeCloseTo(24 / 12 * Math.SQRT2, 6);
     const leftDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "left")!;
     const rightDoor = becDoors.find((door) => door.userData.nonCornerEndReturnDoor === "right")!;
-    const leftApex = leftDoor.localToWorld(new THREE.Vector3(23.04 / 12 / 2, 0, 0));
-    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-23.04 / 12 / 2, 0, 0));
+    const leftApex = leftDoor.localToWorld(new THREE.Vector3(8.45 / 12 / 2, 0, 0));
+    const rightApex = rightDoor.localToWorld(new THREE.Vector3(-8.45 / 12 / 2, 0, 0));
     expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.08);
-    expect(becDoors.every((door) => door.userData.doorWidthIn === 23.04 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
+    expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
   });
 
   it("renders a pantry as two two-door sets split by a 54-inch lower door section", () => {

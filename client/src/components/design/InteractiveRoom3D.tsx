@@ -478,7 +478,9 @@ function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, heigh
  */
 export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number) {
   const sideLength = Math.min(bodyWidth, bodyDepth);
-  const doorWidth = Math.max(0.2, sideLength - 0.08);
+  // The diagram shows two short fronts at the exterior apex. The 24-inch
+  // dimensions label the two rear construction sides, never the door spans.
+  const doorWidth = Math.min(sideLength, 8.45 * INCH);
   const halfDiagonal = sideLength / Math.SQRT2;
   const rearApex = { x: 0, z: -halfDiagonal };
   const apex = { x: 0, z: halfDiagonal };
@@ -489,8 +491,8 @@ export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number)
     doorWidth,
     footprint: [rearApex, { x: -halfDiagonal, z: 0 }, apex, { x: halfDiagonal, z: 0 }],
     faces: [
-      { side: "left" as const, x: -halfDiagonal / 2, z: halfDiagonal / 2, rotation: -Math.PI / 4 },
-      { side: "right" as const, x: halfDiagonal / 2, z: halfDiagonal / 2, rotation: Math.PI / 4 },
+      { side: "left" as const, x: -doorWidth * Math.SQRT1_2 / 2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2, rotation: -Math.PI / 4 },
+      { side: "right" as const, x: doorWidth * Math.SQRT1_2 / 2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2, rotation: Math.PI / 4 },
     ],
   };
 }
