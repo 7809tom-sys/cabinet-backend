@@ -29,6 +29,17 @@ export function isPanelItem(c: { description?: string | null; masterCode?: strin
   return /\bpanel\b|\bskin\b|end panel|dishwasher panel|refrigerator panel|decorative panel/.test(hay);
 }
 
+/** Full-height refrigerator enclosure panels are architectural skins, never cabinet fronts. */
+export function isRefrigeratorEndPanel(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+  customProfile?: string | null;
+}): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""} ${c.customProfile ?? ""}`.toLowerCase();
+  return /refrigerator[-\s]?end[-\s]?panel|refrigerator panel|refrigerator[-\s]?panel|refrigerator-end-panel|\brepv\b/.test(hay);
+}
+
 // Loose trim/molding/hardware sold by the linear foot or by the each that is
 // NOT a physical box on the floor plan — crown, light rail, toe-kick molding,
 // scribe, batten/filler strips, roll-out trays, hinges, knobs/pulls. These stay
@@ -1357,6 +1368,10 @@ export function shouldBlockPlacementCollision(moving: PlacedCabinet, others: Pla
  * base-to-base collision prevention.
  */
 export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  // A thin refrigerator end panel intentionally occupies the refrigerator's
+  // edge projection and must survive the collision filter on both sides.
+  const isFridge = (item: PlacedCabinet) => /^FRIDGE[-_]?/i.test(item.masterCode ?? "");
+  if ((isRefrigeratorEndPanel(a) && isFridge(b)) || (isRefrigeratorEndPanel(b) && isFridge(a))) return false;
   if (isHoodOverRangePair(a, b)) return false;
   if (a.placement === b.placement) return true;
   if (!verticalEnvelopesOverlap(a, b)) return false;

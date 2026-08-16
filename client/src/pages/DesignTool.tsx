@@ -3234,7 +3234,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           uid: makeUid(),
           cabinetId: panelRow.id,
           masterCode: panelRow.masterCode,
-          description: panelRow.description,
+          description: panelRow.description ?? `Refrigerator End Panel ${pHeight}"H`,
+          category: "Panel",
+          subCategory: "Refrigerator End Panel",
           placement: "tall",
           x: spot.x,
           y: spot.y,
@@ -3242,6 +3244,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           depth: pDepth,
           height: pHeight,
           rotation: spot.rotation,
+          numberOfDoors: 0,
+          numberOfDrawers: 0,
+          customProfile: "refrigerator-end-panel",
           // Refrigerator end panels are full-height architectural panels. They
           // always begin on the floor, regardless of a neighboring base cabinet.
           mountBottom: 0,

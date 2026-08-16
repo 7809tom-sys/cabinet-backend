@@ -2130,4 +2130,24 @@ describe("interactive 3D room scene helpers", () => {
     expect(applianceRoots.map((node) => node.userData.masterCode)).toEqual(expect.arrayContaining(["RANGE-30", "HOOD-30", "FRIDGE-36"]));
     expect(applianceRoots.find((node) => node.userData.masterCode === "HOOD-30")!.userData.catalogApplianceEnvelope.mountBottomIn).toBe(66);
   });
+
+  it("renders refrigerator enclosure panels as plain finished skins with no cabinet hardware", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 0,
+      masterCode: "REPV-96",
+      description: 'Refrigerator End Panel 96"H',
+      placementType: "tall",
+      width: 0.75,
+      depth: 27,
+      height: 96,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      customProfile: "refrigerator-end-panel",
+    }, "back", {}, 144, 120, "#4f5549", "#ffffff", undefined, { x: 30, z: 0, rotation: 0, bottom: 0 });
+    const items: THREE.Object3D[] = [];
+    root.traverse((item) => items.push(item));
+    expect(items.some((item) => item.userData?.refrigeratorEndPanel)).toBe(true);
+    expect(items.some((item) => item.userData?.cabinetHardware)).toBe(false);
+  });
 });

@@ -805,6 +805,7 @@ export function addCabinet(
   const isFreestandingRange = placement === "appliance" && !isPlacedHood && (/^RANGE[-_]?\d/i.test(sku.masterCode) || /freestanding\s+range|range\s*\/\s*stove/i.test(sku.description ?? ""));
   const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
+  const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
@@ -820,6 +821,7 @@ export function addCabinet(
   // kick. This includes tall cabinets and a wall profile deliberately dropped
   // to floor level; wall cabinets mounted above the floor are excluded.
   const isFloorStandingCabinet = placement !== "appliance"
+    && !isRefrigeratorEndPanel
     && (isBaseCabinet || isTall || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
   // toe kick. Build only the upper carcass over that kick so every floor run
@@ -1093,6 +1095,7 @@ export function addCabinet(
   // door/drawer fronts. This keeps slab, raised-panel, and shaker selections
   // equally dimensional instead of relying on the Shaker rail overlay alone.
   const usesConstructedFaceFrame = placement !== "appliance"
+    && !isRefrigeratorEndPanel
     && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
   if (usesConstructedFaceFrame) {
     const frameMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.43, metalness: 0.01 });
@@ -1214,7 +1217,15 @@ export function addCabinet(
   };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
-  if (isPlacedAppliance) {
+  if (isRefrigeratorEndPanel) {
+    // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
+    // toe kicks. They are plain floor-to-ceiling architectural skins matching
+    // the selected cabinet finish on both sides of the refrigerator.
+    const panelFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, 0.032), faceMaterial);
+    panelFace.position.z = 0.034;
+    panelFace.userData = { refrigeratorEndPanel: true, architecturalPanel: true, noCabinetHardware: true, selectedFinishFace: true };
+    frontGroup.add(panelFace);
+  } else if (isPlacedAppliance) {
     const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
     const applianceMaterial = new THREE.MeshStandardMaterial({
       color: isPanelReadyAppliance ? faceColor : rangeAppearance?.bodyColor ?? "#c7cbd0",

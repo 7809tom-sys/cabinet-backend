@@ -322,6 +322,14 @@
 - [x] Add calibrated-finish and wall-height control regressions
 - [ ] Verify the populated 3D scene
 
+## Fix: Refrigerator enclosure panels missing or receiving cabinet handles
+
+- [x] Trace refrigerator surround placement and the 3D profile assigned to left and right end panels
+- [x] Restore the missing left floor-to-ceiling refrigerator end panel
+- [x] Render both refrigerator end panels as finished architectural skins without cabinet door/drawer hardware
+- [x] Add left/right refrigerator enclosure panel and no-handle regressions
+- [ ] Verify the reported 3D scene
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood

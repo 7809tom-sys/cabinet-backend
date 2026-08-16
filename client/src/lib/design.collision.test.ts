@@ -48,6 +48,15 @@ describe("design placement collision prevention", () => {
     expect(result.rejected).toEqual([b24]);
   });
 
+  it("preserves left and right refrigerator enclosure panels beside the appliance", () => {
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const leftPanel = placed({ uid: "left-panel", masterCode: "REPV-96", description: "Refrigerator End Panel 96\"H", placement: "tall", customProfile: "refrigerator-end-panel", x: 23.25, width: 0.75, depth: 27, height: 96 });
+    const rightPanel = placed({ uid: "right-panel", masterCode: "REPV-96", description: "Refrigerator End Panel 96\"H", placement: "tall", customProfile: "refrigerator-end-panel", x: 60, width: 0.75, depth: 27, height: 96 });
+    const result = appendCollisionFreePlacements([fridge], [leftPanel, rightPanel]);
+    expect(result.placed).toEqual([fridge, leftPanel, rightPanel]);
+    expect(result.rejected).toEqual([]);
+  });
+
   it("keeps a refrigerator and removes a colliding base from a restored legacy layout", () => {
     const b24 = placed({ uid: "b24", masterCode: "B-24", x: 24, width: 24 });
     const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
