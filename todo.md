@@ -122,6 +122,26 @@
 - [x] Add focused regressions for the two reported items
 - [ ] Verify the corrected FSB36 front and RANGE-30 height in the reported live 3D plan
 
+## Plan: Catalog-faithful 3D realism upgrade
+
+- [ ] Define exact cabinet construction, material, appliance, lighting, and environment improvements from the realism reference
+- [ ] Prioritize a first production phase that preserves current catalog-driven 2D-to-3D accuracy
+- [ ] Confirm the implementation sequence before changing the 3D renderer
+
+## Phase 1: Catalog-faithful 3D realism implementation
+
+- [x] Audit reusable cabinet front, carcass, finish, and hardware construction in the 3D renderer
+- [x] Add depth, shadow gaps, face frames, edge treatment, and consistent hardware to reusable cabinet geometry
+- [x] Upgrade refrigerator with doors, handles, seams, feet, and finish-aware materials
+- [x] Upgrade RANGE-30 with control panel, burners, glass oven door, handles, feet, and countertop-aligned cooking surface
+- [x] Upgrade dishwasher with recessed panel, control strip, handle, toe recess, and finish-aware materials
+- [x] Upgrade FSB36 with a dimensional farmhouse apron, basin, faucet connection, and correct room-facing front
+- [x] Upgrade range hood with body, intake, control detail, chimney, and realistic wall mounting
+- [x] Add focused 3D construction and appliance regression coverage
+- [ ] Verify interactive preview quality and mobile performance
+- [x] Add refrigerator feet, finish-aware panel handling, and regression coverage
+- [x] Add dishwasher finish-aware face handling while preserving its recessed toe kick and controls
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

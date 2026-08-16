@@ -401,6 +401,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(range.userData.catalogApplianceEnvelope.heightIn).toBe(36);
   });
 
+  it("builds dimensional cabinet, refrigerator, range, dishwasher, farmhouse sink, and hood detail meshes", () => {
+    const root = new THREE.Group();
+    const common = { width: 30, height: 36, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 1 };
+    addCabinet(root, { distributorSkuId: 1, cabinetId: 1, masterCode: "B-30", description: "Base Cabinet", placementType: "base", ...common }, null, {}, 180, 144, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    addCabinet(root, { distributorSkuId: 2, cabinetId: 2, masterCode: "FRIDGE-36", description: "36 inch Panel-Ready Refrigerator", placementType: "appliance", width: 36, height: 70, depth: 30, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
+    addCabinet(root, { distributorSkuId: 3, cabinetId: 3, masterCode: "RANGE-30", description: "30 inch Freestanding Range", placementType: "appliance", width: 30, height: 36, depth: 25, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
+    addCabinet(root, { distributorSkuId: 4, cabinetId: 4, masterCode: "DW-24", description: "24 inch Panel Ready Dishwasher", placementType: "appliance", width: 24, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
+    addCabinet(root, { distributorSkuId: 5, cabinetId: 5, masterCode: "FSB-36", description: "36 inch Farmhouse Sink Base", placementType: "base", width: 36, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
+    addCabinet(root, { distributorSkuId: 6, cabinetId: 6, masterCode: "HOOD-30", description: "30 inch Range Hood", placementType: "appliance", width: 30, height: 18, depth: 18, mountBottom: 66, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    expect(nodes.some((node) => node.userData.cabinetHardware)).toBe(true);
+    expect(nodes.some((node) => node.userData.cabinetFaceShadowGap)).toBe(true);
+    expect(nodes.filter((node) => node.userData.refrigeratorHandle)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.refrigeratorFoot)).toHaveLength(2);
+    expect(nodes.some((node) => node.userData.refrigeratorDispenser)).toBe(true);
+    expect(nodes.filter((node) => node.userData.rangeControlKnob)).toHaveLength(5);
+    expect(nodes.some((node) => node.userData.rangeOvenHandle)).toBe(true);
+    expect(nodes.some((node) => node.userData.dishwasherControlStrip)).toBe(true);
+    expect(nodes.some((node) => node.userData.dishwasherHandle)).toBe(true);
+    expect(nodes.filter((node) => node.userData.panelReadyFinish)).toHaveLength(2);
+    expect(nodes.some((node) => node.userData.farmhouseSinkBasin)).toBe(true);
+    expect(nodes.some((node) => node.userData.farmhouseSinkFaucetSpout)).toBe(true);
+    expect(nodes.filter((node) => node.userData.rangeHoodVent)).toHaveLength(3);
+    expect(nodes.filter((node) => node.userData.rangeHoodControl)).toHaveLength(2);
+  });
+
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
     const cdb = {
       uid: "saved-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: '36" Corner Drawer Base Cabinet',

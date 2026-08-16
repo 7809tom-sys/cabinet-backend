@@ -1025,6 +1025,8 @@ export function addCabinet(
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
   textureMaterials.push(faceMaterial, trimMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
+  const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
+  const shadowRevealMaterial = new THREE.MeshStandardMaterial({ color: "#1c1814", roughness: 0.78, metalness: 0.02, transparent: true, opacity: 0.52 });
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
   // is reserved for true front meshes above; the carcass gets a flush finish skin.
@@ -1099,10 +1101,36 @@ export function addCabinet(
     reveal.position.set(x, y, z);
     frontGroup.add(reveal);
   };
+  const addFaceShadow = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.008) => {
+    const shadow = new THREE.Mesh(new THREE.BoxGeometry(faceWidth + 0.024, faceHeight + 0.024, 0.012), shadowRevealMaterial);
+    shadow.position.set(x, y, z);
+    shadow.userData = { cabinetFaceShadowGap: true, dimensionalCabinetDetail: true };
+    frontGroup.add(shadow);
+  };
+  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086) => {
+    const pullWidth = Math.min(Math.max(0.12, faceWidth * (drawer ? 0.48 : 0.28)), 0.62);
+    const pull = new THREE.Mesh(new THREE.BoxGeometry(pullWidth, 0.022, 0.026), hardwareMaterial);
+    pull.position.set(drawer ? x : x + Math.sign(x || 1) * Math.max(0.035, faceWidth * 0.24), drawer ? y : y + faceHeight * 0.08, z);
+    pull.userData = { cabinetHardware: true, cabinetPull: drawer ? "drawer" : "door", dimensionalCabinetDetail: true };
+    frontGroup.add(pull);
+    for (const offset of [-1, 1] as const) {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
+      stem.rotation.x = Math.PI / 2;
+      stem.position.set(pull.position.x + offset * pullWidth * 0.34, pull.position.y, z - 0.018);
+      stem.userData = { cabinetHardwareMount: true };
+      frontGroup.add(stem);
+    }
+  };
   const isPlacedAppliance = placement === "appliance";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isPlacedAppliance) {
-    const applianceMaterial = new THREE.MeshStandardMaterial({ color: "#c7cbd0", roughness: 0.24, metalness: 0.62 });
+    const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
+    const applianceMaterial = new THREE.MeshStandardMaterial({
+      color: isPanelReadyAppliance ? faceColor : "#c7cbd0",
+      map: isPanelReadyAppliance ? doorTexture : null,
+      roughness: isPanelReadyAppliance ? 0.42 : 0.24,
+      metalness: isPanelReadyAppliance ? 0.04 : 0.62,
+    });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
     const code = sku.masterCode.toUpperCase();
     if (/HOOD/.test(code)) {
@@ -1117,7 +1145,22 @@ export function addCabinet(
       frontGroup.add(chimney);
       const intake = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.72, Math.max(0.035, hood.canopyHeight * 0.14), 0.07), glassMaterial);
       intake.position.set(0, -bodyHeight / 2 + hood.canopyHeight * 0.48, 0.07);
+      intake.userData = { applianceCode: sku.masterCode, rangeHoodIntake: true, dimensionalApplianceDetail: true };
       frontGroup.add(intake);
+      const hoodDetailMaterial = new THREE.MeshStandardMaterial({ color: "#5a626b", roughness: 0.24, metalness: 0.76 });
+      for (const offset of [-0.18, 0, 0.18] as const) {
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.16, 0.012, 0.032), hoodDetailMaterial);
+        vent.position.set(offset * hood.width, -bodyHeight / 2 + hood.canopyHeight * 0.52, 0.112);
+        vent.userData = { applianceCode: sku.masterCode, rangeHoodVent: true, dimensionalApplianceDetail: true };
+        frontGroup.add(vent);
+      }
+      for (const offset of [-0.05, 0.05] as const) {
+        const button = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 12), hoodDetailMaterial);
+        button.rotation.x = Math.PI / 2;
+        button.position.set(offset, -bodyHeight / 2 + hood.canopyHeight * 0.27, 0.112);
+        button.userData = { applianceCode: sku.masterCode, rangeHoodControl: true, dimensionalApplianceDetail: true };
+        frontGroup.add(button);
+      }
     } else {
       const dishwasherToeKickHeight = THREE_D_TOE_KICK * INCH;
       const applianceFaceHeight = isFloorDishwasher ? Math.max(0.2, bodyHeight - dishwasherToeKickHeight) : bodyHeight - 0.06;
@@ -1130,16 +1173,36 @@ export function addCabinet(
         const upperHeight = Math.max(0.2, bodyHeight * 0.72);
         const freezerHeight = Math.max(0.16, bodyHeight - upperHeight - 0.1);
         const refrigeratorDoorWidth = (bodyWidth - 0.1) / 2;
+        const applianceHandleMaterial = new THREE.MeshStandardMaterial({ color: "#20262c", roughness: 0.2, metalness: 0.82 });
         for (const side of [-1, 1] as const) {
           const refrigeratorDoor = new THREE.Mesh(new THREE.BoxGeometry(refrigeratorDoorWidth - 0.025, upperHeight, 0.064), applianceMaterial);
           refrigeratorDoor.position.set(side * refrigeratorDoorWidth * 0.5, bodyHeight / 2 - upperHeight / 2 - 0.035, 0.042);
           refrigeratorDoor.userData = { applianceCode: sku.masterCode, refrigeratorDoor: side === -1 ? "left" : "right", applianceFront: true };
           frontGroup.add(refrigeratorDoor);
+          const handle = new THREE.Mesh(new THREE.BoxGeometry(0.042, upperHeight * 0.72, 0.052), applianceHandleMaterial);
+          handle.position.set(side * refrigeratorDoorWidth * 0.13, refrigeratorDoor.position.y, 0.092);
+          handle.userData = { applianceCode: sku.masterCode, refrigeratorHandle: side === -1 ? "left" : "right", dimensionalApplianceDetail: true };
+          frontGroup.add(handle);
         }
         const freezer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.1, freezerHeight, 0.064), applianceMaterial);
         freezer.position.set(0, -bodyHeight / 2 + freezerHeight / 2 + 0.03, 0.042);
-        freezer.userData = { applianceCode: sku.masterCode, refrigeratorFreezer: true, applianceFront: true };
+        freezer.userData = { applianceCode: sku.masterCode, refrigeratorFreezer: true, applianceFront: true, ...(isPanelReadyAppliance ? { panelReadyFinish: true } : {}) };
         frontGroup.add(freezer);
+        const freezerHandle = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.6, 0.038, 0.05), applianceHandleMaterial);
+        freezerHandle.position.set(0, freezer.position.y + freezerHeight * 0.12, 0.093);
+        freezerHandle.userData = { applianceCode: sku.masterCode, refrigeratorFreezerHandle: true, dimensionalApplianceDetail: true };
+        frontGroup.add(freezerHandle);
+        const dispenser = new THREE.Mesh(new THREE.BoxGeometry(refrigeratorDoorWidth * 0.33, upperHeight * 0.22, 0.03), glassMaterial);
+        dispenser.position.set(-refrigeratorDoorWidth * 0.5, bodyHeight / 2 - upperHeight * 0.6, 0.088);
+        dispenser.userData = { applianceCode: sku.masterCode, refrigeratorDispenser: true, dimensionalApplianceDetail: true };
+        frontGroup.add(dispenser);
+        const refrigeratorFootMaterial = new THREE.MeshStandardMaterial({ color: "#161a1e", roughness: 0.48, metalness: 0.56 });
+        for (const side of [-1, 1] as const) {
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.075, 0.12), refrigeratorFootMaterial);
+          foot.position.set(side * (bodyWidth / 2 - 0.12), -bodyHeight / 2 + 0.038, bodyDepth / 2 - 0.1);
+          foot.userData = { applianceCode: sku.masterCode, refrigeratorFoot: side === -1 ? "left" : "right", dimensionalApplianceDetail: true };
+          cabinet.add(foot);
+        }
       } else {
         const openingH = rangeLayout?.openingHeight ?? (isFloorDishwasher
           ? Math.max(0.2, bodyHeight - dishwasherToeKickHeight - 0.22)
@@ -1147,8 +1210,19 @@ export function addCabinet(
         const openingWidth = isFloorDishwasher ? Math.max(0.2, bodyWidth - 0.14) : bodyWidth * 0.68;
         const opening = new THREE.Mesh(new THREE.BoxGeometry(openingWidth, openingH, 0.064), glassMaterial);
         opening.position.y = rangeLayout?.openingCenterY ?? (isFloorDishwasher ? dishwasherToeKickHeight / 2 : /RANGE|DW|WINE|MW/.test(code) ? -bodyHeight * 0.03 : bodyHeight * 0.04);
-        opening.userData = { applianceCode: sku.masterCode, applianceOpening: true, ...(isFloorDishwasher ? { dishwasherOpening: true, dishwasherOpeningWidthIn: openingWidth / INCH } : {}) };
+        opening.userData = { applianceCode: sku.masterCode, applianceOpening: true, ...(isPanelReadyAppliance ? { panelReadyFinish: true } : {}), ...(isFloorDishwasher ? { dishwasherOpening: true, dishwasherOpeningWidthIn: openingWidth / INCH } : {}) };
         frontGroup.add(opening);
+        if (isFloorDishwasher) {
+          const dishwasherDetailMaterial = new THREE.MeshStandardMaterial({ color: "#4a5158", roughness: 0.24, metalness: 0.72 });
+          const controlStrip = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.14, 0.075, 0.032), dishwasherDetailMaterial);
+          controlStrip.position.set(0, bodyHeight / 2 - 0.055, 0.083);
+          controlStrip.userData = { applianceCode: sku.masterCode, dishwasherControlStrip: true, dimensionalApplianceDetail: true };
+          frontGroup.add(controlStrip);
+          const dishwasherHandle = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.62, 0.032, 0.052), dishwasherDetailMaterial);
+          dishwasherHandle.position.set(0, bodyHeight / 2 - 0.14, 0.09);
+          dishwasherHandle.userData = { applianceCode: sku.masterCode, dishwasherHandle: true, dimensionalApplianceDetail: true };
+          frontGroup.add(dishwasherHandle);
+        }
       }
       if (rangeLayout) {
         const storageDrawer = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.8, rangeLayout.drawerHeight, 0.066), applianceMaterial);
@@ -1189,6 +1263,18 @@ export function addCabinet(
         controls.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight * 0.38, -bodyDepth * 0.28 + 0.052);
         controls.userData = { applianceCode: sku.masterCode, rangeBackguardControlPanel: true };
         cabinet.add(controls);
+        const knobMaterial = new THREE.MeshStandardMaterial({ color: "#d8dce0", roughness: 0.18, metalness: 0.86 });
+        for (let index = 0; index < 5; index++) {
+          const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.026, 16), knobMaterial);
+          knob.rotation.x = Math.PI / 2;
+          knob.position.set(-bodyWidth * 0.28 + index * bodyWidth * 0.14, bodyHeight / 2 - 0.105, 0.087);
+          knob.userData = { applianceCode: sku.masterCode, rangeControlKnob: index + 1, dimensionalApplianceDetail: true };
+          frontGroup.add(knob);
+        }
+        const ovenHandle = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.62, 0.038, 0.052), knobMaterial);
+        ovenHandle.position.set(0, rangeLayout.openingCenterY + rangeLayout.openingHeight * 0.34, 0.093);
+        ovenHandle.userData = { applianceCode: sku.masterCode, rangeOvenHandle: true, dimensionalApplianceDetail: true };
+        frontGroup.add(ovenHandle);
       }
       const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
@@ -1480,6 +1566,21 @@ export function addCabinet(
     apron.position.set(0, -bodyHeight * 0.1, 0.038);
     apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
     frontGroup.add(apron);
+    const basinMaterial = new THREE.MeshStandardMaterial({ color: "#d5d8d9", roughness: 0.22, metalness: 0.62 });
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(apronWidth * 0.82, 0.055, Math.max(0.22, bodyDepth * 0.46)), basinMaterial);
+    basin.position.set(0, bodyHeight / 2 + 0.016, bodyDepth * 0.08);
+    basin.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkBasin: true, dimensionalApplianceDetail: true };
+    cabinet.add(basin);
+    const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#9fa5aa", roughness: 0.16, metalness: 0.88 });
+    const faucetPost = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, bodyHeight * 0.16, 14), faucetMaterial);
+    faucetPost.position.set(0, bodyHeight / 2 + bodyHeight * 0.08, -bodyDepth * 0.12);
+    faucetPost.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetPost: true, dimensionalApplianceDetail: true };
+    cabinet.add(faucetPost);
+    const faucetSpout = new THREE.Mesh(new THREE.TorusGeometry(bodyDepth * 0.11, 0.018, 8, 18, Math.PI), faucetMaterial);
+    faucetSpout.rotation.x = Math.PI / 2;
+    faucetSpout.position.set(0, bodyHeight / 2 + bodyHeight * 0.15, -bodyDepth * 0.015);
+    faucetSpout.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetSpout: true, dimensionalApplianceDetail: true };
+    cabinet.add(faucetSpout);
     const falseFrontHeight = Math.max(0.1, bodyHeight * 0.18);
     const falseFront = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, falseFrontHeight, 0.048), faceMaterial);
     falseFront.position.set(0, bodyHeight / 2 - falseFrontHeight / 2 - 0.04, 0.028);
@@ -1531,12 +1632,16 @@ export function addCabinet(
       frontGroup.add(drawer);
       addDrawerReveal(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y);
+      addFaceShadow(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y);
+      addPull(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y, true);
     }
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, faceHeight, 0.045), faceMaterial);
     door.position.set(doorX, 0, 0);
     door.userData = { cabinetFront: true, vanityDoorFront: true, drawerSide: vanityFaceLayout.drawerSide, flushPhysicalFace: true };
     frontGroup.add(door);
     if (profileKind === 'shaker') addShakerFrame(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
+    addFaceShadow(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
+    addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
   } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
@@ -1544,6 +1649,8 @@ export function addCabinet(
     door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
     door.userData = { cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(door);
+    addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
+    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
     const isRaised = profileKind === "raised";
     if (profileKind === "shaker") {
       addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
@@ -1569,6 +1676,8 @@ export function addCabinet(
       frontGroup.add(drawer);
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
+      addFaceShadow(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
+      addPull(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y, true);
     }
     drawerCursor += hasConfiguredOpening ? row.height : -row.height;
   }
