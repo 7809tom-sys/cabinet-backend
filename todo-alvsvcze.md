@@ -573,14 +573,17 @@
 - [ ] Pause all BEC-24 implementation changes pending a renewed authoritative visual target; do not modify its confirmed construction areas
 - [ ] Preserve the user-supplied future invariant that two mirrored BEC end cabinets nearly form an O/pointed-oval peninsula tip
 - [ ] Create a side-by-side image comparison of the supplied BEC-24 diagram and the current generated reference to make the shape mismatch explicit
-- [ ] Reject the generated quarter-octagon BEC interpretation; use the supplied rear-apex diagram as the only visual reference for any future BEC work
-- [ ] Assemble four rotated copies of the supplied BEC-24 diagram with all 90-degree corners meeting at the center and review the resulting shared shape
-- [ ] Rebuild the four-copy BEC-24 puzzle using only unaltered copies of the supplied diagram and apex alignment, with no generated or interpreted geometry
-- [ ] Create a simple 2-by-2 grid of four identical unaltered copies of the supplied BEC-24 diagram with no rotation, overlap, or interpretation
+- [x] Reject the generated quarter-octagon BEC interpretation; use the supplied rear-apex diagram as the only visual reference for any future BEC work
+- [x] Assemble four rotated copies of the supplied BEC-24 diagram with all 90-degree corners meeting at the center and review the resulting shared shape
+- [x] Rebuild the four-copy BEC-24 puzzle using only unaltered copies of the supplied diagram and apex alignment, with no generated or interpreted geometry
+- [x] Create a simple 2-by-2 grid of four identical unaltered copies of the supplied BEC-24 diagram with no rotation, overlap, or interpretation
 - [ ] Arrange four supplied BEC-24 diagrams so their flat 24-inch side edges touch one another, without generating or redrawing cabinetry
 - [ ] Arrange all four supplied BEC-24 diagrams with their 24-inch sides touching along full lengths so the outside group measures 48 inches on its longest side
-- [ ] Generate a single visual reference of four BEC-24 units based on the supplied diagram, joined at their flat 24-inch sides with no renderer-code changes
-- [ ] Pause all BEC-24 image and renderer work: the user explicitly rejected every square cabinet interpretation and instructed no more squares
-- [ ] Preserve the clarified BEC-24 construction statement for future work: two straight 24-inch projections, then 45-degree end turns, yielding an approximately 17–18-inch exposed end split into two approximately 8.5-inch fronts
+- [x] Generate a single visual reference of four BEC-24 units based on the supplied diagram, joined at their flat 24-inch sides with no renderer-code changes
+- [x] Pause all BEC-24 image and renderer work: the user explicitly rejected every square cabinet interpretation and instructed no more squares
+- [x] Preserve the clarified BEC-24 construction statement for future work: two straight 24-inch projections, then 45-degree end turns, yielding an approximately 17–18-inch exposed end split into two approximately 8.5-inch fronts
 - [x] Treat AW1230, AW1236, and AW1242 as one angled-wall family and seat each decorative door exactly flush and centered on the true angled exterior face
 - [x] Add physical-face regression coverage for AW1230, AW1236, and AW1242 so no door can float, penetrate, or offset from the angled wall-cabinet body
+- [x] Add an Edit Config vanity cabinet-builder with a selectable left- or right-side drawer bank and a remaining single-door bay
+- [x] Persist the vanity drawer-side configuration as a face-layout rule and render the saved vanity layout consistently in 2D and 3D
+- [x] Add regression coverage for left-drawer/right-door and right-drawer/left-door vanity configurations

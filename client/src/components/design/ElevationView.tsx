@@ -2222,8 +2222,36 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // Sections are stored top-to-bottom in the array; we render them as
   // CSS flex-column so the first section is at the top of the cabinet face.
   if (layoutSpec) {
-    let spec: { baseType?: string; sections?: Array<{ type: string; count: number; height: number }> } | null = null;
+    let spec: { baseType?: string; sections?: Array<{ type: string; count: number; height: number }>; vanity?: { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number } } | null = null;
     try { spec = JSON.parse(layoutSpec); } catch { /* ignore */ }
+    if (spec?.vanity) {
+      const drawerSide = spec.vanity.drawerSide === 'right' ? 'right' : 'left';
+      const drawerCount = Math.max(1, spec.vanity.drawerCount || 1);
+      const drawerBank = Math.min(0.55, Math.max(0.28, spec.vanity.drawerBankRatio || 0.4));
+      const drawerHeightPct = 100 / drawerCount;
+      const drawerBankFace = (
+        <div className="relative h-full" style={{ width: `${drawerBank * 100}%` }}>
+          {Array.from({ length: drawerCount }).map((_, index) => (
+            <div key={index} className="relative" style={{ height: `${drawerHeightPct}%` }}>
+              {index > 0 && <div className="absolute inset-x-0 top-0" style={{ height: 2, background: stroke }} />}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} {...drawerPanelProps(1, drawerHeightPct)} />
+            </div>
+          ))}
+        </div>
+      );
+      const doorBankFace = (
+        <div className="relative h-full flex-1">
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} {...doorPanelProps(1, 100)} />
+        </div>
+      );
+      return withFace(
+        <div className="absolute inset-0 flex">
+          {drawerSide === 'left' ? drawerBankFace : doorBankFace}
+          <div className="h-full shrink-0" style={{ width: 2, background: stroke }} />
+          {drawerSide === 'left' ? doorBankFace : drawerBankFace}
+        </div>
+      );
+    }
     if (spec && Array.isArray(spec.sections) && spec.sections.length > 0) {
       const totalH = spec.sections.reduce((s, r) => s + (r.height || 0), 0);
       return withFace(

@@ -28,6 +28,7 @@ type SceneSku = {
   doorHeight?: number | null;
   drawerHeight?: number | null;
   drawerLayout?: string | null;
+  layoutSpec?: string | null;
   ovenType?: "single" | "double" | null;
   graphicType?: string | null;
   customProfile?: string | null;
@@ -37,6 +38,22 @@ type SceneSku = {
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
 };
+
+export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
+export function resolvedThreeDVanityFaceLayout(layoutSpec: string | null | undefined): VanityFaceLayout | null {
+  if (!layoutSpec) return null;
+  try {
+    const parsed = JSON.parse(layoutSpec) as { vanity?: Partial<VanityFaceLayout> };
+    if (!parsed.vanity || (parsed.vanity.drawerSide !== 'left' && parsed.vanity.drawerSide !== 'right')) return null;
+    return {
+      drawerSide: parsed.vanity.drawerSide,
+      drawerCount: Math.max(1, Math.min(8, Number(parsed.vanity.drawerCount) || 1)),
+      drawerBankRatio: Math.min(0.55, Math.max(0.28, Number(parsed.vanity.drawerBankRatio) || 0.4)),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export type InteractiveRoomScene = {
   roomShape: { id: string; name: string; defaultDimensions: unknown; geometryTemplate: unknown } | null;
@@ -1488,6 +1505,33 @@ export function addCabinet(
       frontGroup.add(bar);
     }
   } else {
+  const vanityFaceLayout = resolvedThreeDVanityFaceLayout(sku.layoutSpec);
+  if (vanityFaceLayout) {
+    const availableWidth = bodyWidth - 0.08;
+    const drawerBankWidth = availableWidth * vanityFaceLayout.drawerBankRatio;
+    const doorWidth = availableWidth - drawerBankWidth;
+    const drawerX = vanityFaceLayout.drawerSide === 'left'
+      ? -bodyWidth / 2 + 0.04 + drawerBankWidth / 2
+      : bodyWidth / 2 - 0.04 - drawerBankWidth / 2;
+    const doorX = vanityFaceLayout.drawerSide === 'left'
+      ? bodyWidth / 2 - 0.04 - doorWidth / 2
+      : -bodyWidth / 2 + 0.04 + doorWidth / 2;
+    const faceHeight = bodyHeight - 0.08;
+    const drawerHeight = faceHeight / vanityFaceLayout.drawerCount;
+    for (let index = 0; index < vanityFaceLayout.drawerCount; index++) {
+      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerBankWidth - 0.025, drawerHeight - 0.025, 0.048), faceMaterial);
+      drawer.position.set(drawerX, bodyHeight / 2 - 0.04 - drawerHeight * (index + 0.5), 0.004);
+      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, vanityDrawerFront: true, drawerSide: vanityFaceLayout.drawerSide, flushPhysicalFace: true };
+      frontGroup.add(drawer);
+      addDrawerReveal(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y);
+      addShakerFrame(drawerBankWidth - 0.025, drawerHeight - 0.025, drawer.position.x, drawer.position.y);
+    }
+    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, faceHeight, 0.045), faceMaterial);
+    door.position.set(doorX, 0, 0);
+    door.userData = { cabinetFront: true, vanityDoorFront: true, drawerSide: vanityFaceLayout.drawerSide, flushPhysicalFace: true };
+    frontGroup.add(door);
+    if (profileKind === 'shaker') addShakerFrame(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
+  } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
@@ -1548,6 +1592,7 @@ export function addCabinet(
       openingHeightIn: openingHeight / INCH,
     };
     frontGroup.add(opening);
+  }
   }
   }
   cabinet.add(frontGroup);
@@ -1983,6 +2028,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     doorHeight: cabinet.doorHeight ?? null,
     drawerHeight: cabinet.drawerHeight ?? null,
     drawerLayout: cabinet.drawerLayout ?? null,
+    layoutSpec: cabinet.layoutSpec ?? null,
     ovenType: cabinet.ovenType ?? null,
     graphicType: cabinet.customProfile ?? null,
     customProfile: cabinet.customProfile ?? null,

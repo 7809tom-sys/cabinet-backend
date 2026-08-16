@@ -150,6 +150,11 @@ export type LayoutSpec = {
   baseType: 'toe-kick' | 'pedestal';
   pedestalHeight?: number; // height of pedestal feet in inches (default 6)
   sections: LayoutSection[]; // ordered top-to-bottom in array, rendered bottom-up
+  vanity?: {
+    drawerSide: 'left' | 'right';
+    drawerCount: number;
+    drawerBankRatio: number;
+  };
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -530,6 +535,19 @@ export function LayoutSpecBuilder({
 
   const totalHeight = spec.sections.reduce((sum, s) => sum + (s.height || 0), 0);
   const hasSpec = spec.sections.length > 0;
+  const isVanity = (cabinet.category ?? '').toLowerCase().includes('vanity');
+  const setVanityLayout = (drawerSide: 'left' | 'right') => {
+    const drawerCount = Math.max(1, cabinet.numberOfDrawers ?? 3);
+    setSpec({
+      ...spec,
+      sections: [],
+      vanity: { drawerSide, drawerCount, drawerBankRatio: 0.4 },
+    });
+  };
+  const clearVanityLayout = () => {
+    const { vanity: _vanity, ...withoutVanity } = spec;
+    setSpec(withoutVanity);
+  };
 
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 dark:bg-primary/10 px-4 py-3 space-y-4">
@@ -543,6 +561,39 @@ export function LayoutSpecBuilder({
           </span>
         )}
       </div>
+
+      {isVanity && (
+        <div className="rounded-md border border-violet-300/70 bg-violet-50/60 p-3 space-y-2 dark:bg-violet-950/20">
+          <div>
+            <p className="text-xs font-semibold text-violet-800 dark:text-violet-200">Vanity cabinet builder</p>
+            <p className="text-[11px] text-muted-foreground">Set one tall door bay plus a vertically stacked drawer bank on the left or right.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(['left', 'right'] as const).map((side) => (
+              <button
+                key={side}
+                type="button"
+                disabled={disabled}
+                onClick={() => setVanityLayout(side)}
+                className={cn(
+                  'rounded border px-2 py-2 text-xs font-medium transition-colors',
+                  spec.vanity?.drawerSide === side
+                    ? 'border-violet-600 bg-violet-600 text-white'
+                    : 'border-violet-200 bg-background text-violet-800 hover:border-violet-500 dark:text-violet-200',
+                )}
+              >
+                Drawers {side} · door {side === 'left' ? 'right' : 'left'}
+              </button>
+            ))}
+          </div>
+          {spec.vanity && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>{spec.vanity.drawerCount} drawer{spec.vanity.drawerCount === 1 ? '' : 's'} in a {Math.round(spec.vanity.drawerBankRatio * 100)}% {spec.vanity.drawerSide} bank.</span>
+              <button type="button" disabled={disabled} onClick={clearVanityLayout} className="ml-auto text-destructive hover:underline">Use standard layout</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Init / Clear buttons when no spec */}
       {!hasSpec && (
