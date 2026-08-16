@@ -229,9 +229,10 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
   const burnerRadius = Math.max(0.06, Math.min(cooktopWidth, cooktopDepth) * 0.105);
   const xOffset = cooktopWidth * 0.24;
   const zOffset = cooktopDepth * 0.23;
-  // In the 3D preview, the range burner surface must meet the adjacent finished
-  // countertop top rather than sit below it when catalog height data is short.
-  const cookingSurfaceY = (COUNTERTOP_TOP - mountBottomIn) * INCH - bodyHeight / 2;
+  // A freestanding range's cooktop follows the 34½-inch base-cabinet line. The
+  // countertop slab may sit above this line, but only the rear range controls
+  // rise higher than the adjacent cabinet faces.
+  const cookingSurfaceY = (STD.RANGE_COOKING_SURFACE_HEIGHT - mountBottomIn) * INCH - bodyHeight / 2;
   return {
     cooktopWidth,
     cooktopDepth,
@@ -250,7 +251,7 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
 
 /** Shared freestanding-range vertical profile, measured from finished floor. */
 export function freestandingRangeHeightProfile(mountBottomIn = 0, bodyHeight = 0) {
-  const cookingSurfaceIn = COUNTERTOP_TOP;
+  const cookingSurfaceIn = STD.RANGE_COOKING_SURFACE_HEIGHT;
   const backguardTopIn = STD.RANGE_BACKGUARD_TOP;
   const backguardHeight = Math.max(0, (backguardTopIn - cookingSurfaceIn) * INCH);
   const cookingSurfaceY = (cookingSurfaceIn - mountBottomIn) * INCH - bodyHeight / 2;
@@ -764,7 +765,9 @@ export function addCabinet(
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
   const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
-  const resolvedHeightIn = isFreestandingRange ? Math.max(36, configuredHeightIn) : configuredHeightIn;
+  const resolvedHeightIn = isFreestandingRange
+    ? Math.max(STD.RANGE_COOKING_SURFACE_HEIGHT, configuredHeightIn)
+    : configuredHeightIn;
   const catalogMountBottom = sku.mountBottom != null
     ? numberValue(sku.mountBottom, 0)
     : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);

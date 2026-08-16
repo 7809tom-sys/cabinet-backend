@@ -150,6 +150,14 @@
 - [x] Add focused range visual regression coverage
 - [ ] Verify the corrected range in the reported 3D design
 
+## Fix: RANGE-30 cooktop must meet the 34.5-inch base-cabinet line
+
+- [x] Trace the range body, cooktop, countertop, and backguard elevation calculations
+- [x] Raise only the RANGE-30 body and cooktop to the 34.5-inch base-cabinet line
+- [x] Keep the rear control panel above the cooktop line
+- [x] Add an elevation regression for the reported range-height contract
+- [ ] Verify the corrected range in the reported 3D/elevation views
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

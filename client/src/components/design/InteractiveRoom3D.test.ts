@@ -383,7 +383,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(fsbAtFrontRight, room).rotation).toBeCloseTo(-Math.PI / 2, 12);
   });
 
-  it("renders a generic-metadata FSB36 as a farmhouse front and normalizes a short RANGE-30 record to 36 inches", () => {
+  it("renders a generic-metadata FSB36 as a farmhouse front and normalizes a short RANGE-30 record to the 34.5-inch base-cabinet line", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 1, cabinetId: 36, masterCode: "FSB-36", description: '36" Farm Sink Base Cabinet',
@@ -397,7 +397,7 @@ describe("interactive 3D room scene helpers", () => {
     root.traverse((node) => nodes.push(node));
     expect(nodes.filter((node) => node.userData.farmhouseApronFront)).toHaveLength(1);
     const range = root.children.find((node) => node.userData.masterCode === "RANGE-30")!;
-    expect(range.userData.catalogApplianceEnvelope.heightIn).toBe(36);
+    expect(range.userData.catalogApplianceEnvelope.heightIn).toBe(34.5);
   });
 
   it("builds dimensional cabinet, refrigerator, range, dishwasher, farmhouse sink, and hood detail meshes", () => {
@@ -990,8 +990,10 @@ describe("interactive 3D room scene helpers", () => {
     const cooktop = rangeCooktopLayout(30 / 12, 25 / 12, 36 / 12);
     expect(cooktop.cooktopWidth).toBeCloseTo(2.38, 12);
     expect(cooktop.cooktopDepth).toBeCloseTo((25 / 12) - 0.12, 12);
-    expect(cooktop.cookingSurfaceY).toBeCloseTo(1.5, 12);
-    expect(cooktop.topY + cooktop.cooktopThickness / 2).toBeCloseTo(1.5, 12);
+    // rangeCooktopLayout returns local coordinates centered on the 36-inch
+    // model body: 34.5in from the floor is therefore 1.375ft above its center.
+    expect(cooktop.cookingSurfaceY).toBeCloseTo(1.375, 12);
+    expect(cooktop.topY + cooktop.cooktopThickness / 2).toBeCloseTo(1.375, 12);
     expect(cooktop.burnerCenters).toHaveLength(4);
     expect(cooktop.burnerCenters[0]?.x).toBeCloseTo(-0.5712, 12);
     expect(cooktop.burnerCenters[0]?.z).toBeCloseTo(-0.45156666666666667, 12);
@@ -999,9 +1001,9 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses a 47-inch backguard top above the shared 34½-inch freestanding range cooktop", () => {
     const profile = freestandingRangeHeightProfile(0, 36 / 12);
-    expect(profile.cookingSurfaceIn).toBe(36);
+    expect(profile.cookingSurfaceIn).toBe(34.5);
     expect(profile.backguardTopIn).toBe(47);
-    expect(profile.backguardHeight * 12).toBeCloseTo(11, 8);
+    expect(profile.backguardHeight * 12).toBeCloseTo(12.5, 8);
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
@@ -1677,7 +1679,7 @@ describe("interactive 3D room scene helpers", () => {
     );
     expect(footBounds.min.y).toBeCloseTo(0, 8);
     expect(footBounds.max.y).toBeCloseTo(chassisBounds.min.y, 6);
-    expect(cooktopBounds.max.y).toBeCloseTo(36 / 12, 6);
+    expect(cooktopBounds.max.y).toBeCloseTo(34.5 / 12, 6);
     expect(backguardBounds.max.y).toBeCloseTo(47 / 12, 6);
     expect(backguard!.userData.rangeBackguardTopIn).toBe(47);
     expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);
