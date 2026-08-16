@@ -330,6 +330,14 @@
 - [x] Add left/right refrigerator enclosure panel and no-handle regressions
 - [ ] Verify the reported 3D scene
 
+## Fix: Left refrigerator end panel is absent from the saved elevation layout
+
+- [x] Trace the refrigerator surround insertion path against the reported saved design
+- [x] Ensure both left and right refrigerator end panels persist as distinct placements
+- [x] Prevent collision cleanup or placement deduplication from dropping either panel
+- [x] Add saved-elevation regressions for both panels
+- [ ] Verify the reported wall
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood

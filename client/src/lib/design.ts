@@ -1368,10 +1368,11 @@ export function shouldBlockPlacementCollision(moving: PlacedCabinet, others: Pla
  * base-to-base collision prevention.
  */
 export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boolean {
-  // A thin refrigerator end panel intentionally occupies the refrigerator's
-  // edge projection and must survive the collision filter on both sides.
-  const isFridge = (item: PlacedCabinet) => /^FRIDGE[-_]?/i.test(item.masterCode ?? "");
-  if ((isRefrigeratorEndPanel(a) && isFridge(b)) || (isRefrigeratorEndPanel(b) && isFridge(a))) return false;
+  // Refrigerator end panels are thin finish skins at the appliance opening.
+  // They intentionally share the seam projection with the refrigerator and its
+  // neighboring cabinet, so they must never cause either side to be discarded
+  // by batch placement or legacy-layout cleanup.
+  if (isRefrigeratorEndPanel(a) || isRefrigeratorEndPanel(b)) return false;
   if (isHoodOverRangePair(a, b)) return false;
   if (a.placement === b.placement) return true;
   if (!verticalEnvelopesOverlap(a, b)) return false;
