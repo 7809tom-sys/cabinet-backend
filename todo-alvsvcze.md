@@ -587,3 +587,7 @@
 - [x] Add an Edit Config vanity cabinet-builder with a selectable left- or right-side drawer bank and a remaining single-door bay
 - [x] Persist the vanity drawer-side configuration as a face-layout rule and render the saved vanity layout consistently in 2D and 3D
 - [x] Add regression coverage for left-drawer/right-door and right-drawer/left-door vanity configurations
+- [x] Allow same-category wall cabinets to slide flush beside each other while rejecting only true wall-to-wall overlap
+- [x] Keep collision zones placement-aware: wall-vs-wall and base-vs-base block overlap, while wall cabinets may coexist above base cabinets
+- [x] Show a clear in-designer explanation whenever a proposed move is rejected for collision
+- [x] Add elevation movement regressions for flush wall-cabinet adjacency, cross-placement coexistence, and explained collision rejection

@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, placedFootprint, hasCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, placedFootprint, hasCollision, collisionReason, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -2540,7 +2540,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
       if (hasCollision(finalCab, normalizedPrevious)) {
-        const message = `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
+        const message = collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);
         return;
@@ -3767,7 +3767,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const edgeSnap = snapPosition(requestedCabinet, room, prev.filter((p) => p.uid !== uid), island);
       const movedCabinet = { ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y };
       if (hasCollision(movedCabinet, prev.filter((p) => p.uid !== uid))) {
-        const message = `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
+        const message = collisionReason(movedCabinet, prev.filter((p) => p.uid !== uid)) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -3885,7 +3885,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const clamped = clampCabinetsToRoom(moved, room);
       const candidate = clamped.find((p) => p.uid === selectedUid);
       if (candidate && hasCollision(candidate, clamped.filter((p) => p.uid !== selectedUid))) {
-        const message = `${candidate.masterCode} was not moved because it would overlap an existing item.`;
+        const message = collisionReason(candidate, clamped.filter((p) => p.uid !== selectedUid)) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;

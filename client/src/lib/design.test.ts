@@ -25,7 +25,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, orientToWall, hasCollision,
+  snapPosition, orientToWall, hasCollision, collisionReason,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -2393,6 +2393,24 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     const moving = cab({ uid: "M", placement: "base", x: 26, y: 0, width: 24, depth: 24 });
     const res = snapPosition(moving, ROOM, [left, right, moving]);
     expect(hasCollision({ ...moving, x: res.x, y: res.y }, [left, right])).toBe(false);
+  });
+
+  it("lets a wall cabinet share base plan space and butt flush to an adjacent wall cabinet", () => {
+    const base = cab({ uid: "base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
+    const wall = cab({ uid: "wall", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30, mountBottom: 54 });
+    const movingWall = cab({ uid: "moving-wall", placement: "wall", x: 18, y: 0, width: 24, depth: 12, height: 30, mountBottom: 54 });
+    const result = snapPosition(movingWall, ROOM, [base, wall]);
+    expect(result.x).toBe(24);
+    expect(result.y).toBe(0);
+    expect(hasCollision({ ...movingWall, x: result.x, y: result.y }, [base, wall])).toBe(false);
+  });
+
+  it("explains a true same-category collision while preserving the allowed wall-over-base arrangement", () => {
+    const base = cab({ uid: "base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
+    const wall = cab({ uid: "wall", placement: "wall", masterCode: "W-24", x: 0, y: 0, width: 24, depth: 12, height: 30, mountBottom: 54 });
+    const movingWall = cab({ uid: "moving-wall", placement: "wall", masterCode: "W-18", x: 6, y: 0, width: 18, depth: 12, height: 30, mountBottom: 54 });
+    expect(collisionReason(movingWall, [base])).toBeNull();
+    expect(collisionReason(movingWall, [wall])).toBe('Cannot place W-18 here: it overlaps W-24, another wall cabinet. Cabinets may touch edge-to-edge but cannot overlap.');
   });
 });
 

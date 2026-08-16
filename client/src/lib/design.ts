@@ -1155,6 +1155,7 @@ export function snapPosition(
 
   for (const o of others) {
     if (o.uid === moving.uid) continue;
+    if (!sharesPlanCollisionZone(moving, o)) continue;
     const os = placedFootprint(o);
 
     const yOverlap = y < o.y + os.d && y + d > o.y;
@@ -1179,6 +1180,7 @@ export function snapPosition(
     let moved = false;
     for (const o of others) {
       if (o.uid === moving.uid) continue;
+      if (!sharesPlanCollisionZone(moving, o)) continue;
       const os = placedFootprint(o);
       const overlapX = Math.min(x + w, o.x + os.w) - Math.max(x, o.x);
       const overlapY = Math.min(y + d, o.y + os.d) - Math.max(y, o.y);
@@ -1281,22 +1283,7 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
   const { w, d } = placedFootprint(moving);
   for (const o of others) {
     if (o.uid === moving.uid) continue;
-    const samePlacement = o.placement === moving.placement;
-    if (!samePlacement) {
-      // Different placement buckets may share a plan footprint only when their
-      // vertical envelopes do not meet. This protects refrigerator end panels,
-      // tall cabinets, appliances, and base cabinets from occupying the same
-      // buildable opening while preserving valid upper-over-base arrangements.
-      if (!verticalEnvelopesOverlap(moving, o)) continue;
-      // Sink appliance over a sink-base cabinet is the intended layout — not a collision.
-      if (
-        (isSinkAppliance(moving) && isSinkBaseCabinet(o)) ||
-        (isSinkAppliance(o) && isSinkBaseCabinet(moving))
-      ) continue;
-      // A bridge (short) wall cabinet over an over-range microwave/hood is the
-      // intended layout — not a collision.
-      if (isBridgeOverRange(moving, o)) continue;
-    }
+    if (!sharesPlanCollisionZone(moving, o)) continue;
     const os = placedFootprint(o);
     const overlap =
       moving.x < o.x + os.w &&
@@ -1306,6 +1293,35 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
     if (overlap) return true;
   }
   return false;
+}
+
+/** Returns an actionable explanation when a placement is rejected for a true collision. */
+export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[]): string | null {
+  const { w, d } = placedFootprint(moving);
+  const conflicting = others.find((other) => {
+    if (other.uid === moving.uid || !sharesPlanCollisionZone(moving, other)) return false;
+    const size = placedFootprint(other);
+    return moving.x < other.x + size.w && moving.x + w > other.x && moving.y < other.y + size.d && moving.y + d > other.y;
+  });
+  if (!conflicting) return null;
+  const category = conflicting.placement === "wall" ? "wall cabinet" : conflicting.placement === "base" ? "base cabinet" : "item";
+  return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}. Cabinets may touch edge-to-edge but cannot overlap.`;
+}
+
+/**
+ * Items reserve the same plan run only when their placement category matches or
+ * their physical elevation envelopes intersect. This allows a wall cabinet to
+ * occupy the plan space above a base cabinet while retaining wall-to-wall and
+ * base-to-base collision prevention.
+ */
+export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  if (a.placement === b.placement) return true;
+  if (!verticalEnvelopesOverlap(a, b)) return false;
+  if (
+    (isSinkAppliance(a) && isSinkBaseCabinet(b)) ||
+    (isSinkAppliance(b) && isSinkBaseCabinet(a))
+  ) return false;
+  return !isBridgeOverRange(a, b);
 }
 
 export type CollisionResolution = {
