@@ -1395,6 +1395,70 @@ describe("interactive 3D room scene helpers", () => {
     expect(raisedKicks).toHaveLength(0);
   });
 
+  it("keeps a base cabinet and a raised wall cabinet as distinct measured assemblies", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -151,
+      cabinetId: 151,
+      masterCode: "B-24-DISTINCT",
+      description: '24" Base Cabinet',
+      placementType: "base",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 2,
+      numberOfDrawers: 1,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 24, z: 12, rotation: 0, bottom: 4.5 });
+    addCabinet(root, {
+      distributorSkuId: -152,
+      cabinetId: 152,
+      masterCode: "W-24-DISTINCT",
+      description: '24" x 30" Wall Cabinet',
+      placementType: "wall",
+      width: 24,
+      height: 30,
+      depth: 12,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 24, z: 6, rotation: 0, bottom: 54 });
+
+    const base = root.children.find((node) => node.userData.masterCode === "B-24-DISTINCT")!;
+    const wall = root.children.find((node) => node.userData.masterCode === "W-24-DISTINCT")!;
+    const baseBodies: THREE.Mesh[] = [];
+    const wallBodies: THREE.Mesh[] = [];
+    const baseFronts: THREE.Object3D[] = [];
+    const wallFronts: THREE.Object3D[] = [];
+    const counters: THREE.Mesh[] = [];
+    base.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) baseBodies.push(node);
+      if (node.userData.cabinetFront) baseFronts.push(node);
+    });
+    wall.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin) wallBodies.push(node);
+      if (node.userData.cabinetFront) wallFronts.push(node);
+    });
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.countertopDepthIn === 24.25) counters.push(node);
+    });
+    expect(base.userData.floorStandingCabinet).toBe(true);
+    expect(wall.userData.floorStandingCabinet).toBeUndefined();
+    expect(baseBodies).toHaveLength(1);
+    expect(wallBodies).toHaveLength(1);
+    expect(baseFronts).toHaveLength(3);
+    expect(wallFronts).toHaveLength(2);
+    expect(counters).toHaveLength(1);
+    root.updateMatrixWorld(true);
+    const baseBounds = new THREE.Box3().setFromObject(baseBodies[0]!);
+    const wallBounds = new THREE.Box3().setFromObject(wallBodies[0]!);
+    const counterBounds = new THREE.Box3().setFromObject(counters[0]!);
+    expect(baseBounds.min.y).toBeCloseTo(4.5 / 12, 8);
+    expect(baseBounds.max.y).toBeCloseTo(34.5 / 12, 8);
+    expect(counterBounds.min.y).toBeCloseTo(34.5 / 12, 8);
+    expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
+    expect(wallBounds.min.y).toBeCloseTo(54 / 12, 8);
+    expect(wallBounds.max.y).toBeCloseTo(84 / 12, 8);
+  });
+
   it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {
     const root = new THREE.Group();
     addCabinet(root, {
