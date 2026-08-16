@@ -178,6 +178,21 @@
 - [x] Render visible gas versus electric range-control differences in 3D and test them
 - [x] Keep the procedural elevation approach explicit rather than claiming it uses the catalog photo
 
+## Fix: LSB36 lazy Susan bases must match the 2D plan in 3D
+
+- [ ] Compare the LSB36 2D corner footprint and orientation with its current 3D scene profile
+- [ ] Render LSB36 as a true corner lazy-Susan body instead of a standard drawer base
+- [ ] Align each LSB36 room-facing corner door/front with its 2D rotation
+- [ ] Add LSB36 2D-to-3D parity regression coverage and verify the reported layout
+
+## Fix: Right-hand LSB36 lazy Susan face is hidden in the corner
+
+- [x] Trace the right-corner LSB36 rotation and front-plane selection
+- [x] Correct only the right-hand LSB36 so its lazy Susan face opens into the room
+- [x] Preserve the confirmed left-hand LSB36 orientation
+- [x] Add left-versus-right LSB36 orientation regressions
+- [ ] Verify the reported layout in the interactive 3D preview
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

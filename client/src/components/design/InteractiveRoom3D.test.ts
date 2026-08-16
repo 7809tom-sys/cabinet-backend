@@ -353,6 +353,20 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
   });
 
+  it("keeps left and right LSB36 lazy Susan fronts on their room-facing corner legs", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const left = {
+      uid: "lsb36-top-left", cabinetId: 36, masterCode: "LSB36", description: "Lazy Susan Base Cabinet",
+      placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    const right = {
+      uid: "lsb36-top-right", cabinetId: 36, masterCode: "LSB36", description: "Lazy Susan Base Cabinet",
+      placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(existingCabinetTransform(left, room).rotation).toBeCloseTo(0, 12);
+    expect(existingCabinetTransform(right, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
   it("mounts FSB36's apron on the room-facing side of a right-wall placement", () => {
     const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
     const fsb = {

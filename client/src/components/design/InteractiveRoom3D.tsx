@@ -1836,10 +1836,11 @@ export function threeDRoomFacingRotation(
   if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
-  // ERB / BER easy-reach bases use a local 3D carcass handedness opposite the
-  // clockwise 2D corner turn. Mirror that turn so their exposed fronts point
-  // into the room while their backs remain at the two corner walls.
-  if (kind === "l-shape" && /^(?:ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
+  // L-corner carcasses use a local notch/front convention opposite the clockwise
+  // 2D corner turn. Mirror that turn so both Lazy Susan and easy-reach fronts
+  // face the room at left- and right-hand corners, while their backs stay at the
+  // two adjoining walls.
+  if (kind === "l-shape" && /^(?:LSB?|ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
   if (kind !== "standard") return fallbackRotation;
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
