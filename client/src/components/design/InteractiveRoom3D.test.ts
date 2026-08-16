@@ -416,7 +416,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.refrigeratorHandle)).toHaveLength(2);
     expect(nodes.filter((node) => node.userData.refrigeratorFoot)).toHaveLength(2);
     expect(nodes.some((node) => node.userData.refrigeratorDispenser)).toBe(true);
-    expect(nodes.filter((node) => node.userData.rangeControlKnob)).toHaveLength(5);
+    expect(nodes.filter((node) => node.userData.rangeControlKnob)).toHaveLength(4);
     expect(nodes.some((node) => node.userData.rangeOvenHandle)).toBe(true);
     expect(nodes.some((node) => node.userData.dishwasherControlStrip)).toBe(true);
     expect(nodes.some((node) => node.userData.dishwasherHandle)).toBe(true);
@@ -1683,6 +1683,24 @@ describe("interactive 3D room scene helpers", () => {
     expect(backguardBounds.max.y).toBeCloseTo(47 / 12, 6);
     expect(backguard!.userData.rangeBackguardTopIn).toBe(47);
     expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);
+  });
+
+  it("renders a selected Black Gas Range with a black chassis and five visible gas controls", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -31, cabinetId: 30, masterCode: "RANGE-30", description: '30" Black Gas Range', placementType: "appliance",
+      width: 30, height: 36, depth: 25, numberOfDoors: 0, numberOfDrawers: 0,
+      catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-silhouette_0a25e71c.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+    const gasControls: THREE.Mesh[] = [];
+    let chassis: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.freestandingRangeChassis) chassis = node;
+      if (node.userData.rangeControlType === "gas-knob") gasControls.push(node);
+    });
+    expect(gasControls).toHaveLength(5);
+    expect(chassis?.userData).toMatchObject({ rangeFinish: "black", rangeFuel: "gas" });
   });
 
   it("preserves the saved tall-appliance height, dishwasher-spanning counter, and 66-inch range-hood mount in the actual scene meshes", () => {

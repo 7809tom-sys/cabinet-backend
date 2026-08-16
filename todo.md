@@ -158,6 +158,26 @@
 - [x] Add an elevation regression for the reported range-height contract
 - [ ] Verify the corrected range in the reported 3D/elevation views
 
+## Feature: Detailed dishwasher and appliance finish choices
+
+- [ ] Audit existing dishwasher 2D/3D geometry and appliance finish data flow
+- [ ] Render dishwasher straight-on control strip, recessed door, handle, and toe detail in 2D/elevation
+- [ ] Render dishwasher as a dimensional angled 3D appliance matching its 2D envelope
+- [ ] Add stainless, black stainless, white, and black appliance finish choices
+- [ ] Map the selected appliance finish consistently to 2D and 3D rendering
+- [ ] Add dishwasher and appliance-finish regression coverage and verify the preview
+
+## Fix: Selected Black Gas Range must not render as a generic white range
+
+- [x] Trace Black Gas Range catalog selection through saved placement state
+- [x] Preserve selected range variant description, gas type, and black finish in procedural elevation rendering
+- [x] Preserve selected range variant finish and gas controls in 3D rendering
+- [x] Add selected-range appearance, elevation, and 3D control regressions
+- [ ] Verify the selected Black Gas Range in the reported design
+- [x] Add elevation regression coverage for black finish and gas-style range front details
+- [x] Render visible gas versus electric range-control differences in 3D and test them
+- [x] Keep the procedural elevation approach explicit rather than claiming it uses the catalog photo
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

@@ -40,6 +40,19 @@ describe("measured base and range elevations", () => {
     expect(markup).toContain("top:30%");
     expect(markup).not.toContain('aspect-ratio:1');
   });
+
+  it("renders a selected Black Gas Range with a black procedural face and five gas knobs", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [{ uid: "range-black-gas", cabinetId: 82, masterCode: "RANGE-30", description: '30" Black Gas Range', placement: "appliance", x: 24, y: 0, width: 30, height: 36, depth: 25, rotation: 0, catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-silhouette_0a25e71c.webp" }],
+        selectedUid: null, onSelect: () => undefined, wall: "back",
+      })),
+    );
+    expect(markup).toContain('data-range-finish="black"');
+    expect(markup).toContain('data-range-fuel="gas"');
+    expect((markup.match(/data-range-control="gas-knob"/g) ?? [])).toHaveLength(5);
+  });
 });
 
 describe("end-angle elevation face", () => {

@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation,
+  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -332,6 +332,7 @@ export function ElevationView({
     const applianceVisualUrl = isAppliance && applianceElevationPresentation(p.masterCode) === "photo"
       ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
       : null;
+    const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(p) : null;
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
@@ -353,9 +354,15 @@ export function ElevationView({
     // Product photos are intentionally not tiled into elevations because their
     // embedded seams create false drawer and rail lines at small drawing scales.
     const faceFill = isAppliance
-      ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
+      ? rangeAppearance?.finish === "black"
+        ? "linear-gradient(160deg, #303841 0%, #171d23 20%, #0d1217 56%, #202932 100%)"
+        : rangeAppearance?.finish === "black-stainless"
+          ? "linear-gradient(160deg, #626a72 0%, #30363d 28%, #151a20 58%, #4d555e 100%)"
+          : rangeAppearance?.finish === "white"
+            ? "linear-gradient(160deg, #ffffff 0%, #f1f3f5 38%, #d9dde1 100%)"
+            : "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
       : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
-    const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
+    const edgeColor = isAppliance ? (rangeAppearance?.finish === "black" ? "#070a0e" : "#6b7280") : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     // Microwave bases are explicitly zero-door Cabinet Config records; their
     // resolver returns those authored counts without applying a width fallback.
@@ -597,9 +604,9 @@ export function ElevationView({
               {/* Orthographic range FRONT only: control panel, oven door, and
                   lower kick. Do not draw a horizontal cooktop surface or burner
                   circles here—the cooking plane belongs to the 3D room view. */}
-              <div className="absolute left-0 right-0 top-0" style={{ height: "23%", background: "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
-              {["18%", "34%", "66%", "82%"].map((left, index) => (
-                <div key={index} className="absolute rounded-full" style={{ left: `calc(${left} - 5px)`, top: "8%", width: 10, height: 10, border: "1px solid rgba(50,60,72,0.85)", background: "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
+              <div data-range-finish={rangeAppearance?.finish ?? "stainless"} data-range-fuel={rangeAppearance?.fuel ?? "electric"} className="absolute left-0 right-0 top-0" style={{ height: "23%", background: rangeAppearance?.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance?.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
+              {(rangeAppearance?.fuel === "gas" ? ["14%", "31%", "50%", "69%", "86%"] : ["18%", "34%", "66%", "82%"]).map((left, index) => (
+                <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: "7%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
               ))}
               <div
                 className="absolute"

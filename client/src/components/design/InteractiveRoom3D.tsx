@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -760,6 +760,7 @@ export function addCabinet(
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const isPlacedHood = placement === "appliance" && /HOOD/i.test(sku.masterCode);
   const isFreestandingRange = placement === "appliance" && !isPlacedHood && (/^RANGE[-_]?\d/i.test(sku.masterCode) || /freestanding\s+range|range\s*\/\s*stove/i.test(sku.description ?? ""));
+  const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
@@ -960,10 +961,10 @@ export function addCabinet(
     const footHeight = Math.min(0.12, bodyHeight * 0.06);
     const topClearance = 0.06;
     const chassisHeight = Math.max(0.2, bodyHeight - footHeight - topClearance);
-    const chassisMaterial = new THREE.MeshStandardMaterial({ color: "#1b2026", roughness: 0.34, metalness: 0.58 });
+    const chassisMaterial = new THREE.MeshStandardMaterial({ color: rangeAppearance?.bodyColor ?? "#1b2026", roughness: 0.34, metalness: 0.58 });
     const chassis = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.045, chassisHeight, bodyDepth - 0.035), chassisMaterial);
     chassis.position.y = -bodyHeight / 2 + footHeight + chassisHeight / 2;
-    chassis.userData = { applianceCode: sku.masterCode, freestandingRangeChassis: true, rangeFloorClearanceIn: footHeight / INCH };
+    chassis.userData = { applianceCode: sku.masterCode, freestandingRangeChassis: true, rangeFloorClearanceIn: footHeight / INCH, rangeFinish: rangeAppearance?.finish, rangeFuel: rangeAppearance?.fuel };
     cabinet.add(chassis);
 
     const footWidth = Math.max(0.07, Math.min(0.11, bodyWidth * 0.055));
@@ -1129,7 +1130,7 @@ export function addCabinet(
   if (isPlacedAppliance) {
     const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
     const applianceMaterial = new THREE.MeshStandardMaterial({
-      color: isPanelReadyAppliance ? faceColor : "#c7cbd0",
+      color: isPanelReadyAppliance ? faceColor : rangeAppearance?.bodyColor ?? "#c7cbd0",
       map: isPanelReadyAppliance ? doorTexture : null,
       roughness: isPanelReadyAppliance ? 0.42 : 0.24,
       metalness: isPanelReadyAppliance ? 0.04 : 0.62,
@@ -1247,7 +1248,7 @@ export function addCabinet(
             new THREE.MeshStandardMaterial({ color: "#11151a", roughness: 0.25, metalness: 0.58 }),
           );
           burner.position.set(burnerCenter.x, cooktop.cookingSurfaceY + 0.013, burnerCenter.z);
-          burner.userData = { applianceCode: sku.masterCode, rangeBurner: true };
+          burner.userData = { applianceCode: sku.masterCode, rangeBurner: true, rangeFuel: rangeAppearance?.fuel ?? "electric" };
           cabinet.add(burner);
         }
         // A freestanding range keeps a distinct backguard above its 34½-inch
@@ -1261,17 +1262,20 @@ export function addCabinet(
         cabinet.add(backguard);
         const controls = new THREE.Mesh(
           new THREE.BoxGeometry(bodyWidth * 0.56, Math.min(0.13, rangeProfile.backguardHeight * 0.22), 0.026),
-          new THREE.MeshStandardMaterial({ color: "#0c1015", roughness: 0.24, metalness: 0.54 }),
+          new THREE.MeshStandardMaterial({ color: rangeAppearance?.controlColor ?? "#0c1015", roughness: 0.24, metalness: 0.54 }),
         );
         controls.position.set(0, rangeProfile.backguardTopY - rangeProfile.backguardHeight * 0.38, -bodyDepth * 0.28 + 0.052);
         controls.userData = { applianceCode: sku.masterCode, rangeBackguardControlPanel: true };
         cabinet.add(controls);
         const knobMaterial = new THREE.MeshStandardMaterial({ color: "#d8dce0", roughness: 0.18, metalness: 0.86 });
-        for (let index = 0; index < 5; index++) {
-          const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.027, 0.027, 0.026, 16), knobMaterial);
+        const gasRange = rangeAppearance?.fuel === "gas";
+        const controlCount = gasRange ? 5 : 4;
+        const controlRadius = gasRange ? 0.033 : 0.027;
+        for (let index = 0; index < controlCount; index++) {
+          const knob = new THREE.Mesh(new THREE.CylinderGeometry(controlRadius, controlRadius, 0.026, 16), knobMaterial);
           knob.rotation.x = Math.PI / 2;
-          knob.position.set(-bodyWidth * 0.28 + index * bodyWidth * 0.14, bodyHeight / 2 - 0.105, 0.087);
-          knob.userData = { applianceCode: sku.masterCode, rangeControlKnob: index + 1, dimensionalApplianceDetail: true };
+          knob.position.set(-bodyWidth * 0.28 + index * bodyWidth * (controlCount === 5 ? 0.14 : 0.186), bodyHeight / 2 - 0.105, 0.087);
+          knob.userData = { applianceCode: sku.masterCode, rangeControlKnob: index + 1, rangeControlType: gasRange ? "gas-knob" : "electric-control", dimensionalApplianceDetail: true };
           frontGroup.add(knob);
         }
         const ovenHandle = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.62, 0.038, 0.052), knobMaterial);
@@ -1279,7 +1283,7 @@ export function addCabinet(
         ovenHandle.userData = { applianceCode: sku.masterCode, rangeOvenHandle: true, dimensionalApplianceDetail: true };
         frontGroup.add(ovenHandle);
       }
-      const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: "#3b4147", roughness: 0.3, metalness: 0.45 }));
+      const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: rangeAppearance?.controlColor ?? "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);
       frontGroup.add(control);
     }

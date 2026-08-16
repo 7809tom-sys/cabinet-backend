@@ -220,6 +220,33 @@ export function applianceAppearanceImage(masterCode: string | null | undefined, 
   return APPLIANCES.find((item) => item.masterCode === normalized && Boolean(item.catalogImageUrl))?.catalogImageUrl ?? null;
 }
 
+export type RangeVisualAppearance = {
+  finish: "stainless" | "black-stainless" | "white" | "black";
+  fuel: "gas" | "electric";
+  bodyColor: string;
+  controlColor: string;
+};
+
+/** Resolve the selected catalog range variant into deterministic 2D/3D finish data. */
+export function rangeVisualAppearance(input: { description?: string | null; catalogImageUrl?: string | null }): RangeVisualAppearance {
+  const source = `${input.description ?? ""} ${input.catalogImageUrl ?? ""}`.toLowerCase();
+  const finish = /black[\s-]*stainless/.test(source)
+    ? "black-stainless"
+    : /\bwhite\b/.test(source)
+      ? "white"
+      : /\bblack\b/.test(source)
+        ? "black"
+        : "stainless";
+  const fuel = /\bgas\b/.test(source) ? "gas" : "electric";
+  const colors: Record<RangeVisualAppearance["finish"], Pick<RangeVisualAppearance, "bodyColor" | "controlColor">> = {
+    stainless: { bodyColor: "#c7cbd0", controlColor: "#3b4147" },
+    "black-stainless": { bodyColor: "#343a40", controlColor: "#12161b" },
+    white: { bodyColor: "#f1f3f5", controlColor: "#aeb6c0" },
+    black: { bodyColor: "#15191e", controlColor: "#070a0e" },
+  };
+  return { finish, fuel, ...colors[finish] };
+}
+
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
   // Elevation is an orthographic measured drawing. Appliance product images
   // remain in the selling-oriented 3D room; every appliance elevation uses a
