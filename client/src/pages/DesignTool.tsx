@@ -9222,6 +9222,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
                 onPresentationChange={setInteractive3dPresentation}
+                onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight }))}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,

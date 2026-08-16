@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
+import { constrainedThreeDWallHeight } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -60,6 +61,14 @@ describe("interactive 3D room scene helpers", () => {
   it("uses a verified hex style color before applying finish-name fallbacks", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
+  });
+
+  it("constrains adjustable 3D wall height from one inch through ten feet", () => {
+    expect(constrainedThreeDWallHeight(0)).toBe(1);
+    expect(constrainedThreeDWallHeight(1)).toBe(1);
+    expect(constrainedThreeDWallHeight(120)).toBe(120);
+    expect(constrainedThreeDWallHeight(144)).toBe(120);
+    expect(constrainedThreeDWallHeight("10.2")).toBe(10);
   });
 
   it("uses the active catalog door-style finish when scene metadata is sparse", () => {
@@ -502,6 +511,22 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.rangeHoodControl)).toHaveLength(2);
   });
 
+  it("keeps cabinet shell and toe kick in the selected finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 1, cabinetId: 1, masterCode: "B-30", description: "Base Cabinet",
+      placementType: "base", width: 30, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 1,
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    const toeKick = nodes.find((node) => node.userData.baseToeKick) as THREE.Mesh;
+    expect((toeKick.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("7e8d72");
+    const reveals = nodes.filter((node) => node.userData.cabinetDrawerReveal);
+    expect(reveals.length).toBeGreaterThan(0);
+    expect(reveals.every((node) => !(node instanceof THREE.LineSegments))).toBe(true);
+    expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.002);
+  });
+
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
     const cdb = {
       uid: "saved-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: '36" Corner Drawer Base Cabinet',
@@ -759,8 +784,8 @@ describe("interactive 3D room scene helpers", () => {
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
     }, 2, 3);
     expect(rows.map((row) => row.count)).toEqual([1, 2]);
-    expect(rows.map((row) => row.height)).toEqual([0.5, expect.closeTo(5 / 12, 12)]);
-    expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.07);
+    expect(rows.map((row) => row.height)).toEqual([0.5, expect.closeTo(0.4166666667, 10)]);
+    expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.002);
   });
 
   it("assigns a drawer-only cabinet’s complete usable face to its saved drawer stack", () => {

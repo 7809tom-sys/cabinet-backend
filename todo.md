@@ -294,6 +294,15 @@
 - [x] Add cabinet finish material regressions
 - [ ] Verify the smooth finish material in the reported populated 3D design
 
+## Fix: Ghosted cabinet face lines, shell finish mismatch, and fixed 3D wall height
+
+- [x] Trace overlapping door/drawer face layers, reveal lines, and material assignment in the 3D cabinet builder
+- [x] Remove ghosted interior lines while preserving intentional door, drawer, rail, and stile reveals
+- [x] Apply the selected cabinet finish to cabinet sides, tops, bottoms, frames, toe kicks, and fronts
+- [x] Add a 3D wall-height control with 1-inch minimum, 120-inch maximum, and persisted room geometry
+- [x] Add cabinet-face and wall-height regressions
+- [ ] Verify the reported populated 3D design
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood
