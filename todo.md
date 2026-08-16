@@ -148,7 +148,7 @@
 - [x] Remove conflicting range product-image overlays while retaining catalog envelope accuracy
 - [x] Build one correctly proportioned range front with cooktop, controls, oven glass, handle, feet, and backguard
 - [x] Add focused range visual regression coverage
-- [ ] Verify the corrected range in the reported 3D design
+- [x] Verify the corrected range in the reported 3D design
 
 ## Fix: RANGE-30 cooktop must meet the 34.5-inch base-cabinet line
 
@@ -156,7 +156,8 @@
 - [x] Raise only the RANGE-30 body and cooktop to the 34.5-inch base-cabinet line
 - [x] Keep the rear control panel above the cooktop line
 - [x] Add an elevation regression for the reported range-height contract
-- [ ] Verify the corrected range in the reported 3D/elevation views
+- [x] Verify the corrected range in the reported 3D view
+- [ ] Verify the 34.5-inch range correction in the live elevation view
 
 ## Feature: Detailed dishwasher and appliance finish choices
 
@@ -173,7 +174,7 @@
 - [x] Preserve selected range variant description, gas type, and black finish in procedural elevation rendering
 - [x] Preserve selected range variant finish and gas controls in 3D rendering
 - [x] Add selected-range appearance, elevation, and 3D control regressions
-- [ ] Verify the selected Black Gas Range in the reported design
+- [x] Verify the selected Black Gas Range in the reported design
 - [x] Add elevation regression coverage for black finish and gas-style range front details
 - [x] Render visible gas versus electric range-control differences in 3D and test them
 - [x] Keep the procedural elevation approach explicit rather than claiming it uses the catalog photo
@@ -192,6 +193,30 @@
 - [x] Preserve the confirmed left-hand LSB36 orientation
 - [x] Add left-versus-right LSB36 orientation regressions
 - [ ] Verify the reported layout in the interactive 3D preview
+
+## Fix: Over-range microwave should be allowed above RANGE-30
+
+- [ ] Trace the collision guard path rejecting MW-30 over RANGE-30
+- [ ] Permit only an over-range microwave centered above a matching range
+- [ ] Keep unrelated appliance/cabinet overlap blocking intact
+- [ ] Add valid MW-30/RANGE-30 and invalid overlap regressions
+- [ ] Verify microwave placement in the reported elevation and 3D preview
+
+## Fix: Range variants need catalog-correct front or rear control layouts
+
+- [x] Trace selected range variant metadata and current control-position logic
+- [x] Preserve rear controls for the first and fourth selected range variants
+- [x] Render front controls for the second and third selected range variants
+- [x] Apply the same control-position rule in elevation and 3D rendering
+- [x] Add four-variant range-control regression coverage
+- [ ] Verify the four selected range variants in the reported elevation and 3D views
+
+## Fix: Affiliate 3D preview must match main designer range rendering
+
+- [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses
+- [x] Ensure affiliate range geometry, selected variant, finish, and 34.5-inch cooktop contract match the main designer
+- [x] Confirm shared Design Tool coverage exercises the affiliate route as well as the main designer
+- [x] Verify the affiliate preview after the parity correction
 
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 

@@ -30,9 +30,16 @@ describe("realistic designer appliance appearances", () => {
 
   it("keeps the selected Black Gas Range as a black gas procedural appearance", () => {
     expect(rangeVisualAppearance({ description: '30" Black Gas Range', catalogImageUrl: "/manus-storage/30inchWideBlackGasRange-silhouette.webp" }))
-      .toMatchObject({ finish: "black", fuel: "gas", bodyColor: "#15191e" });
+      .toMatchObject({ finish: "black", fuel: "gas", controlPosition: "rear", bodyColor: "#15191e" });
     expect(rangeVisualAppearance({ description: '30" Stainless Electric Range', catalogImageUrl: null }))
-      .toMatchObject({ finish: "stainless", fuel: "electric" });
+      .toMatchObject({ finish: "stainless", fuel: "electric", controlPosition: "rear" });
+  });
+
+  it("preserves each supplied range variant's front-control or rear-control layout", () => {
+    expect(rangeVisualAppearance({ description: '30" Black Gas Range' }).controlPosition).toBe("rear");
+    expect(rangeVisualAppearance({ description: '30" Black Stainless Front-Control Range' }).controlPosition).toBe("front");
+    expect(rangeVisualAppearance({ description: '30" White Electric Front-Control Range' }).controlPosition).toBe("front");
+    expect(rangeVisualAppearance({ description: '30" Stainless Electric Range' }).controlPosition).toBe("rear");
   });
 
   it("uses a calibrated front-only range elevation while preserving realistic appliance imagery in 3D", () => {

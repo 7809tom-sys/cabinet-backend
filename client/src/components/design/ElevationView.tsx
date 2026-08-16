@@ -604,16 +604,16 @@ export function ElevationView({
               {/* Orthographic range FRONT only: control panel, oven door, and
                   lower kick. Do not draw a horizontal cooktop surface or burner
                   circles here—the cooking plane belongs to the 3D room view. */}
-              <div data-range-finish={rangeAppearance?.finish ?? "stainless"} data-range-fuel={rangeAppearance?.fuel ?? "electric"} className="absolute left-0 right-0 top-0" style={{ height: "23%", background: rangeAppearance?.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance?.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
+              <div data-range-finish={rangeAppearance?.finish ?? "stainless"} data-range-fuel={rangeAppearance?.fuel ?? "electric"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute left-0 right-0" style={{ top: rangeAppearance?.controlPosition === "front" ? "25%" : 0, height: rangeAppearance?.controlPosition === "front" ? "15%" : "23%", background: rangeAppearance?.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance?.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
               {(rangeAppearance?.fuel === "gas" ? ["14%", "31%", "50%", "69%", "86%"] : ["18%", "34%", "66%", "82%"]).map((left, index) => (
-                <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: "7%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
+                <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: rangeAppearance?.controlPosition === "front" ? "28%" : "7%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
               ))}
               <div
                 className="absolute"
                 style={{
                   left: "15%",
                   right: "15%",
-                  top: "30%",
+                  top: rangeAppearance?.controlPosition === "front" ? "46%" : "30%",
                   height: 4,
                   background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
                   boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
@@ -621,7 +621,7 @@ export function ElevationView({
                 }}
               />
               {/* Oven window */}
-              <div className="absolute" style={{ left: "10%", right: "10%", top: "40%", bottom: "12%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+              <div className="absolute" style={{ left: "10%", right: "10%", top: rangeAppearance?.controlPosition === "front" ? "56%" : "40%", bottom: "12%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
             </>
           )}
           {!applianceVisualUrl && isAppliance && /^HOOD-/i.test(p.masterCode ?? "") && (
