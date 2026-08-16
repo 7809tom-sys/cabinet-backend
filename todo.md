@@ -106,6 +106,22 @@
 - [x] Add focused ERB36 and FSB36 orientation regression coverage
 - [ ] Verify the two cabinet types in the interactive 3D preview
 
+## Fix: FSB36 front and RANGE-30 height in 3D preview
+
+- [x] Trace the reported FSB36 placement orientation and RANGE-30 elevation
+- [x] Correct only the FSB36 room-facing farmhouse front
+- [x] Correct only the RANGE-30 finished height to match adjacent base cabinets
+- [x] Add focused FSB36 and RANGE-30 3D regressions and verify the preview
+- [ ] Confirm the reported plan in the interactive 3D preview
+
+## Fix: White RANGE-30 height and FSB36 outward-facing front
+
+- [x] Inspect the latest synchronized RANGE-30 height and FSB36 rotation paths
+- [x] Align the white RANGE-30 cooking surface with adjacent countertops
+- [x] Rotate only FSB36 so its farmhouse front faces into the room
+- [x] Add focused regressions for the two reported items
+- [ ] Verify the corrected FSB36 front and RANGE-30 height in the reported live 3D plan
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

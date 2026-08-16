@@ -375,6 +375,32 @@ describe("interactive 3D room scene helpers", () => {
     expect(apronPosition.x).toBeLessThan(cabinetPosition.x);
   });
 
+  it("keeps FSB36's apron on its rotated right-wall run when it also touches the front wall", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const fsbAtFrontRight = {
+      uid: "fsb36-front-right", cabinetId: 36, masterCode: "FSB-36", description: '36" Farm Sink Base Cabinet',
+      placement: "base", x: 96, y: 84, width: 36, depth: 24, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(existingCabinetTransform(fsbAtFrontRight, room).rotation).toBeCloseTo(-Math.PI / 2, 12);
+  });
+
+  it("renders a generic-metadata FSB36 as a farmhouse front and normalizes a short RANGE-30 record to 36 inches", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 1, cabinetId: 36, masterCode: "FSB-36", description: '36" Farm Sink Base Cabinet',
+      placementType: "base", width: 36, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6");
+    addCabinet(root, {
+      distributorSkuId: 2, cabinetId: 30, masterCode: "RANGE-30", description: "30 inch range",
+      placementType: "appliance", width: 30, height: 30, depth: 25, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6");
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    expect(nodes.filter((node) => node.userData.farmhouseApronFront)).toHaveLength(1);
+    const range = root.children.find((node) => node.userData.masterCode === "RANGE-30")!;
+    expect(range.userData.catalogApplianceEnvelope.heightIn).toBe(36);
+  });
+
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
     const cdb = {
       uid: "saved-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: '36" Corner Drawer Base Cabinet',
@@ -938,8 +964,8 @@ describe("interactive 3D room scene helpers", () => {
     const cooktop = rangeCooktopLayout(30 / 12, 25 / 12, 36 / 12);
     expect(cooktop.cooktopWidth).toBeCloseTo(2.38, 12);
     expect(cooktop.cooktopDepth).toBeCloseTo((25 / 12) - 0.12, 12);
-    expect(cooktop.cookingSurfaceY).toBeCloseTo(1.375, 12);
-    expect(cooktop.topY + cooktop.cooktopThickness / 2).toBeCloseTo(1.375, 12);
+    expect(cooktop.cookingSurfaceY).toBeCloseTo(1.5, 12);
+    expect(cooktop.topY + cooktop.cooktopThickness / 2).toBeCloseTo(1.5, 12);
     expect(cooktop.burnerCenters).toHaveLength(4);
     expect(cooktop.burnerCenters[0]?.x).toBeCloseTo(-0.5712, 12);
     expect(cooktop.burnerCenters[0]?.z).toBeCloseTo(-0.45156666666666667, 12);
@@ -947,9 +973,9 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses a 47-inch backguard top above the shared 34½-inch freestanding range cooktop", () => {
     const profile = freestandingRangeHeightProfile(0, 36 / 12);
-    expect(profile.cookingSurfaceIn).toBe(34.5);
+    expect(profile.cookingSurfaceIn).toBe(36);
     expect(profile.backguardTopIn).toBe(47);
-    expect(profile.backguardHeight * 12).toBeCloseTo(12.5, 8);
+    expect(profile.backguardHeight * 12).toBeCloseTo(11, 8);
   });
 
   it("uses a high-resolution PNG export size suitable for design sharing", () => {
@@ -1628,7 +1654,7 @@ describe("interactive 3D room scene helpers", () => {
     );
     expect(footBounds.min.y).toBeCloseTo(0, 8);
     expect(footBounds.max.y).toBeCloseTo(chassisBounds.min.y, 6);
-    expect(cooktopBounds.max.y).toBeCloseTo(34.5 / 12, 6);
+    expect(cooktopBounds.max.y).toBeCloseTo(36 / 12, 6);
     expect(backguardBounds.max.y).toBeCloseTo(47 / 12, 6);
     expect(backguard!.userData.rangeBackguardTopIn).toBe(47);
     expect(chassis!.userData.rangeFloorClearanceIn).toBeGreaterThan(0);

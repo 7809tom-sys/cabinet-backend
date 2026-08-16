@@ -229,9 +229,9 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
   const burnerRadius = Math.max(0.06, Math.min(cooktopWidth, cooktopDepth) * 0.105);
   const xOffset = cooktopWidth * 0.24;
   const zOffset = cooktopDepth * 0.23;
-  // Appliance records remain at their saved floor transform, but the actual
-  // burner surface is a universal 34½ inches above the finished floor.
-  const cookingSurfaceY = (STD.RANGE_COOKING_SURFACE_HEIGHT - mountBottomIn) * INCH - bodyHeight / 2;
+  // In the 3D preview, the range burner surface must meet the adjacent finished
+  // countertop top rather than sit below it when catalog height data is short.
+  const cookingSurfaceY = (COUNTERTOP_TOP - mountBottomIn) * INCH - bodyHeight / 2;
   return {
     cooktopWidth,
     cooktopDepth,
@@ -250,7 +250,7 @@ export function rangeCooktopLayout(bodyWidth: number, bodyDepth: number, bodyHei
 
 /** Shared freestanding-range vertical profile, measured from finished floor. */
 export function freestandingRangeHeightProfile(mountBottomIn = 0, bodyHeight = 0) {
-  const cookingSurfaceIn = STD.RANGE_COOKING_SURFACE_HEIGHT;
+  const cookingSurfaceIn = COUNTERTOP_TOP;
   const backguardTopIn = STD.RANGE_BACKGUARD_TOP;
   const backguardHeight = Math.max(0, (backguardTopIn - cookingSurfaceIn) * INCH);
   const cookingSurfaceY = (cookingSurfaceIn - mountBottomIn) * INCH - bodyHeight / 2;
@@ -758,11 +758,13 @@ export function addCabinet(
   const isBaseCabinet = placement === "base";
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const isPlacedHood = placement === "appliance" && /HOOD/i.test(sku.masterCode);
-  const isFreestandingRange = placement === "appliance" && /RANGE/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
+  const isFreestandingRange = placement === "appliance" && !isPlacedHood && (/^RANGE[-_]?\d/i.test(sku.masterCode) || /freestanding\s+range|range\s*\/\s*stove/i.test(sku.description ?? ""));
+  const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = numberValue(sku.width, 24);
   const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
   const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  const resolvedHeightIn = isFreestandingRange ? Math.max(36, configuredHeightIn) : configuredHeightIn;
   const catalogMountBottom = sku.mountBottom != null
     ? numberValue(sku.mountBottom, 0)
     : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
@@ -776,10 +778,10 @@ export function addCabinet(
   // toe kick. Build only the upper carcass over that kick so every floor run
   // keeps its measured top while exposing the proper floor recess in 3D.
   const heightIn = isFloorStandingCabinet
-    ? Math.max(0.1, configuredHeightIn - THREE_D_TOE_KICK)
+    ? Math.max(0.1, resolvedHeightIn - THREE_D_TOE_KICK)
     : isFloorDishwasher
       ? 34.5
-      : configuredHeightIn;
+      : resolvedHeightIn;
   const key = wallKey === "left" ? "left" : wallKey === "right" ? "right" : wallKey === "front" ? "front" : "back";
   const along = cursor[key] ?? 3;
   cursor[key] = along + widthIn + 1.5;
@@ -816,7 +818,11 @@ export function addCabinet(
     } : {}),
     ...(isPlacedHood ? { wallMountedAppliance: true, noCabinetBacking: true } : {}),
   };
-  const specialty = resolvedThreeDSpecialtyProfile(sku);
+  // FSB catalog rows can carry generic base metadata, so recognize their
+  // code/description at scene construction as well as in profile resolution.
+  const specialty = isFarmhouseSinkBase
+    ? { kind: "farmhouse-sink" as const, pattern: null }
+    : resolvedThreeDSpecialtyProfile(sku);
   const angledWallProfile = isAngledWallProfile(sku);
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
@@ -1721,7 +1727,18 @@ export function threeDRoomFacingRotation(
     left: Math.PI / 2,
     right: -Math.PI / 2,
   };
-  const wall = threeDPlacedWall(cabinet, room as Pick<RoomData, "width" | "depth">);
+  const resolvedRoom = room as Pick<RoomData, "width" | "depth">;
+  const defaultWall = threeDPlacedWall(cabinet, resolvedRoom);
+  // FSB36 can touch two walls at a run end. In that tie the 2D quarter turn
+  // determines its intended run: 90°/270° = left/right wall, 0°/180° = back/front.
+  const savedQuarterTurn = ((Number(cabinet.rotation) % 360) + 360) % 360;
+  const isFarmhouseSink = /^(?:ADA)?FSB\d/.test(code);
+  const footprint = normalizedThreeDFootprint(cabinet);
+  const sideWall = Math.abs(cabinet.x) <= Math.abs(resolvedRoom.width - (cabinet.x + footprint.w)) ? "left" : "right";
+  const horizontalWall = Math.abs(cabinet.y) <= Math.abs(resolvedRoom.depth - (cabinet.y + footprint.d)) ? "back" : "front";
+  const wall = isFarmhouseSink
+    ? (savedQuarterTurn === 90 || savedQuarterTurn === 270 ? sideWall : horizontalWall)
+    : defaultWall;
   return wall ? facing[wall] : fallbackRotation;
 }
 
