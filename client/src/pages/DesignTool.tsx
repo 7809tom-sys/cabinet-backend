@@ -7317,9 +7317,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </div>
           )}
           {customPlacementMode && (
-            <div role="status" className="absolute left-3 right-3 top-14 z-40 flex items-start gap-2 rounded-lg border border-rose-400 bg-rose-50 px-3 py-2 text-sm text-rose-950 shadow-md sm:right-auto sm:max-w-md">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" />
-              <p className="min-w-0 flex-1"><strong>Custom placement active.</strong> Collision blocking and neighbor snapping are temporarily disabled.</p>
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="custom-placement-active-indicator"
+              className="absolute left-3 right-3 top-3 z-50 flex items-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-700 px-3 py-2.5 text-sm font-semibold text-white shadow-xl ring-4 ring-rose-300/70 sm:left-1/2 sm:right-auto sm:w-auto sm:min-w-[32rem] sm:-translate-x-1/2"
+            >
+              <TriangleAlert className="h-5 w-5 shrink-0" />
+              <p className="min-w-0 flex-1"><span className="tracking-wide">OVERLAP MODE ON</span><span className="hidden font-normal sm:inline"> — collision blocking and snapping are disabled</span></p>
+              <button
+                type="button"
+                onClick={() => setCustomPlacementMode(false)}
+                className="shrink-0 rounded-md bg-white px-2.5 py-1 text-xs font-bold text-rose-800 shadow-sm transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                Exit custom
+              </button>
             </div>
           )}
           {viewMode === "plan" && isPolygonRoom && polygonEditMode && (

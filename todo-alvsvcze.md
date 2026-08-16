@@ -596,3 +596,5 @@
 - [x] Add placement regression coverage proving collisions block by default and persist only when the temporary override is enabled
 - [x] Allow a compatible range hood to be placed above its matching range without a plan-collision rejection
 - [x] Preserve collision rejection for truly incompatible appliance overlaps and add hood-over-range placement regressions
+- [x] Add a persistent high-visibility on-screen status indicator whenever temporary Custom placement collision override is active
+- [x] Add responsive visual-state coverage for the active collision-override indicator
