@@ -1069,6 +1069,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(angledDoor.rotation.y).toBeCloseTo(pose.rotation, 8);
     expect(angledDoor.position.x).toBeCloseTo(pose.x, 8);
     expect(angledDoor.position.z).toBeCloseTo(pose.z, 8);
+    expect(angledDoor.userData.flushPhysicalFace).toBe(true);
+    // The door's 0.052ft depth has a 0.026ft half-depth. Its inner surface
+    // remains just outside the triangular hypotenuse instead of penetrating it.
+    expect(pose.x * pose.normalX + pose.z * pose.normalZ).toBeGreaterThan(0.026);
   });
 
   it("normalizes saved BA-24 and BEC-24 records into the supplied rear-apex two-24-inch-side diagram form without refreshed profile metadata", () => {
@@ -1111,12 +1115,15 @@ describe("interactive 3D room scene helpers", () => {
       // Each short door is attached beside the shared exterior apex. The
       // 24-inch values label rear construction sides, not 24-inch doors.
       const shortDoorCenterOffset = 8.45 / 12 * Math.SQRT1_2 / 2;
-      expect(measuredFrontDoor.position.x).toBeCloseTo(-shortDoorCenterOffset, 6);
-      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset, 6);
-      expect(measuredRightDoor.position.x).toBeCloseTo(shortDoorCenterOffset, 6);
-      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset, 6);
+      const flushFaceOffset = 0.029 * Math.SQRT1_2;
+      expect(measuredFrontDoor.position.x).toBeCloseTo(-shortDoorCenterOffset - flushFaceOffset, 6);
+      expect(measuredFrontDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset + flushFaceOffset, 6);
+      expect(measuredRightDoor.position.x).toBeCloseTo(shortDoorCenterOffset + flushFaceOffset, 6);
+      expect(measuredRightDoor.position.z).toBeCloseTo(Math.SQRT2 - shortDoorCenterOffset + flushFaceOffset, 6);
       expect(measuredFrontDoor.rotation.y).toBeCloseTo(-Math.PI / 4, 6);
       expect(measuredRightDoor.rotation.y).toBeCloseTo(Math.PI / 4, 6);
+      expect(measuredFrontDoor.userData.flushPhysicalFace).toBe(true);
+      expect(measuredRightDoor.userData.flushPhysicalFace).toBe(true);
       const toeKicks: THREE.Object3D[] = [];
       const counters: THREE.Object3D[] = [];
       root.traverse((node) => {

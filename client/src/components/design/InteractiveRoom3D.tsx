@@ -435,7 +435,7 @@ export function triangleCornerFrontWidth(bodyWidth: number, bodyDepth: number) {
 }
 
 /** The exposed hypotenuse plane of a triangular angled-wall cabinet. */
-export function triangleCornerFrontPose(bodyWidth: number, bodyDepth: number, outwardOffset = 0.045) {
+export function triangleCornerFrontPose(bodyWidth: number, bodyDepth: number, outwardOffset = 0.029) {
   const normalX = -Math.SQRT1_2;
   const normalZ = Math.SQRT1_2;
   void bodyWidth;
@@ -481,6 +481,7 @@ export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number)
   // The diagram shows two short fronts at the exterior apex. The 24-inch
   // dimensions label the two rear construction sides, never the door spans.
   const doorWidth = Math.min(sideLength, 8.45 * INCH);
+  const doorFaceOffset = 0.029;
   const halfDiagonal = sideLength / Math.SQRT2;
   const rearApex = { x: 0, z: -halfDiagonal };
   const apex = { x: 0, z: halfDiagonal };
@@ -491,8 +492,12 @@ export function baseEndAttachedFrontLayout(bodyWidth: number, bodyDepth: number)
     doorWidth,
     footprint: [rearApex, { x: -halfDiagonal, z: 0 }, apex, { x: halfDiagonal, z: 0 }],
     faces: [
-      { side: "left" as const, x: -doorWidth * Math.SQRT1_2 / 2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2, rotation: -Math.PI / 4 },
-      { side: "right" as const, x: doorWidth * Math.SQRT1_2 / 2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2, rotation: Math.PI / 4 },
+      { side: "left" as const, x: -doorWidth * Math.SQRT1_2 / 2 - doorFaceOffset * Math.SQRT1_2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, rotation: -Math.PI / 4 },
+      { side: "right" as const, x: doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, z: halfDiagonal - doorWidth * Math.SQRT1_2 / 2 + doorFaceOffset * Math.SQRT1_2, rotation: Math.PI / 4 },
+    ],
+    supportFaces: [
+      { side: "left" as const, x: -halfDiagonal / 2, z: halfDiagonal / 2, rotation: -Math.PI / 4 },
+      { side: "right" as const, x: halfDiagonal / 2, z: halfDiagonal / 2, rotation: Math.PI / 4 },
     ],
   };
 }
@@ -816,7 +821,7 @@ export function addCabinet(
       const attachedFronts = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
       const toeKickRecess = 3 * INCH;
       const toeKickThickness = 0.08;
-      for (const face of attachedFronts.faces) {
+      for (const face of attachedFronts.supportFaces) {
         const toeKick = new THREE.Mesh(
           new THREE.BoxGeometry(attachedFronts.sideLength, toeKickHeight, toeKickThickness),
           toeKickMaterial,
@@ -1313,7 +1318,7 @@ export function addCabinet(
       );
       door.rotation.y = angledWallFace?.rotation ?? Math.PI / 4;
       door.userData = angledWallProfile
-        ? { specialtyProfile: "angled-wall", angledWallDoor: true, cabinetFront: true }
+        ? { specialtyProfile: "angled-wall", angledWallDoor: true, flushPhysicalFace: true, cabinetFront: true }
         : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(door);
       addShakerFrame(
@@ -1416,6 +1421,7 @@ export function addCabinet(
         referenceFaceSideIn: attachedFronts.sideLength / INCH,
         sharedExteriorApex: attachedFronts.apex,
         exteriorFaceRotation: face.rotation,
+        flushPhysicalFace: true,
         cabinetFront: true,
       };
       frontGroup.add(door);

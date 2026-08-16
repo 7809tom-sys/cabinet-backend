@@ -547,3 +547,9 @@
 - [x] Set each BEC exterior front door to approximately 9 inches and never use the 24-inch rear construction side as a door width
 - [x] Set each BEC exterior front door to 8.45 inches and preserve the 24-inch rear construction sides as non-door dimensions
 - [x] Add BEC regression coverage for short exterior door spans, shared front apex attachment, and non-substitution of the 24-inch side length
+- [x] Preserve the confirmed BEC body shape without further body or countertop reinterpretation
+- [x] Reattach BEC’s short exterior doors to their physical front faces and remove the detached V appearance
+- [x] Recess BEC toe-kick pieces three inches behind their actual exterior front faces without forward projection
+- [x] Enforce AW1230’s door flush to its true angled physical face with no penetration or overhang
+- [ ] Compare the current BEC-24 3D output directly with the authoritative diagram and short-door measurements before another geometry edit
+- [ ] Apply and test the same physical face-plane and boundary constraint across all cabinet door families
