@@ -92,6 +92,13 @@
 - [ ] Verify the live dialog with a 3-inch filler and a larger filler
 - [ ] Confirm normal cabinet typed resizing still accepts quarter-inch input steps
 
+## Fix: ERB36 and FSB36 must match their 2D orientation in 3D
+
+- [x] Compare ERB36 and FSB36 overhead-plan geometry with 3D transforms
+- [x] Correct their 3D orientation, footprint, and front-face behavior
+- [x] Add 2D-to-3D parity regressions for ERB36 and FSB36
+- [ ] Verify the specialty cabinets in the interactive 3D preview
+
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)

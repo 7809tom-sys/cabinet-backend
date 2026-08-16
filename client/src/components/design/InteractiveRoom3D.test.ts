@@ -340,6 +340,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "WRC-30", description: "Wine Rack", graphicType: null, customProfile: null, facePattern: "lattice", cornerType: null,
     })).toEqual({ kind: "face-pattern", pattern: "lattice" });
+    expect(resolvedThreeDSpecialtyProfile({
+      masterCode: "FSB-36", description: '36" Farmhouse Sink Base', graphicType: null, customProfile: null, facePattern: null, cornerType: null,
+    })).toEqual({ kind: "farmhouse-sink", pattern: null });
+  });
+
+  it("mirrors ERB36's 3D L-corner transform so the fronts follow the interior-facing 2D plan orientation", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const erbAtTopRight = {
+      uid: "erb-top-right", cabinetId: 36, masterCode: "ERB-36", description: "Easy Reach Corner Base",
+      placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    expect(placedCornerGeometryKind(erbAtTopRight)).toBe("l-shape");
+    expect(existingCabinetTransform(erbAtTopRight, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
+  it("builds FSB36 with a farmhouse apron front instead of a generic two-door base face", () => {
+    const fsb = {
+      uid: "farmhouse", cabinetId: 36, masterCode: "FSB-36", description: '36" Farmhouse Sink Base',
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(fsb), null, {}, 144, 120, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(fsb));
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    expect(nodes.filter((node) => node.userData.farmhouseApronFront)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.farmhouseFalseFront)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.farmhouseSideDoor)).toHaveLength(2);
   });
 
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
