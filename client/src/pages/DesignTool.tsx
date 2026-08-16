@@ -74,7 +74,7 @@ import {
   formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine,
+  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -2504,6 +2504,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
 
+      // Short wall cabinets can bridge above a sink window when their entire
+      // elevation clears the opening. Set the mount before collision recovery
+      // so the cabinet is not treated as a full-height wall overlap.
+      const bridgeMountBottom = bridgeMountBottomAboveWindow(finalCab, openings, room);
+      if (bridgeMountBottom != null) {
+        finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
+      }
+
       // A free segment or drop coordinate can become stale if the customer adds
       // several items quickly. Reject a true footprint collision rather than
       // silently rendering a drawer base, appliance, panel, or accessory over
@@ -2526,6 +2534,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             0,
             finalCab.placement,
             isRefrigerator(finalCab),
+            finalCab,
           ),
           requestedAlong,
           finalCab.width,

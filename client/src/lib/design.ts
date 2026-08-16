@@ -1374,7 +1374,12 @@ export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boo
   // by batch placement or legacy-layout cleanup.
   if (isRefrigeratorEndPanel(a) || isRefrigeratorEndPanel(b)) return false;
   if (isHoodOverRangePair(a, b)) return false;
-  if (a.placement === b.placement) return true;
+  // Wall cabinets can share a plan projection when their elevation bands do
+  // not intersect (for example, a short bridge mounted above a window).
+  // Same-height wall cabinets remain true collisions.
+  if (a.placement === b.placement) {
+    return a.placement === "wall" ? verticalEnvelopesOverlap(a, b) : true;
+  }
   if (!verticalEnvelopesOverlap(a, b)) return false;
   if (
     (isSinkAppliance(a) && isSinkBaseCabinet(b)) ||
@@ -1439,6 +1444,50 @@ function verticalEnvelopesOverlap(a: PlacedCabinet, b: PlacedCabinet): boolean {
     aBox.bottom < bBox.bottom + bBox.height - tolerance &&
     aBox.bottom + aBox.height > bBox.bottom + tolerance
   );
+}
+
+/**
+ * Finds the mount height for a short bridge spanning a window, when that bridge
+ * can clear the opening by the required clearance and remain below the ceiling.
+ */
+export function bridgeMountBottomAboveWindow(
+  cabinet: PlacedCabinet,
+  openings: WallOpening[],
+  room: RoomData,
+  clearance = WALL_OPENING_CLEARANCE_IN,
+): number | null {
+  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return null;
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const size = rotatedSize(cabinet);
+  const start = horizontal ? cabinet.x : cabinet.y;
+  const end = start + (horizontal ? size.w : size.d);
+  const windows = openings.filter((opening) => {
+    if (opening.kind !== "window" || opening.side !== side) return false;
+    return start < opening.offset + opening.width - 0.01 && end > opening.offset + 0.01;
+  });
+  if (windows.length === 0) return null;
+  const bottom = Math.max(...windows.map((opening) => opening.sill + opening.height + clearance));
+  const ceiling = room.ceilingHeight ?? 96;
+  return bottom + placedHeight(cabinet) <= ceiling + 0.01 ? bottom : null;
+}
+
+/** Whether a wall cabinet crosses a window only after clearing it vertically. */
+export function wallCabinetClearsWindow(
+  cabinet: PlacedCabinet,
+  opening: WallOpening,
+  room: RoomData,
+  clearance = WALL_OPENING_CLEARANCE_IN,
+): boolean {
+  if (cabinet.placement !== "wall" || opening.kind !== "window") return false;
+  const side = cabinetWall(cabinet, room);
+  if (opening.side !== side) return false;
+  const horizontal = side === "top" || side === "bottom";
+  const size = rotatedSize(cabinet);
+  const start = horizontal ? cabinet.x : cabinet.y;
+  const end = start + (horizontal ? size.w : size.d);
+  const crossesWindow = start < opening.offset + opening.width - 0.01 && end > opening.offset + 0.01;
+  return crossesWindow && elevationBox(cabinet, room).bottom >= opening.sill + opening.height + clearance - 0.01;
 }
 
 // Footprint rectangle (rotation-aware) for a placed item.
@@ -3366,6 +3415,7 @@ export function wallOpeningClearanceViolations(
     const cEnd = cStart + (horizontal ? ps.w : ps.d);
     for (const o of openings) {
       if (o.side !== side) continue;
+      if (wallCabinetClearsWindow(p, o, room, clearance)) continue;
       const oStart = o.offset;
       const oEnd = o.offset + o.width;
       // Gap between the cabinet span and the opening span along the run axis.
@@ -3470,6 +3520,9 @@ export function freeSegmentsOnWall(
   // Full-height floor appliances (refrigerators) reserve the upper wall band
   // in addition to their normal appliance/base span.
   reserveUpperZone = false,
+  // A short bridge may cross a window only when its explicit mount height
+  // clears the opening vertically.
+  candidate?: PlacedCabinet,
 ): WallSegment[] {
   const horizontal = side === "top" || side === "bottom";
   const wallLen = horizontal ? room.width : room.depth;
@@ -3499,6 +3552,7 @@ export function freeSegmentsOnWall(
   // Pad by openingClearance on both sides so wall cabinets keep their distance.
   for (const o of openings) {
     if (o.side !== side) continue;
+    if (candidate && wallCabinetClearsWindow(candidate, o, room, openingClearance)) continue;
     blocked.push({
       s: Math.max(0, o.offset - openingClearance),
       e: Math.min(wallLen, o.offset + o.width + openingClearance),

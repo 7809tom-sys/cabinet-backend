@@ -346,6 +346,14 @@
 - [x] Add sink-base deletion and orphan-cleanup regressions
 - [ ] Verify the corrected plan after deleting a sink base
 
+## Fix: Short wall cabinet above sink/window is blocked as a wall overlap
+
+- [x] Trace wall-cabinet collision, window clearance, and mount-height behavior on the reported sink wall
+- [x] Permit a short bridge cabinet above the sink/window only when its vertical clearance is valid
+- [x] Preserve blocking for true side-by-side wall cabinet overlap and window obstruction
+- [x] Add bridge-above-window clearance regressions
+- [ ] Verify the reported wall
+
 ## Asset plan: Licensed generic appliance families
 
 - [x] Define the first generic asset pack: refrigerator, dishwasher, front/rear-control gas/electric range, microwave, oven, and hood

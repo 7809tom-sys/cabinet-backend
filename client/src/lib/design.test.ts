@@ -1593,6 +1593,19 @@ describe("wall cabinet clearance from doors/windows", () => {
     expect(right).toBeDefined();
     expect(right!.start).toBeCloseTo(93, 1);
   });
+
+  it("allows a short bridge above a window when it is vertically clear", () => {
+    const bridge = cab({ uid: "bridge", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 18, mountBottom: 79 });
+    const opening = topWindow(54);
+    expect(wallOpeningClearanceViolations([bridge], [opening], room).has("bridge")).toBe(false);
+    const segments = freeSegmentsOnWall("top", room, [], [opening], 9, WALL_OPENING_CLEARANCE_IN, "wall", false, bridge);
+    expect(nearestAvailableWallStart(segments, 54, 36)).toBe(54);
+  });
+
+  it("continues to block a short wall cabinet that overlaps the window elevation", () => {
+    const bridge = cab({ uid: "bridge-low", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 18, mountBottom: 66 });
+    expect(wallOpeningClearanceViolations([bridge], [topWindow(54)], room).has("bridge-low")).toBe(true);
+  });
 });
 
 describe("blind corner pull spec", () => {
