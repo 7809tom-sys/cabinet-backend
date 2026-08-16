@@ -84,7 +84,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDApplianceFrontVisualUrl({ masterCode: "WINE-24", catalogImageUrl: "/manus-storage/wine.webp" })).toBeNull();
   });
 
-  it("adds original 3D visual fronts without changing catalog envelopes or appliance mounting", () => {
+  it("adds original 3D visual fronts for non-range appliances without changing catalog envelopes or appliance mounting", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 1, cabinetId: 1, masterCode: "RANGE-30", description: "30 inch range", placementType: "appliance",
@@ -114,13 +114,12 @@ describe("interactive 3D room scene helpers", () => {
     const visualPlanes: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.originalProductVisual) visualPlanes.push(node); });
 
-    expect(visualPlanes).toHaveLength(5);
+    expect(visualPlanes).toHaveLength(4);
     expect(visualPlanes.map((node) => node.userData.originalProductVisualUrl)).toEqual([
-      "/manus-storage/original-range.webp", "/manus-storage/original-hood.webp", "/manus-storage/original-fridge.webp",
+      "/manus-storage/original-hood.webp", "/manus-storage/original-fridge.webp",
       "/manus-storage/original-dishwasher.webp", "/manus-storage/original-microwave.webp",
     ]);
     expect(visualPlanes.map((node) => node.userData.catalogEnvelope)).toEqual([
-      expect.objectContaining({ widthIn: 30, heightIn: 36, depthIn: 25, mountBottomIn: 0 }),
       expect.objectContaining({ widthIn: 30, heightIn: 18, depthIn: 18, mountBottomIn: 66 }),
       expect.objectContaining({ widthIn: 36, heightIn: 70, depthIn: 30, mountBottomIn: 0 }),
       expect.objectContaining({ widthIn: 24, heightIn: 34.5, depthIn: 24, mountBottomIn: 0 }),
@@ -1666,10 +1665,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(feet).toHaveLength(4);
     expect(visibleFrontFeet).toHaveLength(2);
     expect(cabinetSkins).toHaveLength(0);
-    expect(productFronts).toHaveLength(1);
-    expect(productFronts[0]!.userData.catalogEnvelope).toMatchObject({ widthIn: 30, heightIn: 36, depthIn: 25, mountBottomIn: 0 });
-    expect(productFronts[0]!.userData).toMatchObject({ freestandingRangeProductVisual: true });
-    expect(productFronts[0]!.userData.rangeFootClearanceIn).toBeGreaterThan(0);
+    expect(productFronts).toHaveLength(0);
 
     root.updateMatrixWorld(true);
     const chassisBounds = new THREE.Box3().setFromObject(chassis!);

@@ -142,6 +142,14 @@
 - [x] Add refrigerator feet, finish-aware panel handling, and regression coverage
 - [x] Add dishwasher finish-aware face handling while preserving its recessed toe kick and controls
 
+## Fix: 3D ranges show conflicting layered detail
+
+- [x] Trace product-image overlays and procedural range mesh layers
+- [x] Remove conflicting range product-image overlays while retaining catalog envelope accuracy
+- [x] Build one correctly proportioned range front with cooktop, controls, oven glass, handle, feet, and backguard
+- [x] Add focused range visual regression coverage
+- [ ] Verify the corrected range in the reported 3D design
+
 ## Fix: AW angled-wall cabinet must use true triangular geometry in 3D
 
 - [x] Resolve and publish the AW renderer update without modifying other cabinet families

@@ -1281,7 +1281,11 @@ export function addCabinet(
       frontGroup.add(control);
     }
 
-    const originalVisualUrl = threeDApplianceFrontVisualUrl(sku);
+    // Range catalog photos are not orthographic product fronts and visibly
+    // conflict with the modeled cooktop, knobs, oven glass, handle, feet, and
+    // backguard. Ranges therefore use the single measured procedural assembly;
+    // product imagery remains available for other appliance types.
+    const originalVisualUrl = isFreestandingRange ? null : threeDApplianceFrontVisualUrl(sku);
     if (originalVisualUrl) {
       // Vitest builds the deterministic mesh graph without a DOM. Preserve the
       // front plane and its selected-image contract there, while only requesting
