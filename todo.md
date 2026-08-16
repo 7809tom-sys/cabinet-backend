@@ -240,6 +240,32 @@
 - [x] Add representative range-style regression coverage
 - [ ] Verify selected catalog variants in the elevation and 3D views
 
+## Research: Cabinets.com blank-slate designer workflow
+
+- [x] Review the public Create-A-Kitchen overview, which describes Blank Slate as a flexible floor-plan, color-palette, and cabinet workflow
+- [x] Document the remaining live Blank Slate access limitation: the supplied route returned HTTP 405 in this environment
+- [x] Write a concrete comparison of user guidance, placement interactions, and visualization with Cabinet Dealz
+- [x] Produce and share a prioritized design-tool improvement recommendation
+
+## Plan: Guided layout flow and clear 3D presentation
+
+- [x] Document reference patterns: staged workflow, numbered layouts, uncluttered 3D stage, and translucent room context
+- [x] Map those patterns to existing Cabinet Dealz room-layout starters and interactive 3D capabilities
+- [x] Recommend an implementation sequence that preserves live catalog and 2D-to-3D accuracy
+
+## Feature: Guided layout and clear 3D presentation stage
+
+- [x] Audit RoomLayoutStarter, DesignTool, and InteractiveRoom3D integration points
+- [x] Add a guided workflow strip: Floorplan, Pick a Layout, Design Your Kitchen, Summary
+- [x] Render real room-layout preset tiles with numbered selection and active-state feedback
+- [x] Apply selected preset room geometry and real catalog choices to the design canvas
+- [x] Add 3D camera presets and presentation-stage controls using the active design
+- [x] Add translucent room-context walls that do not obscure cabinets or appliances
+- [x] Add guided-flow and 3D presentation regression coverage
+- [x] Verify desktop and mobile presentation behavior
+- [ ] Add automated guided-flow coverage for numbered selection, active feedback, and room-layout handoff
+- [ ] Verify the complete guided-layout-to-3D presentation flow on desktop and mobile, including camera presets and the room-context toggle
+
 ## Fix: Affiliate 3D preview must match main designer range rendering
 
 - [x] Trace affiliate storefront route and determine which 3D renderer input/version it uses

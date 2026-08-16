@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roomFromSeededShape } from "./RoomLayoutStarter";
+import { GUIDED_ROOM_WORKFLOW_STEPS, guidedRoomWorkflowStepState, numberedLayoutTile, roomFromSeededShape, type SeededLayout } from "./RoomLayoutStarter";
 
 describe("roomFromSeededShape", () => {
   it("keeps the seeded rectangle in the standard RoomData format", () => {
@@ -30,5 +30,22 @@ describe("roomFromSeededShape", () => {
     expect(room.vertices).toHaveLength(6);
     expect(room.customWalls).toHaveLength(6);
     expect(room.vertices?.[2]).toMatchObject({ x: 156, y: 72 });
+  });
+
+  it("keeps the guided flow in floorplan, layout, design, summary order", () => {
+    expect(GUIDED_ROOM_WORKFLOW_STEPS.map(({ label }) => label)).toEqual(["Floorplan", "Pick a layout", "Design your kitchen", "Summary"]);
+    expect(guidedRoomWorkflowStepState(3, 2)).toEqual({ active: false, complete: true });
+    expect(guidedRoomWorkflowStepState(3, 3)).toEqual({ active: true, complete: false });
+    expect(guidedRoomWorkflowStepState(3, 4)).toEqual({ active: false, complete: false });
+  });
+
+  it("gives real layouts stable one-based tile numbers", () => {
+    const layouts: SeededLayout[] = [
+      { id: "one-wall", roomShapePresetId: "rectangle", name: "One-Wall", description: null, minimumWidth: 96, minimumDepth: 96 },
+      { id: "l-kitchen", roomShapePresetId: "rectangle", name: "L Kitchen", description: null, minimumWidth: 120, minimumDepth: 120 },
+    ];
+    expect(numberedLayoutTile(layouts, "one-wall")).toBe(1);
+    expect(numberedLayoutTile(layouts, "l-kitchen")).toBe(2);
+    expect(numberedLayoutTile(layouts, "missing")).toBeNull();
   });
 });

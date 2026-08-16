@@ -172,6 +172,18 @@ export function threeDCameraDistanceLimits(maxSpan: number) {
   };
 }
 
+export type ThreeDCameraPreset = "presentation" | "front" | "wide" | "detail";
+
+/** Stable framing presets keep 3D reviews clear without changing the active 2D design. */
+export function threeDCameraPresetPosition(preset: ThreeDCameraPreset, maxSpan: number) {
+  switch (preset) {
+    case "front": return new THREE.Vector3(maxSpan * 0.5, maxSpan * 0.72, maxSpan * 1.8);
+    case "wide": return new THREE.Vector3(maxSpan * 1.5, maxSpan * 1.22, maxSpan * 1.58);
+    case "detail": return new THREE.Vector3(maxSpan * 0.98, maxSpan * 0.66, maxSpan * 0.96);
+    default: return new THREE.Vector3(maxSpan * 1.15, maxSpan * 0.92, maxSpan * 1.25);
+  }
+}
+
 export function threeDDoorMaterialFallback(color: string) {
   return { color, map: null as null };
 }
@@ -2407,6 +2419,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const lastEmittedPresentationRef = useRef<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [cameraPreset, setCameraPreset] = useState<ThreeDCameraPreset>("presentation");
+  const [showRoomContext, setShowRoomContext] = useState(true);
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
   const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
@@ -2508,7 +2522,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
     const maxSpan = Math.max(room.width, room.depth) * INCH;
     const cameraDistances = threeDCameraDistanceLimits(maxSpan);
-    camera.position.set(maxSpan * 1.15, maxSpan * 0.92, maxSpan * 1.25);
+    camera.position.copy(threeDCameraPresetPosition(cameraPreset, maxSpan));
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
     controls.enableDamping = true;
@@ -2556,7 +2570,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide, transparent: true, opacity: THREE_D_WALL_OPACITY, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.92, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     polygon.forEach((start, index) => {
       const end = polygon[(index + 1) % polygon.length];
       const dx = end.x - start.x;
@@ -2565,7 +2579,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, wallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
-      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = 0.18;
+      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
     });
     const grid = new THREE.GridHelper(Math.max(room.width, room.depth) * INCH, 12, "#d9d3c8", "#e7e1d8");
@@ -2654,7 +2668,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
@@ -2865,6 +2879,15 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-background/80 p-1" aria-label="3D camera presets">
+            {([
+              ["presentation", "Perspective"],
+              ["front", "Front"],
+              ["wide", "Wide"],
+              ["detail", "Detail"],
+            ] as const).map(([preset, label]) => <Button key={preset} type="button" size="sm" variant={cameraPreset === preset ? "default" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setCameraPreset(preset)}>{label}</Button>)}
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Clear stage" : "Room context"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>

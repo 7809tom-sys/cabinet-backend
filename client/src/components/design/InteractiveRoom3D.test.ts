@@ -5,6 +5,7 @@ import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./In
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
+import { threeDCameraPresetPosition } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -20,6 +21,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDCameraDistanceLimits(12).minDistance).toBeCloseTo(6.6, 12);
     expect(threeDCameraDistanceLimits(12).maxDistance).toBeCloseTo(40.8, 12);
     expect(threeDCameraDistanceLimits(8).minDistance).toBe(5.5);
+  });
+
+  it("provides distinct stable camera presets for clear 3D review", () => {
+    const presentation = threeDCameraPresetPosition("presentation", 12);
+    const front = threeDCameraPresetPosition("front", 12);
+    const wide = threeDCameraPresetPosition("wide", 12);
+    const detail = threeDCameraPresetPosition("detail", 12);
+    expect(presentation.x).toBeCloseTo(13.8, 10);
+    expect(presentation.y).toBeCloseTo(11.04, 10);
+    expect(presentation.z).toBeCloseTo(15, 10);
+    expect(front.z).toBeGreaterThan(presentation.z);
+    expect(wide.y).toBeGreaterThan(presentation.y);
+    expect(detail.length()).toBeLessThan(presentation.length());
   });
 
   it("reads seeded room dimensions while preserving safe defaults", () => {

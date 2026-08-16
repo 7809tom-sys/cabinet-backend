@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { roomFromSeededShape, type SeededLayout, type SeededRoomShape } from "@/components/design/RoomLayoutStarter";
+import { GUIDED_ROOM_WORKFLOW_STEPS, guidedRoomWorkflowStepState, numberedLayoutTile, roomFromSeededShape, type SeededLayout, type SeededRoomShape } from "@/components/design/RoomLayoutStarter";
 
 const HANDOFF_KEY = "cabinetdealz_room_layout_handoff_v1";
 
@@ -47,6 +47,7 @@ export default function RoomLayouts() {
   );
   const selectedLayout = availableLayouts.find((layout) => layout.id === layoutId) ?? null;
   const [measurements, setMeasurements] = useState({ width: 144, depth: 120, ceilingHeight: 96 });
+  const [workflowStage, setWorkflowStage] = useState<1 | 2 | 3 | 4>(1);
 
   useEffect(() => {
     if (!shapeId && roomShapes[0]) setShapeId(roomShapes[0].id);
@@ -68,6 +69,7 @@ export default function RoomLayouts() {
       defaultDimensions: measurements,
     });
     sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ room, layoutPresetId: selectedLayout.id }));
+    setWorkflowStage(4);
     navigate("/design?panel=room");
   };
 
@@ -78,6 +80,12 @@ export default function RoomLayouts() {
           <Badge className="mb-4 gap-1.5 px-3 py-1"><Sparkles className="h-3.5 w-3.5" /> Cabinet Dealz Room Planner</Badge>
           <h1 className="font-serif text-4xl font-bold tracking-tight sm:text-6xl">Start with your room.<br /><span className="text-primary">Finish with real cabinets.</span></h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">Choose a room shape and starter layout, then continue into the Cabinet Dealz designer. We only suggest cabinets that are active, published, available, and orderable for the distributor and door style you choose.</p>
+          <div className="mx-auto mt-8 grid max-w-3xl grid-cols-4 gap-1 rounded-xl border bg-background/80 p-1 shadow-sm" aria-label="Guided room design progress">
+            {GUIDED_ROOM_WORKFLOW_STEPS.map(({ step, label }) => {
+              const { active, complete } = guidedRoomWorkflowStepState(workflowStage, step);
+              return <button key={step} type="button" onClick={() => setWorkflowStage(step)} className={`rounded-lg px-2 py-2 text-center transition-colors ${active ? "bg-primary text-primary-foreground shadow-sm" : complete ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}><span className="mx-auto flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold">{complete ? "✓" : step}</span><span className="mt-1 block truncate text-[10px] font-semibold sm:text-xs">{label}</span></button>;
+            })}
+          </div>
         </div>
 
         {isLoading ? (
@@ -96,7 +104,7 @@ export default function RoomLayouts() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {roomShapes.map((shape) => {
                     const selected = shape.id === shapeId;
-                    return <button key={shape.id} type="button" onClick={() => setShapeId(shape.id)} className={`group rounded-2xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "bg-card hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"}`}>
+                    return <button key={shape.id} type="button" onClick={() => { setShapeId(shape.id); setWorkflowStage(2); }} className={`group rounded-2xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "bg-card hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"}`}>
                       <div className="flex items-start gap-4">
                         <div className={`mt-1 h-12 w-14 shrink-0 ${visualShape(shape.id)}`} />
                         <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2 font-semibold">{shape.name}{selected && <CheckCircle2 className="h-4 w-4 text-primary" />}</div><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{shape.description || "A flexible room geometry for your cabinet design."}</p></div>
@@ -111,9 +119,9 @@ export default function RoomLayouts() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {availableLayouts.map((layout) => {
                       const selected = layout.id === layoutId;
-                      return <button key={layout.id} type="button" onClick={() => setLayoutId(layout.id)} className={`rounded-2xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "bg-card hover:border-primary/50"}`}>
-                        <div className="flex items-center justify-between gap-2 font-semibold"><span>{layout.name}</span>{selected && <CheckCircle2 className="h-4 w-4 text-primary" />}</div>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{layout.description || "A flexible catalog-aware starter layout."}</p>
+                      const layoutNumber = numberedLayoutTile(availableLayouts, layout.id) ?? 1;
+                      return <button key={layout.id} type="button" onClick={() => { setLayoutId(layout.id); setWorkflowStage(3); }} className={`rounded-2xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/10 ring-2 ring-primary/20" : "bg-card hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-sm"}`}>
+                        <div className="flex items-start gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{layoutNumber}</span><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2 font-semibold"><span>{layout.name}</span>{selected && <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />}</div><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{layout.description || "A flexible catalog-aware starter layout."}</p></div></div>
                       </button>;
                     })}
                   </div>
