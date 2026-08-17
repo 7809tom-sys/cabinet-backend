@@ -1072,6 +1072,19 @@ export function PlanCanvas({
               onPointerDown={(e) => onOpeningPointerDown(e, o, "move")}
               onPointerMove={onOpeningPointerMove}
               onPointerUp={onOpeningPointerUp}
+              onContextMenu={(e) => {
+                // Match the cabinet gesture: select the opening and reveal its
+                // existing contextual Width / Height / Sill / Position editor.
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectOpening?.(o.uid);
+              }}
+              onDoubleClick={(e) => {
+                // A touchpad-friendly alternative to a right click.
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectOpening?.(o.uid);
+              }}
               className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""}`}
               style={{
                 ...style,
@@ -1084,7 +1097,7 @@ export function PlanCanvas({
                 boxShadow: isSel ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
                 borderRadius: 2,
               }}
-              title={t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })}
+              title={`${t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })} · Right-click or double-click to edit`}
             >
               <span
                 className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}

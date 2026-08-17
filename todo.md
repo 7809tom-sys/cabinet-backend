@@ -196,10 +196,10 @@
 
 ## Fix: Over-range microwave should be allowed above RANGE-30
 
-- [ ] Trace the collision guard path rejecting MW-30 over RANGE-30
-- [ ] Permit only an over-range microwave centered above a matching range
-- [ ] Keep unrelated appliance/cabinet overlap blocking intact
-- [ ] Add valid MW-30/RANGE-30 and invalid overlap regressions
+- [x] Trace the collision guard path rejecting MW-30 over RANGE-30
+- [x] Permit only an over-range microwave centered above a matching range
+- [x] Keep unrelated appliance/cabinet overlap blocking intact
+- [x] Add valid MW-30/RANGE-30 and invalid overlap regressions
 - [ ] Verify microwave placement in the reported elevation and 3D preview
 
 ## Fix: Range variants need catalog-correct front or rear control layouts
@@ -353,6 +353,15 @@
 - [x] Preserve blocking for true side-by-side wall cabinet overlap and window obstruction
 - [x] Add bridge-above-window clearance regressions
 - [ ] Verify the reported wall
+
+## Fix: Selected range, over-range microwave, and window editing on the affected wall
+
+- [ ] Trace the selected range visual profile and why the current elevation remains incorrect
+- [ ] Permit a centered over-range microwave above a compatible range without opening an unrelated collision
+- [ ] Preserve blocking for non-centered microwave/range overlaps and wall cabinet conflicts
+- [ ] Add right-click window attributes for width, height, sill/mount height, and wall-run position
+- [ ] Support moving the selected window left, right, up, and down with room-boundary validation
+- [ ] Add range, microwave, and window-attribute regressions then verify the reported wall
 
 ## Asset plan: Licensed generic appliance families
 

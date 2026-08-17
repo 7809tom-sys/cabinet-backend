@@ -323,16 +323,18 @@ export function ElevationView({
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
     const isFreestandingRange = isAppliance && /^RANGE[-_]?/i.test(p.masterCode ?? "");
-    // In a front elevation, the range terminates at the same 34½-inch cooking
-    // surface used by all base cabinetry. The 47-inch backguard is a separate
-    // 3D profile detail and must not make this measured front view look taller.
+    const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(p) : null;
+    // A range body ends flush with the 34½-inch countertop. Rear-control
+    // models also have a real, visible backguard that rises above that line;
+    // front-control models remain a single countertop-height chassis.
+    const rangeChassisHeight = Math.max(0, STD.RANGE_COOKING_SURFACE_HEIGHT - bottom);
+    const hasRangeBackguard = isFreestandingRange && rangeAppearance?.backPanel === "raised";
     const displayedHeight = isFreestandingRange
-      ? Math.max(0, STD.RANGE_COOKING_SURFACE_HEIGHT - bottom)
+      ? Math.max(0, (hasRangeBackguard ? STD.RANGE_BACKGUARD_TOP : STD.RANGE_COOKING_SURFACE_HEIGHT) - bottom)
       : height;
     const applianceVisualUrl = isAppliance && applianceElevationPresentation(p.masterCode) === "photo"
       ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
       : null;
-    const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(p) : null;
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
@@ -443,7 +445,7 @@ export function ElevationView({
           // The outer container carries the face fill as its background so that
           // no interior/wall color bleeds through at the top or bottom of the
           // cabinet face. DoorFront renders on top with the door/drawer details.
-          background: faceFill,
+          background: isFreestandingRange ? "transparent" : faceFill,
           border: "none",
           borderRadius: 0,
           // Drop shadow lifts the cabinet face off the wall so even light-colored
@@ -601,33 +603,48 @@ export function ElevationView({
           )}
           {!applianceVisualUrl && isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
             <>
-              {/* Orthographic range FRONT only: control panel, oven door, and
-                  lower kick. Do not draw a horizontal cooktop surface or burner
-                  circles here—the cooking plane belongs to the 3D room view. */}
-              <div data-range-finish={rangeAppearance?.finish ?? "stainless"} data-range-fuel={rangeAppearance?.fuel ?? "electric"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute left-0 right-0" style={{ top: rangeAppearance?.controlPosition === "front" ? "25%" : 0, height: rangeAppearance?.controlPosition === "front" ? "15%" : "23%", background: rangeAppearance?.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance?.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
-              {rangeAppearance?.controlPosition === "rear" && (
-                <div data-range-rear-control-display="true" className="absolute" style={{ left: "39%", right: "39%", top: "4%", height: "8%", background: "linear-gradient(180deg, #111820, #28333e)", border: "1px solid rgba(210,220,230,0.25)", borderRadius: 2 }} />
-              )}
-              {(rangeAppearance?.fuel === "gas" ? ["14%", "31%", "50%", "69%", "86%"] : ["18%", "34%", "66%", "82%"]).map((left, index) => (
-                <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: rangeAppearance?.controlPosition === "front" ? "28%" : "7%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
-              ))}
-              {rangeAppearance?.controlPosition === "front" && (
-                <div data-range-front-control-display="true" className="absolute" style={{ left: "42%", right: "42%", top: "27%", height: "7%", background: "linear-gradient(180deg, #111820, #28333e)", border: "1px solid rgba(210,220,230,0.25)", borderRadius: 2 }} />
-              )}
+              {/* The lower chassis aligns exactly with adjacent 34½-inch bases.
+                  Rear-control models receive a separate raised backguard, while
+                  front-control ranges keep every control on the chassis face. */}
               <div
-                className="absolute"
+                data-range-chassis="true"
+                data-range-finish={rangeAppearance?.finish ?? "stainless"}
+                data-range-fuel={rangeAppearance?.fuel ?? "electric"}
+                data-range-control-position={rangeAppearance?.controlPosition ?? "rear"}
+                className="absolute inset-x-0 bottom-0"
                 style={{
-                  left: "15%",
-                  right: "15%",
-                  top: rangeAppearance?.controlPosition === "front" ? "46%" : "30%",
-                  height: 4,
-                  background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
-                  borderRadius: 3,
+                  height: `${Math.min(100, (rangeChassisHeight / Math.max(displayedHeight, 0.01)) * 100)}%`,
+                  background: faceFill,
+                  border: "1px solid rgba(42,52,64,0.58)",
                 }}
-              />
-              {/* Oven window */}
-              <div className="absolute" style={{ left: "10%", right: "10%", top: rangeAppearance?.controlPosition === "front" ? "56%" : "40%", bottom: "12%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+              >
+                <div data-range-cooktop-edge="true" className="absolute inset-x-0 top-0" style={{ height: 4, background: "rgba(38,48,60,0.42)" }} />
+                <div
+                  className="absolute left-[15%] right-[15%]"
+                  style={{
+                    top: rangeAppearance?.controlPosition === "front" ? "30%" : "21%",
+                    height: 4,
+                    background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
+                    borderRadius: 3,
+                  }}
+                />
+                <div className="absolute" style={{ left: "10%", right: "10%", top: rangeAppearance?.controlPosition === "front" ? "43%" : "33%", bottom: "11%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+                {rangeAppearance?.controlPosition === "front" && (
+                  <div data-range-front-control-panel="true" className="absolute inset-x-0 top-0" style={{ height: "23%", background: rangeAppearance.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : rangeAppearance.finish === "white" ? "linear-gradient(180deg, #f9fafb 0%, #d9dde1 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", borderBottom: "2px solid rgba(42,52,64,0.7)" }} />
+                )}
+                {(rangeAppearance?.fuel === "gas" ? ["14%", "31%", "50%", "69%", "86%"] : ["18%", "34%", "66%", "82%"]).map((left, index) => (
+                  <div key={index} data-range-control={rangeAppearance?.fuel === "gas" ? "gas-knob" : "electric-control"} data-range-control-position={rangeAppearance?.controlPosition ?? "rear"} className="absolute rounded-full" style={{ left: `calc(${left} - ${rangeAppearance?.fuel === "gas" ? 6 : 5}px)`, top: rangeAppearance?.controlPosition === "front" ? "7%" : "6%", width: rangeAppearance?.fuel === "gas" ? 12 : 10, height: rangeAppearance?.fuel === "gas" ? 12 : 10, border: "1px solid rgba(50,60,72,0.85)", background: rangeAppearance?.fuel === "gas" ? "radial-gradient(circle at 35% 28%, #f0f2f4 0%, #7e8792 58%, #2d343c 100%)" : "radial-gradient(circle at 35% 30%, #e4e8eb 0%, #8994a0 65%, #5f6976 100%)" }} />
+                ))}
+                {rangeAppearance?.controlPosition === "front" && (
+                  <div data-range-front-control-display="true" className="absolute" style={{ left: "42%", right: "42%", top: "8%", height: "8%", background: "linear-gradient(180deg, #111820, #28333e)", border: "1px solid rgba(210,220,230,0.25)", borderRadius: 2 }} />
+                )}
+              </div>
+              {hasRangeBackguard && (
+                <div data-range-rear-backguard="true" className="absolute inset-x-[8%] top-0" style={{ height: `${Math.max(0, ((STD.RANGE_BACKGUARD_TOP - STD.RANGE_COOKING_SURFACE_HEIGHT) / Math.max(displayedHeight, 0.01)) * 100)}%`, background: rangeAppearance?.finish === "black" ? "linear-gradient(180deg, #343b44 0%, #10151b 100%)" : rangeAppearance?.finish === "black-stainless" ? "linear-gradient(180deg, #59616a 0%, #1c2229 100%)" : rangeAppearance?.finish === "white" ? "linear-gradient(180deg, #f9fafb 0%, #d9dde1 100%)" : "linear-gradient(180deg, #abb5c0 0%, #707b88 100%)", border: "1px solid rgba(42,52,64,0.7)", borderBottom: "2px solid rgba(42,52,64,0.7)" }}>
+                  <div data-range-rear-control-display="true" className="absolute" style={{ left: "29%", right: "29%", top: "20%", height: "28%", background: "linear-gradient(180deg, #111820, #28333e)", border: "1px solid rgba(210,220,230,0.25)", borderRadius: 2 }} />
+                </div>
+              )}
             </>
           )}
           {!applianceVisualUrl && isAppliance && /^HOOD-/i.test(p.masterCode ?? "") && (

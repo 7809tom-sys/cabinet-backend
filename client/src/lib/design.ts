@@ -1374,6 +1374,11 @@ export function sharesPlanCollisionZone(a: PlacedCabinet, b: PlacedCabinet): boo
   // by batch placement or legacy-layout cleanup.
   if (isRefrigeratorEndPanel(a) || isRefrigeratorEndPanel(b)) return false;
   if (isHoodOverRangePair(a, b)) return false;
+  // An over-range microwave snaps to the center of a range but lives in the
+  // upper elevation band (normally 54–71 inches). It can therefore share the
+  // plan projection with the floor range without either item physically
+  // occupying the other. Keep ordinary appliance overlaps blocked below.
+  if (isMicrowaveOverRangePair(a, b)) return false;
   // Wall cabinets can share a plan projection when their elevation bands do
   // not intersect (for example, a short bridge mounted above a window).
   // Same-height wall cabinets remain true collisions.
@@ -1393,6 +1398,36 @@ export function isHoodOverRangePair(a: PlacedCabinet, b: PlacedCabinet): boolean
   const isHood = (item: PlacedCabinet) => /^HOOD-/.test((item.masterCode || "").toUpperCase());
   const isRange = (item: PlacedCabinet) => isRangeOrOven(item.masterCode, item.description);
   return (isHood(a) && isRange(b)) || (isHood(b) && isRange(a));
+}
+
+/**
+ * An MW-* appliance is a valid over-range companion only when its elevation
+ * envelope clears a compatible range. The placement flow centers it on the
+ * range; this helper deliberately does not turn any same-height appliance
+ * overlap into a valid layout.
+ */
+export function isMicrowaveOverRangePair(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  const isMicrowave = (item: PlacedCabinet) =>
+    item.placement === "appliance" && /^MW-/.test((item.masterCode || "").toUpperCase());
+  const isRange = (item: PlacedCabinet) =>
+    item.placement === "appliance" && !isMicrowave(item) && isRangeOrOven(item.masterCode, item.description);
+  const microwave = isMicrowave(a) ? a : isMicrowave(b) ? b : null;
+  const range = isRange(a) ? a : isRange(b) ? b : null;
+  if (!microwave || !range || verticalEnvelopesOverlap(microwave, range)) return false;
+
+  // A real OTR installation centers the microwave on the range across the
+  // cabinet run. The perpendicular plan coordinate differs because the range
+  // is 25 inches deep and the microwave is 15 inches deep, so only compare the
+  // run axis. Matching rotation keeps the two appliance backs on the same wall.
+  const rangeRotation = ((Math.round(range.rotation ?? 0) % 360) + 360) % 360;
+  const microwaveRotation = ((Math.round(microwave.rotation ?? 0) % 360) + 360) % 360;
+  if (rangeRotation !== microwaveRotation) return false;
+  const rangeSize = placedFootprint(range);
+  const microwaveSize = placedFootprint(microwave);
+  const runAxisIsX = rangeRotation === 0 || rangeRotation === 180;
+  const rangeCenter = runAxisIsX ? range.x + rangeSize.w / 2 : range.y + rangeSize.d / 2;
+  const microwaveCenter = runAxisIsX ? microwave.x + microwaveSize.w / 2 : microwave.y + microwaveSize.d / 2;
+  return Math.abs(rangeCenter - microwaveCenter) <= 0.5;
 }
 
 export type CollisionResolution = {
@@ -1748,7 +1783,14 @@ export function elevationBox(
     // Fall back to the catalog elevHeight when no custom height is stored.
     const storedH = typeof p.height === "number" && p.height > 0 ? p.height : null;
     if (def) {
-      return { bottom: def.elevBottom, height: storedH ?? def.elevHeight };
+      // Catalog mount height is the safe default, but the placement flow may
+      // persist an intentional appliance mount (notably an MW-30 over a range).
+      // Respect that value so collision detection and elevation use the same
+      // physical vertical envelope as the designer.
+      const storedBottom = typeof p.mountBottom === "number" && p.mountBottom >= 0
+        ? p.mountBottom
+        : def.elevBottom;
+      return { bottom: storedBottom, height: storedH ?? def.elevHeight };
     }
     // Unknown appliance code (e.g. FRIDGE-33 after resize): use stored height if available,
     // otherwise fall back to countertop height as a safe default.

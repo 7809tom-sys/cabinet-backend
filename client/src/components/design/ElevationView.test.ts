@@ -23,7 +23,7 @@ describe("measured base and range elevations", () => {
     expect(markup).toContain("height:18px");
   });
 
-  it("renders a range as a 34½-inch front elevation with controls and oven door, never a cooktop top view", () => {
+  it("renders a rear-control range with a 34½-inch chassis plus a distinct raised backguard", () => {
     const markup = renderToStaticMarkup(
       createElement(LanguageProvider, null, createElement(ElevationView, {
         room: { width: 144, depth: 120, ceilingHeight: 96 },
@@ -34,10 +34,11 @@ describe("measured base and range elevations", () => {
       })),
     );
 
-    // 34½" at 4px/in; a 47" backguard must not expand the orthographic front.
-    expect(markup).toContain("height:138px");
-    expect(markup).toContain("height:23%");
-    expect(markup).toContain("top:30%");
+    // 47" at 4px/in: the 34½" chassis remains countertop-height while the
+    // rear-control backguard is visibly separate above it.
+    expect(markup).toContain("height:188px");
+    expect(markup).toContain('data-range-chassis="true"');
+    expect(markup).toContain('data-range-rear-backguard="true"');
     expect(markup).not.toContain('aspect-ratio:1');
   });
 
@@ -52,6 +53,21 @@ describe("measured base and range elevations", () => {
     expect(markup).toContain('data-range-finish="black"');
     expect(markup).toContain('data-range-fuel="gas"');
     expect((markup.match(/data-range-control="gas-knob"/g) ?? [])).toHaveLength(5);
+  });
+
+  it("keeps a white front-control range at countertop height with no rear backguard", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [{ uid: "range-white-front", cabinetId: 82, masterCode: "RANGE-30", description: '30" White Electric Front-Control Range', placement: "appliance", x: 24, y: 0, width: 30, height: 36, depth: 25, rotation: 0 }],
+        selectedUid: null, onSelect: () => undefined, wall: "back",
+      })),
+    );
+    expect(markup).toContain('data-range-finish="white"');
+    expect(markup).toContain('data-range-control-position="front"');
+    expect(markup).toContain('data-range-front-control-panel="true"');
+    expect(markup).not.toContain('data-range-rear-backguard="true"');
+    expect(markup).toContain("height:138px");
   });
 });
 

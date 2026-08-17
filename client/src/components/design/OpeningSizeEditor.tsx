@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2, ChevronLeft, ChevronRight, AlignCenterHorizontal } from "lucide-react";
+import { Trash2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, AlignCenterHorizontal } from "lucide-react";
 import { clampOpening, wallLength, type WallOpening, type RoomData } from "@/lib/design";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -67,6 +67,11 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
     } else {
       setSillText(String(Math.round(opening.sill)));
     }
+  };
+  const nudgeSill = (delta: number) => {
+    const nextSill = Math.min(Math.max(0, opening.sill + delta), 96);
+    onChange({ ...opening, sill: nextSill });
+    setSillText(String(Math.round(nextSill)));
   };
 
   // ── Position on wall ──────────────────────────────────────────────────────
@@ -153,6 +158,28 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
             />
             <span className="text-foreground/60">{t("dt_op_in")}</span>
           </label>
+          <div className="flex items-center gap-1" aria-label="Window vertical position">
+            <button
+              type="button"
+              onClick={() => nudgeSill(-1)}
+              disabled={Math.round(opening.sill) <= 0}
+              title="Move window down 1 inch"
+              aria-label="Move window down 1 inch"
+              className={nudgeBtnClass}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgeSill(1)}
+              disabled={Math.round(opening.sill) >= 96}
+              title="Move window up 1 inch"
+              aria-label="Move window up 1 inch"
+              className={nudgeBtnClass}
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+          </div>
         </>
       )}
 

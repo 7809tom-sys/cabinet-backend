@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, fixtureIsOnCabinetFootprint, hasCollision, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -44,6 +44,21 @@ describe("design placement collision prevention", () => {
     const sink = placed({ uid: "sink", masterCode: "SINK-33", description: "Single bowl sink", placement: "appliance", x: 0, width: 33 });
     expect(hasCollision(range, [b33])).toBe(true);
     expect(hasCollision(sink, [sinkBase])).toBe(false);
+  });
+
+  it("allows a mounted over-range microwave above a range but still blocks the same microwave at floor height", () => {
+    const range = placed({ uid: "range", masterCode: "RANGE-30", description: '30" Black Gas Range', placement: "appliance", x: 30, y: 0, width: 30, depth: 25, height: 36, mountBottom: 0 });
+    const mountedMicrowave = placed({ uid: "mw-mounted", masterCode: "MW-30", description: '30" Over-Range Microwave', placement: "appliance", x: 30, y: 0, width: 30, depth: 15, height: 17, mountBottom: 54 });
+    const floorMicrowave = { ...mountedMicrowave, uid: "mw-floor", mountBottom: 16 };
+    const misalignedMicrowave = { ...mountedMicrowave, uid: "mw-misaligned", x: 35 };
+
+    expect(elevationBox(range)).toEqual({ bottom: 0, height: 36 });
+    expect(elevationBox(mountedMicrowave)).toEqual({ bottom: 54, height: 17 });
+    expect(isMicrowaveOverRangePair(mountedMicrowave, range)).toBe(true);
+    expect(hasCollision(mountedMicrowave, [range])).toBe(false);
+    expect(hasCollision(floorMicrowave, [range])).toBe(true);
+    expect(isMicrowaveOverRangePair(misalignedMicrowave, range)).toBe(false);
+    expect(hasCollision(misalignedMicrowave, [range])).toBe(true);
   });
 
   it("does not append a base cabinet into an existing refrigerator opening", () => {
