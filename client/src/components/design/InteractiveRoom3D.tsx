@@ -5,7 +5,7 @@ import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maxi
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -133,10 +133,13 @@ interface Props {
   onPresentationChange?: (presentation: InteractiveRoomPresentation) => void;
   /** Persists an interactive wall-height adjustment back to the current 2D room. */
   onRoomWallHeightChange?: (heightIn: number) => void;
+  /** Persists individual back, left, right, and front wall heights. */
+  onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   className?: string;
 }
 
 const INCH = 1 / 12;
+export const THREE_D_WALL_SIDES: WallSide[] = ["top", "left", "right", "bottom"];
 const BASE_DEPTH = 24;
 const WALL_DEPTH = 12;
 const THREE_D_TOE_KICK = 4.5;
@@ -2583,7 +2586,26 @@ export function shouldEmitThreeDPresentation(previousKey: string | null, cabinet
   return previousKey !== threeDPresentationEmissionKey(cabinetFinish, countertopFinish);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, className }: Props) {
+export function resolvedThreeDWallHeights(room: RoomData | undefined, fallbackHeight: number): Record<WallSide, number> {
+  const fallback = constrainedThreeDWallHeight(room?.ceilingHeight ?? fallbackHeight, fallbackHeight);
+  return THREE_D_WALL_SIDES.reduce((heights, side) => {
+    const selected = room?.wallCeilings?.[side]?.high;
+    heights[side] = constrainedThreeDWallHeight(selected ?? fallback, fallback);
+    return heights;
+  }, {} as Record<WallSide, number>);
+}
+
+/** Resolves a rectangular or polygon room edge to the familiar Back, Left, Right, or Front control. */
+export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x: number; y: number }, room: Pick<RoomData, "width" | "depth">): WallSide {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const midX = (start.x + end.x) / 2;
+  const midY = (start.y + end.y) / 2;
+  if (Math.abs(dx) >= Math.abs(dy)) return midY <= room.depth / 2 ? "top" : "bottom";
+  return midX <= room.width / 2 ? "left" : "right";
+}
+
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -2597,6 +2619,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [cameraPreset, setCameraPreset] = useState<ThreeDCameraPreset>("presentation");
   const [showRoomContext, setShowRoomContext] = useState(true);
   const [wallHeightIn, setWallHeightIn] = useState(() => constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
+  const [wallHeights, setWallHeights] = useState<Record<WallSide, number>>(() => resolvedThreeDWallHeights(roomOverride, wallHeightIn));
   const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
   const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
@@ -2638,13 +2661,27 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
   useEffect(() => {
-    setWallHeightIn(constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
-  }, [roomOverride?.ceilingHeight, scene.roomShape?.defaultDimensions]);
+    const nextGlobal = constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight);
+    setWallHeightIn(nextGlobal);
+    setWallHeights(resolvedThreeDWallHeights(roomOverride, nextGlobal));
+  }, [roomOverride?.ceilingHeight, roomOverride?.wallCeilings, scene.roomShape?.defaultDimensions]);
 
   const updateWallHeight = (value: unknown) => {
     const nextHeight = constrainedThreeDWallHeight(value, wallHeightIn);
     setWallHeightIn(nextHeight);
+    const nextHeights = THREE_D_WALL_SIDES.reduce((heights, side) => ({ ...heights, [side]: nextHeight }), {} as Record<WallSide, number>);
+    setWallHeights(nextHeights);
     onRoomWallHeightChange?.(nextHeight);
+    onRoomWallHeightsChange?.(nextHeights);
+  };
+
+  const updateWallHeightForSide = (side: WallSide, value: unknown) => {
+    const nextHeight = constrainedThreeDWallHeight(value, wallHeights[side]);
+    setWallHeights((current) => {
+      const nextHeights = { ...current, [side]: nextHeight };
+      onRoomWallHeightsChange?.(nextHeights);
+      return nextHeights;
+    });
   };
 
   useEffect(() => {
@@ -2689,7 +2726,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const mount = mountRef.current;
     if (!mount || (!scene.roomShape && !roomOverride)) return;
     const room = roomOverride
-      ? { width: roomOverride.width, depth: roomOverride.depth, ceilingHeight: wallHeightIn }
+      ? { ...roomOverride, ceilingHeight: wallHeightIn }
       : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
     const canvasWidth = Math.max(280, mount.clientWidth);
     const canvasHeight = Math.max(280, mount.clientHeight || 420);
@@ -2743,7 +2780,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const fillLight = new THREE.DirectionalLight("#b7d1ef", 1.25);
     fillLight.position.set(-maxSpan, maxSpan, maxSpan);
     threeScene.add(fillLight);
-    const wallHeight = room.ceilingHeight * INCH;
+    const wallHeight = Math.max(...Object.values(wallHeights)) * INCH;
     const warmLight = new THREE.PointLight("#ffdca6", 18, maxSpan * 3.2, 2);
     warmLight.position.set(room.width * INCH * 0.52, wallHeight * 0.76, room.depth * INCH * 0.48);
     threeScene.add(warmLight);
@@ -2769,8 +2806,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       const dx = end.x - start.x;
       const dz = -(end.y - start.y);
       const length = Math.hypot(dx, dz);
-      const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, wallHeight), wallMaterial.clone());
-      wall.position.set((start.x + end.x) / 2, wallHeight / 2, (-start.y + -end.y) / 2);
+      const side = threeDWallSideForEdge(start, end, room);
+      const sideWallHeight = wallHeights[side] * INCH;
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
+      wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
@@ -2780,7 +2819,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       baseboard.userData = { roomBaseboard: true, architecturalContextDetail: true };
       threeScene.add(baseboard);
       const ceilingEdge = new THREE.Mesh(new THREE.BoxGeometry(length, 0.035, 0.035), roomEdgeMaterial);
-      ceilingEdge.position.set((start.x + end.x) / 2, wallHeight - 0.018, (-start.y + -end.y) / 2);
+      ceilingEdge.position.set((start.x + end.x) / 2, sideWallHeight - 0.018, (-start.y + -end.y) / 2);
       ceilingEdge.rotation.y = Math.atan2(dz, dx);
       ceilingEdge.userData = { roomCeilingEdge: true, architecturalContextDetail: true };
       threeScene.add(ceilingEdge);
@@ -2879,7 +2918,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, wallHeightIn, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, wallHeightIn, wallHeights, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
@@ -3104,6 +3143,14 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
             <Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-7 w-14 border border-[#d9c196] bg-background p-0 text-center text-[11px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
             <span>in</span>
           </label>
+          <div data-testid="three-d-per-wall-height-controls" className="flex flex-wrap items-center gap-1 rounded-md border border-[#d9c196] bg-[#fffaf1] p-1.5 text-[10px] font-semibold text-[#4b3a20]" aria-label="Individual wall heights">
+            {([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => (
+              <label key={side} className="flex items-center gap-0.5" title={`${label} wall height`}>
+                <span>{label}</span>
+                <Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-7 w-11 border border-[#d9c196] bg-background p-0 text-center text-[10px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
+              </label>
+            ))}
+          </div>
           <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>
           <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>

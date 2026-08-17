@@ -2520,3 +2520,12 @@
 - [ ] Centralize collision resolution before cabinet state updates are committed
 - [ ] Protect refrigerator surround, saved-design restore, and explicit-position placement flows
 - [ ] Add refrigerator/base overlap and adjacent-run regression coverage
+
+## 3D: Independent Wall Heights
+- [x] Trace the existing shared wall-height state, persistence, and four-wall meshes
+- [x] Store editable back, left, right, and front wall heights from 1 to 120 inches
+- [x] Keep the existing all-wall height field as a convenient apply-to-all control
+- [x] Add responsive per-wall controls in the 3D toolbar
+- [x] Render each room wall to its own selected height while preserving wall visibility controls
+- [x] Add per-wall height rendering regressions
+- [ ] Verify a room with one and two changed walls in the live 3D preview

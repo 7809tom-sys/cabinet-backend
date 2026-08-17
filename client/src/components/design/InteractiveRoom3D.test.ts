@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, resolvedThreeDWallHeights, threeDWallSideForEdge } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -18,6 +18,27 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+  it("resolves independently persisted back, left, right, and front wall heights", () => {
+    const heights = resolvedThreeDWallHeights({
+      width: 144,
+      depth: 120,
+      ceilingHeight: 96,
+      wallCeilings: {
+        top: { high: 108, low: 108 },
+        right: { high: 84, low: 84 },
+      },
+    }, 96);
+    expect(heights).toEqual({ top: 108, left: 96, right: 84, bottom: 96 });
+  });
+
+  it("maps rectangular wall edges to the four independent height controls", () => {
+    const room = { width: 144, depth: 120 };
+    expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 144, y: 0 }, room)).toBe("top");
+    expect(threeDWallSideForEdge({ x: 144, y: 0 }, { x: 144, y: 120 }, room)).toBe("right");
+    expect(threeDWallSideForEdge({ x: 144, y: 120 }, { x: 0, y: 120 }, room)).toBe("bottom");
+    expect(threeDWallSideForEdge({ x: 0, y: 120 }, { x: 0, y: 0 }, room)).toBe("left");
+  });
+
   it("keeps the mobile orbit camera outside a room-scaled furnished envelope", () => {
     expect(threeDCameraDistanceLimits(12).minDistance).toBeCloseTo(6.6, 12);
     expect(threeDCameraDistanceLimits(12).maxDistance).toBeCloseTo(40.8, 12);

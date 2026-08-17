@@ -9296,7 +9296,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
                 onPresentationChange={setInteractive3dPresentation}
-                onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight }))}
+                onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
+                onRoomWallHeightsChange={(heights) => setRoom((current) => ({
+                  ...current,
+                  wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
+                }))}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,
