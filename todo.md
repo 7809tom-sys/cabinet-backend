@@ -2563,3 +2563,10 @@
 - [x] Bind Back, Left, Right, and Front values directly to their corresponding physical mesh edges
 - [x] Add rendered mesh-height assertions for the reported mixed-height values
 - [ ] Verify all four visible walls match their selected values in the live preview
+
+## 3D: Wall Height Clearance for Upper Cabinets
+- [x] Trace physical wall ownership and top elevations for upper cabinet runs
+- [x] Warn when an independently selected wall height ends below uppers on that wall
+- [x] Preserve user-selected independent values without silently raising other walls
+- [x] Add Back and Right upper-run clearance regressions
+- [ ] Verify Back and Right at 96 inches in the live 3D preview

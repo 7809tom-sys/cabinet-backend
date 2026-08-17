@@ -2624,6 +2624,27 @@ export function threeDWallSideForPolygonEdge(index: number, edgeCount: number, s
   return threeDWallSideForEdge(start, end, room);
 }
 
+/**
+ * Upper cabinets require a normal 96-inch room wall behind them, even when an
+ * individual upper happens to end below that height. The preview never silently
+ * changes a user-selected wall value; it uses this contract to surface a clear
+ * warning instead.
+ */
+export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: RoomData): Partial<Record<WallSide, number>> {
+  const physicalToSide: Record<ThreeDPlacedWall, WallSide> = { back: "top", right: "right", front: "bottom", left: "left" };
+  return placed.reduce((minimums, cabinet) => {
+    if (cabinet.placement !== "wall") return minimums;
+    const physicalWall = threeDPlacedWall(cabinet, room);
+    if (!physicalWall) return minimums;
+    const side = physicalToSide[physicalWall];
+    const elevation = elevationBox(cabinet, room);
+    const resolvedTop = elevation.bottom + elevation.height;
+    const cabinetTop = Number.isFinite(resolvedTop) ? resolvedTop : 0;
+    minimums[side] = Math.max(minimums[side] ?? 0, 96, cabinetTop);
+    return minimums;
+  }, {} as Partial<Record<WallSide, number>>);
+}
+
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -2650,6 +2671,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
   const renderExistingDesign = hasPersistedTwoDScene({ placed, openings, sinks, island, furniture, ponyWalls });
+  const upperCabinetWallMinimums = useMemo(
+    () => roomOverride ? threeDUpperCabinetWallMinimums(placed, roomOverride) : {},
+    [placed, roomOverride],
+  );
   const rangeHoodStatus = useMemo(() => rangeHoodSceneStatus(placed), [placed]);
   // The active designer style is the customer’s catalog selection. Prefer its
   // resolved finish color over a sparse style-record color field from the scene
@@ -3165,7 +3190,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           </label>
           <div data-testid="three-d-per-wall-height-controls" className="flex flex-wrap items-center gap-1 rounded-md border border-[#d9c196] bg-[#fffaf1] p-1.5 text-[10px] font-semibold text-[#4b3a20]" aria-label="Individual wall heights">
             {([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => (
-              <label key={side} className="flex items-center gap-0.5" title={`${label} wall height`}>
+              <label key={side} className={`flex items-center gap-0.5 ${wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? "rounded bg-amber-100 px-1 text-amber-900" : ""}`} title={wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? `${label} wall has upper cabinets and should be at least ${upperCabinetWallMinimums[side]} inches.` : `${label} wall height`}>
                 <span>{label}</span>
                 <Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-7 w-11 border border-[#d9c196] bg-background p-0 text-center text-[10px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
               </label>
