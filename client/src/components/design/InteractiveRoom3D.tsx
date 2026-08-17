@@ -2601,8 +2601,13 @@ export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x:
   const dy = end.y - start.y;
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;
-  if (Math.abs(dx) >= Math.abs(dy)) return midY <= room.depth / 2 ? "top" : "bottom";
-  return midX <= room.width / 2 ? "left" : "right";
+  // room dimensions are persisted in inches, while the rendered polygon is in
+  // Three.js feet. Compare like-for-like so the front and right edges do not
+  // collapse into the back and left controls on every room.
+  const renderedWidth = room.width * INCH;
+  const renderedDepth = room.depth * INCH;
+  if (Math.abs(dx) >= Math.abs(dy)) return midY <= renderedDepth / 2 ? "top" : "bottom";
+  return midX <= renderedWidth / 2 ? "left" : "right";
 }
 
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, className }: Props) {

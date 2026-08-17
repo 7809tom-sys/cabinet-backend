@@ -33,10 +33,10 @@ describe("interactive 3D room scene helpers", () => {
 
   it("maps rectangular wall edges to the four independent height controls", () => {
     const room = { width: 144, depth: 120 };
-    expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 144, y: 0 }, room)).toBe("top");
-    expect(threeDWallSideForEdge({ x: 144, y: 0 }, { x: 144, y: 120 }, room)).toBe("right");
-    expect(threeDWallSideForEdge({ x: 144, y: 120 }, { x: 0, y: 120 }, room)).toBe("bottom");
-    expect(threeDWallSideForEdge({ x: 0, y: 120 }, { x: 0, y: 0 }, room)).toBe("left");
+    expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 12, y: 0 }, room)).toBe("top");
+    expect(threeDWallSideForEdge({ x: 12, y: 0 }, { x: 12, y: 10 }, room)).toBe("right");
+    expect(threeDWallSideForEdge({ x: 12, y: 10 }, { x: 0, y: 10 }, room)).toBe("bottom");
+    expect(threeDWallSideForEdge({ x: 0, y: 10 }, { x: 0, y: 0 }, room)).toBe("left");
   });
 
   it("keeps the mobile orbit camera outside a room-scaled furnished envelope", () => {

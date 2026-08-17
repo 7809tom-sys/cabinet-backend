@@ -2529,3 +2529,10 @@
 - [x] Render each room wall to its own selected height while preserving wall visibility controls
 - [x] Add per-wall height rendering regressions
 - [ ] Verify a room with one and two changed walls in the live 3D preview
+
+## 3D: Front Wall Height Mapping
+- [x] Trace why the Front = 1 inch field does not affect the visible front wall in the reported room
+- [x] Map the Front control to the correct room edge for rectangular and custom layouts
+- [x] Preserve independently working Back, Left, and Right wall controls
+- [x] Add front-wall mapping regressions
+- [ ] Verify Front = 1 inch in the live preview after the corrected mapping is published
