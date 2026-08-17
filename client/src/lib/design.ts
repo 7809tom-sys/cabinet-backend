@@ -1507,6 +1507,39 @@ export function bridgeMountBottomAboveWindow(
   return bottom + placedHeight(cabinet) <= ceiling + 0.01 ? bottom : null;
 }
 
+/**
+ * Returns the run-axis start that centers a short wall cabinet over a window
+ * backed by a sink base. This is deliberately scoped to a real sink/window
+ * pairing so ordinary short wall cabinets still use normal free-run placement.
+ */
+export function overSinkWindowStart(
+  cabinet: PlacedCabinet,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+): number | null {
+  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return null;
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const cabinetSize = rotatedSize(cabinet);
+  const cabinetSpan = horizontal ? cabinetSize.w : cabinetSize.d;
+  const wallLength = horizontal ? room.width : room.depth;
+  const matchingWindow = openings.find((opening) => {
+    if (opening.kind !== "window" || opening.side !== side) return false;
+    const center = opening.offset + opening.width / 2;
+    return placed.some((item) => {
+      if (!isSinkBaseCabinet(item) || cabinetWall(item, room) !== side) return false;
+      const itemSize = rotatedSize(item);
+      const start = horizontal ? item.x : item.y;
+      const span = horizontal ? itemSize.w : itemSize.d;
+      return center >= start - 0.01 && center <= start + span + 0.01;
+    });
+  });
+  if (!matchingWindow) return null;
+  const centeredStart = matchingWindow.offset + matchingWindow.width / 2 - cabinetSpan / 2;
+  return Math.max(0, Math.min(centeredStart, Math.max(0, wallLength - cabinetSpan)));
+}
+
 /** Whether a wall cabinet crosses a window only after clearing it vertically. */
 export function wallCabinetClearsWindow(
   cabinet: PlacedCabinet,
@@ -3584,6 +3617,17 @@ export function freeSegmentsOnWall(
   for (const p of placed) {
     if (!blocksThisLayer(p.placement)) continue;
     if (!isAgainstWall(p, side, room)) continue;
+    // A raised short bridge above a sink/window can share the plan projection
+    // with a neighboring upper only when its elevation band is genuinely
+    // separate. Same-height uppers still reserve their run as before.
+    if (layer === "wall" && candidate && p.placement === "wall") {
+      const candidateBox = elevationBox(candidate, room);
+      const placedBox = elevationBox(p, room);
+      const verticallySeparate =
+        candidateBox.bottom >= placedBox.bottom + placedBox.height - 0.01 ||
+        placedBox.bottom >= candidateBox.bottom + candidateBox.height - 0.01;
+      if (verticallySeparate) continue;
+    }
     const s = rotatedSize(p);
     const start = horizontal ? p.x : p.y;
     const span = horizontal ? s.w : s.d;

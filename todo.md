@@ -202,6 +202,14 @@
 - [x] Add valid MW-30/RANGE-30 and invalid overlap regressions
 - [ ] Verify microwave placement in the reported elevation and 3D preview
 
+## Fix: Short wall cabinet above sink/window is rejected as an upper-cabinet collision
+
+- [x] Trace why W-36-15 over the reported sink/window is treated as overlapping W-12-42
+- [x] Mount a short wall cabinet above the sink/window only when it clears the opening and fits below the ceiling
+- [x] Preserve true same-band wall-cabinet collision blocking beside the window
+- [x] Add the reported W-36-15/W-12-42/window regression
+- [ ] Verify the reported W-36-15 over sink/window arrangement in the live designer and capture the outcome
+
 ## Fix: Range variants need catalog-correct front or rear control layouts
 
 - [x] Trace selected range variant metadata and current control-position logic

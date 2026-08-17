@@ -18,7 +18,7 @@ import {
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
-  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart,
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
   isStacker,
@@ -1605,6 +1605,27 @@ describe("wall cabinet clearance from doors/windows", () => {
   it("continues to block a short wall cabinet that overlaps the window elevation", () => {
     const bridge = cab({ uid: "bridge-low", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 18, mountBottom: 66 });
     expect(wallOpeningClearanceViolations([bridge], [topWindow(54)], room).has("bridge-low")).toBe(true);
+  });
+
+  it("centers a W-36-15 above its sink window without colliding with a neighboring upper", () => {
+    const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+    const leftUpper = cab({ uid: "w-12-42", masterCode: "W-12-42", description: "12x42 Wall", placement: "wall", x: 42, y: 0, width: 12, depth: 12, height: 42 });
+    const candidate = cab({ uid: "w-36-15", masterCode: "W-36-15", description: "36x15 Double Door Wall", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 15 });
+    const opening = topWindow(54);
+
+    expect(overSinkWindowStart(candidate, [sinkBase, leftUpper], [opening], room)).toBe(54);
+    const mountBottom = bridgeMountBottomAboveWindow({ ...candidate, x: 54 }, [opening], room);
+    expect(mountBottom).toBe(79);
+    const mountedBridge = { ...candidate, x: 54, mountBottom: mountBottom! };
+    expect(hasCollision(mountedBridge, [leftUpper])).toBe(false);
+    const segments = freeSegmentsOnWall("top", room, [leftUpper], [opening], 9, WALL_OPENING_CLEARANCE_IN, "wall", false, mountedBridge);
+    expect(nearestAvailableWallStart(segments, 54, 36)).toBe(54);
+  });
+
+  it("still blocks a short cabinet that occupies the neighboring upper's elevation band", () => {
+    const leftUpper = cab({ uid: "w-12-42", masterCode: "W-12-42", description: "12x42 Wall", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 42 });
+    const sameBand = cab({ uid: "same-band", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15, mountBottom: 69 });
+    expect(hasCollision(sameBand, [leftUpper])).toBe(true);
   });
 });
 

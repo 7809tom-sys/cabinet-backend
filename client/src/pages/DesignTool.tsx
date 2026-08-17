@@ -74,7 +74,7 @@ import {
   formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow,
+  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -2345,6 +2345,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
           spot = { x: cx, y: cy, rotation: 0 };
         }
+      }
+
+      // A short wall cabinet over a sink belongs over the sink's window rather
+      // than in the first generic run gap. Its vertical mount is resolved below;
+      // this step only centers its plan projection on the sink/window pair.
+      const provisionalWallCab: PlacedCabinet = {
+        uid: "provisional-over-sink",
+        cabinetId: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        placement: accPlacement,
+        x: spot.x,
+        y: spot.y,
+        width,
+        depth,
+        height,
+        rotation: spot.rotation,
+      };
+      const overSinkStart = x == null && y == null
+        ? overSinkWindowStart(provisionalWallCab, prev, openings, room)
+        : null;
+      if (overSinkStart != null) {
+        spot = wallPlacementAt(overSinkStart, width, depth, activeWall, room);
       }
 
       // ── Stacker auto-snap ──────────────────────────────────────────────
