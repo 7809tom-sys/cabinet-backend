@@ -138,6 +138,11 @@ export function isRefrigeratorEndPanel(cabinet: Pick<PlacedCabinet, "placement" 
   return cabinet.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`);
 }
 
+/** Architectural refrigerator skins stay behind adjacent cabinet faces and do not cast a broad overlap shadow. */
+export function refrigeratorEndPanelRenderStyle(): { zIndex: number; boxShadow: string } {
+  return { zIndex: 1, boxShadow: "inset 0 0 0 1px color-mix(in srgb, #000000 18%, transparent)" };
+}
+
 /**
  * Resolves the saved Cabinet Config contract before drawing an elevation face.
  * A configured generic drawing can inform style, but the elevation always uses
@@ -452,14 +457,17 @@ export function ElevationView({
           // finishes read as 3D objects rather than flat rectangles. The shadow
           // simulates overhead room lighting (slightly right+bottom biased).
           // When selected, the gold inner glow is added on top of the shadow.
-          boxShadow: isSelected
-            ? "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10), inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)"
-            : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
+          boxShadow: refrigeratorEndPanel
+            ? refrigeratorEndPanelRenderStyle().boxShadow
+            : isSelected
+              ? "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10), inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)"
+              : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
-          // Panels sit in front of an adjacent base face so their full floor-to-
-          // top line remains visible on both sides of the refrigerator opening.
-          zIndex: isDragging ? 10 : refrigeratorEndPanel ? 4 : 2,
+          // A refrigerator panel is a narrow enclosure skin in the seam. The
+          // adjacent cabinet face paints above it if a legacy layout overlaps
+          // by a fraction, keeping the panel from covering cabinet doors.
+          zIndex: isDragging ? 10 : refrigeratorEndPanel ? refrigeratorEndPanelRenderStyle().zIndex : 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -467,7 +475,7 @@ export function ElevationView({
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}
-          {!isAppliance && !showProfileFallback && (
+          {!isAppliance && !showProfileFallback && !refrigeratorEndPanel && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}

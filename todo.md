@@ -372,6 +372,14 @@
 - [x] Add left/right refrigerator enclosure panel and no-handle regressions
 - [x] Verify the reported 3D scene
 
+## Fix: Refrigerator enclosure panels cover adjacent cabinet faces
+
+- [x] Trace refrigerator panel seam width, placement bounds, and elevation stacking
+- [x] Restrict each panel to the narrow refrigerator-side seam between appliance and neighbor
+- [x] Preserve floor-to-ceiling finish skins without cabinet doors or hardware
+- [x] Add left/right adjacent-cabinet overlap regressions
+- [ ] Verify the reported wall without panels covering adjacent cabinet faces
+
 ## Fix: Left refrigerator end panel is absent from the saved elevation layout
 
 - [x] Trace the refrigerator surround insertion path against the reported saved design

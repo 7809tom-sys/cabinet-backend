@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
-import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
+import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, refrigeratorEndPanelRenderStyle, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
 describe("measured base and range elevations", () => {
   it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
@@ -149,6 +149,13 @@ describe("Shaker elevation front rendering", () => {
     expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(true);
     expect(isRefrigeratorEndPanel({ placement: "tall", masterCode: "B33", description: "Base Cabinet" })).toBe(false);
     expect(isRefrigeratorEndPanel({ placement: "base", masterCode: "REPV2496", description: "Refrigerator End Panel" })).toBe(false);
+  });
+
+  it("keeps refrigerator end panels behind adjacent cabinet faces without a broad shadow", () => {
+    expect(refrigeratorEndPanelRenderStyle()).toEqual({
+      zIndex: 1,
+      boxShadow: "inset 0 0 0 1px color-mix(in srgb, #000000 18%, transparent)",
+    });
   });
 
   it("gives sink bases the same 20/80 drawer and door proportion as standard bases", () => {
