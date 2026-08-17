@@ -158,6 +158,18 @@ describe("Shaker elevation front rendering", () => {
     });
   });
 
+  it("uses the catalog-backed MW-30 front instead of a gray placeholder", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [{ uid: "mw", cabinetId: 31, masterCode: "MW-30", description: "Over-Range Microwave", placement: "appliance", x: 30, y: 0, width: 30, height: 17, depth: 15, rotation: 0, mountBottom: 54 }],
+        selectedUid: null, onSelect: () => undefined, wall: "back",
+      })),
+    );
+    expect(markup).toContain('src="/manus-storage/zline_over_range_microwave_front_4976b7ab.webp"');
+    expect(markup).not.toContain('MW-30</span>');
+  });
+
   it("gives sink bases the same 20/80 drawer and door proportion as standard bases", () => {
     const markup = renderToStaticMarkup(createElement(DoorFront, {
       kind: "shaker", edge: "#1a2744", face: "#d8d4c8", cabinetType: "sink-base", cabinetWidthIn: 36, cabinetHeightIn: 34.5, doors: 2, drawers: 1,

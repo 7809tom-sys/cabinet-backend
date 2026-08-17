@@ -269,10 +269,10 @@ export function rangeVisualAppearance(input: { description?: string | null; cata
 }
 
 export function applianceElevationPresentation(masterCode: string | null | undefined): "vector" | "photo" {
-  // Elevation is an orthographic measured drawing. Appliance product images
-  // remain in the selling-oriented 3D room; every appliance elevation uses a
-  // calibrated front vector so a range cannot expose a perspective cooktop.
-  return "vector";
+  // A microwave is a front-facing wall appliance, so an approved catalog front
+  // image reads correctly in elevation. Ranges remain measured vectors because
+  // their catalog photography often exposes a perspective cooktop.
+  return /^MW[-_]?/i.test(masterCode ?? "") ? "photo" : "vector";
 }
 
 export interface DesignCabinet {
@@ -3282,7 +3282,7 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
   const refrigerators = placed.filter(isRefrigerator);
   if (refrigerators.length === 0) return placed;
 
-  return placed.map((cabinet) => {
+  const normalized = placed.map((cabinet) => {
     const enclosure = room ?? DEFAULT_ROOM;
     const sameWall = (candidate: PlacedCabinet) =>
       cabinetWall(candidate, enclosure) === cabinetWall(cabinet, enclosure);
@@ -3331,6 +3331,71 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
       ? cabinet
       : { ...cabinet, height: cap, mountBottom: 0 };
   });
+  return normalizeRefrigeratorPanelSeams(normalized, room);
+}
+
+/**
+ * Restores real clearance around fridge-side architectural panels in saved
+ * layouts. Earlier drafts saved a thin panel at the refrigerator edge but left
+ * the neighboring B-12 / drawer base at the same edge, so elevation painted a
+ * panel across the cabinet face. Re-seat neighboring cabinet runs outside the
+ * panel's true seam width on either side of the refrigerator.
+ */
+export function normalizeRefrigeratorPanelSeams(placed: PlacedCabinet[], room?: RoomData | null): PlacedCabinet[] {
+  const enclosure = room ?? DEFAULT_ROOM;
+  const refrigerators = placed.filter(isRefrigerator);
+  if (refrigerators.length === 0) return placed;
+  const TOL = 2;
+  let changed = false;
+  const normalized = placed.map((candidate) => {
+    if (isRefrigerator(candidate) || isRefrigeratorEndPanel(candidate)) return candidate;
+    let next = candidate;
+    for (const fridge of refrigerators) {
+      const side = cabinetWall(fridge, enclosure);
+      if (cabinetWall(candidate, enclosure) !== side || candidate.placement === "appliance") continue;
+      const horizontal = side === "top" || side === "bottom";
+      const fridgeFootprint = placedFootprint(fridge);
+      const fridgeStart = horizontal ? fridge.x : fridge.y;
+      const fridgeEnd = fridgeStart + (horizontal ? fridgeFootprint.w : fridgeFootprint.d);
+      const panels = placed.filter((panel) => isRefrigeratorEndPanel(panel) && cabinetWall(panel, enclosure) === side);
+      const leftPanel = panels.find((panel) => {
+        const panelFootprint = placedFootprint(panel);
+        const panelEnd = (horizontal ? panel.x : panel.y) + (horizontal ? panelFootprint.w : panelFootprint.d);
+        return Math.abs(panelEnd - fridgeStart) <= TOL;
+      });
+      const rightPanel = panels.find((panel) => {
+        const panelStart = horizontal ? panel.x : panel.y;
+        return Math.abs(panelStart - fridgeEnd) <= TOL;
+      });
+      const footprint = placedFootprint(next);
+      const start = horizontal ? next.x : next.y;
+      const span = horizontal ? footprint.w : footprint.d;
+      const end = start + span;
+      if (leftPanel) {
+        const panelStart = horizontal ? leftPanel.x : leftPanel.y;
+        if (end > panelStart - TOL && end <= fridgeStart + TOL && start < fridgeStart) {
+          const shiftedStart = Math.max(0, panelStart - span);
+          if (Math.abs(shiftedStart - start) > 0.01) {
+            next = horizontal ? { ...next, x: shiftedStart } : { ...next, y: shiftedStart };
+            changed = true;
+          }
+        }
+      }
+      if (rightPanel) {
+        const panelFootprint = placedFootprint(rightPanel);
+        const panelEnd = (horizontal ? rightPanel.x : rightPanel.y) + (horizontal ? panelFootprint.w : panelFootprint.d);
+        const nextStart = horizontal ? next.x : next.y;
+        if (nextStart < panelEnd + TOL && nextStart >= fridgeEnd - TOL) {
+          if (Math.abs(panelEnd - nextStart) > 0.01) {
+            next = horizontal ? { ...next, x: panelEnd } : { ...next, y: panelEnd };
+            changed = true;
+          }
+        }
+      }
+    }
+    return next;
+  });
+  return changed ? normalized : placed;
 }
 
 // ── Staggered built-in look ────────────────────────────────────────────────

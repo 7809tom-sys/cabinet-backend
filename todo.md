@@ -380,6 +380,21 @@
 - [x] Add left/right adjacent-cabinet overlap regressions
 - [ ] Verify the reported wall without panels covering adjacent cabinet faces
 
+## Fix: Saved refrigerator panels still overlap adjacent cabinet runs
+
+- [x] Normalize saved refrigerator panel seams by shifting B-12 and 3-DB24 outside the panel thickness
+- [x] Preserve refrigerator, panel, and neighboring-cabinet bounds on all wall orientations
+- [x] Add saved-run panel-seam regressions for both sides of a refrigerator
+- [ ] Verify the reported refrigerator wall after saved-run normalization
+
+## Fix: MW-30 elevation is only a gray placeholder
+
+- [x] Trace MW-30 catalog-image and elevation presentation routing
+- [x] Render a catalog-image-backed microwave face when an approved item image exists
+- [x] Render a detailed procedural microwave front when no item image exists
+- [x] Add MW-30 elevation detail regressions
+- [ ] Verify the reported MW-30 wall
+
 ## Fix: Left refrigerator end panel is absent from the saved elevation layout
 
 - [x] Trace the refrigerator surround insertion path against the reported saved design

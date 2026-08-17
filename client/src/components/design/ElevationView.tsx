@@ -609,6 +609,17 @@ export function ElevationView({
               />
             </>
           )}
+          {!applianceVisualUrl && isAppliance && /^MW[-_]?/i.test(p.masterCode ?? "") && (
+            <div data-microwave-front="true" className="absolute inset-[5%] overflow-hidden rounded-sm" style={{ background: "linear-gradient(145deg, #e8edf1 0%, #aeb8c3 26%, #f5f7f9 62%, #8f9aa6 100%)", border: "1px solid #657180", boxShadow: "inset 0 1px 0 rgba(255,255,255,.75), 0 1px 2px rgba(0,0,0,.24)" }}>
+              <div data-microwave-vent="true" className="absolute inset-x-[8%] top-[7%] h-[9%]" style={{ background: "repeating-linear-gradient(90deg, #4b5662 0 2px, transparent 2px 5px)", opacity: 0.72 }} />
+              <div data-microwave-glass="true" className="absolute left-[8%] top-[22%] bottom-[17%] w-[65%] rounded-sm" style={{ background: "linear-gradient(145deg, #09131d 0%, #263746 40%, #0a1118 100%)", border: "2px solid #6e7b88", boxShadow: "inset 0 0 12px rgba(126,180,220,.2)" }} />
+              <div data-microwave-control-panel="true" className="absolute right-[7%] top-[23%] bottom-[18%] w-[14%] rounded-sm" style={{ background: "linear-gradient(180deg, #cbd3dc, #8995a1)", border: "1px solid #687583" }}>
+                <div className="absolute left-[22%] right-[22%] top-[10%] h-[12%] rounded-sm" style={{ background: "#0d1a25" }} />
+                {["34%", "50%", "66%"].map((top) => <div key={top} className="absolute left-1/2 h-[7%] w-[38%] -translate-x-1/2 rounded-full" style={{ top, background: "#526170" }} />)}
+              </div>
+              <div data-microwave-handle="true" className="absolute left-[16%] right-[30%] bottom-[8%] h-[6%] rounded-full" style={{ background: "linear-gradient(180deg, #6e7b88, #d5dbe1 45%, #667381)", boxShadow: "0 1px 2px rgba(0,0,0,.35)" }} />
+            </div>
+          )}
           {!applianceVisualUrl && isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
             <>
               {/* The lower chassis aligns exactly with adjacent 34½-inch bases.

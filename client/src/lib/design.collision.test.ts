@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -95,6 +95,19 @@ describe("design placement collision prevention", () => {
     const result = appendCollisionFreePlacements([leftBase, fridge], [leftPanel, rightPanel]);
     expect(result.placed).toEqual([leftBase, fridge, leftPanel, rightPanel]);
     expect(result.rejected).toEqual([]);
+  });
+
+  it("re-seats saved cabinet runs outside refrigerator panel seams on both sides", () => {
+    const leftBase = placed({ uid: "left-base", masterCode: "B-12", x: 36, width: 12, height: 34.5 });
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 48, width: 36, depth: 25, height: 70 });
+    const leftPanel = placed({ uid: "left-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", x: 46.5, width: 1.5, depth: 25, height: 96 });
+    const rightPanel = placed({ uid: "right-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", x: 84, width: 1.5, depth: 25, height: 96 });
+    const rightBase = placed({ uid: "right-base", masterCode: "3-DB24", x: 84, width: 24, height: 34.5 });
+    const normalized = normalizeRefrigeratorPanelSeams([leftBase, fridge, leftPanel, rightPanel, rightBase], DEFAULT_ROOM);
+    expect(normalized.find((item) => item.uid === "left-base")?.x).toBe(34.5);
+    expect(normalized.find((item) => item.uid === "right-base")?.x).toBe(85.5);
+    expect(normalized.find((item) => item.uid === "left-panel")?.x).toBe(46.5);
+    expect(normalized.find((item) => item.uid === "right-panel")?.x).toBe(84);
   });
 
   it("keeps a refrigerator and removes a colliding base from a restored legacy layout", () => {
