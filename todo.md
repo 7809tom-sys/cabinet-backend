@@ -2528,45 +2528,52 @@
 - [x] Add responsive per-wall controls in the 3D toolbar
 - [x] Render each room wall to its own selected height while preserving wall visibility controls
 - [x] Add per-wall height rendering regressions
-- [ ] Verify a room with one and two changed walls in the live 3D preview
+- [x] Verify a room with one and two changed walls in the live 3D preview
 
 ## 3D: Front Wall Height Mapping
 - [x] Trace why the Front = 1 inch field does not affect the visible front wall in the reported room
 - [x] Map the Front control to the correct room edge for rectangular and custom layouts
 - [x] Preserve independently working Back, Left, and Right wall controls
 - [x] Add front-wall mapping regressions
-- [ ] Verify Front = 1 inch in the live preview after the corrected mapping is published
+- [x] Verify Front = 1 inch in the live preview after the corrected mapping is published
 
 ## 3D: Independent Four-Wall Height Preservation
 - [x] Trace any state path that resets or mirrors another wall when one wall height changes
 - [x] Preserve distinct Back, Left, Right, and Front values through each individual update
 - [x] Keep the all-wall field as the only intentional control that updates all four walls
 - [x] Add cross-wall independence regressions
-- [ ] Verify four different heights in the live preview
+- [x] Verify four different heights in the live preview
 
 ## 3D: Physical Wall Control Assignments
 - [x] Trace the rendered Back wall behind the stove/refrigerator and Right wall behind the sink
 - [x] Align Back, Right, Front, and Left control labels to their physical room walls
 - [x] Preserve independent saved wall heights after physical label alignment
 - [x] Add physical-wall mapping regressions
-- [ ] Verify the stove/refrigerator and sink walls in the live 3D room
+- [x] Verify the stove/refrigerator and sink walls in the live 3D room
 
 ## 3D: Visible Independent Wall Geometry
 - [x] Trace rendered room-polygon units and visible wall mesh positions for selected Back 45, Left 45, Right 96, Front 96 heights
 - [x] Render each actual wall edge at its selected height without being mirrored or hidden by cabinet geometry
 - [x] Make selected wall-height changes visually legible while retaining room-context transparency
 - [x] Add wall-mesh height regressions
-- [ ] Verify the reported selected-height view after the corrected physical wall geometry is published
+- [x] Verify the reported selected-height view after the corrected physical wall geometry is published
 
 ## 3D: Exact Visible Wall-Mesh Bindings
 - [x] Trace why Back 45, Left 96, Right 45, Front 96 binds the Right and Front controls to the wrong visible meshes
 - [x] Bind Back, Left, Right, and Front values directly to their corresponding physical mesh edges
 - [x] Add rendered mesh-height assertions for the reported mixed-height values
-- [ ] Verify all four visible walls match their selected values in the live preview
+- [x] Verify all four visible walls match their selected values in the live preview
 
 ## 3D: Wall Height Clearance for Upper Cabinets
 - [x] Trace physical wall ownership and top elevations for upper cabinet runs
 - [x] Warn when an independently selected wall height ends below uppers on that wall
 - [x] Preserve user-selected independent values without silently raising other walls
 - [x] Add Back and Right upper-run clearance regressions
-- [ ] Verify Back and Right at 96 inches in the live 3D preview
+- [x] Verify Back and Right at 96 inches in the live 3D preview
+
+## 3D: Diagonal Wall Cabinet Faces into Corner
+- [x] Trace the reported diagonal wall cabinet’s 2D turn, geometry kind, and 3D rotation
+- [x] Rotate its angled face and doors toward the open room for each corner orientation
+- [x] Preserve existing correct diagonal, angled-wall, and lazy-Susan transforms
+- [x] Add diagonal wall corner orientation regressions
+- [ ] Verify the reported diagonal wall cabinet in the live 3D view

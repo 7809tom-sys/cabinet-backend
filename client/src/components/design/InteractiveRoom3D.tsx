@@ -2055,6 +2055,16 @@ export function threeDRoomFacingRotation(
   return wall ? facing[wall] : fallbackRotation;
 }
 
+/**
+ * The local diagonal-corner face is authored for the back-left corner. Three.js
+ * group rotation has the opposite handedness from the 2D corner-turn value, so
+ * mirror the turn to point the diagonal doors into the room at every corner.
+ */
+export function diagonalCornerRoomRotation(cornerTurn: number): number {
+  const normalized = ((cornerTurn % 360) + 360) % 360;
+  return (360 - normalized) % 360;
+}
+
 export function existingCabinetTransform(
   cabinet: PlacedCabinet,
   room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
@@ -2068,9 +2078,12 @@ export function existingCabinetTransform(
   const savedRotation = Number(cabinet.rotation);
   const sharedKind = placedCornerGeometryKind(cabinet);
   const hasPlacedRoom = Number.isFinite(room?.width) && Number.isFinite(room?.depth);
-  const planRotation = (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer") && hasPlacedRoom
+  const cornerTurn = hasPlacedRoom && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
     ? cornerRotationForPlaced(cabinet, room as RoomData)
-    : savedRotation;
+    : null;
+  const planRotation = sharedKind === "diagonal" && cornerTurn != null
+    ? diagonalCornerRoomRotation(cornerTurn)
+    : cornerTurn ?? savedRotation;
   // 2D horizontal walls share a 0° rotation and vertical walls share 90°, which
   // is sufficient for a plan footprint but cannot distinguish back/front or
   // left/right in a 3D room. Resolve orientation from the placed wall so every
