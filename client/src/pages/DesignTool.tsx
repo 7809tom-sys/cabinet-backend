@@ -74,7 +74,7 @@ import {
   formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart,
+  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -488,6 +488,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Doors & windows: adjustable wall openings.
   const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [selectedOpeningUid, setSelectedOpeningUid] = useState<string | null>(null);
+  // Reconcile saved short over-sink cabinets whenever their wall, window, or
+  // sink base changes. This removes a stale elevated mount after a window is
+  // deleted while preserving the minimum valid clearance when a window remains.
+  useEffect(() => {
+    const normalized = normalizeOverSinkWallMounts(placed, openings, room);
+    if (normalized !== placed) setPlaced(normalized);
+  }, [placed, openings, room]);
   // Trim toggles rendered in elevation + added to the BOM. These AUTO-APPLY
   // based on the layout (toe kick on any base run, crown + light rail when there
   // are wall cabinets, batten when cabinets share a seam). The user can still
@@ -2527,10 +2534,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
 
-      // Short wall cabinets can bridge above a sink window when their entire
-      // elevation clears the opening. Set the mount before collision recovery
-      // so the cabinet is not treated as a full-height wall overlap.
-      const bridgeMountBottom = bridgeMountBottomAboveWindow(finalCab, openings, room);
+      // Short cabinets centered over a sink normally begin at the required
+      // 70-inch finished-floor bottom. A real window may raise that bottom just enough
+      // to clear it; the cabinet must never be ceiling-mounted by default.
+      if (overSinkWindowClearanceBlocked(finalCab, prev, openings, room)) {
+        const message = `${finalCab.masterCode} cannot fit above this sink window because the required clearance exceeds the ceiling height.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return;
+      }
+      const sinkMountBottom = overSinkWallMountBottom(finalCab, prev, openings, room);
+      const bridgeMountBottom = sinkMountBottom ?? bridgeMountBottomAboveWindow(finalCab, openings, room);
       if (bridgeMountBottom != null) {
         finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
       }

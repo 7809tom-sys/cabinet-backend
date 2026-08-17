@@ -769,6 +769,8 @@ export function placedHeight(p: PlacedCabinet): number {
 // cabinets that hang from the ceiling/soffit line. A standard 30" wall cabinet
 // bottomed at 54" also tops out here (84").
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
+/** Standard finished-floor bottom for a short cabinet directly above a sink. */
+export const OVER_SINK_WALL_MOUNT_BOTTOM = 70;
 
 // On taller ceilings the upper run hangs higher so its top finishes near the
 // ceiling instead of leaving a big dead gap. We leave a small reveal so crown
@@ -1508,9 +1510,9 @@ export function bridgeMountBottomAboveWindow(
 }
 
 /**
- * Returns the run-axis start that centers a short wall cabinet over a window
- * backed by a sink base. This is deliberately scoped to a real sink/window
- * pairing so ordinary short wall cabinets still use normal free-run placement.
+ * Returns the run-axis start that centers a short wall cabinet over a sink
+ * base. A matching window is not required: an over-sink cabinet must remain
+ * centered above the sink whether the wall has a window or not.
  */
 export function overSinkWindowStart(
   cabinet: PlacedCabinet,
@@ -1524,20 +1526,86 @@ export function overSinkWindowStart(
   const cabinetSize = rotatedSize(cabinet);
   const cabinetSpan = horizontal ? cabinetSize.w : cabinetSize.d;
   const wallLength = horizontal ? room.width : room.depth;
-  const matchingWindow = openings.find((opening) => {
-    if (opening.kind !== "window" || opening.side !== side) return false;
-    const center = opening.offset + opening.width / 2;
-    return placed.some((item) => {
-      if (!isSinkBaseCabinet(item) || cabinetWall(item, room) !== side) return false;
-      const itemSize = rotatedSize(item);
-      const start = horizontal ? item.x : item.y;
-      const span = horizontal ? itemSize.w : itemSize.d;
-      return center >= start - 0.01 && center <= start + span + 0.01;
-    });
+  const shortCabinetCenter = (horizontal ? cabinet.x + cabinetSize.w / 2 : cabinet.y + cabinetSize.d / 2);
+  const matchingSinks = placed.filter((item) => isSinkBaseCabinet(item) && cabinetWall(item, room) === side);
+  if (matchingSinks.length === 0) return null;
+  const sinkBase = matchingSinks.reduce((nearest, item) => {
+    const itemSize = rotatedSize(item);
+    const itemCenter = horizontal ? item.x + itemSize.w / 2 : item.y + itemSize.d / 2;
+    const nearestSize = rotatedSize(nearest);
+    const nearestCenter = horizontal ? nearest.x + nearestSize.w / 2 : nearest.y + nearestSize.d / 2;
+    return Math.abs(itemCenter - shortCabinetCenter) < Math.abs(nearestCenter - shortCabinetCenter) ? item : nearest;
   });
-  if (!matchingWindow) return null;
-  const centeredStart = matchingWindow.offset + matchingWindow.width / 2 - cabinetSpan / 2;
+  const sinkSize = rotatedSize(sinkBase);
+  const sinkCenter = horizontal ? sinkBase.x + sinkSize.w / 2 : sinkBase.y + sinkSize.d / 2;
+  const centeredStart = sinkCenter - cabinetSpan / 2;
   return Math.max(0, Math.min(centeredStart, Math.max(0, wallLength - cabinetSpan)));
+}
+
+/**
+ * A short cabinet directly above a sink is bottom-mounted at 70 inches from
+ * the finished floor. It is raised only when a window on that same wall/run
+ * requires the minimum three-inch opening clearance.
+ */
+export function overSinkWallMountBottom(
+  cabinet: PlacedCabinet,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+): number | null {
+  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return null;
+  const centeredStart = overSinkWindowStart(cabinet, placed, openings, room);
+  if (centeredStart == null) return null;
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const currentStart = horizontal ? cabinet.x : cabinet.y;
+  if (Math.abs(currentStart - centeredStart) > 0.5) return null;
+  return Math.max(OVER_SINK_WALL_MOUNT_BOTTOM, bridgeMountBottomAboveWindow(cabinet, openings, room) ?? 0);
+}
+
+/** Whether a short over-sink cabinet crosses a window that cannot clear below the ceiling. */
+export function overSinkWindowClearanceBlocked(
+  cabinet: PlacedCabinet,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+): boolean {
+  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return false;
+  const centeredStart = overSinkWindowStart(cabinet, placed, openings, room);
+  if (centeredStart == null) return false;
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const currentStart = horizontal ? cabinet.x : cabinet.y;
+  if (Math.abs(currentStart - centeredStart) > 0.5) return false;
+  const size = rotatedSize(cabinet);
+  const span = horizontal ? size.w : size.d;
+  const crossesWindow = openings.some((opening) =>
+    opening.kind === "window" &&
+    opening.side === side &&
+    currentStart < opening.offset + opening.width - 0.01 &&
+    currentStart + span > opening.offset + 0.01,
+  );
+  return crossesWindow && bridgeMountBottomAboveWindow(cabinet, openings, room) == null;
+}
+
+/**
+ * Repairs saved drafts after a window or sink base changes. A prior automatic
+ * over-window mount must not leave the same short cabinet hovering at its old
+ * ceiling-adjacent height once the window is removed.
+ */
+export function normalizeOverSinkWallMounts(
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+): PlacedCabinet[] {
+  let changed = false;
+  const normalized = placed.map((cabinet) => {
+    const mountBottom = overSinkWallMountBottom(cabinet, placed, openings, room);
+    if (mountBottom == null || cabinet.mountBottom === mountBottom) return cabinet;
+    changed = true;
+    return { ...cabinet, mountBottom };
+  });
+  return changed ? normalized : placed;
 }
 
 /** Whether a wall cabinet crosses a window only after clearing it vertically. */

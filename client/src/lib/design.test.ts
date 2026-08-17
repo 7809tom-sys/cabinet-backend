@@ -18,7 +18,7 @@ import {
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
-  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
   isStacker,
@@ -1620,6 +1620,35 @@ describe("wall cabinet clearance from doors/windows", () => {
     expect(hasCollision(mountedBridge, [leftUpper])).toBe(false);
     const segments = freeSegmentsOnWall("top", room, [leftUpper], [opening], 9, WALL_OPENING_CLEARANCE_IN, "wall", false, mountedBridge);
     expect(nearestAvailableWallStart(segments, 54, 36)).toBe(54);
+  });
+
+  it("keeps a W-36-15 at the required 70-inch bottom above a sink without a window", () => {
+    const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+    const candidate = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15 });
+    expect(overSinkWindowStart(candidate, [sinkBase], [], room)).toBe(54);
+    expect(overSinkWallMountBottom(candidate, [sinkBase], [], room)).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
+  });
+
+  it("raises a short over-sink cabinet only to the window clearance height", () => {
+    const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+    const candidate = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15 });
+    expect(overSinkWallMountBottom(candidate, [sinkBase], [topWindow(54)], room)).toBe(79);
+  });
+
+  it("rejects an over-sink cabinet when window clearance cannot fit below the ceiling", () => {
+    const lowRoom: RoomData = { ...room, ceilingHeight: 90 };
+    const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+    const candidate = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15 });
+    const highWindow = { ...topWindow(54), sill: 76, height: 10 };
+    expect(overSinkWindowClearanceBlocked(candidate, [sinkBase], [highWindow], lowRoom)).toBe(true);
+    expect(overSinkWallMountBottom(candidate, [sinkBase], [highWindow], lowRoom)).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
+  });
+
+  it("lowers a saved over-sink cabinet to 70 inches after its window is removed", () => {
+    const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+    const staleBridge = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15, mountBottom: 81 });
+    const normalized = normalizeOverSinkWallMounts([sinkBase, staleBridge], [], room);
+    expect(normalized.find((cabinet) => cabinet.uid === "w-36-15")?.mountBottom).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
   });
 
   it("still blocks a short cabinet that occupies the neighboring upper's elevation band", () => {

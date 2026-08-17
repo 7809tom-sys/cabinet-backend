@@ -210,6 +210,23 @@
 - [x] Add the reported W-36-15/W-12-42/window regression
 - [ ] Verify the reported W-36-15 over sink/window arrangement in the live designer and capture the outcome
 
+## Fix: Short over-sink cabinet is mounted at the ceiling without a window
+
+- [x] Trace why W-36-15 above the sink is top-aligned when no window exists
+- [x] Keep short over-sink cabinets at a 70-inch finished-floor bottom unless a window must be cleared
+- [x] When a window exists, raise only from 70 inches to the minimum clearance height below the ceiling
+- [x] Add 70-inch no-window and window-clearance mounting-height regressions
+- [x] Reject an over-sink cabinet when its window clearance cannot fit below the ceiling
+- [x] Add an uncleareable-window regression so the cabinet never falls back into the window at 70 inches
+- [ ] Verify the reported elevation in the live designer at 70 inches from the floor
+
+## Fix: Sink fixture is sideways inside a right-wall sink base
+
+- [ ] Trace sink fixture rotation and center placement relative to its owning sink base
+- [ ] Align the sink fixture lengthwise with the sink-base wall on all four walls
+- [ ] Preserve centered sink placement and faucet position when the sink base moves or restores
+- [ ] Add right-wall sink-base orientation regression coverage and verify the reported plan
+
 ## Fix: Range variants need catalog-correct front or rear control layouts
 
 - [x] Trace selected range variant metadata and current control-position logic
