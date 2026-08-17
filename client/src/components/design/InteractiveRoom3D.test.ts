@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight, resolvedThreeDWallHeights, threeDWallSideForEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, resolvedThreeDWallHeights, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -44,6 +44,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDWallSideForEdge({ x: 12, y: 0 }, { x: 12, y: -10 }, room)).toBe("right");
     expect(threeDWallSideForEdge({ x: 12, y: -10 }, { x: 0, y: -10 }, room)).toBe("bottom");
     expect(threeDWallSideForEdge({ x: 0, y: -10 }, { x: 0, y: 0 }, room)).toBe("left");
+  });
+
+  it("binds each rectangular mesh edge directly to Back, Right, Front, and Left", () => {
+    const room = { width: 144, depth: 120 };
+    const edges = [
+      [{ x: 0, y: 0 }, { x: 12, y: 0 }],
+      [{ x: 12, y: 0 }, { x: 12, y: -10 }],
+      [{ x: 12, y: -10 }, { x: 0, y: -10 }],
+      [{ x: 0, y: -10 }, { x: 0, y: 0 }],
+    ] as const;
+    expect(edges.map(([start, end], index) => threeDWallSideForPolygonEdge(index, edges.length, start, end, room))).toEqual(["top", "right", "bottom", "left"]);
   });
 
   it("maps the stove and refrigerator run to Back and the sink run to Right", () => {

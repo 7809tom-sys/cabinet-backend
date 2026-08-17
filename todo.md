@@ -2557,3 +2557,9 @@
 - [x] Make selected wall-height changes visually legible while retaining room-context transparency
 - [x] Add wall-mesh height regressions
 - [ ] Verify the reported selected-height view after the corrected physical wall geometry is published
+
+## 3D: Exact Visible Wall-Mesh Bindings
+- [x] Trace why Back 45, Left 96, Right 45, Front 96 binds the Right and Front controls to the wrong visible meshes
+- [x] Bind Back, Left, Right, and Front values directly to their corresponding physical mesh edges
+- [x] Add rendered mesh-height assertions for the reported mixed-height values
+- [ ] Verify all four visible walls match their selected values in the live preview

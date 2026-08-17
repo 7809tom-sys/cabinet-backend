@@ -2618,6 +2618,12 @@ export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x:
   return midX <= renderedWidth / 2 ? "left" : "right";
 }
 
+/** A rectangular room polygon is emitted clockwise as Back, Right, Front, Left. */
+export function threeDWallSideForPolygonEdge(index: number, edgeCount: number, start: { x: number; y: number }, end: { x: number; y: number }, room: Pick<RoomData, "width" | "depth">): WallSide {
+  if (edgeCount === 4) return (["top", "right", "bottom", "left"] as const)[index % 4];
+  return threeDWallSideForEdge(start, end, room);
+}
+
 export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -2819,11 +2825,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       const dx = end.x - start.x;
       const dz = -(end.y - start.y);
       const length = Math.hypot(dx, dz);
-      const side = threeDWallSideForEdge(start, end, room);
+      const side = threeDWallSideForPolygonEdge(index, polygon.length, start, end, room);
       const sideWallHeight = wallHeights[side] * INCH;
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
+      wall.userData = { roomWall: true, physicalWallSide: side, wallHeightIn: wallHeights[side] };
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);
