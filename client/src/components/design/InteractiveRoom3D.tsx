@@ -1658,6 +1658,27 @@ export function addCabinet(
         door.position.z + (angledWallFace?.normalZ ?? 1) * 0.034,
         door.rotation.y,
       );
+      if (diagonalDoorCount === 1) {
+        const pullLength = Math.min(Math.max(0.12, diagonalDoorHeight * 0.28), 0.86);
+        const normalX = Math.sin(door.rotation.y);
+        const normalZ = Math.cos(door.rotation.y);
+        const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
+        pull.position.set(
+          door.position.x + normalX * 0.058,
+          door.position.y - diagonalDoorHeight * 0.3,
+          door.position.z + normalZ * 0.058,
+        );
+        pull.rotation.y = door.rotation.y;
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: "opposite-hinge", dimensionalCabinetDetail: true };
+        frontGroup.add(pull);
+        for (const offset of [-1, 1] as const) {
+          const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
+          stem.rotation.set(Math.PI / 2, door.rotation.y, 0);
+          stem.position.set(pull.position.x, pull.position.y + offset * pullLength * 0.34, pull.position.z - 0.018);
+          stem.userData = { cabinetHardwareMount: true, diagonalDoorPullMount: true };
+          frontGroup.add(stem);
+        }
+      }
     }
   } else if (specialty.kind === "triangle-corner") {
     // A WTC/BTC and the AW1230 angled-wall profile use the true triangular

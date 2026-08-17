@@ -2590,3 +2590,10 @@
 - [x] Preserve two-door diagonal faces for catalog models that specify two doors
 - [x] Add one-door and two-door diagonal wall regressions
 - [ ] Verify the reported one-door diagonal wall cabinet in the live 3D view
+
+## 3D: One-Door Diagonal Wall Cabinet Hardware
+- [x] Trace the diagonal face’s missing single-door pull path
+- [x] Add a room-facing handle to a one-door diagonal wall cabinet
+- [x] Preserve existing pulls for two-door diagonal wall cabinets
+- [x] Add diagonal single-door hardware regression coverage
+- [ ] Verify the reported cabinet handle in the live 3D view

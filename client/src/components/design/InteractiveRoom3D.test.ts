@@ -1332,13 +1332,17 @@ describe("interactive 3D room scene helpers", () => {
     const root = new THREE.Group();
     addCabinet(root, singleDoorDiagonal, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "Recessed Panel" });
     const doors: THREE.Object3D[] = [];
+    const pulls: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.diagonalDoor) doors.push(node);
+      if (node.userData.diagonalDoorPull) pulls.push(node);
     });
     expect(doors).toHaveLength(1);
     expect(doors[0]!.position.x).toBeGreaterThan(0.5);
     expect(doors[0]!.position.z).toBeGreaterThan(0.5);
     expect(doors[0]!.position.x).toBeCloseTo(doors[0]!.position.z, 8);
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]!.rotation.y).toBeCloseTo(doors[0]!.rotation.y, 8);
   });
 
   it("builds AW1230 as a 12-by-12 angled wall wedge with one side-hinged diagonal door and two adjustable shelves configured", () => {
