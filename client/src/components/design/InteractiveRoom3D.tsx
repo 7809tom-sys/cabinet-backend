@@ -2595,6 +2595,11 @@ export function resolvedThreeDWallHeights(room: RoomData | undefined, fallbackHe
   }, {} as Record<WallSide, number>);
 }
 
+/** Changes one wall only; all other independent room-wall heights remain intact. */
+export function updatedThreeDWallHeights(current: Record<WallSide, number>, side: WallSide, nextHeight: number): Record<WallSide, number> {
+  return { ...current, [side]: nextHeight };
+}
+
 /** Resolves a rectangular or polygon room edge to the familiar Back, Left, Right, or Front control. */
 export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x: number; y: number }, room: Pick<RoomData, "width" | "depth">): WallSide {
   const dx = end.x - start.x;
@@ -2683,7 +2688,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const updateWallHeightForSide = (side: WallSide, value: unknown) => {
     const nextHeight = constrainedThreeDWallHeight(value, wallHeights[side]);
     setWallHeights((current) => {
-      const nextHeights = { ...current, [side]: nextHeight };
+      const nextHeights = updatedThreeDWallHeights(current, side, nextHeight);
       onRoomWallHeightsChange?.(nextHeights);
       return nextHeights;
     });

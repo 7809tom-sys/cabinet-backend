@@ -2536,3 +2536,10 @@
 - [x] Preserve independently working Back, Left, and Right wall controls
 - [x] Add front-wall mapping regressions
 - [ ] Verify Front = 1 inch in the live preview after the corrected mapping is published
+
+## 3D: Independent Four-Wall Height Preservation
+- [x] Trace any state path that resets or mirrors another wall when one wall height changes
+- [x] Preserve distinct Back, Left, Right, and Front values through each individual update
+- [x] Keep the all-wall field as the only intentional control that updates all four walls
+- [x] Add cross-wall independence regressions
+- [ ] Verify four different heights in the live preview
