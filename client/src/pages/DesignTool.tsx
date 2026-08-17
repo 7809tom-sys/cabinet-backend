@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
@@ -67,7 +67,7 @@ import {
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
   type PlanAnnotation, makeAnnotation,
   makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
-  snapToWall, snapPosition, nextFreeSpotOnWall,
+  snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
@@ -2410,6 +2410,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
       // ── OTR microwave auto-snap over a range ───────────────────────────
       let otrMountBottom: number | undefined;
+      let otrRangeUid: string | undefined;
       if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
         const targetWall = cabinetWall(
           { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
@@ -2435,15 +2436,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           // Preserve the exact range wall and run center. Updating only X/Y
           // left a new microwave on the next free plan row, which made the
           // valid mounted pair fail the centered over-range collision rule.
-          spot = wallPlacementAt(
-            rangeStart + rangeSpan / 2 - microwaveSpan / 2,
-            width,
-            depth,
-            targetWall,
-            room,
-          );
+          spot = mountedMicrowaveOverRangeSpot({ width, depth }, range, room);
           const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
           otrMountBottom = mwDef?.elevBottom ?? 54;
+          otrRangeUid = range.uid;
           toast.success(t("dt_otr_snapped_over_range"));
         }
       }
@@ -2568,10 +2564,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
       const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
-      const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
-      finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
+      // The generic snap pass resolves overlapping plan footprints. An OTR
+      // microwave intentionally projects over its range, so retain the exact
+      // wall/run center calculated above instead of allowing snapPosition to
+      // push it beside the range and invalidate the mounted-pair exception.
+      const mountedRange = otrRangeUid ? normalizedPrevious.find((cabinet) => cabinet.uid === otrRangeUid) : undefined;
+      if (mountedRange) {
+        const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
+        finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
+      } else {
+        const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
+        finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
+      }
       let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
       finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
+      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
       if (hasCollision(finalCab, normalizedPrevious)) {
         const side = cabinetWall(finalCab, room);
         const requestedAlong = side === "top" || side === "bottom" ? finalCab.x : finalCab.y;
@@ -2602,7 +2609,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
         }
       }
-      if (hasCollision(finalCab, normalizedPrevious)) {
+      if (hasCollision(finalCab, normalizedPrevious) && !validMountedMicrowavePair) {
         const message = collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);

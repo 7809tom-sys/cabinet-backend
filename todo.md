@@ -244,6 +244,21 @@
 - [x] Add the reported MW-30/RANGE-30 placement regression
 - [ ] Verify the centered MW-30/RANGE-30 pairing in the reported 2D and 3D views
 
+## Fix: Final plan-overlap validation still rejects a centered mounted MW-30
+
+- [x] Trace the final drag/drop or add placement guard that still reports MW-30/RANGE-30 overlap
+- [x] Exempt only a wall-matched, centered, mounted MW-30/RANGE-30 pair from that final guard
+- [x] Retain rejection for floor-height, misaligned, or incompatible appliance overlaps
+- [x] Add final-placement regression coverage for the reported top-wall and right-wall layouts
+- [ ] Verify successful MW-30 placement in the reported right-wall and top-wall layouts
+
+## Fix: Final plan-overlap validation still rejects a centered mounted MW-30
+
+- [x] Trace the final drag/drop or add placement guard that still reports MW-30/RANGE-30 overlap
+- [x] Exempt only a wall-matched, centered, mounted MW-30/RANGE-30 pair from that final guard
+- [x] Retain rejection for floor-height, misaligned, or incompatible appliance overlaps
+- [x] Add final-placement regression coverage for the reported top-wall and right-wall layouts
+
 ## Fix: Range variants need catalog-correct front or rear control layouts
 
 - [x] Trace selected range variant metadata and current control-position logic
@@ -385,7 +400,7 @@
 - [x] Normalize saved refrigerator panel seams by shifting B-12 and 3-DB24 outside the panel thickness
 - [x] Preserve refrigerator, panel, and neighboring-cabinet bounds on all wall orientations
 - [x] Add saved-run panel-seam regressions for both sides of a refrigerator
-- [ ] Verify the reported refrigerator wall after saved-run normalization
+- [x] Verify the reported refrigerator wall after saved-run normalization
 
 ## Fix: MW-30 elevation is only a gray placeholder
 

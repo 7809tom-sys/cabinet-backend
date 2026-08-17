@@ -2549,6 +2549,35 @@ export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
   return p.x + w / 2 < room.width / 2 ? "left" : "right";
 }
 
+/**
+ * Returns the wall-flush spot for a microwave centered on a compatible range.
+ * The microwave's shallow plan depth is preserved while only its run-axis
+ * center follows the range, which supports top/bottom and left/right walls.
+ */
+export function mountedMicrowaveOverRangeSpot(
+  microwave: Pick<PlacedCabinet, "width" | "depth">,
+  range: PlacedCabinet,
+  room: RoomData,
+): { x: number; y: number; rotation: number } {
+  const side = cabinetWall(range, room);
+  const rangeSize = rotatedSize(range);
+  const horizontal = side === "top" || side === "bottom";
+  const rangeStart = horizontal ? range.x : range.y;
+  const rangeSpan = horizontal ? rangeSize.w : rangeSize.d;
+  // The microwave's catalog width follows the cabinet run on every wall. Its
+  // shallow depth only projects into the room, including after a 90° turn on a
+  // left/right wall. Using depth here offset a right-wall MW-30 by 7½ inches,
+  // which made the final mounted-pair collision exemption fail.
+  const microwaveSpan = microwave.width;
+  return wallPlacementAt(
+    rangeStart + rangeSpan / 2 - microwaveSpan / 2,
+    microwave.width,
+    microwave.depth,
+    side,
+    room,
+  );
+}
+
 // Sum a mitered trim run grouped by wall, adding the miter allowance once per
 // wall that actually has trim on it. `cabs` are the cabinets the trim runs over.
 export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -77,6 +77,13 @@ describe("design placement collision prevention", () => {
     const microwave = placed({ uid: "mw-right", masterCode: "MW-30", description: '30" Over-Range Microwave', placement: "appliance", x: 129, y: 40, width: 30, depth: 15, height: 17, mountBottom: 54, rotation: 90 });
     expect(isMicrowaveOverRangePair(microwave, range)).toBe(true);
     expect(hasCollision(microwave, [range])).toBe(false);
+  });
+
+  it("pins a new MW-30 to the exact range center on top and right walls", () => {
+    const topRange = placed({ uid: "top-range", masterCode: "RANGE-30", placement: "appliance", x: 42, y: 0, width: 30, depth: 25, height: 34.5, rotation: 0 });
+    const rightRange = placed({ uid: "right-range", masterCode: "RANGE-30", placement: "appliance", x: 119, y: 42, width: 30, depth: 25, height: 34.5, rotation: 90 });
+    expect(mountedMicrowaveOverRangeSpot({ width: 30, depth: 15 }, topRange, DEFAULT_ROOM)).toMatchObject({ x: 42, y: 0, rotation: 0 });
+    expect(mountedMicrowaveOverRangeSpot({ width: 30, depth: 15 }, rightRange, DEFAULT_ROOM)).toMatchObject({ x: 129, y: 42, rotation: 90 });
   });
 
   it("does not append a base cabinet into an existing refrigerator opening", () => {
