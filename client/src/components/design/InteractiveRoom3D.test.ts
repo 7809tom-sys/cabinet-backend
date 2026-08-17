@@ -1048,6 +1048,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(faucet.z).toBeCloseTo(4.348333333333334, 12);
   });
 
+  it("keeps vertical door pulls but omits a horizontal false-drawer pull on a standard sink base", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -89, cabinetId: 89, masterCode: "SB-36", description: "36 inch Sink Base",
+      placementType: "base", width: 36, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.cabinetPull) pulls.push(node); });
+    expect(pulls.filter((node) => node.userData.cabinetPull === "drawer")).toHaveLength(0);
+    expect(pulls.filter((node) => node.userData.cabinetPull === "door")).toHaveLength(2);
+    expect(pulls.every((node) => node.userData.cabinetPull !== "door" || node.userData.verticalPull)).toBe(true);
+  });
+
   it("faces a right-wall sink faucet toward the right-wall backsplash", () => {
     const sink = {
       uid: "right-sink", type: "single", x: 120, y: 42, width: 18, depth: 25,

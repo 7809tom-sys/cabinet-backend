@@ -1216,6 +1216,7 @@ export function addCabinet(
     }
   };
   const isPlacedAppliance = placement === "appliance";
+  const isStandardSinkBase = !isPlacedAppliance && /^(?:SB|CSB)[-_]?\d/i.test(sku.masterCode ?? "");
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isRefrigeratorEndPanel) {
     // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
@@ -1873,7 +1874,10 @@ export function addCabinet(
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addFaceShadow(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
-      addPull(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y, true);
+      // A standard sink base may have a shallow false front above its doors,
+      // but that face is not an operable drawer and must not receive a
+      // horizontal handle. Its vertical door pulls remain unchanged above.
+      if (!isStandardSinkBase) addPull(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y, true);
     }
     drawerCursor += hasConfiguredOpening ? row.height : -row.height;
   }

@@ -228,6 +228,14 @@
 - [x] Add right-wall sink-base orientation regression coverage
 - [ ] Verify the reported plan and 3D scene with the corrected right-wall sink
 
+## Fix: Sink-base cabinets show an extra horizontal false-drawer handle in 3D
+
+- [x] Trace 3D sink-base false-drawer and hardware generation
+- [x] Remove the horizontal false-drawer pull from sink bases
+- [x] Preserve the required vertical pull on each sink-base door
+- [x] Add sink-base hardware regression coverage
+- [ ] Verify the reported 3D scene without the false-drawer handle
+
 ## Fix: Centered MW-30 placement above RANGE-30 is still rejected
 
 - [x] Trace the remaining placement path that rejects a valid centered MW-30/RANGE-30 pair
