@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -37,6 +37,17 @@ describe("design placement collision prevention", () => {
     expect(fixtureIsOnCabinetFootprint({ x: 80, y: 40, width: 20, depth: 18 }, sinkBase)).toBe(false);
   });
 
+  it("centers and turns a sink lengthwise within a right-wall sink base", () => {
+    const rightSinkBase = placed({ uid: "right-sb36", masterCode: "SB36", description: "Sink Base 36", x: 120, y: 42, width: 36, depth: 24, rotation: 90 });
+    const installed = makeSinkForCabinet("single", rightSinkBase, DEFAULT_ROOM);
+    expect(installed.wallSide).toBe("right");
+    expect(installed.width).toBe(18);
+    expect(installed.depth).toBe(25);
+    expect(installed.cabinetUid).toBe("right-sb36");
+    const normalized = normalizeSinkFixturesToBases([{ ...installed, wallSide: undefined, width: 25, depth: 18, sourceWidth: undefined, sourceDepth: undefined }], [rightSinkBase], DEFAULT_ROOM);
+    expect(normalized[0]).toMatchObject({ wallSide: "right", width: 18, depth: 25, cabinetUid: "right-sb36" });
+  });
+
   it("rejects an appliance overlapping a base cabinet but preserves the sink-over-sink-base exception", () => {
     const b33 = placed({ uid: "b33", masterCode: "B33", x: 0 });
     const range = placed({ uid: "range", masterCode: "RANGE-30", placement: "appliance", x: 4, width: 30 });
@@ -59,6 +70,13 @@ describe("design placement collision prevention", () => {
     expect(hasCollision(floorMicrowave, [range])).toBe(true);
     expect(isMicrowaveOverRangePair(misalignedMicrowave, range)).toBe(false);
     expect(hasCollision(misalignedMicrowave, [range])).toBe(true);
+  });
+
+  it("allows the same centered mounted MW-30 pair on a rotated right-wall range", () => {
+    const range = placed({ uid: "range-right", masterCode: "RANGE-30", description: '30" Black Gas Range', placement: "appliance", x: 120, y: 40, width: 30, depth: 25, height: 36, mountBottom: 0, rotation: 90 });
+    const microwave = placed({ uid: "mw-right", masterCode: "MW-30", description: '30" Over-Range Microwave', placement: "appliance", x: 129, y: 40, width: 30, depth: 15, height: 17, mountBottom: 54, rotation: 90 });
+    expect(isMicrowaveOverRangePair(microwave, range)).toBe(true);
+    expect(hasCollision(microwave, [range])).toBe(false);
   });
 
   it("does not append a base cabinet into an existing refrigerator opening", () => {

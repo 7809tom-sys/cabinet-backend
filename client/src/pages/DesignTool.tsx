@@ -66,7 +66,7 @@ import {
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
   type PlanAnnotation, makeAnnotation,
-  makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
+  makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
@@ -522,6 +522,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Sink + faucet fixtures placed on the counter.
   const [sinks, setSinks] = useState<SinkFixture[]>([]);
   const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
+  // Keep legacy and installed fixtures centered and lengthwise in their owning
+  // sink base after a saved design loads or the base moves to another wall.
+  useEffect(() => {
+    const normalized = normalizeSinkFixturesToBases(sinks, placed, room);
+    if (normalized !== sinks) setSinks(normalized);
+  }, [sinks, placed, room]);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
@@ -2423,11 +2429,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         if (range) {
           const rs = rotatedSize(range);
           const horizontal = targetWall === "top" || targetWall === "bottom";
-          if (horizontal) {
-            spot = { ...spot, x: range.x + rs.w / 2 - width / 2 };
-          } else {
-            spot = { ...spot, y: range.y + rs.d / 2 - depth / 2 };
-          }
+          const rangeStart = horizontal ? range.x : range.y;
+          const rangeSpan = horizontal ? rs.w : rs.d;
+          const microwaveSpan = horizontal ? width : depth;
+          // Preserve the exact range wall and run center. Updating only X/Y
+          // left a new microwave on the next free plan row, which made the
+          // valid mounted pair fail the centered over-range collision rule.
+          spot = wallPlacementAt(
+            rangeStart + rangeSpan / 2 - microwaveSpan / 2,
+            width,
+            depth,
+            targetWall,
+            room,
+          );
           const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
           otrMountBottom = mwDef?.elevBottom ?? 54;
           toast.success(t("dt_otr_snapped_over_range"));
@@ -3711,12 +3725,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const preset = SINK_PRESETS[type];
     // Drop centered on the active wall's run so it lands on the counter, but the
     // user can drag it anywhere afterward.
-    const x = Math.max(0, Math.min(room.width / 2 - preset.width / 2, room.width - preset.width));
+    const plan = sinkPlanDimensions(preset.width, preset.depth, activeWall);
+    const x = Math.max(0, Math.min(room.width / 2 - plan.width / 2, room.width - plan.width));
     let y: number;
-    if (activeWall === "bottom") y = room.depth - preset.depth - 1;
+    if (activeWall === "bottom") y = room.depth - plan.depth - 1;
     else if (activeWall === "top") y = 1;
-    else y = room.depth / 2 - preset.depth / 2;
-    const sink = makeSink(type, x, y);
+    else y = room.depth / 2 - plan.depth / 2;
+    const sink = makeSink(type, x, y, activeWall);
     setSinks((prev) => [...prev, sink]);
     setSelectedSinkUid(sink.uid);
     setCountertop(true); // a sink implies a counter
@@ -8520,19 +8535,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     const sinkW = Math.min(Math.max(w, 12), 42);
                     const sinkD = sinkW >= 30 ? 20 : 18;
                     const sinkType: SinkType = /farm/i.test(item.name) ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single";
-                    const x = Math.max(0, Math.min(room.width / 2 - sinkW / 2, room.width - sinkW));
+                    const plan = sinkPlanDimensions(sinkW, sinkD, activeWall);
+                    const x = Math.max(0, Math.min(room.width / 2 - plan.width / 2, room.width - plan.width));
                     let y: number;
-                    if (activeWall === "bottom") y = room.depth - sinkD - 1;
+                    if (activeWall === "bottom") y = room.depth - plan.depth - 1;
                     else if (activeWall === "top") y = 1;
-                    else y = room.depth / 2 - sinkD / 2;
+                    else y = room.depth / 2 - plan.depth / 2;
                     const sink: SinkFixture = {
-                      uid: `sink-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-                      type: sinkType,
-                      x,
-                      y,
-                      width: sinkW,
-                      depth: sinkD,
-                      faucet: true,
+                      ...makeSink(sinkType, x, y, activeWall, { width: sinkW, depth: sinkD }),
                       pelicanProductId: item.id,
                       pelicanProductName: item.name,
                       pelicanProductImage: item.imageUrl ?? undefined,
@@ -8838,12 +8848,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
-          const fp = placedFootprint(placed.find(p => p.uid === sinkBaseDialog.cabinetUid) ?? { x: 0, y: 0, width: 30, depth: 24, rotation: 0, placement: "base" } as PlacedCabinet);
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
-          const preset = SINK_PRESETS["single"];
-          const sx = cab ? Math.max(0, Math.min(cab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)) : 0;
-          const sy = cab ? Math.max(0, Math.min(cab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)) : 0;
-          const autoSink = makeSink("single", sx, sy);
+          const autoSink = cab
+            ? makeSinkForCabinet("single", cab, room)
+            : makeSink("single", 0, 0, activeWall);
           setSinks((prevSinks) => [...prevSinks, autoSink]);
           setSelectedSinkUid(autoSink.uid);
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });

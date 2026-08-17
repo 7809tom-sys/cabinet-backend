@@ -222,10 +222,19 @@
 
 ## Fix: Sink fixture is sideways inside a right-wall sink base
 
-- [ ] Trace sink fixture rotation and center placement relative to its owning sink base
-- [ ] Align the sink fixture lengthwise with the sink-base wall on all four walls
-- [ ] Preserve centered sink placement and faucet position when the sink base moves or restores
-- [ ] Add right-wall sink-base orientation regression coverage and verify the reported plan
+- [x] Trace sink fixture rotation and center placement relative to its owning sink base
+- [x] Align the sink fixture lengthwise with the sink-base wall on all four walls
+- [x] Preserve centered sink placement and faucet position when the sink base moves or restores
+- [x] Add right-wall sink-base orientation regression coverage
+- [ ] Verify the reported plan and 3D scene with the corrected right-wall sink
+
+## Fix: Centered MW-30 placement above RANGE-30 is still rejected
+
+- [x] Trace the remaining placement path that rejects a valid centered MW-30/RANGE-30 pair
+- [x] Preserve valid over-range mounting on horizontal and vertical room walls
+- [x] Retain collision rejection for unmounted, misaligned, or non-compatible appliances
+- [x] Add the reported MW-30/RANGE-30 placement regression
+- [ ] Verify the centered MW-30/RANGE-30 pairing in the reported 2D and 3D views
 
 ## Fix: Range variants need catalog-correct front or rear control layouts
 

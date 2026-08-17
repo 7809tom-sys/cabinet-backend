@@ -4241,6 +4241,13 @@ export interface SinkFixture {
   width: number;
   depth: number;
   faucet: boolean;
+  /** Wall that the fixture faces, used to orient the basin and faucet in plan/3D. */
+  wallSide?: WallSide;
+  /** Owning sink-base placement when the fixture is installed in a cabinet. */
+  cabinetUid?: string;
+  /** Physical product dimensions before the plan footprint is rotated. */
+  sourceWidth?: number;
+  sourceDepth?: number;
   /** Pelican product ID (when selected from real inventory) */
   pelicanProductId?: number;
   /** Pelican product name for display */
@@ -4256,17 +4263,78 @@ export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth
   bar:       { name: "Bar / Prep Sink",  width: 15, depth: 15 },
 };
 
-export function makeSink(type: SinkType, x: number, y: number): SinkFixture {
+export function sinkPlanDimensions(
+  width: number,
+  depth: number,
+  wallSide?: WallSide,
+): { width: number; depth: number } {
+  return wallSide === "left" || wallSide === "right"
+    ? { width: depth, depth: width }
+    : { width, depth };
+}
+
+export function makeSink(
+  type: SinkType,
+  x: number,
+  y: number,
+  wallSide?: WallSide,
+  dimensions?: { width: number; depth: number },
+): SinkFixture {
   const preset = SINK_PRESETS[type];
+  const sourceWidth = dimensions?.width ?? preset.width;
+  const sourceDepth = dimensions?.depth ?? preset.depth;
+  const plan = sinkPlanDimensions(sourceWidth, sourceDepth, wallSide);
   return {
     uid: `sink-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
     type,
     x,
     y,
-    width: preset.width,
-    depth: preset.depth,
+    width: plan.width,
+    depth: plan.depth,
     faucet: true,
+    wallSide,
+    sourceWidth,
+    sourceDepth,
   };
+}
+
+/** Centers a sink fixture within a sink-base footprint and faces it toward the room. */
+export function makeSinkForCabinet(
+  type: SinkType,
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  dimensions?: { width: number; depth: number },
+): SinkFixture {
+  const side = cabinetWall(cabinet, room);
+  const rawWidth = dimensions?.width ?? SINK_PRESETS[type].width;
+  const rawDepth = dimensions?.depth ?? SINK_PRESETS[type].depth;
+  const plan = sinkPlanDimensions(rawWidth, rawDepth, side);
+  const footprint = placedFootprint(cabinet);
+  const x = Math.max(cabinet.x, Math.min(cabinet.x + footprint.w - plan.width, cabinet.x + footprint.w / 2 - plan.width / 2));
+  const y = Math.max(cabinet.y, Math.min(cabinet.y + footprint.d - plan.depth, cabinet.y + footprint.d / 2 - plan.depth / 2));
+  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid };
+}
+
+/** Repairs legacy sink fixtures so their plan footprint matches the owning sink-base wall. */
+export function normalizeSinkFixturesToBases(
+  sinks: SinkFixture[],
+  placed: PlacedCabinet[],
+  room: RoomData,
+): SinkFixture[] {
+  let changed = false;
+  const normalized = sinks.map((sink) => {
+    const owner = placed.find((cabinet) => cabinet.uid === sink.cabinetUid && isSinkBaseCabinet(cabinet))
+      ?? placed.find((cabinet) => isSinkBaseCabinet(cabinet) && fixtureIsOnCabinetFootprint(sink, cabinet));
+    if (!owner) return sink;
+    const sourceWidth = sink.sourceWidth ?? sink.width;
+    const sourceDepth = sink.sourceDepth ?? sink.depth;
+    const next = makeSinkForCabinet(sink.type, owner, room, { width: sourceWidth, depth: sourceDepth });
+    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
+    if (same) return sink;
+    changed = true;
+    return { ...next, uid: sink.uid, faucet: sink.faucet, pelicanProductId: sink.pelicanProductId, pelicanProductName: sink.pelicanProductName, pelicanProductImage: sink.pelicanProductImage };
+  });
+  return changed ? normalized : sinks;
 }
 
 // ─── Corner-base conflict detection ──────────────────────────────────────────

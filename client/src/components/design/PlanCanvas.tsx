@@ -884,6 +884,7 @@ export function PlanCanvas({
         {/* Sink + faucet fixtures — drawn on top of the counter. */}
         {sinks.map((s) => {
           const isSel = s.uid === selectedSinkUid;
+          const verticalWall = s.wallSide === "left" || s.wallSide === "right";
           return (
             <div
               key={s.uid}
@@ -909,14 +910,16 @@ export function PlanCanvas({
                 }}
               />
               {s.type === "double" && (
-                <div className="absolute top-[12%] bottom-[12%] left-1/2 w-px -translate-x-1/2" style={{ background: "#8b949c" }} />
+                verticalWall
+                  ? <div className="absolute left-[12%] right-[12%] top-1/2 h-px -translate-y-1/2" style={{ background: "#8b949c" }} />
+                  : <div className="absolute top-[12%] bottom-[12%] left-1/2 w-px -translate-x-1/2" style={{ background: "#8b949c" }} />
               )}
               {/* faucet — a small fixture centered behind the basin */}
               {s.faucet && (
-                <div
-                  className="absolute left-1/2 -translate-x-1/2"
-                  style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }}
-                />
+                s.wallSide === "bottom" ? <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2" style={{ width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }} />
+                  : s.wallSide === "left" ? <div className="absolute left-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
+                    : s.wallSide === "right" ? <div className="absolute right-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
+                      : <div className="absolute left-1/2 -translate-x-1/2" style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }} />
               )}
             </div>
           );

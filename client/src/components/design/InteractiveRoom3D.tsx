@@ -2163,12 +2163,19 @@ export function sinkFixtureTransform(sink: SinkFixture) {
 
 export function sinkFaucetTransform(sink: SinkFixture) {
   const sinkTransform = sinkFixtureTransform(sink);
+  const offset = sink.sourceDepth ?? sink.depth;
+  const back = sink.wallSide === "bottom"
+    ? { x: 0, z: offset * INCH * 0.31 }
+    : sink.wallSide === "left"
+      ? { x: -offset * INCH * 0.31, z: 0 }
+      : sink.wallSide === "right"
+        ? { x: offset * INCH * 0.31, z: 0 }
+        : { x: 0, z: -offset * INCH * 0.31 };
   return {
-    x: sinkTransform.x,
-    // In the shared plan, lower Y is the wall/back edge. Keep the riser behind
-    // the bowl so the faucet does not project toward the front working aisle.
-    z: sinkTransform.z - sink.depth * INCH * 0.31,
+    x: sinkTransform.x + back.x,
+    z: sinkTransform.z + back.z,
     countertopTop: sinkTransform.countertopTop,
+    back,
   };
 }
 
@@ -2197,7 +2204,7 @@ function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   root.add(riser);
   const spout = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 8, 16, Math.PI), faucetMaterial);
   spout.rotation.x = Math.PI / 2;
-  spout.position.set(faucet.x, countertopTop + 0.48, faucet.z + depth * 0.17);
+  spout.position.set(faucet.x - faucet.back.x * 0.55, countertopTop + 0.48, faucet.z - faucet.back.z * 0.55);
   spout.userData = { sinkFaucetSpout: true, faucetPlacement: "back" };
   root.add(spout);
 }

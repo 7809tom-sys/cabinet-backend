@@ -1048,6 +1048,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(faucet.z).toBeCloseTo(4.348333333333334, 12);
   });
 
+  it("faces a right-wall sink faucet toward the right-wall backsplash", () => {
+    const sink = {
+      uid: "right-sink", type: "single", x: 120, y: 42, width: 18, depth: 25,
+      sourceWidth: 25, sourceDepth: 18, wallSide: "right", faucet: true,
+    } as never;
+    const transform = sinkFixtureTransform(sink);
+    const faucet = sinkFaucetTransform(sink);
+    expect(faucet.x).toBeGreaterThan(transform.x);
+    expect(faucet.z).toBe(transform.z);
+  });
+
   it("uses a 24¼-inch countertop depth on every standard supported base run", () => {
     expect(threeDCountertopDepthIn(24)).toBe(24.25);
     const root = new THREE.Group();
