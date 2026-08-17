@@ -1625,7 +1625,11 @@ export function addCabinet(
     const diagonalWidth = angledWallProfile
       ? triangleCornerFrontWidth(bodyWidth, bodyDepth)
       : diagonalCornerFrontWidth(bodyWidth, bodyDepth);
-    const diagonalDoorCount = angledWallProfile ? 1 : 2;
+    const diagonalDoorCount = angledWallProfile
+      ? 1
+      : sku.numberOfDoors != null && sku.numberOfDoors > 0
+        ? Math.min(2, Math.max(1, Math.round(sku.numberOfDoors)))
+        : 2;
     const diagonalDoorWidth = diagonalWidth / diagonalDoorCount;
     const diagonalDoorHeight = Math.max(0.2, bodyHeight - 0.1);
     const angledWallFace = angledWallProfile ? triangleCornerFrontPose(bodyWidth, bodyDepth) : null;
@@ -1633,7 +1637,7 @@ export function addCabinet(
     const diagonalFaceCenterZ = angledWallFace?.z ?? bodyDepth / 4;
     const diagonalFaceNormal = angledWallProfile ? 0 : Math.SQRT1_2 * 0.045;
     const tangentOffset = diagonalDoorWidth / 2;
-    const directions = angledWallProfile ? [0] : [-1, 1];
+    const directions = diagonalDoorCount === 1 ? [0] : [-1, 1];
     for (const direction of directions) {
       const door = new THREE.Mesh(new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052), faceMaterial);
       door.position.set(

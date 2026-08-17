@@ -2577,3 +2577,16 @@
 - [x] Preserve existing correct diagonal, angled-wall, and lazy-Susan transforms
 - [x] Add diagonal wall corner orientation regressions
 - [ ] Verify the reported diagonal wall cabinet in the live 3D view
+
+## 3D: Reported Diagonal Wall Cabinet Still Faces Corner
+- [ ] Identify the exact reported diagonal wall cabinet and installed room corner from its 2D record
+- [ ] Correct its actual face-plane placement so doors occupy the open-room diagonal
+- [ ] Add an instance-level mesh-position regression for the reported corner
+- [ ] Verify the corrected diagonal wall face in the live 3D view
+
+## 3D: Diagonal Wall Cabinet Door Count
+- [x] Trace catalog number-of-doors data for the reported one-door diagonal wall cabinet
+- [x] Render a single full angled door when the catalog specifies one door
+- [x] Preserve two-door diagonal faces for catalog models that specify two doors
+- [x] Add one-door and two-door diagonal wall regressions
+- [ ] Verify the reported one-door diagonal wall cabinet in the live 3D view
