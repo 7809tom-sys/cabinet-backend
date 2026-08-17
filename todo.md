@@ -2543,3 +2543,17 @@
 - [x] Keep the all-wall field as the only intentional control that updates all four walls
 - [x] Add cross-wall independence regressions
 - [ ] Verify four different heights in the live preview
+
+## 3D: Physical Wall Control Assignments
+- [x] Trace the rendered Back wall behind the stove/refrigerator and Right wall behind the sink
+- [x] Align Back, Right, Front, and Left control labels to their physical room walls
+- [x] Preserve independent saved wall heights after physical label alignment
+- [x] Add physical-wall mapping regressions
+- [ ] Verify the stove/refrigerator and sink walls in the live 3D room
+
+## 3D: Visible Independent Wall Geometry
+- [x] Trace rendered room-polygon units and visible wall mesh positions for selected Back 45, Left 45, Right 96, Front 96 heights
+- [x] Render each actual wall edge at its selected height without being mirrored or hidden by cabinet geometry
+- [x] Make selected wall-height changes visually legible while retaining room-context transparency
+- [x] Add wall-mesh height regressions
+- [ ] Verify the reported selected-height view after the corrected physical wall geometry is published

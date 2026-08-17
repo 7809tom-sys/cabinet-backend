@@ -4,7 +4,7 @@ import { constrainedThreeDWallHeight, resolvedThreeDWallHeights, threeDWallSideF
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
-import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
+import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
@@ -39,10 +39,19 @@ describe("interactive 3D room scene helpers", () => {
 
   it("maps rectangular wall edges to the four independent height controls", () => {
     const room = { width: 144, depth: 120 };
+    // The renderer stores plan-front as negative Three.js Z/Y coordinates.
     expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 12, y: 0 }, room)).toBe("top");
-    expect(threeDWallSideForEdge({ x: 12, y: 0 }, { x: 12, y: 10 }, room)).toBe("right");
-    expect(threeDWallSideForEdge({ x: 12, y: 10 }, { x: 0, y: 10 }, room)).toBe("bottom");
-    expect(threeDWallSideForEdge({ x: 0, y: 10 }, { x: 0, y: 0 }, room)).toBe("left");
+    expect(threeDWallSideForEdge({ x: 12, y: 0 }, { x: 12, y: -10 }, room)).toBe("right");
+    expect(threeDWallSideForEdge({ x: 12, y: -10 }, { x: 0, y: -10 }, room)).toBe("bottom");
+    expect(threeDWallSideForEdge({ x: 0, y: -10 }, { x: 0, y: 0 }, room)).toBe("left");
+  });
+
+  it("maps the stove and refrigerator run to Back and the sink run to Right", () => {
+    const room = { width: 144, depth: 120 };
+    const range = { uid: "range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36, x: 42, y: 0, rotation: 0 } as any;
+    const sinkBase = { uid: "sink", masterCode: "SB-36", placement: "base", width: 36, depth: 24, height: 34.5, x: 120, y: 42, rotation: 90 } as any;
+    expect(threeDPlacedWall(range, room)).toBe("back");
+    expect(threeDPlacedWall(sinkBase, room)).toBe("right");
   });
 
   it("keeps the mobile orbit camera outside a room-scaled furnished envelope", () => {

@@ -2611,7 +2611,10 @@ export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x:
   // collapse into the back and left controls on every room.
   const renderedWidth = room.width * INCH;
   const renderedDepth = room.depth * INCH;
-  if (Math.abs(dx) >= Math.abs(dy)) return midY <= renderedDepth / 2 ? "top" : "bottom";
+  // roomPolygon inverts plan Y for Three.js (front becomes negative Z), so
+  // restore that sign before choosing between Back/top and Front/bottom.
+  const renderedPlanY = -midY;
+  if (Math.abs(dx) >= Math.abs(dy)) return renderedPlanY <= renderedDepth / 2 ? "top" : "bottom";
   return midX <= renderedWidth / 2 ? "left" : "right";
 }
 
