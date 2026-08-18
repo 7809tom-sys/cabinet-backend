@@ -622,3 +622,4 @@
 - [x] Build a responsive side-by-side 2D–3D workspace that preserves the complete plan while users add, position, and edit catalog cabinets from 3D
 - [x] Refactor the 3D designer into a canvas-first interface that mirrors the compact reachable 2D planner controls without removing capabilities
 - [x] Remove remaining 3D preview chrome, expose the complete active catalog through the compact bottom bar, and align selected-cabinet controls with the 2D planner
+- [x] Mirror the full 2D catalog taxonomy, catalog-authored finishes, and 2D cabinet edit/move control pattern in the 3D workspace

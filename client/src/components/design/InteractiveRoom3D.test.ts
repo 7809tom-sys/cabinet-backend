@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -104,6 +104,18 @@ describe("interactive 3D room scene helpers", () => {
 
   it("keeps every capability behind the compact canvas-first 3D action bar", () => {
     expect(THREE_D_WORKSPACE_ACTIONS).toEqual(["catalog", "view", "finish", "room", "output"]);
+  });
+
+  it("keeps the complete active 2D catalog accessible through the matching 3D category groups and search", () => {
+    const items = [
+      { id: 1, masterCode: "B-30", description: "Base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const },
+      { id: 2, masterCode: "W-30", description: "Wall cabinet", category: "Cabinet" as const, catalogGroup: "Wall" as const },
+      { id: 3, masterCode: "T-84", description: "Tall pantry", category: "Cabinet" as const, catalogGroup: "Tall" as const },
+      { id: 4, masterCode: "RANGE-30", description: "Gas range", category: "Appliance" as const, catalogGroup: "Appliances" as const },
+    ];
+    expect(filteredThreeDCatalogItems(items, "All", "")).toHaveLength(4);
+    expect(filteredThreeDCatalogItems(items, "Wall", "")).toEqual([items[1]]);
+    expect(filteredThreeDCatalogItems(items, "All", "pantry")).toEqual([items[2]]);
   });
 
   it("mirrors diagonal corner turns so the angled wall-cabinet face points into every room corner", () => {

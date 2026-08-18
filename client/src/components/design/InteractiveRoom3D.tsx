@@ -94,7 +94,21 @@ export type InteractiveRoomCatalogItem = {
   masterCode: string;
   description: string | null;
   category: "Cabinet" | "Accessory" | "Appliance";
+  catalogGroup?: ThreeDCatalogGroup;
 };
+
+export const THREE_D_CATALOG_GROUPS = ["All", "Base", "Corner", "Wall", "Tall", "Appliances", "Accessories"] as const;
+export type ThreeDCatalogGroup = (typeof THREE_D_CATALOG_GROUPS)[number];
+
+export function filteredThreeDCatalogItems(items: InteractiveRoomCatalogItem[], group: ThreeDCatalogGroup, search: string): InteractiveRoomCatalogItem[] {
+  const query = search.trim().toLowerCase();
+  return items.filter((item) => {
+    const itemGroup = item.catalogGroup ?? (item.category === "Appliance" ? "Appliances" : item.category === "Accessory" ? "Accessories" : "Base");
+    const groupMatches = group === "All" || itemGroup === group;
+    const searchMatches = !query || `${item.masterCode} ${item.description ?? ""} ${item.category}`.toLowerCase().includes(query);
+    return groupMatches && searchMatches;
+  });
+}
 
 /** Core 2D-style capabilities preserved in the compact, canvas-first 3D toolbar. */
 export const THREE_D_WORKSPACE_ACTIONS = ["catalog", "view", "finish", "room", "output"] as const;
@@ -110,7 +124,7 @@ export type InteractiveRoomPresentation = {
 };
 
 export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
-export const THREE_D_CABINET_MOVE_STEPS = [1, 3, 6] as const;
+export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
 
 interface Props {
   scene: InteractiveRoomScene;
@@ -154,6 +168,8 @@ interface Props {
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
   onOpenCabinetEditor?: (uid: string) => void;
+  /** Uses the same 90-degree cabinet rotation action as the 2D planner. */
+  onRotateCabinet?: (uid: string) => void;
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
   cabinetConfigHref?: (cabinet: PlacedCabinet) => string | null;
   className?: string;
@@ -2797,7 +2813,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onOpenCabinetEditor, cabinetConfigHref, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -2819,6 +2835,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [pricingOpen, setPricingOpen] = useState(false);
   const [workspacePanel, setWorkspacePanel] = useState<"catalog" | "view" | "finish" | "room" | "output" | null>(null);
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
@@ -2845,11 +2862,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   // those swatches across 3D faces: use the selected catalog finish with physical
   // face-frame and panel construction for a smooth presentation instead.
   const activeDoorTexture = threeDUsesDoorSampleTexture()
-    ? resolvedThreeDDoorSampleUrl(cabinetFinish, catalogDoorSampleUrl, renderExistingDesign)
+    ? resolvedThreeDDoorSampleUrl("catalog", catalogDoorSampleUrl, renderExistingDesign)
     : null;
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
-  const resolvedCabinetFinish = cabinetFinish === "catalog" ? catalogFinish : cabinetFinish;
-  const cabinetFinishLabel = CABINET_FINISHES.find((option) => option.color === cabinetFinish)?.name ?? "Custom finish";
+  const resolvedCabinetFinish = catalogFinish;
+  const cabinetFinishLabel = catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
   const quoteMaterials = quoteMaterialDetails({
     cabinetPreview: cabinetFinishLabel,
@@ -2857,6 +2874,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     catalogFinishName: catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish,
     catalogCountertopName,
   });
+  const visibleCatalogItems = useMemo(
+    () => filteredThreeDCatalogItems(catalogItems, catalogGroup, catalogSearch),
+    [catalogItems, catalogGroup, catalogSearch],
+  );
   const shareMutation = trpc.roomLayouts.createShare.useMutation();
   const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
@@ -2885,7 +2906,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   };
 
   useEffect(() => {
-    const nextCabinetFinish = initialPresentation?.cabinetFinish ?? "catalog";
+    const nextCabinetFinish = "catalog";
     const nextCountertopFinish = resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene);
     setCabinetFinish((current) => current === nextCabinetFinish ? current : nextCabinetFinish);
     setCountertopFinish((current: string) => current === nextCountertopFinish ? current : nextCountertopFinish);
@@ -3355,23 +3376,20 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">Edit cabinet</button>}
-                  {onMoveCabinet && <button type="button" data-testid="three-d-toggle-move-controls" onClick={() => setMovePanelOpen((current) => !current)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">{movePanelOpen ? "Hide move controls" : "Move in 3D"}</button>}
                 </div>}
               </div>
               <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button>
             </div>
-            {movePanelOpen && selectedCabinet.uid && onMoveCabinet && <div className="mt-3 border-t pt-3">
-              <div className="mb-2 flex items-center justify-between gap-3"><p className="font-semibold text-[#4b3a20]">Move cabinet / SKU</p><span className="text-[10px] text-muted-foreground">Plan synchronized</span></div>
-              <div className="mb-2 flex items-center gap-1" aria-label="Movement increment"><span className="mr-1 text-[10px] text-muted-foreground">Step</span>{THREE_D_CABINET_MOVE_STEPS.map((step) => <button key={step} type="button" onClick={() => setMoveIncrementIn(step)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${moveIncrementIn === step ? "border-[#a87f33] bg-[#fff3db] text-[#4b3a20]" : "border-border bg-background hover:bg-muted"}`}>{step}&quot;</button>)}</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <span /><button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowUp className="h-3.5 w-3.5" />Up</button><span />
-                <button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowLeft className="h-3.5 w-3.5" />Left</button><button data-testid="three-d-move-in" type="button" onClick={() => requestCabinetMove("in")} className="rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">In</button><button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">Right<ArrowRight className="h-3.5 w-3.5" /></button>
-                <span /><button data-testid="three-d-move-out" type="button" onClick={() => requestCabinetMove("out")} className="rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">Out</button><span />
-                <span /><button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowDown className="h-3.5 w-3.5" />Down</button><span />
-              </div>
-            </div>}
           </div>;
         })()}
+        {selectedCabinet?.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" className="absolute bottom-3 left-3 z-10 flex items-end gap-2">
+          <div className="flex flex-col items-center gap-0.5">
+            <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-9 w-9 items-center justify-center rounded-t-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
+            <div className="flex gap-0.5"><button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="flex h-9 w-9 items-center justify-center rounded-l-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button><button type="button" onClick={() => onRotateCabinet?.(selectedCabinet.uid!)} className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm transition-transform hover:bg-[#1a2744]/80 active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button><button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="flex h-9 w-9 items-center justify-center rounded-r-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button></div>
+            <button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="flex h-9 w-9 items-center justify-center rounded-b-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95" title={`Move down ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
+          </div>
+          <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded-md border px-2 py-1.5 text-[11px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white/90 text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
+        </div>}
       </div>
       <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
         <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
@@ -3387,10 +3405,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           {workspacePanel === "catalog" && <>
             <SheetHeader><SheetTitle>Add from catalog</SheetTitle></SheetHeader>
             <p className="mt-2 text-sm text-muted-foreground">Browse the complete active cabinet catalog, then add an item to the active wall. It immediately joins this 3D room and the saved 2D plan.</p>
+            <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1" aria-label="3D catalog categories">{THREE_D_CATALOG_GROUPS.map((group) => <button key={group} type="button" onClick={() => setCatalogGroup(group)} className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${catalogGroup === group ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{group}</button>)}</div>
             <Input value={catalogSearch} onChange={(event) => setCatalogSearch(event.target.value)} placeholder="Search cabinet name or code" className="mt-4" aria-label="Search 3D catalog" />
-            <p className="mt-2 text-xs text-muted-foreground">{catalogItems.filter((item) => `${item.masterCode} ${item.description ?? ""} ${item.category}`.toLowerCase().includes(catalogSearch.trim().toLowerCase())).length} matching items</p>
+            <p className="mt-2 text-xs text-muted-foreground">{visibleCatalogItems.length} matching items</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {catalogItems.filter((item) => `${item.masterCode} ${item.description ?? ""} ${item.category}`.toLowerCase().includes(catalogSearch.trim().toLowerCase())).map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => { onAddCatalogItem?.(item); setWorkspacePanel(null); }} className="rounded-xl border bg-card p-3 text-left transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
+              {visibleCatalogItems.map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => { onAddCatalogItem?.(item); setWorkspacePanel(null); }} className="rounded-xl border bg-card p-3 text-left transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
                 <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block text-xs text-muted-foreground">{item.description ?? item.category}</span><span className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-[#a87f33]">Add {item.category}</span>
               </button>) || <p className="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">No matching catalog items.</p>}
             </div>
@@ -3402,9 +3421,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           </>}
           {workspacePanel === "finish" && <>
             <SheetHeader><SheetTitle>Preview finish</SheetTitle></SheetHeader>
-            <p className="mt-2 text-sm text-muted-foreground">Preview finishes affect this 3D view only; your catalog selection and order remain unchanged.</p>
-            <p className="mt-5 flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5 text-[#a87f33]" />Cabinet finish</p><div className="mt-2 flex flex-wrap gap-2">{CABINET_FINISHES.map((option) => { const color = option.color === "catalog" ? catalogFinish : option.color; return <button key={option.name} type="button" onClick={() => setCabinetFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${cabinetFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: color }} />{option.name}</button>; })}</div>
-            <p className="mt-5 text-xs font-semibold">Countertop finish</p><div className="mt-2 flex flex-wrap gap-2">{COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}</button>)}</div>
+            <p className="mt-2 text-sm text-muted-foreground">Cabinet finishes are always taken from the active 2D catalog selection. Generic preview cabinet colors are not offered here.</p>
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><span className="h-8 w-8 rounded-full border border-black/10" style={{ backgroundColor: catalogFinish }} /><div><p className="text-xs font-semibold text-[#4b3a20]">Active cabinet finish</p><p className="text-sm font-semibold text-[#382710]">{cabinetFinishLabel}</p></div></div>
+            <p className="mt-5 text-xs font-semibold">Countertop preview</p><div className="mt-2 flex flex-wrap gap-2">{COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}</button>)}</div>
           </>}
           {workspacePanel === "room" && <>
             <SheetHeader><SheetTitle>Room controls</SheetTitle></SheetHeader>

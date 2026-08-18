@@ -2001,15 +2001,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const cabinets = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? [])
       .map((item) => ({
         id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
+        catalogGroup: item.isCornerCabinet || item.cornerType ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
       }));
     const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({
-      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const,
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const, catalogGroup: "Accessories" as const,
     }));
     // Appliances are already part of the live Design Tool palette. They are
     // presentation/plan items unless a distributor exposes a priced SKU, so the
     // itemized drawer accurately marks them as price pending when applicable.
     const appliances = appliancePalette.slice(0, 8).map((item) => ({
-      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const,
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const, catalogGroup: "Appliances" as const,
     }));
     return [...cabinets, ...accessories, ...appliances];
   }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette]);
@@ -9398,6 +9399,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
                 }))}
                 onMoveCabinet={moveCabinetFrom3D}
+                onRotateCabinet={rotateCabinet}
                 cabinetConfigHref={isAdmin
                   ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId)
                   : undefined}
