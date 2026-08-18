@@ -117,6 +117,9 @@ export interface CabinetAttributesDialogProps {
   onSetWidth: (uid: string, v: number) => void;
   onSetHeight: (uid: string, v: number) => void;
   onSetDepth: (uid: string, v: number) => void;
+  mountBottom?: number | null;
+  maxMountBottom?: number;
+  onSetMountBottom?: (uid: string, v: number) => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -162,6 +165,9 @@ export function CabinetAttributesDialog({
   onSetWidth,
   onSetHeight,
   onSetDepth,
+  mountBottom,
+  maxMountBottom,
+  onSetMountBottom,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -198,6 +204,7 @@ export function CabinetAttributesDialog({
         ? "right"
         : "left";
   const isBase = cabinet.placement === "base";
+  const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
 
@@ -264,6 +271,42 @@ export function CabinetAttributesDialog({
             </div>;
             })()}
           </section>
+
+          {canMoveMount && (
+            <section className="space-y-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Elevation position</h4>
+                  <p className="text-[11px] text-muted-foreground">Move this wall cabinet up or down from the floor.</p>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onSetMountBottom?.(uid, 54)}>
+                  Reset 54″
+                </Button>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move down one inch" onClick={() => onSetMountBottom?.(uid, Math.max(0, (mountBottom ?? 0) - 1))}>
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  min={0}
+                  max={maxMountBottom ?? 120}
+                  step={1}
+                  value={Math.round(mountBottom ?? 0)}
+                  className="h-8 w-20 text-center text-sm"
+                  aria-label="Cabinet mounting height from floor"
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (Number.isFinite(next)) onSetMountBottom?.(uid, Math.max(0, Math.min(maxMountBottom ?? 120, next)));
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">in. from floor</span>
+                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move up one inch" onClick={() => onSetMountBottom?.(uid, Math.min(maxMountBottom ?? 120, (mountBottom ?? 0) + 1))}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </section>
+          )}
 
           {/* Oven Type — only for oven-tall cabinets */}
           {cabinetDrawingType(cabinet) === "oven-tall" && (

@@ -2627,6 +2627,13 @@
 - [x] Add W3024 regression coverage
 - [ ] Verify the reported W3024 3D placement above the microwave
 
+## Designer: Right-Click Wall Cabinet Up/Down Mounting
+- [x] Trace cabinet right-click attributes, mount-bottom persistence, and elevation collision rules
+- [x] Add selected wall cabinet Up and Down mounting controls to the attributes dialog
+- [x] Prevent moves through the ceiling, appliances, windows, and other wall cabinets
+- [x] Add mounting adjustment regressions
+- [ ] Verify W3024 above the microwave can move up/down in the live 2D elevation
+
 ## Designer: Universal Single-Door Left/Right Hinge Choice
 - [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
 - [x] Provide a Left hinge / Right hinge control for every single-door cabinet

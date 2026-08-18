@@ -3982,13 +3982,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
   // Wall cabinets only; clamped at 0.
   const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
-    setPlaced((prev) =>
-      prev.map((p) => {
-        if (p.uid !== uid || p.placement !== "wall") return p;
-        return { ...p, mountBottom: Math.max(0, Math.round(mountBottom * 10) / 10) };
-      })
-    );
-  }, []);
+    setPlaced((prev) => {
+      const current = prev.find((p) => p.uid === uid);
+      if (!current || current.placement !== "wall") return prev;
+      const height = elevationBox(current, room).height;
+      const bounded = Math.max(0, Math.min(Math.max(0, (room.ceilingHeight ?? 96) - height), Math.round(mountBottom * 10) / 10));
+      const candidate = { ...current, mountBottom: bounded };
+      const peers = prev.filter((p) => p.uid !== uid);
+      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+        const message = collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      return prev.map((p) => (p.uid === uid ? candidate : p));
+    });
+  }, [room, customPlacementMode]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -8773,6 +8782,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}
         onSetDepth={(_uid, v) => setCustomDepth(v)}
+        mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? elevationBox(cabinet, room).bottom : null; })() : null}
+        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? Math.max(0, (room.ceilingHeight ?? 96) - elevationBox(cabinet, room).height) : 0; })() : 0}
+        onSetMountBottom={setMountBottomFor}
         onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
