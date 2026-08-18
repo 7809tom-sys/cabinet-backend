@@ -245,7 +245,8 @@ describe("interactive 3D room scene helpers", () => {
   });
 
   it("uses a smooth calibrated 3D cabinet finish instead of tiling a catalog door swatch", () => {
-    expect(threeDUsesDoorSampleTexture()).toBe(false);
+    expect(threeDUsesDoorSampleTexture("/manus-storage/silva.png")).toBe(true);
+    expect(threeDUsesDoorSampleTexture(null)).toBe(false);
   });
 
   it("uses the active saved Shaker profile when a persisted room intentionally carries neutral material metadata", () => {

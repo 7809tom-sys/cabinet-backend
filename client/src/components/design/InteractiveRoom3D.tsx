@@ -388,13 +388,12 @@ export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefin
 }
 
 /**
- * Door sample photos are catalog swatches, not seamless PBR texture sets. Tiling
- * them over multiple 3D door meshes creates the blotchy, uneven cabinet faces
- * visible in the customer preview. The 3D renderer instead uses the selected
- * catalog color with controlled roughness and physical panel construction.
+ * A selected door sample is authoritative Cabinet Config information when the
+ * style does not supply an explicit finish color. Apply that supplied material
+ * to the actual door and drawer panels only; never substitute a generic color.
  */
-export function threeDUsesDoorSampleTexture() {
-  return false;
+export function threeDUsesDoorSampleTexture(doorSampleUrl?: string | null) {
+  return Boolean(doorSampleUrl);
 }
 
 export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
@@ -1173,7 +1172,7 @@ export function addCabinet(
       material.needsUpdate = true;
     }
   };
-  const useDoorTexture = threeDUsesDoorSampleTexture();
+  const useDoorTexture = threeDUsesDoorSampleTexture(doorSampleUrl);
   const doorTexture = useDoorTexture && doorSampleUrl
     ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => {
       applyDoorTextureFallback();
@@ -2890,13 +2889,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   // The active 2D selected style remains authoritative for physical 3D face
   // geometry, so a Slate Echo Shaker never silently turns into a flat slab.
   const resolvedDoorProfile = resolvedThreeDDoorProfile(scene, catalogDoorProfile);
-  // Catalog door images remain useful in 2D product selection, but are usually
-  // single swatch photographs rather than seamless PBR texture sets. Do not tile
-  // those swatches across 3D faces: use the selected catalog finish with physical
-  // face-frame and panel construction for a smooth presentation instead.
-  const activeDoorTexture = threeDUsesDoorSampleTexture()
-    ? resolvedThreeDDoorSampleUrl("catalog", catalogDoorSampleUrl, renderExistingDesign)
-    : null;
+  // The supplied selected Cabinet Config sample is the authoritative finish when
+  // a style has no explicit color field. It is applied to actual face panels,
+  // while physical rails, stiles, carcasses, and skins remain constructed meshes.
+  const activeDoorTexture = resolvedThreeDDoorSampleUrl("catalog", catalogDoorSampleUrl, renderExistingDesign);
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const resolvedCabinetFinish = catalogFinish;
   const cabinetFinishLabel = catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
