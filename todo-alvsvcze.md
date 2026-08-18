@@ -613,4 +613,4 @@
 - [ ] Add safe merge and master-edit propagation regression coverage
 - [x] Surface linked aliases and variants automatically in the 3D designer cabinet edit panel
 - [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
-- [ ] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
+- [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage

@@ -288,17 +288,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [verifiedPhone, setVerifiedPhone] = useState("");
   const captureLead = trpc.design.captureLead.useMutation();
   const trpcUtils = trpc.useUtils();
-  const saveMasterCabinetConfig = trpc.cabinets.adminUpdateCabinet.useMutation({
-    onSuccess: (_result, input) => {
-      setPlaced((current) => refreshPlacedCabinetsFromMasterConfig(current, {
-        cabinetId: input.id,
+  const saveMasterCabinetConfig = trpc.masterSku.propagateCabinetConfig.useMutation({
+    onSuccess: (result, input) => {
+      setPlaced((current) => current.map((placed) => result.linkedCodes.includes(placed.masterCode) ? {
+        ...placed,
         category: input.category,
         subCategory: input.subCategory,
-        graphicType: input.graphicType,
-        specImageUrl: input.specImageUrl,
-      }));
+        customProfile: input.graphicType === "standard" ? null : input.graphicType,
+        genericDrawingUrl: input.specImageUrl,
+      } : placed));
       void trpcUtils.design.placeableCabinets.invalidate();
-      toast.success("Master cabinet configuration saved; this drawing and the cabinet catalog are refreshed.");
+      toast.success(`Master configuration saved across ${result.linkedCodes.length} linked cabinet record${result.linkedCodes.length === 1 ? "" : "s"}.`);
     },
     onError: (error) => toast.error(error.message || "Could not save the master cabinet configuration."),
   });
@@ -8885,7 +8885,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSaveMasterConfig={isAdmin ? (cabinet) => {
           if (!cabinet.cabinetId || !cabinet.category) return;
           saveMasterCabinetConfig.mutate({
-            id: cabinet.cabinetId,
+            cabinetId: cabinet.cabinetId,
             category: cabinet.category,
             subCategory: cabinet.subCategory ?? null,
             graphicType: cabinet.customProfile ?? "standard",

@@ -733,6 +733,30 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
       return { masterCode: master.masterCode, aliasCode: alias.masterCode };
     }),
 
+  /** Save shared configuration through a confirmed master and every linked alias. */
+  propagateCabinetConfig: adminProcedure
+    .input(z.object({
+      cabinetId: z.number().int().positive(),
+      category: z.string().min(1),
+      subCategory: z.string().nullable(),
+      graphicType: z.string().min(1),
+      specImageUrl: z.string().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const [source] = await db.select({ masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.cabinetId)).limit(1);
+      if (!source) throw new Error("Cabinet record not found");
+      const [sourceAlias] = await db.select({ masterCode: skuMasterAliases.masterCode }).from(skuMasterAliases).where(eq(skuMasterAliases.aliasCode, source.masterCode)).limit(1);
+      const canonicalCode = sourceAlias?.masterCode ?? source.masterCode;
+      const aliases = await db.select({ aliasCode: skuMasterAliases.aliasCode }).from(skuMasterAliases).where(eq(skuMasterAliases.masterCode, canonicalCode));
+      const linkedCodes = Array.from(new Set([canonicalCode, ...aliases.map((row) => row.aliasCode)]));
+      await db.update(cabinets)
+        .set({ category: input.category, subCategory: input.subCategory, graphicType: input.graphicType, specImageUrl: input.specImageUrl })
+        .where(or(...linkedCodes.map((code) => eq(cabinets.masterCode, code))));
+      return { canonicalCode, linkedCodes };
+    }),
+
   /**
    * Add a new alias code pointing to a master code.
    * If the alias already exists pointing elsewhere, marks it as conflict.
