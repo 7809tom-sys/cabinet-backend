@@ -396,7 +396,11 @@ export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "placementType" 
 
 /** A supplied full-door sample already contains its real rail/stile profile. */
 export function threeDUsesPhysicalShakerRails(profileKind: string, hasSuppliedDoorSample: boolean): boolean {
-  return profileKind === "shaker" && !hasSuppliedDoorSample;
+  if (profileKind !== "shaker") return false;
+  // A supplied full-door sample already contains its real rail/stile profile
+  // visually. Physical rails would double the detail and create artifacts.
+  if (hasSuppliedDoorSample) return false;
+  return true;
 }
 
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {

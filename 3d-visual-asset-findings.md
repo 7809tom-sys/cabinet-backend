@@ -29,3 +29,16 @@
 1. Change the `catalogFrontVisualUrl` guard from `!doorTexture` to `!doorSampleUrl` — if a door sample URL exists from the admin panel, NEVER apply the catalog line-art overlay.
 2. This ensures the admin panel `door_styles.doorSampleImageUrl` is always the sole authoritative face texture.
 3. The `selectCabinet` callback already does not change the style — the visual change was caused by the line-art overlay appearing on cabinets that had a `catalogImageUrl` but whose door texture hadn't been applied yet.
+
+## Onyx Shadow (Ashford) — 3D rendering investigation (2026-08-18)
+
+- Door style ID: 330008
+- doorSampleImageUrl: `/manus-storage/media-library/1785437725250_midnight_black_shaker_door_0cd4e19f`
+- Image: 206×282 JPEG, shows a black Shaker door with visible panel lines
+- Color field: `#1A1A1A` (near-black)
+- The door sample image IS correct — it shows Shaker panel detail on a black door
+- The issue: in the 3D view, the cabinets render as solid black boxes with NO visible door detail
+- Root cause: The texture IS being applied but the Shaker panel lines are very subtle on a near-black surface.
+  The real problem is that the door/drawer GEOMETRY (recessed panel, rails, stiles) is not being rendered
+  as separate meshes — instead the entire face is one flat plane with the texture mapped to it.
+  On a dark texture, the subtle panel lines become invisible at typical 3D viewing distances.
