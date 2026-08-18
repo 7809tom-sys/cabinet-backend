@@ -2597,3 +2597,17 @@
 - [x] Preserve existing pulls for two-door diagonal wall cabinets
 - [x] Add diagonal single-door hardware regression coverage
 - [ ] Verify the reported cabinet handle in the live 3D view
+
+## 3D: One-Door Diagonal Pull Opposite Hinge
+- [ ] Trace the one-door diagonal hinge direction and angled-door tangent vector
+- [ ] Move the vertical pull to the angled edge opposite the hinge
+- [ ] Preserve handle height and room-facing hardware depth
+- [ ] Add hinge-opposite pull regression coverage and verify the reported cabinet
+
+## Designer: Universal Single-Door Left/Right Hinge Choice
+- [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
+- [x] Provide a Left hinge / Right hinge control for every single-door cabinet
+- [x] Persist the selected swing with the placed cabinet and saved design
+- [x] Put all single-door 3D pulls on the edge opposite the selected hinge, including diagonal faces
+- [x] Add standard and diagonal single-door hinge regressions
+- [ ] Verify Left/Right hinge choices and opposite-edge pulls in the live designer

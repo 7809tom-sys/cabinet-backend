@@ -1328,6 +1328,7 @@ describe("interactive 3D room scene helpers", () => {
       cornerType: "diagonal",
       numberOfDoors: 1,
       numberOfDrawers: 0,
+      swing: "left",
     } as never);
     const root = new THREE.Group();
     addCabinet(root, singleDoorDiagonal, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "Recessed Panel" });
@@ -1343,6 +1344,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(doors[0]!.position.x).toBeCloseTo(doors[0]!.position.z, 8);
     expect(pulls).toHaveLength(1);
     expect(pulls[0]!.rotation.y).toBeCloseTo(doors[0]!.rotation.y, 8);
+    expect(pulls[0]!.userData.hingeSide).toBe("left");
+    expect(pulls[0]!.userData.handleSide).toBe("right");
+    expect(pulls[0]!.position.x).toBeGreaterThan(doors[0]!.position.x);
+    expect(pulls[0]!.position.z).toBeLessThan(doors[0]!.position.z);
   });
 
   it("builds AW1230 as a 12-by-12 angled wall wedge with one side-hinged diagonal door and two adjustable shelves configured", () => {

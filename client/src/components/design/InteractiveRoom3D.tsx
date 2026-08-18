@@ -23,6 +23,8 @@ type SceneSku = {
   mountBottom?: number | null;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  swing?: "left" | "right" | "double" | "none" | null;
+  handleSide?: "left" | "right" | null;
   openingType?: string | null;
   openingWidth?: number | null;
   openingHeight?: number | null;
@@ -1192,13 +1194,14 @@ export function addCabinet(
     shadow.userData = { cabinetFaceShadowGap: true, dimensionalCabinetDetail: true };
     frontGroup.add(shadow);
   };
-  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower") => {
+  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null) => {
     const pullLength = Math.min(Math.max(0.12, (drawer ? faceWidth : faceHeight) * (drawer ? 0.48 : 0.28)), drawer ? 0.62 : 0.86);
     const pull = new THREE.Mesh(new THREE.BoxGeometry(drawer ? pullLength : 0.022, drawer ? 0.022 : pullLength, 0.026), hardwareMaterial);
     // Doors swing from their outside edge. Pulls therefore sit vertically at
     // the center meeting edge (opposite hinge). Upper doors pull from the
     // lower part; lower/pantry doors pull from the upper part.
-    const pullX = drawer ? x : x - Math.sign(x || 1) * Math.max(0.035, faceWidth * 0.24);
+    const oppositeHingeSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
+    const pullX = drawer ? x : x + oppositeHingeSide * Math.max(0.035, faceWidth * 0.24);
     const pullY = drawer ? y : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, z);
     pull.userData = {
@@ -1207,6 +1210,7 @@ export function addCabinet(
       verticalPull: !drawer,
       pullDoorZone: drawer ? null : doorZone,
       pullEdge: drawer ? "center" : "opposite-hinge",
+      ...(hingeSide ? { hingeSide, handleSide: hingeSide === "left" ? "right" : "left" } : {}),
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);
@@ -1220,6 +1224,7 @@ export function addCabinet(
   };
   const isPlacedAppliance = placement === "appliance";
   const isStandardSinkBase = !isPlacedAppliance && /^(?:SB|CSB)[-_]?\d/i.test(sku.masterCode ?? "");
+  const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isRefrigeratorEndPanel) {
     // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
@@ -1662,14 +1667,17 @@ export function addCabinet(
         const pullLength = Math.min(Math.max(0.12, diagonalDoorHeight * 0.28), 0.86);
         const normalX = Math.sin(door.rotation.y);
         const normalZ = Math.cos(door.rotation.y);
+        const handleSide = sku.swing === "right" ? -1 : 1;
+        const tangentX = Math.cos(door.rotation.y);
+        const tangentZ = -Math.sin(door.rotation.y);
         const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
         pull.position.set(
-          door.position.x + normalX * 0.058,
+          door.position.x + tangentX * handleSide * diagonalDoorWidth * 0.24 + normalX * 0.058,
           door.position.y - diagonalDoorHeight * 0.3,
-          door.position.z + normalZ * 0.058,
+          door.position.z + tangentZ * handleSide * diagonalDoorWidth * 0.24 + normalZ * 0.058,
         );
         pull.rotation.y = door.rotation.y;
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: "opposite-hinge", dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: "opposite-hinge", hingeSide: singleDoorHinge, handleSide: singleDoorHinge === "left" ? "right" : "left", dimensionalCabinetDetail: true };
         frontGroup.add(pull);
         for (const offset of [-1, 1] as const) {
           const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
@@ -1866,7 +1874,7 @@ export function addCabinet(
     frontGroup.add(door);
     if (profileKind === 'shaker') addShakerFrame(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
     addFaceShadow(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
-    addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y, false, 0.086, "lower");
+    addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y, false, 0.086, "lower", singleDoorHinge);
   } else {
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
@@ -1875,7 +1883,7 @@ export function addCabinet(
     door.userData = { cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(door);
     addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
-    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower");
+    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
     const isRaised = profileKind === "raised";
     if (profileKind === "shaker") {
       addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
@@ -2430,6 +2438,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+    swing: cabinet.swing ?? null,
+    handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,
     openingType: cabinet.openingType ?? null,
     openingWidth: cabinet.openingWidth ?? null,
     openingHeight: cabinet.openingHeight ?? null,
