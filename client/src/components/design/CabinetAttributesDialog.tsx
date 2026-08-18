@@ -250,6 +250,24 @@ export function CabinetAttributesDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-1">
+          {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
+            <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <div>
+                <h4 className="text-sm font-semibold text-[#6e531d]">End Panel Treatment</h4>
+                <p className="text-[11px] text-muted-foreground">Plain finished ends are standard. Add a decorative panel only where you want one.</p>
+              </div>
+              <Select value={cabinet.decorativeEnd ?? "none"} onValueChange={(value) => onSetDecorativeEnd(uid, value as "none" | "left" | "right" | "both")}>
+                <SelectTrigger className="h-9 bg-background text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Plain finished ends</SelectItem>
+                  <SelectItem value="left">Decorative panel — left end</SelectItem>
+                  <SelectItem value="right">Decorative panel — right end</SelectItem>
+                  <SelectItem value="both">Decorative panels — both ends</SelectItem>
+                </SelectContent>
+              </Select>
+            </section>
+          )}
+
           {/* Dimensions */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
@@ -438,24 +456,6 @@ export function CabinetAttributesDialog({
               </div>
             </div>
           </section>
-
-          {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
-            <section className="space-y-2 border-t border-border pt-4">
-              <div>
-                <h4 className="text-sm font-semibold">Decorative End Panels</h4>
-                <p className="text-[11px] text-muted-foreground">Cabinet ends stay plain finished skins unless you select a decorative panel.</p>
-              </div>
-              <Select value={cabinet.decorativeEnd ?? "none"} onValueChange={(value) => onSetDecorativeEnd(uid, value as "none" | "left" | "right" | "both")}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Plain finished ends</SelectItem>
-                  <SelectItem value="left">Decorative panel — left end</SelectItem>
-                  <SelectItem value="right">Decorative panel — right end</SelectItem>
-                  <SelectItem value="both">Decorative panels — both ends</SelectItem>
-                </SelectContent>
-              </Select>
-            </section>
-          )}
 
           {/* Custom drawing rule */}
           <section className="space-y-3 border-t border-border pt-4">

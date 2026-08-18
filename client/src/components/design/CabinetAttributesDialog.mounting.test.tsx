@@ -79,6 +79,7 @@ function renderDialog(onSetMountBottom = vi.fn()) {
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
   it("exposes right-click up/down mounting controls and sends the selected height", () => {
     const onSetMountBottom = renderDialog();
+    expect(screen.getByText("End Panel Treatment")).toBeTruthy();
     expect((screen.getByLabelText("Cabinet mounting height from floor") as HTMLInputElement).value).toBe("72");
     fireEvent.click(screen.getByTitle("Move down one inch"));
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 71);

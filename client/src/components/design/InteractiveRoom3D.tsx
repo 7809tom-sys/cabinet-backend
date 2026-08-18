@@ -3586,7 +3586,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
-                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">Edit cabinet</button>}
+                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">Cabinet attributes</button>}
+                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-semibold text-[#8a651f] underline-offset-4 hover:underline">End panels</button>}
                   {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
                 </div>}
               </div>

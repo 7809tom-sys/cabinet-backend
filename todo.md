@@ -2726,3 +2726,8 @@
 - [x] Render plain selected-finish cabinet ends by default for base and upper cabinets
 - [x] Add an explicit optional decorative end-panel treatment for applicable cabinet ends
 - [ ] Add computer and phone regressions for plain and decorative end treatments
+
+## Fix: Visible Decorative End-Panel Selector in 3D
+- [x] Trace the selected-cabinet 3D attributes entry point and why End Panel Treatment is not visible
+- [x] Add an obvious 3D attributes action that exposes End Panel Treatment near the top of the selected cabinet workflow
+- [ ] Verify plain, left, right, and both-end choices are reachable on computer and phone
