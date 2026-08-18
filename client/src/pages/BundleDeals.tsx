@@ -84,7 +84,15 @@ export default function BundleDeals() {
                 >
                   {/* Hero image or placeholder */}
                   <div className="relative h-48 bg-gradient-to-br from-muted to-muted/50 overflow-hidden">
-                    {bundle.heroImageUrl ? (
+                    {bundle.floorPlanImageUrl ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white p-4">
+                        <img
+                          src={bundle.floorPlanImageUrl}
+                          alt={`${bundle.name} floor plan`}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                    ) : bundle.heroImageUrl ? (
                       <img
                         src={bundle.heroImageUrl}
                         alt={bundle.name}
@@ -96,13 +104,19 @@ export default function BundleDeals() {
                         <span className="text-xs opacity-40">No preview image</span>
                       </div>
                     )}
-                    {bundle.styleName && (
-                      <div className="absolute top-3 left-3">
+                    <div className="absolute top-3 left-3 flex gap-1.5">
+                      {bundle.styleName && (
                         <Badge className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
                           {bundle.styleName}
                         </Badge>
-                      </div>
-                    )}
+                      )}
+                      {bundle.roomWidthInches && bundle.roomDepthInches && (
+                        <Badge className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
+                          <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                          {Math.round(bundle.roomWidthInches / 12)}' × {Math.round(bundle.roomDepthInches / 12)}'
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Card body */}
@@ -146,3 +160,4 @@ export default function BundleDeals() {
     </div>
   );
 }
+import { MapPin } from "lucide-react";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, or, isNull, inArray, desc } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import {
@@ -13,6 +13,8 @@ import {
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { TRPCError } from "@trpc/server";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { storagePut } from "../storage";
 
 // ─── 10×10 Kitchen Layout ────────────────────────────────────────────────────
 // Industry-standard 10×10 kitchen benchmark (120" × 120").
@@ -490,11 +492,29 @@ export const priceShopRouter = router({
       roomWidthInches: z.number().optional(),
       roomDepthInches: z.number().optional(),
       cabinetCount: z.number().default(0),
+      floorPlanImageUrl: z.string().optional(),
+      affiliateId: z.number().optional(),
+      distributorId: z.number().optional(),
+      lockedDistributorId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Determine ownership: admin can create global or scoped bundles;
+      // affiliates can create bundles for their own storefront;
+      // distributors can create bundles locked to their own lines.
+      let ownerAffiliateId: number | null = input.affiliateId ?? null;
+      let ownerDistributorId: number | null = input.distributorId ?? null;
+      if (ctx.user.role !== "admin") {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        if (access?.isOwner) {
+          ownerAffiliateId = access.affiliateId;
+        } else if (ctx.user.distributorId) {
+          ownerDistributorId = ctx.user.distributorId;
+        } else {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+      }
       const [result] = await db.insert(bundleDeals).values({
         name: input.name,
         description: input.description,
@@ -506,36 +526,72 @@ export const priceShopRouter = router({
         roomWidthInches: input.roomWidthInches,
         roomDepthInches: input.roomDepthInches,
         cabinetCount: input.cabinetCount,
+        floorPlanImageUrl: input.floorPlanImageUrl,
+        affiliateId: ownerAffiliateId,
+        distributorId: ownerDistributorId,
+        lockedDistributorId: input.lockedDistributorId ?? (ownerDistributorId ? ownerDistributorId : null),
         createdBy: ctx.user.id,
       });
       return { ok: true, id: (result as any).insertId };
     }),
 
-  listBundleDeals: protectedProcedure.query(async ({ ctx }) => {
-    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
-    const db = await getDb();
-    if (!db) return [];
-    return db.select({
-      id: bundleDeals.id,
-      name: bundleDeals.name,
-      description: bundleDeals.description,
-      styleName: bundleDeals.styleName,
-      homeownerPrice: bundleDeals.homeownerPrice,
-      yourCost: bundleDeals.yourCost,
-      cabinetCount: bundleDeals.cabinetCount,
-      isPublished: bundleDeals.isPublished,
-      heroImageUrl: bundleDeals.heroImageUrl,
-      sortOrder: bundleDeals.sortOrder,
-      createdAt: bundleDeals.createdAt,
-    }).from(bundleDeals).orderBy(desc(bundleDeals.createdAt));
-  }),
+  listBundleDeals: protectedProcedure
+    .input(z.object({ affiliateId: z.number().optional(), distributorId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const selectFields = {
+        id: bundleDeals.id,
+        name: bundleDeals.name,
+        description: bundleDeals.description,
+        styleName: bundleDeals.styleName,
+        homeownerPrice: bundleDeals.homeownerPrice,
+        yourCost: bundleDeals.yourCost,
+        cabinetCount: bundleDeals.cabinetCount,
+        isPublished: bundleDeals.isPublished,
+        heroImageUrl: bundleDeals.heroImageUrl,
+        floorPlanImageUrl: bundleDeals.floorPlanImageUrl,
+        roomWidthInches: bundleDeals.roomWidthInches,
+        roomDepthInches: bundleDeals.roomDepthInches,
+        sortOrder: bundleDeals.sortOrder,
+        affiliateId: bundleDeals.affiliateId,
+        distributorId: bundleDeals.distributorId,
+        createdAt: bundleDeals.createdAt,
+      };
+      // Admin sees all; affiliate/vendor sees only their own
+      if (ctx.user.role === "admin" && !input?.affiliateId && !input?.distributorId) {
+        return db.select(selectFields).from(bundleDeals).orderBy(desc(bundleDeals.createdAt));
+      }
+      if (input?.affiliateId && ctx.user.role === "admin") {
+        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, input.affiliateId)).orderBy(desc(bundleDeals.createdAt));
+      }
+      if (input?.distributorId && ctx.user.role === "admin") {
+        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, input.distributorId)).orderBy(desc(bundleDeals.createdAt));
+      }
+      // Non-admin: resolve their affiliate or distributor
+      const access = await resolveAffiliateAccess(db, ctx.user);
+      if (access?.isOwner) {
+        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, access.affiliateId)).orderBy(desc(bundleDeals.createdAt));
+      }
+      if (ctx.user.distributorId) {
+        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, ctx.user.distributorId)).orderBy(desc(bundleDeals.createdAt));
+      }
+      throw new TRPCError({ code: "FORBIDDEN" });
+    }),
 
   toggleBundlePublished: protectedProcedure
     .input(z.object({ id: z.number(), published: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Verify ownership
+      if (ctx.user.role !== "admin") {
+        const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId }).from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        const ownsBundle = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        if (!ownsBundle) throw new TRPCError({ code: "FORBIDDEN" });
+      }
       await db.update(bundleDeals).set({ isPublished: input.published }).where(eq(bundleDeals.id, input.id));
       return { ok: true };
     }),
@@ -543,33 +599,73 @@ export const priceShopRouter = router({
   deleteBundleDeal: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Verify ownership
+      if (ctx.user.role !== "admin") {
+        const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId }).from(bundleDeals).where(eq(bundleDeals.id, input.id)).limit(1);
+        if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        const ownsBundle = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        if (!ownsBundle) throw new TRPCError({ code: "FORBIDDEN" });
+      }
       await db.delete(bundleDeals).where(eq(bundleDeals.id, input.id));
       return { ok: true };
     }),
 
   // Public: list all published bundles for the storefront
-  listPublishedBundles: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) return [];
-    return db.select({
-      id: bundleDeals.id,
-      name: bundleDeals.name,
-      description: bundleDeals.description,
-      styleName: bundleDeals.styleName,
-      homeownerPrice: bundleDeals.homeownerPrice,
-      cabinetCount: bundleDeals.cabinetCount,
-      heroImageUrl: bundleDeals.heroImageUrl,
-      sortOrder: bundleDeals.sortOrder,
-      createdAt: bundleDeals.createdAt,
-    }).from(bundleDeals)
-      .where(eq(bundleDeals.isPublished, true))
-      .orderBy(bundleDeals.sortOrder, desc(bundleDeals.createdAt));
-  }),
+  listPublishedBundles: publicProcedure
+    .input(z.object({ affiliateId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const conditions = [eq(bundleDeals.isPublished, true)];
+      // Affiliate storefronts show their own bundles + global bundles (no affiliateId)
+      if (input?.affiliateId) {
+        conditions.push(or(eq(bundleDeals.affiliateId, input.affiliateId), isNull(bundleDeals.affiliateId))!);
+      }
+      return db.select({
+        id: bundleDeals.id,
+        name: bundleDeals.name,
+        description: bundleDeals.description,
+        styleName: bundleDeals.styleName,
+        homeownerPrice: bundleDeals.homeownerPrice,
+        cabinetCount: bundleDeals.cabinetCount,
+        heroImageUrl: bundleDeals.heroImageUrl,
+        floorPlanImageUrl: bundleDeals.floorPlanImageUrl,
+        roomWidthInches: bundleDeals.roomWidthInches,
+        roomDepthInches: bundleDeals.roomDepthInches,
+        sortOrder: bundleDeals.sortOrder,
+        createdAt: bundleDeals.createdAt,
+      }).from(bundleDeals)
+        .where(and(...conditions))
+        .orderBy(bundleDeals.sortOrder, desc(bundleDeals.createdAt));
+    }),
 
   // Public: get a single bundle's full snapshot for loading into the designer
+  uploadBundleFloorPlan: protectedProcedure
+    .input(z.object({
+      bundleId: z.number(),
+      imageBase64: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Verify ownership
+      const [row] = await db.select({ affiliateId: bundleDeals.affiliateId, distributorId: bundleDeals.distributorId, createdBy: bundleDeals.createdBy }).from(bundleDeals).where(eq(bundleDeals.id, input.bundleId)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (ctx.user.role !== "admin" && row.createdBy !== ctx.user.id) {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        const owns = (access?.isOwner && row.affiliateId === access.affiliateId) || (ctx.user.distributorId && row.distributorId === ctx.user.distributorId);
+        if (!owns) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const buffer = Buffer.from(input.imageBase64.replace(/^data:image\/\w+;base64,/, ""), "base64");
+      const key = `bundle-floor-plans/${input.bundleId}_${Date.now()}.png`;
+      const { url } = await storagePut(key, buffer, "image/png");
+      await db.update(bundleDeals).set({ floorPlanImageUrl: url }).where(eq(bundleDeals.id, input.bundleId));
+      return { ok: true, url };
+    }),
+
   getBundleDeal: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {

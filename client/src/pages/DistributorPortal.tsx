@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Boxes, Eye, EyeOff, Loader2, PackageSearch, ClipboardList, Lock, Search,
+  Boxes, Eye, EyeOff, Loader2, PackageSearch, ClipboardList, Lock, Search, PackageOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,6 +212,9 @@ export default function DistributorPortal() {
                   <Badge variant="secondary" className="ml-2">{orders.data.length}</Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="bundles">
+                <PackageOpen className="mr-1.5 h-4 w-4" /> Bundle Deals
+              </TabsTrigger>
             </TabsList>
 
             {/* ─── Catalog management ─────────────────────────────────────── */}
@@ -351,6 +354,9 @@ export default function DistributorPortal() {
                 </Card>
               )}
             </TabsContent>
+            <TabsContent value="bundles" className="mt-5">
+              <VendorBundleDealsPanel distributorId={myLine.data?.line.id} distributorName={myLine.data?.line.name} />
+            </TabsContent>
           </Tabs>
         </>
       )}
@@ -368,3 +374,4 @@ function StatCard({ label, value, icon }: { label: string; value?: number; icon:
     </Card>
   );
 }
+import { VendorBundleDealsPanel } from "@/components/vendor/VendorBundleDealsPanel";

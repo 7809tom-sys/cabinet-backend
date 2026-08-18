@@ -2221,6 +2221,13 @@ export const bundleDeals = mysqlTable("bundle_deals", {
   isPublished: boolean("isPublished").default(false).notNull(),
   // Hero image (optional, generated or uploaded)
   heroImageUrl: varchar("heroImageUrl", { length: 512 }),
+  // Floor plan image (auto-generated from the 2D design snapshot)
+  floorPlanImageUrl: varchar("floorPlanImageUrl", { length: 512 }),
+  // Ownership: who created this bundle? null = admin/global
+  affiliateId: int("affiliateId"),                            // FK to affiliates.id
+  distributorId: int("distributorId"),                        // FK to distributors.id
+  // Vendor style lock: when set, bundle only features this vendor's cabinet lines
+  lockedDistributorId: int("lockedDistributorId"),            // FK to distributors.id
   // Sort order for storefront display
   sortOrder: int("sortOrder").default(0).notNull(),
   createdBy: int("createdBy"),                               // FK to users.id

@@ -5158,7 +5158,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [bundleName, setBundleName] = useState("");
   const [bundleDesc, setBundleDesc] = useState("");
   const saveBundleMut = trpc.priceShop.saveBundleDeal.useMutation({
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
+      // Capture the 2D floor plan as an image and upload it
+      try {
+        const floorPlanDataUrl = captureFloorPlanImage();
+        if (floorPlanDataUrl) {
+          await uploadBundleFloorPlanMut.mutateAsync({ bundleId: res.id, imageBase64: floorPlanDataUrl });
+        }
+      } catch { /* floor plan upload is best-effort */ }
       toast.success("Bundle Deal saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Bundle Deals to publish it.` });
       setBundleDialogOpen(false);
       setBundleName("");
@@ -5166,6 +5173,47 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
     onError: (e) => toast.error("Failed to save bundle", { description: e.message }),
   });
+  const uploadBundleFloorPlanMut = trpc.priceShop.uploadBundleFloorPlan.useMutation();
+  const captureFloorPlanImage = (): string | null => {
+    if (placed.length === 0) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    const padding = 50;
+    const scale = Math.min((canvas.width - padding * 2) / room.width, (canvas.height - padding * 2) / room.depth);
+    const plotWidth = room.width * scale;
+    const plotHeight = room.depth * scale;
+    const offsetX = (canvas.width - plotWidth) / 2;
+    const offsetY = (canvas.height - plotHeight) / 2;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#26384b";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(offsetX, offsetY, plotWidth, plotHeight);
+    for (const item of placed) {
+      const fp = placedFootprint(item);
+      const x = offsetX + item.x * scale;
+      const y = offsetY + item.y * scale;
+      const w = fp.w * scale;
+      const d = fp.d * scale;
+      ctx.fillStyle = item.placement === "appliance" ? "#d7dee4" : item.placement === "wall" ? "#d8e3ec" : item.placement === "tall" ? "#d9c3a0" : "#b88f55";
+      ctx.fillRect(x, y, w, d);
+      ctx.strokeStyle = "#4a3822";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, w, d);
+      if (w > 28 && d > 16) {
+        ctx.fillStyle = "#1e2934";
+        ctx.font = `${Math.max(9, Math.min(14, w / 5))}px sans-serif`;
+        ctx.fillText(item.masterCode, x + 3, y + Math.min(d - 3, 14));
+      }
+    }
+    ctx.fillStyle = "#526174";
+    ctx.font = "13px sans-serif";
+    ctx.fillText(`${room.width}" × ${room.depth}" · ${placed.length} cabinet${placed.length === 1 ? "" : "s"}`, 12, canvas.height - 10);
+    return canvas.toDataURL("image/png");
+  };
   const handleSaveBundle = () => {
     if (placed.length === 0) { toast.error("Add cabinets before saving a bundle."); return; }
     if (!bundleName.trim()) { toast.error("Please enter a bundle name."); return; }

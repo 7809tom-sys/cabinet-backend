@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
   Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink,
-  Calendar, Gift, Users, Puzzle, Wrench,
+  Calendar, Gift, Users, Puzzle, Wrench, PackageOpen,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -51,7 +51,8 @@ export type AffiliateSection =
   | "plugins"
   | "tax"
   | "team"
-  | "settings";
+  | "settings"
+  | "bundles";
 
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
@@ -67,6 +68,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Wrench, label: "Installation Estimates", section: "installation" },
   { icon: Palette, label: "Customize Store", section: "customize" },
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
+  { icon: PackageOpen, label: "Bundle Deals", section: "bundles" },
   { icon: Puzzle, label: "Plugins & Add-ons", section: "plugins" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
   { icon: Users, label: "My Team", section: "team" },

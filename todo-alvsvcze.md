@@ -651,3 +651,9 @@
 - [x] Fix: selecting a different cabinet must NOT change the active feature style — only explicit Color 1/Color 2 changes should switch styles
 - [x] Fix: 3D texture must ALWAYS follow the admin panel door_styles.doorSampleImageUrl, never a generic or catalog line-art image
 - [x] Fix: cart products must exactly reflect the cabinets placed in the 2D/3D design (same SKUs, quantities, styles, finishes, pricing)
+- [ ] Bundle Deals: Add prominent highlight button on storefront/home page linking to bundle deals
+- [x] Bundle Deals: Add prominent highlight button on storefront/home page linking to bundle deals
+- [x] Bundle Deals: Show 2D floor plan image on each bundle deal card instead of generic grid icon
+- [x] Bundle Deals: Give affiliates access to Bundle Deals management in their own admin panel
+- [x] Bundle Deals: Give vendors/distributors access to Bundle Deals management in their admin panel
+- [x] Bundle Deals: Vendor style-lock option — vendors can only create bundles featuring their own cabinet lines
