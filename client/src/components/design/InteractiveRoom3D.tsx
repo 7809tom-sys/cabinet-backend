@@ -392,7 +392,7 @@ export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefin
  * catalog color with controlled roughness and physical panel construction.
  */
 export function threeDUsesDoorSampleTexture() {
-  return true;
+  return false;
 }
 
 export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {

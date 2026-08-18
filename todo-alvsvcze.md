@@ -633,3 +633,4 @@
 - [x] Add a legally reviewable two-year affiliate post-termination non-compete clause with a proposed $10,000-per-violation liquidated-damages term and controlled site-suspension workflow
 - [x] Reposition the mobile 3D selected-cabinet description and price so they remain clear of the movement D-pad
 - [x] Make deterministic 3D cabinet face construction honor the selected plan door profile and matching finish instead of a generic flat front
+- [x] Remove invented 3D door-sample substitutions and render only saved plan finishes with authoritative Cabinet Config door geometry
