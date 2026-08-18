@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -38,7 +38,12 @@ type SceneSku = {
   cornerGeometryKind?: PlacedCornerGeometryKind;
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
+  /** Exact saved design item rendered by this scene SKU. */
+  placementUid?: string | null;
 };
+
+export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
+export const THREE_D_CABINET_MOVE_STEPS = [1, 3, 6] as const;
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
 export function resolvedThreeDVanityFaceLayout(layoutSpec: string | null | undefined): VanityFaceLayout | null {
@@ -135,6 +140,8 @@ interface Props {
   onRoomWallHeightChange?: (heightIn: number) => void;
   /** Persists individual back, left, right, and front wall heights. */
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
+  /** Moves the exact saved cabinet selected from the 3D scene. */
+  onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
   className?: string;
 }
 
@@ -858,6 +865,7 @@ export function addCabinet(
     masterCode: sku.masterCode,
     label: sku.description ?? sku.masterCode,
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
+    ...(sku.placementUid ? { placedUid: sku.placementUid } : {}),
     ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
@@ -2406,6 +2414,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" || sharedCornerKind === "corner-drawer" ? "l-shape" : cabinet.cornerType ?? null,
     cornerGeometryKind: sharedCornerKind,
     catalogImageUrl: cabinet.catalogImageUrl ?? appliance?.catalogImageUrl ?? null,
+    placementUid: cabinet.uid,
   };
 }
 
@@ -2605,7 +2614,7 @@ export function threeDWallSideForEdge(start: { x: number; y: number }, end: { x:
   return midX <= room.width / 2 ? "left" : "right";
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -2626,7 +2635,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
-  const [selectedCabinet, setSelectedCabinet] = useState<{ masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  const [movePanelOpen, setMovePanelOpen] = useState(false);
+  const [moveIncrementIn, setMoveIncrementIn] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
@@ -2944,22 +2955,34 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     camera.updateProjectionMatrix();
   };
 
+  const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {
+    if (!selectedCabinet?.uid || !onMoveCabinet) return;
+    onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn);
+  };
+
   const inspectCabinetAtPoint = (clientX: number, clientY: number) => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
     const root = catalogRootRef.current;
-    if (!renderer || !camera || !root) return;
+    if (!renderer || !camera || !root) return null;
     const bounds = renderer.domElement.getBoundingClientRect();
     const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(pointer, camera);
     const hit = raycaster.intersectObjects(root.children, true)[0];
     renderer.domElement.style.cursor = hit ? "pointer" : "grab";
-    if (!hit) return;
+    if (!hit) return null;
     let node: THREE.Object3D | null = hit.object;
-    while (node && !node.userData.masterCode) node = node.parent;
-    if (!node?.userData.masterCode) return;
-    setSelectedCabinet({ masterCode: String(node.userData.masterCode), description: node.userData.label ?? null, distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null });
+    while (node && !node.userData.placedUid && !node.userData.masterCode) node = node.parent;
+    if (!node?.userData.masterCode) return null;
+    const selection = {
+      uid: typeof node.userData.placedUid === "string" ? node.userData.placedUid : null,
+      masterCode: String(node.userData.masterCode),
+      description: node.userData.label ?? null,
+      distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null,
+    };
+    setSelectedCabinet(selection);
+    return selection;
   };
 
   const buildQuotePdf = async () => {
@@ -3209,12 +3232,19 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           </div>
         </div>
       )}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${isFullscreen ? "h-[calc(100vh-235px)] min-h-[420px]" : "h-[360px] sm:h-[440px]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) inspectCabinetAtPoint(event.clientX, event.clientY); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${isFullscreen ? "h-[calc(100vh-235px)] min-h-[420px]" : "h-[360px] sm:h-[440px]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
-        {selectedCabinet && (() => { const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase())); return <div className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur"><div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" /><div><p className="font-semibold">{selectedCabinet.masterCode}</p><p className="text-muted-foreground">{selectedCabinet.description ?? "Catalog cabinet"}</p><p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p><p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p></div><button type="button" onClick={() => setSelectedCabinet(null)} className="text-muted-foreground hover:text-foreground">×</button></div></div>; })()}
+        {selectedCabinet && (() => {
+          const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase()));
+          const panelPosition = movePanelOpen ? "fixed inset-x-3 bottom-3 z-50 max-h-[calc(100dvh-1.5rem)] overflow-y-auto sm:inset-x-auto sm:left-3 sm:w-80" : "absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)]";
+          return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`${panelPosition} rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur`}>
+            <div className="flex items-start gap-2"><Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" /><div className="min-w-0"><p className="font-semibold">{selectedCabinet.masterCode}</p><p className="text-muted-foreground">{selectedCabinet.description ?? "Catalog cabinet"}</p><p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p><p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p></div><button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button></div>
+            {movePanelOpen && selectedCabinet.uid && onMoveCabinet && <div className="mt-3 border-t pt-3"><div className="mb-2 flex items-center justify-between gap-3"><p className="font-semibold text-[#4b3a20]">Move cabinet / SKU</p><span className="text-[10px] text-muted-foreground">3D synchronized</span></div><div className="mb-2 flex items-center gap-1" aria-label="Movement increment"><span className="mr-1 text-[10px] text-muted-foreground">Step</span>{THREE_D_CABINET_MOVE_STEPS.map((step) => <button key={step} type="button" onClick={() => setMoveIncrementIn(step)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${moveIncrementIn === step ? "border-[#a87f33] bg-[#fff3db] text-[#4b3a20]" : "border-border bg-background hover:bg-muted"}`}>{step}&quot;</button>)}</div><div className="grid grid-cols-3 gap-1.5"><span /><button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowUp className="h-3.5 w-3.5" />Up</button><span /><button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowLeft className="h-3.5 w-3.5" />Left</button><button data-testid="three-d-move-in" type="button" onClick={() => requestCabinetMove("in")} className="rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">In</button><button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">Right<ArrowRight className="h-3.5 w-3.5" /></button><span /><button data-testid="three-d-move-out" type="button" onClick={() => requestCabinetMove("out")} className="rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted">Out</button><span /><span /><button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="inline-flex items-center justify-center gap-1 rounded border bg-background px-2 py-1.5 font-medium hover:bg-muted"><ArrowDown className="h-3.5 w-3.5" />Down</button><span /></div></div>}
+          </div>;
+        })()}
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Click a cabinet for its price and style details · Drag to orbit or pan · Scroll or pinch to zoom · PDF quote includes this rendering and your itemized catalog lines</p>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Click a cabinet for its price and style details · Right-click a placed cabinet for movement attributes · Drag to orbit or pan · Scroll or pinch to zoom</p>
       <Sheet open={pricingOpen} onOpenChange={setPricingOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader><SheetTitle>Itemized design pricing</SheetTitle></SheetHeader>

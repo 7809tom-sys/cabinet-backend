@@ -2529,3 +2529,13 @@
 - [x] Render each room wall to its own selected height while preserving wall visibility controls
 - [x] Add per-wall height rendering regressions
 - [ ] Verify a room with one and two changed walls in the live 3D preview
+
+## Fix: Live 3D Cabinet Movement Commands
+- [ ] Inspect the live selected W-30-24 placement record and trace an actual adjustment command
+- [ ] Repair any remaining live movement-command failure and show feedback for allowed or blocked moves
+- [ ] Verify actual 2D and 3D position changes on computer, tablet, and phone
+
+## Fix: 3D-Only Cabinet Movement Focus
+- [ ] Trace the selected-cabinet transform and move-button event path in the 3D scene only
+- [ ] Make each 3D movement command visibly reposition the selected cabinet in the 3D scene
+- [ ] Verify computer, tablet, and phone interactions without changing the 2D interface

@@ -31,6 +31,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(heights).toEqual({ top: 108, left: 96, right: 84, bottom: 96 });
   });
 
+  it("preserves the exact saved placement ID for a 3D-picked cabinet", () => {
+    const placed = { uid: "placed-w3024", cabinetId: 3024, masterCode: "W-30-24", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 24, x: 42, y: 0, rotation: 0 } as never;
+    const root = new THREE.Group();
+    const sku = existingCabinetSku(placed);
+    addCabinet(root, sku, null, {}, 144, 120, "#4f584c", "#f8f8f6", undefined, existingCabinetTransform(placed, { width: 144, depth: 120, ceilingHeight: 96 }));
+    expect(sku.placementUid).toBe("placed-w3024");
+    expect(root.children[0]?.userData.placedUid).toBe("placed-w3024");
+  });
+
   it("maps rectangular wall edges to the four independent height controls", () => {
     const room = { width: 144, depth: 120 };
     expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 144, y: 0 }, room)).toBe("top");
