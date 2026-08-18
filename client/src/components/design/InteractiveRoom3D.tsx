@@ -42,6 +42,7 @@ type SceneSku = {
   cornerGeometryKind?: PlacedCornerGeometryKind;
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
+  decorativeEnd?: "none" | "left" | "right" | "both";
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -310,9 +311,35 @@ export function threeDFaceMaterialColor(color: string, hasProvidedDoorSample: bo
 /** Every structural cabinet surface follows the chosen finish; a supplied door sample supplies both its detail and hue. */
 export function threeDStructuralFinish(color: string, hasProvidedDoorSample: boolean) {
   return {
-    color: threeDFaceMaterialColor(color, hasProvidedDoorSample),
-    usesDoorSample: hasProvidedDoorSample,
+    color,
+    usesDoorSample: false,
   };
+}
+
+/** Decorative end panels are opt-in; normal cabinet ends are plain finished skins. */
+export function threeDDecorativeEndSides(treatment: SceneSku["decorativeEnd"] | undefined): Array<-1 | 1> {
+  if (treatment === "left") return [-1];
+  if (treatment === "right") return [1];
+  return treatment === "both" ? [-1, 1] : [];
+}
+
+function threeDDoorTextureAverageColor(texture: THREE.Texture | null, fallback: string) {
+  if (!texture?.image || typeof document === "undefined") return fallback;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return fallback;
+    context.drawImage(texture.image as CanvasImageSource, 0, 0, 1, 1);
+    const pixels = context.getImageData(0, 0, 1, 1).data;
+    const red = pixels[0];
+    const green = pixels[1];
+    const blue = pixels[2];
+    return `#${[red, green, blue].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+  } catch {
+    return fallback;
+  }
 }
 
 export function shouldRenderCountertopOverSceneItem(
@@ -1066,6 +1093,7 @@ export function addCabinet(
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
   const structuralFinishMaterials: THREE.MeshStandardMaterial[] = [bodyMaterial];
+  let applyPlainStructuralFinish: ((finishColor: string) => void) | null = null;
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
@@ -1247,7 +1275,10 @@ export function addCabinet(
   };
   const useDoorTexture = threeDUsesDoorSampleTexture(doorSampleUrl);
   const doorTexture = useDoorTexture && doorSampleUrl
-    ? new THREE.TextureLoader().load(doorSampleUrl, () => onDoorTextureState?.("loaded"), undefined, () => {
+    ? new THREE.TextureLoader().load(doorSampleUrl, (loadedTexture) => {
+      applyPlainStructuralFinish?.(threeDDoorTextureAverageColor(loadedTexture, color));
+      onDoorTextureState?.("loaded");
+    }, undefined, () => {
       applyDoorTextureFallback();
       onDoorTextureState?.("failed");
     })
@@ -1267,14 +1298,24 @@ export function addCabinet(
     ? new THREE.MeshBasicMaterial({ color: faceColor, map: doorTexture })
     : new THREE.MeshStandardMaterial({ color: faceColor, map: null, roughness: 0.42, metalness: 0.01 });
   const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
-  for (const material of structuralFinishMaterials) {
+  let plainStructuralColor = structuralFinish.color;
+  const applyStructuralFinish = (finishColor: string) => {
+    plainStructuralColor = finishColor;
+    for (const material of structuralFinishMaterials) {
     material.color.set(structuralFinish.color);
-    material.map = structuralFinish.usesDoorSample ? doorTexture : null;
+    material.color.set(finishColor);
+    material.map = null;
     material.roughness = 0.5;
     material.needsUpdate = true;
-    material.userData = { selectedFinishStructuralSurface: true, usesDoorSample: structuralFinish.usesDoorSample };
+    material.userData = { selectedFinishStructuralSurface: true, usesDoorSample: false };
+    }
+  };
+  applyPlainStructuralFinish = applyStructuralFinish;
+  applyStructuralFinish(structuralFinish.color);
+  if (doorTexture?.image) {
+    applyStructuralFinish(threeDDoorTextureAverageColor(doorTexture, color));
   }
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: structuralFinish.color, map: structuralFinish.usesDoorSample ? doorTexture : null, roughness: 0.46, metalness: 0.01 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.01 });
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
@@ -1282,7 +1323,7 @@ export function addCabinet(
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
   // is reserved for true front meshes above; the carcass gets a flush finish skin.
-  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: structuralFinish.usesDoorSample };
+  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: false };
   // Every decorative standard front must remain on the physical exterior of the
   // carcass. The former 0.015-ft group offset placed the inner face of a 0.045-
   // or 0.052-ft door mesh inside the box. Seat the deepest supported front just
@@ -1328,7 +1369,8 @@ export function addCabinet(
     && !isRefrigeratorEndPanel
     && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
   if (usesConstructedFaceFrame) {
-    const frameMaterial = new THREE.MeshStandardMaterial({ color: structuralFinish.color, map: structuralFinish.usesDoorSample ? doorTexture : null, roughness: 0.46, metalness: 0.01 });
+    const frameMaterial = new THREE.MeshStandardMaterial({ color: plainStructuralColor, roughness: 0.46, metalness: 0.01 });
+    structuralFinishMaterials.push(frameMaterial);
     const frameDepth = 0.028;
     const frameWidth = Math.min(0.095, Math.max(0.055, Math.min(bodyWidth, bodyHeight) * 0.075));
     const frameGroup = new THREE.Group();
@@ -1377,6 +1419,15 @@ export function addCabinet(
   // offset: that offset creates a separate third face ahead of its clipped
   // 45-degree end plane.
   frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
+  for (const side of threeDDecorativeEndSides(sku.decorativeEnd)) {
+    const endPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.042, Math.max(0.12, bodyHeight - 0.05), Math.max(0.12, bodyDepth - 0.05)),
+      faceMaterial,
+    );
+    endPanel.position.set(side * (bodyWidth / 2 + 0.022), 0, -faceDepth);
+    endPanel.userData = { decorativeEndPanel: true, decorativeEndSide: side === -1 ? "left" : "right", explicitEndTreatment: true };
+    frontGroup.add(endPanel);
+  }
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
     if (!threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
@@ -2718,6 +2769,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     cornerType: sharedCornerKind === "diagonal" ? "diagonal" : sharedCornerKind === "l-shape" || sharedCornerKind === "corner-drawer" ? "l-shape" : cabinet.cornerType ?? null,
     cornerGeometryKind: sharedCornerKind,
     catalogImageUrl: cabinet.catalogImageUrl ?? appliance?.catalogImageUrl ?? null,
+    decorativeEnd: cabinet.decorativeEnd ?? "none",
   };
 }
 

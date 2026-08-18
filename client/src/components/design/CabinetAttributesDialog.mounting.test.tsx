@@ -11,6 +11,22 @@ vi.mock("@/components/design/RollOutTrayPicker", () => ({
   RollOutTrayPicker: () => null,
 }));
 
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    masterSku: {
+      getAliasesForCabinet: { useQuery: () => ({ data: [] }) },
+      similarForCabinet: { useQuery: () => ({ data: [] }) },
+      confirmCabinetLink: { useMutation: () => ({ mutate: vi.fn() }) },
+    },
+    useUtils: () => ({
+      masterSku: {
+        getAliasesForCabinet: { invalidate: vi.fn() },
+        similarForCabinet: { invalidate: vi.fn() },
+      },
+    }),
+  },
+}));
+
 const wallCabinet = {
   uid: "w3024",
   cabinetId: 1,
@@ -47,6 +63,7 @@ function renderDialog(onSetMountBottom = vi.fn()) {
       distributorId={null}
       onSetRolloutQty={vi.fn()}
       onSetGlassDoor={vi.fn()}
+      onSetDecorativeEnd={vi.fn()}
       glassDoorAvailable={false}
       onAddGlassDoorToCart={vi.fn()}
       onSetBlindPull={vi.fn()}

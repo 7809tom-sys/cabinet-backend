@@ -134,6 +134,7 @@ export interface CabinetAttributesDialogProps {
   onSetRolloutQty: (uid: string, qty: number) => void;
   // Glass door upgrade toggle
   onSetGlassDoor: (uid: string, glassDoor: boolean) => void;
+  onSetDecorativeEnd: (uid: string, treatment: "none" | "left" | "right" | "both") => void;
   glassDoorAvailable: boolean;
   // Glass door add-on: add the separate glass door SKU to the cart
   onAddGlassDoorToCart: (uid: string) => void;
@@ -178,6 +179,7 @@ export function CabinetAttributesDialog({
   distributorId,
   onSetRolloutQty,
   onSetGlassDoor,
+  onSetDecorativeEnd,
   glassDoorAvailable,
   onAddGlassDoorToCart,
   onSetBlindPull,
@@ -436,6 +438,24 @@ export function CabinetAttributesDialog({
               </div>
             </div>
           </section>
+
+          {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
+            <section className="space-y-2 border-t border-border pt-4">
+              <div>
+                <h4 className="text-sm font-semibold">Decorative End Panels</h4>
+                <p className="text-[11px] text-muted-foreground">Cabinet ends stay plain finished skins unless you select a decorative panel.</p>
+              </div>
+              <Select value={cabinet.decorativeEnd ?? "none"} onValueChange={(value) => onSetDecorativeEnd(uid, value as "none" | "left" | "right" | "both")}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Plain finished ends</SelectItem>
+                  <SelectItem value="left">Decorative panel — left end</SelectItem>
+                  <SelectItem value="right">Decorative panel — right end</SelectItem>
+                  <SelectItem value="both">Decorative panels — both ends</SelectItem>
+                </SelectContent>
+              </Select>
+            </section>
+          )}
 
           {/* Custom drawing rule */}
           <section className="space-y-3 border-t border-border pt-4">

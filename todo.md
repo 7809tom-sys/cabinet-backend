@@ -2720,3 +2720,9 @@
 - [x] Propagate every user-selected cabinet color to faces, shells, frames, tops, bottoms, toe-kicks, fillers, and panels
 - [x] Keep door-sample texture detail without allowing an unrelated structural fallback color
 - [ ] Add multi-style selected-finish regressions and verify computer and phone scenes
+
+## 3D: Optional Decorative Cabinet End Panels
+- [x] Trace why the renderer adds decorative end treatment to ordinary base and upper cabinet sides
+- [x] Render plain selected-finish cabinet ends by default for base and upper cabinets
+- [x] Add an explicit optional decorative end-panel treatment for applicable cabinet ends
+- [ ] Add computer and phone regressions for plain and decorative end treatments

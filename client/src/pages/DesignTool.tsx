@@ -9170,6 +9170,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         distributorId={lockedDistributorId}
         onSetRolloutQty={setRolloutQtyFor}
         onSetGlassDoor={setGlassDoorFor}
+        onSetDecorativeEnd={(uid, treatment) => setCabAttr(uid, { decorativeEnd: treatment })}
         glassDoorAvailable={glassDoorAvailableForAttr}
         onAddGlassDoorToCart={addGlassDoorToCart}
         onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}

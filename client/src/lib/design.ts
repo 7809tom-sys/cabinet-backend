@@ -316,6 +316,7 @@ export interface DesignCabinet {
 // Door hinge side as seen from the front of the cabinet. "none" is used for
 // items without a hinged door (drawer bases, open shelves, panels, appliances).
 export type DoorSwing = "left" | "right" | "double" | "none";
+export type DecorativeEndTreatment = "none" | "left" | "right" | "both";
 
 export interface PlacedCabinet {
   uid: string;
@@ -406,6 +407,9 @@ export interface PlacedCabinet {
   // (e.g. W-30-30 → W-30-30GD). Only valid for wall cabinets that have a
   // matching GD code in the catalog.
   glassDoor?: boolean;
+  // Optional decorative door-style panel on one or both exposed cabinet ends.
+  // Ordinary cabinet sides remain plain selected-finish skins by default.
+  decorativeEnd?: DecorativeEndTreatment;
   // Blind corner pull distance (inches): how far the blind portion extends
   // past the perpendicular wall into the corner. Editable by the user within
   // [pullMin, pullMax] (defaults 3-6"). When set, the cabinet is positioned
