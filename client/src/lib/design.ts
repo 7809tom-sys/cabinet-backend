@@ -2578,6 +2578,44 @@ export function mountedMicrowaveOverRangeSpot(
   );
 }
 
+/**
+ * Select the range that an over-range microwave should mount above. A selected
+ * range takes precedence, then ranges on the active wall, then the nearest
+ * range in the current design. This keeps palette adds from inheriting an
+ * arbitrary free canvas position in the center of the room.
+ */
+export function preferredRangeForOverRangeMicrowave(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  activeWall: WallSide | null | undefined,
+  selectedUid: string | null | undefined,
+  target: Pick<PlacedCabinet, "x" | "y">,
+): PlacedCabinet | undefined {
+  const isRange = (cabinet: PlacedCabinet) => isRangeOrOven(cabinet.masterCode, cabinet.description);
+  const selectedRange = placed.find((cabinet) => cabinet.uid === selectedUid && isRange(cabinet));
+  if (selectedRange) return selectedRange;
+  const activeWallRanges = activeWall
+    ? placed.filter((cabinet) => isRange(cabinet) && cabinetWall(cabinet, room) === activeWall)
+    : [];
+  const candidates = activeWallRanges.length > 0 ? activeWallRanges : placed.filter(isRange);
+  return [...candidates].sort(
+    (a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y),
+  )[0];
+}
+
+/** Returns the mounted range and exact wall spot for a palette or drag MW-30 add. */
+export function overRangeMicrowaveAttachment(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  activeWall: WallSide | null | undefined,
+  selectedUid: string | null | undefined,
+  target: Pick<PlacedCabinet, "x" | "y">,
+  microwave: Pick<PlacedCabinet, "width" | "depth">,
+): { range: PlacedCabinet; spot: { x: number; y: number; rotation: number } } | null {
+  const range = preferredRangeForOverRangeMicrowave(placed, room, activeWall, selectedUid, target);
+  return range ? { range, spot: mountedMicrowaveOverRangeSpot(microwave, range, room) } : null;
+}
+
 // Sum a mitered trim run grouped by wall, adding the miter allowance once per
 // wall that actually has trim on it. `cabs` are the cabinets the trim runs over.
 export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number {

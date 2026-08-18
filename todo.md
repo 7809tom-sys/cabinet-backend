@@ -259,6 +259,15 @@
 - [x] Retain rejection for floor-height, misaligned, or incompatible appliance overlaps
 - [x] Add final-placement regression coverage for the reported top-wall and right-wall layouts
 
+## Fix: MW-30 Palette Add Floats in Room Instead of Attaching to RANGE-30
+- [x] Trace MW-30 palette-add and drag paths that use the canvas drop point instead of a compatible range
+- [x] Auto-center MW-30 over the selected or nearest compatible range on its wall
+- [x] Keep manual free placement unavailable for over-range microwaves without a compatible range
+- [ ] Add real component palette-add placement regression for the reported top-wall range
+- [ ] Verify palette-added MW-30 mounts above the reported top-wall range in the live designer
+- [x] Block MW-30 with a clear error when no compatible range exists
+- [ ] Add real component drag/drop regression for top-wall/right-wall ranges and no-range error
+
 ## Fix: Range variants need catalog-correct front or rear control layouts
 
 - [x] Trace selected range variant metadata and current control-position logic

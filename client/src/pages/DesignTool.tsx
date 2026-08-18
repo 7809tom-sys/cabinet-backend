@@ -67,7 +67,7 @@ import {
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
   type PlanAnnotation, makeAnnotation,
   makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
-  snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot,
+  snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
@@ -87,6 +87,7 @@ import {
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
+import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -2412,36 +2413,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       let otrMountBottom: number | undefined;
       let otrRangeUid: string | undefined;
       if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
-        const targetWall = cabinetWall(
-          { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
-          room
-        );
-        const ranges = prev.filter(
-          (p) =>
-            isRangeOrOven(p.masterCode, p.description) &&
-            cabinetWall(p, room) === targetWall
-        );
-        const byDist = [...ranges].sort(
-          (a, b) =>
-            Math.hypot(a.x - spot.x, a.y - spot.y) -
-            Math.hypot(b.x - spot.x, b.y - spot.y)
-        );
-        const range = byDist[0];
-        if (range) {
-          const rs = rotatedSize(range);
-          const horizontal = targetWall === "top" || targetWall === "bottom";
-          const rangeStart = horizontal ? range.x : range.y;
-          const rangeSpan = horizontal ? rs.w : rs.d;
-          const microwaveSpan = horizontal ? width : depth;
-          // Preserve the exact range wall and run center. Updating only X/Y
-          // left a new microwave on the next free plan row, which made the
-          // valid mounted pair fail the centered over-range collision rule.
-          spot = mountedMicrowaveOverRangeSpot({ width, depth }, range, room);
-          const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
-          otrMountBottom = mwDef?.elevBottom ?? 54;
-          otrRangeUid = range.uid;
-          toast.success(t("dt_otr_snapped_over_range"));
+        const otrPlacement = resolveOverRangeMicrowavePlacement(prev, room, activeWall, selectedUid, spot, { width, depth });
+        if (!otrPlacement.ok) {
+          setPlacementWarning(otrPlacement.message);
+          toast.error(otrPlacement.message);
+          return;
         }
+        // Preserve the exact range wall and run center. Updating only X/Y
+        // left a new microwave on the next free plan row, which made the
+        // valid mounted pair fail the centered over-range collision rule.
+        spot = otrPlacement.spot;
+        otrMountBottom = otrPlacement.mountBottom;
+        otrRangeUid = otrPlacement.rangeUid;
+        toast.success(t("dt_otr_snapped_over_range"));
       }
 
       const newCab: PlacedCabinet = {
