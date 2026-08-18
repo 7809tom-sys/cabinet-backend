@@ -619,3 +619,4 @@
 - [x] Fix the 3D Edit Config hyperlink so it opens the selected cabinet’s working configuration record
 - [x] Restore the selected cabinet description area and Edit Config action in the 3D cabinet panel
 - [x] Make the 3D cabinet description and administrator Edit Config action consistent across devices
+- [x] Build a responsive side-by-side 2D–3D workspace that preserves the complete plan while users add, position, and edit catalog cabinets from 3D

@@ -93,8 +93,13 @@ export type InteractiveRoomCatalogItem = {
   id: number;
   masterCode: string;
   description: string | null;
-  category: "Accessory" | "Appliance";
+  category: "Cabinet" | "Accessory" | "Appliance";
 };
+
+/** The add-from-catalog strip remains available for both starter rooms and saved 2D plans. */
+export function shouldShowThreeDCatalog(catalogItems: InteractiveRoomCatalogItem[]): boolean {
+  return catalogItems.length > 0;
+}
 
 export type InteractiveRoomPresentation = {
   cabinetFinish: string;
@@ -144,6 +149,8 @@ interface Props {
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
+  /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
+  onOpenCabinetEditor?: (uid: string) => void;
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
   cabinetConfigHref?: (cabinet: PlacedCabinet) => string | null;
   className?: string;
@@ -2787,7 +2794,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, cabinetConfigHref, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onOpenCabinetEditor, cabinetConfigHref, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3398,12 +3405,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
         </div>
       )}
-      {!renderExistingDesign && catalogItems.length > 0 && (
+      {shouldShowThreeDCatalog(catalogItems) && (
         <div className="mb-3 rounded-xl border bg-background p-3">
-          <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add to this 3D room</p><span className="text-[11px] text-muted-foreground">Drag an item onto the scene; it will be placed on the active wall in the editable design.</span></div>
+          <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add from catalog</p><span className="text-[11px] text-muted-foreground">Choose or drag an item to add it to the active wall in the synchronized 2D plan.</span></div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {catalogItems.map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => onAddCatalogItem?.(item)} className="min-w-40 rounded-lg border bg-card p-2 text-left text-xs transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
-              <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block line-clamp-2 text-muted-foreground">{item.description ?? item.category}</span><span className="mt-1 block text-[10px] uppercase tracking-wide text-[#a87f33]">{item.category}</span>
+              <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block line-clamp-2 text-muted-foreground">{item.description ?? item.category}</span><span className="mt-1 block text-[10px] uppercase tracking-wide text-[#a87f33]">Add {item.category}</span>
             </button>)}
           </div>
         </div>
@@ -3425,6 +3432,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 {editConfigHref && <a data-testid="three-d-edit-config-link" href={editConfigHref} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400">Edit Config ↗</a>}
                 <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
+                {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
+                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">Edit cabinet</button>}
+                  {onMoveCabinet && <button type="button" data-testid="three-d-toggle-move-controls" onClick={() => setMovePanelOpen((current) => !current)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">{movePanelOpen ? "Hide move controls" : "Move in 3D"}</button>}
+                </div>}
               </div>
               <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button>
             </div>

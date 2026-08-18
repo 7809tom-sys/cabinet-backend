@@ -1998,6 +1998,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }), [interactive3dPricingLines]);
 
   const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
+    const cabinets = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? [])
+      .slice(0, 12)
+      .map((item) => ({
+        id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
+      }));
     const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const,
     }));
@@ -2007,8 +2012,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliances = appliancePalette.slice(0, 8).map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const,
     }));
-    return [...accessories, ...appliances];
-  }, [threeDAccessoryCatalog, appliancePalette]);
+    return [...cabinets, ...accessories, ...appliances];
+  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette]);
 
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
@@ -2670,6 +2675,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [layoutLocked, roomType, addCabinet]);
 
   const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem) => {
+    if (item.category === "Cabinet") {
+      const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
+      if (cabinet) addCabinet(cabinet);
+      else toast.error("That cabinet is no longer available in the active catalog.");
+      return;
+    }
     if (item.category === "Accessory") {
       const accessory = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
       if (accessory) addCabinet(accessory, undefined, undefined, true);
@@ -2679,7 +2690,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
     if (appliance) addCabinet(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-  }, [threeDAccessoryCatalog, appliancePalette, addCabinet]);
+  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
@@ -9358,6 +9369,52 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
+              <div className="grid min-h-[640px] gap-4 xl:grid-cols-[minmax(340px,0.8fr)_minmax(0,1.2fr)] xl:overflow-hidden">
+                <section className="order-2 min-h-[340px] rounded-xl border bg-card p-3 shadow-sm xl:order-1 xl:min-h-0 xl:overflow-hidden">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div><p className="text-sm font-semibold">Complete 2D plan</p><p className="text-[11px] text-muted-foreground">Selections, additions, and moves synchronize immediately.</p></div>
+                    <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">{placed.length} cabinet{placed.length === 1 ? "" : "s"}</span>
+                  </div>
+                  <div className="h-[390px] overflow-hidden rounded-lg border bg-background xl:h-[calc(94vh-11rem)]">
+                    <PlanCanvas
+                      room={room}
+                      cabinets={placed}
+                      selectedUid={selectedUid}
+                      onSelect={selectCabinet}
+                      onMove={moveCabinet}
+                      onDelete={deleteCabinet}
+                      onRotate={rotateCabinet}
+                      onOpenAttributes={openAttributes}
+                      onDropNew={handleDropNew}
+                      showWallLayer={showWallLayer}
+                      measureMode={measureMode}
+                      autoDimensions={autoDimensions}
+                      island={island}
+                      onIslandChange={setIsland}
+                      onIslandMove={moveIsland}
+                      openings={openings}
+                      selectedOpeningUid={selectedOpeningUid}
+                      onSelectOpening={selectOpening}
+                      onOpeningChange={changeOpening}
+                      onDeleteOpening={deleteOpening}
+                      finish={activeFinish}
+                      activeWall={activeWall}
+                      onSelectWall={setActiveWall}
+                      onResizeWall={resizeWall}
+                      conflictUids={conflictUids}
+                      layoutLocked={layoutLocked}
+                      lockedWalls={lockedWalls}
+                      countertopMaterialId={countertop ? countertopMaterialId : null}
+                      sinks={sinks}
+                      selectedSinkUid={selectedSinkUid}
+                      onSelectSink={selectSink}
+                      onMoveSink={moveSink}
+                      onDropToFloor={dropToFloor}
+                      finishFor={finishForCab}
+                    />
+                  </div>
+                </section>
+                <section className="order-1 min-w-0 xl:order-2 xl:overflow-y-auto">
               <InteractiveRoom3D
                 key={interactive3dRevision}
                 scene={resolvedInteractive3dScene}
@@ -9373,6 +9430,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogItems={interactive3dCatalogItems}
                 onAddCatalogItem={addFromInteractive3d}
                 onAddRangeHood={addRangeHoodFromInteractive3d}
+                onOpenCabinetEditor={openAttributes}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
@@ -9400,6 +9458,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   styleId,
                 } : undefined}
               />
+                </section>
+              </div>
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
             )}
