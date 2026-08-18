@@ -530,7 +530,7 @@
 - [x] Add regression coverage for automatic adjacent placement, deterministic tie-breaking, and genuinely full-run rejection
 - [x] Restore distinct base construction: floor position, 4½-inch toe kick, 34½-inch cabinet top, configured door/drawer face layout, and direct countertop support
 - [x] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
-- [ ] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
+- [x] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
 - [ ] Capture the actual BEC-24 record in the user’s active design and use it as the sole input for the next 3D correction
 - [ ] Do not make further BEC-24 geometry changes from a generic or substitute cabinet; require the exact active saved record first
 - [x] Replace the rectangular BEC-24 body with the supplied diagram’s rear-apex two-24-inch-side construction
@@ -607,10 +607,10 @@
 - [x] Add the mobile Replace Cabinet Image workflow to desktop Edit Config, including This line only and All lines scope choices
 - [x] Support desktop image-library browse, upload, and URL entry in the Replace Cabinet Image dialog
 - [x] Add desktop-mobile replacement workflow parity coverage
-- [ ] Show all linked aliases and variants when editing a cabinet master record
-- [ ] Flag similar master candidates and require an explicit merge decision before linking records
-- [ ] Propagate confirmed master edits across all linked variants while preserving source-specific pricing and availability data
-- [ ] Add safe merge and master-edit propagation regression coverage
+- [x] Show all linked aliases and variants when editing a cabinet master record
+- [x] Flag similar master candidates and require an explicit merge decision before linking records
+- [x] Propagate confirmed master edits across all linked variants while preserving source-specific pricing and availability data
+- [x] Add safe merge and master-edit propagation regression coverage
 - [x] Surface linked aliases and variants automatically in the 3D designer cabinet edit panel
 - [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
 - [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage

@@ -1871,6 +1871,35 @@ describe("interactive 3D room scene helpers", () => {
     expect(wallBounds.max.y).toBeCloseTo(84 / 12, 8);
   });
 
+  it("preserves distinct configured faces for adjacent persisted base and wall records instead of flattening both into generic panels", () => {
+    const root = new THREE.Group();
+    const savedBase = {
+      uid: "saved-base-fronts", cabinetId: 611, masterCode: "B24-SAVED-FACES", description: '24" Base Cabinet',
+      placement: "base", x: 24, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 1,
+    } as never;
+    const savedWall = {
+      uid: "saved-wall-fronts", cabinetId: 612, masterCode: "W24-SAVED-FACES", description: '24" x 30" Wall Cabinet',
+      placement: "wall", x: 24, y: 0, width: 24, depth: 12, height: 30, rotation: 0,
+      mountBottom: 54, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    [savedBase, savedWall].forEach((saved) => {
+      addCabinet(root, existingCabinetSku(saved), null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(saved));
+    });
+    const base = root.children.find((node) => node.userData.masterCode === "B24-SAVED-FACES")!;
+    const wall = root.children.find((node) => node.userData.masterCode === "W24-SAVED-FACES")!;
+    const baseFronts: THREE.Object3D[] = [];
+    const wallFronts: THREE.Object3D[] = [];
+    base.traverse((node) => { if (node.userData.cabinetFront) baseFronts.push(node); });
+    wall.traverse((node) => { if (node.userData.cabinetFront) wallFronts.push(node); });
+    expect(base.userData.floorStandingCabinet).toBe(true);
+    expect(wall.userData.floorStandingCabinet).toBeUndefined();
+    expect(baseFronts).toHaveLength(3);
+    expect(wallFronts).toHaveLength(2);
+    expect(baseFronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+    expect(wallFronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+  });
+
   it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {
     const root = new THREE.Group();
     addCabinet(root, {
