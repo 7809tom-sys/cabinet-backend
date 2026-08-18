@@ -617,3 +617,4 @@
 - [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
 - [x] Add an administrator-only Edit Config hyperlink below the cabinet description in the 3D cabinet attributes dialog
 - [x] Fix the 3D Edit Config hyperlink so it opens the selected cabinet’s working configuration record
+- [x] Restore the selected cabinet description area and Edit Config action in the 3D cabinet panel

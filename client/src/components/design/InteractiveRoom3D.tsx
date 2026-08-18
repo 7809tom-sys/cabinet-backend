@@ -144,6 +144,8 @@ interface Props {
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
+  /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
+  cabinetConfigHref?: (cabinet: PlacedCabinet) => string | null;
   className?: string;
 }
 
@@ -175,6 +177,15 @@ const COUNTERTOP_FINISHES = [
   { name: "Black", color: "#202124" },
 ] as const;
 export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
+
+/** Keeps the selected 3D cabinet card informative even for sparse legacy records. */
+export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "masterCode"> & { description?: string | null }): string {
+  const description = cabinet.description?.trim();
+  if (description) return description;
+
+  const code = cabinet.masterCode?.trim();
+  return code ? `${code} cabinet` : "Catalog cabinet";
+}
 // Drawer reveals must sit behind the physical front. Keeping this near the
 // carcass face avoids line geometry projecting through painted door panels.
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
@@ -2744,7 +2755,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, cabinetConfigHref, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3372,12 +3383,16 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {selectedCabinet && (() => {
           const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase()));
+          const description = threeDSelectedCabinetDescription(selectedCabinet);
+          const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
+          const editConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
           return <div data-testid="three-d-cabinet-attributes" className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur">
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
               <div className="min-w-0">
                 <p className="font-semibold">{selectedCabinet.masterCode}</p>
-                <p className="text-muted-foreground">{selectedCabinet.description ?? "Catalog cabinet"}</p>
+                <p data-testid="three-d-cabinet-description" className="text-muted-foreground">{description}</p>
+                {editConfigHref && <a data-testid="three-d-edit-config-link" href={editConfigHref} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400">Edit Config ↗</a>}
                 <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
               </div>

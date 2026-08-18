@@ -9391,6 +9391,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
                 }))}
                 onMoveCabinet={moveCabinetFrom3D}
+                cabinetConfigHref={isAdmin
+                  ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId)
+                  : undefined}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,
