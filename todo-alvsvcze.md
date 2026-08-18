@@ -618,3 +618,4 @@
 - [x] Add an administrator-only Edit Config hyperlink below the cabinet description in the 3D cabinet attributes dialog
 - [x] Fix the 3D Edit Config hyperlink so it opens the selected cabinet’s working configuration record
 - [x] Restore the selected cabinet description area and Edit Config action in the 3D cabinet panel
+- [x] Make the 3D cabinet description and administrator Edit Config action consistent across devices

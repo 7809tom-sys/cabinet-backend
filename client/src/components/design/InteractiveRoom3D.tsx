@@ -186,6 +186,38 @@ export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "m
   const code = cabinet.masterCode?.trim();
   return code ? `${code} cabinet` : "Catalog cabinet";
 }
+
+export type ThreeDCabinetHit = {
+  uid: string | null;
+  masterCode: string;
+  description: string | null;
+  distributorSkuId: number | null;
+};
+
+/**
+ * A raycast can first hit a decorative child mesh. Continue to the placement
+ * root so selected 3D cabinets always retain their saved plan identity rather
+ * than losing the description and exact configuration record on a child face.
+ */
+export function threeDCabinetHitFromObject(object: THREE.Object3D): ThreeDCabinetHit | null {
+  let node: THREE.Object3D | null = object;
+  let masterCode: string | null = null;
+  let uid: string | null = null;
+  let description: string | null = null;
+  let distributorSkuId: number | null = null;
+
+  while (node) {
+    if (!masterCode && node.userData.masterCode) masterCode = String(node.userData.masterCode);
+    if (!uid && typeof node.userData.placedUid === "string") uid = node.userData.placedUid;
+    if (!description && typeof node.userData.label === "string") description = node.userData.label;
+    if (distributorSkuId == null && typeof node.userData.distributorSkuId === "number") {
+      distributorSkuId = node.userData.distributorSkuId;
+    }
+    node = node.parent;
+  }
+
+  return masterCode ? { uid, masterCode, description, distributorSkuId } : null;
+}
 // Drawer reveals must sit behind the physical front. Keeping this near the
 // carcass face avoids line geometry projecting through painted door panels.
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
@@ -3113,14 +3145,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const hit = raycaster.intersectObjects(root.children, true)[0];
     renderer.domElement.style.cursor = hit ? "pointer" : "grab";
     if (!hit) return null;
-    let node: THREE.Object3D | null = hit.object;
-    while (node && !node.userData.masterCode) node = node.parent;
-    if (!node?.userData.masterCode) return null;
+    const hitSelection = threeDCabinetHitFromObject(hit.object);
+    if (!hitSelection) return null;
+    const placedCabinet = hitSelection.uid ? placed.find((cabinet) => cabinet.uid === hitSelection.uid) ?? null : null;
     const selection = {
-      uid: typeof node.userData.placedUid === "string" ? node.userData.placedUid : null,
-      masterCode: String(node.userData.masterCode),
-      description: node.userData.label ?? null,
-      distributorSkuId: typeof node.userData.distributorSkuId === "number" ? node.userData.distributorSkuId : null,
+      ...hitSelection,
+      description: placedCabinet?.description ?? hitSelection.description,
     };
     setSelectedCabinet(selection);
     return selection;

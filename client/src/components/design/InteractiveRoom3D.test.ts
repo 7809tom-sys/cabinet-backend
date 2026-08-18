@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, resolvedThreeDWallHeights, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, resolvedThreeDWallHeights, threeDCabinetHitFromObject, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -77,6 +77,24 @@ describe("interactive 3D room scene helpers", () => {
   it("always exposes a selected cabinet description for the 3D attributes card", () => {
     expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: "30 inch double-door base cabinet" } as any)).toBe("30 inch double-door base cabinet");
     expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: null } as any)).toBe("B-30 cabinet");
+  });
+
+  it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
+    const root = new THREE.Group();
+    root.userData = { placedUid: "placed-b30", label: "30 inch double-door base cabinet", distributorSkuId: 930030 };
+    const cabinetGroup = new THREE.Group();
+    cabinetGroup.userData = { masterCode: "B-30" };
+    const face = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    face.userData = { masterCode: "B-30" };
+    root.add(cabinetGroup);
+    cabinetGroup.add(face);
+
+    expect(threeDCabinetHitFromObject(face)).toEqual({
+      uid: "placed-b30",
+      masterCode: "B-30",
+      description: "30 inch double-door base cabinet",
+      distributorSkuId: 930030,
+    });
   });
 
   it("mirrors diagonal corner turns so the angled wall-cabinet face points into every room corner", () => {
