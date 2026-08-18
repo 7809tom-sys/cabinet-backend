@@ -228,6 +228,13 @@
 - [x] Add right-wall sink-base orientation regression coverage
 - [ ] Verify the reported plan and 3D scene with the corrected right-wall sink
 
+## Fix: Farm Sink Base Added as Floating Room Cabinet
+- [x] Trace SB-36 farm sink-base palette positioning and active-wall selection
+- [x] Resolve SB-36 palette additions to an exact valid opening on the active wall instead of only blocking the room-center fallback
+- [x] Keep the existing dialog-first sink/faucet selection behavior explicit after valid farm sink-base placement
+- [ ] Add actual DesignTool FSB-36 palette-click coverage for a valid opening and a no-space active wall
+- [ ] Verify SB-36 snaps to a valid selected-wall opening in the live designer
+
 ## Fix: Sink-base cabinets show an extra horizontal false-drawer handle in 3D
 
 - [x] Trace 3D sink-base false-drawer and hardware generation

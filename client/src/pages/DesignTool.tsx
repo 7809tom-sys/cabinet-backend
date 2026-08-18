@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -88,6 +88,7 @@ import {
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
+import { resolveFarmSinkPalettePlacement } from "./designToolFarmSinkPlacement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -2330,6 +2331,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (x != null && y != null) {
         spot = { x, y, rotation: 0 };
       } else {
+        const farmSinkPlacement = resolveFarmSinkPalettePlacement({
+          masterCode: c.masterCode,
+          description: c.description,
+          subCategory: c.subCategory,
+        }, activeWall, room, prev, openings, width, depth);
+        if (farmSinkPlacement.applies) {
+          if (!farmSinkPlacement.spot) {
+            setPlacementWarning(farmSinkPlacement.message);
+            toast.error(farmSinkPlacement.message);
+            return;
+          }
+          spot = farmSinkPlacement.spot;
+        } else {
         const segs = freeSegmentsOnWall(
           activeWall,
           room,
@@ -2355,9 +2369,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
           spot = wallPlacementAt(along, width, depth, activeWall, room);
         } else {
+          const requiresWallPlacement = accPlacement === "base" || accPlacement === "wall";
+          if (requiresWallPlacement) {
+            const message = `${c.masterCode} was not added because there is no ${width}\" opening on the active wall. Select a wall with enough clear space or drag the cabinet to a valid wall position.`;
+            setPlacementWarning(message);
+            toast.error(message);
+            return;
+          }
           const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
           const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
           spot = { x: cx, y: cy, rotation: 0 };
+        }
         }
       }
 

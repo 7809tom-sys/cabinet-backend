@@ -1719,6 +1719,18 @@ export function isSinkBaseCabinet(c: {
   );
 }
 
+/** True for farm/farmhouse sink bases that must resolve through the active-wall palette path. */
+export function isFarmSinkBasePaletteItem(c: {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  if (!isSinkBaseCabinet(c)) return false;
+  const code = `${c.masterCode ?? ""}`.toLowerCase();
+  const hay = `${c.description ?? ""} ${c.subCategory ?? ""}`.toLowerCase();
+  return /^fsb[-_]?\d/.test(code) || /farm(?:house)?\s+sink/.test(hay);
+}
+
 /** A sink fixture belongs to a sink base when its center lies inside that cabinet's true footprint. */
 export function fixtureIsOnCabinetFootprint(
   fixture: { x: number; y: number; width: number; depth: number },
@@ -3882,6 +3894,35 @@ export function freeSegmentsOnWall(
   if (tail >= minLen) segments.push({ start: cursor, length: Math.round(tail * 100) / 100 });
 
   return segments;
+}
+
+/**
+ * Resolves a palette-added base or wall cabinet to the first opening that can
+ * contain its full width on the active wall. Returning null is intentional:
+ * wall-bound catalog items must never silently fall back to a floating room
+ * position when their selected wall is full.
+ */
+export function paletteActiveWallPlacement(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  width: number,
+  depth: number,
+  placement: Placement,
+): { x: number; y: number; rotation: number } | null {
+  const segments = freeSegmentsOnWall(
+    side,
+    room,
+    placed,
+    openings,
+    Math.min(width, 9),
+    0,
+    placement,
+    false,
+  );
+  const fit = segments.find((segment) => segment.length + 0.001 >= width);
+  return fit ? wallPlacementAt(fit.start, width, depth, side, room) : null;
 }
 
 

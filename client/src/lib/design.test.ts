@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
-  conflictingUids, isSinkBaseCabinet, isSinkAppliance, STD,
+  conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, STD,
   appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
   snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -1275,6 +1275,14 @@ function opening(partial: Partial<WallOpening>): WallOpening {
 }
 
 describe("freeSegmentsOnWall (break the run around openings)", () => {
+  it("resolves SB-36 palette placement to the active wall opening and never to the room center", () => {
+    const openSpot = paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base");
+    expect(openSpot).toEqual({ x: 0, y: 0, rotation: 0 });
+
+    const filledTopRun = [cab({ uid: "base-run", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, filledTopRun, [], 36, 24, "base")).toBeNull();
+  });
+
   it("returns the whole wall when nothing blocks it", () => {
     const segs = freeSegmentsOnWall("top", ROOM_12x10, [], [], 9);
     expect(segs).toEqual([{ start: 0, length: 144 }]);
@@ -2038,6 +2046,18 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(isSinkBaseCabinet({ masterCode: "ADA-VS-30", description: '30" Double Door ADA Vanity Sink Base Cabinet' })).toBe(true);
     expect(isSinkBaseCabinet({ masterCode: "ADA-SB-33R", description: 'ADA Sink Base 33"' })).toBe(true);
     expect(isSinkBaseCabinet({ masterCode: "BFH-30", description: '30" Full Height Door Vanity Sink Cabinet' })).toBe(true);
+  });
+
+  it("routes FSB farm sink bases through the active-wall palette resolver only", () => {
+    const farmSink = { masterCode: "FSB-36", description: '36" Farmhouse Sink Base' };
+    expect(isFarmSinkBasePaletteItem(farmSink)).toBe(true);
+    expect(isFarmSinkBasePaletteItem({ masterCode: "SB-36", description: "Sink Base 36" })).toBe(false);
+    expect(isFarmSinkBasePaletteItem({ masterCode: "LSB36", description: "Base Easy Reach Lazy Susan" })).toBe(false);
+
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+    const fullTopWall = [cab({ uid: "full-top", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullTopWall, [], 36, 24, "base")).toBeNull();
   });
 
   it("does NOT mistake look-alike non-sink families for sink bases", () => {
