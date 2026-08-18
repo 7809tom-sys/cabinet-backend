@@ -394,6 +394,11 @@ export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "placementType" 
   return sku.catalogImageUrl?.trim() || null;
 }
 
+/** A supplied full-door sample already contains its real rail/stile profile. */
+export function threeDUsesPhysicalShakerRails(profileKind: string, hasSuppliedDoorSample: boolean): boolean {
+  return profileKind === "shaker" && !hasSuppliedDoorSample;
+}
+
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
   if (doorSampleUrl && textureState === "loaded") return "selected-texture" as const;
   if (doorSampleUrl && textureState === "loading") return "selected-texture-loading" as const;
@@ -1235,7 +1240,7 @@ export function addCabinet(
   // actual front layout. Keep the measured 3D carcass behind it, but place the
   // provided visual on the visible face instead of inventing a generic panel.
   const catalogFrontVisualUrl = threeDCabinetFrontVisualUrl(sku);
-  if (catalogFrontVisualUrl && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
+  if (catalogFrontVisualUrl && !doorTexture && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
     const frontVisualTexture = new THREE.TextureLoader().load(catalogFrontVisualUrl);
     frontVisualTexture.colorSpace = THREE.SRGBColorSpace;
     const frontVisualMaterial = new THREE.MeshBasicMaterial({
@@ -1317,7 +1322,7 @@ export function addCabinet(
   frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
   const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
-    if (profileKind !== "shaker") return;
+    if (!threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
     const rail = threeDShakerRailThickness(faceWidth, faceHeight);
     if (!rail) return;
     const frameGroup = new THREE.Group();
