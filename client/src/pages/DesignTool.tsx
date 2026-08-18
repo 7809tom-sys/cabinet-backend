@@ -47,6 +47,7 @@ import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliate
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
 import { buildDesignShareUrl } from "@/lib/designShare";
+import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -1340,6 +1341,63 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
     [priceMap, styleId]
   );
+
+  // LS3612 shares its 36-inch corner body with the shelf-corner ER36/BER36
+  // variants. A Lazy Susan carousel is an internal option, not a reason to
+  // silently replace the selected cabinet. When the chosen line has no
+  // approved LS3612 price, the build sheet can therefore offer only the
+  // currently available shelf-body variants as an explicit user choice.
+  const ls3612ShelfReplacementChoices = useMemo(() => {
+    return availableLs3612ShelfReplacementChoices((liveMasterCabinets ?? []) as DesignCabinet[]);
+  }, [liveMasterCabinets]);
+
+  const replaceUnpricedLs3612WithShelfCorner = useCallback((uids: string[], replacement: DesignCabinet) => {
+    if (cabinetsLocked) {
+      toast.info("Cabinets are locked — unlock to choose a shelf-corner replacement");
+      return;
+    }
+    const replacementUids = new Set(uids);
+    const width = dim(replacement.width, 36);
+    const depth = footprintDepth(replacement);
+    const height = dim(replacement.height, 34.5);
+    setPlaced((previous) => previous.map((cabinet) => {
+      if (!replacementUids.has(cabinet.uid)) return cabinet;
+      return {
+        ...cabinet,
+        cabinetId: replacement.id,
+        masterCode: replacement.masterCode,
+        description: replacement.description,
+        category: replacement.category ?? null,
+        subCategory: replacement.subCategory ?? null,
+        width,
+        nominalWidth: width,
+        depth,
+        nominalDepth: depth,
+        height,
+        nominalHeight: height,
+        numberOfDoors: replacement.numberOfDoors,
+        numberOfDrawers: replacement.numberOfDrawers,
+        catalogImageUrl: replacement.catalogImageUrl ?? null,
+        customProfile: replacement.graphicType ?? null,
+        genericDrawingUrl: replacement.specImageUrl ?? null,
+        fixedShelfCount: (replacement as any).numberOfFixedShelves ?? null,
+        adjustableShelfCount: (replacement as any).numberOfAdjShelves ?? null,
+        pullMin: replacement.pullMin ?? null,
+        pullMax: replacement.pullMax ?? null,
+        openingType: replacement.openingType ?? null,
+        doorHeight: replacement.doorHeight != null ? Number(replacement.doorHeight) : null,
+        drawerHeight: replacement.drawerHeight != null ? Number(replacement.drawerHeight) : null,
+        doorOrientation: replacement.doorOrientation ?? null,
+        layoutSpec: replacement.layoutSpec ?? null,
+        drawerLayout: replacement.drawerLayout ?? null,
+        cornerType: replacement.cornerType ?? null,
+        facePattern: replacement.facePattern ?? null,
+        glassDoorAddonCode: (replacement as any).glassDoorAddonCode ?? null,
+      };
+    }));
+    setSelectedUid(uids[uids.length - 1] ?? null);
+    toast.success(`${replacement.masterCode} shelf-corner cabinet selected. A carousel remains a separate optional add-on.`);
+  }, [cabinetsLocked]);
 
   const total = useMemo(
     () =>
@@ -8243,7 +8301,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <div
                       key={g.key}
                       onClick={() => setSelectedUid(g.uids[g.uids.length - 1])}
-                      className={`group w-full text-left flex items-center gap-1.5 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                      className={`group w-full text-left flex flex-wrap items-center gap-1.5 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
                         selected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                       }`}
                     >
@@ -8399,6 +8457,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
+                      {styleId && isUnpricedLs3612(g.sample.masterCode, lineTotal) && ls3612ShelfReplacementChoices.length > 0 && (
+                        <div className="basis-full ml-5 mt-0.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900" onClick={(event) => event.stopPropagation()}>
+                          <div className="font-semibold">No approved LS3612 price in this line</div>
+                          <div className="mt-0.5">Choose a priced shelf-corner cabinet instead. A carousel is a separate optional add-on.</div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {ls3612ShelfReplacementChoices.map((choice) => (
+                              <button
+                                key={choice.id}
+                                type="button"
+                                disabled={cabinetsLocked}
+                                className="rounded border border-amber-500 bg-white px-1.5 py-0.5 font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => replaceUnpricedLs3612WithShelfCorner(g.uids, choice)}
+                              >
+                                Use {choice.masterCode}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 };
