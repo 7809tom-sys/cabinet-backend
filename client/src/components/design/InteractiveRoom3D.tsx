@@ -1247,7 +1247,11 @@ export function addCabinet(
   // actual front layout. Keep the measured 3D carcass behind it, but place the
   // provided visual on the visible face instead of inventing a generic panel.
   const catalogFrontVisualUrl = threeDCabinetFrontVisualUrl(sku);
-  if (catalogFrontVisualUrl && !doorTexture && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
+  // The admin panel door sample (doorSampleUrl) is the SOLE authoritative face
+  // texture. When it exists, NEVER overlay the Cabinet Config line-art drawing.
+  // The catalog front visual is only used as a fallback for cabinets that have
+  // NO active door style sample at all.
+  if (catalogFrontVisualUrl && !doorSampleUrl && !doorTexture && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
     const frontVisualTexture = new THREE.TextureLoader().load(catalogFrontVisualUrl);
     frontVisualTexture.colorSpace = THREE.SRGBColorSpace;
     const frontVisualMaterial = new THREE.MeshBasicMaterial({

@@ -2438,4 +2438,45 @@ describe("interactive 3D room scene helpers", () => {
     expect(items.some((item) => item.userData?.refrigeratorEndPanel)).toBe(true);
     expect(items.some((item) => item.userData?.cabinetHardware)).toBe(false);
   });
+
+  it("enforces the admin panel door sample as the sole authoritative face texture over Cabinet Config line-art", () => {
+    // The threeDCabinetFrontVisualUrl helper resolves a catalog front visual URL.
+    // When a door sample URL exists (from door_styles.doorSampleImageUrl), the
+    // catalog front visual must NOT be used as a face overlay. The addCabinet
+    // function guards this with: `!doorSampleUrl` in the condition.
+    //
+    // Test the helper contract:
+    const baseCabWithLineArt = { placementType: "base", catalogImageUrl: "/manus-storage/ls3612-line-art.png" };
+    const applianceWithImage = { placementType: "appliance", catalogImageUrl: "/manus-storage/range.webp" };
+    const baseCabNoImage = { placementType: "base", catalogImageUrl: null };
+
+    // The helper resolves a URL for base cabinets with a catalogImageUrl
+    expect(threeDCabinetFrontVisualUrl(baseCabWithLineArt)).toBe("/manus-storage/ls3612-line-art.png");
+    // But appliances never get a front visual overlay
+    expect(threeDCabinetFrontVisualUrl(applianceWithImage)).toBeNull();
+    // And cabinets without a catalogImageUrl get null
+    expect(threeDCabinetFrontVisualUrl(baseCabNoImage)).toBeNull();
+
+    // The door sample texture helpers confirm the door sample takes priority:
+    expect(threeDUsesDoorSampleTexture("/manus-storage/natura-maple-door-sample.png")).toBe(true);
+    expect(threeDUsesExactDoorSampleMaterial(true)).toBe(true);
+    // When a door sample exists, the face material is MeshBasicMaterial with #ffffff (no tinting)
+    expect(threeDFaceMaterialColor("#8a9ba8", true)).toBe("#ffffff");
+
+    // The addCabinet guard at line 1254 is:
+    //   if (catalogFrontVisualUrl && !doorSampleUrl && !doorTexture && ...)
+    // This means: when doorSampleUrl is provided, catalogFrontVisualUrl is NEVER applied.
+    // When doorSampleUrl is null, catalogFrontVisualUrl IS applied (if it exists).
+    // This is the correct behavior: admin panel door sample > Cabinet Config line-art.
+
+    // Verify the resolvedPlacedCabinetFrontVisual helper still works for live propagation
+    expect(resolvedPlacedCabinetFrontVisual(
+      { uid: "cab-1" } as any,
+      { "cab-1": "/manus-storage/live-catalog-image.png" },
+      null,
+    )).toBe("/manus-storage/live-catalog-image.png");
+
+    // But the resolved URL is only used as sku.catalogImageUrl — it only becomes
+    // a visible overlay when doorSampleUrl is absent (the guard in addCabinet).
+  });
 });

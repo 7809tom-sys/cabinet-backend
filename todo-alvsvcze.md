@@ -648,3 +648,5 @@
 - [x] Render supplied CabinetDealz door samples unaltered across full door and drawer faces, without generic rail or line-art substitution
 - [x] Replace the actual live generic cabinet-face mesh/material that remains visible despite supplied Cabinet Config visuals
 - [ ] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
+- [x] Fix: selecting a different cabinet must NOT change the active feature style — only explicit Color 1/Color 2 changes should switch styles
+- [x] Fix: 3D texture must ALWAYS follow the admin panel door_styles.doorSampleImageUrl, never a generic or catalog line-art image
