@@ -23,6 +23,7 @@ import {
 } from "@shared/affiliate";
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
 import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
+import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
@@ -509,6 +510,26 @@ export const affiliatesRouter = router({
       if (Object.keys(set).length === 0) return { id };
       await db.update(affiliates).set(set).where(eq(affiliates.id, id));
       return { id };
+    }),
+
+  // A restrictive-covenant allegation must never independently deactivate a site.
+  // An administrator explicitly confirms a documented violation before this action
+  // writes an inactive status and disables the storefront.
+  adminEnforceNonCompeteViolation: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive(),
+      violationSummary: z.string().trim().min(20).max(2000),
+      confirmedViolation: z.literal(true),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!affiliate) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const enforcementNote = affiliateNonCompeteEnforcementNote({ at: new Date(), violationSummary: input.violationSummary });
+      const notes = [affiliate.notes?.trim(), enforcementNote].filter(Boolean).join("\n\n");
+      await db.update(affiliates).set({ status: "inactive", storefrontEnabled: false, notes }).where(eq(affiliates.id, affiliate.id));
+      return { id: affiliate.id, status: "inactive" as const, storefrontEnabled: false, enforcementNote };
     }),
 
   // ─── Partner: my affiliate profile ─────────────────────────────────────────
