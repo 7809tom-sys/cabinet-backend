@@ -7,14 +7,17 @@ import {
   distributors,
   doorStyles,
   distributorSkus,
+  pelicanCategoryMarkups,
   priceShopSnapshots,
   bundleDeals,
 } from "../../drizzle/schema";
+import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { TRPCError } from "@trpc/server";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { storagePut } from "../storage";
+import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
 
 // ─── 10×10 Kitchen Layout ────────────────────────────────────────────────────
 // Industry-standard 10×10 kitchen benchmark (120" × 120").
@@ -49,6 +52,121 @@ const LAYOUT_ITEMS = [
   { masterCodes: ["DB-18-3"], label: "Drawer Base 18\" (3-drawer)", qty: 1 },
   { masterCodes: ["W-30-12"], label: "Bridge Wall 30×12", qty: 1 },
 ] as const;
+
+type BundlePricingRow = {
+  designSnapshot: unknown;
+  styleId: number | null;
+  lockedDistributorId: number | null;
+  homeownerPrice: string | null;
+};
+
+const DEFAULT_PELICAN_MARKUP_BPS: Record<string, number> = {
+  Flooring: 6500,
+  "Tile & Mosaic": 5500,
+  "Sinks & Faucets": 3800,
+  "Toilets & Bidets": 3500,
+  "Shower & Bath": 2200,
+  "Quartz Slabs (Countertops)": 1800,
+};
+
+function currentSurfaceHomeownerPrice(
+  product: { listPrice: string | null; yourCost: string | null; category: string },
+  markupByCategory: Map<string, number>,
+): number | null {
+  const currentCost = product.yourCost ?? product.listPrice;
+  if (currentCost == null) return null;
+  const cost = Number(currentCost);
+  if (!Number.isFinite(cost)) return null;
+  const markupBps = markupByCategory.get(product.category) ?? DEFAULT_PELICAN_MARKUP_BPS[product.category] ?? 0;
+  return Math.round(cost * (1 + markupBps / 10000) * 100) / 100;
+}
+
+/**
+ * Reprices a list of saved bundle snapshots at read time. This deliberately
+ * does not use the total saved when the bundle was created: storefronts and
+ * dashboards always display the current active catalog total instead.
+ */
+async function withCurrentBundleHomeownerPrices<T extends BundlePricingRow>(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  rows: T[],
+) {
+  const requestedPairs = rows.flatMap((row) => bundlePricePairs(row.designSnapshot as BundleSnapshotLike, row.styleId));
+  const requestedSurfaceIds = Array.from(new Set(rows.flatMap((row) => bundleSurfaceIds(row.designSnapshot as BundleSnapshotLike))));
+  const masterCodes = Array.from(new Set(requestedPairs.map((pair) => pair.masterCode)));
+  const styleIds = Array.from(new Set(requestedPairs.map((pair) => pair.styleId)));
+  const pricingSettings = await getPricingSettings();
+
+  let candidates: BundlePriceCandidate[] = [];
+  let surfaceCandidates: Array<{ id: number; homeownerPrice: number | null }> = [];
+  if (masterCodes.length > 0 && styleIds.length > 0) {
+    const currentRows = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        styleId: distributorSkus.styleId,
+        distributorId: distributorSkus.distributorId,
+        listPrice: distributorSkus.listPrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        wholesalePrice: distributorSkus.wholesalePrice,
+        contractorPrice: distributorSkus.contractorPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+      .where(
+        and(
+          inArray(cabinets.masterCode, masterCodes),
+          inArray(distributorSkus.styleId, styleIds),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.isPublished, true),
+          eq(distributors.isActive, true),
+          notInConflict(),
+        ),
+      );
+
+    candidates = currentRows.map((row) => ({
+      masterCode: row.masterCode,
+      styleId: Number(row.styleId),
+      distributorId: Number(row.distributorId),
+      homeownerPrice: sellPriceForTier(row, pricingSettings, "homeowner"),
+    }));
+  }
+
+  if (requestedSurfaceIds.length > 0) {
+    const [surfaceRows, markupRows] = await Promise.all([
+      db.select({
+        id: pelicanProducts.id,
+        category: pelicanProducts.category,
+        listPrice: pelicanProducts.listPrice,
+        yourCost: pelicanProducts.yourCost,
+      }).from(pelicanProducts).where(and(inArray(pelicanProducts.id, requestedSurfaceIds), eq(pelicanProducts.isActive, true))),
+      db.select({ category: pelicanCategoryMarkups.category, markupBps: pelicanCategoryMarkups.markupBps }).from(pelicanCategoryMarkups),
+    ]);
+    const markupByCategory = new Map(markupRows.map((row) => [row.category, row.markupBps]));
+    surfaceCandidates = surfaceRows.map((row) => ({
+      id: row.id,
+      homeownerPrice: currentSurfaceHomeownerPrice(row, markupByCategory),
+    }));
+  }
+
+  return rows.map((row) => {
+    const livePrice = calculateCurrentBundlePrice({
+      snapshot: row.designSnapshot as BundleSnapshotLike,
+      bundleStyleId: row.styleId,
+      lockedDistributorId: row.lockedDistributorId,
+      candidates,
+      surfaceCandidates,
+    });
+    return {
+      ...row,
+      // Replace the historical stored amount with a freshly computed total.
+      homeownerPrice: livePrice.total?.toFixed(2) ?? null,
+      currentPriceStatus: livePrice.total === null ? "incomplete" as const : "current" as const,
+      currentPriceMissingItemCount: livePrice.missingItemCount,
+      fixtureCount: bundleSurfaceIds(row.designSnapshot as BundleSnapshotLike).length,
+    };
+  });
+}
 
 export const priceShopRouter = router({
   // Returns the layout definition (no pricing) for the UI to render the diagram
@@ -545,8 +663,11 @@ export const priceShopRouter = router({
         name: bundleDeals.name,
         description: bundleDeals.description,
         styleName: bundleDeals.styleName,
+        styleId: bundleDeals.styleId,
         homeownerPrice: bundleDeals.homeownerPrice,
         yourCost: bundleDeals.yourCost,
+        designSnapshot: bundleDeals.designSnapshot,
+        lockedDistributorId: bundleDeals.lockedDistributorId,
         cabinetCount: bundleDeals.cabinetCount,
         isPublished: bundleDeals.isPublished,
         heroImageUrl: bundleDeals.heroImageUrl,
@@ -560,21 +681,21 @@ export const priceShopRouter = router({
       };
       // Admin sees all; affiliate/vendor sees only their own
       if (ctx.user.role === "admin" && !input?.affiliateId && !input?.distributorId) {
-        return db.select(selectFields).from(bundleDeals).orderBy(desc(bundleDeals.createdAt));
+        return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).orderBy(desc(bundleDeals.createdAt)));
       }
       if (input?.affiliateId && ctx.user.role === "admin") {
-        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, input.affiliateId)).orderBy(desc(bundleDeals.createdAt));
+        return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, input.affiliateId)).orderBy(desc(bundleDeals.createdAt)));
       }
       if (input?.distributorId && ctx.user.role === "admin") {
-        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, input.distributorId)).orderBy(desc(bundleDeals.createdAt));
+        return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, input.distributorId)).orderBy(desc(bundleDeals.createdAt)));
       }
       // Non-admin: resolve their affiliate or distributor
       const access = await resolveAffiliateAccess(db, ctx.user);
       if (access?.isOwner) {
-        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, access.affiliateId)).orderBy(desc(bundleDeals.createdAt));
+        return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.affiliateId, access.affiliateId)).orderBy(desc(bundleDeals.createdAt)));
       }
       if (ctx.user.distributorId) {
-        return db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, ctx.user.distributorId)).orderBy(desc(bundleDeals.createdAt));
+        return withCurrentBundleHomeownerPrices(db, await db.select(selectFields).from(bundleDeals).where(eq(bundleDeals.distributorId, ctx.user.distributorId)).orderBy(desc(bundleDeals.createdAt)));
       }
       throw new TRPCError({ code: "FORBIDDEN" });
     }),
@@ -624,12 +745,15 @@ export const priceShopRouter = router({
       if (input?.affiliateId) {
         conditions.push(or(eq(bundleDeals.affiliateId, input.affiliateId), isNull(bundleDeals.affiliateId))!);
       }
-      return db.select({
+      const publishedBundles = await db.select({
         id: bundleDeals.id,
         name: bundleDeals.name,
         description: bundleDeals.description,
         styleName: bundleDeals.styleName,
+        styleId: bundleDeals.styleId,
         homeownerPrice: bundleDeals.homeownerPrice,
+        designSnapshot: bundleDeals.designSnapshot,
+        lockedDistributorId: bundleDeals.lockedDistributorId,
         cabinetCount: bundleDeals.cabinetCount,
         heroImageUrl: bundleDeals.heroImageUrl,
         floorPlanImageUrl: bundleDeals.floorPlanImageUrl,
@@ -640,6 +764,7 @@ export const priceShopRouter = router({
       }).from(bundleDeals)
         .where(and(...conditions))
         .orderBy(bundleDeals.sortOrder, desc(bundleDeals.createdAt));
+      return withCurrentBundleHomeownerPrices(db, publishedBundles);
     }),
 
   // Public: get a single bundle's full snapshot for loading into the designer
@@ -675,6 +800,7 @@ export const priceShopRouter = router({
         .where(and(eq(bundleDeals.id, input.id), eq(bundleDeals.isPublished, true)))
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND" });
-      return row;
+      const [pricedBundle] = await withCurrentBundleHomeownerPrices(db, [row]);
+      return pricedBundle;
     }),
 });

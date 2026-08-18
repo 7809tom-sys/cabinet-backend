@@ -79,7 +79,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -4695,16 +4695,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   useEffect(() => {
     if (bundleIdParam == null || !bundleData || loadedBundleRef.current === bundleIdParam) return;
     loadedBundleRef.current = bundleIdParam;
-    const snapshot = bundleData.designSnapshot as { room?: RoomData; placed?: PlacedCabinet[]; styleId?: number | null } | null;
+    const snapshot = bundleData.designSnapshot as {
+      room?: RoomData;
+      placed?: PlacedCabinet[];
+      styleId?: number | null;
+      lockedDistributorId?: number | null;
+      roomType?: RoomType | null;
+      selectedSurfaces?: SelectedSurface[] | null;
+      countertop?: boolean;
+      countertopMaterialId?: string;
+      edgeProfileId?: string;
+      sinks?: SinkFixture[];
+    } | null;
     if (!snapshot) return;
     loadSavedDesign({
       room: snapshot.room ?? DEFAULT_ROOM,
       placed: Array.isArray(snapshot.placed) ? snapshot.placed : [],
       styleId: snapshot.styleId ?? null,
-      distributorId: null,
-      roomType: null,
-      selectedSurfaces: null,
+      distributorId: snapshot.lockedDistributorId ?? null,
+      roomType: snapshot.roomType ?? null,
+      selectedSurfaces: Array.isArray(snapshot.selectedSurfaces) ? snapshot.selectedSurfaces : null,
     });
+    // New snapshots persist sinks with the room. Retain this fallback so a
+    // bundle saved during the transition also restores its sink positions.
+    if (Array.isArray(snapshot.sinks) && !(snapshot.room?.persistedEntities?.sinks?.length)) {
+      setSinks(snapshot.sinks);
+    }
+    if (typeof snapshot.countertop === "boolean") setCountertop(snapshot.countertop);
+    if (typeof snapshot.countertopMaterialId === "string") setCountertopMaterialId(snapshot.countertopMaterialId);
+    if (typeof snapshot.edgeProfileId === "string") setEdgeProfileId(snapshot.edgeProfileId);
     toast.success(`Bundle loaded: ${bundleData.name}`);
   }, [bundleIdParam, bundleData, loadSavedDesign]);
 
@@ -5209,9 +5228,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         ctx.fillText(item.masterCode, x + 3, y + Math.min(d - 3, 14));
       }
     }
+    for (const sink of sinks) {
+      const x = offsetX + sink.x * scale;
+      const y = offsetY + sink.y * scale;
+      const w = sink.width * scale;
+      const d = sink.depth * scale;
+      ctx.fillStyle = "#86b9d6";
+      ctx.strokeStyle = "#1e5f82";
+      ctx.lineWidth = 2;
+      ctx.fillRect(x, y, w, d);
+      ctx.strokeRect(x, y, w, d);
+      ctx.fillStyle = "#123c56";
+      ctx.font = `${Math.max(9, Math.min(14, w / 5))}px sans-serif`;
+      ctx.fillText("SINK", x + 3, y + Math.min(d - 3, 14));
+      if (sink.faucet) {
+        ctx.beginPath();
+        ctx.arc(x + w / 2, Math.max(y + 7, y + d * 0.22), Math.max(3.5, Math.min(7, scale * 1.1)), 0, Math.PI * 2);
+        ctx.fillStyle = "#d4a75a";
+        ctx.fill();
+        ctx.strokeStyle = "#4a3822";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
     ctx.fillStyle = "#526174";
     ctx.font = "13px sans-serif";
-    ctx.fillText(`${room.width}" × ${room.depth}" · ${placed.length} cabinet${placed.length === 1 ? "" : "s"}`, 12, canvas.height - 10);
+    ctx.fillText(`${room.width}" × ${room.depth}" · ${placed.length} cabinet${placed.length === 1 ? "" : "s"}${sinks.length > 0 ? ` · ${sinks.length} sink${sinks.length === 1 ? "" : "s"}` : ""}`, 12, canvas.height - 10);
     return canvas.toDataURL("image/png");
   };
   const handleSaveBundle = () => {
@@ -5220,7 +5262,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     saveBundleMut.mutate({
       name: bundleName.trim(),
       description: bundleDesc.trim() || undefined,
-      designSnapshot: { room, placed, styleId, lockedDistributorId, selectedSurfaces: [] },
+      designSnapshot: {
+        room: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+        placed,
+        styleId,
+        lockedDistributorId,
+        roomType,
+        selectedSurfaces,
+        // Preserve designer state that determines the sink/faucet's visual
+        // setting and associated countertop when the customer opens a bundle.
+        countertop,
+        countertopMaterialId,
+        edgeProfileId,
+        // Backward-compatible fixture fallback for snapshots created before
+        // fixtures were embedded under room.persistedEntities.
+        sinks,
+      },
       styleId: styleId ?? undefined,
       styleName: activeStyleName ?? undefined,
       homeownerPrice: total > 0 ? total : undefined,
@@ -9090,8 +9147,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const autoSink = cab
             ? makeSinkForCabinet("single", cab, room)
             : makeSink("single", 0, 0, activeWall);
-          setSinks((prevSinks) => [...prevSinks, autoSink]);
-          setSelectedSinkUid(autoSink.uid);
+          const sinkWithFaucet = { ...autoSink, faucet: Boolean(faucetProduct) };
+          setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
+          setSelectedSinkUid(sinkWithFaucet.uid);
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
           if (sinkProduct) {
             addRecommendedSurface(

@@ -126,18 +126,27 @@ export default function BundleDeals() {
                       <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{bundle.description}</p>
                     )}
 
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4 flex-wrap">
                       {bundle.cabinetCount > 0 && (
                         <span className="flex items-center gap-1">
                           <LayoutGrid className="h-3 w-3" />
                           {bundle.cabinetCount} cabinets
                         </span>
                       )}
-                      {bundle.homeownerPrice && (
-                        <span className="flex items-center gap-1 text-[#d4a75a] font-semibold">
+                      {bundle.fixtureCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <PackageOpen className="h-3 w-3" />
+                          {bundle.fixtureCount} fixture{bundle.fixtureCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {bundle.homeownerPrice ? (
+                        <span className="flex items-center gap-1 text-[#d4a75a] font-semibold" title="Calculated from current active catalog prices">
                           <DollarSign className="h-3 w-3" />
                           {parseFloat(bundle.homeownerPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Current</span>
                         </span>
+                      ) : (
+                        <span className="text-amber-700 font-medium">Current pricing needs review</span>
                       )}
                     </div>
 
