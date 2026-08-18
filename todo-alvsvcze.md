@@ -646,4 +646,5 @@
 - [x] Fix the live scene propagation so every selected Cabinet Config product image actually replaces the generic 3D cabinet front
 - [x] Apply authoritative Cabinet Config visuals and selected feature style to Lazy Susan and all corner-family 3D cabinet faces
 - [x] Render supplied CabinetDealz door samples unaltered across full door and drawer faces, without generic rail or line-art substitution
+- [x] Replace the actual live generic cabinet-face mesh/material that remains visible despite supplied Cabinet Config visuals
 - [ ] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D

@@ -414,6 +414,11 @@ export function threeDUsesDoorSampleTexture(doorSampleUrl?: string | null) {
   return Boolean(doorSampleUrl);
 }
 
+/** Exact supplied samples must not be altered by scene lighting or generic tinting. */
+export function threeDUsesExactDoorSampleMaterial(hasProvidedDoorSample: boolean) {
+  return hasProvidedDoorSample;
+}
+
 export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
   const textureLabel = textureState === "not-requested" ? "not selected" : textureState;
   return `Cabinet material: ${mode.replaceAll("-", " ")} · Door sample texture: ${textureLabel}`;
@@ -1190,7 +1195,7 @@ export function addCabinet(
     bodyMeshes.push(body);
   }
 
-  const textureMaterials: THREE.MeshStandardMaterial[] = [];
+  const textureMaterials: Array<THREE.MeshStandardMaterial | THREE.MeshBasicMaterial> = [];
   const applyDoorTextureFallback = () => {
     const fallback = threeDDoorMaterialFallback(color);
     for (const material of textureMaterials) {
@@ -1217,7 +1222,9 @@ export function addCabinet(
   // physical rails and stiles stay slightly darker and untextured so the chosen
   // Shaker or raised profile remains visibly constructed instead of flat.
   const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
-  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42, metalness: 0.01 });
+  const faceMaterial = threeDUsesExactDoorSampleMaterial(Boolean(doorTexture))
+    ? new THREE.MeshBasicMaterial({ color: faceColor, map: doorTexture })
+    : new THREE.MeshStandardMaterial({ color: faceColor, map: null, roughness: 0.42, metalness: 0.01 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(faceColor).multiplyScalar(0.86), roughness: 0.38, metalness: 0.01 });
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
