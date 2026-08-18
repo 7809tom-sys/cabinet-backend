@@ -404,6 +404,13 @@
 - [x] Add left/right adjacent-cabinet overlap regressions
 - [ ] Verify the reported wall without panels covering adjacent cabinet faces
 
+## Fix: Refrigerator End Panel Stops at Adjacent Base Cabinet
+- [x] Trace shared refrigerator-panel elevation calculation that lets B-18 truncate the left panel
+- [x] Enforce floor-to-ceiling left and right refrigerator panels for every cabinet line
+- [x] Preserve narrow seam placement without covering refrigerator or neighboring cabinet faces
+- [x] Add left/right panel regressions next to base cabinets across catalog lines
+- [ ] Verify the reported B-18 refrigerator elevation in the live designer
+
 ## Fix: Saved refrigerator panels still overlap adjacent cabinet runs
 
 - [x] Normalize saved refrigerator panel seams by shifting B-12 and 3-DB24 outside the panel thickness

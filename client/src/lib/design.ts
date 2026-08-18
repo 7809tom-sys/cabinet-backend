@@ -1874,6 +1874,12 @@ export function elevationBox(
   p: PlacedCabinet,
   room?: { ceilingHeight?: number } | null
 ): { bottom: number; height: number } {
+  // Refrigerator enclosure panels are full architectural skins. They must never
+  // inherit a neighboring base cabinet's mount height from a legacy surround or
+  // catalogue import: both sides run from finished floor to the room ceiling.
+  if (isRefrigeratorEndPanel(p)) {
+    return { bottom: 0, height: room?.ceilingHeight ?? 96 };
+  }
   // The top line the upper run finishes at. On a standard 8ft ceiling this is
   // the historical 84" line; on taller ceilings the run hangs higher so it
   // finishes near the ceiling (see wallCabinetTopLine).

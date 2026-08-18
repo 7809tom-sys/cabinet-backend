@@ -2113,6 +2113,25 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(normalizedPanel?.height).toBe(96);
     expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 96 });
   });
+
+  it("keeps either refrigerator end panel on the floor when a legacy adjacent base left a raised mount height", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    for (const uid of ["left-panel", "right-panel"]) {
+      const panel = cab({
+        uid,
+        masterCode: "REPV2496",
+        description: "Refrigerator End Panel",
+        placement: "tall",
+        x: uid === "left-panel" ? 23.25 : 60,
+        y: 0,
+        width: 0.75,
+        depth: 24,
+        height: 60,
+        mountBottom: 36,
+      });
+      expect(elevationBox(panel, room)).toEqual({ bottom: 0, height: 108 });
+    }
+  });
 });
 
 describe("wall cabinet dropped to floor keeps its own depth", () => {
