@@ -650,3 +650,4 @@
 - [ ] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
 - [x] Fix: selecting a different cabinet must NOT change the active feature style — only explicit Color 1/Color 2 changes should switch styles
 - [x] Fix: 3D texture must ALWAYS follow the admin panel door_styles.doorSampleImageUrl, never a generic or catalog line-art image
+- [x] Fix: cart products must exactly reflect the cabinets placed in the 2D/3D design (same SKUs, quantities, styles, finishes, pricing)

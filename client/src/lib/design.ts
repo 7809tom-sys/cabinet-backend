@@ -662,10 +662,11 @@ export function effectiveStyleId(
 }
 
 /**
- * Older designs can carry the former single design style on every placement.
- * When Color 1 changes, those legacy values must revert to inheritance so the
- * newly selected design feature style renders everywhere. Explicit two-tone
- * overrides are preserved whenever a second style is active.
+ * When Color 1 changes in a single-finish design (no Color 2), ALL per-cabinet
+ * style overrides must be cleared so every cabinet inherits the new active style.
+ * This handles the case where cabinets were placed under different styles during
+ * browsing — switching the design style must update the entire kitchen uniformly.
+ * Explicit two-tone overrides are preserved whenever a second style is active.
  */
 export function rebaseFormerDefaultStyleOverrides<T extends { styleId?: number | null }>(
   cabinets: T[],
@@ -674,9 +675,12 @@ export function rebaseFormerDefaultStyleOverrides<T extends { styleId?: number |
   preserveTwoToneOverrides: boolean,
 ): T[] {
   if (formerDefaultStyleId == null || formerDefaultStyleId === nextDefaultStyleId || preserveTwoToneOverrides) return cabinets;
-  return cabinets.map((cabinet) => (
-    cabinet.styleId === formerDefaultStyleId ? { ...cabinet, styleId: null } as T : cabinet
-  ));
+  // In single-finish mode, clear ALL per-cabinet overrides so every cabinet
+  // follows the new design default. This prevents stale overrides from previous
+  // style selections from showing different finishes in the list and cart.
+  return cabinets.map((cabinet) =>
+    cabinet.styleId != null ? { ...cabinet, styleId: null } as T : cabinet
+  );
 }
 
 /**

@@ -2206,6 +2206,21 @@ describe("rebaseFormerDefaultStyleOverrides", () => {
     const cabinets = [{ uid: "upper", styleId: 7 }, { uid: "island", styleId: 99 }];
     expect(rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, true)).toEqual(cabinets);
   });
+
+  it("clears ALL per-cabinet overrides in single-finish mode, not just those matching the former default", () => {
+    // Cabinets placed under different styles during browsing (Natura Maple=7, Aura Cream=99)
+    // must all inherit the new design default (Zenith Sage=390009) when Color 1 changes.
+    const cabinets = [
+      { uid: "a", styleId: 7 },    // was Natura Maple
+      { uid: "b", styleId: 99 },   // was Aura Cream
+      { uid: "c", styleId: null },  // already inheriting
+      { uid: "d", styleId: 42 },   // was some other style
+    ];
+    const rebased = rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, false);
+    // ALL overrides cleared — every cabinet now inherits the new default
+    expect(rebased.map((c) => c.styleId)).toEqual([null, null, null, null]);
+    expect(rebased.map((c) => effectiveStyleId(c, 390009))).toEqual([390009, 390009, 390009, 390009]);
+  });
 });
 
 describe("distinctStyleIds + isMixedFinish (two-tone summary)", () => {
