@@ -2641,6 +2641,13 @@
 - [x] Add mounting adjustment regressions
 - [ ] Verify W3024 above the microwave can move up/down in the live 2D elevation
 
+## Designer: 3D Right-Click Cabinet Movement
+- [x] Trace 3D cabinet picking, context-menu state, and 2D placement synchronization
+- [x] Open selected cabinet/SKU attributes with a right-click in the 3D view
+- [x] Add Up, Down, Left, Right, In, and Out movement controls in controlled increments
+- [x] Keep 2D plan and 3D scene synchronized while blocking out-of-room and overlap moves
+- [x] Add 3D movement regression coverage and verify the cabinet attributes panel in the live scene
+
 ## Designer: Universal Single-Door Left/Right Hinge Choice
 - [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
 - [x] Provide a Left hinge / Right hinge control for every single-door cabinet

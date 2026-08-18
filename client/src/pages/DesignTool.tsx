@@ -89,6 +89,7 @@ import {
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveFarmSinkPalettePlacement } from "./designToolFarmSinkPlacement";
+import { threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -115,7 +116,7 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -4020,6 +4021,65 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return prev.map((p) => (p.uid === uid ? candidate : p));
     });
   }, [room, customPlacementMode]);
+
+  // The 3D attributes panel delegates every move to this authoritative 2D
+  // placement path. Relative directions are resolved from the cabinet's wall,
+  // then checked before a state update so plan and scene never diverge.
+  const moveCabinetFrom3D = useCallback((uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => {
+    const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
+    setSelectedUid(uid);
+    setPlaced((prev) => {
+      const cabinet = prev.find((item) => item.uid === uid);
+      if (!cabinet) return prev;
+      if (direction === "up" || direction === "down") {
+        const currentElevation = elevationBox(cabinet, room);
+        const ceiling = roomCeiling(room);
+        const signedStep = direction === "up" ? step : -step;
+        const nextBottom = Math.round((currentElevation.bottom + signedStep) * 8) / 8;
+        if (nextBottom < 0 || nextBottom + currentElevation.height > ceiling) {
+          const message = `${cabinet.masterCode} cannot move ${direction}; it must remain between the floor and the ${ceiling}\" ceiling.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        const candidate = { ...cabinet, mountBottom: nextBottom };
+        const peers = prev.filter((item) => item.uid !== uid);
+        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+          const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        return prev.map((item) => item.uid === uid ? candidate : item);
+      }
+      const delta = threeDPlanMoveDelta(cabinet, room, direction, step);
+      const candidate = { ...cabinet, x: Math.round((cabinet.x + delta.x) * 8) / 8, y: Math.round((cabinet.y + delta.y) * 8) / 8 };
+      const footprint = rotatedSize(candidate);
+      if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
+        const message = `${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      const peers = prev.filter((item) => item.uid !== uid);
+      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+        const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      if (isSinkBaseCabinet(cabinet) && (delta.x !== 0 || delta.y !== 0)) {
+        const sourceFootprint = placedFootprint(cabinet);
+        setSinks((currentSinks) => currentSinks.map((sink) => {
+          const centerX = sink.x + sink.width / 2;
+          const centerY = sink.y + sink.depth / 2;
+          const sitsOnCabinet = centerX >= cabinet.x && centerX <= cabinet.x + sourceFootprint.w && centerY >= cabinet.y && centerY <= cabinet.y + sourceFootprint.d;
+          return sitsOnCabinet ? { ...sink, x: sink.x + delta.x, y: sink.y + delta.y } : sink;
+        }));
+      }
+      return prev.map((item) => item.uid === uid ? candidate : item);
+    });
+  }, [customPlacementMode, room]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -9319,6 +9379,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   ...current,
                   wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
                 }))}
+                onMoveCabinet={moveCabinetFrom3D}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,

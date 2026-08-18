@@ -65,6 +65,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDPlacedWall(sinkBase, room)).toBe("right");
   });
 
+  it("preserves the exact 2D placement identity for a picked 3D cabinet group", () => {
+    const placed = { uid: "placed-w3024", cabinetId: 3024, masterCode: "W3024", description: "Wall cabinet", placement: "wall", width: 30, depth: 12, height: 24, x: 42, y: 0, rotation: 0 } as any;
+    const root = new THREE.Group();
+    const sku = existingCabinetSku(placed);
+    addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, existingCabinetTransform(placed, { width: 144, depth: 120, ceilingHeight: 96 }));
+    expect(sku.placementUid).toBe("placed-w3024");
+    expect(root.children[0]?.userData.placedUid).toBe("placed-w3024");
+  });
+
   it("mirrors diagonal corner turns so the angled wall-cabinet face points into every room corner", () => {
     expect([0, 90, 180, 270].map(diagonalCornerRoomRotation)).toEqual([0, 270, 180, 90]);
   });

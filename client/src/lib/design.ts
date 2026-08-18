@@ -1923,6 +1923,13 @@ export function elevationBox(
     if (storedH) return { bottom: 0, height: storedH };
     return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
   }
+  // A deliberate 3D attributes adjustment may vertically offset a base or tall
+  // cabinet. Persist the exact 2D elevation rather than allowing the 3D scene
+  // to drift away from its plan record. Wall/appliance records are handled in
+  // their specialized branches below so their catalog defaults remain intact.
+  if ((p.placement === "base" || p.placement === "tall") && typeof p.mountBottom === "number" && p.mountBottom >= 0) {
+    return { bottom: p.mountBottom, height: placedHeight(p) };
+  }
   if (p.placement === "wall") {
     const h = placedHeight(p);
     // 1) Explicit user override always wins (drag/adjust up or down).
