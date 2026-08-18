@@ -634,7 +634,7 @@
 - [x] Reposition the mobile 3D selected-cabinet description and price so they remain clear of the movement D-pad
 - [x] Make deterministic 3D cabinet face construction honor the selected plan door profile and matching finish instead of a generic flat front
 - [x] Remove invented 3D door-sample substitutions and render only saved plan finishes with authoritative Cabinet Config door geometry
-- [ ] Eliminate generic 3D cabinet faces by rendering every placed cabinet from its saved Cabinet Config feature layout, profile, finish, skins, openings, and appliance data
+- [x] Eliminate generic 3D cabinet faces by rendering every placed cabinet from its saved Cabinet Config feature layout, profile, finish, skins, openings, and appliance data
 - [x] Propagate each placed cabinet’s exact saved door style identifier and profile into deterministic 3D without generic fallback
 - [x] Fix the active Autumn Vault selection pipeline so its saved Cabinet Config style applies in both 2D and 3D
 - [x] Prevent asynchronous 3D material updates from overwriting the selected Autumn Vault plan finish with a darker fallback
@@ -660,3 +660,4 @@
 - [x] Bundle Deals: Calculate and display current live catalog pricing from each saved bundle design
 - [x] Bundle Deals: Generate and persist 2D floor plan images for existing published bundles
 - [x] Bundle Deals: Preserve sinks, faucets, and all selected fixtures in saved bundle designs, prices, floor plans, and order handoff
+- [x] LS3612: Never automatically substitute; if valid corner replacement guidance is needed, recommend ER36 or BER36 only

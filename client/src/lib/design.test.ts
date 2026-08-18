@@ -2698,21 +2698,21 @@ describe("missingCornerBaseViolations (only flags a corner base when a door/open
     expect(v.has("b18")).toBe(false);
   });
 
-  it("never flags a proper corner cabinet (e.g. BBC) even with a door at the corner", () => {
-    const bbc = cab({
-      uid: "bbc",
-      masterCode: "BBC-42",
-      description: "Blind Base Corner 42",
+  it("never flags a proper corner cabinet, including LS3612, even with a door at the corner", () => {
+    const lazySusan = cab({
+      uid: "ls3612",
+      masterCode: "LS3612",
+      description: "36-inch Lazy Susan Corner Base",
       placement: "base",
       x: 0,
       y: ROOM.depth - 24,
-      width: 42,
-      depth: 24,
+      width: 36,
+      depth: 36,
     });
     const door: WallOpening = {
       uid: "d3", kind: "door", label: "d", side: "bottom", offset: 0, width: 30, height: 80, sill: 0,
     };
-    const v = missingCornerBaseViolations([bbc], ROOM, null, [door]);
-    expect(v.has("bbc")).toBe(false);
+    const v = missingCornerBaseViolations([lazySusan], ROOM, null, [door]);
+    expect(v.has("ls3612")).toBe(false);
   });
 });
