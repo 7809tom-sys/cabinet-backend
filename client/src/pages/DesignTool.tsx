@@ -151,6 +151,7 @@ import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/l
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
+import { cabinetEditConfigHref } from "@/lib/cabinetEditConfigLink";
 import type { SiteStringKey } from "@/lib/i18n/site";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
@@ -6393,17 +6394,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
-              {isAdmin && (
-                <a
-                  href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}?edit=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                  title="Open Cabinet Config in new tab"
-                >
-                  Edit Config ↗
-                </a>
-              )}
+              {(() => {
+                const editConfigHref = isAdmin
+                  ? cabinetEditConfigHref(selectedCab.masterCode, selectedCab.cabinetId)
+                  : null;
+                return editConfigHref ? (
+                  <a
+                    href={editConfigHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                    title="Open this cabinet's exact configuration record in a new tab"
+                  >
+                    Edit Config ↗
+                  </a>
+                ) : null;
+              })()}
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
               {/* Custom sizing: resize this cabinet's Width, Height and Depth to
@@ -8881,7 +8887,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}
         onSetCustomProfile={(uid, customProfile) => setCabAttr(uid, { customProfile })}
-        masterConfigHref={isAdmin ? `/catalog/${encodeURIComponent((attrUid ? placed.find((p) => p.uid === attrUid) : null)?.masterCode ?? "")}?edit=1` : undefined}
+        masterConfigHref={isAdmin
+          ? cabinetEditConfigHref(
+              (attrUid ? placed.find((p) => p.uid === attrUid) : null)?.masterCode,
+              (attrUid ? placed.find((p) => p.uid === attrUid) : null)?.cabinetId,
+            ) ?? undefined
+          : undefined}
         onSaveMasterConfig={isAdmin ? (cabinet) => {
           if (!cabinet.cabinetId || !cabinet.category) return;
           saveMasterCabinetConfig.mutate({

@@ -616,3 +616,4 @@
 - [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
 - [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
 - [x] Add an administrator-only Edit Config hyperlink below the cabinet description in the 3D cabinet attributes dialog
+- [x] Fix the 3D Edit Config hyperlink so it opens the selected cabinet’s working configuration record
