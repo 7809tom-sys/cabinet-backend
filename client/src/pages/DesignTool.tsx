@@ -117,6 +117,7 @@ import { DesignActions, type BuildSheetRow } from "@/components/design/DesignAct
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
+import { initialDesignWorkspaceView } from "./designTool3DWorkspace";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -476,8 +477,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const v = new URLSearchParams(window.location.search).get("view");
-    return v === "3d" ? "threeD" : v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
+    return initialDesignWorkspaceView(window.location.search);
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
@@ -4104,50 +4104,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     );
   }, [selectedUid]);
 
-  const moveCabinetFrom3D = useCallback((uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => {
-    const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
-    setPlaced((prev) => {
-      const cabinet = prev.find((item) => item.uid === uid);
-      if (!cabinet) {
-        toast.error("That selected cabinet is no longer present in this 3D room.");
-        return prev;
-      }
-      const peers = prev.filter((item) => item.uid !== uid);
-      if (direction === "up" || direction === "down") {
-        const box = elevationBox(cabinet, room);
-        const mountBottom = Math.round((box.bottom + (direction === "up" ? step : -step)) * 8) / 8;
-        if (mountBottom < 0 || mountBottom + box.height > roomCeiling(room)) {
-          toast.error(`${cabinet.masterCode} cannot move ${direction}; it must remain within the room height.`);
-          return prev;
-        }
-        const candidate = { ...cabinet, mountBottom };
-        if (shouldBlockPlacementCollision(candidate, peers)) {
-          toast.error(collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
-          return prev;
-        }
-        toast.success(`${cabinet.masterCode} moved ${direction} ${step}\" in the 3D scene.`);
-        return prev.map((item) => item.uid === uid ? candidate : item);
-      }
-
-      const side = cabinetWall(cabinet, room);
-      const along = direction === "left" ? -step : direction === "right" ? step : 0;
-      const depth = direction === "in" ? step : direction === "out" ? -step : 0;
-      const delta = side === "top" ? { x: along, y: depth } : side === "bottom" ? { x: -along, y: -depth } : side === "left" ? { x: depth, y: -along } : { x: -depth, y: along };
-      const candidate = { ...cabinet, x: Math.round((cabinet.x + delta.x) * 8) / 8, y: Math.round((cabinet.y + delta.y) * 8) / 8 };
-      const footprint = placedFootprint(candidate);
-      if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
-        toast.error(`${cabinet.masterCode} cannot move ${direction}; it would leave the room.`);
-        return prev;
-      }
-      if (shouldBlockPlacementCollision(candidate, peers)) {
-        toast.error(collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
-        return prev;
-      }
-      toast.success(`${cabinet.masterCode} moved ${direction} ${step}\" in the 3D scene.`);
-      return prev.map((item) => item.uid === uid ? candidate : item);
-    });
-  }, [room]);
-
   // Administrator-entered blind-corner pull spec for the selected cabinet.
   // Setting both min and max clears the "missing spec" conflict. Pass null to
   // clear a field. Values are inches across the corner.
@@ -5453,6 +5409,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
       onRotateCabinet={rotateCabinet}
+      onRemoveCabinet={deleteCabinet}
       onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
       initialPresentation={interactive3dPresentation ?? undefined}
       catalogFinishOverride={activeFinish.face}
@@ -9636,7 +9593,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
                 catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
                 onPresentationChange={setInteractive3dPresentation}
-                onMoveCabinet={moveCabinetFrom3D}
                 onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
                 onRoomWallHeightsChange={(heights) => setRoom((current) => ({
                   ...current,

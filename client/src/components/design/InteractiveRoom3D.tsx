@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Printer, Rotate3D, Save, Share2, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, Plus, Printer, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -180,6 +180,8 @@ interface Props {
   onOpenCabinetEditor?: (uid: string) => void;
   /** Uses the same 90-degree cabinet rotation action as the 2D planner. */
   onRotateCabinet?: (uid: string) => void;
+  /** Removes the selected cabinet through the designer's authoritative cleanup path. */
+  onRemoveCabinet?: (uid: string) => void;
   /** Renders directly inside the main designer canvas rather than a standalone preview shell. */
   embedded?: boolean;
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
@@ -2824,9 +2826,16 @@ export function hasPersistedTwoDScene({
 }
 
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
-  const hasRange = placed.some((item) => /^RANGE-/.test(item.masterCode));
+  const ranges = placed.filter((item) => /^RANGE-/.test(item.masterCode));
+  const hasRange = ranges.length > 0;
   const hasRangeHood = placed.some((item) => /^HOOD-/.test(item.masterCode));
-  return { hasRange, hasRangeHood, needs2DPlacement: hasRange && !hasRangeHood };
+  const hasOverRangeMicrowave = placed.some((item) => {
+    const source = `${item.masterCode ?? ""} ${item.description ?? ""}`.toLowerCase();
+    const explicitlyOverRange = /over[-\s]?range\s+microwave|microwave\s+over[-\s]?range|\botr\b/.test(source);
+    const isStandardOtrSku = /^mw[-_]?30\b/i.test(item.masterCode ?? "");
+    return explicitlyOverRange || isStandardOtrSku;
+  }) || ranges.some((range) => placed.some((item) => isMicrowaveOverRangePair(range, item)));
+  return { hasRange, hasRangeHood, hasOverRangeMicrowave, needs2DPlacement: hasRange && !hasRangeHood && !hasOverRangeMicrowave };
 }
 
 /**
@@ -2931,7 +2940,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, cabinetConfigHref, embedded = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3482,6 +3491,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       </div>}
       <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
+        {embedded && <div className="absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur" onPointerDown={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button></div>}
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <div data-testid="three-d-range-hood-status" className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm backdrop-blur"><span>Add a range hood in the catalog to show it above this saved range.</span>{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add now</button>}</div>}
         {selectedCabinet && (() => {
@@ -3490,7 +3500,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
           const editConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
-          return <div data-testid="three-d-cabinet-attributes" className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
+          return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
               <div className="min-w-0">
@@ -3501,13 +3511,14 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="font-medium text-[#8a651f] underline-offset-4 hover:underline">Edit cabinet</button>}
+                  {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
                 </div>}
               </div>
               <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button>
             </div>
           </div>;
         })()}
-        {selectedCabinet?.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" className="absolute bottom-3 left-3 z-10 flex items-end gap-2">
+        {selectedCabinet?.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="absolute bottom-3 left-3 z-10 flex items-end gap-2">
           <div className="flex flex-col items-center gap-0.5">
             <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-9 w-9 items-center justify-center rounded-t-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
             <div className="flex gap-0.5"><button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="flex h-9 w-9 items-center justify-center rounded-l-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button><button type="button" onClick={() => onRotateCabinet?.(selectedCabinet.uid!)} className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm transition-transform hover:bg-[#1a2744]/80 active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button><button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="flex h-9 w-9 items-center justify-center rounded-r-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button></div>

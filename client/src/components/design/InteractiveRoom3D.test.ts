@@ -1201,8 +1201,20 @@ describe("interactive 3D room scene helpers", () => {
   });
 
   it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
-    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never])).toEqual({ hasRange: true, hasRangeHood: false, needs2DPlacement: true });
-    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never, { masterCode: "HOOD-30" } as never])).toEqual({ hasRange: true, hasRangeHood: true, needs2DPlacement: false });
+    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never])).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: false, needs2DPlacement: true });
+    expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never, { masterCode: "HOOD-30" } as never])).toEqual({ hasRange: true, hasRangeHood: true, hasOverRangeMicrowave: false, needs2DPlacement: false });
+    expect(rangeHoodSceneStatus([
+      { uid: "range", cabinetId: 1, masterCode: "RANGE-30", description: "Range", placement: "appliance", x: 0, y: 45, width: 30, depth: 25, height: 36, rotation: 90, mountBottom: 0 },
+      { uid: "microwave", cabinetId: 2, masterCode: "MW-30", description: "Over-range microwave", placement: "appliance", x: 0, y: 45, width: 30, depth: 15, height: 17, rotation: 90, mountBottom: 54 },
+    ] as never)).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: true, needs2DPlacement: false });
+    expect(rangeHoodSceneStatus([
+      { masterCode: "RANGE-30", description: "Range", placement: "appliance" },
+      { masterCode: "MW-30", description: "Over-Range Microwave", placement: "wall" },
+    ] as never)).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: true, needs2DPlacement: false });
+    expect(rangeHoodSceneStatus([
+      { masterCode: "RANGE-30", description: "Range", placement: "appliance" },
+      { masterCode: "MW-24", description: "Countertop microwave", placement: "appliance" },
+    ] as never)).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: false, needs2DPlacement: true });
   });
 
   it("retains the active hood, refrigerator, and supported countertop run in the deterministic visibility contract", () => {

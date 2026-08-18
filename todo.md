@@ -2676,3 +2676,30 @@
 - [x] Preserve opposite-hinge lateral placement and easy-reach behavior
 - [x] Add LSB pull-height regression coverage
 - [ ] Verify the reported LSB pull in the live 3D cabinet
+
+## Designer: 3D-First Kitchen Workspace
+- [x] Audit the existing 3D catalog, selection, editing, removal, movement, and rotation controls
+- [x] Make the 3D scene the primary workspace for adding, selecting, editing, removing, moving, and rotating cabinets
+- [x] Retain the bird’s-eye plan as a secondary precision view for walls, openings, dimensions, clearances, and collision validation
+- [x] Rebalance desktop, tablet, and phone layouts to keep the 3D scene predominant without hiding precision controls
+- [ ] Add responsive end-to-end regressions for 3D-first kitchen editing and confirm the workflow in the live designer
+- [ ] Verify mouse and keyboard controls on computer, touch controls on tablet, and touch-safe controls on phone
+- [ ] Require successful computer, tablet, and phone verification for every future designer change before delivery
+
+## Fix: Suppress Range-Hood Prompt for an Over-Range Microwave
+- [x] Trace the 3D range-hood status rule and compatible MW-30/RANGE-30 detection
+- [x] Suppress the range-hood prompt when an over-range microwave already covers the saved range
+- [ ] Add 3D warning-state regression coverage and verify the reported scene
+- [x] Inspect the real saved range and microwave placement records behind the reported 3D scene
+- [x] Correct persisted-placement detection without hiding a true missing-hood warning
+
+## 3D: Visible Independent Wall-Height Controls
+- [x] Trace why the existing Back, Left, Right, and Front height fields are not reachable from the embedded 3D workspace
+- [x] Add a clear 3D Room control that opens individual Back, Left, Right, and Front height fields from 1 to 120 inches
+- [x] Keep the controls obvious and touch-safe on computer, tablet, and phone
+- [ ] Add regression coverage and verify all four wall controls in the live 3D scene
+
+## Fix: Actual Live 3D Control and Appliance Prompt Path
+- [ ] Identify the exact live 3D component path used by the reported scene and why the Wall heights entry point is absent
+- [ ] Inspect rendered scene appliance identities and correct the range-hood prompt against the actual microwave record
+- [ ] Verify Wall heights and prompt suppression on the reported computer and phone views
