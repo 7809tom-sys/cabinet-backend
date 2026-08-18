@@ -4476,6 +4476,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
     }
+    // With a placed cabinet selected, a finish pick is an edit to THAT cabinet,
+    // not a change to the design default. This keeps all other cabinets on their
+    // current finish and makes upper/lower two-tone designs intentional.
+    const selectedCabinet = selectedUid ? placed.find((cabinet) => cabinet.uid === selectedUid) : null;
+    if (selectedCabinet) {
+      if (slot === "A") setStyleA(newStyleId);
+      else setStyleB(newStyleId);
+      setCabinetStyle(newStyleId);
+      toast.success("Finish applied to the selected cabinet only.");
+      return;
+    }
     // If no active style is set yet (first pick), make THIS slot active so the
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
@@ -4497,7 +4508,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
     setMobilePanel("catalog");
-  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, t]);
+  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, selectedUid, placed, setCabinetStyle, t]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(

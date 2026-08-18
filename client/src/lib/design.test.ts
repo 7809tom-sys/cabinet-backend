@@ -2271,6 +2271,22 @@ describe("two-tone state updates (DesignTool behavior, pure replicas)", () => {
     expect(after.map((c) => eff(c, 7))).toEqual([7, 99, 7]);
   });
 
+  it("assigning Color 2 to a selected cabinet preserves the default and every other cabinet", () => {
+    const before: Cab[] = [
+      { uid: "upper", styleId: null },
+      { uid: "lower", styleId: null },
+      { uid: "island", styleId: null },
+    ];
+    const designDefault = 7;
+    const selectedUid = "upper";
+    const colorTwo = 99;
+    const after = before.map((cabinet) => (
+      cabinet.uid === selectedUid ? { ...cabinet, styleId: colorTwo } : cabinet
+    ));
+    expect(after.map((cabinet) => eff(cabinet, designDefault))).toEqual([99, 7, 7]);
+    expect(designDefault).toBe(7);
+  });
+
   it("'Apply to all' spreads the selected override to every OTHER cabinet", () => {
     const placed: Cab[] = [
       { uid: "a", styleId: null },

@@ -627,3 +627,4 @@
 - [x] Embed the deterministic 3D canvas directly in the existing 2D designer central workspace and reuse its catalog, selection, edit, move, and detail panels
 - [ ] Apply the requested price correction only after receiving the exact cabinet, price surface, and authoritative replacement amount
 - [x] Remove the redundant Catalog/View/Finish/Room 3D strip and instruction text above the existing mobile planner toolbar
+- [x] Ensure changing a selected cabinet finish preserves every other cabinet finish for two-tone designs in 2D and 3D
