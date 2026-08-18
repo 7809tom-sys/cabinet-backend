@@ -156,6 +156,36 @@ describe("SKU duplicate detection logic", () => {
   });
 });
 
+describe("3D master-link candidate guards", () => {
+  const hasDifferentNumbers = (a: string, b: string) => {
+    const numsA = (a.match(/\d+/g) ?? []).sort().join(",");
+    const numsB = (b.match(/\d+/g) ?? []).sort().join(",");
+    return Boolean(numsA && numsB && numsA !== numsB);
+  };
+
+  it("permits an explicit review candidate only when dimensions and code numbers agree", () => {
+    const source = { category: "Wall", width: "24.00", height: "30.00", depth: "12.00", code: "W2430" };
+    const candidate = { category: "Wall", width: "24.00", height: "30.00", depth: "12.00", code: "W-2430" };
+    const eligible = source.category === candidate.category
+      && source.width === candidate.width
+      && source.height === candidate.height
+      && source.depth === candidate.depth
+      && !hasDifferentNumbers(normalize(source.code), normalize(candidate.code));
+    expect(eligible).toBe(true);
+  });
+
+  it("rejects a dimensionally different cabinet even when the category is the same", () => {
+    const source = { category: "Wall", width: "24.00", height: "30.00", depth: "12.00", code: "W2430" };
+    const candidate = { category: "Wall", width: "24.00", height: "36.00", depth: "12.00", code: "W2436" };
+    const eligible = source.category === candidate.category
+      && source.width === candidate.width
+      && source.height === candidate.height
+      && source.depth === candidate.depth
+      && !hasDifferentNumbers(normalize(source.code), normalize(candidate.code));
+    expect(eligible).toBe(false);
+  });
+});
+
 describe("Conflict detection logic", () => {
   it("identifies when an alias already exists with a different master", () => {
     const existingAlias = { aliasCode: "B24", masterCode: "B-24-OLD" };

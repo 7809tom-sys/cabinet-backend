@@ -607,3 +607,10 @@
 - [x] Add the mobile Replace Cabinet Image workflow to desktop Edit Config, including This line only and All lines scope choices
 - [x] Support desktop image-library browse, upload, and URL entry in the Replace Cabinet Image dialog
 - [x] Add desktop-mobile replacement workflow parity coverage
+- [ ] Show all linked aliases and variants when editing a cabinet master record
+- [ ] Flag similar master candidates and require an explicit merge decision before linking records
+- [ ] Propagate confirmed master edits across all linked variants while preserving source-specific pricing and availability data
+- [ ] Add safe merge and master-edit propagation regression coverage
+- [x] Surface linked aliases and variants automatically in the 3D designer cabinet edit panel
+- [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
+- [ ] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
