@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 import { MediaPicker } from "@/components/admin/MediaPicker";
+import { requiresImageReplacementScope } from "@/lib/cabinetImageReplacement";
 
 // ─── Spec Drawing Picker ─────────────────────────────────────────────────────
 function SpecDrawingPicker({
@@ -1562,10 +1563,32 @@ function EditModal({
 
             {/* Catalog Image */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Catalog Image</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-sm font-medium">Catalog Image</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  disabled={busy}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Replace image
+                </Button>
+              </div>
               <MediaPicker
                 value={merged.catalogImageUrl ?? ""}
-                onChange={(url) => set("catalogImageUrl", url || null)}
+                onChange={(url) => {
+                  const nextUrl = url || null;
+                  const existingUrl = merged.catalogImageUrl ?? row.catalogImageUrl ?? null;
+                  if (requiresImageReplacementScope(existingUrl, nextUrl)) {
+                    setPendingImageUrl(nextUrl);
+                    setImageConfirmOpen(true);
+                    return;
+                  }
+                  set("catalogImageUrl", nextUrl);
+                }}
                 placeholder="/manus-storage/... or https://..."
               />
               <div className="flex gap-2 items-center mt-1">
@@ -2008,10 +2031,10 @@ function EditModal({
             >
               <div className="flex items-center gap-2 mb-1">
                 <Globe className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm">All distributors</span>
+                <span className="font-semibold text-sm">All lines</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Replace the master image — applies to {distributorsForCabinet?.length ?? 3} distributor lines
+                Replace the master image across every distributor line
               </p>
             </button>
             <button

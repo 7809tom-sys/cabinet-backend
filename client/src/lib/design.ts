@@ -662,6 +662,28 @@ export function effectiveStyleId(
 }
 
 /**
+ * When Color 1 changes in a single-finish design (no Color 2), ALL per-cabinet
+ * style overrides must be cleared so every cabinet inherits the new active style.
+ * This handles the case where cabinets were placed under different styles during
+ * browsing — switching the design style must update the entire kitchen uniformly.
+ * Explicit two-tone overrides are preserved whenever a second style is active.
+ */
+export function rebaseFormerDefaultStyleOverrides<T extends { styleId?: number | null }>(
+  cabinets: T[],
+  formerDefaultStyleId: number | null,
+  nextDefaultStyleId: number,
+  preserveTwoToneOverrides: boolean,
+): T[] {
+  if (formerDefaultStyleId == null || formerDefaultStyleId === nextDefaultStyleId || preserveTwoToneOverrides) return cabinets;
+  // In single-finish mode, clear ALL per-cabinet overrides so every cabinet
+  // follows the new design default. This prevents stale overrides from previous
+  // style selections from showing different finishes in the list and cart.
+  return cabinets.map((cabinet) =>
+    cabinet.styleId != null ? { ...cabinet, styleId: null } as T : cabinet
+  );
+}
+
+/**
  * Rendering follows the active selected sample for a normal one-finish design.
  * Per-cabinet style IDs are honored only after the user has explicitly selected
  * a distinct second two-tone style; this prevents stale placement metadata from
@@ -708,10 +730,14 @@ export function isMixedFinish(
 export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number | null; numberOfDrawers?: number | null; description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
   if (p.placement === "appliance") return false;
   if (isPanelItem(p)) return false;
+  // Lazy Susan and Easy Reach base cabinets need a user-selectable opening side
+  // even when a legacy catalog row records their two physical face panels.
+  const code = (p.masterCode ?? "").toUpperCase();
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return true;
   // If we know the door count, trust it.
   if (typeof p.numberOfDoors === "number") return p.numberOfDoors > 0;
   // Drawer-only bases (no doors) typically have a drawer count and no doors.
-  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   if (/\bdrawer base\b|^db|drawer\b/.test(hay) && !/door/.test(hay)) return false;
   // Default: assume it has a door.
   return true;
@@ -722,6 +748,9 @@ export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number |
 export function resolveSwing(p: PlacedCabinet): DoorSwing {
   if (!hasDoorSwing(p)) return "none";
   if (p.swing && p.swing !== "none") return p.swing;
+  const code = (p.masterCode ?? "").toUpperCase();
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return "left";
   if (typeof p.numberOfDoors === "number" && p.numberOfDoors >= 2) return "double";
   return p.swing ?? "left";
 }
@@ -1712,6 +1741,18 @@ export function isSinkBaseCabinet(c: {
   );
 }
 
+/** True for farm/farmhouse sink bases that must resolve through the active-wall palette path. */
+export function isFarmSinkBasePaletteItem(c: {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  if (!isSinkBaseCabinet(c)) return false;
+  const code = `${c.masterCode ?? ""}`.toLowerCase();
+  const hay = `${c.description ?? ""} ${c.subCategory ?? ""}`.toLowerCase();
+  return /^fsb[-_]?\d/.test(code) || /farm(?:house)?\s+sink/.test(hay);
+}
+
 /** A sink fixture belongs to a sink base when its center lies inside that cabinet's true footprint. */
 export function fixtureIsOnCabinetFootprint(
   fixture: { x: number; y: number; width: number; depth: number },
@@ -1874,6 +1915,12 @@ export function elevationBox(
   p: PlacedCabinet,
   room?: { ceilingHeight?: number } | null
 ): { bottom: number; height: number } {
+  // Refrigerator enclosure panels are full architectural skins. They must never
+  // inherit a neighboring base cabinet's mount height from a legacy surround or
+  // catalogue import: both sides run from finished floor to the room ceiling.
+  if (isRefrigeratorEndPanel(p)) {
+    return { bottom: 0, height: room?.ceilingHeight ?? 96 };
+  }
   // The top line the upper run finishes at. On a standard 8ft ceiling this is
   // the historical 84" line; on taller ceilings the run hangs higher so it
   // finishes near the ceiling (see wallCabinetTopLine).
@@ -1897,6 +1944,13 @@ export function elevationBox(
     // otherwise fall back to countertop height as a safe default.
     if (storedH) return { bottom: 0, height: storedH };
     return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
+  }
+  // A deliberate 3D attributes adjustment may vertically offset a base or tall
+  // cabinet. Persist the exact 2D elevation rather than allowing the 3D scene
+  // to drift away from its plan record. Wall/appliance records are handled in
+  // their specialized branches below so their catalog defaults remain intact.
+  if ((p.placement === "base" || p.placement === "tall") && typeof p.mountBottom === "number" && p.mountBottom >= 0) {
+    return { bottom: p.mountBottom, height: placedHeight(p) };
   }
   if (p.placement === "wall") {
     const h = placedHeight(p);
@@ -2576,6 +2630,44 @@ export function mountedMicrowaveOverRangeSpot(
     side,
     room,
   );
+}
+
+/**
+ * Select the range that an over-range microwave should mount above. A selected
+ * range takes precedence, then ranges on the active wall, then the nearest
+ * range in the current design. This keeps palette adds from inheriting an
+ * arbitrary free canvas position in the center of the room.
+ */
+export function preferredRangeForOverRangeMicrowave(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  activeWall: WallSide | null | undefined,
+  selectedUid: string | null | undefined,
+  target: Pick<PlacedCabinet, "x" | "y">,
+): PlacedCabinet | undefined {
+  const isRange = (cabinet: PlacedCabinet) => isRangeOrOven(cabinet.masterCode, cabinet.description);
+  const selectedRange = placed.find((cabinet) => cabinet.uid === selectedUid && isRange(cabinet));
+  if (selectedRange) return selectedRange;
+  const activeWallRanges = activeWall
+    ? placed.filter((cabinet) => isRange(cabinet) && cabinetWall(cabinet, room) === activeWall)
+    : [];
+  const candidates = activeWallRanges.length > 0 ? activeWallRanges : placed.filter(isRange);
+  return [...candidates].sort(
+    (a, b) => Math.hypot(a.x - target.x, a.y - target.y) - Math.hypot(b.x - target.x, b.y - target.y),
+  )[0];
+}
+
+/** Returns the mounted range and exact wall spot for a palette or drag MW-30 add. */
+export function overRangeMicrowaveAttachment(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  activeWall: WallSide | null | undefined,
+  selectedUid: string | null | undefined,
+  target: Pick<PlacedCabinet, "x" | "y">,
+  microwave: Pick<PlacedCabinet, "width" | "depth">,
+): { range: PlacedCabinet; spot: { x: number; y: number; rotation: number } } | null {
+  const range = preferredRangeForOverRangeMicrowave(placed, room, activeWall, selectedUid, target);
+  return range ? { range, spot: mountedMicrowaveOverRangeSpot(microwave, range, room) } : null;
 }
 
 // Sum a mitered trim run grouped by wall, adding the miter allowance once per
@@ -3831,6 +3923,35 @@ export function freeSegmentsOnWall(
   if (tail >= minLen) segments.push({ start: cursor, length: Math.round(tail * 100) / 100 });
 
   return segments;
+}
+
+/**
+ * Resolves a palette-added base or wall cabinet to the first opening that can
+ * contain its full width on the active wall. Returning null is intentional:
+ * wall-bound catalog items must never silently fall back to a floating room
+ * position when their selected wall is full.
+ */
+export function paletteActiveWallPlacement(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  width: number,
+  depth: number,
+  placement: Placement,
+): { x: number; y: number; rotation: number } | null {
+  const segments = freeSegmentsOnWall(
+    side,
+    room,
+    placed,
+    openings,
+    Math.min(width, 9),
+    0,
+    placement,
+    false,
+  );
+  const fit = segments.find((segment) => segment.length + 0.001 >= width);
+  return fit ? wallPlacementAt(fit.start, width, depth, side, room) : null;
 }
 
 

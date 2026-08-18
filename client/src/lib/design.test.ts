@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
-  conflictingUids, isSinkBaseCabinet, isSinkAppliance, STD,
+  conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, STD,
   appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
   snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -1275,6 +1275,14 @@ function opening(partial: Partial<WallOpening>): WallOpening {
 }
 
 describe("freeSegmentsOnWall (break the run around openings)", () => {
+  it("resolves SB-36 palette placement to the active wall opening and never to the room center", () => {
+    const openSpot = paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base");
+    expect(openSpot).toEqual({ x: 0, y: 0, rotation: 0 });
+
+    const filledTopRun = [cab({ uid: "base-run", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, filledTopRun, [], 36, 24, "base")).toBeNull();
+  });
+
   it("returns the whole wall when nothing blocks it", () => {
     const segs = freeSegmentsOnWall("top", ROOM_12x10, [], [], 9);
     expect(segs).toEqual([{ start: 0, length: 144 }]);
@@ -2040,6 +2048,18 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(isSinkBaseCabinet({ masterCode: "BFH-30", description: '30" Full Height Door Vanity Sink Cabinet' })).toBe(true);
   });
 
+  it("routes FSB farm sink bases through the active-wall palette resolver only", () => {
+    const farmSink = { masterCode: "FSB-36", description: '36" Farmhouse Sink Base' };
+    expect(isFarmSinkBasePaletteItem(farmSink)).toBe(true);
+    expect(isFarmSinkBasePaletteItem({ masterCode: "SB-36", description: "Sink Base 36" })).toBe(false);
+    expect(isFarmSinkBasePaletteItem({ masterCode: "LSB36", description: "Base Easy Reach Lazy Susan" })).toBe(false);
+
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+    const fullTopWall = [cab({ uid: "full-top", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullTopWall, [], 36, 24, "base")).toBeNull();
+  });
+
   it("does NOT mistake look-alike non-sink families for sink bases", () => {
     // These share a prefix/letters with sink families but are NOT sinks:
     expect(isSinkBaseCabinet({ masterCode: "LSB36", description: '36" Base Easy Reach with Lazy Susan Cabinet' })).toBe(false);
@@ -2113,6 +2133,25 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(normalizedPanel?.height).toBe(96);
     expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 96 });
   });
+
+  it("keeps either refrigerator end panel on the floor when a legacy adjacent base left a raised mount height", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    for (const uid of ["left-panel", "right-panel"]) {
+      const panel = cab({
+        uid,
+        masterCode: "REPV2496",
+        description: "Refrigerator End Panel",
+        placement: "tall",
+        x: uid === "left-panel" ? 23.25 : 60,
+        y: 0,
+        width: 0.75,
+        depth: 24,
+        height: 60,
+        mountBottom: 36,
+      });
+      expect(elevationBox(panel, room)).toEqual({ bottom: 0, height: 108 });
+    }
+  });
 });
 
 describe("wall cabinet dropped to floor keeps its own depth", () => {
@@ -2133,7 +2172,7 @@ describe("wall cabinet dropped to floor keeps its own depth", () => {
 });
 
 
-import { effectiveStyleId, distinctStyleIds, isMixedFinish } from "./design";
+import { effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish } from "./design";
 
 describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   it("uses the per-cabinet override when present", () => {
@@ -2153,6 +2192,34 @@ describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   });
   it("returns null only when neither override nor default is set", () => {
     expect(effectiveStyleId({ styleId: null }, null)).toBeNull();
+  });
+});
+
+describe("rebaseFormerDefaultStyleOverrides", () => {
+  it("clears a stale former design default so a newly selected feature style applies to every legacy cabinet", () => {
+    const cabinets = [{ uid: "a", styleId: 7 }, { uid: "b", styleId: 7 }];
+    const rebased = rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, false);
+    expect(rebased.map((cabinet) => effectiveStyleId(cabinet, 390009))).toEqual([390009, 390009]);
+  });
+
+  it("preserves explicit per-cabinet overrides when an intentional second color is active", () => {
+    const cabinets = [{ uid: "upper", styleId: 7 }, { uid: "island", styleId: 99 }];
+    expect(rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, true)).toEqual(cabinets);
+  });
+
+  it("clears ALL per-cabinet overrides in single-finish mode, not just those matching the former default", () => {
+    // Cabinets placed under different styles during browsing (Natura Maple=7, Aura Cream=99)
+    // must all inherit the new design default (Zenith Sage=390009) when Color 1 changes.
+    const cabinets = [
+      { uid: "a", styleId: 7 },    // was Natura Maple
+      { uid: "b", styleId: 99 },   // was Aura Cream
+      { uid: "c", styleId: null },  // already inheriting
+      { uid: "d", styleId: 42 },   // was some other style
+    ];
+    const rebased = rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, false);
+    // ALL overrides cleared — every cabinet now inherits the new default
+    expect(rebased.map((c) => c.styleId)).toEqual([null, null, null, null]);
+    expect(rebased.map((c) => effectiveStyleId(c, 390009))).toEqual([390009, 390009, 390009, 390009]);
   });
 });
 
@@ -2230,6 +2297,22 @@ describe("two-tone state updates (DesignTool behavior, pure replicas)", () => {
     const selectedUid = "b";
     const after = before.map((p) => (p.uid === selectedUid ? { ...p, styleId: 99 } : p));
     expect(after.map((c) => eff(c, 7))).toEqual([7, 99, 7]);
+  });
+
+  it("assigning Color 2 to a selected cabinet preserves the default and every other cabinet", () => {
+    const before: Cab[] = [
+      { uid: "upper", styleId: null },
+      { uid: "lower", styleId: null },
+      { uid: "island", styleId: null },
+    ];
+    const designDefault = 7;
+    const selectedUid = "upper";
+    const colorTwo = 99;
+    const after = before.map((cabinet) => (
+      cabinet.uid === selectedUid ? { ...cabinet, styleId: colorTwo } : cabinet
+    ));
+    expect(after.map((cabinet) => eff(cabinet, designDefault))).toEqual([99, 7, 7]);
+    expect(designDefault).toBe(7);
   });
 
   it("'Apply to all' spreads the selected override to every OTHER cabinet", () => {
@@ -2615,21 +2698,21 @@ describe("missingCornerBaseViolations (only flags a corner base when a door/open
     expect(v.has("b18")).toBe(false);
   });
 
-  it("never flags a proper corner cabinet (e.g. BBC) even with a door at the corner", () => {
-    const bbc = cab({
-      uid: "bbc",
-      masterCode: "BBC-42",
-      description: "Blind Base Corner 42",
+  it("never flags a proper corner cabinet, including LS3612, even with a door at the corner", () => {
+    const lazySusan = cab({
+      uid: "ls3612",
+      masterCode: "LS3612",
+      description: "36-inch Lazy Susan Corner Base",
       placement: "base",
       x: 0,
       y: ROOM.depth - 24,
-      width: 42,
-      depth: 24,
+      width: 36,
+      depth: 36,
     });
     const door: WallOpening = {
       uid: "d3", kind: "door", label: "d", side: "bottom", offset: 0, width: 30, height: 80, sill: 0,
     };
-    const v = missingCornerBaseViolations([bbc], ROOM, null, [door]);
-    expect(v.has("bbc")).toBe(false);
+    const v = missingCornerBaseViolations([lazySusan], ROOM, null, [door]);
+    expect(v.has("ls3612")).toBe(false);
   });
 });

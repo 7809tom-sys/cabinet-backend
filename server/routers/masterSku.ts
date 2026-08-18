@@ -16,7 +16,7 @@
  *  - updateRule        — update a rule's weight or enabled state
  *  - triggerAiScan     — use LLM to compare catalog SKUs and generate new suggestions
  */
-import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
@@ -670,6 +670,91 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
         .from(skuMasterAliases)
         .where(eq(skuMasterAliases.masterCode, input.masterCode))
         .orderBy(asc(skuMasterAliases.aliasCode));
+    }),
+
+  /**
+   * Conservative master-link candidates for one Cabinet Config record. A
+   * candidate must share its category and physical dimensions, and may never
+   * differ in SKU numeric segments (those encode cabinet dimensions). Linking
+   * remains an explicit admin confirmation in the editor.
+   */
+  similarForCabinet: adminProcedure
+    .input(z.object({ cabinetId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const [source] = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category, width: cabinets.width, height: cabinets.height, depth: cabinets.depth })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.cabinetId))
+        .limit(1);
+      if (!source) return [];
+      const peers = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category, width: cabinets.width, height: cabinets.height, depth: cabinets.depth })
+        .from(cabinets)
+        .where(and(eq(cabinets.category, source.category), ne(cabinets.id, source.id)))
+        .limit(150);
+      const sourceCode = normalize(source.masterCode);
+      return peers
+        .filter((peer) =>
+          String(peer.width ?? "") === String(source.width ?? "") &&
+          String(peer.height ?? "") === String(source.height ?? "") &&
+          String(peer.depth ?? "") === String(source.depth ?? "") &&
+          !hasDifferentNumbers(sourceCode, normalize(peer.masterCode))
+        )
+        .map((peer) => ({ ...peer, similarity: editSimilarity(sourceCode, normalize(peer.masterCode)) }))
+        .filter((peer) => peer.similarity >= 55)
+        .sort((a, b) => b.similarity - a.similarity || a.masterCode.localeCompare(b.masterCode))
+        .slice(0, 8);
+    }),
+
+  /** Confirm a reviewed cabinet master directly from the designer edit panel. */
+  confirmCabinetLink: adminProcedure
+    .input(z.object({ masterCabinetId: z.number().int().positive(), aliasCabinetId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.masterCabinetId === input.aliasCabinetId) throw new Error("A cabinet cannot be linked to itself");
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const rows = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(or(eq(cabinets.id, input.masterCabinetId), eq(cabinets.id, input.aliasCabinetId)));
+      const master = rows.find((row) => row.id === input.masterCabinetId);
+      const alias = rows.find((row) => row.id === input.aliasCabinetId);
+      if (!master || !alias) throw new Error("Cabinet record not found");
+      const [existing] = await db.select().from(skuMasterAliases).where(eq(skuMasterAliases.aliasCode, alias.masterCode)).limit(1);
+      if (existing) {
+        await db.update(skuMasterAliases)
+          .set({ masterCode: master.masterCode, conflictStatus: existing.masterCode === master.masterCode ? "ok" : "conflict", notes: `Confirmed in 3D editor by user ${ctx.user.id}` })
+          .where(eq(skuMasterAliases.id, existing.id));
+      } else {
+        await db.insert(skuMasterAliases).values({ aliasCode: alias.masterCode, masterCode: master.masterCode, notes: `Confirmed in 3D editor by user ${ctx.user.id}`, conflictStatus: "ok", createdBy: ctx.user.id });
+      }
+      return { masterCode: master.masterCode, aliasCode: alias.masterCode };
+    }),
+
+  /** Save shared configuration through a confirmed master and every linked alias. */
+  propagateCabinetConfig: adminProcedure
+    .input(z.object({
+      cabinetId: z.number().int().positive(),
+      category: z.string().min(1),
+      subCategory: z.string().nullable(),
+      graphicType: z.string().min(1),
+      specImageUrl: z.string().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const [source] = await db.select({ masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.cabinetId)).limit(1);
+      if (!source) throw new Error("Cabinet record not found");
+      const [sourceAlias] = await db.select({ masterCode: skuMasterAliases.masterCode }).from(skuMasterAliases).where(eq(skuMasterAliases.aliasCode, source.masterCode)).limit(1);
+      const canonicalCode = sourceAlias?.masterCode ?? source.masterCode;
+      const aliases = await db.select({ aliasCode: skuMasterAliases.aliasCode }).from(skuMasterAliases).where(eq(skuMasterAliases.masterCode, canonicalCode));
+      const linkedCodes = Array.from(new Set([canonicalCode, ...aliases.map((row) => row.aliasCode)]));
+      await db.update(cabinets)
+        .set({ category: input.category, subCategory: input.subCategory, graphicType: input.graphicType, specImageUrl: input.specImageUrl })
+        .where(or(...linkedCodes.map((code) => eq(cabinets.masterCode, code))));
+      return { canonicalCode, linkedCodes };
     }),
 
   /**

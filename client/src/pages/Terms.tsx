@@ -1,3 +1,5 @@
+import { AFFILIATE_LIQUIDATED_DAMAGES_USD, AFFILIATE_NON_COMPETE_TERM_MONTHS } from "@shared/affiliateNonCompete";
+
 export default function Terms() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
@@ -74,6 +76,25 @@ export default function Terms() {
             <li>Cabinet Dealz reserves the right to terminate any affiliate account for violation of these terms or misrepresentation.</li>
             <li>Affiliates may not make false or misleading claims about products or pricing.</li>
           </ul>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-3">7A. Affiliate Post-Termination Non-Competition Covenant</h2>
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <p className="font-semibold">Draft — attorney review required before use.</p>
+            <p className="mt-1">This proposed restrictive-covenant language is intended for the Affiliate Agreement and is subject to applicable law and legal review.</p>
+          </div>
+          <div className="mt-3 space-y-3 text-muted-foreground leading-relaxed">
+            <p>
+              To the fullest extent permitted by applicable law, during an Affiliate’s relationship with Cabinet Dealz and for {AFFILIATE_NON_COMPETE_TERM_MONTHS} months after its termination for any reason, the Affiliate shall not use Cabinet Dealz confidential information, pricing, customer relationships, platform materials, white-label storefront technology, or design-system data to operate, assist, or promote a competing cabinet marketplace or white-label cabinet-affiliate program in the territory where the Affiliate used the Cabinet Dealz Platform.
+            </p>
+            <p>
+              Upon Cabinet Dealz’s documented good-faith determination of a violation, Cabinet Dealz may immediately suspend the Affiliate’s platform access and disable its affiliate storefront. Suspension of the storefront is a platform-protection measure and does not replace any notice, dispute-resolution, or other process required by applicable law or the signed Affiliate Agreement.
+            </p>
+            <p>
+              The Affiliate agrees that a material violation may cause damages that are difficult to measure. Subject to applicable law and a signed Affiliate Agreement, the parties propose liquidated damages of ${AFFILIATE_LIQUIDATED_DAMAGES_USD.toLocaleString("en-US")} per violation as a reasonable pre-estimate of loss and not as a penalty, in addition to any other relief available at law or in equity.
+            </p>
+          </div>
         </section>
 
         <section>

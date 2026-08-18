@@ -11,7 +11,7 @@ import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
-  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart, X,
+  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart, X, PackageOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
@@ -235,6 +235,44 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
         <div id="shop">
           <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
         </div>
+
+        {/* ─── Bundle Deals promo band ─────────────────────────────────── */}
+        <section className="py-14 md:py-16 border-b border-border">
+          <div className="container">
+            <div className="flex flex-col md:flex-row md:items-center gap-8">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <PackageOpen className="h-5 w-5" style={{ color: brand.accent }} />
+                  <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>Pre-Designed Packages</span>
+                </div>
+                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>
+                  Ready-to-Order Bundle Deals
+                </h2>
+                <p className="text-muted-foreground leading-relaxed mb-6">
+                  Browse complete kitchen packages with floor plans, pricing, and cabinet counts. Customize any bundle to fit your space and order in minutes.
+                </p>
+                <Link href={withRef("/bundles")}>
+                  <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
+                    <PackageOpen className="h-4 w-4" /> View Bundle Deals <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex-1 grid grid-cols-2 gap-3">
+                {[
+                  { icon: "📐", label: "Floor Plan Included" },
+                  { icon: "🏠", label: "Complete Kitchen" },
+                  { icon: "💰", label: "Package Pricing" },
+                  { icon: "🎨", label: "Customizable" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ─── Surfaces & Fixtures promo band ─────────────────────────── */}
         <section className="py-14 md:py-16 bg-muted/40">

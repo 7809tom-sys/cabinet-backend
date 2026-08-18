@@ -54,20 +54,20 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, displayedStyleId, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
   type PlanAnnotation, makeAnnotation,
   makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
-  snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot,
+  snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
@@ -79,7 +79,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -87,6 +87,9 @@ import {
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
+import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
+import { resolveFarmSinkPalettePlacement } from "./designToolFarmSinkPlacement";
+import { threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -148,6 +151,7 @@ import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/l
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
+import { cabinetEditConfigHref } from "@/lib/cabinetEditConfigLink";
 import type { SiteStringKey } from "@/lib/i18n/site";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
@@ -161,7 +165,7 @@ type ConsultPlanWall = {
   leftoverInches: number;
 };
 
-type ViewMode = "plan" | "elevation" | "split" | "corner" | "island";
+type ViewMode = "plan" | "threeD" | "elevation" | "split" | "corner" | "island";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
 
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
@@ -285,17 +289,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [verifiedPhone, setVerifiedPhone] = useState("");
   const captureLead = trpc.design.captureLead.useMutation();
   const trpcUtils = trpc.useUtils();
-  const saveMasterCabinetConfig = trpc.cabinets.adminUpdateCabinet.useMutation({
-    onSuccess: (_result, input) => {
-      setPlaced((current) => refreshPlacedCabinetsFromMasterConfig(current, {
-        cabinetId: input.id,
+  const saveMasterCabinetConfig = trpc.masterSku.propagateCabinetConfig.useMutation({
+    onSuccess: (result, input) => {
+      setPlaced((current) => current.map((placed) => result.linkedCodes.includes(placed.masterCode) ? {
+        ...placed,
         category: input.category,
         subCategory: input.subCategory,
-        graphicType: input.graphicType,
-        specImageUrl: input.specImageUrl,
-      }));
+        customProfile: input.graphicType === "standard" ? null : input.graphicType,
+        genericDrawingUrl: input.specImageUrl,
+      } : placed));
       void trpcUtils.design.placeableCabinets.invalidate();
-      toast.success("Master cabinet configuration saved; this drawing and the cabinet catalog are refreshed.");
+      toast.success(`Master configuration saved across ${result.linkedCodes.length} linked cabinet record${result.linkedCodes.length === 1 ? "" : "s"}.`);
     },
     onError: (error) => toast.error(error.message || "Could not save the master cabinet configuration."),
   });
@@ -473,7 +477,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
-    return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
+    return v === "3d" ? "threeD" : v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
@@ -758,7 +762,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   useEffect(() => {
     if (!requestedThreeDPreview || interactive3dOpen || !canLoadInteractive3d || interactive3dLoading) return;
-    setInteractive3dOpen(true);
+    setViewMode("threeD");
   }, [requestedThreeDPreview, interactive3dOpen, canLoadInteractive3d, interactive3dLoading]);
 
   const savedPlanInteractive3dScene = useMemo<InteractiveRoomScene | null>(() => {
@@ -1758,10 +1762,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     return m;
   }, [doorStyles]);
-  const twoToneEnabled = styleA != null && styleB != null && styleA !== styleB;
   const displayStyleIdForCab = useCallback(
-    (cab: PlacedCabinet) => displayedStyleId(cab, styleId, twoToneEnabled),
-    [styleId, twoToneEnabled],
+    (cab: PlacedCabinet) => effectiveStyleId(cab, styleId),
+    [styleId],
   );
   const finishForCab = useCallback(
     (cab: PlacedCabinet) => {
@@ -1994,17 +1997,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }), [interactive3dPricingLines]);
 
   const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
-    const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({
-      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const,
+    const activeCabinets = [
+      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+      ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
+    ].filter((item, index, all) => all.findIndex((candidate) => Number(candidate.id) === Number(item.id)) === index);
+    const cabinets = activeCabinets.map((item) => ({
+        id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
+        catalogGroup: isCornerBase(item) || isCornerWall(item) ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
+      }));
+    const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).map((item) => ({
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const, catalogGroup: "Accessories" as const,
     }));
     // Appliances are already part of the live Design Tool palette. They are
     // presentation/plan items unless a distributor exposes a priced SKU, so the
     // itemized drawer accurately marks them as price pending when applicable.
-    const appliances = appliancePalette.slice(0, 8).map((item) => ({
-      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const,
+    const appliances = appliancePalette.map((item) => ({
+      id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const, catalogGroup: "Appliances" as const,
     }));
-    return [...accessories, ...appliances];
-  }, [threeDAccessoryCatalog, appliancePalette]);
+    return [...cabinets, ...accessories, ...appliances];
+  }, [autoFillCabinets, wallCabPool, tallCabPool, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
 
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
@@ -2329,6 +2341,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (x != null && y != null) {
         spot = { x, y, rotation: 0 };
       } else {
+        const farmSinkPlacement = resolveFarmSinkPalettePlacement({
+          masterCode: c.masterCode,
+          description: c.description,
+          subCategory: c.subCategory,
+        }, activeWall, room, prev, openings, width, depth);
+        if (farmSinkPlacement.applies) {
+          if (!farmSinkPlacement.spot) {
+            setPlacementWarning(farmSinkPlacement.message);
+            toast.error(farmSinkPlacement.message);
+            return;
+          }
+          spot = farmSinkPlacement.spot;
+        } else {
         const segs = freeSegmentsOnWall(
           activeWall,
           room,
@@ -2354,9 +2379,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
           spot = wallPlacementAt(along, width, depth, activeWall, room);
         } else {
+          const requiresWallPlacement = accPlacement === "base" || accPlacement === "wall";
+          if (requiresWallPlacement) {
+            const message = `${c.masterCode} was not added because there is no ${width}\" opening on the active wall. Select a wall with enough clear space or drag the cabinet to a valid wall position.`;
+            setPlacementWarning(message);
+            toast.error(message);
+            return;
+          }
           const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
           const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
           spot = { x: cx, y: cy, rotation: 0 };
+        }
         }
       }
 
@@ -2412,36 +2445,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       let otrMountBottom: number | undefined;
       let otrRangeUid: string | undefined;
       if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
-        const targetWall = cabinetWall(
-          { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
-          room
-        );
-        const ranges = prev.filter(
-          (p) =>
-            isRangeOrOven(p.masterCode, p.description) &&
-            cabinetWall(p, room) === targetWall
-        );
-        const byDist = [...ranges].sort(
-          (a, b) =>
-            Math.hypot(a.x - spot.x, a.y - spot.y) -
-            Math.hypot(b.x - spot.x, b.y - spot.y)
-        );
-        const range = byDist[0];
-        if (range) {
-          const rs = rotatedSize(range);
-          const horizontal = targetWall === "top" || targetWall === "bottom";
-          const rangeStart = horizontal ? range.x : range.y;
-          const rangeSpan = horizontal ? rs.w : rs.d;
-          const microwaveSpan = horizontal ? width : depth;
-          // Preserve the exact range wall and run center. Updating only X/Y
-          // left a new microwave on the next free plan row, which made the
-          // valid mounted pair fail the centered over-range collision rule.
-          spot = mountedMicrowaveOverRangeSpot({ width, depth }, range, room);
-          const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
-          otrMountBottom = mwDef?.elevBottom ?? 54;
-          otrRangeUid = range.uid;
-          toast.success(t("dt_otr_snapped_over_range"));
+        const otrPlacement = resolveOverRangeMicrowavePlacement(prev, room, activeWall, selectedUid, spot, { width, depth });
+        if (!otrPlacement.ok) {
+          setPlacementWarning(otrPlacement.message);
+          toast.error(otrPlacement.message);
+          return;
         }
+        // Preserve the exact range wall and run center. Updating only X/Y
+        // left a new microwave on the next free plan row, which made the
+        // valid mounted pair fail the centered over-range collision rule.
+        spot = otrPlacement.spot;
+        otrMountBottom = otrPlacement.mountBottom;
+        otrRangeUid = otrPlacement.rangeUid;
+        toast.success(t("dt_otr_snapped_over_range"));
       }
 
       const newCab: PlacedCabinet = {
@@ -2662,6 +2678,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [layoutLocked, roomType, addCabinet]);
 
   const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem) => {
+    if (item.category === "Cabinet") {
+      const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
+      if (cabinet) addCabinet(cabinet);
+      else toast.error("That cabinet is no longer available in the active catalog.");
+      return;
+    }
     if (item.category === "Accessory") {
       const accessory = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
       if (accessory) addCabinet(accessory, undefined, undefined, true);
@@ -2671,7 +2693,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
     if (appliance) addCabinet(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-  }, [threeDAccessoryCatalog, appliancePalette, addCabinet]);
+  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
@@ -3998,13 +4020,81 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
   // Wall cabinets only; clamped at 0.
   const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
-    setPlaced((prev) =>
-      prev.map((p) => {
-        if (p.uid !== uid || p.placement !== "wall") return p;
-        return { ...p, mountBottom: Math.max(0, Math.round(mountBottom * 10) / 10) };
-      })
-    );
-  }, []);
+    setPlaced((prev) => {
+      const current = prev.find((p) => p.uid === uid);
+      if (!current || current.placement !== "wall") return prev;
+      const height = elevationBox(current, room).height;
+      const bounded = Math.max(0, Math.min(Math.max(0, (room.ceilingHeight ?? 96) - height), Math.round(mountBottom * 10) / 10));
+      const candidate = { ...current, mountBottom: bounded };
+      const peers = prev.filter((p) => p.uid !== uid);
+      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+        const message = collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      return prev.map((p) => (p.uid === uid ? candidate : p));
+    });
+  }, [room, customPlacementMode]);
+
+  // The 3D attributes panel delegates every move to this authoritative 2D
+  // placement path. Relative directions are resolved from the cabinet's wall,
+  // then checked before a state update so plan and scene never diverge.
+  const moveCabinetFrom3D = useCallback((uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => {
+    const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
+    setSelectedUid(uid);
+    setPlaced((prev) => {
+      const cabinet = prev.find((item) => item.uid === uid);
+      if (!cabinet) return prev;
+      if (direction === "up" || direction === "down") {
+        const currentElevation = elevationBox(cabinet, room);
+        const ceiling = roomCeiling(room);
+        const signedStep = direction === "up" ? step : -step;
+        const nextBottom = Math.round((currentElevation.bottom + signedStep) * 8) / 8;
+        if (nextBottom < 0 || nextBottom + currentElevation.height > ceiling) {
+          const message = `${cabinet.masterCode} cannot move ${direction}; it must remain between the floor and the ${ceiling}\" ceiling.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        const candidate = { ...cabinet, mountBottom: nextBottom };
+        const peers = prev.filter((item) => item.uid !== uid);
+        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+          const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        return prev.map((item) => item.uid === uid ? candidate : item);
+      }
+      const delta = threeDPlanMoveDelta(cabinet, room, direction, step);
+      const candidate = { ...cabinet, x: Math.round((cabinet.x + delta.x) * 8) / 8, y: Math.round((cabinet.y + delta.y) * 8) / 8 };
+      const footprint = rotatedSize(candidate);
+      if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
+        const message = `${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      const peers = prev.filter((item) => item.uid !== uid);
+      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+        const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return prev;
+      }
+      if (isSinkBaseCabinet(cabinet) && (delta.x !== 0 || delta.y !== 0)) {
+        const sourceFootprint = placedFootprint(cabinet);
+        setSinks((currentSinks) => currentSinks.map((sink) => {
+          const centerX = sink.x + sink.width / 2;
+          const centerY = sink.y + sink.depth / 2;
+          const sitsOnCabinet = centerX >= cabinet.x && centerX <= cabinet.x + sourceFootprint.w && centerY >= cabinet.y && centerY <= cabinet.y + sourceFootprint.d;
+          return sitsOnCabinet ? { ...sink, x: sink.x + delta.x, y: sink.y + delta.y } : sink;
+        }));
+      }
+      return prev.map((item) => item.uid === uid ? candidate : item);
+    });
+  }, [customPlacementMode, room]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -4429,12 +4519,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
     }
+    // The main Color 1/Color 2 picker defines the active feature style for the
+    // design. A cabinet can remain selected while the user changes that global
+    // style, so selection must never divert this picker into a one-cabinet edit.
+    // Per-cabinet two-tone edits are handled only by the selected-cabinet style
+    // control, which calls setCabinetStyle directly.
     // If no active style is set yet (first pick), make THIS slot active so the
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
     // ("base cabinets gone" regression).
     const noStyleYet = styleId == null;
     if (slot === "A") {
+      const formerDefaultStyleId = styleA ?? styleId;
+      setPlaced((previous) => rebaseFormerDefaultStyleOverrides(previous, formerDefaultStyleId, newStyleId, styleB != null));
       setStyleA(newStyleId);
       if (activeSlot === "A" || noStyleYet) {
         if (noStyleYet) setActiveSlot("A");
@@ -4450,7 +4547,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
     setMobilePanel("catalog");
-  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, t]);
+  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, selectedUid, placed, setCabinetStyle, t]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
@@ -4642,16 +4739,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   useEffect(() => {
     if (bundleIdParam == null || !bundleData || loadedBundleRef.current === bundleIdParam) return;
     loadedBundleRef.current = bundleIdParam;
-    const snapshot = bundleData.designSnapshot as { room?: RoomData; placed?: PlacedCabinet[]; styleId?: number | null } | null;
+    const snapshot = bundleData.designSnapshot as {
+      room?: RoomData;
+      placed?: PlacedCabinet[];
+      styleId?: number | null;
+      lockedDistributorId?: number | null;
+      roomType?: RoomType | null;
+      selectedSurfaces?: SelectedSurface[] | null;
+      countertop?: boolean;
+      countertopMaterialId?: string;
+      edgeProfileId?: string;
+      sinks?: SinkFixture[];
+    } | null;
     if (!snapshot) return;
     loadSavedDesign({
       room: snapshot.room ?? DEFAULT_ROOM,
       placed: Array.isArray(snapshot.placed) ? snapshot.placed : [],
       styleId: snapshot.styleId ?? null,
-      distributorId: null,
-      roomType: null,
-      selectedSurfaces: null,
+      distributorId: snapshot.lockedDistributorId ?? null,
+      roomType: snapshot.roomType ?? null,
+      selectedSurfaces: Array.isArray(snapshot.selectedSurfaces) ? snapshot.selectedSurfaces : null,
     });
+    // New snapshots persist sinks with the room. Retain this fallback so a
+    // bundle saved during the transition also restores its sink positions.
+    if (Array.isArray(snapshot.sinks) && !(snapshot.room?.persistedEntities?.sinks?.length)) {
+      setSinks(snapshot.sinks);
+    }
+    if (typeof snapshot.countertop === "boolean") setCountertop(snapshot.countertop);
+    if (typeof snapshot.countertopMaterialId === "string") setCountertopMaterialId(snapshot.countertopMaterialId);
+    if (typeof snapshot.edgeProfileId === "string") setEdgeProfileId(snapshot.edgeProfileId);
     toast.success(`Bundle loaded: ${bundleData.name}`);
   }, [bundleIdParam, bundleData, loadSavedDesign]);
 
@@ -5105,7 +5221,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [bundleName, setBundleName] = useState("");
   const [bundleDesc, setBundleDesc] = useState("");
   const saveBundleMut = trpc.priceShop.saveBundleDeal.useMutation({
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
+      // Capture the 2D floor plan as an image and upload it
+      try {
+        const floorPlanDataUrl = captureFloorPlanImage();
+        if (floorPlanDataUrl) {
+          await uploadBundleFloorPlanMut.mutateAsync({ bundleId: res.id, imageBase64: floorPlanDataUrl });
+        }
+      } catch { /* floor plan upload is best-effort */ }
       toast.success("Bundle Deal saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Bundle Deals to publish it.` });
       setBundleDialogOpen(false);
       setBundleName("");
@@ -5113,13 +5236,92 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
     onError: (e) => toast.error("Failed to save bundle", { description: e.message }),
   });
+  const uploadBundleFloorPlanMut = trpc.priceShop.uploadBundleFloorPlan.useMutation();
+  const captureFloorPlanImage = (): string | null => {
+    if (placed.length === 0) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    const padding = 50;
+    const scale = Math.min((canvas.width - padding * 2) / room.width, (canvas.height - padding * 2) / room.depth);
+    const plotWidth = room.width * scale;
+    const plotHeight = room.depth * scale;
+    const offsetX = (canvas.width - plotWidth) / 2;
+    const offsetY = (canvas.height - plotHeight) / 2;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#26384b";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(offsetX, offsetY, plotWidth, plotHeight);
+    for (const item of placed) {
+      const fp = placedFootprint(item);
+      const x = offsetX + item.x * scale;
+      const y = offsetY + item.y * scale;
+      const w = fp.w * scale;
+      const d = fp.d * scale;
+      ctx.fillStyle = item.placement === "appliance" ? "#d7dee4" : item.placement === "wall" ? "#d8e3ec" : item.placement === "tall" ? "#d9c3a0" : "#b88f55";
+      ctx.fillRect(x, y, w, d);
+      ctx.strokeStyle = "#4a3822";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, w, d);
+      if (w > 28 && d > 16) {
+        ctx.fillStyle = "#1e2934";
+        ctx.font = `${Math.max(9, Math.min(14, w / 5))}px sans-serif`;
+        ctx.fillText(item.masterCode, x + 3, y + Math.min(d - 3, 14));
+      }
+    }
+    for (const sink of sinks) {
+      const x = offsetX + sink.x * scale;
+      const y = offsetY + sink.y * scale;
+      const w = sink.width * scale;
+      const d = sink.depth * scale;
+      ctx.fillStyle = "#86b9d6";
+      ctx.strokeStyle = "#1e5f82";
+      ctx.lineWidth = 2;
+      ctx.fillRect(x, y, w, d);
+      ctx.strokeRect(x, y, w, d);
+      ctx.fillStyle = "#123c56";
+      ctx.font = `${Math.max(9, Math.min(14, w / 5))}px sans-serif`;
+      ctx.fillText("SINK", x + 3, y + Math.min(d - 3, 14));
+      if (sink.faucet) {
+        ctx.beginPath();
+        ctx.arc(x + w / 2, Math.max(y + 7, y + d * 0.22), Math.max(3.5, Math.min(7, scale * 1.1)), 0, Math.PI * 2);
+        ctx.fillStyle = "#d4a75a";
+        ctx.fill();
+        ctx.strokeStyle = "#4a3822";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = "#526174";
+    ctx.font = "13px sans-serif";
+    ctx.fillText(`${room.width}" × ${room.depth}" · ${placed.length} cabinet${placed.length === 1 ? "" : "s"}${sinks.length > 0 ? ` · ${sinks.length} sink${sinks.length === 1 ? "" : "s"}` : ""}`, 12, canvas.height - 10);
+    return canvas.toDataURL("image/png");
+  };
   const handleSaveBundle = () => {
     if (placed.length === 0) { toast.error("Add cabinets before saving a bundle."); return; }
     if (!bundleName.trim()) { toast.error("Please enter a bundle name."); return; }
     saveBundleMut.mutate({
       name: bundleName.trim(),
       description: bundleDesc.trim() || undefined,
-      designSnapshot: { room, placed, styleId, lockedDistributorId, selectedSurfaces: [] },
+      designSnapshot: {
+        room: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+        placed,
+        styleId,
+        lockedDistributorId,
+        roomType,
+        selectedSurfaces,
+        // Preserve designer state that determines the sink/faucet's visual
+        // setting and associated countertop when the customer opens a bundle.
+        countertop,
+        countertopMaterialId,
+        edgeProfileId,
+        // Backward-compatible fixture fallback for snapshots created before
+        // fixtures were embedded under room.persistedEntities.
+        sinks,
+      },
       styleId: styleId ?? undefined,
       styleName: activeStyleName ?? undefined,
       homeownerPrice: total > 0 ? total : undefined,
@@ -5189,6 +5391,88 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [isMobile, selectedCab?.uid, selectedOpening?.uid]);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
+
+  const threeDCabinetFinishOverrides = useMemo(
+    () => Object.fromEntries(placed.map((cabinet) => [cabinet.uid, finishForCab(cabinet).face])),
+    [placed, finishForCab],
+  );
+
+  const threeDCabinetDoorProfiles = useMemo(
+    () => Object.fromEntries(placed.flatMap((cabinet) => {
+      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+      const assignedStyle = doorStyles?.find((style) => style.id === assignedStyleId) ?? null;
+      if (!assignedStyle) return [];
+      return [[cabinet.uid, {
+        doorStyle: assignedStyle.doorStyle ?? null,
+        doorPanelType: assignedStyle.doorPanelType ?? null,
+      }]];
+    })),
+    [placed, styleId, doorStyles],
+  );
+
+  const threeDCabinetDoorSamples = useMemo(
+    () => Object.fromEntries(placed.flatMap((cabinet) => {
+      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+      const sampleUrl = assignedStyleId != null ? doorSampleById.get(assignedStyleId) : null;
+      return sampleUrl ? [[cabinet.uid, sampleUrl]] : [];
+    })),
+    [placed, styleId, doorSampleById],
+  );
+
+  const threeDCabinetFrontVisuals = useMemo(() => {
+    const liveVisualByCabinetId = new Map<number, string>();
+    ((liveMasterCabinets ?? []) as DesignCabinet[]).forEach((cabinet) => {
+      if (cabinet.catalogImageUrl) liveVisualByCabinetId.set(cabinet.id, cabinet.catalogImageUrl);
+    });
+    return Object.fromEntries(placed.flatMap((cabinet) => {
+      const visualUrl = cabinet.catalogImageUrl ?? liveVisualByCabinetId.get(cabinet.cabinetId) ?? null;
+      return visualUrl ? [[cabinet.uid, visualUrl]] : [];
+    }));
+  }, [placed, liveMasterCabinets]);
+
+  const renderNativeThreeDCanvas = () => {
+    if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
+    if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
+    return <InteractiveRoom3D
+      key={interactive3dRevision}
+      embedded
+      className="h-full min-h-0"
+      scene={resolvedInteractive3dScene}
+      placed={placed}
+      roomOverride={room}
+      openings={openings}
+      sinks={sinks}
+      island={island}
+      furniture={furniture}
+      ponyWalls={ponyWalls}
+      orderSummary={interactive3dOrderSummary}
+      orderLines={interactive3dOrderLines}
+      catalogItems={interactive3dCatalogItems}
+      onAddCatalogItem={addFromInteractive3d}
+      onAddRangeHood={addRangeHoodFromInteractive3d}
+      onSelectCabinet={selectCabinet}
+      onOpenCabinetEditor={openAttributes}
+      onRotateCabinet={rotateCabinet}
+      onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+      initialPresentation={interactive3dPresentation ?? undefined}
+      catalogFinishOverride={activeFinish.face}
+      cabinetFinishOverrides={threeDCabinetFinishOverrides}
+      cabinetDoorProfiles={threeDCabinetDoorProfiles}
+      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
+      cabinetFrontVisuals={threeDCabinetFrontVisuals}
+      catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
+      catalogFinishName={activeStyleName}
+      catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+      onPresentationChange={setInteractive3dPresentation}
+      onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
+      onRoomWallHeightsChange={(heights) => setRoom((current) => ({ ...current, wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"] }))}
+      onMoveCabinet={moveCabinetFrom3D}
+      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
+      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
+    />;
+  };
 
   if (!verified) {
     return (
@@ -5270,7 +5554,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           variant="outline"
           size="sm"
           className="hidden lg:inline-flex shrink-0"
-          onClick={() => setInteractive3dOpen(true)}
+          onClick={() => setViewMode("threeD")}
           disabled={!canLoadInteractive3d || interactive3dLoading}
           title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
         >
@@ -5304,9 +5588,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </button>
           <button
             type="button"
-            onClick={() => setInteractive3dOpen(true)}
+            onClick={() => setViewMode("threeD")}
             disabled={!canLoadInteractive3d || interactive3dLoading}
-            className="rounded-full px-2 py-1 text-[10px] font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/25 disabled:opacity-40"
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
           >
             3D
           </button>
@@ -5431,10 +5715,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             <Eye className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => setInteractive3dOpen(true)}
+            onClick={() => setViewMode("threeD")}
             disabled={!canLoadInteractive3d || interactive3dLoading}
-            title="Open interactive 3D view"
-            className="inline-flex items-center justify-center h-6 w-7 rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-40"
+            title="Show the synchronized 3D designer canvas"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
           >
             <Boxes className="h-3.5 w-3.5" />
           </button>
@@ -5551,9 +5835,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         {placed.length > 0 && (
           <button
             type="button"
-            onClick={() => setInteractive3dOpen(true)}
-            title="Open deterministic 3D preview"
-            className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+            onClick={() => setViewMode("threeD")}
+            title="Show the synchronized 3D designer canvas"
+            className={`hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${viewMode === "threeD" ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"}`}
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
@@ -5702,7 +5986,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 <div className="px-1 pb-1">
                   <button
                     disabled={!canLoadInteractive3d || interactive3dLoading}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 120); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 120); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
                   >
                     <Boxes className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -5897,7 +6181,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <button
                     type="button"
                     disabled={placed.length === 0}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 150); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 150); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
@@ -6362,17 +6646,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
-              {isAdmin && (
-                <a
-                  href={`/catalog/${encodeURIComponent(selectedCab.masterCode)}?edit=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                  title="Open Cabinet Config in new tab"
-                >
-                  Edit Config ↗
-                </a>
-              )}
+              {(() => {
+                const editConfigHref = isAdmin
+                  ? cabinetEditConfigHref(selectedCab.masterCode, selectedCab.cabinetId)
+                  : null;
+                return editConfigHref ? (
+                  <a
+                    href={editConfigHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                    title="Open this cabinet's exact configuration record in a new tab"
+                  >
+                    Edit Config ↗
+                  </a>
+                ) : null;
+              })()}
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
               {/* Custom sizing: resize this cabinet's Width, Height and Depth to
@@ -7537,6 +7826,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
             />
           )}
+          {viewMode === "threeD" && renderNativeThreeDCanvas()}
           {viewMode === "elevation" && (
             <ElevationView
               room={room}
@@ -8380,7 +8670,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
                     : ""}
                   {cornerBaseViolationUids.size > 0
-                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB). `
+                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a doorway corner — select an ER36 or BER36 Easy Reach corner cabinet for that opening. `
                     : ""}
                   An appliance running into a cabinet must be fixed before ordering.
                 </span>
@@ -8833,6 +9123,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}
         onSetDepth={(_uid, v) => setCustomDepth(v)}
+        mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? elevationBox(cabinet, room).bottom : null; })() : null}
+        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? Math.max(0, (room.ceilingHeight ?? 96) - elevationBox(cabinet, room).height) : 0; })() : 0}
+        onSetMountBottom={setMountBottomFor}
         onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
@@ -8847,11 +9140,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}
         onSetCustomProfile={(uid, customProfile) => setCabAttr(uid, { customProfile })}
-        masterConfigHref={isAdmin ? `/catalog/${encodeURIComponent((attrUid ? placed.find((p) => p.uid === attrUid) : null)?.masterCode ?? "")}?edit=1` : undefined}
+        masterConfigHref={isAdmin
+          ? cabinetEditConfigHref(
+              (attrUid ? placed.find((p) => p.uid === attrUid) : null)?.masterCode,
+              (attrUid ? placed.find((p) => p.uid === attrUid) : null)?.cabinetId,
+            ) ?? undefined
+          : undefined}
         onSaveMasterConfig={isAdmin ? (cabinet) => {
           if (!cabinet.cabinetId || !cabinet.category) return;
           saveMasterCabinetConfig.mutate({
-            id: cabinet.cabinetId,
+            cabinetId: cabinet.cabinetId,
             category: cabinet.category,
             subCategory: cabinet.subCategory ?? null,
             graphicType: cabinet.customProfile ?? "standard",
@@ -8903,8 +9201,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const autoSink = cab
             ? makeSinkForCabinet("single", cab, room)
             : makeSink("single", 0, 0, activeWall);
-          setSinks((prevSinks) => [...prevSinks, autoSink]);
-          setSelectedSinkUid(autoSink.uid);
+          const sinkWithFaucet = { ...autoSink, faucet: Boolean(faucetProduct) };
+          setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
+          setSelectedSinkUid(sinkWithFaucet.uid);
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
           if (sinkProduct) {
             addRecommendedSurface(
@@ -9265,7 +9564,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     }}
                   />
                   {selectedLayoutPresetId ? (
-                    <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setInteractive3dOpen(true); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
+                    <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setViewMode("threeD"); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
                       <Boxes className="mr-1.5 h-4 w-4" /> Open interactive 3D preview
                     </Button>
                   ) : null}
@@ -9305,10 +9604,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
       <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
         <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
-            <DialogDescription>This room renders the active 2D design, including its selected door finish, placements, openings, and windows. Drag to orbit and use the controls to zoom.</DialogDescription>
-          </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
@@ -9328,6 +9623,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogItems={interactive3dCatalogItems}
                 onAddCatalogItem={addFromInteractive3d}
                 onAddRangeHood={addRangeHoodFromInteractive3d}
+                onOpenCabinetEditor={openAttributes}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
@@ -9346,6 +9642,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   ...current,
                   wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
                 }))}
+                onMoveCabinet={moveCabinetFrom3D}
+                onRotateCabinet={rotateCabinet}
+                cabinetConfigHref={isAdmin
+                  ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId)
+                  : undefined}
                 shareContext={selectedStyleDistributorId != null && styleId != null ? {
                   layoutPresetId: activeSceneLayoutPresetId,
                   distributorId: selectedStyleDistributorId,

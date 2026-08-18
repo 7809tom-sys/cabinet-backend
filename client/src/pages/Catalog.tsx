@@ -11,25 +11,9 @@ import { trpc } from "@/lib/trpc";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
-import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
-
-// Door-style tiles for the catalog landing — the shop is organized by door style,
-// not Base/Wall/Tall categories. Each links into the full Door Styles experience.
-interface DoorStyleTile {
-  label: string;
-  blurb: string;
-  image: string;
-}
-const DOOR_STYLE_TILES: DoorStyleTile[] = [
-  { label: "White Shaker", blurb: "Clean, bright and timeless — the most-requested look.", image: KITCHEN_SCENES["shaker-white"] },
-  { label: "Gray Shaker", blurb: "Cool, modern neutral that pairs with any countertop.", image: KITCHEN_SCENES["shaker-gray"] },
-  { label: "Raised Panel", blurb: "Traditional warmth with detailed cathedral fronts.", image: KITCHEN_SCENES["raised-cherry"] },
-  { label: "Contemporary Slab", blurb: "Flat, handle-light fronts for a sleek modern kitchen.", image: KITCHEN_SCENES["slab-natural"] },
-  { label: "Espresso", blurb: "Rich, deep tones for a bold, sophisticated space.", image: KITCHEN_SCENES["shaker-espresso"] },
-];
 
 // ─── Category presentation config ──────────────────────────────────────────────
 // Maps DB category values to a room-scene image + short description. Categories
@@ -249,25 +233,18 @@ function CategoryLanding({
         {t("cat_shop_by_style_sub")}
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {(featuredStyles.length > 0
-          ? featuredStyles.map((s) => ({
-              // Prefer aliasName (CD_STANDARDS white-label), then featuredLabel, then ourName.
-              label: styleDisplayName(s) || s.featuredLabel || s.styleCode,
-              href: `/family/${encodeURIComponent(s.styleCode)}`,
-              // Real, verified per-style scene from the DB (guaranteed present by
-              // the filter above) — matches the style's name, never a guess.
-              image: s.roomSceneImageUrl as string,
-              blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") ||
-                t("cat_blurb_fallback"),
-            }))
-          : DOOR_STYLE_TILES.map((t) => ({
-              label: t.label,
-              href: "/styles",
-              image: t.image,
-              blurb: t.blurb,
-            }))
-        ).map((tile) => (
+      {featuredStyles.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {featuredStyles.map((s) => ({
+            // Prefer aliasName (CD_STANDARDS white-label), then the authored
+            // feature label and code. No generic family or finish name is added.
+            label: styleDisplayName(s) || s.featuredLabel || s.styleCode,
+            href: `/family/${encodeURIComponent(s.styleCode)}`,
+            // A tile is allowed only when the supplied record includes this
+            // style's actual room scene—never a stock substitute.
+            image: s.roomSceneImageUrl as string,
+            blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || null,
+          })).map((tile) => (
           <Link
             key={tile.label}
             href={tile.href}
@@ -284,11 +261,16 @@ function CategoryLanding({
                 <h3 className="font-serif text-xl font-bold text-white">{tile.label}</h3>
                 <ChevronRight className="h-5 w-5 text-white/80 group-hover:translate-x-1 transition-transform" />
               </div>
-              <p className="text-white/80 text-xs mt-1 line-clamp-2">{tile.blurb}</p>
+              {tile.blurb && <p className="text-white/80 text-xs mt-1 line-clamp-2">{tile.blurb}</p>}
             </div>
           </Link>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-5 py-8 text-sm text-muted-foreground">
+          Feature styles appear here after their Cabinet Config information and verified room scene are provided.
+        </div>
+      )}
 
       {/* Cabinet types are intentionally not shown here. Customers choose a
           door-style family first; the family page then exposes contextual Base,

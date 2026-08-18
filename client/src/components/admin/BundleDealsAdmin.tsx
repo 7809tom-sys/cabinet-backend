@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  PackageOpen, Trash2, LayoutGrid, DollarSign, ExternalLink, Eye, EyeOff,
+  PackageOpen, Trash2, LayoutGrid, DollarSign, ExternalLink, Eye, EyeOff, MapPin,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -69,11 +69,20 @@ export default function BundleDealsAdmin() {
           }`}
         >
           {/* Hero image or icon */}
-          <div className="shrink-0 w-16 h-16 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-            {bundle.heroImageUrl ? (
+          <div className="shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+            {bundle.floorPlanImageUrl ? (
+              <img src={bundle.floorPlanImageUrl} alt={bundle.name} className="w-full h-full object-contain bg-white p-1" />
+            ) : bundle.heroImageUrl ? (
               <img src={bundle.heroImageUrl} alt={bundle.name} className="w-full h-full object-cover" />
             ) : (
-              <LayoutGrid className="h-6 w-6 text-muted-foreground/40" />
+              <div className="flex flex-col items-center gap-1">
+                <MapPin className="h-5 w-5 text-muted-foreground/40" />
+                <span className="text-[9px] text-muted-foreground/40">
+                  {bundle.roomWidthInches && bundle.roomDepthInches
+                    ? `${Math.round(bundle.roomWidthInches / 12)}' × ${Math.round(bundle.roomDepthInches / 12)}'`
+                    : "No plan"}
+                </span>
+              </div>
             )}
           </div>
 

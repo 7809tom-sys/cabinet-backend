@@ -118,6 +118,13 @@ function Hero() {
                   Design Your Kitchen
                 </Button>
               </Link>
+              <Link href="/bundles">
+                <Button size="lg" className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 font-semibold gap-2 shadow-lg shadow-amber-500/25">
+                  <PackageOpen className="h-4 w-4" />
+                  Bundle Deals
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -815,3 +822,4 @@ export default function Home() {
     </div>
   );
 }
+import { PackageOpen } from "lucide-react";

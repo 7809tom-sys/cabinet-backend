@@ -326,6 +326,7 @@ export default function AffiliateDashboard() {
     "appointments",
     "customize",
     "marketing",
+    "bundles",
     "plugins",
     "tax",
     "team",
@@ -661,6 +662,8 @@ export default function AffiliateDashboard() {
         return <InstallationEstimatesPanel affiliateId={affiliate.id} />;
       case "marketing":
         return <AffiliateMarketingHub />;
+      case "bundles":
+        return <AffiliateBundleDealsPanel affiliateId={affiliate.id} />;
       case "tax":
         return (
           <div className="max-w-3xl">
@@ -2316,3 +2319,4 @@ function W9Panel() {
 import { AffiliateTeamPanel } from "@/components/affiliate/AffiliateTeamPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CustomDomainGuide } from "@/components/affiliate/CustomDomainGuide";
+import { AffiliateBundleDealsPanel } from "@/components/affiliate/AffiliateBundleDealsPanel";

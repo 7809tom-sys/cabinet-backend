@@ -228,6 +228,13 @@
 - [x] Add right-wall sink-base orientation regression coverage
 - [ ] Verify the reported plan and 3D scene with the corrected right-wall sink
 
+## Fix: Farm Sink Base Added as Floating Room Cabinet
+- [x] Trace SB-36 farm sink-base palette positioning and active-wall selection
+- [x] Resolve SB-36 palette additions to an exact valid opening on the active wall instead of only blocking the room-center fallback
+- [x] Keep the existing dialog-first sink/faucet selection behavior explicit after valid farm sink-base placement
+- [ ] Add actual DesignTool FSB-36 palette-click coverage for a valid opening and a no-space active wall
+- [ ] Verify SB-36 snaps to a valid selected-wall opening in the live designer
+
 ## Fix: Sink-base cabinets show an extra horizontal false-drawer handle in 3D
 
 - [x] Trace 3D sink-base false-drawer and hardware generation
@@ -258,6 +265,15 @@
 - [x] Exempt only a wall-matched, centered, mounted MW-30/RANGE-30 pair from that final guard
 - [x] Retain rejection for floor-height, misaligned, or incompatible appliance overlaps
 - [x] Add final-placement regression coverage for the reported top-wall and right-wall layouts
+
+## Fix: MW-30 Palette Add Floats in Room Instead of Attaching to RANGE-30
+- [x] Trace MW-30 palette-add and drag paths that use the canvas drop point instead of a compatible range
+- [x] Auto-center MW-30 over the selected or nearest compatible range on its wall
+- [x] Keep manual free placement unavailable for over-range microwaves without a compatible range
+- [ ] Add real component palette-add placement regression for the reported top-wall range
+- [x] Verify palette-added MW-30 mounts above the reported top-wall range in the live designer
+- [x] Block MW-30 with a clear error when no compatible range exists
+- [ ] Add real component drag/drop regression for top-wall/right-wall ranges and no-range error
 
 ## Fix: Range variants need catalog-correct front or rear control layouts
 
@@ -394,6 +410,13 @@
 - [x] Preserve floor-to-ceiling finish skins without cabinet doors or hardware
 - [x] Add left/right adjacent-cabinet overlap regressions
 - [ ] Verify the reported wall without panels covering adjacent cabinet faces
+
+## Fix: Refrigerator End Panel Stops at Adjacent Base Cabinet
+- [x] Trace shared refrigerator-panel elevation calculation that lets B-18 truncate the left panel
+- [x] Enforce floor-to-ceiling left and right refrigerator panels for every cabinet line
+- [x] Preserve narrow seam placement without covering refrigerator or neighboring cabinet faces
+- [x] Add left/right panel regressions next to base cabinets across catalog lines
+- [ ] Verify the reported B-18 refrigerator elevation in the live designer
 
 ## Fix: Saved refrigerator panels still overlap adjacent cabinet runs
 
@@ -2528,14 +2551,128 @@
 - [x] Add responsive per-wall controls in the 3D toolbar
 - [x] Render each room wall to its own selected height while preserving wall visibility controls
 - [x] Add per-wall height rendering regressions
-- [ ] Verify a room with one and two changed walls in the live 3D preview
+- [x] Verify a room with one and two changed walls in the live 3D preview
 
-## Fix: Live 3D Cabinet Movement Commands
-- [ ] Inspect the live selected W-30-24 placement record and trace an actual adjustment command
-- [ ] Repair any remaining live movement-command failure and show feedback for allowed or blocked moves
-- [ ] Verify actual 2D and 3D position changes on computer, tablet, and phone
+## 3D: Front Wall Height Mapping
+- [x] Trace why the Front = 1 inch field does not affect the visible front wall in the reported room
+- [x] Map the Front control to the correct room edge for rectangular and custom layouts
+- [x] Preserve independently working Back, Left, and Right wall controls
+- [x] Add front-wall mapping regressions
+- [x] Verify Front = 1 inch in the live preview after the corrected mapping is published
 
-## Fix: 3D-Only Cabinet Movement Focus
-- [ ] Trace the selected-cabinet transform and move-button event path in the 3D scene only
-- [ ] Make each 3D movement command visibly reposition the selected cabinet in the 3D scene
-- [ ] Verify computer, tablet, and phone interactions without changing the 2D interface
+## 3D: Independent Four-Wall Height Preservation
+- [x] Trace any state path that resets or mirrors another wall when one wall height changes
+- [x] Preserve distinct Back, Left, Right, and Front values through each individual update
+- [x] Keep the all-wall field as the only intentional control that updates all four walls
+- [x] Add cross-wall independence regressions
+- [x] Verify four different heights in the live preview
+
+## 3D: Physical Wall Control Assignments
+- [x] Trace the rendered Back wall behind the stove/refrigerator and Right wall behind the sink
+- [x] Align Back, Right, Front, and Left control labels to their physical room walls
+- [x] Preserve independent saved wall heights after physical label alignment
+- [x] Add physical-wall mapping regressions
+- [x] Verify the stove/refrigerator and sink walls in the live 3D room
+
+## 3D: Visible Independent Wall Geometry
+- [x] Trace rendered room-polygon units and visible wall mesh positions for selected Back 45, Left 45, Right 96, Front 96 heights
+- [x] Render each actual wall edge at its selected height without being mirrored or hidden by cabinet geometry
+- [x] Make selected wall-height changes visually legible while retaining room-context transparency
+- [x] Add wall-mesh height regressions
+- [x] Verify the reported selected-height view after the corrected physical wall geometry is published
+
+## 3D: Exact Visible Wall-Mesh Bindings
+- [x] Trace why Back 45, Left 96, Right 45, Front 96 binds the Right and Front controls to the wrong visible meshes
+- [x] Bind Back, Left, Right, and Front values directly to their corresponding physical mesh edges
+- [x] Add rendered mesh-height assertions for the reported mixed-height values
+- [x] Verify all four visible walls match their selected values in the live preview
+
+## 3D: Wall Height Clearance for Upper Cabinets
+- [x] Trace physical wall ownership and top elevations for upper cabinet runs
+- [x] Warn when an independently selected wall height ends below uppers on that wall
+- [x] Preserve user-selected independent values without silently raising other walls
+- [x] Add Back and Right upper-run clearance regressions
+- [x] Verify Back and Right at 96 inches in the live 3D preview
+
+## 3D: Diagonal Wall Cabinet Faces into Corner
+- [x] Trace the reported diagonal wall cabinet’s 2D turn, geometry kind, and 3D rotation
+- [x] Rotate its angled face and doors toward the open room for each corner orientation
+- [x] Preserve existing correct diagonal, angled-wall, and lazy-Susan transforms
+- [x] Add diagonal wall corner orientation regressions
+- [ ] Verify the reported diagonal wall cabinet in the live 3D view
+
+## 3D: Reported Diagonal Wall Cabinet Still Faces Corner
+- [ ] Identify the exact reported diagonal wall cabinet and installed room corner from its 2D record
+- [ ] Correct its actual face-plane placement so doors occupy the open-room diagonal
+- [ ] Add an instance-level mesh-position regression for the reported corner
+- [ ] Verify the corrected diagonal wall face in the live 3D view
+
+## 3D: Diagonal Wall Cabinet Door Count
+- [x] Trace catalog number-of-doors data for the reported one-door diagonal wall cabinet
+- [x] Render a single full angled door when the catalog specifies one door
+- [x] Preserve two-door diagonal faces for catalog models that specify two doors
+- [x] Add one-door and two-door diagonal wall regressions
+- [ ] Verify the reported one-door diagonal wall cabinet in the live 3D view
+
+## 3D: One-Door Diagonal Wall Cabinet Hardware
+- [x] Trace the diagonal face’s missing single-door pull path
+- [x] Add a room-facing handle to a one-door diagonal wall cabinet
+- [x] Preserve existing pulls for two-door diagonal wall cabinets
+- [x] Add diagonal single-door hardware regression coverage
+- [ ] Verify the reported cabinet handle in the live 3D view
+
+## 3D: One-Door Diagonal Pull Opposite Hinge
+- [ ] Trace the one-door diagonal hinge direction and angled-door tangent vector
+- [ ] Move the vertical pull to the angled edge opposite the hinge
+- [ ] Preserve handle height and room-facing hardware depth
+- [ ] Add hinge-opposite pull regression coverage and verify the reported cabinet
+
+## 3D: W3024 Dimension Interpretation
+- [x] Trace W3024 catalog records and the 2D-to-3D dimension conversion
+- [x] Render W3024 as 30 inches wide by 24 inches high above the microwave
+- [x] Preserve dimension parsing for other compact wall cabinet codes
+- [x] Add W3024 regression coverage
+- [ ] Verify the reported W3024 3D placement above the microwave
+
+## Designer: Right-Click Wall Cabinet Up/Down Mounting
+- [x] Trace cabinet right-click attributes, mount-bottom persistence, and elevation collision rules
+- [x] Add selected wall cabinet Up and Down mounting controls to the attributes dialog
+- [x] Prevent moves through the ceiling, appliances, windows, and other wall cabinets
+- [x] Add mounting adjustment regressions
+- [ ] Verify W3024 above the microwave can move up/down in the live 2D elevation
+
+## Designer: 3D Right-Click Cabinet Movement
+- [x] Trace 3D cabinet picking, context-menu state, and 2D placement synchronization
+- [x] Open selected cabinet/SKU attributes with a right-click in the 3D view
+- [x] Add Up, Down, Left, Right, In, and Out movement controls in controlled increments
+- [x] Keep 2D plan and 3D scene synchronized while blocking out-of-room and overlap moves
+- [x] Add 3D movement regression coverage and verify the cabinet attributes panel in the live scene
+
+## Designer: Universal Single-Door Left/Right Hinge Choice
+- [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
+- [x] Provide a Left hinge / Right hinge control for every single-door cabinet
+- [x] Persist the selected swing with the placed cabinet and saved design
+- [x] Put all single-door 3D pulls on the edge opposite the selected hinge, including diagonal faces
+- [x] Add standard and diagonal single-door hinge regressions
+- [ ] Verify Left/Right hinge choices and opposite-edge pulls in the live designer
+
+## 3D: Reference-Calibrated Natural Wood Cabinet Finish
+- [x] Trace current natural-wood finish mapping, roughness, and cabinet-face shading
+- [x] Calibrate the selected natural wood finish to the supplied door, drawer, and room-scene references
+- [x] Preserve smooth cabinet shells and physically modeled door/drawer construction
+- [x] Add natural wood material regressions
+- [ ] Verify the 3D room against the supplied natural-wood references
+
+## Designer: Base Lazy Susan and Easy-Reach Hinge Choice
+- [x] Trace LSB and easy-reach base cabinet hinge metadata and attribute-editor eligibility
+- [x] Offer Left hinge / Right hinge choices for single-door LSB and easy-reach base cabinets
+- [x] Place their room-facing handles on the opening edge opposite the selected hinge
+- [x] Add corner-base hinge regressions
+- [ ] Verify LSB and easy-reach left/right hinge handles in the live designer
+
+## 3D: Base Lazy Susan Pull at Upper Opening Edge
+- [x] Trace LSB room-facing door height and current handle vertical offset
+- [x] Move the LSB pull to the upper edge of its room-facing door
+- [x] Preserve opposite-hinge lateral placement and easy-reach behavior
+- [x] Add LSB pull-height regression coverage
+- [ ] Verify the reported LSB pull in the live 3D cabinet

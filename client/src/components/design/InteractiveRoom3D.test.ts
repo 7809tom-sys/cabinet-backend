@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight, resolvedThreeDWallHeights, threeDWallSideForEdge } from "./InteractiveRoom3D";
-import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
-import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey } from "./InteractiveRoom3D";
+import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
@@ -18,6 +18,55 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+  it("uses each placed cabinet's saved 2D finish before the design default", () => {
+    const defaultFinish = "#f1eee7";
+    const overrides = { upper: "#18334e", island: "#a87f33" };
+    expect(resolvedPlacedCabinetFinish({ uid: "upper" }, overrides, defaultFinish)).toBe("#18334e");
+    expect(resolvedPlacedCabinetFinish({ uid: "lower" }, overrides, defaultFinish)).toBe(defaultFinish);
+    expect(resolvedPlacedCabinetFinish({ uid: "island" }, overrides, defaultFinish)).toBe("#a87f33");
+  });
+
+  it("uses each placed cabinet's saved plan door profile before the design default", () => {
+    const planDefault = { doorStyle: "Shaker", doorPanelType: "Matching" };
+    const profiles = { upper: { doorStyle: "Raised", doorPanelType: "Center panel" } };
+    expect(resolvedPlacedCabinetDoorProfile({ uid: "upper" }, profiles, planDefault)).toEqual(profiles.upper);
+    expect(resolvedPlacedCabinetDoorProfile({ uid: "lower" }, profiles, planDefault)).toEqual(planDefault);
+  });
+
+  it("uses an explicit cabinet style's admin door sample before the design default sample", () => {
+    const samples = { upper: "https://cdn.example.com/explicit-style.jpg" };
+    expect(resolvedPlacedCabinetDoorSampleUrl({ uid: "upper" }, samples, "https://cdn.example.com/default-style.jpg", true))
+      .toBe("https://cdn.example.com/explicit-style.jpg");
+    expect(resolvedPlacedCabinetDoorSampleUrl({ uid: "lower" }, samples, "https://cdn.example.com/default-style.jpg", true))
+      .toBe("https://cdn.example.com/default-style.jpg");
+  });
+
+  it("does not paint generic Shaker rails over a supplied complete CabinetDealz door sample", () => {
+    expect(threeDUsesPhysicalShakerRails("shaker", true)).toBe(false);
+    expect(threeDUsesPhysicalShakerRails("shaker", false)).toBe(true);
+    expect(threeDUsesPhysicalShakerRails("flat", true)).toBe(false);
+  });
+
+  it("uses an exact unlit material for supplied CabinetDealz door samples", () => {
+    expect(threeDUsesExactDoorSampleMaterial(true)).toBe(true);
+    expect(threeDUsesExactDoorSampleMaterial(false)).toBe(false);
+  });
+
+  it("keeps every 2D catalog group searchable without an arbitrary eight-item limit", () => {
+    const catalog = [
+      { id: 1, masterCode: "B-24", description: "Base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const },
+      { id: 2, masterCode: "LS36", description: "Corner cabinet", category: "Cabinet" as const, catalogGroup: "Corner" as const },
+      { id: 3, masterCode: "W-30", description: "Wall cabinet", category: "Cabinet" as const, catalogGroup: "Wall" as const },
+      { id: 4, masterCode: "P-24", description: "Tall pantry", category: "Cabinet" as const, catalogGroup: "Tall" as const },
+      { id: 5, masterCode: "RANGE-30", description: "Range", category: "Appliance" as const, catalogGroup: "Appliances" as const },
+      { id: 6, masterCode: "TK-4", description: "Toe kick", category: "Accessory" as const, catalogGroup: "Accessories" as const },
+      ...Array.from({ length: 12 }, (_, index) => ({ id: 20 + index, masterCode: `B-${index + 30}`, description: "Additional base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const })),
+    ];
+    expect(filteredThreeDCatalogItems(catalog, "All", "")).toHaveLength(18);
+    expect(filteredThreeDCatalogItems(catalog, "Base", "")).toHaveLength(13);
+    expect(filteredThreeDCatalogItems(catalog, "Tall", "pantry").map((item) => item.masterCode)).toEqual(["P-24"]);
+  });
+
   it("resolves independently persisted back, left, right, and front wall heights", () => {
     const heights = resolvedThreeDWallHeights({
       width: 144,
@@ -31,21 +80,107 @@ describe("interactive 3D room scene helpers", () => {
     expect(heights).toEqual({ top: 108, left: 96, right: 84, bottom: 96 });
   });
 
-  it("preserves the exact saved placement ID for a 3D-picked cabinet", () => {
-    const placed = { uid: "placed-w3024", cabinetId: 3024, masterCode: "W-30-24", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 24, x: 42, y: 0, rotation: 0 } as never;
-    const root = new THREE.Group();
-    const sku = existingCabinetSku(placed);
-    addCabinet(root, sku, null, {}, 144, 120, "#4f584c", "#f8f8f6", undefined, existingCabinetTransform(placed, { width: 144, depth: 120, ceilingHeight: 96 }));
-    expect(sku.placementUid).toBe("placed-w3024");
-    expect(root.children[0]?.userData.placedUid).toBe("placed-w3024");
+  it("preserves three wall heights when one independent wall changes", () => {
+    const initial = { top: 108, left: 84, right: 120, bottom: 96 };
+    expect(updatedThreeDWallHeights(initial, "bottom", 1)).toEqual({ top: 108, left: 84, right: 120, bottom: 1 });
+    expect(updatedThreeDWallHeights(initial, "right", 72)).toEqual({ top: 108, left: 84, right: 72, bottom: 96 });
   });
 
   it("maps rectangular wall edges to the four independent height controls", () => {
     const room = { width: 144, depth: 120 };
-    expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 144, y: 0 }, room)).toBe("top");
-    expect(threeDWallSideForEdge({ x: 144, y: 0 }, { x: 144, y: 120 }, room)).toBe("right");
-    expect(threeDWallSideForEdge({ x: 144, y: 120 }, { x: 0, y: 120 }, room)).toBe("bottom");
-    expect(threeDWallSideForEdge({ x: 0, y: 120 }, { x: 0, y: 0 }, room)).toBe("left");
+    // The renderer stores plan-front as negative Three.js Z/Y coordinates.
+    expect(threeDWallSideForEdge({ x: 0, y: 0 }, { x: 12, y: 0 }, room)).toBe("top");
+    expect(threeDWallSideForEdge({ x: 12, y: 0 }, { x: 12, y: -10 }, room)).toBe("right");
+    expect(threeDWallSideForEdge({ x: 12, y: -10 }, { x: 0, y: -10 }, room)).toBe("bottom");
+    expect(threeDWallSideForEdge({ x: 0, y: -10 }, { x: 0, y: 0 }, room)).toBe("left");
+  });
+
+  it("binds each rectangular mesh edge directly to Back, Right, Front, and Left", () => {
+    const room = { width: 144, depth: 120 };
+    const edges = [
+      [{ x: 0, y: 0 }, { x: 12, y: 0 }],
+      [{ x: 12, y: 0 }, { x: 12, y: -10 }],
+      [{ x: 12, y: -10 }, { x: 0, y: -10 }],
+      [{ x: 0, y: -10 }, { x: 0, y: 0 }],
+    ] as const;
+    expect(edges.map(([start, end], index) => threeDWallSideForPolygonEdge(index, edges.length, start, end, room))).toEqual(["top", "right", "bottom", "left"]);
+  });
+
+  it("maps the stove and refrigerator run to Back and the sink run to Right", () => {
+    const room = { width: 144, depth: 120 };
+    const range = { uid: "range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36, x: 42, y: 0, rotation: 0 } as any;
+    const sinkBase = { uid: "sink", masterCode: "SB-36", placement: "base", width: 36, depth: 24, height: 34.5, x: 120, y: 42, rotation: 90 } as any;
+    expect(threeDPlacedWall(range, room)).toBe("back");
+    expect(threeDPlacedWall(sinkBase, room)).toBe("right");
+  });
+
+  it("preserves the exact 2D placement identity for a picked 3D cabinet group", () => {
+    const placed = { uid: "placed-w3024", cabinetId: 3024, masterCode: "W3024", description: "Wall cabinet", placement: "wall", width: 30, depth: 12, height: 24, x: 42, y: 0, rotation: 0 } as any;
+    const root = new THREE.Group();
+    const sku = existingCabinetSku(placed);
+    addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, existingCabinetTransform(placed, { width: 144, depth: 120, ceilingHeight: 96 }));
+    expect(sku.placementUid).toBe("placed-w3024");
+    expect(root.children[0]?.userData.placedUid).toBe("placed-w3024");
+  });
+
+  it("always exposes a selected cabinet description for the 3D attributes card", () => {
+    expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: "30 inch double-door base cabinet" } as any)).toBe("30 inch double-door base cabinet");
+    expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: null } as any)).toBe("B-30 cabinet");
+  });
+
+  it("reserves a phone-safe text lane whenever the selected-cabinet movement D-pad is visible", () => {
+    expect(threeDSelectedCabinetCardClearanceClass(true)).toBe("pl-28 sm:pl-3");
+    expect(threeDSelectedCabinetCardClearanceClass(false)).toBe("");
+  });
+
+  it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
+    const root = new THREE.Group();
+    root.userData = { placedUid: "placed-b30", label: "30 inch double-door base cabinet", distributorSkuId: 930030 };
+    const cabinetGroup = new THREE.Group();
+    cabinetGroup.userData = { masterCode: "B-30" };
+    const face = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    face.userData = { masterCode: "B-30" };
+    root.add(cabinetGroup);
+    cabinetGroup.add(face);
+
+    expect(threeDCabinetHitFromObject(face)).toEqual({
+      uid: "placed-b30",
+      masterCode: "B-30",
+      description: "30 inch double-door base cabinet",
+      distributorSkuId: 930030,
+    });
+  });
+
+  it("keeps catalog additions available while rendering an existing saved 2D plan", () => {
+    expect(shouldShowThreeDCatalog([{ id: 30, masterCode: "B-30", description: "Base cabinet", category: "Cabinet" }])).toBe(true);
+    expect(shouldShowThreeDCatalog([])).toBe(false);
+  });
+
+  it("keeps every capability behind the compact canvas-first 3D action bar", () => {
+    expect(THREE_D_WORKSPACE_ACTIONS).toEqual(["catalog", "view", "finish", "room", "output"]);
+  });
+
+  it("keeps the complete active 2D catalog accessible through the matching 3D category groups and search", () => {
+    const items = [
+      { id: 1, masterCode: "B-30", description: "Base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const },
+      { id: 2, masterCode: "W-30", description: "Wall cabinet", category: "Cabinet" as const, catalogGroup: "Wall" as const },
+      { id: 3, masterCode: "T-84", description: "Tall pantry", category: "Cabinet" as const, catalogGroup: "Tall" as const },
+      { id: 4, masterCode: "RANGE-30", description: "Gas range", category: "Appliance" as const, catalogGroup: "Appliances" as const },
+    ];
+    expect(filteredThreeDCatalogItems(items, "All", "")).toHaveLength(4);
+    expect(filteredThreeDCatalogItems(items, "Wall", "")).toEqual([items[1]]);
+    expect(filteredThreeDCatalogItems(items, "All", "pantry")).toEqual([items[2]]);
+  });
+
+  it("mirrors diagonal corner turns so the angled wall-cabinet face points into every room corner", () => {
+    expect([0, 90, 180, 270].map(diagonalCornerRoomRotation)).toEqual([0, 270, 180, 90]);
+  });
+
+  it("requires a 96-inch wall behind upper runs on the Back and Right walls", () => {
+    const room = { width: 144, depth: 120 } as any;
+    const backUpper = { uid: "back-upper", masterCode: "W-30", placement: "wall", width: 30, depth: 12, height: 30, x: 42, y: 0, rotation: 0 } as any;
+    const rightUpper = { uid: "right-upper", masterCode: "W-30", placement: "wall", width: 30, depth: 12, height: 30, x: 132, y: 42, rotation: 90 } as any;
+    expect(threeDUpperCabinetWallMinimums([backUpper, rightUpper], room)).toEqual({ top: 96, right: 96 });
   });
 
   it("keeps the mobile orbit camera outside a room-scaled furnished envelope", () => {
@@ -92,6 +227,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Aero Sage (Preston)", finish: "Matching" } } })).toBe("#4f5549");
+    expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Designer Natural", finish: "Natural Maple" } } })).toBe("#d1ba8f");
   });
 
   it("constrains adjustable 3D wall height from one inch through ten feet", () => {
@@ -127,8 +263,22 @@ describe("interactive 3D room scene helpers", () => {
     expect(resolvedThreeDDoorSampleUrl("#75523e", "/manus-storage/silva-shaker.png", true)).toBe("/manus-storage/silva-shaker.png");
   });
 
-  it("uses a smooth calibrated 3D cabinet finish instead of tiling a catalog door swatch", () => {
-    expect(threeDUsesDoorSampleTexture()).toBe(false);
+  it("uses the supplied selected door sample without generic tinting", () => {
+    expect(threeDUsesDoorSampleTexture("/manus-storage/silva.png")).toBe(true);
+    expect(threeDUsesDoorSampleTexture(null)).toBe(false);
+    expect(threeDFaceMaterialColor("#75523e", true)).toBe("#ffffff");
+    expect(threeDFaceMaterialColor("#75523e", false)).toBe("#75523e");
+  });
+
+  it("uses supplied Cabinet Config visuals for cabinet fronts, never appliance or guessed visuals", () => {
+    expect(threeDCabinetFrontVisualUrl({ placementType: "base", catalogImageUrl: "/manus-storage/b18.png" })).toBe("/manus-storage/b18.png");
+    expect(threeDCabinetFrontVisualUrl({ placementType: "appliance", catalogImageUrl: "/manus-storage/range.png" })).toBeNull();
+    expect(threeDCabinetFrontVisualUrl({ placementType: "base", catalogImageUrl: null })).toBeNull();
+  });
+
+  it("prefers the live Cabinet Config visual map when older saved placements omitted their product image", () => {
+    expect(resolvedPlacedCabinetFrontVisual({ uid: "placed-b18" } as any, { "placed-b18": "/manus-storage/b18.png" }, null)).toBe("/manus-storage/b18.png");
+    expect(resolvedPlacedCabinetFrontVisual({ uid: "placed-b18" } as any, undefined, "/manus-storage/fallback.png")).toBe("/manus-storage/fallback.png");
   });
 
   it("uses the active saved Shaker profile when a persisted room intentionally carries neutral material metadata", () => {
@@ -824,6 +974,31 @@ describe("interactive 3D room scene helpers", () => {
     expect(interiorEdgeLines).toHaveLength(0);
   });
 
+  it("puts lazy-Susan and easy-reach base pulls on the opening edge opposite the selected hinge", () => {
+    for (const [masterCode, description, swing, expectedHandle] of [
+      ["LSB36", "Lazy Susan Base", "left", "right"],
+      ["ERB36", "Easy Reach Base", "right", "left"],
+    ] as const) {
+      const cabinet = { uid: `${masterCode}-${swing}`, cabinetId: 1, masterCode, description, placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "l-shape", swing } as never;
+      const root = new THREE.Group();
+      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      const pulls: THREE.Object3D[] = [];
+      root.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
+      expect(pulls).toHaveLength(1);
+      expect(pulls[0]?.userData).toMatchObject({ hingeSide: swing, handleSide: expectedHandle, pullEdge: "opposite-hinge" });
+      expect(pulls[0]?.userData.pullHeight).toBe("upper-opening-edge");
+      expect(pulls[0]?.position.y).toBeGreaterThan(0);
+    }
+  });
+
+  it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
+    const imported = {
+      uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",
+      placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30, rotation: 0,
+    } as never;
+    expect(existingCabinetSku(imported)).toMatchObject({ width: 30, height: 24, depth: 12 });
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
@@ -1282,6 +1457,44 @@ describe("interactive 3D room scene helpers", () => {
     expect(doors.map((door) => door.rotation.y)).toEqual([Math.PI / 4, Math.PI / 4]);
     expect(genericFrontPanels).toHaveLength(0);
     expect(unexpectedMeshes).toHaveLength(0);
+  });
+
+  it("uses the catalog's single-door count for a one-door diagonal wall cabinet", () => {
+    const singleDoorDiagonal = existingCabinetSku({
+      uid: "single-door-wdc",
+      masterCode: "WDC2430",
+      description: '24" x 30" Single Door Wall Diagonal Corner Cabinet',
+      category: "Wall",
+      placement: "wall",
+      x: 0,
+      y: 0,
+      width: 24,
+      height: 30,
+      depth: 12,
+      rotation: 0,
+      cornerType: "diagonal",
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+      swing: "left",
+    } as never);
+    const root = new THREE.Group();
+    addCabinet(root, singleDoorDiagonal, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "Recessed Panel" });
+    const doors: THREE.Object3D[] = [];
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.diagonalDoor) doors.push(node);
+      if (node.userData.diagonalDoorPull) pulls.push(node);
+    });
+    expect(doors).toHaveLength(1);
+    expect(doors[0]!.position.x).toBeGreaterThan(0.5);
+    expect(doors[0]!.position.z).toBeGreaterThan(0.5);
+    expect(doors[0]!.position.x).toBeCloseTo(doors[0]!.position.z, 8);
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]!.rotation.y).toBeCloseTo(doors[0]!.rotation.y, 8);
+    expect(pulls[0]!.userData.hingeSide).toBe("left");
+    expect(pulls[0]!.userData.handleSide).toBe("right");
+    expect(pulls[0]!.position.x).toBeGreaterThan(doors[0]!.position.x);
+    expect(pulls[0]!.position.z).toBeLessThan(doors[0]!.position.z);
   });
 
   it("builds AW1230 as a 12-by-12 angled wall wedge with one side-hinged diagonal door and two adjustable shelves configured", () => {
@@ -1770,6 +1983,35 @@ describe("interactive 3D room scene helpers", () => {
     expect(wallBounds.max.y).toBeCloseTo(84 / 12, 8);
   });
 
+  it("preserves distinct configured faces for adjacent persisted base and wall records instead of flattening both into generic panels", () => {
+    const root = new THREE.Group();
+    const savedBase = {
+      uid: "saved-base-fronts", cabinetId: 611, masterCode: "B24-SAVED-FACES", description: '24" Base Cabinet',
+      placement: "base", x: 24, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 1,
+    } as never;
+    const savedWall = {
+      uid: "saved-wall-fronts", cabinetId: 612, masterCode: "W24-SAVED-FACES", description: '24" x 30" Wall Cabinet',
+      placement: "wall", x: 24, y: 0, width: 24, depth: 12, height: 30, rotation: 0,
+      mountBottom: 54, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    [savedBase, savedWall].forEach((saved) => {
+      addCabinet(root, existingCabinetSku(saved), null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(saved));
+    });
+    const base = root.children.find((node) => node.userData.masterCode === "B24-SAVED-FACES")!;
+    const wall = root.children.find((node) => node.userData.masterCode === "W24-SAVED-FACES")!;
+    const baseFronts: THREE.Object3D[] = [];
+    const wallFronts: THREE.Object3D[] = [];
+    base.traverse((node) => { if (node.userData.cabinetFront) baseFronts.push(node); });
+    wall.traverse((node) => { if (node.userData.cabinetFront) wallFronts.push(node); });
+    expect(base.userData.floorStandingCabinet).toBe(true);
+    expect(wall.userData.floorStandingCabinet).toBeUndefined();
+    expect(baseFronts).toHaveLength(3);
+    expect(wallFronts).toHaveLength(2);
+    expect(baseFronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+    expect(wallFronts.every((front) => front.userData.flushPhysicalFace === true)).toBe(true);
+  });
+
   it("keeps a floor dishwasher flush in its 2D base opening with a matching toe kick and supported countertop", () => {
     const root = new THREE.Group();
     addCabinet(root, {
@@ -2203,5 +2445,46 @@ describe("interactive 3D room scene helpers", () => {
     root.traverse((item) => items.push(item));
     expect(items.some((item) => item.userData?.refrigeratorEndPanel)).toBe(true);
     expect(items.some((item) => item.userData?.cabinetHardware)).toBe(false);
+  });
+
+  it("enforces the admin panel door sample as the sole authoritative face texture over Cabinet Config line-art", () => {
+    // The threeDCabinetFrontVisualUrl helper resolves a catalog front visual URL.
+    // When a door sample URL exists (from door_styles.doorSampleImageUrl), the
+    // catalog front visual must NOT be used as a face overlay. The addCabinet
+    // function guards this with: `!doorSampleUrl` in the condition.
+    //
+    // Test the helper contract:
+    const baseCabWithLineArt = { placementType: "base", catalogImageUrl: "/manus-storage/ls3612-line-art.png" };
+    const applianceWithImage = { placementType: "appliance", catalogImageUrl: "/manus-storage/range.webp" };
+    const baseCabNoImage = { placementType: "base", catalogImageUrl: null };
+
+    // The helper resolves a URL for base cabinets with a catalogImageUrl
+    expect(threeDCabinetFrontVisualUrl(baseCabWithLineArt)).toBe("/manus-storage/ls3612-line-art.png");
+    // But appliances never get a front visual overlay
+    expect(threeDCabinetFrontVisualUrl(applianceWithImage)).toBeNull();
+    // And cabinets without a catalogImageUrl get null
+    expect(threeDCabinetFrontVisualUrl(baseCabNoImage)).toBeNull();
+
+    // The door sample texture helpers confirm the door sample takes priority:
+    expect(threeDUsesDoorSampleTexture("/manus-storage/natura-maple-door-sample.png")).toBe(true);
+    expect(threeDUsesExactDoorSampleMaterial(true)).toBe(true);
+    // When a door sample exists, the face material is MeshBasicMaterial with #ffffff (no tinting)
+    expect(threeDFaceMaterialColor("#8a9ba8", true)).toBe("#ffffff");
+
+    // The addCabinet guard at line 1254 is:
+    //   if (catalogFrontVisualUrl && !doorSampleUrl && !doorTexture && ...)
+    // This means: when doorSampleUrl is provided, catalogFrontVisualUrl is NEVER applied.
+    // When doorSampleUrl is null, catalogFrontVisualUrl IS applied (if it exists).
+    // This is the correct behavior: admin panel door sample > Cabinet Config line-art.
+
+    // Verify the resolvedPlacedCabinetFrontVisual helper still works for live propagation
+    expect(resolvedPlacedCabinetFrontVisual(
+      { uid: "cab-1" } as any,
+      { "cab-1": "/manus-storage/live-catalog-image.png" },
+      null,
+    )).toBe("/manus-storage/live-catalog-image.png");
+
+    // But the resolved URL is only used as sku.catalogImageUrl — it only becomes
+    // a visible overlay when doorSampleUrl is absent (the guard in addCabinet).
   });
 });

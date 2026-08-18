@@ -84,7 +84,15 @@ export default function BundleDeals() {
                 >
                   {/* Hero image or placeholder */}
                   <div className="relative h-48 bg-gradient-to-br from-muted to-muted/50 overflow-hidden">
-                    {bundle.heroImageUrl ? (
+                    {bundle.floorPlanImageUrl ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white p-4">
+                        <img
+                          src={bundle.floorPlanImageUrl}
+                          alt={`${bundle.name} floor plan`}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                    ) : bundle.heroImageUrl ? (
                       <img
                         src={bundle.heroImageUrl}
                         alt={bundle.name}
@@ -96,13 +104,19 @@ export default function BundleDeals() {
                         <span className="text-xs opacity-40">No preview image</span>
                       </div>
                     )}
-                    {bundle.styleName && (
-                      <div className="absolute top-3 left-3">
+                    <div className="absolute top-3 left-3 flex gap-1.5">
+                      {bundle.styleName && (
                         <Badge className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
                           {bundle.styleName}
                         </Badge>
-                      </div>
-                    )}
+                      )}
+                      {bundle.roomWidthInches && bundle.roomDepthInches && (
+                        <Badge className="bg-black/60 text-white border-0 text-[10px] backdrop-blur-sm">
+                          <MapPin className="h-2.5 w-2.5 mr-0.5" />
+                          {Math.round(bundle.roomWidthInches / 12)}' × {Math.round(bundle.roomDepthInches / 12)}'
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Card body */}
@@ -112,18 +126,27 @@ export default function BundleDeals() {
                       <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{bundle.description}</p>
                     )}
 
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mb-4 flex-wrap">
                       {bundle.cabinetCount > 0 && (
                         <span className="flex items-center gap-1">
                           <LayoutGrid className="h-3 w-3" />
                           {bundle.cabinetCount} cabinets
                         </span>
                       )}
-                      {bundle.homeownerPrice && (
-                        <span className="flex items-center gap-1 text-[#d4a75a] font-semibold">
+                      {bundle.fixtureCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <PackageOpen className="h-3 w-3" />
+                          {bundle.fixtureCount} fixture{bundle.fixtureCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {bundle.homeownerPrice ? (
+                        <span className="flex items-center gap-1 text-[#d4a75a] font-semibold" title="Calculated from current active catalog prices">
                           <DollarSign className="h-3 w-3" />
                           {parseFloat(bundle.homeownerPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Current</span>
                         </span>
+                      ) : (
+                        <span className="text-amber-700 font-medium">Current pricing needs review</span>
                       )}
                     </div>
 
@@ -146,3 +169,4 @@ export default function BundleDeals() {
     </div>
   );
 }
+import { MapPin } from "lucide-react";

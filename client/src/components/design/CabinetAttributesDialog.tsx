@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Minus, Plus, DoorOpen, DoorClosed, Droplets } from "lucide-react";
+import { Minus, Plus, DoorOpen, DoorClosed, Droplets, GitMerge, Link2, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,8 @@ import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
+import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
+import { trpc } from "@/lib/trpc";
 
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
@@ -117,6 +119,9 @@ export interface CabinetAttributesDialogProps {
   onSetWidth: (uid: string, v: number) => void;
   onSetHeight: (uid: string, v: number) => void;
   onSetDepth: (uid: string, v: number) => void;
+  mountBottom?: number | null;
+  maxMountBottom?: number;
+  onSetMountBottom?: (uid: string, v: number) => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -162,6 +167,9 @@ export function CabinetAttributesDialog({
   onSetWidth,
   onSetHeight,
   onSetDepth,
+  mountBottom,
+  maxMountBottom,
+  onSetMountBottom,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -182,6 +190,7 @@ export function CabinetAttributesDialog({
   onSetOvenType,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
+  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
   if (!cabinet) return null;
 
@@ -198,8 +207,27 @@ export function CabinetAttributesDialog({
         ? "right"
         : "left";
   const isBase = cabinet.placement === "base";
+  const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
+  const isMasterAdmin = Boolean(masterConfigHref && cabinet.cabinetId);
+  const editConfigLink = cabinetEditConfigLink(masterConfigHref);
+  const aliasesQuery = trpc.masterSku.getAliasesForCabinet.useQuery(
+    { masterCode: cabinet.masterCode },
+    { enabled: isMasterAdmin }
+  );
+  const similarQuery = trpc.masterSku.similarForCabinet.useQuery(
+    { cabinetId: cabinet.cabinetId ?? 0 },
+    { enabled: isMasterAdmin }
+  );
+  const utils = trpc.useUtils();
+  const mergeMutation = trpc.masterSku.confirmCabinetLink.useMutation({
+    onSuccess: () => {
+      setPendingMasterId(null);
+      utils.masterSku.getAliasesForCabinet.invalidate({ masterCode: cabinet.masterCode });
+      utils.masterSku.similarForCabinet.invalidate({ cabinetId: cabinet.cabinetId ?? 0 });
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -207,6 +235,16 @@ export function CabinetAttributesDialog({
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>
+          {editConfigLink && (
+            <a
+              href={editConfigLink.href}
+              target={editConfigLink.target}
+              rel={editConfigLink.rel}
+              className="w-fit text-xs font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400"
+            >
+              Edit Config ↗
+            </a>
+          )}
         </DialogHeader>
 
         <div className="space-y-5 py-1">
@@ -264,6 +302,42 @@ export function CabinetAttributesDialog({
             </div>;
             })()}
           </section>
+
+          {canMoveMount && (
+            <section className="space-y-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Elevation position</h4>
+                  <p className="text-[11px] text-muted-foreground">Move this wall cabinet up or down from the floor.</p>
+                </div>
+                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onSetMountBottom?.(uid, 54)}>
+                  Reset 54″
+                </Button>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move down one inch" onClick={() => onSetMountBottom?.(uid, Math.max(0, (mountBottom ?? 0) - 1))}>
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  min={0}
+                  max={maxMountBottom ?? 120}
+                  step={1}
+                  value={Math.round(mountBottom ?? 0)}
+                  className="h-8 w-20 text-center text-sm"
+                  aria-label="Cabinet mounting height from floor"
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    if (Number.isFinite(next)) onSetMountBottom?.(uid, Math.max(0, Math.min(maxMountBottom ?? 120, next)));
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">in. from floor</span>
+                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move up one inch" onClick={() => onSetMountBottom?.(uid, Math.min(maxMountBottom ?? 120, (mountBottom ?? 0) + 1))}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </section>
+          )}
 
           {/* Oven Type — only for oven-tall cabinets */}
           {cabinetDrawingType(cabinet) === "oven-tall" && (
@@ -412,6 +486,39 @@ export function CabinetAttributesDialog({
               </Button>
             )}
           </section>
+
+          {isMasterAdmin && (
+            <section className="space-y-3 border-t border-border pt-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-sm font-semibold"><Link2 className="h-4 w-4" /> Master &amp; linked variants</h4>
+                  <p className="text-[11px] text-muted-foreground">The confirmed master owns shared cabinet configuration. Supplier pricing and availability remain on source records.</p>
+                </div>
+                <Badge variant="secondary" className="shrink-0 font-mono text-[10px]">{cabinet.masterCode}</Badge>
+              </div>
+              {aliasesQuery.data && aliasesQuery.data.length > 0 ? (
+                <div className="rounded-lg border bg-muted/30 p-2 text-xs">
+                  <div className="mb-1 font-medium">Connected variants ({aliasesQuery.data.length})</div>
+                  <div className="flex flex-wrap gap-1">{aliasesQuery.data.map((alias) => <Badge key={alias.id} variant="outline" className="font-mono text-[10px]">{alias.aliasCode}</Badge>)}</div>
+                </div>
+              ) : <p className="text-[11px] text-muted-foreground">No linked variants yet.</p>}
+              {similarQuery.data && similarQuery.data.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50/60 p-2.5 dark:border-amber-800 dark:bg-amber-950/20">
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200"><AlertTriangle className="h-3.5 w-3.5" /> Similar candidates — confirm the master before linking</div>
+                  <div className="space-y-2">
+                    {similarQuery.data.map((candidate) => (
+                      <div key={candidate.id} className="flex items-center justify-between gap-2 rounded border border-amber-200 bg-background/80 px-2 py-1.5 text-xs dark:border-amber-900">
+                        <div className="min-w-0"><div className="truncate font-mono font-semibold">{candidate.masterCode}</div><div className="truncate text-muted-foreground">{candidate.description} · {candidate.similarity}% code match</div></div>
+                        {pendingMasterId === candidate.id ? (
+                          <Button type="button" size="sm" className="h-7 text-[11px]" disabled={mergeMutation.isPending} onClick={() => mergeMutation.mutate({ masterCabinetId: candidate.id, aliasCabinetId: cabinet.cabinetId! })}>{mergeMutation.isPending ? "Linking…" : "Confirm master"}</Button>
+                        ) : <Button type="button" variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => setPendingMasterId(candidate.id)}><GitMerge className="mr-1 h-3 w-3" /> Link</Button>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Door */}
           <section className="space-y-3 border-t border-border pt-4">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -84,6 +84,18 @@ describe("design placement collision prevention", () => {
     const rightRange = placed({ uid: "right-range", masterCode: "RANGE-30", placement: "appliance", x: 119, y: 42, width: 30, depth: 25, height: 34.5, rotation: 90 });
     expect(mountedMicrowaveOverRangeSpot({ width: 30, depth: 15 }, topRange, DEFAULT_ROOM)).toMatchObject({ x: 42, y: 0, rotation: 0 });
     expect(mountedMicrowaveOverRangeSpot({ width: 30, depth: 15 }, rightRange, DEFAULT_ROOM)).toMatchObject({ x: 129, y: 42, rotation: 90 });
+  });
+
+  it("attaches a palette-added MW-30 to the selected range before considering a floating canvas drop point", () => {
+    const topRange = placed({ uid: "top-range", masterCode: "RANGE-30", placement: "appliance", x: 42, y: 0, width: 30, depth: 25, height: 34.5, rotation: 0 });
+    const rightRange = placed({ uid: "right-range", masterCode: "RANGE-30", placement: "appliance", x: 119, y: 42, width: 30, depth: 25, height: 34.5, rotation: 90 });
+    const selected = preferredRangeForOverRangeMicrowave([topRange, rightRange], DEFAULT_ROOM, "top", "top-range", { x: 60, y: 60 });
+    const activeWall = preferredRangeForOverRangeMicrowave([topRange, rightRange], DEFAULT_ROOM, "top", null, { x: 60, y: 60 });
+    expect(selected?.uid).toBe("top-range");
+    expect(activeWall?.uid).toBe("top-range");
+    expect(mountedMicrowaveOverRangeSpot({ width: 30, depth: 15 }, selected!, DEFAULT_ROOM)).toMatchObject({ x: 42, y: 0, rotation: 0 });
+    expect(overRangeMicrowaveAttachment([topRange, rightRange], DEFAULT_ROOM, "top", "top-range", { x: 60, y: 60 }, { width: 30, depth: 15 })).toMatchObject({ range: topRange, spot: { x: 42, y: 0, rotation: 0 } });
+    expect(overRangeMicrowaveAttachment([], DEFAULT_ROOM, "top", null, { x: 60, y: 60 }, { width: 30, depth: 15 })).toBeNull();
   });
 
   it("does not append a base cabinet into an existing refrigerator opening", () => {

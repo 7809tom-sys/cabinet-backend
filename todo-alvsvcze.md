@@ -530,7 +530,7 @@
 - [x] Add regression coverage for automatic adjacent placement, deterministic tie-breaking, and genuinely full-run rejection
 - [x] Restore distinct base construction: floor position, 4½-inch toe kick, 34½-inch cabinet top, configured door/drawer face layout, and direct countertop support
 - [x] Preserve distinct wall-cabinet construction at its saved mount height without base toe-kick or countertop routing
-- [ ] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
+- [x] Add saved-scene regressions that reject generic face flattening across adjacent base and wall cabinet records
 - [ ] Capture the actual BEC-24 record in the user’s active design and use it as the sole input for the next 3D correction
 - [ ] Do not make further BEC-24 geometry changes from a generic or substitute cabinet; require the exact active saved record first
 - [x] Replace the rectangular BEC-24 body with the supplied diagram’s rear-apex two-24-inch-side construction
@@ -601,3 +601,63 @@
 - [x] Fix the mobile designer bottom action bar so Catalog, Cart, and all actions do not wrap or overlap
 - [x] Keep mobile designer actions reachable through a non-wrapping horizontally scrollable action strip
 - [x] Add responsive regression coverage for separated Catalog and Cart controls on narrow screens
+- [ ] Identify the exact incorrect price surface, cabinet/style, and authoritative replacement amount before changing any price
+- [ ] Apply a verified pricing correction consistently across designer, cart, order, and authorized role-specific price displays
+- [ ] Add regression coverage for the verified corrected price path
+- [x] Add the mobile Replace Cabinet Image workflow to desktop Edit Config, including This line only and All lines scope choices
+- [x] Support desktop image-library browse, upload, and URL entry in the Replace Cabinet Image dialog
+- [x] Add desktop-mobile replacement workflow parity coverage
+- [x] Show all linked aliases and variants when editing a cabinet master record
+- [x] Flag similar master candidates and require an explicit merge decision before linking records
+- [x] Propagate confirmed master edits across all linked variants while preserving source-specific pricing and availability data
+- [x] Add safe merge and master-edit propagation regression coverage
+- [ ] Inspect the live 3D cabinet edit panel to verify connected aliases, similar-master candidates, merge action, and master confirmation controls
+- [x] Surface linked aliases and variants automatically in the 3D designer cabinet edit panel
+- [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
+- [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
+- [x] Add an administrator-only Edit Config hyperlink below the cabinet description in the 3D cabinet attributes dialog
+- [x] Fix the 3D Edit Config hyperlink so it opens the selected cabinet’s working configuration record
+- [x] Restore the selected cabinet description area and Edit Config action in the 3D cabinet panel
+- [x] Make the 3D cabinet description and administrator Edit Config action consistent across devices
+- [x] Build a responsive side-by-side 2D–3D workspace that preserves the complete plan while users add, position, and edit catalog cabinets from 3D
+- [x] Refactor the 3D designer into a canvas-first interface that mirrors the compact reachable 2D planner controls without removing capabilities
+- [x] Remove remaining 3D preview chrome, expose the complete active catalog through the compact bottom bar, and align selected-cabinet controls with the 2D planner
+- [x] Mirror the full 2D catalog taxonomy, catalog-authored finishes, and 2D cabinet edit/move control pattern in the 3D workspace
+- [x] Fix the live 3D Catalog count so every active 2D Base, Corner, Wall, Tall, Appliance, and Accessory item is available rather than only eight records
+- [x] Embed the deterministic 3D canvas directly in the existing 2D designer central workspace and reuse its catalog, selection, edit, move, and detail panels
+- [ ] Apply the requested price correction only after receiving the exact cabinet, price surface, and authoritative replacement amount
+- [x] Remove the redundant Catalog/View/Finish/Room 3D strip and instruction text above the existing mobile planner toolbar
+- [x] Ensure changing a selected cabinet finish preserves every other cabinet finish for two-tone designs in 2D and 3D
+- [x] Make every deterministic 3D cabinet honor its own saved 2D plan finish assignment instead of flattening the design to one color
+- [x] Fix the remaining 3D material collapse so each cabinet’s saved finish override renders independently regardless of two-tone slot state
+- [x] Add a legally reviewable two-year affiliate post-termination non-compete clause with a proposed $10,000-per-violation liquidated-damages term and controlled site-suspension workflow
+- [x] Reposition the mobile 3D selected-cabinet description and price so they remain clear of the movement D-pad
+- [x] Make deterministic 3D cabinet face construction honor the selected plan door profile and matching finish instead of a generic flat front
+- [x] Remove invented 3D door-sample substitutions and render only saved plan finishes with authoritative Cabinet Config door geometry
+- [x] Eliminate generic 3D cabinet faces by rendering every placed cabinet from its saved Cabinet Config feature layout, profile, finish, skins, openings, and appliance data
+- [x] Propagate each placed cabinet’s exact saved door style identifier and profile into deterministic 3D without generic fallback
+- [x] Fix the active Autumn Vault selection pipeline so its saved Cabinet Config style applies in both 2D and 3D
+- [x] Prevent asynchronous 3D material updates from overwriting the selected Autumn Vault plan finish with a darker fallback
+- [x] Restrict the feature-style section to provided Cabinet Config and catalog fields, with no inferred or fabricated cabinet details
+- [x] Eliminate the final generic brown 3D material fallback so the active Aurum Vault (Preston) feature style renders consistently across its cabinet run
+- [x] Apply the selected provided feature-style sample consistently to every cabinet face in the 3D run
+- [x] Move the desktop selected-cabinet information card from lower left to the opposite lower-right side
+- [x] Replace cartoon-like 3D cabinet appearances with authoritative Cabinet Config geometry and supplied product visual assets, flagging missing visual data instead of inventing a look
+- [x] Fix the live scene propagation so every selected Cabinet Config product image actually replaces the generic 3D cabinet front
+- [x] Apply authoritative Cabinet Config visuals and selected feature style to Lazy Susan and all corner-family 3D cabinet faces
+- [x] Render supplied CabinetDealz door samples unaltered across full door and drawer faces, without generic rail or line-art substitution
+- [x] Replace the actual live generic cabinet-face mesh/material that remains visible despite supplied Cabinet Config visuals
+- [x] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
+- [x] Fix: selecting a different cabinet must NOT change the active feature style — only explicit Color 1/Color 2 changes should switch styles
+- [x] Fix: 3D texture must ALWAYS follow the admin panel door_styles.doorSampleImageUrl, never a generic or catalog line-art image
+- [x] Fix: cart products must exactly reflect the cabinets placed in the 2D/3D design (same SKUs, quantities, styles, finishes, pricing)
+- [x] Bundle Deals: Add prominent highlight button on storefront/home page linking to bundle deals
+- [x] Bundle Deals: Add prominent highlight button on storefront/home page linking to bundle deals
+- [x] Bundle Deals: Show 2D floor plan image on each bundle deal card instead of generic grid icon
+- [x] Bundle Deals: Give affiliates access to Bundle Deals management in their own admin panel
+- [x] Bundle Deals: Give vendors/distributors access to Bundle Deals management in their admin panel
+- [x] Bundle Deals: Vendor style-lock option — vendors can only create bundles featuring their own cabinet lines
+- [x] Bundle Deals: Calculate and display current live catalog pricing from each saved bundle design
+- [x] Bundle Deals: Generate and persist 2D floor plan images for existing published bundles
+- [x] Bundle Deals: Preserve sinks, faucets, and all selected fixtures in saved bundle designs, prices, floor plans, and order handoff
+- [x] LS3612: Never automatically substitute; if valid corner replacement guidance is needed, recommend ER36 or BER36 only
