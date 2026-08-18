@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDUpperCabinetWallMinimums, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -31,6 +31,14 @@ describe("interactive 3D room scene helpers", () => {
     const profiles = { upper: { doorStyle: "Raised", doorPanelType: "Center panel" } };
     expect(resolvedPlacedCabinetDoorProfile({ uid: "upper" }, profiles, planDefault)).toEqual(profiles.upper);
     expect(resolvedPlacedCabinetDoorProfile({ uid: "lower" }, profiles, planDefault)).toEqual(planDefault);
+  });
+
+  it("uses an explicit cabinet style's admin door sample before the design default sample", () => {
+    const samples = { upper: "https://cdn.example.com/explicit-style.jpg" };
+    expect(resolvedPlacedCabinetDoorSampleUrl({ uid: "upper" }, samples, "https://cdn.example.com/default-style.jpg", true))
+      .toBe("https://cdn.example.com/explicit-style.jpg");
+    expect(resolvedPlacedCabinetDoorSampleUrl({ uid: "lower" }, samples, "https://cdn.example.com/default-style.jpg", true))
+      .toBe("https://cdn.example.com/default-style.jpg");
   });
 
   it("does not paint generic Shaker rails over a supplied complete CabinetDealz door sample", () => {

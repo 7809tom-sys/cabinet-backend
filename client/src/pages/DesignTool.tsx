@@ -5366,6 +5366,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [placed, styleId, doorStyles],
   );
 
+  const threeDCabinetDoorSamples = useMemo(
+    () => Object.fromEntries(placed.flatMap((cabinet) => {
+      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+      const sampleUrl = assignedStyleId != null ? doorSampleById.get(assignedStyleId) : null;
+      return sampleUrl ? [[cabinet.uid, sampleUrl]] : [];
+    })),
+    [placed, styleId, doorSampleById],
+  );
+
   const threeDCabinetFrontVisuals = useMemo(() => {
     const liveVisualByCabinetId = new Map<number, string>();
     ((liveMasterCabinets ?? []) as DesignCabinet[]).forEach((cabinet) => {
@@ -5405,6 +5414,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       catalogFinishOverride={activeFinish.face}
       cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
+      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
       cabinetFrontVisuals={threeDCabinetFrontVisuals}
       catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
       catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}

@@ -647,7 +647,7 @@
 - [x] Apply authoritative Cabinet Config visuals and selected feature style to Lazy Susan and all corner-family 3D cabinet faces
 - [x] Render supplied CabinetDealz door samples unaltered across full door and drawer faces, without generic rail or line-art substitution
 - [x] Replace the actual live generic cabinet-face mesh/material that remains visible despite supplied Cabinet Config visuals
-- [ ] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
+- [x] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
 - [x] Fix: selecting a different cabinet must NOT change the active feature style — only explicit Color 1/Color 2 changes should switch styles
 - [x] Fix: 3D texture must ALWAYS follow the admin panel door_styles.doorSampleImageUrl, never a generic or catalog line-art image
 - [x] Fix: cart products must exactly reflect the cabinets placed in the 2D/3D design (same SKUs, quantities, styles, finishes, pricing)
