@@ -61,7 +61,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, displayedStyleId, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
@@ -1762,10 +1762,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     return m;
   }, [doorStyles]);
-  const twoToneEnabled = styleA != null && styleB != null && styleA !== styleB;
   const displayStyleIdForCab = useCallback(
-    (cab: PlacedCabinet) => displayedStyleId(cab, styleId, twoToneEnabled),
-    [styleId, twoToneEnabled],
+    (cab: PlacedCabinet) => effectiveStyleId(cab, styleId),
+    [styleId],
   );
   const finishForCab = useCallback(
     (cab: PlacedCabinet) => {

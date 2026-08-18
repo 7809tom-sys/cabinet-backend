@@ -629,3 +629,4 @@
 - [x] Remove the redundant Catalog/View/Finish/Room 3D strip and instruction text above the existing mobile planner toolbar
 - [x] Ensure changing a selected cabinet finish preserves every other cabinet finish for two-tone designs in 2D and 3D
 - [x] Make every deterministic 3D cabinet honor its own saved 2D plan finish assignment instead of flattening the design to one color
+- [x] Fix the remaining 3D material collapse so each cabinet’s saved finish override renders independently regardless of two-tone slot state
