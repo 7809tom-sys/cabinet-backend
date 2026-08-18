@@ -148,6 +148,8 @@ interface Props {
   cabinetFinishOverrides?: Record<string, string>;
   /** Exact saved 2D door profile for each placed cabinet, keyed by placement UID. */
   cabinetDoorProfiles?: Record<string, { doorStyle: string | null; doorPanelType: string | null }>;
+  /** Live Cabinet Config product visual for each placed cabinet, keyed by placement UID. */
+  cabinetFrontVisuals?: Record<string, string>;
   /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
   catalogDoorSampleUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
@@ -742,6 +744,15 @@ export function resolvedPlacedCabinetDoorProfile(
   const placedProfile = cabinetDoorProfiles?.[cabinet.uid];
   const placedIdentity = `${placedProfile?.doorStyle ?? ""} ${placedProfile?.doorPanelType ?? ""}`.trim();
   return placedIdentity ? placedProfile : planDefault ?? null;
+}
+
+/** Resolves a live Cabinet Config product visual when older saved placements omitted it. */
+export function resolvedPlacedCabinetFrontVisual(
+  cabinet: Pick<PlacedCabinet, "uid">,
+  cabinetFrontVisuals: Record<string, string> | undefined,
+  fallback: string | null | undefined,
+) {
+  return cabinetFrontVisuals?.[cabinet.uid] ?? fallback ?? null;
 }
 
 export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null, preferSelectedPlanSample = false) {
@@ -2884,7 +2895,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3138,7 +3149,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
-        const sku = existingCabinetSku(cabinet);
+        const baseSku = existingCabinetSku(cabinet);
+        const sku = {
+          ...baseSku,
+          catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),
+        };
         const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, cabinetFinishOverrides, finish);
         const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")

@@ -643,3 +643,5 @@
 - [x] Apply the selected provided feature-style sample consistently to every cabinet face in the 3D run
 - [x] Move the desktop selected-cabinet information card from lower left to the opposite lower-right side
 - [x] Replace cartoon-like 3D cabinet appearances with authoritative Cabinet Config geometry and supplied product visual assets, flagging missing visual data instead of inventing a look
+- [x] Fix the live scene propagation so every selected Cabinet Config product image actually replaces the generic 3D cabinet front
+- [ ] Correct global versus explicit cabinet style inheritance so mixed plan lines render only their intended 2D style assignments in 3D
