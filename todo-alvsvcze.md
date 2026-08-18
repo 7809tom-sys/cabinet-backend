@@ -638,3 +638,4 @@
 - [x] Propagate each placed cabinet’s exact saved door style identifier and profile into deterministic 3D without generic fallback
 - [x] Fix the active Autumn Vault selection pipeline so its saved Cabinet Config style applies in both 2D and 3D
 - [x] Prevent asynchronous 3D material updates from overwriting the selected Autumn Vault plan finish with a darker fallback
+- [x] Restrict the feature-style section to provided Cabinet Config and catalog fields, with no inferred or fabricated cabinet details
