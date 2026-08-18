@@ -621,3 +621,4 @@
 - [x] Make the 3D cabinet description and administrator Edit Config action consistent across devices
 - [x] Build a responsive side-by-side 2D–3D workspace that preserves the complete plan while users add, position, and edit catalog cabinets from 3D
 - [x] Refactor the 3D designer into a canvas-first interface that mirrors the compact reachable 2D planner controls without removing capabilities
+- [x] Remove remaining 3D preview chrome, expose the complete active catalog through the compact bottom bar, and align selected-cabinet controls with the 2D planner
