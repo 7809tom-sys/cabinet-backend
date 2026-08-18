@@ -219,6 +219,11 @@ export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "m
   return code ? `${code} cabinet` : "Catalog cabinet";
 }
 
+/** Keeps phone-sized selected-cabinet text clear of the on-canvas movement D-pad. */
+export function threeDSelectedCabinetCardClearanceClass(hasMovementDpad: boolean): string {
+  return hasMovementDpad ? "pl-28 sm:pl-3" : "";
+}
+
 export type ThreeDCabinetHit = {
   uid: string | null;
   masterCode: string;
@@ -3382,7 +3387,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const description = threeDSelectedCabinetDescription(selectedCabinet);
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
           const editConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
-          return <div data-testid="three-d-cabinet-attributes" className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur">
+          const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
+          return <div data-testid="three-d-cabinet-attributes" className={`absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
               <div className="min-w-0">
