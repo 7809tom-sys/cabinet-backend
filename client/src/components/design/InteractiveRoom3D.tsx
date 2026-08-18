@@ -386,6 +386,12 @@ export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" |
   return applianceAppearanceImage(sku.masterCode, sku.catalogImageUrl ?? null);
 }
 
+/** A supplied Cabinet Config product visual is authoritative for a cabinet front. */
+export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "placementType" | "catalogImageUrl">): string | null {
+  if ((sku.placementType ?? "").toLowerCase() === "appliance") return null;
+  return sku.catalogImageUrl?.trim() || null;
+}
+
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
   if (doorSampleUrl && textureState === "loaded") return "selected-texture" as const;
   if (doorSampleUrl && textureState === "loading") return "selected-texture-loading" as const;
@@ -1214,6 +1220,34 @@ export function addCabinet(
   // beyond the box plane, leaving a small deterministic clearance while keeping
   // its left/right edges constrained by the configured cabinet width below.
   const faceDepth = bodyDepth / 2 + 0.052 / 2 + 0.004;
+  // A verified Cabinet Config product visual carries the supplied cabinet's
+  // actual front layout. Keep the measured 3D carcass behind it, but place the
+  // provided visual on the visible face instead of inventing a generic panel.
+  const catalogFrontVisualUrl = threeDCabinetFrontVisualUrl(sku);
+  if (catalogFrontVisualUrl && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
+    const frontVisualTexture = new THREE.TextureLoader().load(catalogFrontVisualUrl);
+    frontVisualTexture.colorSpace = THREE.SRGBColorSpace;
+    const frontVisualMaterial = new THREE.MeshBasicMaterial({
+      map: frontVisualTexture,
+      color: "#ffffff",
+      transparent: true,
+      alphaTest: 0.02,
+      depthWrite: false,
+    });
+    const visualHeight = bodyHeight + (isFloorStandingCabinet ? THREE_D_TOE_KICK * INCH : 0);
+    const frontVisual = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.max(0.08, bodyWidth - 0.02), Math.max(0.08, visualHeight - 0.02)),
+      frontVisualMaterial,
+    );
+    frontVisual.position.set(0, isFloorStandingCabinet ? -(THREE_D_TOE_KICK * INCH) / 2 : 0, faceDepth + 0.012);
+    frontVisual.renderOrder = 4;
+    frontVisual.userData = {
+      authoritativeCabinetFrontVisual: true,
+      cabinetFrontVisualUrl: catalogFrontVisualUrl,
+      source: "Cabinet Config",
+    };
+    cabinet.add(frontVisual);
+  }
   // Standard catalog cabinets need a visible constructed face frame behind their
   // door/drawer fronts. This keeps slab, raised-panel, and shaker selections
   // equally dimensional instead of relying on the Shaker rail overlay alone.
