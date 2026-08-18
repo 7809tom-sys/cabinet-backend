@@ -144,6 +144,8 @@ interface Props {
   initialPresentation?: InteractiveRoomPresentation;
   /** Active design-tool finish derived from the chosen catalog door style. */
   catalogFinishOverride?: string | null;
+  /** Exact resolved 2D finish color for each placed cabinet, keyed by placement UID. */
+  cabinetFinishOverrides?: Record<string, string>;
   /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
   catalogDoorSampleUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
@@ -703,6 +705,15 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
 export function resolvedCatalogFinish(scene: InteractiveRoomScene, catalogFinishOverride?: string | null) {
   const override = catalogFinishOverride?.trim() ?? "";
   return /^#[0-9a-f]{6}$/i.test(override) ? override : sceneCabinetColor(scene);
+}
+
+/** Resolves one 3D cabinet's exact saved 2D finish before using the design default. */
+export function resolvedPlacedCabinetFinish(
+  cabinet: Pick<PlacedCabinet, "uid">,
+  cabinetFinishOverrides: Record<string, string> | undefined,
+  designDefault: string,
+) {
+  return cabinetFinishOverrides?.[cabinet.uid] ?? designDefault;
 }
 
 export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null, preferSelectedPlanSample = false) {
@@ -2817,7 +2828,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3075,10 +3086,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       for (const cabinet of placed) {
         if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
         const sku = existingCabinetSku(cabinet);
+        const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, cabinetFinishOverrides, finish);
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, transform, activeDoorTexture, updateDoorTextureState);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, transform, activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {
@@ -3144,7 +3156,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, wallHeightIn, wallHeights, resolvedCabinetFinish, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

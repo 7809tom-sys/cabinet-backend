@@ -628,3 +628,4 @@
 - [ ] Apply the requested price correction only after receiving the exact cabinet, price surface, and authoritative replacement amount
 - [x] Remove the redundant Catalog/View/Finish/Room 3D strip and instruction text above the existing mobile planner toolbar
 - [x] Ensure changing a selected cabinet finish preserves every other cabinet finish for two-tone designs in 2D and 3D
+- [x] Make every deterministic 3D cabinet honor its own saved 2D plan finish assignment instead of flattening the design to one color
