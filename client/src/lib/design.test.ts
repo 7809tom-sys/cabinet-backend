@@ -2172,7 +2172,7 @@ describe("wall cabinet dropped to floor keeps its own depth", () => {
 });
 
 
-import { effectiveStyleId, distinctStyleIds, isMixedFinish } from "./design";
+import { effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish } from "./design";
 
 describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   it("uses the per-cabinet override when present", () => {
@@ -2192,6 +2192,19 @@ describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   });
   it("returns null only when neither override nor default is set", () => {
     expect(effectiveStyleId({ styleId: null }, null)).toBeNull();
+  });
+});
+
+describe("rebaseFormerDefaultStyleOverrides", () => {
+  it("clears a stale former design default so a newly selected feature style applies to every legacy cabinet", () => {
+    const cabinets = [{ uid: "a", styleId: 7 }, { uid: "b", styleId: 7 }];
+    const rebased = rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, false);
+    expect(rebased.map((cabinet) => effectiveStyleId(cabinet, 390009))).toEqual([390009, 390009]);
+  });
+
+  it("preserves explicit per-cabinet overrides when an intentional second color is active", () => {
+    const cabinets = [{ uid: "upper", styleId: 7 }, { uid: "island", styleId: 99 }];
+    expect(rebaseFormerDefaultStyleOverrides(cabinets, 7, 390009, true)).toEqual(cabinets);
   });
 });
 

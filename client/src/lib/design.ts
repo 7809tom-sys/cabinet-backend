@@ -662,6 +662,24 @@ export function effectiveStyleId(
 }
 
 /**
+ * Older designs can carry the former single design style on every placement.
+ * When Color 1 changes, those legacy values must revert to inheritance so the
+ * newly selected design feature style renders everywhere. Explicit two-tone
+ * overrides are preserved whenever a second style is active.
+ */
+export function rebaseFormerDefaultStyleOverrides<T extends { styleId?: number | null }>(
+  cabinets: T[],
+  formerDefaultStyleId: number | null,
+  nextDefaultStyleId: number,
+  preserveTwoToneOverrides: boolean,
+): T[] {
+  if (formerDefaultStyleId == null || formerDefaultStyleId === nextDefaultStyleId || preserveTwoToneOverrides) return cabinets;
+  return cabinets.map((cabinet) => (
+    cabinet.styleId === formerDefaultStyleId ? { ...cabinet, styleId: null } as T : cabinet
+  ));
+}
+
+/**
  * Rendering follows the active selected sample for a normal one-finish design.
  * Per-cabinet style IDs are honored only after the user has explicitly selected
  * a distinct second two-tone style; this prevents stale placement metadata from

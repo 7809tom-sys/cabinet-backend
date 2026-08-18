@@ -54,7 +54,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -4486,6 +4486,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // ("base cabinets gone" regression).
     const noStyleYet = styleId == null;
     if (slot === "A") {
+      const formerDefaultStyleId = styleA ?? styleId;
+      setPlaced((previous) => rebaseFormerDefaultStyleOverrides(previous, formerDefaultStyleId, newStyleId, styleB != null));
       setStyleA(newStyleId);
       if (activeSlot === "A" || noStyleYet) {
         if (noStyleYet) setActiveSlot("A");
