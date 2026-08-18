@@ -611,6 +611,8 @@
 - [x] Flag similar master candidates and require an explicit merge decision before linking records
 - [x] Propagate confirmed master edits across all linked variants while preserving source-specific pricing and availability data
 - [x] Add safe merge and master-edit propagation regression coverage
+- [ ] Inspect the live 3D cabinet edit panel to verify connected aliases, similar-master candidates, merge action, and master confirmation controls
 - [x] Surface linked aliases and variants automatically in the 3D designer cabinet edit panel
 - [x] Flag similar cabinet masters in the 3D edit panel and require explicit master confirmation before linking or merging
 - [x] Support confirmed master-link propagation from the 3D cabinet edit panel with regression coverage
+- [x] Add an administrator-only Edit Config hyperlink below the cabinet description in the 3D cabinet attributes dialog

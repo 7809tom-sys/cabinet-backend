@@ -35,6 +35,7 @@ import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
+import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
 import { trpc } from "@/lib/trpc";
 
 // A single dimension stepper (−/value/+) used inside the dialog.
@@ -210,6 +211,7 @@ export function CabinetAttributesDialog({
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   const isMasterAdmin = Boolean(masterConfigHref && cabinet.cabinetId);
+  const editConfigLink = cabinetEditConfigLink(masterConfigHref);
   const aliasesQuery = trpc.masterSku.getAliasesForCabinet.useQuery(
     { masterCode: cabinet.masterCode },
     { enabled: isMasterAdmin }
@@ -233,6 +235,16 @@ export function CabinetAttributesDialog({
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>
+          {editConfigLink && (
+            <a
+              href={editConfigLink.href}
+              target={editConfigLink.target}
+              rel={editConfigLink.rel}
+              className="w-fit text-xs font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400"
+            >
+              Edit Config ↗
+            </a>
+          )}
         </DialogHeader>
 
         <div className="space-y-5 py-1">
