@@ -307,6 +307,14 @@ export function threeDFaceMaterialColor(color: string, hasProvidedDoorSample: bo
   return hasProvidedDoorSample ? "#ffffff" : color;
 }
 
+/** Every structural cabinet surface follows the chosen finish; a supplied door sample supplies both its detail and hue. */
+export function threeDStructuralFinish(color: string, hasProvidedDoorSample: boolean) {
+  return {
+    color: threeDFaceMaterialColor(color, hasProvidedDoorSample),
+    usesDoorSample: hasProvidedDoorSample,
+  };
+}
+
 export function shouldRenderCountertopOverSceneItem(
   placementOrItem: string | Pick<PlacedCabinet, "placement" | "masterCode" | "description" | "subCategory">,
   masterCode = "",
@@ -1057,10 +1065,12 @@ export function addCabinet(
   const angledWallProfile = isAngledWallProfile(sku);
 
   const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
+  const structuralFinishMaterials: THREE.MeshStandardMaterial[] = [bodyMaterial];
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
     const toeKickMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.64, metalness: 0.01 });
+    structuralFinishMaterials.push(toeKickMaterial);
     const lCornerKind = specialty.kind === "corner-drawer" || specialty.kind === "l-corner";
     if (lCornerKind) {
       // L-corner toe kicks follow the same two-leg carcass geometry so the
@@ -1256,7 +1266,15 @@ export function addCabinet(
   const faceMaterial = threeDUsesExactDoorSampleMaterial(Boolean(doorTexture))
     ? new THREE.MeshBasicMaterial({ color: faceColor, map: doorTexture })
     : new THREE.MeshStandardMaterial({ color: faceColor, map: null, roughness: 0.42, metalness: 0.01 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(faceColor).multiplyScalar(0.86), roughness: 0.38, metalness: 0.01 });
+  const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
+  for (const material of structuralFinishMaterials) {
+    material.color.set(structuralFinish.color);
+    material.map = structuralFinish.usesDoorSample ? doorTexture : null;
+    material.roughness = 0.5;
+    material.needsUpdate = true;
+    material.userData = { selectedFinishStructuralSurface: true, usesDoorSample: structuralFinish.usesDoorSample };
+  }
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: structuralFinish.color, map: structuralFinish.usesDoorSample ? doorTexture : null, roughness: 0.46, metalness: 0.01 });
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
@@ -1264,10 +1282,7 @@ export function addCabinet(
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
   // is reserved for true front meshes above; the carcass gets a flush finish skin.
-  bodyMaterial.color.set(color);
-  bodyMaterial.map = null;
-  bodyMaterial.needsUpdate = true;
-  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: false };
+  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: structuralFinish.usesDoorSample };
   // Every decorative standard front must remain on the physical exterior of the
   // carcass. The former 0.015-ft group offset placed the inner face of a 0.045-
   // or 0.052-ft door mesh inside the box. Seat the deepest supported front just
@@ -1313,7 +1328,7 @@ export function addCabinet(
     && !isRefrigeratorEndPanel
     && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
   if (usesConstructedFaceFrame) {
-    const frameMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.43, metalness: 0.01 });
+    const frameMaterial = new THREE.MeshStandardMaterial({ color: structuralFinish.color, map: structuralFinish.usesDoorSample ? doorTexture : null, roughness: 0.46, metalness: 0.01 });
     const frameDepth = 0.028;
     const frameWidth = Math.min(0.095, Math.max(0.055, Math.min(bodyWidth, bodyHeight) * 0.075));
     const frameGroup = new THREE.Group();
@@ -1978,7 +1993,7 @@ export function addCabinet(
     const { cornerMarkerWidth, drawerStackWidth } = cornerDrawerFrontLayout(bodyWidth);
     const cornerMarker = new THREE.Mesh(
       new THREE.BoxGeometry(cornerMarkerWidth - 0.01, bodyHeight - 0.08, 0.045),
-      new THREE.MeshStandardMaterial({ color: "#796a5c", roughness: 0.68 }),
+      trimMaterial,
     );
     cornerMarker.position.set(-bodyWidth / 2 + cornerMarkerWidth / 2 + 0.01, 0, 0.03);
     cornerMarker.userData = { specialtyProfile: "corner-drawer", cornerDrawerIndicator: true };

@@ -2709,3 +2709,14 @@
 - [x] Lock selected-cabinet attributes to deliberate click/right-click or tap selection until the user chooses another cabinet
 - [x] Separate Add cabinet, Wall heights, and Hide wall cabinets into a non-overlapping responsive layout
 - [ ] Add computer mouse and phone touch regressions and verify the reported workspace
+
+## Fix: 3D Cabinet Shell Matches Selected Face Finish
+- [x] Trace the Honey Core finish resolution and the yellow shell, frame, toe-kick, and panel material paths
+- [x] Apply the resolved cabinet face color to every non-appliance cabinet structural surface in 3D
+- [x] Preserve realistic shadows and edge definition without a contrasting yellow fallback border
+- [ ] Add finish-consistency regressions and verify the reported kitchen on computer and phone
+
+## Rule: Universal Selected-Finish Matching in 3D
+- [x] Propagate every user-selected cabinet color to faces, shells, frames, tops, bottoms, toe-kicks, fillers, and panels
+- [x] Keep door-sample texture detail without allowing an unrelated structural fallback color
+- [ ] Add multi-style selected-finish regressions and verify computer and phone scenes
