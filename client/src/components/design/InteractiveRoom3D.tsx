@@ -3396,15 +3396,17 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded-md border px-2 py-1.5 text-[11px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white/90 text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
         </div>}
       </div>
-      <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
-        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
-        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
-        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("finish")}><Sparkles className="h-4 w-4" />Finish</Button>
-        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("room")}><Rotate3D className="h-4 w-4" />Room</Button>
-        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("output")}><Share2 className="h-4 w-4" />Output</Button>
-        {orderSummary && <Button type="button" size="sm" className="h-10 shrink-0 snap-start" onClick={() => setPricingOpen(true)}>${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Button>}
-      </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Tap a cabinet to edit or move it · Drag to orbit · Pinch or scroll to zoom</p>
+      {!embedded && <>
+        <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
+          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
+          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
+          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("finish")}><Sparkles className="h-4 w-4" />Finish</Button>
+          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("room")}><Rotate3D className="h-4 w-4" />Room</Button>
+          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("output")}><Share2 className="h-4 w-4" />Output</Button>
+          {orderSummary && <Button type="button" size="sm" className="h-10 shrink-0 snap-start" onClick={() => setPricingOpen(true)}>${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Button>}
+        </div>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Tap a cabinet to edit or move it · Drag to orbit · Pinch or scroll to zoom</p>
+      </>}
       <Sheet open={workspacePanel !== null} onOpenChange={(open) => { if (!open) setWorkspacePanel(null); }}>
         <SheetContent side="bottom" className="max-h-[78dvh] overflow-y-auto rounded-t-2xl px-4 pb-6 sm:mx-auto sm:max-w-3xl">
           {workspacePanel === "catalog" && <>

@@ -625,3 +625,5 @@
 - [x] Mirror the full 2D catalog taxonomy, catalog-authored finishes, and 2D cabinet edit/move control pattern in the 3D workspace
 - [x] Fix the live 3D Catalog count so every active 2D Base, Corner, Wall, Tall, Appliance, and Accessory item is available rather than only eight records
 - [x] Embed the deterministic 3D canvas directly in the existing 2D designer central workspace and reuse its catalog, selection, edit, move, and detail panels
+- [ ] Apply the requested price correction only after receiving the exact cabinet, price surface, and authoritative replacement amount
+- [x] Remove the redundant Catalog/View/Finish/Room 3D strip and instruction text above the existing mobile planner toolbar
