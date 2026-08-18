@@ -865,6 +865,8 @@ describe("interactive 3D room scene helpers", () => {
       root.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
       expect(pulls).toHaveLength(1);
       expect(pulls[0]?.userData).toMatchObject({ hingeSide: swing, handleSide: expectedHandle, pullEdge: "opposite-hinge" });
+      expect(pulls[0]?.userData.pullHeight).toBe("upper-opening-edge");
+      expect(pulls[0]?.position.y).toBeGreaterThan(0);
     }
   });
 

@@ -2655,3 +2655,10 @@
 - [x] Place their room-facing handles on the opening edge opposite the selected hinge
 - [x] Add corner-base hinge regressions
 - [ ] Verify LSB and easy-reach left/right hinge handles in the live designer
+
+## 3D: Base Lazy Susan Pull at Upper Opening Edge
+- [x] Trace LSB room-facing door height and current handle vertical offset
+- [x] Move the LSB pull to the upper edge of its room-facing door
+- [x] Preserve opposite-hinge lateral placement and easy-reach behavior
+- [x] Add LSB pull-height regression coverage
+- [ ] Verify the reported LSB pull in the live 3D cabinet

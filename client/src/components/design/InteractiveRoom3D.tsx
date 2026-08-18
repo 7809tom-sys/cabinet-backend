@@ -1751,14 +1751,17 @@ export function addCabinet(
       const targetDoor = hingeSide === "left" ? backDoor : sideDoor;
       const targetWidth = hingeSide === "left" ? exposedFrontWidth - 0.09 : lShape.sideLeg.depth - 0.09;
       const pullLength = Math.min(Math.max(0.12, faceHeight * 0.28), 0.86);
+      // Base lazy-Susan pulls sit at the upper opening edge of their operative
+      // door, unlike the lower-centered pull used on ordinary base doors.
+      const upperOpeningPullY = faceHeight / 2 - pullLength / 2 - 0.08;
       const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
       if (targetDoor === backDoor) {
-        pull.position.set(backDoor.position.x + targetWidth * 0.24, -faceHeight * 0.3, backDoor.position.z + 0.066);
+        pull.position.set(backDoor.position.x + targetWidth * 0.24, upperOpeningPullY, backDoor.position.z + 0.066);
       } else {
-        pull.position.set(sideDoor.position.x + 0.066, -faceHeight * 0.3, sideDoor.position.z - targetWidth * 0.24);
+        pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - targetWidth * 0.24);
         pull.rotation.y = Math.PI / 2;
       }
-      pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: true, verticalPull: true, pullEdge: "opposite-hinge", hingeSide, handleSide, dimensionalCabinetDetail: true };
+      pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: true, verticalPull: true, pullEdge: "opposite-hinge", pullHeight: "upper-opening-edge", hingeSide, handleSide, dimensionalCabinetDetail: true };
       frontGroup.add(pull);
     }
   } else if (specialty.kind === "corner-drawer") {
