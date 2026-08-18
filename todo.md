@@ -264,7 +264,7 @@
 - [x] Auto-center MW-30 over the selected or nearest compatible range on its wall
 - [x] Keep manual free placement unavailable for over-range microwaves without a compatible range
 - [ ] Add real component palette-add placement regression for the reported top-wall range
-- [ ] Verify palette-added MW-30 mounts above the reported top-wall range in the live designer
+- [x] Verify palette-added MW-30 mounts above the reported top-wall range in the live designer
 - [x] Block MW-30 with a clear error when no compatible range exists
 - [ ] Add real component drag/drop regression for top-wall/right-wall ranges and no-range error
 
@@ -2627,3 +2627,17 @@
 - [x] Put all single-door 3D pulls on the edge opposite the selected hinge, including diagonal faces
 - [x] Add standard and diagonal single-door hinge regressions
 - [ ] Verify Left/Right hinge choices and opposite-edge pulls in the live designer
+
+## 3D: Reference-Calibrated Natural Wood Cabinet Finish
+- [x] Trace current natural-wood finish mapping, roughness, and cabinet-face shading
+- [x] Calibrate the selected natural wood finish to the supplied door, drawer, and room-scene references
+- [x] Preserve smooth cabinet shells and physically modeled door/drawer construction
+- [x] Add natural wood material regressions
+- [ ] Verify the 3D room against the supplied natural-wood references
+
+## Designer: Base Lazy Susan and Easy-Reach Hinge Choice
+- [x] Trace LSB and easy-reach base cabinet hinge metadata and attribute-editor eligibility
+- [x] Offer Left hinge / Right hinge choices for single-door LSB and easy-reach base cabinets
+- [x] Place their room-facing handles on the opening edge opposite the selected hinge
+- [x] Add corner-base hinge regressions
+- [ ] Verify LSB and easy-reach left/right hinge handles in the live designer

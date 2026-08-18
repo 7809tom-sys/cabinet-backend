@@ -120,6 +120,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "#1a2744" } } })).toBe("#1a2744");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Sage", finish: "Painted" } } })).toBe("#78826b");
     expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Aero Sage (Preston)", finish: "Matching" } } })).toBe("#4f5549");
+    expect(sceneCabinetColor({ ...baseScene, materials: { ...baseScene.materials!, cabinet: { ...baseScene.materials!.cabinet, color: "Designer Natural", finish: "Natural Maple" } } })).toBe("#d1ba8f");
   });
 
   it("constrains adjustable 3D wall height from one inch through ten feet", () => {
@@ -850,6 +851,21 @@ describe("interactive 3D room scene helpers", () => {
     const interiorEdgeLines: THREE.Object3D[] = [];
     root.traverse((node) => { if (node instanceof THREE.LineSegments) interiorEdgeLines.push(node); });
     expect(interiorEdgeLines).toHaveLength(0);
+  });
+
+  it("puts lazy-Susan and easy-reach base pulls on the opening edge opposite the selected hinge", () => {
+    for (const [masterCode, description, swing, expectedHandle] of [
+      ["LSB36", "Lazy Susan Base", "left", "right"],
+      ["ERB36", "Easy Reach Base", "right", "left"],
+    ] as const) {
+      const cabinet = { uid: `${masterCode}-${swing}`, cabinetId: 1, masterCode, description, placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "l-shape", swing } as never;
+      const root = new THREE.Group();
+      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      const pulls: THREE.Object3D[] = [];
+      root.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
+      expect(pulls).toHaveLength(1);
+      expect(pulls[0]?.userData).toMatchObject({ hingeSide: swing, handleSide: expectedHandle, pullEdge: "opposite-hinge" });
+    }
   });
 
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {

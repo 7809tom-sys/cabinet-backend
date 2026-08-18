@@ -612,7 +612,10 @@ export function sceneCabinetColor(scene: InteractiveRoomScene) {
   if (/(navy|blue|ocean)/.test(source)) return "#435b77";
   if (/(green|sage|forest)/.test(source)) return "#78826b";
   if (/(walnut|espresso|brown|mocha)/.test(source)) return "#75523e";
-  if (/(oak|maple|honey|natural)/.test(source)) return "#c69a63";
+  // Calibrated from the owner-supplied Designer Natural door, drawer, full-door,
+  // and installed-room references: a light creamy maple/oak rather than the
+  // former orange-brown generic wood fallback.
+  if (/(oak|maple|honey|natural)/.test(source)) return "#d1ba8f";
   if (/(cream|beige|linen|almond)/.test(source)) return "#ded5c1";
   return "#f2f0ea";
 }
@@ -1077,8 +1080,8 @@ export function addCabinet(
   // catalog color intact prevents image tiling, broken UV seams, and uneven
   // highlights across adjacent doors and drawers.
   const faceColor = color;
-  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.36, metalness: 0.01 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.31, metalness: 0.01 });
+  const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42, metalness: 0.01 });
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
   textureMaterials.push(faceMaterial, trimMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
@@ -1736,6 +1739,28 @@ export function addCabinet(
     sideDoor.userData = { specialtyProfile: "l-corner", lCornerDoor: "side-leg", cabinetFront: true, flushPhysicalFace: true };
     frontGroup.add(sideDoor);
     addShakerFrame(lShape.sideLeg.depth - 0.09, faceHeight, sideDoor.position.x + 0.034, sideDoor.position.y, sideDoor.position.z, sideDoor.rotation.y);
+
+    // LSB/ERB/BER base corners retain their two physical face planes while the
+    // selected swing designates the operative opening edge. Place one pull on
+    // that room-facing door, laterally opposite its hinge.
+    const code = sku.masterCode.toUpperCase();
+    const hingeSelectableCornerBase = placement === "base" && (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/i.test(sku.description ?? ""));
+    if (hingeSelectableCornerBase) {
+      const hingeSide = sku.swing === "right" ? "right" as const : "left" as const;
+      const handleSide = hingeSide === "left" ? "right" : "left";
+      const targetDoor = hingeSide === "left" ? backDoor : sideDoor;
+      const targetWidth = hingeSide === "left" ? exposedFrontWidth - 0.09 : lShape.sideLeg.depth - 0.09;
+      const pullLength = Math.min(Math.max(0.12, faceHeight * 0.28), 0.86);
+      const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
+      if (targetDoor === backDoor) {
+        pull.position.set(backDoor.position.x + targetWidth * 0.24, -faceHeight * 0.3, backDoor.position.z + 0.066);
+      } else {
+        pull.position.set(sideDoor.position.x + 0.066, -faceHeight * 0.3, sideDoor.position.z - targetWidth * 0.24);
+        pull.rotation.y = Math.PI / 2;
+      }
+      pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: true, verticalPull: true, pullEdge: "opposite-hinge", hingeSide, handleSide, dimensionalCabinetDetail: true };
+      frontGroup.add(pull);
+    }
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
     // the 2D Corner Drawer Base elevation: an 8% corner marker and a full-height

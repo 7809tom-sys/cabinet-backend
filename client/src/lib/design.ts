@@ -708,10 +708,14 @@ export function isMixedFinish(
 export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number | null; numberOfDrawers?: number | null; description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
   if (p.placement === "appliance") return false;
   if (isPanelItem(p)) return false;
+  // Lazy Susan and Easy Reach base cabinets need a user-selectable opening side
+  // even when a legacy catalog row records their two physical face panels.
+  const code = (p.masterCode ?? "").toUpperCase();
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return true;
   // If we know the door count, trust it.
   if (typeof p.numberOfDoors === "number") return p.numberOfDoors > 0;
   // Drawer-only bases (no doors) typically have a drawer count and no doors.
-  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   if (/\bdrawer base\b|^db|drawer\b/.test(hay) && !/door/.test(hay)) return false;
   // Default: assume it has a door.
   return true;
@@ -722,6 +726,9 @@ export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number |
 export function resolveSwing(p: PlacedCabinet): DoorSwing {
   if (!hasDoorSwing(p)) return "none";
   if (p.swing && p.swing !== "none") return p.swing;
+  const code = (p.masterCode ?? "").toUpperCase();
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return "left";
   if (typeof p.numberOfDoors === "number" && p.numberOfDoors >= 2) return "double";
   return p.swing ?? "left";
 }
