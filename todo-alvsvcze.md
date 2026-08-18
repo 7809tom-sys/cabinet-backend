@@ -601,3 +601,9 @@
 - [x] Fix the mobile designer bottom action bar so Catalog, Cart, and all actions do not wrap or overlap
 - [x] Keep mobile designer actions reachable through a non-wrapping horizontally scrollable action strip
 - [x] Add responsive regression coverage for separated Catalog and Cart controls on narrow screens
+- [ ] Identify the exact incorrect price surface, cabinet/style, and authoritative replacement amount before changing any price
+- [ ] Apply a verified pricing correction consistently across designer, cart, order, and authorized role-specific price displays
+- [ ] Add regression coverage for the verified corrected price path
+- [x] Add the mobile Replace Cabinet Image workflow to desktop Edit Config, including This line only and All lines scope choices
+- [x] Support desktop image-library browse, upload, and URL entry in the Replace Cabinet Image dialog
+- [x] Add desktop-mobile replacement workflow parity coverage
