@@ -636,3 +636,4 @@
 - [x] Remove invented 3D door-sample substitutions and render only saved plan finishes with authoritative Cabinet Config door geometry
 - [ ] Eliminate generic 3D cabinet faces by rendering every placed cabinet from its saved Cabinet Config feature layout, profile, finish, skins, openings, and appliance data
 - [x] Propagate each placed cabinet’s exact saved door style identifier and profile into deterministic 3D without generic fallback
+- [x] Fix the active Autumn Vault selection pipeline so its saved Cabinet Config style applies in both 2D and 3D

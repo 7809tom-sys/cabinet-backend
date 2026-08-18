@@ -4475,17 +4475,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
     }
-    // With a placed cabinet selected, a finish pick is an edit to THAT cabinet,
-    // not a change to the design default. This keeps all other cabinets on their
-    // current finish and makes upper/lower two-tone designs intentional.
-    const selectedCabinet = selectedUid ? placed.find((cabinet) => cabinet.uid === selectedUid) : null;
-    if (selectedCabinet) {
-      if (slot === "A") setStyleA(newStyleId);
-      else setStyleB(newStyleId);
-      setCabinetStyle(newStyleId);
-      toast.success("Finish applied to the selected cabinet only.");
-      return;
-    }
+    // The main Color 1/Color 2 picker defines the active feature style for the
+    // design. A cabinet can remain selected while the user changes that global
+    // style, so selection must never divert this picker into a one-cabinet edit.
+    // Per-cabinet two-tone edits are handled only by the selected-cabinet style
+    // control, which calls setCabinetStyle directly.
     // If no active style is set yet (first pick), make THIS slot active so the
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
