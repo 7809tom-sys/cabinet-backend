@@ -623,3 +623,5 @@
 - [x] Refactor the 3D designer into a canvas-first interface that mirrors the compact reachable 2D planner controls without removing capabilities
 - [x] Remove remaining 3D preview chrome, expose the complete active catalog through the compact bottom bar, and align selected-cabinet controls with the 2D planner
 - [x] Mirror the full 2D catalog taxonomy, catalog-authored finishes, and 2D cabinet edit/move control pattern in the 3D workspace
+- [x] Fix the live 3D Catalog count so every active 2D Base, Corner, Wall, Tall, Appliance, and Accessory item is available rather than only eight records
+- [x] Embed the deterministic 3D canvas directly in the existing 2D designer central workspace and reuse its catalog, selection, edit, move, and detail panels

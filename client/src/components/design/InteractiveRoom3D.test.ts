@@ -18,6 +18,21 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+  it("keeps every 2D catalog group searchable without an arbitrary eight-item limit", () => {
+    const catalog = [
+      { id: 1, masterCode: "B-24", description: "Base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const },
+      { id: 2, masterCode: "LS36", description: "Corner cabinet", category: "Cabinet" as const, catalogGroup: "Corner" as const },
+      { id: 3, masterCode: "W-30", description: "Wall cabinet", category: "Cabinet" as const, catalogGroup: "Wall" as const },
+      { id: 4, masterCode: "P-24", description: "Tall pantry", category: "Cabinet" as const, catalogGroup: "Tall" as const },
+      { id: 5, masterCode: "RANGE-30", description: "Range", category: "Appliance" as const, catalogGroup: "Appliances" as const },
+      { id: 6, masterCode: "TK-4", description: "Toe kick", category: "Accessory" as const, catalogGroup: "Accessories" as const },
+      ...Array.from({ length: 12 }, (_, index) => ({ id: 20 + index, masterCode: `B-${index + 30}`, description: "Additional base cabinet", category: "Cabinet" as const, catalogGroup: "Base" as const })),
+    ];
+    expect(filteredThreeDCatalogItems(catalog, "All", "")).toHaveLength(18);
+    expect(filteredThreeDCatalogItems(catalog, "Base", "")).toHaveLength(13);
+    expect(filteredThreeDCatalogItems(catalog, "Tall", "pantry").map((item) => item.masterCode)).toEqual(["P-24"]);
+  });
+
   it("resolves independently persisted back, left, right, and front wall heights", () => {
     const heights = resolvedThreeDWallHeights({
       width: 144,

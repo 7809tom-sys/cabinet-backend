@@ -165,7 +165,7 @@ type ConsultPlanWall = {
   leftoverInches: number;
 };
 
-type ViewMode = "plan" | "elevation" | "split" | "corner" | "island";
+type ViewMode = "plan" | "threeD" | "elevation" | "split" | "corner" | "island";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
 
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
@@ -477,7 +477,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
-    return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
+    return v === "3d" ? "threeD" : v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
@@ -762,7 +762,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   useEffect(() => {
     if (!requestedThreeDPreview || interactive3dOpen || !canLoadInteractive3d || interactive3dLoading) return;
-    setInteractive3dOpen(true);
+    setViewMode("threeD");
   }, [requestedThreeDPreview, interactive3dOpen, canLoadInteractive3d, interactive3dLoading]);
 
   const savedPlanInteractive3dScene = useMemo<InteractiveRoomScene | null>(() => {
@@ -1998,22 +1998,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }), [interactive3dPricingLines]);
 
   const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
-    const cabinets = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? [])
-      .map((item) => ({
+    const activeCabinets = [
+      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+      ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
+    ].filter((item, index, all) => all.findIndex((candidate) => Number(candidate.id) === Number(item.id)) === index);
+    const cabinets = activeCabinets.map((item) => ({
         id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
-        catalogGroup: item.isCornerCabinet || item.cornerType ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
+        catalogGroup: isCornerBase(item) || isCornerWall(item) ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
       }));
-    const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).slice(0, 8).map((item) => ({
+    const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const, catalogGroup: "Accessories" as const,
     }));
     // Appliances are already part of the live Design Tool palette. They are
     // presentation/plan items unless a distributor exposes a priced SKU, so the
     // itemized drawer accurately marks them as price pending when applicable.
-    const appliances = appliancePalette.slice(0, 8).map((item) => ({
+    const appliances = appliancePalette.map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const, catalogGroup: "Appliances" as const,
     }));
     return [...cabinets, ...accessories, ...appliances];
-  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette]);
+  }, [autoFillCabinets, wallCabPool, tallCabPool, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
 
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
@@ -5233,6 +5237,46 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
+  const renderNativeThreeDCanvas = () => {
+    if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
+    if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
+    return <InteractiveRoom3D
+      key={interactive3dRevision}
+      embedded
+      className="h-full min-h-0"
+      scene={resolvedInteractive3dScene}
+      placed={placed}
+      roomOverride={room}
+      openings={openings}
+      sinks={sinks}
+      island={island}
+      furniture={furniture}
+      ponyWalls={ponyWalls}
+      orderSummary={interactive3dOrderSummary}
+      orderLines={interactive3dOrderLines}
+      catalogItems={interactive3dCatalogItems}
+      onAddCatalogItem={addFromInteractive3d}
+      onAddRangeHood={addRangeHoodFromInteractive3d}
+      onSelectCabinet={selectCabinet}
+      onOpenCabinetEditor={openAttributes}
+      onRotateCabinet={rotateCabinet}
+      onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+      initialPresentation={interactive3dPresentation ?? undefined}
+      catalogFinishOverride={activeFinish.face}
+      catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
+      catalogFinishName={activeStyleName}
+      catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+      onPresentationChange={setInteractive3dPresentation}
+      onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
+      onRoomWallHeightsChange={(heights) => setRoom((current) => ({ ...current, wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"] }))}
+      onMoveCabinet={moveCabinetFrom3D}
+      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
+      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
+    />;
+  };
+
   if (!verified) {
     return (
       <div className="min-h-full flex flex-col">
@@ -5313,7 +5357,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           variant="outline"
           size="sm"
           className="hidden lg:inline-flex shrink-0"
-          onClick={() => setInteractive3dOpen(true)}
+          onClick={() => setViewMode("threeD")}
           disabled={!canLoadInteractive3d || interactive3dLoading}
           title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
         >
@@ -5347,9 +5391,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </button>
           <button
             type="button"
-            onClick={() => setInteractive3dOpen(true)}
+            onClick={() => setViewMode("threeD")}
             disabled={!canLoadInteractive3d || interactive3dLoading}
-            className="rounded-full px-2 py-1 text-[10px] font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/25 disabled:opacity-40"
+            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
           >
             3D
           </button>
@@ -5474,10 +5518,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             <Eye className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => setInteractive3dOpen(true)}
+            onClick={() => setViewMode("threeD")}
             disabled={!canLoadInteractive3d || interactive3dLoading}
-            title="Open interactive 3D view"
-            className="inline-flex items-center justify-center h-6 w-7 rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-40"
+            title="Show the synchronized 3D designer canvas"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
           >
             <Boxes className="h-3.5 w-3.5" />
           </button>
@@ -5594,9 +5638,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         {placed.length > 0 && (
           <button
             type="button"
-            onClick={() => setInteractive3dOpen(true)}
-            title="Open deterministic 3D preview"
-            className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+            onClick={() => setViewMode("threeD")}
+            title="Show the synchronized 3D designer canvas"
+            className={`hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${viewMode === "threeD" ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"}`}
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
@@ -5745,7 +5789,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 <div className="px-1 pb-1">
                   <button
                     disabled={!canLoadInteractive3d || interactive3dLoading}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 120); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 120); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
                   >
                     <Boxes className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -5940,7 +5984,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <button
                     type="button"
                     disabled={placed.length === 0}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setInteractive3dOpen(true), 150); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 150); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
@@ -7585,6 +7629,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
             />
           )}
+          {viewMode === "threeD" && renderNativeThreeDCanvas()}
           {viewMode === "elevation" && (
             <ElevationView
               room={room}
@@ -9321,7 +9366,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     }}
                   />
                   {selectedLayoutPresetId ? (
-                    <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setInteractive3dOpen(true); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
+                    <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setViewMode("threeD"); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
                       <Boxes className="mr-1.5 h-4 w-4" /> Open interactive 3D preview
                     </Button>
                   ) : null}
