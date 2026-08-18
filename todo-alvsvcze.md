@@ -632,3 +632,4 @@
 - [x] Fix the remaining 3D material collapse so each cabinet’s saved finish override renders independently regardless of two-tone slot state
 - [x] Add a legally reviewable two-year affiliate post-termination non-compete clause with a proposed $10,000-per-violation liquidated-damages term and controlled site-suspension workflow
 - [x] Reposition the mobile 3D selected-cabinet description and price so they remain clear of the movement D-pad
+- [x] Make deterministic 3D cabinet face construction honor the selected plan door profile and matching finish instead of a generic flat front

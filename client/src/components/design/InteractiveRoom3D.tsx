@@ -392,7 +392,7 @@ export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefin
  * catalog color with controlled roughness and physical panel construction.
  */
 export function threeDUsesDoorSampleTexture() {
-  return false;
+  return true;
 }
 
 export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMaterialMode>, textureState: "not-requested" | "loading" | "loaded" | "failed") {
@@ -730,7 +730,8 @@ export function resolvedThreeDDoorProfile(
   scene: InteractiveRoomScene,
   catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null,
 ) {
-  return catalogDoorProfile ?? scene.materials?.cabinet ?? null;
+  const selectedProfile = `${catalogDoorProfile?.doorStyle ?? ""} ${catalogDoorProfile?.doorPanelType ?? ""}`.trim();
+  return selectedProfile ? catalogDoorProfile : scene.materials?.cabinet ?? null;
 }
 
 export function shouldRenderPlacedDesign(placed: PlacedCabinet[]) {
@@ -1169,18 +1170,17 @@ export function addCabinet(
   if (doorTexture) onDoorTextureState?.("loading");
   if (doorTexture) {
     doorTexture.colorSpace = THREE.SRGBColorSpace;
-    doorTexture.wrapS = THREE.RepeatWrapping;
-    doorTexture.wrapT = THREE.RepeatWrapping;
-    doorTexture.repeat.set(1.35, 1.35);
+    doorTexture.wrapS = THREE.ClampToEdgeWrapping;
+    doorTexture.wrapT = THREE.ClampToEdgeWrapping;
+    doorTexture.repeat.set(1, 1);
   }
-  // A catalog swatch may still be used elsewhere in the 2D product experience,
-  // but the 3D cabinet face is a smooth calibrated finish. Keeping the selected
-  // catalog color intact prevents image tiling, broken UV seams, and uneven
-  // highlights across adjacent doors and drawers.
+  // The active catalog sample is applied to actual door and drawer panels. The
+  // physical rails and stiles stay slightly darker and untextured so the chosen
+  // Shaker or raised profile remains visibly constructed instead of flat.
   const faceColor = color;
   const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42, metalness: 0.01 });
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.38, metalness: 0.01 });
-  textureMaterials.push(faceMaterial, trimMaterial);
+  const trimMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(faceColor).multiplyScalar(0.86), roughness: 0.38, metalness: 0.01 });
+  textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
   const shadowRevealMaterial = new THREE.MeshStandardMaterial({ color: "#1c1814", roughness: 0.78, metalness: 0.02, transparent: true, opacity: 0.52 });
