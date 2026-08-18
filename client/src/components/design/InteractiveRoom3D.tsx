@@ -287,6 +287,11 @@ export function threeDDoorMaterialFallback(color: string) {
   return { color, map: null as null };
 }
 
+/** A provided sample map carries the exact finish; tinting would darken or alter it. */
+export function threeDFaceMaterialColor(color: string, hasProvidedDoorSample: boolean) {
+  return hasProvidedDoorSample ? "#ffffff" : color;
+}
+
 export function shouldRenderCountertopOverSceneItem(
   placementOrItem: string | Pick<PlacedCabinet, "placement" | "masterCode" | "description" | "subCategory">,
   masterCode = "",
@@ -1189,7 +1194,7 @@ export function addCabinet(
   // The active catalog sample is applied to actual door and drawer panels. The
   // physical rails and stiles stay slightly darker and untextured so the chosen
   // Shaker or raised profile remains visibly constructed instead of flat.
-  const faceColor = color;
+  const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
   const faceMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.42, metalness: 0.01 });
   const trimMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(faceColor).multiplyScalar(0.86), roughness: 0.38, metalness: 0.01 });
   textureMaterials.push(faceMaterial);
@@ -3398,7 +3403,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
           const editConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
-          return <div data-testid="three-d-cabinet-attributes" className={`absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
+          return <div data-testid="three-d-cabinet-attributes" className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
               <div className="min-w-0">

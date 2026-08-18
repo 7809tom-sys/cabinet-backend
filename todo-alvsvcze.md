@@ -640,3 +640,5 @@
 - [x] Prevent asynchronous 3D material updates from overwriting the selected Autumn Vault plan finish with a darker fallback
 - [x] Restrict the feature-style section to provided Cabinet Config and catalog fields, with no inferred or fabricated cabinet details
 - [x] Eliminate the final generic brown 3D material fallback so the active Aurum Vault (Preston) feature style renders consistently across its cabinet run
+- [x] Apply the selected provided feature-style sample consistently to every cabinet face in the 3D run
+- [x] Move the desktop selected-cabinet information card from lower left to the opposite lower-right side
