@@ -2433,6 +2433,18 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidt
   root.add(group);
 }
 
+export function compactWallCodeDimensions(cabinet: Pick<PlacedCabinet, "masterCode" | "placement">) {
+  if (cabinet.placement !== "wall") return null;
+  // Compact wall codes are width-first: W3024 means 30" wide by 24" high.
+  // Some imported catalog rows carried these values transposed, so the code is
+  // authoritative for the W[width][height] family in the 3D scene.
+  const match = (cabinet.masterCode ?? "").toUpperCase().match(/^W-?(\d{2})-?(\d{2})(?:[A-Z]+)?$/);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return width >= 9 && height >= 9 ? { width, height } : null;
+}
+
 export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
   // The shared saved-placement contract owns every corner family. The 3D
   // renderer receives its classification rather than re-inferring the shape.
@@ -2449,6 +2461,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
       return key === applianceCode;
     })
     : undefined;
+  const codeDimensions = compactWallCodeDimensions(cabinet);
   return {
     distributorSkuId: -(Math.abs(cabinet.cabinetId) || 1),
     cabinetId: cabinet.cabinetId,
@@ -2458,8 +2471,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that
     // created the 2D placement—never the generic 24/12-inch cabinet defaults.
-    width: cornerBody?.width ?? footprint?.w ?? cabinet.width ?? appliance?.width,
-    height: cabinet.height ?? appliance?.elevHeight ?? (placementType === "wall" ? STD.WALL_HEIGHT : placementType === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
+    width: cornerBody?.width ?? footprint?.w ?? codeDimensions?.width ?? cabinet.width ?? appliance?.width,
+    height: codeDimensions?.height ?? cabinet.height ?? appliance?.elevHeight ?? (placementType === "wall" ? STD.WALL_HEIGHT : placementType === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT),
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,

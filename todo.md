@@ -2620,6 +2620,13 @@
 - [ ] Preserve handle height and room-facing hardware depth
 - [ ] Add hinge-opposite pull regression coverage and verify the reported cabinet
 
+## 3D: W3024 Dimension Interpretation
+- [x] Trace W3024 catalog records and the 2D-to-3D dimension conversion
+- [x] Render W3024 as 30 inches wide by 24 inches high above the microwave
+- [x] Preserve dimension parsing for other compact wall cabinet codes
+- [x] Add W3024 regression coverage
+- [ ] Verify the reported W3024 3D placement above the microwave
+
 ## Designer: Universal Single-Door Left/Right Hinge Choice
 - [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
 - [x] Provide a Left hinge / Right hinge control for every single-door cabinet

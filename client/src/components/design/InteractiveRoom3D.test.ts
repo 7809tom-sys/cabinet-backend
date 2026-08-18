@@ -868,6 +868,14 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
+    const imported = {
+      uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",
+      placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30, rotation: 0,
+    } as never;
+    expect(existingCabinetSku(imported)).toMatchObject({ width: 30, height: 24, depth: 12 });
+  });
+
   it("keeps authored drawer-row counts and measured heights instead of replacing them with generic slats", () => {
     const rows = resolvedThreeDDrawerRows({
       drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 2, height: 5 }]),
