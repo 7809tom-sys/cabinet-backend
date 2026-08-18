@@ -2703,3 +2703,9 @@
 - [ ] Identify the exact live 3D component path used by the reported scene and why the Wall heights entry point is absent
 - [ ] Inspect rendered scene appliance identities and correct the range-hood prompt against the actual microwave record
 - [ ] Verify Wall heights and prompt suppression on the reported computer and phone views
+
+## Fix: Stable 3D Cabinet Selection and Control Layout
+- [x] Trace why 3D cabinet selection changes while the mouse moves after a cabinet is selected
+- [x] Lock selected-cabinet attributes to deliberate click/right-click or tap selection until the user chooses another cabinet
+- [x] Separate Add cabinet, Wall heights, and Hide wall cabinets into a non-overlapping responsive layout
+- [ ] Add computer mouse and phone touch regressions and verify the reported workspace

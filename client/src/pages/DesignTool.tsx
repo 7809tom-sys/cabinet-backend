@@ -5468,6 +5468,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       onOpenCabinetEditor={openAttributes}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
+      showWallLayer={showWallLayer}
+      onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
       onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
       initialPresentation={interactive3dPresentation ?? undefined}
       catalogFinishOverride={activeFinish.face}
@@ -8103,7 +8105,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           )}
 
           {/* Wall layer toggle (plan only) */}
-          {viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
+          {viewMode !== "threeD" && viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
             <button
               onClick={() => setShowWallLayer((s) => !s)}
               className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/90 border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
