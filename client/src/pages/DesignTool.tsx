@@ -9361,60 +9361,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
       <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
         <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-serif text-xl">Catalog-aware 3D room preview</DialogTitle>
-            <DialogDescription>This room renders the active 2D design, including its selected door finish, placements, openings, and windows. Drag to orbit and use the controls to zoom.</DialogDescription>
+          <DialogHeader className="border-b px-4 py-3 sm:px-5">
+            <DialogTitle className="font-serif text-xl">3D Kitchen Designer</DialogTitle>
+            <DialogDescription className="sr-only">Use the compact action bar to add catalog cabinets, change the view, preview finishes, adjust room settings, and create outputs.</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
-              <div className="grid min-h-[640px] gap-4 xl:grid-cols-[minmax(340px,0.8fr)_minmax(0,1.2fr)] xl:overflow-hidden">
-                <section className="order-2 min-h-[340px] rounded-xl border bg-card p-3 shadow-sm xl:order-1 xl:min-h-0 xl:overflow-hidden">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div><p className="text-sm font-semibold">Complete 2D plan</p><p className="text-[11px] text-muted-foreground">Selections, additions, and moves synchronize immediately.</p></div>
-                    <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">{placed.length} cabinet{placed.length === 1 ? "" : "s"}</span>
-                  </div>
-                  <div className="h-[390px] overflow-hidden rounded-lg border bg-background xl:h-[calc(94vh-11rem)]">
-                    <PlanCanvas
-                      room={room}
-                      cabinets={placed}
-                      selectedUid={selectedUid}
-                      onSelect={selectCabinet}
-                      onMove={moveCabinet}
-                      onDelete={deleteCabinet}
-                      onRotate={rotateCabinet}
-                      onOpenAttributes={openAttributes}
-                      onDropNew={handleDropNew}
-                      showWallLayer={showWallLayer}
-                      measureMode={measureMode}
-                      autoDimensions={autoDimensions}
-                      island={island}
-                      onIslandChange={setIsland}
-                      onIslandMove={moveIsland}
-                      openings={openings}
-                      selectedOpeningUid={selectedOpeningUid}
-                      onSelectOpening={selectOpening}
-                      onOpeningChange={changeOpening}
-                      onDeleteOpening={deleteOpening}
-                      finish={activeFinish}
-                      activeWall={activeWall}
-                      onSelectWall={setActiveWall}
-                      onResizeWall={resizeWall}
-                      conflictUids={conflictUids}
-                      layoutLocked={layoutLocked}
-                      lockedWalls={lockedWalls}
-                      countertopMaterialId={countertop ? countertopMaterialId : null}
-                      sinks={sinks}
-                      selectedSinkUid={selectedSinkUid}
-                      onSelectSink={selectSink}
-                      onMoveSink={moveSink}
-                      onDropToFloor={dropToFloor}
-                      finishFor={finishForCab}
-                    />
-                  </div>
-                </section>
-                <section className="order-1 min-w-0 xl:order-2 xl:overflow-y-auto">
               <InteractiveRoom3D
                 key={interactive3dRevision}
                 scene={resolvedInteractive3dScene}
@@ -9458,8 +9412,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   styleId,
                 } : undefined}
               />
-                </section>
-              </div>
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
             )}

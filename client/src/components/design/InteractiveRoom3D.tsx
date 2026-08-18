@@ -96,6 +96,9 @@ export type InteractiveRoomCatalogItem = {
   category: "Cabinet" | "Accessory" | "Appliance";
 };
 
+/** Core 2D-style capabilities preserved in the compact, canvas-first 3D toolbar. */
+export const THREE_D_WORKSPACE_ACTIONS = ["catalog", "view", "finish", "room", "output"] as const;
+
 /** The add-from-catalog strip remains available for both starter rooms and saved 2D plans. */
 export function shouldShowThreeDCatalog(catalogItems: InteractiveRoomCatalogItem[]): boolean {
   return catalogItems.length > 0;
@@ -2814,6 +2817,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [workspacePanel, setWorkspacePanel] = useState<"catalog" | "view" | "finish" | "room" | "output" | null>(null);
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
@@ -3326,98 +3330,14 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
   return (
     <section ref={previewRootRef} className={`relative ${isFullscreen ? "h-screen w-screen overflow-y-auto bg-background p-3 sm:p-5" : ""} ${className ?? ""}`} aria-label="Interactive three-dimensional room preview">
-      <div className="sticky top-0 z-30 mb-3 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 py-2 backdrop-blur">
-        <div>
-          <p className="text-sm font-semibold">Interactive 3D Preview</p>
-          <p className="text-xs text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinet${placed.length === 1 ? "" : "s"} from your current design` : `${scene.layout?.name} · ${validSuggestions.length} real catalog cabinet suggestion${validSuggestions.length === 1 ? "" : "s"}`}</p>
-          {renderExistingDesign && <p data-testid="three-d-plan-sync" className="mt-0.5 text-[10px] text-muted-foreground">{threeDPlanSyncText({ placed, openings, sinks, island, furniture, ponyWalls })}</p>}
-          {renderExistingDesign && <p data-testid="three-d-input-status" className={`mt-0.5 text-[10px] ${doorTextureState === "failed" ? "text-destructive" : "text-muted-foreground"}`}>{threeDMaterialStatusText(visibleMaterialMode, doorTextureState)}</p>}
-          {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <p data-testid="three-d-range-hood-status" className="mt-0.5 text-[10px] text-amber-700">Add a Range Hood in the 2D appliance palette to display it above this saved range.{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add it now</button>}</p>}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-background/80 p-1" aria-label="3D camera presets">
-            {([
-              ["presentation", "Perspective"],
-              ["front", "Front"],
-              ["wide", "Wide"],
-              ["detail", "Detail"],
-            ] as const).map(([preset, label]) => <Button key={preset} type="button" size="sm" variant={cameraPreset === preset ? "default" : "ghost"} className="h-7 px-2 text-[11px]" onClick={() => setCameraPreset(preset)}>{label}</Button>)}
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Clear stage" : "Room context"}</Button>
-          <label data-testid="three-d-wall-height-control" className="flex h-9 items-center gap-1.5 rounded-md border border-[#a87f33]/60 bg-[#fffaf1] px-2.5 text-[11px] font-semibold text-[#4b3a20] shadow-sm" title="Adjust 3D wall height from 1 inch to 10 feet">
-            <span>Wall height</span>
-            <Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-7 w-14 border border-[#d9c196] bg-background p-0 text-center text-[11px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
-            <span>in</span>
-          </label>
-          <div data-testid="three-d-per-wall-height-controls" className="flex flex-wrap items-center gap-1 rounded-md border border-[#d9c196] bg-[#fffaf1] p-1.5 text-[10px] font-semibold text-[#4b3a20]" aria-label="Individual wall heights">
-            {([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => (
-              <label key={side} className={`flex items-center gap-0.5 ${wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? "rounded bg-amber-100 px-1 text-amber-900" : ""}`} title={wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? `${label} wall has upper cabinets and should be at least ${upperCabinetWallMinimums[side]} inches.` : `${label} wall height`}>
-                <span>{label}</span>
-                <Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-7 w-11 border border-[#d9c196] bg-background p-0 text-center text-[10px] font-semibold text-[#382710] shadow-none focus-visible:ring-[#a87f33]" />
-              </label>
-            ))}
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-3.5 w-3.5" />{autoRotate ? "Pause" : "Rotate"}</Button>
-          <Button type="button" size="sm" variant="outline" onClick={toggleFullscreen} title={isFullscreen ? "Exit full screen" : "View in full screen"}>{isFullscreen ? <Minimize2 className="mr-1.5 h-3.5 w-3.5" /> : <Maximize2 className="mr-1.5 h-3.5 w-3.5" />}{isFullscreen ? "Exit full screen" : "Full screen"}</Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => setResetKey((current) => current + 1)}><Camera className="mr-1.5 h-3.5 w-3.5" />Reset</Button>
-          <Button type="button" size="sm" onClick={downloadImage} className="shrink-0"><Download className="mr-1.5 h-3.5 w-3.5" />Download image</Button>
-          <Button type="button" size="sm" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-3.5 w-3.5" />PDF quote</Button>
-          <Button type="button" size="sm" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-3.5 w-3.5" />Print</Button>
-          <Button type="button" size="sm" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}>{emailQuoteMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}{emailQuoteMutation.isPending ? "Sending" : "Email quote"}</Button>
-          {onSaveToAccount && <Button type="button" size="sm" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-3.5 w-3.5" />Save</Button>}
-          <Button type="button" size="sm" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}>{shareMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Share2 className="mr-1.5 h-3.5 w-3.5" />}{shareMutation.isPending ? "Creating" : "Share"}</Button>
-        </div>
+      <div className="sticky top-0 z-30 mb-2 flex items-center justify-between gap-3 border-b bg-background/95 py-2 backdrop-blur">
+        <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
+        <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>
-      <div className="mb-3 grid gap-3 rounded-xl border bg-muted/25 p-3 sm:grid-cols-2">
-        <div>
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5 text-[#a87f33]" />Cabinet finish preview</p>
-          <div className="flex flex-wrap gap-1.5">
-            {CABINET_FINISHES.map((option) => {
-              const color = option.color === "catalog" ? catalogFinish : option.color;
-              return <button key={option.name} type="button" onClick={() => setCabinetFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${cabinetFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background hover:bg-muted"}`}>
-                <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: color }} />{option.name}
-              </button>;
-            })}
-          </div>
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-semibold">Countertop preview</p>
-          <div className="flex flex-wrap gap-1.5">
-            {COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background hover:bg-muted"}`}>
-              <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}
-            </button>)}
-          </div>
-        </div>
-        <p className="sm:col-span-2 text-[11px] text-muted-foreground">Preview materials change this image only. Your active catalog door style and order remain unchanged.</p>
-      </div>
-      {orderSummary && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d9c196] bg-[#fffaf1] px-3 py-2.5">
-          <div>
-            <p className="text-xs font-semibold text-[#4b3a20]">Current design pricing</p>
-            <p className="text-[11px] text-[#6e5d42]">{orderSummary.itemCount} item{orderSummary.itemCount === 1 ? "" : "s"} · {orderSummary.pricedLineCount} priced line{orderSummary.pricedLineCount === 1 ? "" : "s"}{orderSummary.unpricedLineCount ? ` · ${orderSummary.unpricedLineCount} awaiting price` : ""}</p>
-            <p className="mt-1 text-[11px] text-[#6e5d42]">3D preview: {quoteMaterials.cabinet} cabinets · {quoteMaterials.countertop} countertop</p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-semibold tabular-nums text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            <p className="text-[10px] text-[#6e5d42]">Actual catalog-priced subtotal</p>
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={() => setPricingOpen(true)}>Itemized pricing<ChevronDown className="ml-1.5 h-3.5 w-3.5" /></Button>
-          <p className="w-full text-[11px] text-[#6e5d42]">Preview finish and countertop changes do not alter this order subtotal. Choose a catalog-backed material in the 2D design to update order pricing.</p>
-        </div>
-      )}
-      {shouldShowThreeDCatalog(catalogItems) && (
-        <div className="mb-3 rounded-xl border bg-background p-3">
-          <div className="mb-2 flex items-center gap-2"><Move3D className="h-4 w-4 text-[#a87f33]" /><p className="text-xs font-semibold">Add from catalog</p><span className="text-[11px] text-muted-foreground">Choose or drag an item to add it to the active wall in the synchronized 2D plan.</span></div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {catalogItems.map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => onAddCatalogItem?.(item)} className="min-w-40 rounded-lg border bg-card p-2 text-left text-xs transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
-              <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block line-clamp-2 text-muted-foreground">{item.description ?? item.category}</span><span className="mt-1 block text-[10px] uppercase tracking-wide text-[#a87f33]">Add {item.category}</span>
-            </button>)}
-          </div>
-        </div>
-      )}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${isFullscreen ? "h-[calc(100vh-235px)] min-h-[420px]" : "h-[360px] sm:h-[440px]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerMove={(event) => { if (!pointerStartRef.current) inspectCabinetAtPoint(event.clientX, event.clientY); }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) < 6) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
+        {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <div data-testid="three-d-range-hood-status" className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm backdrop-blur"><span>Add a range hood in the catalog to show it above this saved range.</span>{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add now</button>}</div>}
         {selectedCabinet && (() => {
           const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase()));
           const description = threeDSelectedCabinetDescription(selectedCabinet);
@@ -3452,7 +3372,49 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           </div>;
         })()}
       </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Click a cabinet for its price and style details · Right-click a placed cabinet for movement attributes · Drag to orbit or pan · Scroll or pinch to zoom</p>
+      <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
+        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog</Button>
+        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
+        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("finish")}><Sparkles className="h-4 w-4" />Finish</Button>
+        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("room")}><Rotate3D className="h-4 w-4" />Room</Button>
+        <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("output")}><Share2 className="h-4 w-4" />Output</Button>
+        {orderSummary && <Button type="button" size="sm" className="h-10 shrink-0 snap-start" onClick={() => setPricingOpen(true)}>${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Button>}
+      </div>
+      <p className="mt-2 text-center text-xs text-muted-foreground">Tap a cabinet to edit or move it · Drag to orbit · Pinch or scroll to zoom</p>
+      <Sheet open={workspacePanel !== null} onOpenChange={(open) => { if (!open) setWorkspacePanel(null); }}>
+        <SheetContent side="bottom" className="max-h-[78dvh] overflow-y-auto rounded-t-2xl px-4 pb-6 sm:mx-auto sm:max-w-3xl">
+          {workspacePanel === "catalog" && <>
+            <SheetHeader><SheetTitle>Add from catalog</SheetTitle></SheetHeader>
+            <p className="mt-2 text-sm text-muted-foreground">Choose a cabinet or item to add it to the active wall. It immediately joins this 3D room and the saved 2D plan.</p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {catalogItems.map((item) => <button key={`${item.category}-${item.id}`} type="button" draggable onDragStart={(event) => { const key = `${item.category}:${item.id}`; event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", key); setDraggedCatalogId(key); }} onDragEnd={() => setDraggedCatalogId(null)} onClick={() => { onAddCatalogItem?.(item); setWorkspacePanel(null); }} className="rounded-xl border bg-card p-3 text-left transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
+                <span className="block font-semibold">{item.masterCode}</span><span className="mt-0.5 block text-xs text-muted-foreground">{item.description ?? item.category}</span><span className="mt-2 block text-[10px] font-semibold uppercase tracking-wide text-[#a87f33]">Add {item.category}</span>
+              </button>)}
+            </div>
+          </>}
+          {workspacePanel === "view" && <>
+            <SheetHeader><SheetTitle>3D view</SheetTitle></SheetHeader>
+            <div className="mt-4 flex flex-wrap gap-2" aria-label="3D camera presets">{([ ["presentation", "Perspective"], ["front", "Front"], ["wide", "Wide"], ["detail", "Detail"] ] as const).map(([preset, label]) => <Button key={preset} type="button" variant={cameraPreset === preset ? "default" : "outline"} onClick={() => { setCameraPreset(preset); setWorkspacePanel(null); }}>{label}</Button>)}</div>
+            <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Clear stage" : "Room context"}</Button><Button type="button" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-4 w-4" />{autoRotate ? "Pause rotation" : "Rotate room"}</Button><Button type="button" variant="outline" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</Button></div>
+          </>}
+          {workspacePanel === "finish" && <>
+            <SheetHeader><SheetTitle>Preview finish</SheetTitle></SheetHeader>
+            <p className="mt-2 text-sm text-muted-foreground">Preview finishes affect this 3D view only; your catalog selection and order remain unchanged.</p>
+            <p className="mt-5 flex items-center gap-1.5 text-xs font-semibold"><Sparkles className="h-3.5 w-3.5 text-[#a87f33]" />Cabinet finish</p><div className="mt-2 flex flex-wrap gap-2">{CABINET_FINISHES.map((option) => { const color = option.color === "catalog" ? catalogFinish : option.color; return <button key={option.name} type="button" onClick={() => setCabinetFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${cabinetFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: color }} />{option.name}</button>; })}</div>
+            <p className="mt-5 text-xs font-semibold">Countertop finish</p><div className="mt-2 flex flex-wrap gap-2">{COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}</button>)}</div>
+          </>}
+          {workspacePanel === "room" && <>
+            <SheetHeader><SheetTitle>Room controls</SheetTitle></SheetHeader>
+            <label data-testid="three-d-wall-height-control" className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#a87f33]/60 bg-[#fffaf1] p-3 text-sm font-semibold text-[#4b3a20]"><span>All wall height</span><span className="flex items-center gap-1"><Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-9 w-16 border border-[#d9c196] bg-background text-center font-semibold shadow-none" />in</span></label>
+            <div data-testid="three-d-per-wall-height-controls" className="mt-3 grid grid-cols-2 gap-2" aria-label="Individual wall heights">{([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => <label key={side} className={`flex items-center justify-between rounded-lg border p-2 text-xs font-semibold ${wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? "border-amber-300 bg-amber-50 text-amber-900" : ""}`}><span>{label}</span><Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-8 w-14 text-center text-xs" /></label>)}</div>
+          </>}
+          {workspacePanel === "output" && <>
+            <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>
+            {orderSummary && <div className="mt-4 flex items-center justify-between rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><div><p className="text-sm font-semibold text-[#4b3a20]">Current design</p><p className="text-xs text-[#6e5d42]">{orderSummary.itemCount} items · {orderSummary.pricedLineCount} priced lines</p></div><p className="text-lg font-semibold text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}<Button type="button" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
+          </>}
+        </SheetContent>
+      </Sheet>
       <Sheet open={pricingOpen} onOpenChange={setPricingOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader><SheetTitle>Itemized design pricing</SheetTitle></SheetHeader>
