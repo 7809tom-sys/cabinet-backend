@@ -5252,6 +5252,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [placed, finishForCab],
   );
 
+  const threeDCabinetDoorProfiles = useMemo(
+    () => Object.fromEntries(placed.flatMap((cabinet) => {
+      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+      const assignedStyle = doorStyles?.find((style) => style.id === assignedStyleId) ?? null;
+      if (!assignedStyle) return [];
+      return [[cabinet.uid, {
+        doorStyle: assignedStyle.doorStyle ?? null,
+        doorPanelType: assignedStyle.doorPanelType ?? null,
+      }]];
+    })),
+    [placed, styleId, doorStyles],
+  );
+
   const renderNativeThreeDCanvas = () => {
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
@@ -5279,6 +5292,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       initialPresentation={interactive3dPresentation ?? undefined}
       catalogFinishOverride={activeFinish.face}
       cabinetFinishOverrides={threeDCabinetFinishOverrides}
+      cabinetDoorProfiles={threeDCabinetDoorProfiles}
       catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
       catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
       catalogFinishName={activeStyleName}

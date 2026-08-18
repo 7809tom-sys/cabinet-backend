@@ -146,6 +146,8 @@ interface Props {
   catalogFinishOverride?: string | null;
   /** Exact resolved 2D finish color for each placed cabinet, keyed by placement UID. */
   cabinetFinishOverrides?: Record<string, string>;
+  /** Exact saved 2D door profile for each placed cabinet, keyed by placement UID. */
+  cabinetDoorProfiles?: Record<string, { doorStyle: string | null; doorPanelType: string | null }>;
   /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
   catalogDoorSampleUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
@@ -719,6 +721,17 @@ export function resolvedPlacedCabinetFinish(
   designDefault: string,
 ) {
   return cabinetFinishOverrides?.[cabinet.uid] ?? designDefault;
+}
+
+/** Resolves a placed cabinet's own saved 2D feature style before the plan default. */
+export function resolvedPlacedCabinetDoorProfile(
+  cabinet: Pick<PlacedCabinet, "uid">,
+  cabinetDoorProfiles: Record<string, { doorStyle: string | null; doorPanelType: string | null }> | undefined,
+  planDefault: { doorStyle: string | null; doorPanelType: string | null } | null | undefined,
+) {
+  const placedProfile = cabinetDoorProfiles?.[cabinet.uid];
+  const placedIdentity = `${placedProfile?.doorStyle ?? ""} ${placedProfile?.doorPanelType ?? ""}`.trim();
+  return placedIdentity ? placedProfile : planDefault ?? null;
 }
 
 export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSampleUrl?: string | null, preferSelectedPlanSample = false) {
@@ -2833,7 +2846,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, cabinetConfigHref, embedded = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3092,10 +3105,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
         const sku = existingCabinetSku(cabinet);
         const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, cabinetFinishOverrides, finish);
+        const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, transform, activeDoorTexture, updateDoorTextureState);
+        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, activeDoorTexture, updateDoorTextureState);
       }
     } else {
       for (const suggestion of validSuggestions) {

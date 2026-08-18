@@ -634,3 +634,5 @@
 - [x] Reposition the mobile 3D selected-cabinet description and price so they remain clear of the movement D-pad
 - [x] Make deterministic 3D cabinet face construction honor the selected plan door profile and matching finish instead of a generic flat front
 - [x] Remove invented 3D door-sample substitutions and render only saved plan finishes with authoritative Cabinet Config door geometry
+- [ ] Eliminate generic 3D cabinet faces by rendering every placed cabinet from its saved Cabinet Config feature layout, profile, finish, skins, openings, and appliance data
+- [x] Propagate each placed cabinet’s exact saved door style identifier and profile into deterministic 3D without generic fallback
