@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-react";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
+  CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
   cabinetConfigAttentionReasons,
   cabinetFrontEndQuickEditUrl,
   distributorLineLabels,
@@ -192,7 +193,11 @@ export default function CabinetConfigReviewQueueAdmin() {
                     <td className="px-3 py-2.5 text-center">
                       {row.masterCode ? (
                         <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
-                          <a href={cabinetFrontEndQuickEditUrl(row.masterCode)} title="Open the full front-end cabinet editor">
+                          <a
+                            href={cabinetFrontEndQuickEditUrl(row.masterCode)}
+                            title="Open the full front-end cabinet editor in a new tab"
+                            {...CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES}
+                          >
                             <Pencil className="h-3 w-3" />
                             Edit Config
                           </a>

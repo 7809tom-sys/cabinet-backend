@@ -28,6 +28,11 @@ export function cabinetFrontEndQuickEditUrl(masterCode: string): string {
   return `/catalog/${encodeURIComponent(masterCode)}?edit=1`;
 }
 
+export const CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES = {
+  target: "_blank",
+  rel: "noopener noreferrer",
+} as const;
+
 /** Converts the database's compact distributor-line list into stable display labels. */
 export function distributorLineLabels(distributorNames: string | null | undefined): string[] {
   return Array.from(

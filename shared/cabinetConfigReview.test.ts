@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
+  CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
   cabinetConfigAttentionReasons,
   cabinetFrontEndQuickEditUrl,
   cabinetConfigQuickEditUrl,
@@ -38,6 +39,13 @@ describe("cabinet configuration review queue", () => {
 
   it("opens Cabinet Attention edits in the same front-end cabinet editor", () => {
     expect(cabinetFrontEndQuickEditUrl("B24 A/2")).toBe("/catalog/B24%20A%2F2?edit=1");
+  });
+
+  it("keeps the Cabinet Attention workspace open when launching the front-end editor", () => {
+    expect(CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES).toEqual({
+      target: "_blank",
+      rel: "noopener noreferrer",
+    });
   });
 
   it("formats every linked distributor line once for fast queue scanning", () => {
