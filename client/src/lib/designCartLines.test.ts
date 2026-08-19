@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, calculateCartSubtotal } from "./designCartLines";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, lockDesignCartLinesToPackageTotal } from "./designCartLines";
 import { CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 
 const bec = {
@@ -86,6 +86,22 @@ describe("designer cabinet cart lines", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ masterCode: "BEC-24", qty: 1 });
     expect(calculateCartSubtotal(lines)).toBe(365.95);
+  });
+
+  it("locks loaded bundle lines to the verified package total without changing catalog source prices", () => {
+    const secondCabinet = { ...bec, uid: "bec-other", masterCode: "B-30", description: '30" Base Cabinet', x: 24 } as PlacedCabinet;
+    const lines = buildDesignCabinetCartLines({
+      placed: [bec, secondCabinet],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: (cabinet) => cabinet.masterCode === "BEC-24" ? 7000 : 6000,
+    });
+    const locked = lockDesignCartLinesToPackageTotal(lines, 4116.84);
+    expect(calculateCartSubtotal(locked)).toBe(4116.84);
+    expect(locked.every((line) => line.priceLocked)).toBe(true);
+    expect(bundleCabinetPricingSignature([bec, secondCabinet], 330001)).toBe(bundleCabinetPricingSignature([secondCabinet, bec], 330001));
   });
 
   it("keeps the 3D cabinet-design subtotal aligned with discounts and custom-size fees while excluding visual appliances", () => {

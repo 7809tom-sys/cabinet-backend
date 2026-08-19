@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderBundleFloorPlanSvg } from "./bundleFloorPlan";
-import { bundlePricePairs, calculateCurrentBundlePrice } from "./bundleDealPricing";
+import { bundlePricePairs, calculateCurrentBundlePrice, publishedBundlePrice } from "./bundleDealPricing";
 
 const snapshot = {
   room: { width: 144, depth: 120 },
@@ -17,6 +17,11 @@ const snapshot = {
 };
 
 describe("bundleDealPricing", () => {
+  it("preserves an approved saved package total instead of replacing it with a live reprice", () => {
+    expect(publishedBundlePrice("4116.84")).toBe("4116.84");
+    expect(publishedBundlePrice("not-a-price")).toBeNull();
+  });
+
   it("uses saved placement styles, bundle fallback style, and repeated cabinet quantities", () => {
     expect(bundlePricePairs(snapshot, 9)).toEqual([
       { masterCode: "B-21", styleId: 7 },

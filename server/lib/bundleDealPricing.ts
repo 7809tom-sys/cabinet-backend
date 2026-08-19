@@ -28,6 +28,13 @@ export type CurrentBundlePrice = {
   missingItemCount: number;
 };
 
+/** A published bundle’s approved saved amount is authoritative for that package. */
+export function publishedBundlePrice(savedHomeownerPrice: string | null | undefined): string | null {
+  if (savedHomeownerPrice == null) return null;
+  const amount = Number(savedHomeownerPrice);
+  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : null;
+}
+
 function positiveInteger(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;

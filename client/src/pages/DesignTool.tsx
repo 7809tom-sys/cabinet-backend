@@ -51,7 +51,7 @@ import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
-import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
@@ -357,6 +357,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { id: bundleIdParam ?? 0 },
     { enabled: bundleIdParam != null, retry: 1 }
   );
+  const [loadedBundlePriceLock, setLoadedBundlePriceLock] = useState<{
+    bundleId: number;
+    total: number;
+    cabinetSignature: string;
+  } | null>(null);
   // Optional door style to pre-select (?style=<styleId>), e.g. from a "Design
   // with this" CTA on the homepage or a door style product page.
   const preloadStyleId = useMemo(() => {
@@ -1439,7 +1444,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(`${replacement.masterCode} shelf-corner cabinet selected. A carousel remains a separate optional add-on.`);
   }, [cabinetsLocked]);
 
-  const total = useMemo(
+  const calculatedDesignTotal = useMemo(
     () =>
       placed.reduce((sum, p) => {
         const base = unitPriceFor(p) ?? 0;
@@ -1449,6 +1454,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       placed.reduce((sum, p) => sum + customSizeFee(p), 0),
     [placed, unitPriceFor]
   );
+  const activeBundlePriceLock = useMemo(() => {
+    if (!loadedBundlePriceLock || loadedBundlePriceLock.cabinetSignature !== bundleCabinetPricingSignature(placed, styleId)) return null;
+    return loadedBundlePriceLock;
+  }, [loadedBundlePriceLock, placed, styleId]);
+  const total = activeBundlePriceLock?.total ?? calculatedDesignTotal;
 
   // ─── Per-cabinet roll-out shelves (add-on) → BOM / cart line items ───────────
   // Distinct effective door-style ids in the design (only cabinets that actually
@@ -1831,15 +1841,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // the design's locked distributor, so there is never a cross-distributor mix.
   const cabinetCartLines = useMemo(() => {
     if (!styleId) return [] as CartItem[];
+    const designLines = buildDesignCabinetCartLines({
+      placed,
+      styleId,
+      distributorId: lockedDistributorId ?? null,
+      tier: DESIGN_TIER_TO_SHARED[tier],
+      styleNameById,
+      unitPriceFor,
+    });
     const map = new Map(
-      buildDesignCabinetCartLines({
-        placed,
-        styleId,
-        distributorId: lockedDistributorId ?? null,
-        tier: DESIGN_TIER_TO_SHARED[tier],
-        styleNameById,
-        unitPriceFor,
-      }).map((line) => [`${line.masterCode}::${line.styleId}`, line]),
+      (activeBundlePriceLock
+        ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
+        : designLines
+      ).map((line) => [`${line.masterCode}::${line.styleId}`, line]),
     );
     // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own
     // RS-* line items, priced + locked to the SAME distributor line as the design.
@@ -1862,19 +1876,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         });
     }
     return Array.from(map.values());
-  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines]);
+  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
 
   // The interactive 3D quote mirrors the visible cabinet-design estimate. It
   // deliberately excludes trim, surfaces, fixtures, and visual-only appliances
   // that belong to the broader shopping-cart scope rather than this subtotal.
-  const interactive3dPricingLines = useMemo(() => buildDesignPreviewPricingLines({
-    placed,
-    styleId,
-    distributorId: lockedDistributorId ?? null,
-    tier: DESIGN_TIER_TO_SHARED[tier],
-    styleNameById,
-    unitPriceFor,
-  }), [placed, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor]);
+  const interactive3dPricingLines = useMemo(() => {
+    const lines = buildDesignPreviewPricingLines({
+      placed,
+      styleId,
+      distributorId: lockedDistributorId ?? null,
+      tier: DESIGN_TIER_TO_SHARED[tier],
+      styleNameById,
+      unitPriceFor,
+    });
+    return activeBundlePriceLock ? lockDesignCartLinesToPackageTotal(lines, activeBundlePriceLock.total) : lines;
+  }, [placed, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor, activeBundlePriceLock]);
 
 
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
@@ -4921,6 +4938,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (typeof snapshot.countertop === "boolean") setCountertop(snapshot.countertop);
     if (typeof snapshot.countertopMaterialId === "string") setCountertopMaterialId(snapshot.countertopMaterialId);
     if (typeof snapshot.edgeProfileId === "string") setEdgeProfileId(snapshot.edgeProfileId);
+    const savedPackageTotal = Number(bundleData.homeownerPrice);
+    if (Number.isFinite(savedPackageTotal) && savedPackageTotal >= 0) {
+      setLoadedBundlePriceLock({
+        bundleId: bundleData.id,
+        total: savedPackageTotal,
+        cabinetSignature: bundleCabinetPricingSignature(Array.isArray(snapshot.placed) ? snapshot.placed : [], snapshot.styleId ?? null),
+      });
+    } else {
+      setLoadedBundlePriceLock(null);
+    }
     toast.success(`Bundle loaded: ${bundleData.name}`);
   }, [bundleIdParam, bundleData, loadSavedDesign]);
 
@@ -9037,7 +9064,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               return (
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-muted-foreground">{t("dt_bs_estimated_total")}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{activeBundlePriceLock ? "Verified bundle price" : t("dt_bs_estimated_total")}</span>
                     {noteItems.length > 0 && (
                       <Popover>
                         <PopoverTrigger asChild>

@@ -17,7 +17,7 @@ import { sellPriceForTier } from "@shared/margins";
 import { TRPCError } from "@trpc/server";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { storagePut } from "../storage";
-import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
+import { bundlePricePairs, bundleSurfaceIds, calculateCurrentBundlePrice, publishedBundlePrice, type BundlePriceCandidate, type BundleSnapshotLike } from "../lib/bundleDealPricing";
 
 // ─── 10×10 Kitchen Layout ────────────────────────────────────────────────────
 // Industry-standard 10×10 kitchen benchmark (120" × 120").
@@ -159,8 +159,11 @@ async function withCurrentBundleHomeownerPrices<T extends BundlePricingRow>(
     });
     return {
       ...row,
-      // Replace the historical stored amount with a freshly computed total.
-      homeownerPrice: livePrice.total?.toFixed(2) ?? null,
+      // The approved saved package amount is what a customer selected. Live
+      // catalog repricing remains diagnostic metadata only; it must never
+      // replace the package price that flows into Designer and checkout.
+      homeownerPrice: publishedBundlePrice(row.homeownerPrice),
+      currentHomeownerPrice: livePrice.total?.toFixed(2) ?? null,
       currentPriceStatus: livePrice.total === null ? "incomplete" as const : "current" as const,
       currentPriceMissingItemCount: livePrice.missingItemCount,
       fixtureCount: bundleSurfaceIds(row.designSnapshot as BundleSnapshotLike).length,

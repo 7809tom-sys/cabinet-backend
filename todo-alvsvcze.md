@@ -672,3 +672,4 @@
 - [x] Designer: Add a responsive Google-style tape measure for measuring distances directly on the saved 2D kitchen plan
 - [x] Designer: Connect phone camera/AR room measurements to a review-and-apply workflow for real physical room dimensions
 - [x] Bundle Deals: Remove the incorrect $13,772.76 secondary current-total display while retaining the verified $4,116.84 homeowner price
+- [x] Bundle Deals: Preserve the verified $4,116.84 Onyx Shadow package price when loaded into the designer, cart, and checkout

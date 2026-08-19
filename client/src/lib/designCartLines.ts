@@ -55,6 +55,59 @@ export function buildDesignCabinetCartLines({
 }
 
 /**
+ * Redistributes a verified package total across its already-price-locked design
+ * lines. This is used only for a bundle loaded with a persisted package price;
+ * it never updates catalog data. Keeping the total on actual cabinet lines lets
+ * the established cart-to-checkout price lock preserve it end to end.
+ */
+export function lockDesignCartLinesToPackageTotal(lines: CartItem[], packageTotal: number): CartItem[] {
+  if (!Number.isFinite(packageTotal) || packageTotal < 0) return lines;
+  const eligible = lines.filter((line) => line.unitPrice != null && line.qty > 0);
+  const currentTotal = calculateCartSubtotal(eligible);
+  if (eligible.length === 0 || currentTotal <= 0) return lines;
+
+  const targetCents = Math.round(packageTotal * 100);
+  let remainingCents = targetCents;
+  const locked = new Map<CartItem, CartItem>();
+
+  for (let index = 0; index < eligible.length; index += 1) {
+    const line = eligible[index];
+    const lineCurrentTotal = (line.unitPrice ?? 0) * line.qty;
+    const lineCents = index === eligible.length - 1
+      ? remainingCents
+      : Math.round(targetCents * (lineCurrentTotal / currentTotal));
+    // Unit prices may carry fractional cents for a multi-quantity line so the
+    // persisted line totals add to the exact verified package total.
+    locked.set(line, {
+      ...line,
+      unitPrice: lineCents / (line.qty * 100),
+      priceLocked: true,
+    });
+    remainingCents -= lineCents;
+  }
+
+  return lines.map((line) => locked.get(line) ?? line);
+}
+
+/** A bundle price remains valid only while its priced cabinet composition matches the saved snapshot. */
+export function bundleCabinetPricingSignature(placed: PlacedCabinet[], styleId: number | null): string {
+  return placed
+    .filter((cabinet) => cabinet.placement !== "appliance" && !isClosetPart(cabinet.masterCode) && cabinet.cabinetId != null)
+    .map((cabinet) => [
+      cabinet.uid,
+      cabinet.masterCode,
+      effectiveStyleId(cabinet, styleId) ?? styleId ?? 0,
+      cabinet.glassDoor ? "glass" : "standard",
+      cabinet.discountPct ?? 0,
+      cabinet.width,
+      cabinet.height,
+      cabinet.depth,
+    ].join(":"))
+    .sort()
+    .join("|");
+}
+
+/**
  * Pricing rows for the interactive 3D quote. These intentionally mirror the
  * visible build-sheet estimate: cabinets only, with each placement's discount
  * and custom-size fee applied. Trim, surfaces, fixtures, and launch-stage
