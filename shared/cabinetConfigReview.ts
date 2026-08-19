@@ -23,6 +23,11 @@ export function cabinetConfigQuickEditUrl(cabinetId: number): string {
   return `/admin?tab=cabinet-config&cabinetId=${cabinetId}`;
 }
 
+/** Opens the same full cabinet editor used from the front-end catalog detail page. */
+export function cabinetFrontEndQuickEditUrl(masterCode: string): string {
+  return `/catalog/${encodeURIComponent(masterCode)}?edit=1`;
+}
+
 /** Converts the database's compact distributor-line list into stable display labels. */
 export function distributorLineLabels(distributorNames: string | null | undefined): string[] {
   return Array.from(

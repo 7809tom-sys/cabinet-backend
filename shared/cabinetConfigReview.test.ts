@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   cabinetConfigAttentionReasons,
+  cabinetFrontEndQuickEditUrl,
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
   needsCabinetConfigAttention,
@@ -33,6 +34,10 @@ describe("cabinet configuration review queue", () => {
 
   it("deep-links each row to its exact Cabinet Config record", () => {
     expect(cabinetConfigQuickEditUrl(482)).toBe("/admin?tab=cabinet-config&cabinetId=482");
+  });
+
+  it("opens Cabinet Attention edits in the same front-end cabinet editor", () => {
+    expect(cabinetFrontEndQuickEditUrl("B24 A/2")).toBe("/catalog/B24%20A%2F2?edit=1");
   });
 
   it("formats every linked distributor line once for fast queue scanning", () => {

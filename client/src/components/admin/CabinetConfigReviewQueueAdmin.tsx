@@ -9,7 +9,7 @@ import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-r
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   cabinetConfigAttentionReasons,
-  cabinetConfigQuickEditUrl,
+  cabinetFrontEndQuickEditUrl,
   distributorLineLabels,
   needsCabinetConfigAttention,
   selectedDistributorLineId,
@@ -190,12 +190,16 @@ export default function CabinetConfigReviewQueueAdmin() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-center">
-                      <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
-                        <a href={cabinetConfigQuickEditUrl(row.id)}>
-                          <Pencil className="h-3 w-3" />
-                          Edit Config
-                        </a>
-                      </Button>
+                      {row.masterCode ? (
+                        <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
+                          <a href={cabinetFrontEndQuickEditUrl(row.masterCode)} title="Open the full front-end cabinet editor">
+                            <Pencil className="h-3 w-3" />
+                            Edit Config
+                          </a>
+                        </Button>
+                      ) : (
+                        <span className="text-[10px] italic text-muted-foreground">No edit record</span>
+                      )}
                     </td>
                   </tr>
                 );
