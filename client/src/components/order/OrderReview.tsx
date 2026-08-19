@@ -29,6 +29,7 @@ import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
 import { checkoutPresentation } from "@/lib/checkoutPresentation";
 import { resolveCheckoutAlias } from "@/lib/affiliateCheckoutAlias";
+import { isLockedDesignCheckoutPrice, resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 
 // A single working line in the review table. Derived from the matcher output
@@ -46,6 +47,11 @@ export type ReviewLine = {
   // split-pantry BOTTOM at the given cabinetId. Used to keep the pair in sync.
   pantryTopFor?: number | null;
   pantryTotalHeight?: 84 | 90 | 96 | null;
+  /** Exact customer price selected in the Design Tool and passed through cart. */
+  cartUnitPrice?: number | null;
+  cartPriceLocked?: boolean;
+  cartStyleId?: number | null;
+  cartTier?: string | null;
 };
 
 type StyleOption = {
@@ -458,7 +464,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const pricedLines = useMemo(() => {
     return lines.map((l) => {
       const unit =
-        l.matched && l.cabinetId != null ? priceMap.get(l.cabinetId) ?? null : null;
+        l.matched && l.cabinetId != null
+          ? resolveLockedCheckoutUnitPrice({
+              priceLocked: isLockedDesignCheckoutPrice(l),
+              storedUnitPrice: l.cartUnitPrice ?? null,
+              recomputedUnitPrice: priceMap.get(l.cabinetId) ?? null,
+            })
+          : null;
       const linePrice = unit != null ? Number((unit * l.qty).toFixed(2)) : null;
       const unitCost =
         l.matched && l.cabinetId != null ? costMap.get(l.cabinetId) ?? null : null;
@@ -587,9 +599,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         qty: l.qty,
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
-        styleId: selectedStyle?.styleId ?? null,
+        styleId: l.cartStyleId ?? selectedStyle?.styleId ?? null,
         doorStyle: brandedStyleName ?? null,
-        tier,
+        tier: (l.cartTier as Tier | null | undefined) ?? tier,
         matched: l.matched,
       })),
     });

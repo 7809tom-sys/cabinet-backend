@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
 import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/affiliateCartPricing";
+import { resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
@@ -75,11 +76,16 @@ export default function Cart() {
   // Get the live price for a cart item, falling back to the stored unitPrice.
   const liveUnitPrice = (item: (typeof items)[number]): number | null => {
     const live = livePriceMap.get(`${item.masterCode}:${item.styleId}`);
-    return resolveAffiliateCartUnitPrice({
+    const refreshedPrice = resolveAffiliateCartUnitPrice({
       storedUnitPrice: item.unitPrice,
       liveUnitPrice: live,
       tier: item.tier,
       isAffiliateCart,
+    });
+    return resolveLockedCheckoutUnitPrice({
+      priceLocked: item.priceLocked,
+      storedUnitPrice: item.unitPrice,
+      recomputedUnitPrice: refreshedPrice,
     });
   };
 
@@ -154,7 +160,14 @@ export default function Cart() {
     // the correct door style and pricing tier instead of defaulting to Aston Green.
     const firstItem = items[0];
     const prefill = {
-      items: items.map((i) => ({ code: i.masterCode, qty: i.qty })),
+      items: items.map((i) => ({
+        code: i.masterCode,
+        qty: i.qty,
+        styleId: i.styleId,
+        tier: i.tier,
+        unitPrice: liveUnitPrice(i),
+        priceLocked: i.priceLocked === true,
+      })),
       styleId: firstItem?.styleId ?? null,
       tier: firstItem?.tier ?? null,
     };

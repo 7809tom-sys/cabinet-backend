@@ -17,6 +17,8 @@ export type CartItem = {
   distributorId: number | null;
   tier: import("@shared/pricingTier").PricingTier;
   unitPrice: number | null; // null = quoted later
+  /** A price selected in the Design Tool must survive cart and checkout unchanged. */
+  priceLocked?: boolean;
   qty: number;
   // Optional bundle grouping (e.g. a Split Pantry made of a top + bottom part).
   // Both parts share the same bundleId so the cart UI can group them under one

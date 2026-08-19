@@ -667,3 +667,4 @@
 - [x] Designer: Add an administrator-only Material List PDF for internal price shopping, hidden from all non-admin users
 - [x] Designer: Give affiliates an authorized design price list showing their customer price and affiliate pricing position without exposing administrator-only data
 - [x] SEO: Audit and improve metadata, canonical URLs, robots directives, structured data, sitemap coverage, and mobile indexability for the main site and white-label affiliate storefronts
+- [x] Pricing: Preserve the selected customer/homeowner design price through cart, checkout, totals, and order submission without list-price fallback

@@ -14,6 +14,15 @@ import { BarcodeScanTab } from "@/components/order/BarcodeScanTab";
 import { CART_PREFILL_KEY } from "@/pages/Cart";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+type CartPrefillItem = {
+  code: string;
+  qty: number;
+  styleId?: number | null;
+  tier?: string | null;
+  unitPrice?: number | null;
+  priceLocked?: boolean;
+};
+
 type Source = "ocr" | "csv" | "manual" | "barcode";
 
 // Read a File into a base64 data URL the vision model can ingest directly.
@@ -48,11 +57,11 @@ export default function OrderBuilder() {
       return;
     }
     if (!raw) return;
-    let parsed: { code: string; qty: number }[] = [];
+    let parsed: CartPrefillItem[] = [];
     try {
       const decoded = JSON.parse(raw) as
-        | { items: { code: string; qty: number }[]; styleId: number | null; tier: string | null }
-        | { code: string; qty: number }[]; // legacy format
+        | { items: CartPrefillItem[]; styleId: number | null; tier: string | null }
+        | CartPrefillItem[]; // legacy format
       if (Array.isArray(decoded)) {
         parsed = decoded;
       } else {
@@ -70,7 +79,18 @@ export default function OrderBuilder() {
       {
         onSuccess: (result) => {
           setSource("manual");
-          setLines(result.lines);
+          setLines(result.lines.map((line, index) => {
+            const cartLine = items[index];
+            return cartLine?.priceLocked
+              ? {
+                  ...line,
+                  cartUnitPrice: cartLine.unitPrice ?? null,
+                  cartPriceLocked: true,
+                  cartStyleId: cartLine.styleId ?? null,
+                  cartTier: cartLine.tier ?? null,
+                }
+              : line;
+          }));
           toast.success(t("ob_loaded_from_cart", { n: result.lines.length, s: result.lines.length > 1 ? "s" : "" }), {
             description: t("ob_matched_review", { m: result.matchedCount, u: result.unmatchedCount }),
           });

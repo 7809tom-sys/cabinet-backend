@@ -46,6 +46,7 @@ export function buildDesignCabinetCartLines({
       distributorId,
       tier,
       unitPrice,
+      priceLocked: true,
       qty: 1,
       catalogImageUrl: cabinet.catalogImageUrl ?? null,
     });
