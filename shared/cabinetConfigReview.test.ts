@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cabinetConfigAttentionReasons,
   cabinetConfigQuickEditUrl,
+  distributorLineLabels,
   needsCabinetConfigAttention,
 } from "./cabinetConfigReview";
 
@@ -26,5 +27,10 @@ describe("cabinet configuration review queue", () => {
 
   it("deep-links each row to its exact Cabinet Config record", () => {
     expect(cabinetConfigQuickEditUrl(482)).toBe("/admin?tab=cabinet-config&cabinetId=482");
+  });
+
+  it("formats every linked distributor line once for fast queue scanning", () => {
+    expect(distributorLineLabels("Ashford | Faircrest | Ashford")).toEqual(["Ashford", "Faircrest"]);
+    expect(distributorLineLabels(null)).toEqual([]);
   });
 });

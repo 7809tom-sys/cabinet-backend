@@ -8,6 +8,7 @@ import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-r
 import {
   cabinetConfigAttentionReasons,
   cabinetConfigQuickEditUrl,
+  distributorLineLabels,
   needsCabinetConfigAttention,
 } from "@shared/cabinetConfigReview";
 
@@ -21,6 +22,7 @@ type ReviewCabinet = {
   height: string | null;
   isActive: boolean | null;
   configVerified: boolean | null;
+  distributorNames: string | null;
 };
 
 const PAGE_SIZE = 100;
@@ -96,6 +98,7 @@ export default function CabinetConfigReviewQueueAdmin() {
               <tr>
                 <th className="w-28 px-3 py-2 text-left text-xs font-medium text-muted-foreground">Code</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Description</th>
+                <th className="w-48 px-3 py-2 text-left text-xs font-medium text-muted-foreground">Distributor lines</th>
                 <th className="hidden w-20 px-3 py-2 text-left text-xs font-medium text-muted-foreground sm:table-cell">W×H</th>
                 <th className="w-44 px-3 py-2 text-left text-xs font-medium text-muted-foreground">Needs attention</th>
                 <th className="w-28 px-3 py-2 text-center text-xs font-medium text-muted-foreground">Action</th>
@@ -104,6 +107,7 @@ export default function CabinetConfigReviewQueueAdmin() {
             <tbody>
               {rows.map((row, index) => {
                 const reasons = cabinetConfigAttentionReasons(row);
+                const distributorLines = distributorLineLabels(row.distributorNames);
                 if (!needsCabinetConfigAttention(row)) return null;
                 return (
                   <tr key={row.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}>
@@ -116,6 +120,19 @@ export default function CabinetConfigReviewQueueAdmin() {
                         <span className="block text-[10px] text-muted-foreground">
                           {row.category}{row.subCategory ? ` › ${row.subCategory}` : ""}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {distributorLines.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {distributorLines.map((line) => (
+                            <Badge key={line} variant="secondary" className="px-1.5 py-0 text-[10px] font-medium">
+                              {line}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] italic text-muted-foreground">No linked distributor</span>
                       )}
                     </td>
                     <td className="hidden whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground sm:table-cell">

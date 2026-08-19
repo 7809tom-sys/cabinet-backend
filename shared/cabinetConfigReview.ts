@@ -20,3 +20,15 @@ export function cabinetConfigAttentionReasons(candidate: CabinetConfigReviewCand
 export function cabinetConfigQuickEditUrl(cabinetId: number): string {
   return `/admin?tab=cabinet-config&cabinetId=${cabinetId}`;
 }
+
+/** Converts the database's compact distributor-line list into stable display labels. */
+export function distributorLineLabels(distributorNames: string | null | undefined): string[] {
+  return Array.from(
+    new Set(
+      (distributorNames ?? "")
+        .split("|")
+        .map((name) => name.trim())
+        .filter(Boolean)
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}

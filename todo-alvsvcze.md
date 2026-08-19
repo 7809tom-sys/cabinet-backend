@@ -675,3 +675,4 @@
 - [x] Bundle Deals: Preserve the verified $4,116.84 Onyx Shadow package price when loaded into the designer, cart, and checkout
 - [x] 3D: Investigate the observed InteractiveRoom3D console error and correct any confirmed runtime rendering defect
 - [x] Cabinet Config: Add an administrator review queue for inactive and unverified cabinet records, with direct quick-edit links to each configuration
+- [x] Cabinet Attention: Show each affected cabinet’s distributor line prominently for quick review and editing

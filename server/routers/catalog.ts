@@ -2490,6 +2490,16 @@ export const cabinetsRouter = router({
             showInDesigner: cabinets.showInDesigner,
             showIn2020: cabinets.showIn2020,
             isActive: cabinets.isActive,
+            distributorNames: sql<string | null>`(
+              SELECT GROUP_CONCAT(
+                DISTINCT COALESCE(NULLIF(d.brandName, ''), d.name)
+                ORDER BY COALESCE(NULLIF(d.brandName, ''), d.name)
+                SEPARATOR ' | '
+              )
+              FROM distributor_skus ds
+              INNER JOIN distributors d ON d.id = ds.distributorId
+              WHERE ds.cabinetId = ${cabinets.id}
+            )`,
             // Blind corner pull spec
             minPull: cabinets.minPull,
             maxPull: cabinets.maxPull,
