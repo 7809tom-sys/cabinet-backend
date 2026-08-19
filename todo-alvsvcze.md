@@ -670,5 +670,5 @@
 - [x] Pricing: Preserve the selected customer/homeowner design price through cart, checkout, totals, and order submission without list-price fallback
 - [x] Pricing: Preserve each selected design price through checkout for wholesale, contractor, homeowner, and every affiliate storefront without tier or markup recomputation
 - [x] Designer: Add a responsive Google-style tape measure for measuring distances directly on the saved 2D kitchen plan
-- [ ] Designer: Connect phone camera/AR room measurements to a review-and-apply workflow for real physical room dimensions
+- [x] Designer: Connect phone camera/AR room measurements to a review-and-apply workflow for real physical room dimensions
 - [x] Bundle Deals: Remove the incorrect $13,772.76 secondary current-total display while retaining the verified $4,116.84 homeowner price

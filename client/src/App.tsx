@@ -57,6 +57,7 @@ const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
 const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
+const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
@@ -323,6 +324,14 @@ export default function App() {
 
         <Route path="/design">
           <DesignerRoute />
+        </Route>
+
+        {/* Phone-first AR/photo physical measurement. It owns its own compact UI
+            and receives a short-lived designer session token in the query. */}
+        <Route path="/measure">
+          <Suspense fallback={<PageLoader />}>
+            <ARMeasure />
+          </Suspense>
         </Route>
 
         <Route path="/room-layouts">

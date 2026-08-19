@@ -41,6 +41,12 @@ import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
+import {
+  physicalWallMeasurements,
+  roomFromPhysicalMeasurements,
+  suggestedRoomMeasurementIndexes,
+  type PhysicalRoomMeasurement,
+} from "@/lib/physicalRoomMeasurement";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
@@ -385,6 +391,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const p = new URLSearchParams(window.location.search).get("panel");
     return p === "catalog" || p === "cart" || p === "style" || p === "room" ? p : null;
   });
+  // Phone camera/AR measurement bridge. The physical capture page is opened
+  // with a short-lived token and returns measured wall spans to this design.
+  const [phoneMeasureToken, setPhoneMeasureToken] = useState<string | null>(null);
+  const [phoneMeasureOpen, setPhoneMeasureOpen] = useState(false);
+  const [physicalMeasureReviewOpen, setPhysicalMeasureReviewOpen] = useState(false);
+  const [physicalMeasureWidthIndex, setPhysicalMeasureWidthIndex] = useState<number | null>(null);
+  const [physicalMeasureDepthIndex, setPhysicalMeasureDepthIndex] = useState<number | null>(null);
+  const physicalMeasureHandledRef = useRef<string | null>(null);
+  const createPhoneMeasureSession = trpc.measureSessions.createSession.useMutation({
+    onSuccess: ({ token }) => {
+      physicalMeasureHandledRef.current = null;
+      setPhoneMeasureToken(token);
+      setPhoneMeasureOpen(true);
+    },
+    onError: (error) => toast.error(error.message || "Could not start the phone measurement session."),
+  });
+  const phoneMeasureStatus = trpc.measureSessions.pollSession.useQuery(
+    { token: phoneMeasureToken ?? "00000000-0000-0000-0000-000000000000" },
+    { enabled: phoneMeasureToken !== null, refetchInterval: 1500 },
+  );
+  const consumePhoneMeasureSession = trpc.measureSessions.consumeSession.useMutation();
+  const beginPhoneRoomMeasure = useCallback(() => {
+    if (!user) {
+      toast.error("Sign in to send a phone camera measurement back to this design.");
+      return;
+    }
+    createPhoneMeasureSession.mutate();
+  }, [createPhoneMeasureSession, user]);
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
@@ -3957,6 +3991,50 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setIsland((prev) => clampIslandToRoom(prev, next));
   }, []);
 
+  const physicalWallSpans = useMemo(
+    () => physicalWallMeasurements((phoneMeasureStatus.data?.walls ?? []) as PhysicalRoomMeasurement[]),
+    [phoneMeasureStatus.data?.walls],
+  );
+
+  // A completed phone session opens a review dialog rather than changing the
+  // plan automatically. The user chooses the two wall spans before any room
+  // resize can clamp or move a saved cabinet, opening, island, or fixture.
+  useEffect(() => {
+    if (!phoneMeasureToken || phoneMeasureStatus.data?.status !== "completed") return;
+    if (physicalMeasureHandledRef.current === phoneMeasureToken) return;
+    physicalMeasureHandledRef.current = phoneMeasureToken;
+    const suggested = suggestedRoomMeasurementIndexes(
+      (phoneMeasureStatus.data.walls ?? []) as PhysicalRoomMeasurement[],
+    );
+    if (suggested.widthIndex === null || suggested.depthIndex === null) {
+      toast.error("Measure two walls with your phone before sending them to this design.");
+      return;
+    }
+    setPhysicalMeasureWidthIndex(suggested.widthIndex);
+    setPhysicalMeasureDepthIndex(suggested.depthIndex);
+    setPhoneMeasureOpen(false);
+    setPhysicalMeasureReviewOpen(true);
+  }, [phoneMeasureStatus.data, phoneMeasureToken]);
+
+  const applyReviewedPhysicalRoom = useCallback(() => {
+    const width = physicalMeasureWidthIndex == null ? undefined : physicalWallSpans[physicalMeasureWidthIndex];
+    const depth = physicalMeasureDepthIndex == null ? undefined : physicalWallSpans[physicalMeasureDepthIndex];
+    if (!width || !depth || width.inches <= 0 || depth.inches <= 0) {
+      toast.error("Choose two measured wall spans before applying the room size.");
+      return;
+    }
+    const next = roomFromPhysicalMeasurements(room, width.inches, depth.inches);
+    applyRoom(next);
+    setPolygonEditMode(false);
+    setDrawMode(false);
+    setMeasureMode(false);
+    setPhysicalMeasureReviewOpen(false);
+    const token = phoneMeasureToken;
+    setPhoneMeasureToken(null);
+    if (token) consumePhoneMeasureSession.mutate({ token });
+    toast.success("Measured room size applied", { description: `${Math.round(next.width)}\" × ${Math.round(next.depth)}\"` });
+  }, [applyRoom, consumePhoneMeasureSession, phoneMeasureToken, physicalMeasureDepthIndex, physicalMeasureWidthIndex, physicalWallSpans, room]);
+
   // Drag a highlighted wall in/out to resize the room on that side.
   const resizeWall = useCallback(
     (side: WallSide, deltaIn: number) => {
@@ -6089,6 +6167,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{t("dt_sh_measure")}</span>
                     {measureMode && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
                   </button>
+                  <button
+                    disabled={createPhoneMeasureSession.isPending}
+                    onClick={() => { setMoreSheetOpen(false); beginPhoneRoomMeasure(); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+                  >
+                    <ScanLine className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">Measure real room with phone</span>
+                  </button>
                   <button onClick={() => { setMoreSheetOpen(false); const text = window.prompt(t("dt_ann_prompt")); if (text && text.trim()) setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_ann_add")}</span>
@@ -6483,6 +6569,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             className={`h-7 w-7 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
             <Ruler className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={beginPhoneRoomMeasure}
+            disabled={createPhoneMeasureSession.isPending}
+            title="Measure real room with phone"
+            aria-label="Measure real room with phone"
+            className="h-7 w-7"
+          >
+            <ScanLine className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
@@ -9796,6 +9893,95 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               }}
             />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={phoneMeasureOpen} onOpenChange={setPhoneMeasureOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ScanLine className="h-5 w-5 text-[#d4a75a]" /> Measure the real room</DialogTitle>
+            <DialogDescription>
+              Open this protected link on a phone. Use the camera measurement tool to measure two walls, then choose <strong>Send to Design Tool</strong>. This plan will not change until you review and apply the readings here.
+            </DialogDescription>
+          </DialogHeader>
+          {phoneMeasureToken && (
+            <div className="space-y-3">
+              <Input
+                readOnly
+                value={`${window.location.origin}/measure?session=${phoneMeasureToken}`}
+                aria-label="Phone camera measurement link"
+                className="text-xs"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={() => setPhoneMeasureOpen(false)}>Keep measuring later</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(`${window.location.origin}/measure?session=${phoneMeasureToken}`);
+                    toast.success("Phone measurement link copied");
+                  }}
+                >
+                  Copy link
+                </Button>
+                <Button onClick={() => window.open(`/measure?session=${phoneMeasureToken}`, "_blank", "noopener,noreferrer")}>Open here</Button>
+              </div>
+              <div className="rounded-lg border border-dashed border-[#d4a75a]/60 bg-[#d4a75a]/10 px-3 py-2 text-xs text-muted-foreground">
+                {phoneMeasureStatus.data?.status === "completed" ? "Measurements received — opening review…" : "Waiting for measurements from your phone…"}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={physicalMeasureReviewOpen} onOpenChange={setPhysicalMeasureReviewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Review measured room dimensions</DialogTitle>
+            <DialogDescription>Select the two wall spans that define this rectangular room. Openings, plumbing, and electrical readings remain reference-only and will not resize the plan.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="mb-2 font-medium">Received wall measurements</p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {physicalWallSpans.map((measurement, index) => (
+                  <div key={`${measurement.label}-${index}`} className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate">{measurement.label || `Wall ${index + 1}`}</span>
+                    <span className="shrink-0 font-medium text-foreground">{formatInches(measurement.inches)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Room width</Label>
+                <Select value={physicalMeasureWidthIndex == null ? undefined : String(physicalMeasureWidthIndex)} onValueChange={(value) => setPhysicalMeasureWidthIndex(Number(value))}>
+                  <SelectTrigger><SelectValue placeholder="Choose wall" /></SelectTrigger>
+                  <SelectContent>
+                    {physicalWallSpans.map((measurement, index) => <SelectItem key={index} value={String(index)} disabled={index === physicalMeasureDepthIndex}>{measurement.label || `Wall ${index + 1}`} — {formatInches(measurement.inches)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Room depth</Label>
+                <Select value={physicalMeasureDepthIndex == null ? undefined : String(physicalMeasureDepthIndex)} onValueChange={(value) => setPhysicalMeasureDepthIndex(Number(value))}>
+                  <SelectTrigger><SelectValue placeholder="Choose wall" /></SelectTrigger>
+                  <SelectContent>
+                    {physicalWallSpans.map((measurement, index) => <SelectItem key={index} value={String(index)} disabled={index === physicalMeasureWidthIndex}>{measurement.label || `Wall ${index + 1}`} — {formatInches(measurement.inches)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPhysicalMeasureReviewOpen(false)}>Keep current plan</Button>
+            <Button
+              onClick={applyReviewedPhysicalRoom}
+              disabled={physicalMeasureWidthIndex === null || physicalMeasureDepthIndex === null || physicalMeasureWidthIndex === physicalMeasureDepthIndex || consumePhoneMeasureSession.isPending}
+            >
+              Apply measured room size
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
