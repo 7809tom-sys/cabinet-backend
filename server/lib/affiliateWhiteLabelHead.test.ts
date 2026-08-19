@@ -25,6 +25,7 @@ describe("affiliate white-label HTML head", () => {
       tagline: "Cabinets designed for your home",
       logoUrl: "https://cdn.example/reaves-way-logo.png",
       primaryColor: "#225577",
+      canonicalUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
     });
 
     expect(html).toContain("window.__AFFILIATE_SLUG__=\"reaves-way-cabinet-shop\"");
@@ -34,6 +35,10 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain('property="og:image" content="https://cdn.example/reaves-way-logo.png"');
     expect(html).toContain('name="twitter:image" content="https://cdn.example/reaves-way-logo.png"');
     expect(html).toContain('name="theme-color" content="#225577"');
+    expect(html).toContain('rel="canonical" href="https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop"');
+    expect(html).toContain('property="og:url" content="https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop"');
+    expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"');
+    expect(html).toContain('data-affiliate-seo="true"');
     expect(html).toContain('rel="icon" href="https://cdn.example/reaves-way-logo.png"');
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain("cabinet-dealz.png");
@@ -52,5 +57,17 @@ describe("affiliate white-label HTML head", () => {
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain('property="og:image"');
     expect(html).not.toContain('name="twitter:image"');
+  });
+
+  it("noindexes a private white-label path without adding public organization schema", () => {
+    const html = injectAffiliateWhiteLabelHead(platformHead, {
+      slug: "neutral-store",
+      storeName: "Neutral Store",
+      canonicalUrl: "https://neutral-store.cabinetdealz.com/store/neutral-store/cart",
+      indexable: false,
+    });
+
+    expect(html).toContain('name="robots" content="noindex, nofollow"');
+    expect(html).not.toContain('data-affiliate-seo="true"');
   });
 });

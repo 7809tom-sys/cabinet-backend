@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict } from "../db";
+import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -14,6 +14,8 @@ import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
+import { priceLadder } from "../../shared/pricing";
 import {
   relevantCategories,
   selectRecommendations,
@@ -2080,6 +2082,92 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
   // (what the cart stores) and returns the current tier-computed unit price for
   // each. Used by the Cart page to show live prices instead of the stored
   // unitPrice (which may be stale if the user's tier changed since adding).
+  affiliateDesignPriceList: protectedProcedure
+    .input(z.object({
+      affiliateSlug: z.string().trim().min(1).max(160),
+      lockedDistributorId: z.number().int().positive().nullable().optional(),
+      items: z.array(z.object({
+        masterCode: z.string().trim().min(1).max(120),
+        styleId: z.number().int().positive(),
+        quantity: z.number().int().positive().max(999),
+      })).min(1).max(200),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { items: [], totals: { customer: 0, affiliate: 0, position: 0 } };
+
+      const requestedAffiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const access = await resolveAffiliateAccess(db, ctx.user);
+      if (!canViewAffiliateDesignPriceList({
+        isAdmin: ctx.user.role === "admin",
+        access,
+        requestedAffiliateId: requestedAffiliate?.id ?? null,
+      })) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Affiliate pricing is available only to the owner of this storefront." });
+      }
+
+      const masterCodes = Array.from(new Set(input.items.map((item) => item.masterCode)));
+      const styleIds = Array.from(new Set(input.items.map((item) => item.styleId)));
+      const rows = await db
+        .select({
+          masterCode: cabinets.masterCode,
+          styleId: distributorSkus.styleId,
+          distributorId: distributorSkus.distributorId,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+        .where(and(
+          inArray(cabinets.masterCode, masterCodes),
+          inArray(distributorSkus.styleId, styleIds),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.isPublished, true),
+          ...(input.lockedDistributorId ? [eq(distributorSkus.distributorId, input.lockedDistributorId)] : []),
+        ));
+
+      const best = new Map<string, (typeof rows)[number]>();
+      for (const row of rows) {
+        const key = `${row.masterCode}:${row.styleId}`;
+        const existing = best.get(key);
+        if (!existing || Number(row.yourCost ?? Infinity) < Number(existing.yourCost ?? Infinity)) best.set(key, row);
+      }
+
+      const pricing = await getPricingSettings();
+      const affiliateFees = await getPlatformPricingSettings();
+      const items = input.items.map((item) => {
+        const row = best.get(`${item.masterCode}:${item.styleId}`);
+        const customerUnitPrice = row ? sellPriceForTier(row, pricing, "homeowner") : null;
+        const rawCost = row?.yourCost == null ? null : Number(row.yourCost);
+        const affiliateUnitCost = rawCost != null && Number.isFinite(rawCost)
+          ? priceLadder(Math.round(rawCost * 100), affiliateFees).affiliateCents / 100
+          : null;
+        return {
+          masterCode: item.masterCode,
+          styleId: item.styleId,
+          quantity: item.quantity,
+          customerUnitPrice,
+          affiliateUnitCost,
+          ...affiliateCustomerPosition(customerUnitPrice, affiliateUnitCost, item.quantity),
+        };
+      });
+      const totals = items.reduce((sum, item) => ({
+        customer: sum.customer + (item.customerLineTotal ?? 0),
+        affiliate: sum.affiliate + (item.affiliateLineTotal ?? 0),
+        position: sum.position + (item.positionDollars ?? 0),
+      }), { customer: 0, affiliate: 0, position: 0 });
+      return {
+        items,
+        totals: {
+          customer: Math.round(totals.customer * 100) / 100,
+          affiliate: Math.round(totals.affiliate * 100) / 100,
+          position: Math.round(totals.position * 100) / 100,
+        },
+      };
+    }),
+
   priceForCartItems: publicProcedure
     .input(
       z.object({

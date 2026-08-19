@@ -99,7 +99,10 @@ describe("SEO routes", () => {
     // Stable routes
     expect(body).toContain("<loc>http://example.com/</loc>");
     expect(body).toContain("<loc>http://example.com/styles</loc>");
-    expect(body).toContain("<loc>http://example.com/design</loc>");
+    expect(body).toContain("<loc>http://example.com/bundles</loc>");
+    expect(body).toContain("<loc>http://example.com/surfaces</loc>");
+    expect(body).toContain("<loc>http://example.com/stonecreek</loc>");
+    expect(body).not.toContain("<loc>http://example.com/design</loc>");
 
     // Family URLs (deduped: ASP appears once)
     const aspMatches = body.match(/\/family\/ASP</g) ?? [];
@@ -115,5 +118,26 @@ describe("SEO routes", () => {
     // Valid sitemap envelope
     expect(body).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(body).toContain("http://www.sitemaps.org/schemas/sitemap/0.9");
+  });
+
+  it("uses a white-label sitemap and blocks private affiliate workflow paths", async () => {
+    const robots = makeRes();
+    await handlers["/robots.txt"](
+      makeReq({ host: "reaves-way-cabinet-shop.cabinetdealz.com" }),
+      robots.res,
+    );
+    expect(robots.state.body).toContain("# Branded storefront crawl policy");
+    expect(robots.state.body).toContain("Disallow: /store/*/design");
+    expect(robots.state.body).not.toContain("# Cabinet Dealz crawl policy");
+
+    const sitemap = makeRes();
+    await handlers["/sitemap.xml"](
+      makeReq({ host: "reaves-way-cabinet-shop.cabinetdealz.com" }),
+      sitemap.res,
+    );
+    expect(sitemap.state.body).toContain(
+      "http://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
+    );
+    expect(sitemap.state.body).not.toContain("/family/");
   });
 });

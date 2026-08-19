@@ -4,6 +4,8 @@ export type AffiliateHeadBrand = {
   tagline?: string | null;
   logoUrl?: string | null;
   primaryColor?: string | null;
+  canonicalUrl?: string | null;
+  indexable?: boolean;
 };
 
 function escapeHtml(value: string): string {
@@ -54,6 +56,28 @@ function replaceOrInsertIcon(html: string, relation: "icon" | "apple-touch-icon"
     : html.replace("</head>", `  ${tag}\n</head>`);
 }
 
+function replaceOrInsertLink(html: string, relation: string, href: string | null): string {
+  const escapedRelation = relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`<link\\s+rel=["']${escapedRelation}["'][^>]*>`, "i");
+  if (href == null) return html.replace(pattern, "");
+  const tag = `<link rel="${relation}" href="${escapeHtml(href)}" />`;
+  return pattern.test(html)
+    ? html.replace(pattern, tag)
+    : html.replace("</head>", `  ${tag}\n</head>`);
+}
+
+function replaceAffiliateSeoJsonLd(html: string, data: Record<string, unknown>[]): string {
+  const withoutExisting = html.replace(
+    /<script\s+type=["']application\/ld\+json["'][^>]*data-affiliate-seo[^>]*>[\s\S]*?<\/script>\s*/gi,
+    "",
+  );
+  const safeJson = JSON.stringify(data).replace(/</g, "\\u003c");
+  return withoutExisting.replace(
+    "</head>",
+    `  <script type="application/ld+json" data-affiliate-seo="true">${safeJson}</script>\n</head>`,
+  );
+}
+
 /**
  * Replaces the platform head before a white-label affiliate SPA is delivered.
  * This prevents a pre-JavaScript tab, bookmark, crawler, or share preview from
@@ -67,6 +91,8 @@ export function injectAffiliateWhiteLabelHead(
   const tagline = brand.tagline?.trim() || "Cabinets and kitchen design";
   const title = brand.tagline?.trim() ? `${storeName} — ${tagline}` : storeName;
   const imageUrl = usableImageUrl(brand.logoUrl);
+  const canonicalUrl = usableImageUrl(brand.canonicalUrl);
+  const indexable = brand.indexable !== false;
   const primaryColor = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor || "")
     ? brand.primaryColor!
     : "#1a2b4a";
@@ -81,12 +107,38 @@ export function injectAffiliateWhiteLabelHead(
   out = replaceOrInsertMeta(out, "name", "twitter:description", tagline);
   out = replaceOrInsertMeta(out, "property", "og:image", imageUrl);
   out = replaceOrInsertMeta(out, "name", "twitter:image", imageUrl);
+  out = replaceOrInsertMeta(out, "property", "og:url", canonicalUrl);
+  out = replaceOrInsertMeta(
+    out,
+    "name",
+    "robots",
+    indexable ? "index, follow, max-image-preview:large" : "noindex, nofollow",
+  );
   out = replaceOrInsertMeta(out, "name", "theme-color", primaryColor);
+  out = replaceOrInsertLink(out, "canonical", canonicalUrl);
   out = replaceOrInsertIcon(out, "icon", favicon);
   out = replaceOrInsertIcon(out, "apple-touch-icon", favicon);
   // The shared platform PWA manifest carries the platform name. An affiliate
   // should not install a browser app that exposes Cabinet Dealz branding.
   out = out.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, "");
+  if (canonicalUrl && indexable) {
+    out = replaceAffiliateSeoJsonLd(out, [
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: storeName,
+        url: canonicalUrl,
+        ...(tagline ? { description: tagline } : {}),
+        ...(imageUrl ? { logo: imageUrl } : {}),
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: storeName,
+        url: canonicalUrl,
+      },
+    ]);
+  }
   const slugJson = JSON.stringify(brand.slug).replace(/</g, "\\u003c");
   const routingBootstrap = `<script>window.__AFFILIATE_SLUG__=${slugJson};(function(){var p=window.location.pathname;if(p.indexOf('/store/')===0||p.indexOf('/api/')===0)return;var s=p==='/'?'':p;window.location.replace('/store/'+window.__AFFILIATE_SLUG__+s+window.location.search);})();</script>`;
   return out.replace(

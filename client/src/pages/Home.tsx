@@ -8,6 +8,7 @@ import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { buildMainSiteJsonLd } from "@/lib/seo/jsonLd";
 import { EditableText } from "@/components/admin/EditableText";
 
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
@@ -800,7 +801,14 @@ function Footer() {
 
 export default function Home() {
   const { t, lang } = useLanguage();
-  useSeo({ title: t("seo_home_t"), description: t("seo_home_d"), lang });
+  const seoOrigin = typeof window === "undefined" ? "https://www.cabinetdealz.com" : window.location.origin;
+  useSeo({
+    title: t("seo_home_t"),
+    description: t("seo_home_d"),
+    lang,
+    canonical: `${seoOrigin}/`,
+    jsonLd: buildMainSiteJsonLd(seoOrigin),
+  });
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth_error")) {

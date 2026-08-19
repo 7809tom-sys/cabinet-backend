@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import { getDb } from "./db";
 import { doorStyles } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { affiliateSlugFromHostCandidates } from "./lib/affiliateSubdomain";
 
 /**
  * SEO routes: a crawl-accurate robots.txt and a dynamic sitemap.xml.
@@ -38,10 +39,24 @@ const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] =
     { path: "/", changefreq: "weekly", priority: "1.0" },
     { path: "/styles", changefreq: "weekly", priority: "0.9" },
     { path: "/catalog", changefreq: "weekly", priority: "0.9" },
+    { path: "/bundles", changefreq: "weekly", priority: "0.8" },
+    { path: "/surfaces", changefreq: "monthly", priority: "0.8" },
     { path: "/countertops", changefreq: "monthly", priority: "0.7" },
-    { path: "/design", changefreq: "monthly", priority: "0.8" },
+    { path: "/stonecreek", changefreq: "monthly", priority: "0.7" },
+    { path: "/plumbers-choice", changefreq: "monthly", priority: "0.7" },
+    { path: "/affiliate", changefreq: "monthly", priority: "0.6" },
     { path: "/pro-network", changefreq: "monthly", priority: "0.6" },
   ];
+
+function affiliateSlugForRequest(req: Request): string | null {
+  return affiliateSlugFromHostCandidates([
+    req.headers["x-original-host"],
+    req.headers["x-forwarded-host"],
+    req.headers["x-host"],
+    req.hostname,
+    req.headers.host,
+  ]);
+}
 
 function xmlEscape(s: string): string {
   return s
@@ -55,17 +70,29 @@ function xmlEscape(s: string): string {
 export function registerSeoRoutes(app: Express) {
   app.get("/robots.txt", (req, res) => {
     const origin = originFromRequest(req);
+    const affiliateSlug = affiliateSlugForRequest(req);
     const body = [
-      "# Cabinet Dealz",
+      affiliateSlug ? "# Branded storefront crawl policy" : "# Cabinet Dealz crawl policy",
       "User-agent: *",
       "Allow: /",
       "",
       "# Keep transactional / private app areas out of the index",
       "Disallow: /cart",
+      "Disallow: /store/*/cart",
+      "Disallow: /store/*/order",
+      "Disallow: /store/*/design",
       "Disallow: /checkout",
       "Disallow: /signin",
+      "Disallow: /sign-in",
       "Disallow: /admin",
+      "Disallow: /administration",
       "Disallow: /account",
+      "Disallow: /design",
+      "Disallow: /order",
+      "Disallow: /bulk-order",
+      "Disallow: /photo-to-cart",
+      "Disallow: /distributor",
+      "Disallow: /affiliate-dashboard",
       "Disallow: /api/",
       "",
       `Sitemap: ${origin}/sitemap.xml`,
@@ -78,6 +105,15 @@ export function registerSeoRoutes(app: Express) {
 
   app.get("/sitemap.xml", async (req, res) => {
     const origin = originFromRequest(req);
+    const affiliateSlug = affiliateSlugForRequest(req);
+
+    if (affiliateSlug) {
+      const storefrontPath = `/store/${encodeURIComponent(affiliateSlug)}`;
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>${xmlEscape(origin + storefrontPath)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n</urlset>\n`;
+      res.set("Content-Type", "application/xml; charset=utf-8");
+      res.set("Cache-Control", "public, max-age=3600");
+      return res.send(xml);
+    }
 
     // Collect active door-style family URLs (deduped by styleCode).
     let familyPaths: string[] = [];

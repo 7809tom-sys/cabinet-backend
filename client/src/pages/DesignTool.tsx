@@ -115,6 +115,7 @@ import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/Pl
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
+import { canOpenAdministratorMaterialList, openAdministratorMaterialListPdf } from "@/lib/designMaterialListPdf";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
@@ -251,6 +252,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { slug: affiliateSlug ?? "" },
     { enabled: !!affiliateSlug, retry: false },
   );
+  const affiliatePriceAccess = trpc.affiliates.myAccess.useQuery(undefined, {
+    enabled: !!user && !isAdmin && !!affiliateSlug,
+    retry: false,
+  });
+  const canAffiliatePriceShop = !!affiliateSlug && affiliatePriceAccess.data?.isOwner === true;
   const affiliatePrimary = affiliateBrand?.primaryColor || "#1a2b4a";
   const affiliateAccent = affiliateBrand?.accentColor || "#c9a227";
   const affiliateStyleName = useCallback(
@@ -1732,6 +1738,56 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     return rows;
   }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
+
+  const openAdministratorMaterialList = useCallback(async () => {
+    if (!canOpenAdministratorMaterialList((user as { role?: string } | null)?.role)) {
+      toast.error("This internal material list is available to administrators only.");
+      return;
+    }
+    const opened = await openAdministratorMaterialListPdf({
+      room,
+      styleName: activeStyleName,
+      buildRows,
+    });
+    if (!opened) toast.error("Add priced design items before opening the material list.");
+  }, [activeStyleName, buildRows, room, user]);
+
+  const affiliatePriceListItems = useMemo(() => {
+    if (!styleId) return [] as Array<{ masterCode: string; styleId: number; quantity: number }>;
+    const grouped = new Map<string, { masterCode: string; styleId: number; quantity: number }>();
+    for (const cabinet of placed) {
+      if (isApplianceCode(cabinet.masterCode)) continue;
+      const cabinetStyleId = effectiveStyleId(cabinet, styleId);
+      if (cabinetStyleId == null) continue;
+      const key = `${cabinet.masterCode}:${cabinetStyleId}`;
+      const existing = grouped.get(key);
+      if (existing) existing.quantity += 1;
+      else grouped.set(key, { masterCode: cabinet.masterCode, styleId: cabinetStyleId, quantity: 1 });
+    }
+    return Array.from(grouped.values());
+  }, [placed, styleId]);
+
+  const affiliatePriceLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const cabinet of placed) {
+      if (!styleId || isApplianceCode(cabinet.masterCode)) continue;
+      const cabinetStyleId = effectiveStyleId(cabinet, styleId);
+      if (cabinetStyleId == null) continue;
+      labels.set(`${cabinet.masterCode}:${cabinetStyleId}`, cabinet.description || cabinet.masterCode);
+    }
+    return labels;
+  }, [placed, styleId]);
+
+  const [affiliatePriceListOpen, setAffiliatePriceListOpen] = useState(false);
+  const affiliatePriceList = trpc.design.affiliateDesignPriceList.useQuery(
+    {
+      affiliateSlug: affiliateSlug ?? "",
+      lockedDistributorId: lockedDistributorId ?? null,
+      items: affiliatePriceListItems,
+    },
+    { enabled: affiliatePriceListOpen && canAffiliatePriceShop && affiliatePriceListItems.length > 0, retry: false },
+  );
+
   // ── Add the whole design to the shopping cart ───────────────────────────────
   // Turns the placed cabinets into cart line items (aggregated by master code +
   // effective door style), so a shopper can review and buy the exact kitchen they
@@ -6106,6 +6162,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <span className="flex-1 text-left">Save as Bundle Deal</span>
                     </button>
                   )}
+                  {isAdmin && (
+                    <button
+                      disabled={buildRows.length === 0}
+                      onClick={() => {
+                        setMoreSheetOpen(false);
+                        void openAdministratorMaterialList();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#1a2744] hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      <FileText className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Open Material List PDF</span>
+                    </button>
+                  )}
+                  {canAffiliatePriceShop && (
+                    <button
+                      disabled={affiliatePriceListItems.length === 0}
+                      onClick={() => {
+                        setMoreSheetOpen(false);
+                        setAffiliatePriceListOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                    >
+                      <DollarSign className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Customer &amp; Affiliate Prices</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
@@ -6548,6 +6630,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   >
                     <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Bundle Deal
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => void openAdministratorMaterialList()}
+                    disabled={buildRows.length === 0}
+                    className="text-[#1a2744] font-medium"
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-2" /> Open Material List PDF
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canAffiliatePriceShop && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Affiliate</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onSelect={() => setAffiliatePriceListOpen(true)}
+                    disabled={affiliatePriceListItems.length === 0}
+                    className="text-emerald-700 font-medium"
+                  >
+                    <DollarSign className="h-3.5 w-3.5 mr-2" /> Customer &amp; Affiliate Prices
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>
@@ -6608,6 +6710,44 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               }
             }
           />
+          <Dialog open={affiliatePriceListOpen} onOpenChange={setAffiliatePriceListOpen}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Customer &amp; Affiliate Price List</DialogTitle>
+                <DialogDescription>
+                  Private to this affiliate owner. Customer price is shown beside your affiliate cost and pricing position; supplier cost is never shown.
+                </DialogDescription>
+              </DialogHeader>
+              {affiliatePriceList.isLoading ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">Loading authorized prices…</div>
+              ) : affiliatePriceList.isError ? (
+                <div className="py-10 text-center text-sm text-destructive">Authorized affiliate pricing could not be loaded for this design.</div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 rounded-lg bg-emerald-50 p-3 text-sm">
+                    <div><p className="text-[10px] font-semibold uppercase text-emerald-800">Customer total</p><p className="font-bold text-emerald-950">${affiliatePriceList.data?.totals.customer.toFixed(2) ?? "0.00"}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase text-emerald-800">Affiliate total</p><p className="font-bold text-emerald-950">${affiliatePriceList.data?.totals.affiliate.toFixed(2) ?? "0.00"}</p></div>
+                    <div><p className="text-[10px] font-semibold uppercase text-emerald-800">Your position</p><p className="font-bold text-emerald-950">${affiliatePriceList.data?.totals.position.toFixed(2) ?? "0.00"}</p></div>
+                  </div>
+                  <div className="divide-y rounded-lg border border-border">
+                    {affiliatePriceList.data?.items.map((line) => {
+                      const key = `${line.masterCode}:${line.styleId}`;
+                      return (
+                        <div key={key} className="grid grid-cols-[1fr_auto] gap-3 p-3 text-sm">
+                          <div><p className="font-semibold">{line.quantity} × {line.masterCode}</p><p className="text-xs text-muted-foreground">{affiliatePriceLabels.get(key) || line.masterCode}</p></div>
+                          <div className="text-right text-xs leading-5">
+                            <p>Customer: <span className="font-semibold">{line.customerLineTotal == null ? "Quote" : `$${line.customerLineTotal.toFixed(2)}`}</span></p>
+                            <p>Affiliate: <span className="font-semibold">{line.affiliateLineTotal == null ? "Quote" : `$${line.affiliateLineTotal.toFixed(2)}`}</span></p>
+                            <p className="font-semibold text-emerald-700">Position: {line.positionDollars == null ? "Quote" : `$${line.positionDollars.toFixed(2)}${line.positionPercent != null ? ` (${line.positionPercent.toFixed(1)}%)` : ""}`}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           <Button
             variant="outline"
             size="icon"

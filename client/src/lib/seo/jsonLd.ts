@@ -60,3 +60,47 @@ export function buildProductJsonLd(
     brand: BRAND,
   });
 }
+
+/** Public main-site organization and website schemas; never include gated pricing. */
+export function buildMainSiteJsonLd(origin: string): Record<string, unknown>[] {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: origin,
+      logo: `${origin}/favicon.svg`,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: SITE_NAME,
+      url: origin,
+    },
+  ];
+}
+
+/** White-label public storefront schema. It deliberately contains no platform brand. */
+export function buildAffiliateStorefrontJsonLd(input: {
+  storeName: string;
+  url: string;
+  tagline?: string | null;
+  logoUrl?: string | null;
+}): Record<string, unknown>[] {
+  return [
+    compact({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: input.storeName,
+      url: input.url,
+      description: input.tagline,
+      logo: input.logoUrl,
+    }),
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: input.storeName,
+      url: input.url,
+    },
+  ];
+}

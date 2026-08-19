@@ -664,3 +664,6 @@
 - [x] LS3612: Resolve the current approved Aura Blanc (Madison) price through a user-confirmed, catalog-priced shelf-corner choice without automatic substitution
 - [x] LS3612: Offer ER36 or BER36 as explicit shelf-corner replacement choices when LS3612 is unpriced; identify the carousel as a separate optional item
 - [x] Budget Option: Save and restore mobile Budget Option designs with the same behavior as desktop
+- [x] Designer: Add an administrator-only Material List PDF for internal price shopping, hidden from all non-admin users
+- [x] Designer: Give affiliates an authorized design price list showing their customer price and affiliate pricing position without exposing administrator-only data
+- [x] SEO: Audit and improve metadata, canonical URLs, robots directives, structured data, sitemap coverage, and mobile indexability for the main site and white-label affiliate storefronts

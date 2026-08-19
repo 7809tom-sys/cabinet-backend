@@ -9,15 +9,41 @@ import viteConfig from "../../vite.config";
 import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { injectAffiliateWhiteLabelHead } from "../lib/affiliateWhiteLabelHead";
+import { injectMainSeoHead } from "../lib/mainSeoHead";
 
 function affiliateSlugFromRequestPath(requestPath: string): string | null {
   const slugMatch = requestPath.match(/^\/store\/([^/?#]+)/);
   return slugMatch?.[1] ?? null;
 }
 
-async function whiteLabelAffiliateHtml(html: string, requestPath: string): Promise<string> {
+function publicOrigin(req: express.Request): string {
+  const proto = (req.headers["x-forwarded-proto"] as string | undefined)
+    ?.split(",")[0]
+    ?.trim() || req.protocol || "https";
+  const host = (req.headers["x-forwarded-host"] as string | undefined)
+    ?.split(",")[0]
+    ?.trim() || req.get("host") || "";
+  return `${proto}://${host}`;
+}
+
+function isIndexableAffiliatePath(requestPath: string, slug: string): boolean {
+  const pathname = requestPath.split("?")[0].replace(/\/+$/, "") || "/";
+  return pathname === `/store/${slug}`;
+}
+
+async function whiteLabelAffiliateHtml(
+  html: string,
+  requestPath: string,
+  req: express.Request,
+): Promise<string> {
   const slug = affiliateSlugFromRequestPath(requestPath);
-  if (!slug) return html;
+  const pathname = requestPath.split("?")[0].replace(/\/+$/, "") || "/";
+  if (!slug) {
+    return injectMainSeoHead(html, {
+      canonicalUrl: `${publicOrigin(req)}${pathname}`,
+      requestPath,
+    });
+  }
 
   const db = await getDb();
   const row = db
@@ -33,7 +59,13 @@ async function whiteLabelAffiliateHtml(html: string, requestPath: string): Promi
         .limit(1))[0]
     : null;
 
-  return injectAffiliateWhiteLabelHead(html, { slug, ...row });
+  const affiliatePathname = pathname || `/store/${slug}`;
+  return injectAffiliateWhiteLabelHead(html, {
+    slug,
+    ...row,
+    canonicalUrl: `${publicOrigin(req)}${affiliatePathname}`,
+    indexable: isIndexableAffiliatePath(requestPath, slug),
+  });
 }
 
 export async function setupVite(app: Express, server: Server) {
@@ -68,7 +100,7 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`
       );
       const page = await vite.transformIndexHtml(req.originalUrl, template);
-      const brandedPage = await whiteLabelAffiliateHtml(page, req.url);
+      const brandedPage = await whiteLabelAffiliateHtml(page, req.url, req);
       return res.status(200).set({ "Content-Type": "text/html" }).end(brandedPage);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
@@ -94,7 +126,7 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`
       );
       const page = await vite.transformIndexHtml(url, template);
-      const brandedPage = await whiteLabelAffiliateHtml(page, req.url);
+      const brandedPage = await whiteLabelAffiliateHtml(page, url, req);
       res.status(200).set({ "Content-Type": "text/html" }).end(brandedPage);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
@@ -127,7 +159,7 @@ export function serveStatic(app: Express) {
         path.resolve(distPath, "index.html"),
         "utf-8",
       );
-      const branded = await whiteLabelAffiliateHtml(indexHtml, `/store/${slug}`);
+      const branded = await whiteLabelAffiliateHtml(indexHtml, `/store/${slug}`, req);
       res.setHeader("Content-Type", "text/html; charset=UTF-8");
       return res.send(branded);
     } catch (error) {
@@ -148,7 +180,7 @@ export function serveStatic(app: Express) {
     if (slug) {
       const indexHtml = fs.readFileSync(path.resolve(distPath, "index.html"), "utf-8");
       try {
-        const branded = await whiteLabelAffiliateHtml(indexHtml, req.url);
+        const branded = await whiteLabelAffiliateHtml(indexHtml, req.url, req);
         res.setHeader("Content-Type", "text/html; charset=UTF-8");
         return res.send(branded);
       } catch (error) {
