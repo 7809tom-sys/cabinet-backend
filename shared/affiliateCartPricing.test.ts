@@ -35,6 +35,25 @@ describe("resolveAffiliateCartUnitPrice", () => {
     ).toBe(137.5);
   });
 
+  it.each([
+    ["wholesale", false],
+    ["contractor", false],
+    ["homeowner", false],
+    ["wholesale", true],
+    ["contractor", true],
+    ["homeowner", true],
+  ] as const)("preserves a locked %s design price on %s storefront carts", (tier, isAffiliateCart) => {
+    expect(
+      resolveAffiliateCartUnitPrice({
+        storedUnitPrice: 137.5,
+        liveUnitPrice: 100,
+        tier,
+        isAffiliateCart,
+        priceLocked: true,
+      }),
+    ).toBe(137.5);
+  });
+
   it("does not preserve a stored price for a non-homeowner affiliate tier", () => {
     expect(
       resolveAffiliateCartUnitPrice({

@@ -81,6 +81,7 @@ export default function Cart() {
       liveUnitPrice: live,
       tier: item.tier,
       isAffiliateCart,
+      priceLocked: item.priceLocked,
     });
     return resolveLockedCheckoutUnitPrice({
       priceLocked: item.priceLocked,
