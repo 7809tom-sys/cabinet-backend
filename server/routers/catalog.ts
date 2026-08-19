@@ -2423,6 +2423,7 @@ export const cabinetsRouter = router({
         unconfiguredOnly: z.boolean().default(false),
         verifiedFilter: z.enum(["all", "verified", "unverified"]).default("all"),
         attentionOnly: z.boolean().default(false),
+        distributorId: z.number().int().positive().optional(),
         cabinetId: z.number().int().positive().optional(),
       })
     )
@@ -2448,6 +2449,14 @@ export const cabinetsRouter = router({
       }
       if (input.attentionOnly) {
         conditions.push(sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`);
+      }
+      if (input.distributorId) {
+        conditions.push(sql`EXISTS (
+          SELECT 1
+          FROM distributor_skus attention_distributor_skus
+          WHERE attention_distributor_skus.cabinetId = ${cabinets.id}
+            AND attention_distributor_skus.distributorId = ${input.distributorId}
+        )`);
       }
       if (input.cabinetId) {
         conditions.push(eq(cabinets.id, input.cabinetId));
@@ -2551,6 +2560,28 @@ export const cabinetsRouter = router({
       ]);
       return { rows, total: Number(countRows[0]?.count ?? 0) };
     }),
+
+  // ── Admin: Distributor lines represented in the Cabinet Attention queue ──
+  adminListAttentionDistributors: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+
+    return db
+      .selectDistinct({
+        id: distributors.id,
+        name: sql<string>`COALESCE(NULLIF(${distributors.brandName}, ''), ${distributors.name})`,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .where(
+        and(
+          sql`${cabinets.masterCode} NOT IN (SELECT aliasCode FROM sku_master_aliases)`,
+          sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`
+        )
+      )
+      .orderBy(asc(distributors.name));
+  }),
 
   // Returns a coverage matrix: for each cabinet, which door styles have at least
   // one published+available SKU, and which are missing. Used in the Designer

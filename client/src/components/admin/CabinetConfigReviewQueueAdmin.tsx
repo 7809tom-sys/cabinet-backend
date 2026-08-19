@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-react";
 import {
   cabinetConfigAttentionReasons,
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
   needsCabinetConfigAttention,
+  selectedDistributorLineId,
 } from "@shared/cabinetConfigReview";
 
 type ReviewCabinet = {
@@ -30,13 +32,18 @@ const PAGE_SIZE = 100;
 export default function CabinetConfigReviewQueueAdmin() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [distributorFilter, setDistributorFilter] = useState("__all__");
   const [page, setPage] = useState(0);
+
+  const distributorId = selectedDistributorLineId(distributorFilter);
+  const { data: distributorLines, isLoading: isLoadingDistributorLines } = trpc.cabinets.adminListAttentionDistributors.useQuery();
 
   const { data, isLoading, refetch } = trpc.cabinets.adminListCabinetConfig.useQuery({
     page,
     limit: PAGE_SIZE,
     search: search || undefined,
     attentionOnly: true,
+    distributorId,
   });
 
   const rows = (data?.rows ?? []) as ReviewCabinet[];
@@ -45,6 +52,11 @@ export default function CabinetConfigReviewQueueAdmin() {
 
   const applySearch = () => {
     setSearch(searchInput);
+    setPage(0);
+  };
+
+  const applyDistributorFilter = (value: string) => {
+    setDistributorFilter(value);
     setPage(0);
   };
 
@@ -82,6 +94,20 @@ export default function CabinetConfigReviewQueueAdmin() {
         <Button size="sm" variant="outline" className="h-8" onClick={applySearch}>
           Search
         </Button>
+        <Select value={distributorFilter} onValueChange={applyDistributorFilter}>
+          <SelectTrigger className="h-8 w-52 text-sm" aria-label="Filter by distributor line">
+            <SelectValue placeholder="All distributor lines" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All distributor lines</SelectItem>
+            {(distributorLines ?? []).map((line) => (
+              <SelectItem key={line.id} value={String(line.id)}>
+                {line.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isLoadingDistributorLines && <Spinner className="h-4 w-4 text-muted-foreground" />}
       </div>
 
       {isLoading ? (

@@ -4,6 +4,7 @@ import {
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
   needsCabinetConfigAttention,
+  selectedDistributorLineId,
 } from "./cabinetConfigReview";
 
 describe("cabinet configuration review queue", () => {
@@ -32,5 +33,11 @@ describe("cabinet configuration review queue", () => {
   it("formats every linked distributor line once for fast queue scanning", () => {
     expect(distributorLineLabels("Ashford | Faircrest | Ashford")).toEqual(["Ashford", "Faircrest"]);
     expect(distributorLineLabels(null)).toEqual([]);
+  });
+
+  it("accepts only a real positive distributor-line identifier from the filter", () => {
+    expect(selectedDistributorLineId("42")).toBe(42);
+    expect(selectedDistributorLineId("__all__")).toBeUndefined();
+    expect(selectedDistributorLineId("0")).toBeUndefined();
   });
 });

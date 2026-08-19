@@ -32,3 +32,9 @@ export function distributorLineLabels(distributorNames: string | null | undefine
     )
   ).sort((left, right) => left.localeCompare(right));
 }
+
+/** Converts a dropdown selection to a safe distributor-line identifier. */
+export function selectedDistributorLineId(value: string): number | undefined {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
+}

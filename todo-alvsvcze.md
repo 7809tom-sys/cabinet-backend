@@ -676,3 +676,4 @@
 - [x] 3D: Investigate the observed InteractiveRoom3D console error and correct any confirmed runtime rendering defect
 - [x] Cabinet Config: Add an administrator review queue for inactive and unverified cabinet records, with direct quick-edit links to each configuration
 - [x] Cabinet Attention: Show each affected cabinet’s distributor line prominently for quick review and editing
+- [x] Cabinet Attention: Add a distributor-line dropdown to filter inactive or unverified cabinets by supplier line
