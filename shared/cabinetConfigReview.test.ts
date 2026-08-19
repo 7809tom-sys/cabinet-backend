@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   cabinetConfigAttentionReasons,
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
@@ -8,6 +9,10 @@ import {
 } from "./cabinetConfigReview";
 
 describe("cabinet configuration review queue", () => {
+  it("uses a clear cabinet name-or-SKU search label beside the distributor filter", () => {
+    expect(CABINET_ATTENTION_SEARCH_PLACEHOLDER).toBe("Search cabinet name or SKU…");
+  });
+
   it("includes inactive cabinets, unverified cabinets, and cabinets with both statuses", () => {
     expect(needsCabinetConfigAttention({ isActive: false, configVerified: true })).toBe(true);
     expect(needsCabinetConfigAttention({ isActive: true, configVerified: false })).toBe(true);

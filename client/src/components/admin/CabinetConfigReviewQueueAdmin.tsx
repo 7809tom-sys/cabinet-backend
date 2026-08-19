@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-react";
 import {
+  CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   cabinetConfigAttentionReasons,
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
@@ -78,24 +79,9 @@ export default function CabinetConfigReviewQueueAdmin() {
         to open that exact record directly in Cabinet Config.
       </p>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-52">
-          <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="h-8 pl-8 text-sm"
-            placeholder="Search code or description…"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") applySearch();
-            }}
-          />
-        </div>
-        <Button size="sm" variant="outline" className="h-8" onClick={applySearch}>
-          Search
-        </Button>
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
         <Select value={distributorFilter} onValueChange={applyDistributorFilter}>
-          <SelectTrigger className="h-8 w-52 text-sm" aria-label="Filter by distributor line">
+          <SelectTrigger className="h-9 w-full shrink-0 text-sm sm:w-52" aria-label="Filter by distributor line">
             <SelectValue placeholder="All distributor lines" />
           </SelectTrigger>
           <SelectContent>
@@ -107,6 +93,22 @@ export default function CabinetConfigReviewQueueAdmin() {
             ))}
           </SelectContent>
         </Select>
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="h-9 pl-8 text-sm"
+            placeholder={CABINET_ATTENTION_SEARCH_PLACEHOLDER}
+            aria-label="Search cabinet name or SKU"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") applySearch();
+            }}
+          />
+        </div>
+        <Button size="sm" variant="outline" className="h-9 shrink-0" onClick={applySearch}>
+          Search
+        </Button>
         {isLoadingDistributorLines && <Spinner className="h-4 w-4 text-muted-foreground" />}
       </div>
 

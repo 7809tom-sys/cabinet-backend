@@ -3,6 +3,8 @@ export type CabinetConfigReviewCandidate = {
   configVerified: boolean | null | undefined;
 };
 
+export const CABINET_ATTENTION_SEARCH_PLACEHOLDER = "Search cabinet name or SKU…";
+
 /** True when a cabinet needs an administrator configuration review. */
 export function needsCabinetConfigAttention(candidate: CabinetConfigReviewCandidate): boolean {
   return candidate.isActive === false || candidate.configVerified !== true;
