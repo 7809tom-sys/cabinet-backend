@@ -2763,3 +2763,10 @@
 - [x] Add visible one-inch Move In and Move Out controls beside Elevation position
 - [x] Preserve collision, room-boundary, and wall-mount safeguards with user feedback
 - [ ] Add computer and phone regression coverage and verify the selected cabinet moves in/out
+
+## Fix: Tall Pantry Door Count in 3D
+- [x] Trace tall-pantry catalog door metadata and upper/lower opening leaf allocation
+- [x] Render 18-inch two-door pantries as one upper door and one lower door
+- [x] Preserve four-door rendering for wider or catalog-configured four-door pantries
+- [ ] Add computer and phone tall-pantry door-count regressions and verify the reported U-18-96-24
+- [x] Make the exact U-18-96-24 Edit Config record authoritative for its 3D door allocation

@@ -25,6 +25,7 @@ type SceneSku = {
   mountBottom?: number | null;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  doorOrientation?: "side-by-side" | "stacked" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   handleSide?: "left" | "right" | null;
   openingType?: string | null;
@@ -532,6 +533,16 @@ export function threeDDrawerZoneHeight(input: {
   return input.doorCount === 0 && !input.hasConfiguredOpening
     ? input.availableHeight
     : input.availableHeight * 0.35;
+}
+
+export function threeDTallPantryDoorsPerRow(input: Pick<SceneSku, "numberOfDoors" | "width" | "doorOrientation">) {
+  const configuredDoorCount = Math.max(0, Math.round(Number(input.numberOfDoors) || 0));
+  if (configuredDoorCount === 2 && input.doorOrientation === "stacked") return 1;
+  if (configuredDoorCount === 2) return 1;
+  if (configuredDoorCount >= 4) return 2;
+  // Older placements without door metadata follow the standard narrow pantry
+  // convention: an 18-inch pantry has one upper and one lower door.
+  return numberValue(input.width, 18) <= 18.5 ? 1 : 2;
 }
 
 export function describedOvenSpecification(description: string | null | undefined) {
@@ -1918,16 +1929,18 @@ export function addCabinet(
       addDrawers();
     }
   } else if (isTall && /pantry/i.test(`${sku.masterCode} ${sku.description ?? ""}`)) {
-    // The existing 2D pantry rule is authoritative: two doors below the 54-inch
-    // line and two doors above it. This is not a four-door row or an oven tower.
+    // A two-door pantry is one tall lower door plus one upper door. Wider pantry
+    // models, or records explicitly configured with four doors, retain paired
+    // leaves in both the upper and lower openings.
     const lowerDoorHeight = Math.min(bodyHeight - 0.1, 54 * INCH);
     const upperDoorHeight = Math.max(0.2, bodyHeight - lowerDoorHeight - 0.1);
+    const doorsPerRow = threeDTallPantryDoorsPerRow(sku);
     const addPantryRow = (height: number, centerY: number, row: "lower" | "upper") => {
-      const doorWidth = (bodyWidth - 0.08) / 2;
-      for (let i = 0; i < 2; i++) {
+      const doorWidth = (bodyWidth - 0.08) / doorsPerRow;
+      for (let i = 0; i < doorsPerRow; i++) {
         const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, Math.max(0.08, height - 0.025), 0.052), faceMaterial);
         door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), centerY, 0.035);
-        door.userData = { cabinetFront: true, pantryDoorSet: row, flushPhysicalFace: true };
+        door.userData = { cabinetFront: true, pantryDoorSet: row, pantryDoorsPerRow: doorsPerRow, flushPhysicalFace: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
         addFaceShadow(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y);
@@ -2792,6 +2805,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+    doorOrientation: cabinet.doorOrientation ?? null,
     swing: cabinet.swing ?? null,
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,
     openingType: cabinet.openingType ?? null,
