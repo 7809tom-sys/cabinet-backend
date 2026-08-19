@@ -2768,7 +2768,7 @@
 - [x] Trace tall-pantry catalog door metadata and upper/lower opening leaf allocation
 - [x] Render 18-inch two-door pantries as one upper door and one lower door
 - [x] Preserve four-door rendering for wider or catalog-configured four-door pantries
-- [ ] Add computer and phone tall-pantry door-count regressions and verify the reported U-18-96-24
+- [ ] Complete phone verification of the user-confirmed U-18-96-24 tall-pantry door correction
 - [x] Make the exact U-18-96-24 Edit Config record authoritative for its 3D door allocation
 - [x] Identify the actual U-18 live renderer branch that still constructs four leaves
 - [x] Apply verified two-door stacked allocation in that live renderer branch
@@ -2777,3 +2777,9 @@
 - [x] Make verified configuration door count and orientation override vendor catalog images and generic fallback rendering
 - [x] Apply the same configuration-first rule to every cabinet vendor and line
 - [x] Add cross-vendor two-door and four-door regression coverage
+
+## Fix: Flush Left End-Run Cabinet Wall Anchoring
+- [x] Trace the left end-run base and upper cabinet wall assignment and 3D transform
+- [x] Anchor their rear faces flush to the assigned physical wall
+- [x] Preserve refrigerator, panel, and adjacent-cabinet clearances
+- [ ] Add computer and phone anchoring regressions and verify the reported left run

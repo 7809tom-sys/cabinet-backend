@@ -2419,6 +2419,7 @@ export type ThreeDPlacedWall = "back" | "front" | "left" | "right";
 export function threeDPlacedWall(
   cabinet: PlacedCabinet,
   room: Pick<RoomData, "width" | "depth">,
+  toleranceIn = 1.5,
 ): ThreeDPlacedWall | null {
   const footprint = normalizedThreeDFootprint(cabinet);
   const distances: Array<{ wall: ThreeDPlacedWall; distance: number }> = [
@@ -2430,7 +2431,7 @@ export function threeDPlacedWall(
   const nearest = distances.reduce((closest, candidate) => candidate.distance < closest.distance ? candidate : closest);
   // Interior/island cabinets retain their explicit user rotation. Only an item
   // seated at a room boundary has an unambiguous wall-facing direction.
-  return nearest.distance <= 1.5 ? nearest.wall : null;
+  return nearest.distance <= toleranceIn ? nearest.wall : null;
 }
 
 /**
@@ -2517,7 +2518,22 @@ export function existingCabinetTransform(
       : cabinet.placement === "underCabinet"
         ? WALL_BOTTOM - numberValue(cabinet.height, 6)
         : 0;
-  return { x: cabinet.x + width / 2, z: cabinet.y + depth / 2, rotation, bottom };
+  let x = cabinet.x + width / 2;
+  let z = cabinet.y + depth / 2;
+  // Older saved designs sometimes carry a small perpendicular gap even though
+  // their end-run cabinet is intended to sit on the closest wall. Keep explicit
+  // Move In/Move Out adjustments intact, but seat legacy end runs flush so their
+  // backs do not float inside the room.
+  const legacyWall = hasPlacedRoom
+    && !cabinet.depthPositionAdjusted
+    && (cabinet.placement === "base" || cabinet.placement === "wall")
+    ? threeDPlacedWall(cabinet, room as Pick<RoomData, "width" | "depth">, 6)
+    : null;
+  if (legacyWall === "left") x = width / 2;
+  if (legacyWall === "right") x = (room as Pick<RoomData, "width">).width - width / 2;
+  if (legacyWall === "back") z = depth / 2;
+  if (legacyWall === "front") z = (room as Pick<RoomData, "depth">).depth - depth / 2;
+  return { x, z, rotation, bottom };
 }
 
 /**

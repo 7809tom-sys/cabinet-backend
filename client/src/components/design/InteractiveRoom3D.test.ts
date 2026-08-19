@@ -603,6 +603,16 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ x: 6, z: 39, rotation: Math.PI / 2, bottom: 54 });
   });
 
+  it("seats a legacy near-wall end-run cabinet flush while retaining an explicit in/out adjustment", () => {
+    const legacy = {
+      uid: "left-end", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 4, y: 24, width: 30, depth: 12, height: 30, rotation: 90, mountBottom: 54,
+    } as never;
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    expect(existingCabinetTransform(legacy, room)).toMatchObject({ x: 6, z: 39, rotation: Math.PI / 2 });
+    expect(existingCabinetTransform({ ...legacy, depthPositionAdjusted: true }, room)).toMatchObject({ x: 10, z: 39, rotation: Math.PI / 2 });
+  });
+
   it("keeps adjacent rotated 2D cabinet edges contiguous with no artificial 3D run gap", () => {
     const first = existingCabinetTransform({
       uid: "run-a", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",

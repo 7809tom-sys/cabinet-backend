@@ -4126,7 +4126,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return prev.map((item) => item.uid === uid ? candidate : item);
       }
       const delta = threeDPlanMoveDelta(cabinet, room, direction, step);
-      const candidate = { ...cabinet, x: Math.round((cabinet.x + delta.x) * 8) / 8, y: Math.round((cabinet.y + delta.y) * 8) / 8 };
+      const candidate = {
+        ...cabinet,
+        x: Math.round((cabinet.x + delta.x) * 8) / 8,
+        y: Math.round((cabinet.y + delta.y) * 8) / 8,
+        ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
+      };
       const footprint = rotatedSize(candidate);
       if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
         const message = `${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`;

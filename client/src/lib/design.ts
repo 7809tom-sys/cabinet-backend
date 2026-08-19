@@ -349,6 +349,9 @@ export interface PlacedCabinet {
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   rotation: number;
+  // Set after an intentional 3D Move In/Move Out action. Legacy placements
+  // without this flag are seated against their nearest physical wall in 3D.
+  depthPositionAdjusted?: boolean;
   // Official 20/20 catalog line-art for this cabinet code, if available.
   // Optional for backward-compat with older saved designs; the canvas falls
   // back to the to-scale code-drawn shape when absent.
