@@ -2770,3 +2770,10 @@
 - [x] Preserve four-door rendering for wider or catalog-configured four-door pantries
 - [ ] Add computer and phone tall-pantry door-count regressions and verify the reported U-18-96-24
 - [x] Make the exact U-18-96-24 Edit Config record authoritative for its 3D door allocation
+- [x] Identify the actual U-18 live renderer branch that still constructs four leaves
+- [x] Apply verified two-door stacked allocation in that live renderer branch
+
+## Rule: Configuration-First 3D Door Layout for Every Vendor
+- [x] Make verified configuration door count and orientation override vendor catalog images and generic fallback rendering
+- [x] Apply the same configuration-first rule to every cabinet vendor and line
+- [x] Add cross-vendor two-door and four-door regression coverage

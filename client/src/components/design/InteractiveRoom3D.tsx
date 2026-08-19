@@ -545,6 +545,30 @@ export function threeDTallPantryDoorsPerRow(input: Pick<SceneSku, "numberOfDoors
   return numberValue(input.width, 18) <= 18.5 ? 1 : 2;
 }
 
+export function threeDHasVerifiedDoorLayout(input: Pick<SceneSku, "numberOfDoors" | "numberOfDrawers" | "doorOrientation" | "drawerLayout" | "layoutSpec">) {
+  return (Number(input.numberOfDoors) || 0) > 0
+    || (Number(input.numberOfDrawers) || 0) > 0
+    || Boolean(input.doorOrientation)
+    || Boolean(input.drawerLayout)
+    || Boolean(input.layoutSpec);
+}
+
+export function threeDUsesCatalogFrontVisual(input: {
+  hasCatalogFrontVisual: boolean;
+  hasDoorSample: boolean;
+  hasDoorTexture: boolean;
+  specialtyKind: string;
+  isRefrigeratorEndPanel: boolean;
+  hasVerifiedDoorLayout: boolean;
+}) {
+  return input.hasCatalogFrontVisual
+    && !input.hasDoorSample
+    && !input.hasDoorTexture
+    && input.specialtyKind === "standard"
+    && !input.isRefrigeratorEndPanel
+    && !input.hasVerifiedDoorLayout;
+}
+
 export function describedOvenSpecification(description: string | null | undefined) {
   const source = description ?? "";
   const opening = source.match(/(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*oven\s+opening/i);
@@ -1379,11 +1403,19 @@ export function addCabinet(
   // actual front layout. Keep the measured 3D carcass behind it, but place the
   // provided visual on the visible face instead of inventing a generic panel.
   const catalogFrontVisualUrl = threeDCabinetFrontVisualUrl(sku);
+  const hasVerifiedDoorLayout = threeDHasVerifiedDoorLayout(sku);
   // The admin panel door sample (doorSampleUrl) is the SOLE authoritative face
   // texture. When it exists, NEVER overlay the Cabinet Config line-art drawing.
   // The catalog front visual is only used as a fallback for cabinets that have
   // NO active door style sample at all.
-  if (catalogFrontVisualUrl && !doorSampleUrl && !doorTexture && specialty.kind === "standard" && !isRefrigeratorEndPanel) {
+  if (catalogFrontVisualUrl && threeDUsesCatalogFrontVisual({
+    hasCatalogFrontVisual: Boolean(catalogFrontVisualUrl),
+    hasDoorSample: Boolean(doorSampleUrl),
+    hasDoorTexture: Boolean(doorTexture),
+    specialtyKind: specialty.kind,
+    isRefrigeratorEndPanel,
+    hasVerifiedDoorLayout,
+  })) {
     const frontVisualTexture = new THREE.TextureLoader().load(catalogFrontVisualUrl);
     frontVisualTexture.colorSpace = THREE.SRGBColorSpace;
     const frontVisualMaterial = new THREE.MeshBasicMaterial({
