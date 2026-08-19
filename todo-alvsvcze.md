@@ -674,3 +674,4 @@
 - [x] Bundle Deals: Remove the incorrect $13,772.76 secondary current-total display while retaining the verified $4,116.84 homeowner price
 - [x] Bundle Deals: Preserve the verified $4,116.84 Onyx Shadow package price when loaded into the designer, cart, and checkout
 - [x] 3D: Investigate the observed InteractiveRoom3D console error and correct any confirmed runtime rendering defect
+- [x] Cabinet Config: Add an administrator review queue for inactive and unverified cabinet records, with direct quick-edit links to each configuration

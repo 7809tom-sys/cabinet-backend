@@ -67,6 +67,7 @@ import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 
 import CatalogImporterTab from "@/components/admin/CatalogImporterTab";
 import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
+import CabinetConfigReviewQueueAdmin from "@/components/admin/CabinetConfigReviewQueueAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 import { BannerAdmin } from "@/components/admin/BannerAdmin";
 import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
@@ -123,6 +124,7 @@ const GROUPS = [
       { value: "merge-suggestions", label: "Merge Suggestions" },
       { value: "master-sku", label: "Master SKU Aliases" },
       { value: "cabinet-config", label: "Cabinet Config" },
+      { value: "cabinet-attention", label: "⚠ Cabinet Attention" },
       { value: "categories", label: "Categories" },
       { value: "pending-review", label: "⏳ Pending Review" },
       { value: "bundle-deals", label: "📦 Bundle Deals" },
@@ -481,6 +483,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="merge-suggestions" className="mt-6"><PotentialMergesAdmin /></TabsContent>
         <TabsContent value="master-sku" className="mt-6"><MasterSkuAdmin /></TabsContent>
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /></TabsContent>
+        <TabsContent value="cabinet-attention" className="mt-6"><CabinetConfigReviewQueueAdmin /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
         <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
         <TabsContent value="bundle-deals" className="mt-6"><BundleDealsAdmin /></TabsContent>

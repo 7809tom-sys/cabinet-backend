@@ -2422,6 +2422,8 @@ export const cabinetsRouter = router({
         category: z.string().optional(),
         unconfiguredOnly: z.boolean().default(false),
         verifiedFilter: z.enum(["all", "verified", "unverified"]).default("all"),
+        attentionOnly: z.boolean().default(false),
+        cabinetId: z.number().int().positive().optional(),
       })
     )
     .query(async ({ input }) => {
@@ -2443,6 +2445,12 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.configVerified, true));
       } else if (input.verifiedFilter === "unverified") {
         conditions.push(eq(cabinets.configVerified, false));
+      }
+      if (input.attentionOnly) {
+        conditions.push(sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`);
+      }
+      if (input.cabinetId) {
+        conditions.push(eq(cabinets.id, input.cabinetId));
       }
       if (input.search) {
         const like = `%${input.search}%`;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -2133,6 +2133,10 @@ function ApplySpecsButton({ onDone }: { onDone: () => void }) {
 }
 
 export function CabinetConfigAdmin() {
+  const initialCabinetId = useMemo(() => {
+    const value = Number(new URLSearchParams(window.location.search).get("cabinetId"));
+    return Number.isInteger(value) && value > 0 ? value : undefined;
+  }, []);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState("");
@@ -2140,6 +2144,7 @@ export function CabinetConfigAdmin() {
   const [verifiedFilter, setVerifiedFilter] = useState<"all" | "verified" | "unverified">("all");
   const [page, setPage] = useState(0);
   const [editRow, setEditRow] = useState<CabinetRow | null>(null);
+  const [targetCabinetId, setTargetCabinetId] = useState<number | undefined>(initialCabinetId);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [mergeDirection, setMergeDirection] = useState<"keep-first" | "keep-second">("keep-first");
@@ -2153,6 +2158,7 @@ export function CabinetConfigAdmin() {
     category: category || undefined,
     unconfiguredOnly,
     verifiedFilter,
+    cabinetId: targetCabinetId,
   });
 
   const { data: dbCatsList } = trpc.cabinetCategories.list.useQuery();
@@ -2163,6 +2169,15 @@ export function CabinetConfigAdmin() {
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  useEffect(() => {
+    if (!targetCabinetId || rows.length !== 1) return;
+    setEditRow(rows[0] as CabinetRow);
+    setTargetCabinetId(undefined);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cabinetId");
+    window.history.replaceState({}, "", url.toString());
+  }, [rows, targetCabinetId]);
 
   const configuredCount = rows.filter(
     (r) =>
