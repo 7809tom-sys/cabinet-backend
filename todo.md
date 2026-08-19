@@ -2741,3 +2741,8 @@
 - [x] Trace the selected-cabinet attributes click path and desktop runtime error causing a blank screen
 - [x] Repair the in-place Cabinet Attributes dialog so it does not navigate away from the 3D workspace
 - [ ] Add desktop and phone click-path regressions and verify the dialog opens reliably
+
+## Fix: Persistent Live Cabinet Attributes Dialog Crash
+- [x] Reproduce the selected W3024 attributes action in the live designer and capture the exact exception
+- [x] Repair the persisted-cabinet dialog branch that blanks the browser page
+- [ ] Verify the attributes dialog opens reliably on computer and phone before publishing

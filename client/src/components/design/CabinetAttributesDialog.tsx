@@ -194,6 +194,27 @@ export function CabinetAttributesDialog({
   const { t } = useLanguage();
   const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
+  const masterCode = cabinet?.masterCode ?? "";
+  const cabinetId = cabinet?.cabinetId ?? 0;
+  const isMasterAdmin = Boolean(masterConfigHref && cabinet?.cabinetId);
+  const editConfigLink = cabinetEditConfigLink(masterConfigHref);
+  const aliasesQuery = trpc.masterSku.getAliasesForCabinet.useQuery(
+    { masterCode },
+    { enabled: isMasterAdmin }
+  );
+  const similarQuery = trpc.masterSku.similarForCabinet.useQuery(
+    { cabinetId },
+    { enabled: isMasterAdmin }
+  );
+  const utils = trpc.useUtils();
+  const mergeMutation = trpc.masterSku.confirmCabinetLink.useMutation({
+    onSuccess: () => {
+      setPendingMasterId(null);
+      utils.masterSku.getAliasesForCabinet.invalidate({ masterCode });
+      utils.masterSku.similarForCabinet.invalidate({ cabinetId });
+    },
+  });
+
   if (!cabinet) return null;
 
   const uid = cabinet.uid;
@@ -212,25 +233,6 @@ export function CabinetAttributesDialog({
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
-  const isMasterAdmin = Boolean(masterConfigHref && cabinet.cabinetId);
-  const editConfigLink = cabinetEditConfigLink(masterConfigHref);
-  const aliasesQuery = trpc.masterSku.getAliasesForCabinet.useQuery(
-    { masterCode: cabinet.masterCode },
-    { enabled: isMasterAdmin }
-  );
-  const similarQuery = trpc.masterSku.similarForCabinet.useQuery(
-    { cabinetId: cabinet.cabinetId ?? 0 },
-    { enabled: isMasterAdmin }
-  );
-  const utils = trpc.useUtils();
-  const mergeMutation = trpc.masterSku.confirmCabinetLink.useMutation({
-    onSuccess: () => {
-      setPendingMasterId(null);
-      utils.masterSku.getAliasesForCabinet.invalidate({ masterCode: cabinet.masterCode });
-      utils.masterSku.similarForCabinet.invalidate({ cabinetId: cabinet.cabinetId ?? 0 });
-    },
-  });
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={CABINET_ATTRIBUTES_DIALOG_CLASS}>

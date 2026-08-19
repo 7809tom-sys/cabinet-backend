@@ -88,4 +88,18 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     fireEvent.change(screen.getByLabelText("Cabinet mounting height from floor"), { target: { value: "65" } });
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 65);
   });
+
+  it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {
+    const props = {
+      onOpenChange: vi.fn(), customFee: 0, onSetWidth: vi.fn(), onSetHeight: vi.fn(), onSetDepth: vi.fn(),
+      mountBottom: 72, maxMountBottom: 72, onSetMountBottom: vi.fn(), onResetSize: vi.fn(), onSetSwing: vi.fn(),
+      onSetNoDoor: vi.fn(), onSetHandleSide: vi.fn(), designStyleId: null, distributorId: null,
+      onSetRolloutQty: vi.fn(), onSetGlassDoor: vi.fn(), onSetDecorativeEnd: vi.fn(), glassDoorAvailable: false,
+      onAddGlassDoorToCart: vi.fn(), onSetBlindPull: vi.fn(), onSetWaterfall: vi.fn(), onSetCategory: vi.fn(),
+      onSetCustomProfile: vi.fn(), onSetOvenType: vi.fn(),
+    };
+    const { rerender } = render(<CabinetAttributesDialog cabinet={null} open={false} {...props} />);
+
+    expect(() => rerender(<CabinetAttributesDialog cabinet={wallCabinet} open {...props} />)).not.toThrow();
+  });
 });
