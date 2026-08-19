@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PackageOpen, Wand2, LayoutGrid, DollarSign, ChevronRight } from "lucide-react";
+import { PackageOpen, Wand2, LayoutGrid, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BundleDeals() {
@@ -138,15 +138,6 @@ export default function BundleDeals() {
                           <PackageOpen className="h-3 w-3" />
                           {bundle.fixtureCount} fixture{bundle.fixtureCount === 1 ? "" : "s"}
                         </span>
-                      )}
-                      {bundle.homeownerPrice ? (
-                        <span className="flex items-center gap-1 text-[#d4a75a] font-semibold" title="Calculated from current active catalog prices">
-                          <DollarSign className="h-3 w-3" />
-                          {parseFloat(bundle.homeownerPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Current</span>
-                        </span>
-                      ) : (
-                        <span className="text-amber-700 font-medium">Current pricing needs review</span>
                       )}
                     </div>
 
