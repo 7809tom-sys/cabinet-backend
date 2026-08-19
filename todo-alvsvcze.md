@@ -663,3 +663,4 @@
 - [x] LS3612: Never automatically substitute; if valid corner replacement guidance is needed, recommend ER36 or BER36 only
 - [x] LS3612: Resolve the current approved Aura Blanc (Madison) price through a user-confirmed, catalog-priced shelf-corner choice without automatic substitution
 - [x] LS3612: Offer ER36 or BER36 as explicit shelf-corner replacement choices when LS3612 is unpriced; identify the carousel as a separate optional item
+- [x] Budget Option: Save and restore mobile Budget Option designs with the same behavior as desktop

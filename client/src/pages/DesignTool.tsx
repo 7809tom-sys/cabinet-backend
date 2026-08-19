@@ -6093,6 +6093,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Import Existing Design</span>
                   </button>
+                  {isAdmin && (
+                    <button
+                      disabled={placed.length === 0}
+                      onClick={() => {
+                        setMoreSheetOpen(false);
+                        setTimeout(() => setBundleDialogOpen(true), 120);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors disabled:opacity-50"
+                    >
+                      <PackageOpen className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-left">Save as Bundle Deal</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
