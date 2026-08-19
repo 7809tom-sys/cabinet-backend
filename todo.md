@@ -2736,3 +2736,8 @@
 - [x] Trace the selected-cabinet 3D attributes entry point and why End Panel Treatment is not visible
 - [x] Add an obvious 3D attributes action that exposes End Panel Treatment near the top of the selected cabinet workflow
 - [ ] Verify plain, left, right, and both-end choices are reachable on computer and phone
+
+## Fix: Cabinet Attributes Blank Screen from 3D
+- [x] Trace the selected-cabinet attributes click path and desktop runtime error causing a blank screen
+- [x] Repair the in-place Cabinet Attributes dialog so it does not navigate away from the 3D workspace
+- [ ] Add desktop and phone click-path regressions and verify the dialog opens reliably
