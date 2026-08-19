@@ -143,7 +143,8 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return [];
 
-      // Find all distributors that have at least one SKU for this cabinet
+      // Show every recorded supplier SKU connection, including a pending or
+      // unpublished line, while an administrator is completing configuration.
       const rows = await db
         .selectDistinct({
           distributorId: distributors.id,
@@ -154,12 +155,7 @@ export const genericCabinetsRouter = router({
         })
         .from(distributorSkus)
         .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
-        .where(
-          and(
-            eq(distributorSkus.cabinetId, input.cabinetId),
-            eq(distributorSkus.isPublished, true)
-          )
-        )
+        .where(eq(distributorSkus.cabinetId, input.cabinetId))
         .groupBy(distributors.id, distributors.name, distributors.brandName, distributors.warehouseZips);
 
       return rows.map((r) => ({

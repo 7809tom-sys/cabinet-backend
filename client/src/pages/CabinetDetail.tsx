@@ -42,6 +42,7 @@ import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
+import { canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE } from "@shared/cabinetConfigReview";
 
 // ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
 const FALLBACK_CATEGORIES = [
@@ -544,6 +545,9 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editFacePattern, setEditFacePattern] = useState<string>("__none__");
   const [editGraphicType, setEditGraphicType] = useState<string>("standard");
   const [editMasterCode, setEditMasterCode] = useState<string>("");
+  const [connectionDistributorId, setConnectionDistributorId] = useState<string>("");
+  const [connectionStyleId, setConnectionStyleId] = useState<string>("");
+  const [connectionSku, setConnectionSku] = useState<string>("");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -599,10 +603,12 @@ export default function CabinetDetail({ masterCode }: Props) {
   }, [editOpen, cabinet]);
 
   // Distributor coverage + existing overrides for this cabinet (admin only)
-  const { data: distCoverage } = trpc.genericCabinets.distributorCoverage.useQuery(
+  const { data: distCoverage, refetch: refetchDistCoverage } = trpc.genericCabinets.distributorCoverage.useQuery(
     { cabinetId: cabinet?.id ?? 0 },
     { enabled: !!cabinet?.id && isOwner }
   );
+  const { data: distributorLines } = trpc.distributors.list.useQuery(undefined, { enabled: isOwner });
+  const { data: allDoorStyles } = trpc.doorStyles.list.useQuery(undefined, { enabled: isOwner });
   const { data: existingOverrides, refetch: refetchOverrides } = trpc.cabinetOverrides.forCabinet.useQuery(
     { cabinetId: cabinet?.id ?? 0 },
     { enabled: !!cabinet?.id && isOwner }
@@ -625,6 +631,17 @@ export default function CabinetDetail({ masterCode }: Props) {
   });
 
   const utils = trpc.useUtils();
+  const connectDistributor = trpc.distributorPortal.submitNewProduct.useMutation({
+    onSuccess: () => {
+      toast.success("Distributor connection saved for review. Add approved pricing before publishing it.");
+      void refetchDistCoverage();
+      utils.pricing.stylesForCabinet.invalidate({ cabinetId: cabinet?.id ?? 0, affiliateSlug });
+      setConnectionDistributorId("");
+      setConnectionStyleId("");
+      setConnectionSku("");
+    },
+    onError: (err) => toast.error(`Distributor connection failed: ${err.message}`),
+  });
   const updateCabinet = trpc.cabinets.adminUpdateCabinet.useMutation({
     onSuccess: () => {
       toast.success("Cabinet updated");
@@ -723,6 +740,10 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   function handleSaveEdit() {
     if (!cabinet?.id) return;
+    if (editConfigVerified && !canFinalizeCabinetConfiguration(distCoverage?.length)) {
+      toast.error(DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE);
+      return;
+    }
     updateCabinet.mutate({
       id: cabinet.id,
       description: editDescription.trim() || undefined,
@@ -2067,6 +2088,80 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <Label className="text-amber-700 dark:text-amber-400">Distributor Dimension Overrides</Label>
                   <span className="text-[11px] text-muted-foreground">Per-supplier corrections (override master dims)</span>
                 </div>
+                {(distCoverage ?? []).length === 0 ? (
+                  <div className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="h-4 w-4" />
+                        Distributor connection required
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Select the supplier line, its door style, and the supplier’s actual SKU. This creates a pending connection; it does not invent pricing or publish the cabinet.
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <Select
+                        value={connectionDistributorId}
+                        onValueChange={(value) => {
+                          setConnectionDistributorId(value);
+                          setConnectionStyleId("");
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Distributor line" /></SelectTrigger>
+                        <SelectContent>
+                          {(distributorLines ?? []).map((line) => (
+                            <SelectItem key={line.id} value={String(line.id)}>{line.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={connectionStyleId} onValueChange={setConnectionStyleId} disabled={!connectionDistributorId}>
+                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Door style" /></SelectTrigger>
+                        <SelectContent>
+                          {(allDoorStyles ?? [])
+                            .filter((style) => style.distributorId === Number(connectionDistributorId))
+                            .map((style) => (
+                              <SelectItem key={style.id} value={String(style.id)}>
+                                {style.ourName}{style.styleCode ? ` (${style.styleCode})` : ""}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-9 text-xs"
+                        placeholder="Supplier SKU (required)"
+                        value={connectionSku}
+                        onChange={(event) => setConnectionSku(event.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 bg-amber-600 text-xs text-white hover:bg-amber-700"
+                        disabled={
+                          connectDistributor.isPending ||
+                          !connectionDistributorId ||
+                          !connectionStyleId ||
+                          !connectionSku.trim()
+                        }
+                        onClick={() => {
+                          connectDistributor.mutate({
+                            distributorId: Number(connectionDistributorId),
+                            cabinetId: cabinet.id,
+                            styleId: Number(connectionStyleId),
+                            distributorSku: connectionSku.trim(),
+                          });
+                        }}
+                      >
+                        {connectDistributor.isPending ? "Connecting…" : "Connect distributor"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                    Connected distributor line{(distCoverage ?? []).length === 1 ? "" : "s"}: {(distCoverage ?? []).map((line) => line.name).join(", ")}
+                  </div>
+                )}
                 {/* Existing overrides list */}
                 {(existingOverrides ?? []).length > 0 && (
                   <div className="space-y-1.5">

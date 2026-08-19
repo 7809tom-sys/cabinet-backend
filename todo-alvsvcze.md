@@ -679,7 +679,9 @@
 - [x] Cabinet Attention: Add a distributor-line dropdown to filter inactive or unverified cabinets by supplier line
 - [x] Cabinet Attention: Place the cabinet name-or-SKU search beside the distributor dropdown for combined quick filtering
 - [x] Cabinet Attention: Fix the administrator queue when distributor options and inactive-or-unverified cabinet rows fail to load
-- [ ] Cabinet Attention: Resolve the still-empty queue and distributor dropdown in the user’s active administrator session using exact live-request evidence
+- [x] Cabinet Attention: Resolve the still-empty queue and distributor dropdown in the user’s active administrator session using exact live-request evidence
 - [x] Cabinet Attention: Make Edit Config expose the same cabinet-editing capabilities and behavior as the front-end edit workflow
 - [x] Cabinet Attention: Open Edit Config in a new tab so the filtered review queue remains available in the original tab
 - [x] Cabinet Attention: Show a compact configured thumbnail for every cabinet in the review queue
+- [x] Cabinet editing: Require and streamline a distributor-line connection before a cabinet can be finalized as a usable catalog record
+- [x] Cabinet editing: Preserve distributor coverage when the front-end editor is opened from Cabinet Attention or another non-catalog page

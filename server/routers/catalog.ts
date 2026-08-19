@@ -1868,6 +1868,19 @@ export const cabinetsRouter = router({
       if (input.facePattern !== undefined) patch.facePattern = input.facePattern;
       if (input.glassDoorAddonCode !== undefined) patch.glassDoorAddonCode = input.glassDoorAddonCode;
       if (input.configVerified !== undefined) {
+        if (input.configVerified) {
+          const [distributorConnection] = await db
+            .select({ id: distributorSkus.id })
+            .from(distributorSkus)
+            .where(eq(distributorSkus.cabinetId, input.id))
+            .limit(1);
+          if (!distributorConnection) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Connect a distributor line and enter its supplier SKU before marking this cabinet verified.",
+            });
+          }
+        }
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
           patch.configVerifiedAt = new Date();

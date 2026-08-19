@@ -23,15 +23,22 @@ export function cabinetConfigQuickEditUrl(cabinetId: number): string {
   return `/admin?tab=cabinet-config&cabinetId=${cabinetId}`;
 }
 
-/** Opens the same full cabinet editor used from the front-end catalog detail page. */
-export function cabinetFrontEndQuickEditUrl(masterCode: string): string {
-  return `/catalog/${encodeURIComponent(masterCode)}?edit=1`;
+/** Opens the full front-end cabinet editor with an exact record ID for non-catalog entry points. */
+export function cabinetFrontEndQuickEditUrl(masterCode: string, cabinetId: number): string {
+  return `/catalog/${encodeURIComponent(masterCode)}?edit=1&cabinetId=${cabinetId}`;
 }
 
 export const CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES = {
   target: "_blank",
   rel: "noopener noreferrer",
 } as const;
+
+export const DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE =
+  "Connect a distributor line and enter its supplier SKU before marking this cabinet verified.";
+
+export function canFinalizeCabinetConfiguration(distributorConnectionCount: number | null | undefined): boolean {
+  return Number(distributorConnectionCount ?? 0) > 0;
+}
 
 /** Converts the database's compact distributor-line list into stable display labels. */
 export function distributorLineLabels(distributorNames: string | null | undefined): string[] {

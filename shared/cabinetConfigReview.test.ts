@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
+  DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE,
   cabinetConfigAttentionReasons,
   cabinetFrontEndQuickEditUrl,
+  canFinalizeCabinetConfiguration,
   cabinetConfigQuickEditUrl,
   distributorLineLabels,
   needsCabinetConfigAttention,
@@ -38,7 +40,7 @@ describe("cabinet configuration review queue", () => {
   });
 
   it("opens Cabinet Attention edits in the same front-end cabinet editor", () => {
-    expect(cabinetFrontEndQuickEditUrl("B24 A/2")).toBe("/catalog/B24%20A%2F2?edit=1");
+    expect(cabinetFrontEndQuickEditUrl("B24 A/2", 482)).toBe("/catalog/B24%20A%2F2?edit=1&cabinetId=482");
   });
 
   it("keeps the Cabinet Attention workspace open when launching the front-end editor", () => {
@@ -46,6 +48,13 @@ describe("cabinet configuration review queue", () => {
       target: "_blank",
       rel: "noopener noreferrer",
     });
+  });
+
+  it("requires a distributor SKU connection before cabinet configuration is finalized", () => {
+    expect(canFinalizeCabinetConfiguration(0)).toBe(false);
+    expect(canFinalizeCabinetConfiguration(null)).toBe(false);
+    expect(canFinalizeCabinetConfiguration(1)).toBe(true);
+    expect(DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE).toContain("distributor line");
   });
 
   it("formats every linked distributor line once for fast queue scanning", () => {

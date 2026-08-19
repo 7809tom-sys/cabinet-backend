@@ -214,7 +214,7 @@ export default function CabinetConfigReviewQueueAdmin() {
                       {row.masterCode ? (
                         <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
                           <a
-                            href={cabinetFrontEndQuickEditUrl(row.masterCode)}
+                            href={cabinetFrontEndQuickEditUrl(row.masterCode, row.id)}
                             title="Open the full front-end cabinet editor in a new tab"
                             {...CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES}
                           >
