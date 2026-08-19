@@ -2757,3 +2757,9 @@
 - [x] Render a shallow top drawer that matches the supplied Honey Shaker reference while honoring configured drawer heights
 - [ ] Add computer and phone drawer-height regressions and verify the reported base cabinets
 - [x] Apply the shallow top-drawer default to every standard base cabinet with both drawers and doors
+
+## Feature: In/Out Movement in Cabinet Attributes
+- [x] Trace the wall-aware in/out movement callback and attributes-dialog integration point
+- [x] Add visible one-inch Move In and Move Out controls beside Elevation position
+- [x] Preserve collision, room-boundary, and wall-mount safeguards with user feedback
+- [ ] Add computer and phone regression coverage and verify the selected cabinet moves in/out

@@ -43,6 +43,7 @@ const wallCabinet = {
 } as never;
 
 function renderDialog(onSetMountBottom = vi.fn()) {
+  const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
       cabinet={wallCabinet}
@@ -55,6 +56,7 @@ function renderDialog(onSetMountBottom = vi.fn()) {
       mountBottom={72}
       maxMountBottom={72}
       onSetMountBottom={onSetMountBottom}
+      onMoveInOut={onMoveInOut}
       onResetSize={vi.fn()}
       onSetSwing={vi.fn()}
       onSetNoDoor={vi.fn()}
@@ -73,12 +75,12 @@ function renderDialog(onSetMountBottom = vi.fn()) {
       onSetOvenType={vi.fn()}
     />
   );
-  return onSetMountBottom;
+  return { onSetMountBottom, onMoveInOut };
 }
 
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
   it("exposes right-click up/down mounting controls and sends the selected height", () => {
-    const onSetMountBottom = renderDialog();
+    const { onSetMountBottom, onMoveInOut } = renderDialog();
     expect(screen.getByText("End Panel Treatment")).toBeTruthy();
     expect((screen.getByLabelText("Cabinet mounting height from floor") as HTMLInputElement).value).toBe("72");
     fireEvent.click(screen.getByTitle("Move down one inch"));
@@ -87,12 +89,17 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 54);
     fireEvent.change(screen.getByLabelText("Cabinet mounting height from floor"), { target: { value: "65" } });
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 65);
+    fireEvent.click(screen.getByTitle("Move out one inch toward the wall"));
+    fireEvent.click(screen.getByTitle("Move in one inch into the room"));
+    expect(onMoveInOut).toHaveBeenNthCalledWith(1, "w3024", "out");
+    expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in");
   });
 
   it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {
     const props = {
       onOpenChange: vi.fn(), customFee: 0, onSetWidth: vi.fn(), onSetHeight: vi.fn(), onSetDepth: vi.fn(),
       mountBottom: 72, maxMountBottom: 72, onSetMountBottom: vi.fn(), onResetSize: vi.fn(), onSetSwing: vi.fn(),
+      onMoveInOut: vi.fn(),
       onSetNoDoor: vi.fn(), onSetHandleSide: vi.fn(), designStyleId: null, distributorId: null,
       onSetRolloutQty: vi.fn(), onSetGlassDoor: vi.fn(), onSetDecorativeEnd: vi.fn(), glassDoorAvailable: false,
       onAddGlassDoorToCart: vi.fn(), onSetBlindPull: vi.fn(), onSetWaterfall: vi.fn(), onSetCategory: vi.fn(),

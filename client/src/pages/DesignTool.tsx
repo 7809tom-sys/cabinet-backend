@@ -9163,6 +9163,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? elevationBox(cabinet, room).bottom : null; })() : null}
         maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? Math.max(0, (room.ceilingHeight ?? 96) - elevationBox(cabinet, room).height) : 0; })() : 0}
         onSetMountBottom={setMountBottomFor}
+        onMoveInOut={(uid, direction) => moveCabinetFrom3D(uid, direction, 1)}
         onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}

@@ -122,6 +122,7 @@ export interface CabinetAttributesDialogProps {
   mountBottom?: number | null;
   maxMountBottom?: number;
   onSetMountBottom?: (uid: string, v: number) => void;
+  onMoveInOut?: (uid: string, direction: "in" | "out") => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -171,6 +172,7 @@ export function CabinetAttributesDialog({
   mountBottom,
   maxMountBottom,
   onSetMountBottom,
+  onMoveInOut,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -231,6 +233,7 @@ export function CabinetAttributesDialog({
         : "left";
   const isBase = cabinet.placement === "base";
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
+  const canMoveInOut = typeof onMoveInOut === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   return (
@@ -357,6 +360,19 @@ export function CabinetAttributesDialog({
                 <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move up one inch" onClick={() => onSetMountBottom?.(uid, Math.min(maxMountBottom ?? 120, (mountBottom ?? 0) + 1))}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
+              </div>
+            </section>
+          )}
+
+          {canMoveInOut && (
+            <section className="space-y-2 border-t border-border pt-4">
+              <div>
+                <h4 className="text-sm font-semibold">Depth position</h4>
+                <p className="text-[11px] text-muted-foreground">Move this cabinet one inch toward the wall or into the room.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" title="Move out one inch toward the wall" onClick={() => onMoveInOut?.(uid, "out")}>Move Out 1″</Button>
+                <Button type="button" variant="outline" size="sm" title="Move in one inch into the room" onClick={() => onMoveInOut?.(uid, "in")}>Move In 1″</Button>
               </div>
             </section>
           )}
