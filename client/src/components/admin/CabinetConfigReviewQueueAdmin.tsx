@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CabinetImage } from "@/components/CabinetImage";
 import { AlertTriangle, CheckCircle2, Pencil, RefreshCw, Search } from "lucide-react";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
@@ -27,6 +28,19 @@ type ReviewCabinet = {
   isActive: boolean | null;
   configVerified: boolean | null;
   distributorNames: string | null;
+  catalogImageUrl: string | null;
+  numberOfDoors: number | null;
+  numberOfDrawers: number | null;
+  openingType: string | null;
+  doorHeight: string | null;
+  drawerHeight: string | null;
+  doorOrientation: string | null;
+  cornerType: string | null;
+  doorsPerRow: number | null;
+  drawerLayout: string | null;
+  isDecorativeDoor: boolean | null;
+  facePattern: "slats" | "criss-cross" | "lattice" | "open" | null;
+  graphicType?: string | null;
 };
 
 const PAGE_SIZE = 100;
@@ -136,6 +150,7 @@ export default function CabinetConfigReviewQueueAdmin() {
             <thead className="border-b border-border bg-muted/50">
               <tr>
                 <th className="w-28 px-3 py-2 text-left text-xs font-medium text-muted-foreground">Code</th>
+                <th className="w-16 px-2 py-2 text-center text-xs font-medium text-muted-foreground">Preview</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Description</th>
                 <th className="w-48 px-3 py-2 text-left text-xs font-medium text-muted-foreground">Distributor lines</th>
                 <th className="hidden w-20 px-3 py-2 text-left text-xs font-medium text-muted-foreground sm:table-cell">W×H</th>
@@ -152,6 +167,11 @@ export default function CabinetConfigReviewQueueAdmin() {
                   <tr key={row.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                     <td className="px-3 py-2.5">
                       <span className="font-mono text-xs font-semibold text-primary">{row.masterCode ?? "—"}</span>
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/30 p-0.5">
+                        <CabinetImage cabinet={row} className="h-full w-full object-contain" />
+                      </div>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="block text-xs text-foreground">{row.description ?? "No description"}</span>

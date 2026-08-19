@@ -682,3 +682,4 @@
 - [ ] Cabinet Attention: Resolve the still-empty queue and distributor dropdown in the user’s active administrator session using exact live-request evidence
 - [x] Cabinet Attention: Make Edit Config expose the same cabinet-editing capabilities and behavior as the front-end edit workflow
 - [x] Cabinet Attention: Open Edit Config in a new tab so the filtered review queue remains available in the original tab
+- [x] Cabinet Attention: Show a compact configured thumbnail for every cabinet in the review queue
