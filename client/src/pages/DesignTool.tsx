@@ -6084,7 +6084,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{t("dt_sh_lock_layout")}</span>
                     {layoutLocked && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
                   </button>
-                  <button onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                  <button onClick={() => { setMeasureMode((m) => !m); setDrawMode(false); setSelectedUid(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_measure")}</span>
                     {measureMode && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
@@ -6478,7 +6478,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <Button
             variant="outline"
             size="icon"
-            onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}
+            onClick={() => { setMeasureMode((m) => !m); setDrawMode(false); setSelectedUid(null); }}
             title={t("dt_sh_measure")}
             className={`h-7 w-7 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >

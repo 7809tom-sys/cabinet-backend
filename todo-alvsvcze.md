@@ -669,3 +669,4 @@
 - [x] SEO: Audit and improve metadata, canonical URLs, robots directives, structured data, sitemap coverage, and mobile indexability for the main site and white-label affiliate storefronts
 - [x] Pricing: Preserve the selected customer/homeowner design price through cart, checkout, totals, and order submission without list-price fallback
 - [x] Pricing: Preserve each selected design price through checkout for wholesale, contractor, homeowner, and every affiliate storefront without tier or markup recomputation
+- [x] Designer: Add a responsive Google-style tape measure for measuring distances directly on the saved 2D kitchen plan

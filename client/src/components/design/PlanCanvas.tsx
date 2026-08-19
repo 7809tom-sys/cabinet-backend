@@ -19,6 +19,26 @@ import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 
+export type PlanMeasurePoint = { x: number; y: number };
+
+/** A quarter-inch increment keeps the on-screen tape precise without visual jitter. */
+export const TAPE_MEASURE_INCREMENT_IN = 0.25;
+
+export function snapPlanMeasurePoint(
+  point: PlanMeasurePoint,
+  room: Pick<RoomData, "width" | "depth">,
+): PlanMeasurePoint {
+  const snap = (value: number, maximum: number) =>
+    Math.max(0, Math.min(maximum, Math.round(value / TAPE_MEASURE_INCREMENT_IN) * TAPE_MEASURE_INCREMENT_IN));
+  return { x: snap(point.x, room.width), y: snap(point.y, room.depth) };
+}
+
+export function planTapeMeasure(a: PlanMeasurePoint, b: PlanMeasurePoint) {
+  const dx = Math.abs(b.x - a.x);
+  const dy = Math.abs(b.y - a.y);
+  return { dx, dy, distance: Math.hypot(dx, dy) };
+}
+
 export function planCornerGeometry(cabinet: PlacedCabinet) {
   // Existing placements copy the current Cabinet Config graphic rule into
   // customProfile. Use it when resolving BA/BEC so a saved base end cabinet
@@ -334,8 +354,10 @@ export function PlanCanvas({
   const [dragUid, setDragUid] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [hoverSnap, setHoverSnap] = useState(false);
-  // Tape-measure: up to two picked cabinet uids.
-  const [measurePicks, setMeasurePicks] = useState<string[]>([]);
+  // Tape-measure: two arbitrary points on the saved 2D plan, stored in inches.
+  // This deliberately does not depend on cabinet centers: users can measure a
+  // wall span, opening, aisle, appliance clearance, or any other plan detail.
+  const [measurePoints, setMeasurePoints] = useState<PlanMeasurePoint[]>([]);
   // Mouse-draw room gesture: pixel rectangle relative to the container while
   // dragging; converted to inches on release via the same fit-PPI scale.
   const drawStart = useRef<{ x: number; y: number } | null>(null);
@@ -410,15 +432,18 @@ export function PlanCanvas({
     return () => ro.disconnect();
   }, [room.width, room.depth]);
 
-  // Reset measurement picks whenever measure mode toggles off.
+  // Reset the temporary tape whenever measure mode toggles off.
   useEffect(() => {
-    if (!measureMode) setMeasurePicks([]);
+    if (!measureMode) setMeasurePoints([]);
   }, [measureMode]);
 
-  // Drop picks that point at cabinets which no longer exist.
-  useEffect(() => {
-    setMeasurePicks((prev) => prev.filter((uid) => cabinets.some((c) => c.uid === uid)));
-  }, [cabinets]);
+  const addMeasurePoint = useCallback((clientX: number, clientY: number, roomRect: DOMRect) => {
+    const point = snapPlanMeasurePoint({
+      x: (clientX - roomRect.left) / ppiRef.current,
+      y: (clientY - roomRect.top) / ppiRef.current,
+    }, room);
+    setMeasurePoints((previous) => previous.length >= 2 ? [point] : [...previous, point]);
+  }, [room]);
 
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
@@ -470,6 +495,12 @@ export function PlanCanvas({
     onDrawRoom({ width, depth });
   };
 
+  const onRoomMeasurePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!measureMode) return;
+    e.stopPropagation();
+    addMeasurePoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+  };
+
   // ─── Wall drag-to-resize gesture ───────────────────────────────────────────
   const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {
     e.stopPropagation();
@@ -517,12 +548,8 @@ export function PlanCanvas({
   const handlePointerDown = (e: React.PointerEvent, p: PlacedCabinet) => {
     e.stopPropagation();
     if (measureMode) {
-      // In measure mode, clicking a cabinet picks it (max two, FIFO).
-      setMeasurePicks((prev) => {
-        if (prev.includes(p.uid)) return prev.filter((u) => u !== p.uid);
-        const next = [...prev, p.uid];
-        return next.length > 2 ? next.slice(next.length - 2) : next;
-      });
+      const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+      if (roomEl) addMeasurePoint(e.clientX, e.clientY, roomEl.getBoundingClientRect());
       return;
     }
     onSelect(p.uid);
@@ -621,26 +648,23 @@ export function PlanCanvas({
     return { side, m, horizontal, crossPx, startPx: m.start * ppi, endPx: m.end * ppi };
   })();
 
-  // Compute the measurement line between the two picked cabinets (centers).
+  // Compute the point-to-point tape in the same inch coordinate system used by
+  // all placed cabinets, walls, openings, and clearances.
   const measure = (() => {
-    if (measurePicks.length !== 2) return null;
-    const a = cabinets.find((c) => c.uid === measurePicks[0]);
-    const b = cabinets.find((c) => c.uid === measurePicks[1]);
-    if (!a || !b) return null;
-    const sa = rotatedSize(a);
-    const sb = rotatedSize(b);
-    const ax = (a.x + sa.w / 2) * ppi;
-    const ay = (a.y + sa.d / 2) * ppi;
-    const bx = (b.x + sb.w / 2) * ppi;
-    const by = (b.y + sb.d / 2) * ppi;
-    const distIn = Math.sqrt((b.x + sb.w / 2 - (a.x + sa.w / 2)) ** 2 + (b.y + sb.d / 2 - (a.y + sa.d / 2)) ** 2);
-    return { ax, ay, bx, by, midX: (ax + bx) / 2, midY: (ay + by) / 2, distIn };
+    if (measurePoints.length !== 2) return null;
+    const [a, b] = measurePoints;
+    const { dx, dy, distance } = planTapeMeasure(a, b);
+    const ax = a.x * ppi;
+    const ay = a.y * ppi;
+    const bx = b.x * ppi;
+    const by = b.y * ppi;
+    return { ax, ay, bx, by, midX: (ax + bx) / 2, midY: (ay + by) / 2, dx, dy, distIn: distance };
   })();
 
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-hidden bg-[#eef1f5] select-none touch-none ${drawMode ? "cursor-crosshair" : ""}`}
+      className={`relative w-full h-full overflow-hidden bg-[#eef1f5] select-none touch-none ${drawMode || measureMode ? "cursor-crosshair" : ""}`}
       onClick={(e) => { if (!measureMode && !drawMode && e.target === e.currentTarget) { onSelect(null); onSelectPonyWall?.(null); } }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onCanvasPointerMove}
@@ -673,6 +697,7 @@ export function PlanCanvas({
       <div
         data-room
         className="absolute shadow-inner"
+        onPointerDownCapture={onRoomMeasurePointerDown}
         style={{
           width: roomPxW,
           height: roomPxH,
@@ -1146,7 +1171,6 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
-            const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
             const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
@@ -1192,8 +1216,6 @@ export function PlanCanvas({
                     : faceFill,
                   border: inConflict
                     ? "2.5px solid #dc2626"
-                    : isPicked
-                    ? "2px solid #d4a75a"
                     : isSelected
                     ? "2px solid #1a2744"
                     : collides
@@ -1203,8 +1225,6 @@ export function PlanCanvas({
                     : `1.5px solid ${edgeColor}`,
                   boxShadow: inConflict
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
-                    : isPicked
-                    ? "0 0 0 3px rgba(212,167,90,0.55)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
@@ -1588,27 +1608,31 @@ export function PlanCanvas({
           );
         })()}
 
-        {/* Tape-measure dimension line */}
-        {measure && (
+        {/* Google-style point-to-point tape measure. The start point remains
+            visible after the first tap; a second tap completes the distance. */}
+        {measurePoints.length > 0 && (
           <svg
             className="pointer-events-none absolute inset-0 z-40 overflow-visible"
             width={roomPxW}
             height={roomPxH}
           >
-            <line
-              x1={measure.ax} y1={measure.ay} x2={measure.bx} y2={measure.by}
-              stroke="#1a2744" strokeWidth={1.5} strokeDasharray="5 3"
-            />
-            <circle cx={measure.ax} cy={measure.ay} r={3.5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1} />
-            <circle cx={measure.bx} cy={measure.by} r={3.5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1} />
+            {measure && (
+              <line
+                x1={measure.ax} y1={measure.ay} x2={measure.bx} y2={measure.by}
+                stroke="#d4a75a" strokeWidth={3} strokeLinecap="round"
+              />
+            )}
+            <circle cx={measurePoints[0].x * ppi} cy={measurePoints[0].y * ppi} r={5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1.5} />
+            {measure && <circle cx={measure.bx} cy={measure.by} r={5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1.5} />}
           </svg>
         )}
         {measure && (
           <div
-            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-semibold text-white shadow"
+            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a]/70 bg-[#1a2744] px-2 py-1 text-center text-[10px] font-semibold text-white shadow-lg whitespace-nowrap"
             style={{ left: measure.midX, top: measure.midY }}
           >
-            {formatInches(measure.distIn)}
+            <span className="block text-[11px] text-[#f8d889]">{formatInches(measure.distIn)}</span>
+            <span className="block text-[9px] text-white/80">X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}</span>
           </div>
         )}
 
@@ -1821,9 +1845,9 @@ export function PlanCanvas({
 
       {measureMode && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#d4a75a] text-[#1a2744] text-xs font-semibold px-3 py-1 rounded-full shadow-lg z-30">
-          {measurePicks.length === 0
+          {measurePoints.length === 0
             ? t("dt_pc_measure_first")
-            : measurePicks.length === 1
+            : measurePoints.length === 1
             ? t("dt_pc_measure_second")
             : t("dt_pc_measure_done")}
         </div>

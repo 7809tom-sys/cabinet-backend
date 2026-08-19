@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, planCornerGeometry } from "./PlanCanvas";
+import { PlanCanvas, planCornerGeometry, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet } from "@/lib/design";
 
 const base = {
@@ -95,5 +95,42 @@ describe("plan corner geometry", () => {
     expect(cabinetTag).toContain("height:96px");
     expect(markup).toContain('data-end-angle="true"');
     expect(markup).toContain('aria-label="24 by 24 base end cabinet with 45 degree angled front"');
+  });
+});
+
+describe("plan tape measure", () => {
+  const room = { width: 144, depth: 120 };
+
+  it("snaps any tapped point to quarter-inch plan coordinates and keeps it inside the saved room", () => {
+    expect(snapPlanMeasurePoint({ x: 12.13, y: 19.88 }, room)).toEqual({ x: 12.25, y: 20 });
+    expect(snapPlanMeasurePoint({ x: -4, y: 150 }, room)).toEqual({ x: 0, y: 120 });
+  });
+
+  it("reports horizontal, vertical, and straight-line distance between arbitrary plan points", () => {
+    expect(planTapeMeasure({ x: 18, y: 24 }, { x: 54, y: 72 })).toEqual({
+      dx: 36,
+      dy: 48,
+      distance: 60,
+    });
+  });
+
+  it("renders the measure-mode instruction for direct point-to-point measurement", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        null,
+        createElement(PlanCanvas, {
+          room: { width: 144, depth: 120, ceilingHeight: 96 },
+          cabinets: [],
+          selectedUid: null,
+          onSelect: () => undefined,
+          onMove: () => undefined,
+          showWallLayer: true,
+          measureMode: true,
+        }),
+      ),
+    );
+
+    expect(markup).toContain("Tape measure: tap the start point");
   });
 });
