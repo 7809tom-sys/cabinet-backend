@@ -40,6 +40,25 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(731.9);
   });
 
+  it.each(["wholesale", "contractor", "homeowner"] as const)("marks every %s design line as price-locked at the designer-to-cart handoff", (tier) => {
+    const lines = buildDesignCabinetCartLines({
+      placed: [bec],
+      styleId: 330001,
+      distributorId: 210001,
+      tier,
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 365.95,
+    });
+
+    expect(lines).toEqual([
+      expect.objectContaining({
+        tier,
+        unitPrice: 365.95,
+        priceLocked: true,
+      }),
+    ]);
+  });
+
   it("keeps visual-only appliance placements out of launch design commerce", () => {
     const visualRange = {
       uid: "range-one",
