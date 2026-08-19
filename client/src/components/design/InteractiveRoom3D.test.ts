@@ -613,6 +613,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform({ ...legacy, depthPositionAdjusted: true }, room)).toMatchObject({ x: 10, z: 39, rotation: Math.PI / 2 });
   });
 
+  it("uses the saved left-wall quarter turn to seat an offset legacy end run on the physical wall", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    expect(existingCabinetTransform({
+      uid: "left-offset", cabinetId: 12, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",
+      x: 12, y: 24, width: 30, depth: 12, height: 30, rotation: 90, mountBottom: 54,
+    } as never, room)).toMatchObject({ x: 6, z: 39, rotation: Math.PI / 2 });
+  });
+
   it("keeps adjacent rotated 2D cabinet edges contiguous with no artificial 3D run gap", () => {
     const first = existingCabinetTransform({
       uid: "run-a", cabinetId: 11, masterCode: "W3030", description: "Wall Cabinet", placement: "wall",

@@ -2783,3 +2783,5 @@
 - [x] Anchor their rear faces flush to the assigned physical wall
 - [x] Preserve refrigerator, panel, and adjacent-cabinet clearances
 - [ ] Add computer and phone anchoring regressions and verify the reported left run
+- [x] Trace the physical left wall mesh plane and its mismatch with the left cabinet-run plane
+- [x] Align the wall mesh and cabinet backs to one shared physical left-wall plane

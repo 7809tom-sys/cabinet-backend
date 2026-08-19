@@ -2435,6 +2435,29 @@ export function threeDPlacedWall(
 }
 
 /**
+ * Legacy base and wall runs retain their 2D quarter-turn even when their saved
+ * perpendicular offset is too large for a strict proximity match. Use that
+ * intended wall only when it agrees with the nearest physical wall.
+ */
+export function threeDLegacyWallAnchor(
+  cabinet: PlacedCabinet,
+  room: Pick<RoomData, "width" | "depth">,
+): ThreeDPlacedWall | null {
+  const footprint = normalizedThreeDFootprint(cabinet);
+  const distances: Array<{ wall: ThreeDPlacedWall; distance: number }> = [
+    { wall: "back", distance: Math.abs(cabinet.y) },
+    { wall: "front", distance: Math.abs(room.depth - (cabinet.y + footprint.d)) },
+    { wall: "left", distance: Math.abs(cabinet.x) },
+    { wall: "right", distance: Math.abs(room.width - (cabinet.x + footprint.w)) },
+  ];
+  const nearest = distances.reduce((closest, candidate) => candidate.distance < closest.distance ? candidate : closest);
+  const quarterTurn = ((Math.round(Number(cabinet.rotation) / 90) % 4) + 4) % 4;
+  const rotatedWall: ThreeDPlacedWall = ["back", "left", "front", "right"][quarterTurn] as ThreeDPlacedWall;
+  if (nearest.distance <= 18 && nearest.wall === rotatedWall) return rotatedWall;
+  return threeDPlacedWall(cabinet, room, 6);
+}
+
+/**
  * Local fronts are modeled on positive Z. Convert each 2D room-wall placement
  * to a world rotation that points those fronts into usable room space while the
  * cabinet/appliance back remains against the wall.
@@ -2527,7 +2550,7 @@ export function existingCabinetTransform(
   const legacyWall = hasPlacedRoom
     && !cabinet.depthPositionAdjusted
     && (cabinet.placement === "base" || cabinet.placement === "wall")
-    ? threeDPlacedWall(cabinet, room as Pick<RoomData, "width" | "depth">, 6)
+    ? threeDLegacyWallAnchor(cabinet, room as Pick<RoomData, "width" | "depth">)
     : null;
   if (legacyWall === "left") x = width / 2;
   if (legacyWall === "right") x = (room as Pick<RoomData, "width">).width - width / 2;
