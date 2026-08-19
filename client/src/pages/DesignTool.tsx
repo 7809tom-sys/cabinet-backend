@@ -5464,6 +5464,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       catalogItems={interactive3dCatalogItems}
       onAddCatalogItem={addFromInteractive3d}
       onAddRangeHood={addRangeHoodFromInteractive3d}
+      selectedCabinetUid={selectedUid}
       onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
       onRotateCabinet={rotateCabinet}

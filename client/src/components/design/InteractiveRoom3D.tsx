@@ -181,6 +181,8 @@ interface Props {
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
+  /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
+  selectedCabinetUid?: string | null;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
   onSelectCabinet?: (uid: string) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
@@ -235,6 +237,15 @@ export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "m
 
   const code = cabinet.masterCode?.trim();
   return code ? `${code} cabinet` : "Catalog cabinet";
+}
+
+/** Converts the host designer selection into the data shown by the 3D action card. */
+export function threeDSelectionFromPlaced(uid: string | null | undefined, placed: PlacedCabinet[]): ThreeDCabinetHit | null {
+  if (!uid) return null;
+  const cabinet = placed.find((item) => item.uid === uid);
+  return cabinet
+    ? { uid: cabinet.uid, masterCode: cabinet.masterCode, description: cabinet.description, distributorSkuId: null }
+    : null;
 }
 
 /** Keeps phone-sized selected-cabinet text clear of the on-canvas movement D-pad. */
@@ -3016,7 +3027,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, cabinetConfigHref, embedded = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3041,6 +3052,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  useEffect(() => {
+    const hostSelection = threeDSelectionFromPlaced(selectedCabinetUid, placed);
+    if (!hostSelection) return;
+    setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
+  }, [placed, selectedCabinetUid]);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
   const [moveIncrementIn, setMoveIncrementIn] = useState<(typeof THREE_D_CABINET_MOVE_STEPS)[number]>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);

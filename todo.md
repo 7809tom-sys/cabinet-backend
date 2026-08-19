@@ -2648,6 +2648,11 @@
 - [x] Keep 2D plan and 3D scene synchronized while blocking out-of-room and overlap moves
 - [x] Add 3D movement regression coverage and verify the cabinet attributes panel in the live scene
 
+## Fix: W3024 Visible 3D Movement Controls
+- [x] Trace why the selected W3024 card does not expose the 3D movement controls
+- [x] Restore visible Up, Down, Left, Right, In, and Out actions for W3024 with collision and mount safeguards
+- [ ] Add W3024 computer and phone movement regressions and verify the reported scene
+
 ## Designer: Universal Single-Door Left/Right Hinge Choice
 - [x] Trace single-door attributes, swing persistence, and cabinet attribute editor coverage
 - [x] Provide a Left hinge / Right hinge control for every single-door cabinet
