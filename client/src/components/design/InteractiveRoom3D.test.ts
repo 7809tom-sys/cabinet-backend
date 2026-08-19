@@ -1074,15 +1074,20 @@ describe("interactive 3D room scene helpers", () => {
     expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.002);
   });
 
-  it("assigns a drawer-only cabinet’s complete usable face to its saved drawer stack", () => {
+  it("assigns a drawer-only cabinet’s complete usable face to a stack with a shallow six-inch top drawer", () => {
     const layout = resolvedThreeDFaceLayout({ placementType: "base", numberOfDoors: 0, numberOfDrawers: 3 });
     const usableHeight = 34.5 / 12 - 0.08;
     const drawerZone = layout.doorCount === 0 && !layout.hasConfiguredOpening ? usableHeight : usableHeight * 0.35;
     expect(drawerZone).toBeCloseTo(usableHeight, 12);
-    expect(resolvedThreeDDrawerRows({ drawerLayout: null }, drawerZone, layout.drawerCount)).toEqual([
-      { count: 1, height: usableHeight / 3 },
-      { count: 1, height: usableHeight / 3 },
-      { count: 1, height: usableHeight / 3 },
+    const rows = resolvedThreeDDrawerRows({ drawerLayout: null }, drawerZone, layout.drawerCount, true);
+    expect(rows[0]).toEqual({ count: 1, height: 0.5 });
+    expect(rows.slice(1).map((row) => row.height)).toEqual([
+      expect.closeTo((usableHeight - 0.5) / 2, 12),
+      expect.closeTo((usableHeight - 0.5) / 2, 12),
+    ]);
+    expect(resolvedThreeDDrawerRows({ drawerLayout: JSON.stringify([{ count: 1, height: 8 }, { count: 1, height: 12 }]) }, drawerZone, 2, true)).toEqual([
+      { count: 1, height: expect.closeTo(8 / 12, 12) },
+      { count: 1, height: 1 },
     ]);
   });
 

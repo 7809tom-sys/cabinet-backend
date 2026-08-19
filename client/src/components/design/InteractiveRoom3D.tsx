@@ -493,7 +493,12 @@ function numberValue(value: unknown, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function resolvedThreeDDrawerRows(sku: Pick<SceneSku, "drawerLayout">, availableHeight: number, fallbackCount: number) {
+export function resolvedThreeDDrawerRows(
+  sku: Pick<SceneSku, "drawerLayout">,
+  availableHeight: number,
+  fallbackCount: number,
+  useShallowTopDrawer = false,
+) {
   try {
     const parsed = JSON.parse(sku.drawerLayout ?? "null");
     if (Array.isArray(parsed) && parsed.length) {
@@ -509,6 +514,11 @@ export function resolvedThreeDDrawerRows(sku: Pick<SceneSku, "drawerLayout">, av
     // Older placements may not have a valid JSON drawer layout. Use counts.
   }
   const count = Math.max(0, fallbackCount);
+  if (useShallowTopDrawer && count > 1 && availableHeight > 6 * INCH) {
+    const topHeight = 6 * INCH;
+    const remainingHeight = (availableHeight - topHeight) / (count - 1);
+    return [{ count: 1, height: topHeight }, ...Array.from({ length: count - 1 }, () => ({ count: 1, height: remainingHeight }))];
+  }
   return count ? Array.from({ length: count }, () => ({ count: 1, height: availableHeight / count })) : [];
 }
 
@@ -2281,7 +2291,12 @@ export function addCabinet(
       frontGroup.add(inner);
     }
   }
-  const drawerRows = resolvedThreeDDrawerRows(sku, drawerHeight, drawerCount);
+  const drawerRows = resolvedThreeDDrawerRows(
+    sku,
+    drawerHeight,
+    drawerCount,
+    placement === "base" && doorCount === 0 && drawerCount > 1,
+  );
   let drawerCursor = hasConfiguredOpening ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
   for (const row of drawerRows) {
     const rowHeight = Math.max(0.08, row.height - 0.025);
