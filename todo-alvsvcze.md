@@ -678,3 +678,4 @@
 - [x] Cabinet Attention: Show each affected cabinet’s distributor line prominently for quick review and editing
 - [x] Cabinet Attention: Add a distributor-line dropdown to filter inactive or unverified cabinets by supplier line
 - [x] Cabinet Attention: Place the cabinet name-or-SKU search beside the distributor dropdown for combined quick filtering
+- [x] Cabinet Attention: Fix the administrator queue when distributor options and inactive-or-unverified cabinet rows fail to load

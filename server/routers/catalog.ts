@@ -2507,7 +2507,7 @@ export const cabinetsRouter = router({
               )
               FROM distributor_skus ds
               INNER JOIN distributors d ON d.id = ds.distributorId
-              WHERE ds.cabinetId = ${cabinets.id}
+              WHERE ds.cabinetId = cabinets.id
             )`,
             // Blind corner pull spec
             minPull: cabinets.minPull,
@@ -2580,7 +2580,7 @@ export const cabinetsRouter = router({
           sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`
         )
       )
-      .orderBy(asc(distributors.name));
+      .orderBy(sql`COALESCE(NULLIF(${distributors.brandName}, ''), ${distributors.name})`);
   }),
 
   // Returns a coverage matrix: for each cabinet, which door styles have at least

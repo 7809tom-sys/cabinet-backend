@@ -37,9 +37,13 @@ export default function CabinetConfigReviewQueueAdmin() {
   const [page, setPage] = useState(0);
 
   const distributorId = selectedDistributorLineId(distributorFilter);
-  const { data: distributorLines, isLoading: isLoadingDistributorLines } = trpc.cabinets.adminListAttentionDistributors.useQuery();
+  const {
+    data: distributorLines,
+    isLoading: isLoadingDistributorLines,
+    error: distributorLinesError,
+  } = trpc.cabinets.adminListAttentionDistributors.useQuery();
 
-  const { data, isLoading, refetch } = trpc.cabinets.adminListCabinetConfig.useQuery({
+  const { data, isLoading, error: reviewError, refetch } = trpc.cabinets.adminListCabinetConfig.useQuery({
     page,
     limit: PAGE_SIZE,
     search: search || undefined,
@@ -50,6 +54,7 @@ export default function CabinetConfigReviewQueueAdmin() {
   const rows = (data?.rows ?? []) as ReviewCabinet[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const loadError = reviewError ?? distributorLinesError;
 
   const applySearch = () => {
     setSearch(searchInput);
@@ -112,7 +117,12 @@ export default function CabinetConfigReviewQueueAdmin() {
         {isLoadingDistributorLines && <Spinner className="h-4 w-4 text-muted-foreground" />}
       </div>
 
-      {isLoading ? (
+      {loadError ? (
+        <div className="space-y-3 py-12 text-center text-sm">
+          <p className="text-destructive">Couldn’t load the Cabinet Attention queue: {loadError.message}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </div>
+      ) : isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : rows.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
