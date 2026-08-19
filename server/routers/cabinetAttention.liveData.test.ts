@@ -33,4 +33,13 @@ describe("Cabinet Attention live data", () => {
     expect(distributors.length).toBeGreaterThan(0);
     expect(distributors.map((line) => line.name)).toEqual(expect.arrayContaining(["Ashford", "Madison", "Preston"]));
   });
+
+  it("returns only pending, unpublished distributor connections for connection review", async () => {
+    const caller = appRouter.createCaller(adminContext());
+    const result = await caller.cabinets.adminListPendingDistributorConnections({ limit: 10 });
+
+    expect(Array.isArray(result.items)).toBe(true);
+    expect(result.total).toBeGreaterThanOrEqual(0);
+    expect(result.items.every((item) => Boolean(item.distributorSku) && Boolean(item.masterCode))).toBe(true);
+  });
 });

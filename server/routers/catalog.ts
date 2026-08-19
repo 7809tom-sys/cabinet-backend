@@ -2875,6 +2875,74 @@ export const cabinetsRouter = router({
       return { items, total: Number(tot?.n ?? 0) };
     }),
 
+  /** Pending supplier links created while configuring a cabinet. These stay unpublished until pricing is approved. */
+  adminListPendingDistributorConnections: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        search: z.string().trim().max(128).optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+        offset: z.number().int().min(0).default(0),
+      }).optional()
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+      const args: { distributorId?: number; search?: string; limit?: number; offset?: number } = input ?? {};
+      const conditions: SQL[] = [
+        eq(distributorSkus.status, "pending"),
+        eq(distributorSkus.isPublished, false),
+      ];
+      if (args.distributorId) conditions.push(eq(distributorSkus.distributorId, args.distributorId));
+      if (args.search) {
+        const like = `%${args.search}%`;
+        conditions.push(sql`(
+          ${cabinets.masterCode} LIKE ${like}
+          OR ${cabinets.description} LIKE ${like}
+          OR ${distributorSkus.distributorSku} LIKE ${like}
+          OR ${distributorSkus.platformSku} LIKE ${like}
+        )`);
+      }
+      const where = and(...conditions);
+      const [items, [totalRow]] = await Promise.all([
+        db
+          .select({
+            skuId: distributorSkus.id,
+            cabinetId: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            category: cabinets.category,
+            distributorId: distributors.id,
+            distributorName: distributors.name,
+            distributorBrandName: distributors.brandName,
+            styleId: doorStyles.id,
+            styleName: doorStyles.ourName,
+            styleCode: doorStyles.styleCode,
+            distributorSku: distributorSkus.distributorSku,
+            platformSku: distributorSkus.platformSku,
+            supplierCabinetName: distributorSkus.supplierCabinetName,
+            createdAt: distributorSkus.createdAt,
+          })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .where(where)
+          .orderBy(asc(distributorSkus.createdAt), asc(cabinets.masterCode))
+          .limit(args.limit ?? 100)
+          .offset(args.offset ?? 0),
+        db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .where(where),
+      ]);
+      return { items, total: Number(totalRow?.count ?? 0) };
+    }),
+
   /**
    * Apply spec book images and notes to all matching cabinets based on SKU pattern rules.
    * This re-runs the same REGEXP-based population logic from populate_specs.py.

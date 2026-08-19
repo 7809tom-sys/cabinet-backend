@@ -685,3 +685,4 @@
 - [x] Cabinet Attention: Show a compact configured thumbnail for every cabinet in the review queue
 - [x] Cabinet editing: Require and streamline a distributor-line connection before a cabinet can be finalized as a usable catalog record
 - [x] Cabinet editing: Preserve distributor coverage when the front-end editor is opened from Cabinet Attention or another non-catalog page
+- [x] Distributor connections: Add an administrator tab to review and manage all pending, unpublished distributor SKU connections
