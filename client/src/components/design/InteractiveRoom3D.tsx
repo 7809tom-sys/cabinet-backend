@@ -511,6 +511,29 @@ export function resolvedThreeDDrawerRows(sku: Pick<SceneSku, "drawerLayout">, av
   return count ? Array.from({ length: count }, () => ({ count: 1, height: availableHeight / count })) : [];
 }
 
+export function threeDDrawerZoneHeight(input: {
+  availableHeight: number;
+  drawerCount: number;
+  doorCount: number;
+  configuredDrawerHeight?: number | null;
+  hasConfiguredOpening: boolean;
+  placement: string;
+}) {
+  if (!input.drawerCount) return 0;
+  if (input.configuredDrawerHeight && input.configuredDrawerHeight > 0) {
+    return Math.min(input.availableHeight, input.configuredDrawerHeight);
+  }
+  // Standard base cabinets with both drawers and doors use a shallow, six-inch
+  // utility drawer by default. This matches the supplied Honey Shaker reference
+  // and leaves the larger lower opening for the doors.
+  if (input.placement === "base" && input.doorCount > 0) {
+    return Math.min(input.availableHeight, 6 * INCH);
+  }
+  return input.doorCount === 0 && !input.hasConfiguredOpening
+    ? input.availableHeight
+    : input.availableHeight * 0.35;
+}
+
 export function describedOvenSpecification(description: string | null | undefined) {
   const source = description ?? "";
   const opening = source.match(/(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:["″]|in)?\s*oven\s+opening/i);
@@ -1407,9 +1430,14 @@ export function addCabinet(
   // A drawer-only cabinet's authored rows own its whole usable face. The former
   // generic 35% allowance left an invented blank upper section in 3D even though
   // the 2D elevation renders the saved drawer stack full height.
-  const drawerHeight = drawerCount
-    ? Math.min(usableHeight, configuredDrawerHeight || (doorCount === 0 && !hasConfiguredOpening ? usableHeight : usableHeight * 0.35))
-    : 0;
+  const drawerHeight = threeDDrawerZoneHeight({
+    availableHeight: usableHeight,
+    drawerCount,
+    doorCount,
+    configuredDrawerHeight,
+    hasConfiguredOpening,
+    placement,
+  });
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
@@ -3590,6 +3618,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const line = orderLines.find((entry) => `${entry.label} ${entry.detail ?? ""}`.toUpperCase().includes(selectedCabinet.masterCode.toUpperCase()));
           const description = threeDSelectedCabinetDescription(selectedCabinet);
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
+          const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
           return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
@@ -3602,6 +3631,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
+                  {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
                   {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
                 </div>}
               </div>

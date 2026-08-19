@@ -2746,3 +2746,14 @@
 - [x] Reproduce the selected W3024 attributes action in the live designer and capture the exact exception
 - [x] Repair the persisted-cabinet dialog branch that blanks the browser page
 - [ ] Verify the attributes dialog opens reliably on computer and phone before publishing
+
+## Restore: Safe Administrator Edit Config from 3D
+- [x] Trace the valid in-app cabinet configuration editor route for a selected placed cabinet
+- [x] Restore a clearly labeled administrator Edit Config action without blank-page navigation
+- [ ] Add computer and phone navigation regression coverage and verify the editor opens reliably
+
+## Fix: Realistic 3D Top-Drawer Proportions
+- [x] Trace default and catalog-specific top-drawer height calculations in the 3D base-cabinet renderer
+- [x] Render a shallow top drawer that matches the supplied Honey Shaker reference while honoring configured drawer heights
+- [ ] Add computer and phone drawer-height regressions and verify the reported base cabinets
+- [x] Apply the shallow top-drawer default to every standard base cabinet with both drawers and doors
