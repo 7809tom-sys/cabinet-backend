@@ -12,7 +12,8 @@ describe("nearestFreeWallDropStart", () => {
     expect(nearestFreeWallDropStart(78, 24, segments)).toBe(66);
   });
 
-  it("returns no placement when no free segment can fit the cabinet", () => {
+  it("rejects a drop that is outside a true width-fitting segment", () => {
     expect(nearestFreeWallDropStart(60, 60, segments)).toBeNull();
+    expect(nearestFreeWallDropStart(28, 24, segments)).toBeNull();
   });
 });

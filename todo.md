@@ -2709,6 +2709,12 @@
 - [x] Preserve collision prevention, active-wall awareness, and clear no-space feedback
 - [ ] Add computer drag-target and phone touch-placement regressions and verify the reported W3624 gap
 
+## Fix: Reject Forced Overlaps on 3D Catalog Drops
+- [x] Trace why the W3624 drop can still report zero/2-inch clearance after placement
+- [x] Require a true width-fitting gap at the drop point and reject forced insertion against cabinets
+- [x] Add W3624 no-overlap regressions and verify computer feedback
+- [ ] Verify the W3624 no-overlap message and placement behavior on phone
+
 ## Fix: Double-Click Catalog Adds to the Selected Wall
 - [x] Trace left-catalog double-click handling and compare its placement path to active-wall drag/drop
 - [x] Route double-click cabinet additions to the selected wall’s first valid free run

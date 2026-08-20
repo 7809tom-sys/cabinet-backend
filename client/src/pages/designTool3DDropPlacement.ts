@@ -15,10 +15,9 @@ export function nearestFreeWallDropStart(
   const fits = segments.filter((segment) => segment.length >= width);
   if (fits.length === 0) return null;
   const containing = fits.find((segment) => targetAlong >= segment.start && targetAlong <= segment.start + segment.length);
-  const segment = containing ?? [...fits].sort((a, b) => {
-    const distanceA = Math.abs(targetAlong - (a.start + a.length / 2));
-    const distanceB = Math.abs(targetAlong - (b.start + b.length / 2));
-    return distanceA - distanceB;
-  })[0];
+  // An explicit 3D drop must honor its actual target. It may not silently move
+  // the cabinet to another open run just because that run happens to fit.
+  if (!containing) return null;
+  const segment = containing;
   return Math.max(segment.start, Math.min(targetAlong - width / 2, segment.start + segment.length - width));
 }

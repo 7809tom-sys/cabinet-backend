@@ -2501,7 +2501,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // ─── Placement actions ──────────────────────────────────────────────────────
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
       if (isAddingRef.current) return;
@@ -2779,7 +2779,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
-      } else {
+      } else if (!strictDropTarget) {
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
@@ -2787,6 +2787,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
       const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
       if (hasCollision(finalCab, normalizedPrevious)) {
+        if (strictDropTarget) {
+          const message = `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
         const side = cabinetWall(finalCab, room);
         const requestedAlong = side === "top" || side === "bottom" ? finalCab.x : finalCab.y;
         const nearestAlong = nearestAvailableWallStart(
@@ -2884,7 +2890,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const spot = wallPlacementAt(along, width, depth, activeWall, room);
-      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation);
+      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true);
     };
     if (item.category === "Cabinet") {
       const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
