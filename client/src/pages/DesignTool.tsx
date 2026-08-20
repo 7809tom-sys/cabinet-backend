@@ -52,6 +52,7 @@ import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
+import { currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
@@ -957,6 +958,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     })),
     [liveMasterCabinets],
   );
+  // Legacy saved plans can keep an older database ID after catalog maintenance.
+  // Their placed geometry remains untouched, while pricing resolves through the
+  // active catalog record carrying the same exact master code.
+  const activeCatalogIdByMasterCode = useMemo(
+    () => new Map(
+      ((liveMasterCabinets ?? []) as DesignCabinet[])
+        .filter((cabinet) => Boolean(cabinet.masterCode))
+        .map((cabinet) => [cabinet.masterCode, Number(cabinet.id)] as const),
+    ),
+    [liveMasterCabinets],
+  );
+  const pricingCabinetIdFor = useCallback(
+    (cabinet: Pick<PlacedCabinet, "cabinetId" | "masterCode">) => currentCatalogPricingCabinetId(cabinet, activeCatalogIdByMasterCode),
+    [activeCatalogIdByMasterCode],
+  );
   useEffect(() => {
     if (liveMasterDrawingRules.length === 0) return;
     setPlaced((current) => refreshPlacedCabinetsFromMasterRules(current, liveMasterDrawingRules));
@@ -1339,7 +1355,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       pairs.push({ cabinetId, styleId: sid });
     };
     placed.forEach((p) => {
-      push(p.cabinetId, effectiveStyleId(p, styleId) ?? styleId);
+      push(pricingCabinetIdFor(p), effectiveStyleId(p, styleId) ?? styleId);
       // Also fetch price for the GD variant if glassDoor is enabled.
       if (p.glassDoor) {
         const gdCode = p.masterCode + "GD";
@@ -1348,7 +1364,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
     });
     return pairs;
-  }, [placed, styleId]);
+  }, [placed, pricingCabinetIdFor, styleId]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -1381,10 +1397,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           if (gdPrice != null) return gdPrice;
         }
       }
-      const v = priceMap.get(`${p.cabinetId}:${sid}`);
+      const v = priceMap.get(`${pricingCabinetIdFor(p)}:${sid}`);
       return v ?? null;
     },
-    [priceMap, styleId]
+    [priceMap, pricingCabinetIdFor, styleId]
   );
 
   // LS3612 shares its 36-inch corner body with the shelf-corner ER36/BER36

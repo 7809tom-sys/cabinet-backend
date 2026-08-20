@@ -688,3 +688,4 @@
 - [x] Distributor connections: Add an administrator tab to review and manage all pending, unpublished distributor SKU connections
 - [x] Designer/cart parity: Restore any cabinet visible in the saved plan and 3D preview that is missing from the design cart, without inventing an unverified price — clarified by the user as a 3D-only issue; the main shopping cart was not changed.
 - [x] 3D order overlay: Retain every placed cabinet in the 3D cabinet list and label unpriced lines as pending instead of omitting them
+- [x] SB-33 pricing: Resolve a saved legacy cabinet ID through its exact active distributor/style catalog record so the matching approved 3D price is returned
