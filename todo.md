@@ -2691,6 +2691,18 @@
 - [ ] Verify mouse and keyboard controls on computer, touch controls on tablet, and touch-safe controls on phone
 - [ ] Require successful computer, tablet, and phone verification for every future designer change before delivery
 
+## Feature: Add Selected Catalog Cabinet from 3D
+- [x] Trace the 3D Add cabinet action, active catalog selection, and existing active-wall placement resolver
+- [x] Add the selected catalog cabinet directly from the 3D workspace onto a valid active-wall opening
+- [x] Preserve style availability, collision prevention, active-wall awareness, and clear no-space feedback
+- [ ] Add computer and phone 3D add-cabinet regressions and verify the live workflow
+
+## Feature: Drag a Left-Catalog Cabinet into the 3D Room
+- [x] Trace the left catalog drag payload and existing 3D canvas drag/drop contract
+- [x] Accept compatible left-catalog cabinet drops in the 3D room and resolve a valid wall/run placement
+- [x] Preserve style availability, collision prevention, and clear no-space feedback
+- [ ] Add computer drag/drop and phone touch-add regressions and verify the live workflow
+
 ## Fix: Suppress Range-Hood Prompt for an Over-Range Microwave
 - [x] Trace the 3D range-hood status rule and compatible MW-30/RANGE-30 detection
 - [x] Suppress the range-hood prompt when an over-range microwave already covers the saved range

@@ -13,3 +13,8 @@ export function initialDesignWorkspaceView(search: string): DesignWorkspaceView 
   if (view === "island") return "island";
   return "threeD";
 }
+
+/** Matches the catalog payload accepted by the 3D canvas drop target. */
+export function threeDLeftCatalogDragPayload(category: "Cabinet" | "Accessory" | "Appliance", id: number) {
+  return `${category}:${id}`;
+}

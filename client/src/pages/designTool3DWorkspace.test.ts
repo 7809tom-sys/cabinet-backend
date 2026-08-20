@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialDesignWorkspaceView } from "./designTool3DWorkspace";
+import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 
 describe("3D-first design workspace", () => {
   it("opens the 3D workspace by default", () => {
@@ -11,5 +11,10 @@ describe("3D-first design workspace", () => {
     expect(initialDesignWorkspaceView("?view=plan")).toBe("plan");
     expect(initialDesignWorkspaceView("?view=front")).toBe("elevation");
     expect(initialDesignWorkspaceView("?view=split")).toBe("split");
+  });
+
+  it("uses catalog payloads accepted by the 3D drop target for left-rail dragging", () => {
+    expect(threeDLeftCatalogDragPayload("Cabinet", 42)).toBe("Cabinet:42");
+    expect(threeDLeftCatalogDragPayload("Accessory", 7)).toBe("Accessory:7");
   });
 });

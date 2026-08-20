@@ -3685,7 +3685,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   }
 
   return (
-    <section ref={previewRootRef} className={`relative ${embedded ? "flex h-full min-h-0 flex-col" : ""} ${isFullscreen ? "h-screen w-screen overflow-y-auto bg-background p-3 sm:p-5" : ""} ${className ?? ""}`} aria-label="Interactive three-dimensional room preview">
+    <section ref={previewRootRef} onDragOver={(event) => event.preventDefault()} className={`relative ${embedded ? "flex h-full min-h-0 flex-col" : ""} ${isFullscreen ? "h-screen w-screen overflow-y-auto bg-background p-3 sm:p-5" : ""} ${className ?? ""}`} aria-label="Interactive three-dimensional room preview">
       {!embedded && <div className="sticky top-0 z-30 mb-2 flex items-center justify-between gap-3 border-b bg-background/95 py-2 backdrop-blur">
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>

@@ -125,7 +125,7 @@ import { canOpenAdministratorMaterialList, openAdministratorMaterialListPdf } fr
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
-import { initialDesignWorkspaceView } from "./designTool3DWorkspace";
+import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -7935,7 +7935,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         <button
                           key={c.masterCode}
                           draggable
-                          onDragStart={() => { dragDataRef.current = c; }}
+                          onDragStart={(event) => { dragDataRef.current = c; const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                           onClick={() => addCabinet(c)}
                           className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                         >
@@ -7955,7 +7955,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <button
                       key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
-                      onDragStart={() => { dragDataRef.current = c; }}
+                      onDragStart={(event) => { dragDataRef.current = c; const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                       onClick={() => addCabinet(c)}
                       className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                     >
