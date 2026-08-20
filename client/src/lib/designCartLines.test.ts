@@ -120,4 +120,26 @@ describe("designer cabinet cart lines", () => {
     expect(lines.map((line) => line.masterCode)).not.toContain("RANGE-30");
     expect(calculateCartSubtotal(lines)).toBe(90 + 100 + CUSTOM_SIZE_FEE);
   });
+
+  it("keeps an unpriced placed cabinet in the 3D order lines as a pending-price item", () => {
+    const pendingSinkBase = {
+      ...bec,
+      uid: "sink-base-pending",
+      masterCode: "SB-33",
+      description: '33" Sink Base Cabinet',
+    } as PlacedCabinet;
+    const lines = buildDesignPreviewPricingLines({
+      placed: [bec, pendingSinkBase],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: (cabinet) => cabinet.masterCode === "SB-33" ? null : 365.95,
+    });
+
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "SB-33", unitPrice: null, qty: 1 }),
+    ]));
+    expect(calculateCartSubtotal(lines)).toBe(365.95);
+  });
 });

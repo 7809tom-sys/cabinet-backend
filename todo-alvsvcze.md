@@ -686,3 +686,5 @@
 - [x] Cabinet editing: Require and streamline a distributor-line connection before a cabinet can be finalized as a usable catalog record
 - [x] Cabinet editing: Preserve distributor coverage when the front-end editor is opened from Cabinet Attention or another non-catalog page
 - [x] Distributor connections: Add an administrator tab to review and manage all pending, unpublished distributor SKU connections
+- [x] Designer/cart parity: Restore any cabinet visible in the saved plan and 3D preview that is missing from the design cart, without inventing an unverified price — clarified by the user as a 3D-only issue; the main shopping cart was not changed.
+- [x] 3D order overlay: Retain every placed cabinet in the 3D cabinet list and label unpriced lines as pending instead of omitting them

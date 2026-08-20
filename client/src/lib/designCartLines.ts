@@ -108,10 +108,11 @@ export function bundleCabinetPricingSignature(placed: PlacedCabinet[], styleId: 
 }
 
 /**
- * Pricing rows for the interactive 3D quote. These intentionally mirror the
- * visible build-sheet estimate: cabinets only, with each placement's discount
- * and custom-size fee applied. Trim, surfaces, fixtures, and launch-stage
- * visual appliances remain outside this cabinet-design subtotal.
+ * Pricing rows for the interactive 3D quote. These intentionally mirror every
+ * placed cabinet in the saved 2D plan: priced cabinets contribute to the
+ * subtotal, while unpriced cabinets remain visible as pending-price lines.
+ * Trim, surfaces, fixtures, and launch-stage visual appliances remain outside
+ * this cabinet-design subtotal.
  */
 export function buildDesignPreviewPricingLines({
   placed,
@@ -126,12 +127,16 @@ export function buildDesignPreviewPricingLines({
   for (const cabinet of placed) {
     if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
     const basePrice = unitPriceFor(cabinet);
-    if (basePrice == null) continue;
-    const adjustedUnitPrice = basePrice * (1 + (cabinet.discountPct ?? 0) / 100) + customSizeFee(cabinet);
+    // A missing catalog price must never erase a cabinet from the 3D order
+    // overlay. Retain it as an explicit pending line; do not infer or invent a
+    // replacement amount from another distributor, tier, or style.
+    const adjustedUnitPrice = basePrice == null
+      ? null
+      : basePrice * (1 + (cabinet.discountPct ?? 0) / 100) + customSizeFee(cabinet);
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
     const masterCode = cabinet.glassDoor ? `${cabinet.masterCode}GD` : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
-    const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice.toFixed(4)}`;
+    const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice == null ? "pending" : adjustedUnitPrice.toFixed(4)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
