@@ -131,6 +131,7 @@ export type InteractiveRoomPresentation = {
 };
 
 export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
+export type ThreeDCatalogDropTarget = { x: number; y: number };
 export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
 export const THREE_D_EMBEDDED_TOOLBAR_CLASS = "absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur";
 
@@ -176,7 +177,7 @@ interface Props {
   catalogCountertopColor?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
-  onAddCatalogItem?: (item: InteractiveRoomCatalogItem) => void;
+  onAddCatalogItem?: (item: InteractiveRoomCatalogItem, dropTarget?: ThreeDCatalogDropTarget) => void;
   /** Adds the matching hood to the editable 2D range position when one is absent. */
   onAddRangeHood?: () => void;
   onSaveToAccount?: () => void;
@@ -3530,6 +3531,23 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     return selection;
   };
 
+  const catalogDropTargetAtPoint = (clientX: number, clientY: number): ThreeDCatalogDropTarget | undefined => {
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    if (!renderer || !camera || !room) return undefined;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    const hit = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return undefined;
+    return {
+      x: Math.max(0, Math.min(room.width, hit.x / INCH)),
+      y: Math.max(0, Math.min(room.depth, hit.z / INCH)),
+    };
+  };
+
   const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {
     if (!selectedCabinet?.uid || !onMoveCabinet) return;
     onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn);
@@ -3697,7 +3715,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item); setDraggedCatalogId(null); }}>
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); }}>
         <div ref={mountRef} className="h-full w-full" />
         {embedded && <div className={THREE_D_EMBEDDED_TOOLBAR_CLASS} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" /><span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span><span className="sm:hidden">{showWallLayer ? "Hide walls" : "Show walls"}</span></button>}</div>}
         {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}

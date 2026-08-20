@@ -127,6 +127,7 @@ import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeCon
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
+import { nearestFreeWallDropStart, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -2500,7 +2501,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // ─── Placement actions ──────────────────────────────────────────────────────
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
       if (isAddingRef.current) return;
@@ -2529,7 +2530,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // flush against the ACTIVE wall at the first free segment.
       let spot: { x: number; y: number; rotation: number };
       if (x != null && y != null) {
-        spot = { x, y, rotation: 0 };
+        spot = { x, y, rotation };
       } else {
         const farmSinkPlacement = resolveFarmSinkPalettePlacement({
           masterCode: c.masterCode,
@@ -2867,23 +2868,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(t("dt_toast_added_filler", { w }));
   }, [layoutLocked, roomType, addCabinet]);
 
-  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem) => {
+  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem, dropTarget?: ThreeDWallDropTarget) => {
+    const addAtDropTarget = (cabinet: DesignCabinet, forceAccessory = false) => {
+      if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
+      const width = dim(cabinet.width, forceAccessory ? 24 : 24);
+      const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : footprintDepth(cabinet);
+      const placement = forceAccessory ? accessoryPlacement(cabinet) : cabinet.placement;
+      const segments = freeSegmentsOnWall(activeWall, room, placed, openings, Math.min(width, 9), 0, placement);
+      const targetAlong = activeWall === "top" || activeWall === "bottom" ? dropTarget.x : dropTarget.y;
+      const along = nearestFreeWallDropStart(targetAlong, width, segments);
+      if (along == null) {
+        const message = `${cabinet.masterCode} was not added because there is no ${width}" opening at the selected drop location on the active wall.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return;
+      }
+      const spot = wallPlacementAt(along, width, depth, activeWall, room);
+      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation);
+    };
     if (item.category === "Cabinet") {
       const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
-      if (cabinet) addCabinet(cabinet);
+      if (cabinet) addAtDropTarget(cabinet);
       else toast.error("That cabinet is no longer available in the active catalog.");
       return;
     }
     if (item.category === "Accessory") {
       const accessory = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
-      if (accessory) addCabinet(accessory, undefined, undefined, true);
+      if (accessory) addAtDropTarget(accessory, true);
       else toast.error("That accessory is no longer available in the selected catalog.");
       return;
     }
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
-    if (appliance) addCabinet(appliance);
+    if (appliance) addAtDropTarget(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet]);
+  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, room, placed, openings]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));

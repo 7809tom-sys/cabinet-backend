@@ -2703,6 +2703,12 @@
 - [x] Preserve style availability, collision prevention, and clear no-space feedback
 - [ ] Add computer drag/drop and phone touch-add regressions and verify the live workflow
 
+## Fix: Drop Cabinets into the Intended 3D Wall Gap
+- [x] Trace 3D drop-point projection and why it falls back to the first active-wall segment
+- [x] Place the dropped cabinet into the valid wall segment nearest the actual drop point
+- [x] Preserve collision prevention, active-wall awareness, and clear no-space feedback
+- [ ] Add computer drag-target and phone touch-placement regressions and verify the reported W3624 gap
+
 ## Fix: Double-Click Catalog Adds to the Selected Wall
 - [x] Trace left-catalog double-click handling and compare its placement path to active-wall drag/drop
 - [x] Route double-click cabinet additions to the selected wall’s first valid free run
