@@ -391,7 +391,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // 3-column desktop view).
   const isMobile = useIsMobile(1024);
   const [, navigate] = useLocation();
-  const { addItem, clear: clearCart, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
+  const { addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
@@ -2230,6 +2230,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.error(t("dt_cart_failed"));
     }
   }, [cartableLines, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, navigate, t]);
+
+  const syncThreeDOrderWithCart = useCallback(() => {
+    if (cartableLines.length === 0) {
+      toast.info("Add a cabinet to the design before synchronizing the cart.");
+      return;
+    }
+    replaceWithDesignItems(cartableLines);
+    toast.success(`3D design synchronized to cart (${cartableLines.reduce((count, line) => count + line.qty, 0)} items).`);
+  }, [cartableLines, replaceWithDesignItems]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
   // Every trim that crown/toe kick do is now AUTOMATIC: when the layout warrants
@@ -5658,6 +5667,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       showWallLayer={showWallLayer}
       onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
       onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+      onSyncCart={syncThreeDOrderWithCart}
       initialPresentation={interactive3dPresentation ?? undefined}
       catalogFinishOverride={activeFinish.face}
       cabinetFinishOverrides={threeDCabinetFinishOverrides}
@@ -10055,6 +10065,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onAddRangeHood={addRangeHoodFromInteractive3d}
                 onOpenCabinetEditor={openAttributes}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+                onSyncCart={syncThreeDOrderWithCart}
                 initialPresentation={interactive3dPresentation ?? undefined}
                 catalogFinishOverride={activeFinish.face}
                 catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}

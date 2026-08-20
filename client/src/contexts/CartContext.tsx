@@ -50,6 +50,11 @@ export type AddItemResult =
       lockedStyleLabel: string;
     };
 
+/** Creates an independent snapshot of the current authoritative design cart payload. */
+export function synchronizedDesignCartItems(items: readonly CartItem[]): CartItem[] {
+  return items.map((item) => ({ ...item }));
+}
+
 type CartState = {
   items: CartItem[];
   zip: string | null;
@@ -62,6 +67,8 @@ type CartState = {
   storefrontSlug: string | null;
   setStorefrontSlug: (slug: string | null) => void;
   addItem: (item: CartItem) => AddItemResult;
+  /** Replaces the cart only after an explicit user-requested design synchronization. */
+  replaceWithDesignItems: (items: readonly CartItem[]) => void;
   removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"]) => void;
   setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number) => void;
   clear: () => void;
@@ -173,6 +180,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
       return { ok: true };
     };
+    const replaceWithDesignItems = (designItems: readonly CartItem[]) => {
+      setItems(synchronizedDesignCartItems(designItems));
+    };
     const removeItem: CartState["removeItem"] = (masterCode, styleId, tier) => {
       setItems((prev) => {
         const target = prev.find(
@@ -224,6 +234,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       storefrontSlug,
       setStorefrontSlug,
       addItem,
+      replaceWithDesignItems,
       removeItem,
       setQty,
       clear,
