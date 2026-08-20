@@ -692,3 +692,4 @@
 - [x] Designer synchronization: Add a manual action that refreshes the 3D order view and shared cart from the current saved plan without changing distributor, finish, or verified locked prices
 - [x] 3D measurement: Add a mobile-friendly open-space clearance tool for point-to-point and cabinet-gap measurements in inches — refined by the user to an automatic selected-wall measurement.
 - [x] 3D measurement: Automatically show the selected cabinet’s usable remaining width on its active wall from neighboring cabinet and wall edges
+- [x] Filler automation: Size a placed filler to its exact active-wall gap, select the best matching catalog filler, and add that catalog line to the design invoice

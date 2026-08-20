@@ -630,7 +630,13 @@ export const CUSTOM_SIZE_FEE = 100;
 export function customSizeFee(p: {
   width: number; depth: number; height?: number;
   nominalWidth?: number | null; nominalHeight?: number | null; nominalDepth?: number | null;
+  masterCode?: string | null; description?: string | null; category?: string | null; subCategory?: string | null;
 }): number {
+  // Fillers and scribes are catalog trim pieces intentionally cut to the field
+  // measurement. Their approved SKU price is the source of truth; applying the
+  // generic cabinet-resize fee would manufacture a second, unsupported charge.
+  const identity = `${p.masterCode ?? ""} ${p.description ?? ""} ${p.category ?? ""} ${p.subCategory ?? ""}`.toLowerCase();
+  if (/\bfiller\b|\bscribe\b/.test(identity)) return 0;
   return isCustomSize(p) ? CUSTOM_SIZE_FEE : 0;
 }
 

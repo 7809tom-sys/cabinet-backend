@@ -53,6 +53,7 @@ import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliate
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
 import { currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
+import { catalogFillerForGap, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
@@ -991,6 +992,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
   }, { enabled: styleId != null });
+  const catalogFillers = useMemo(
+    () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
+    [threeDAccessoryCatalog],
+  );
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -3115,35 +3120,43 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const w = Math.round(gap.length * 10) / 10;
       if (w <= 0 || w > 6) return;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
-      const fillerDef = makeFiller(w, placement);
+      const fillerDef = catalogFillerForGap(catalogFillers, w, placement);
+      if (!fillerDef) {
+        toast.error(`No sellable catalog filler can cover this ${formatInches(w)} gap for the selected line.`);
+        return;
+      }
       const width = w;
-      const depth = placement === "wall" ? STD.WALL_DEPTH : 24;
-      const height = placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+      const catalogWidth = dim(fillerDef.width, w);
+      const depth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
+      const height = dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
       const newCab: PlacedCabinet = {
         uid: makeUid(),
-        cabinetId: 0,
+        cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
-        description: fillerDef.description,
-        category: "Accessory",
-        subCategory: "Filler",
+        description: fittedCatalogFillerDescription(fillerDef, w),
+        category: fillerDef.category ?? "Filler",
+        subCategory: fillerDef.subCategory ?? "Filler",
         placement,
         x: spot.x,
         y: spot.y,
         width,
+        nominalWidth: catalogWidth,
         depth,
+        nominalDepth: depth,
         height,
+        nominalHeight: height,
         rotation: spot.rotation,
         numberOfDoors: 0,
         numberOfDrawers: 0,
-        catalogImageUrl: null,
+        catalogImageUrl: fillerDef.catalogImageUrl ?? null,
         styleId: styleIdRef.current ?? null,
       };
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_toast_added_filler", { w }));
     },
-    [cabinetsLocked, room, t]
+    [cabinetsLocked, catalogFillers, room, t]
   );
 
   // ── Combo: place a cabinet + auto-sized filler in one click ─────────────────
@@ -3187,30 +3200,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         styleId: styleIdRef.current ?? null,
       };
       // Place filler at gap.start + cabWidth
-      const fillerDef = makeFiller(fillerW, placement);
-      const fillerDepth = placement === "wall" ? STD.WALL_DEPTH : 24;
-      const fillerHeight = placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+      const fillerDef = catalogFillerForGap(catalogFillers, fillerW, placement);
+      if (!fillerDef) {
+        toast.error(`No sellable catalog filler can cover this ${formatInches(fillerW)} gap for the selected line.`);
+        return;
+      }
+      const fillerDepth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
+      const fillerHeight = dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
       const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
       const newFiller: PlacedCabinet = {
         uid: makeUid(),
-        cabinetId: 0,
+        cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
-        description: fillerDef.description,
-        category: "Accessory",
-        subCategory: "Filler",
+        description: fittedCatalogFillerDescription(fillerDef, fillerW),
+        category: fillerDef.category ?? "Filler",
+        subCategory: fillerDef.subCategory ?? "Filler",
         placement,
         x: fillerSpot.x, y: fillerSpot.y,
-        width: fillerW, depth: fillerDepth, height: fillerHeight,
+        width: fillerW, nominalWidth: dim(fillerDef.width, fillerW), depth: fillerDepth, nominalDepth: fillerDepth, height: fillerHeight, nominalHeight: fillerHeight,
         rotation: fillerSpot.rotation,
         numberOfDoors: 0, numberOfDrawers: 0,
-        catalogImageUrl: null,
+        catalogImageUrl: fillerDef.catalogImageUrl ?? null,
         styleId: styleIdRef.current ?? null,
       };
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab, newFiller]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
     },
-    [cabinetsLocked, room, t]
+    [cabinetsLocked, catalogFillers, room, t]
   );
 
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
