@@ -690,3 +690,5 @@
 - [x] 3D order overlay: Retain every placed cabinet in the 3D cabinet list and label unpriced lines as pending instead of omitting them
 - [x] SB-33 pricing: Resolve a saved legacy cabinet ID through its exact active distributor/style catalog record so the matching approved 3D price is returned
 - [x] Designer synchronization: Add a manual action that refreshes the 3D order view and shared cart from the current saved plan without changing distributor, finish, or verified locked prices
+- [x] 3D measurement: Add a mobile-friendly open-space clearance tool for point-to-point and cabinet-gap measurements in inches — refined by the user to an automatic selected-wall measurement.
+- [x] 3D measurement: Automatically show the selected cabinet’s usable remaining width on its active wall from neighboring cabinet and wall edges

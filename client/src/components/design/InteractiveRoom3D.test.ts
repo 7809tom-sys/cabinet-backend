@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDHasVerifiedDoorLayout, threeDPointerSelectsCabinet, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDUpperCabinetWallMinimums, threeDUsesCatalogFrontVisual, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDHasVerifiedDoorLayout, threeDPointerSelectsCabinet, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDUpperCabinetWallMinimums, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -39,6 +39,12 @@ describe("interactive 3D room scene helpers", () => {
   it("offers manual cart synchronization only when the current 3D order has cabinet lines", () => {
     expect(canSyncThreeDOrderToCart([])).toBe(false);
     expect(canSyncThreeDOrderToCart([{ id: "SB-33", label: "SB-33", quantity: 1, unitPrice: 572.25, lineTotal: 572.25 }])).toBe(true);
+  });
+
+  it("describes remaining active-wall space from the selected cabinet to its actual neighbors or wall edges", () => {
+    expect(threeDWallClearanceText({ before: 9, after: 12, beforeIsCabinet: true, afterIsCabinet: false }))
+      .toBe('Open space: 9" to previous cabinet · 1\' to wall edge');
+    expect(threeDWallClearanceText(null)).toBeNull();
   });
 
   it("uses every selected cabinet finish on structural surfaces, including texture-backed styles", () => {

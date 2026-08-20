@@ -5,7 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cornerRotationForPlaced, elevationBox, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -123,6 +123,14 @@ export function shouldShowThreeDCatalog(catalogItems: InteractiveRoomCatalogItem
 /** The manual cart sync is meaningful only when the current 3D order has cabinet lines. */
 export function canSyncThreeDOrderToCart(orderLines: readonly InteractiveRoomOrderLine[]): boolean {
   return orderLines.length > 0;
+}
+
+/** Exact remaining room from the selected cabinet to its immediate neighbors or wall edges. */
+export function threeDWallClearanceText(measurement: Pick<WallSpanMeasure, "before" | "after" | "beforeIsCabinet" | "afterIsCabinet"> | null): string | null {
+  if (!measurement) return null;
+  const beforeBoundary = measurement.beforeIsCabinet ? "previous cabinet" : "wall edge";
+  const afterBoundary = measurement.afterIsCabinet ? "next cabinet" : "wall edge";
+  return `Open space: ${formatInches(measurement.before)} to ${beforeBoundary} · ${formatInches(measurement.after)} to ${afterBoundary}`;
 }
 
 export type InteractiveRoomPresentation = {
@@ -3725,6 +3733,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const description = threeDSelectedCabinetDescription(selectedCabinet);
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
           const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
+          const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
+          const wallClearance = selectedPlacedCabinet && roomOverride && selectedWall
+            ? wallSpanMeasure(selectedPlacedCabinet, roomOverride, placed, selectedWall)
+            : null;
+          const wallClearanceText = threeDWallClearanceText(wallClearance);
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
           return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
@@ -3734,6 +3747,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 <p data-testid="three-d-cabinet-description" className="text-muted-foreground">{description}</p>
                 <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
                 <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
+                {wallClearanceText && <p data-testid="three-d-active-wall-clearance" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-medium text-[#634b20]">{wallClearanceText}</p>}
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
