@@ -2703,6 +2703,12 @@
 - [x] Preserve style availability, collision prevention, and clear no-space feedback
 - [ ] Add computer drag/drop and phone touch-add regressions and verify the live workflow
 
+## Fix: Double-Click Catalog Adds to the Selected Wall
+- [x] Trace left-catalog double-click handling and compare its placement path to active-wall drag/drop
+- [x] Route double-click cabinet additions to the selected wall’s first valid free run
+- [x] Preserve collision prevention, style availability, and no-space feedback
+- [ ] Add computer and phone regression coverage and verify the reported workflow
+
 ## Fix: Suppress Range-Hood Prompt for an Over-Range Microwave
 - [x] Trace the 3D range-hood status rule and compatible MW-30/RANGE-30 detection
 - [x] Suppress the range-hood prompt when an over-range microwave already covers the saved range

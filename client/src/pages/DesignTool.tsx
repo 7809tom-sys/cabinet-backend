@@ -3958,8 +3958,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
   const selectCabinet = useCallback((uid: string | null) => {
     setSelectedUid(uid);
-    if (uid) { setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }
-  }, []);
+    if (uid) {
+      const cabinet = placed.find((candidate) => candidate.uid === uid);
+      if (cabinet) setActiveWall(cabinetWall(cabinet, room));
+      setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null);
+    }
+  }, [placed, room]);
   const selectSink = useCallback((uid: string | null) => {
     setSelectedSinkUid(uid);
     if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }
