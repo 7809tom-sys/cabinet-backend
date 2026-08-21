@@ -3061,9 +3061,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // base box (no corner/vanity/sink/specialty) so the suggestion is a clean
   // filler-run cabinet. Only widths that actually exist in the current style/
   // line appear, so we never suggest a cabinet the member can't order.
-  const gapFillCandidates = useMemo<Map<number, DesignCabinet>>(
+  const baseGapFillCandidates = useMemo<Map<number, DesignCabinet>>(
     () => gapFillCandidatesByWidth((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as Map<number, DesignCabinet>,
     [autoFillCabinets]
+  );
+  const smartGapPricePairs = useMemo(() => {
+    if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
+    const catalog = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    return Array.from(new Map(catalog.map((cabinet) => [cabinet.id, { cabinetId: cabinet.id, styleId }])).values()).slice(0, 2000);
+  }, [autoFillCabinets, styleId]);
+  const { data: smartGapPriceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
+    { pairs: smartGapPricePairs, distributorId: lockedDistributorId ?? undefined },
+    { enabled: smartGapPricePairs.length > 0 && !!styleId },
+  );
+  const smartGapCandidatePrices = useMemo(
+    () => new Map((smartGapPriceRows ?? []).map((row) => [row.cabinetId, priceOf(row, tier)])),
+    [smartGapPriceRows, tier],
+  );
+  const gapFillCandidates = useMemo<Map<number, DesignCabinet>>(
+    () => new Map(Array.from(baseGapFillCandidates, ([width, cabinet]) => [width, { ...cabinet, approvedPrice: smartGapCandidatePrices.get(cabinet.id) } as DesignCabinet])),
+    [baseGapFillCandidates, smartGapCandidatePrices],
   );
 
   // Place a chosen real cabinet flush at a gap's run-axis start. Respects the

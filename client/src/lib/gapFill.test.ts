@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gapFillCandidatesByWidth, smartGapRecommendation } from "./design";
+import { gapFillCandidatesByWidth, smartGapCatalogOptions, smartGapRecommendation } from "./design";
 
 // Minimal palette rows for the pure candidate-selection helper.
 type Row = Parameters<typeof gapFillCandidatesByWidth>[0][number];
@@ -70,5 +70,11 @@ describe("gapFillCandidatesByWidth", () => {
     expect(smartGapRecommendation({ length: 38 }, candidates)).toMatchObject({ kind: "cabinet-with-filler", cabinet: { masterCode: "B36" }, remaining: 2 });
     expect(smartGapRecommendation({ length: 48 }, candidates)).toMatchObject({ kind: "cabinet", cabinet: { masterCode: "B36" }, remaining: 12 });
     expect(smartGapRecommendation({ length: 60 }, candidates)).toBeNull();
+  });
+
+  it("returns every catalog cabinet that fits a smart gap so the user can filter by cabinet type or price", () => {
+    const options = smartGapCatalogOptions({ length: 38 }, [row("B24", 24), row("SB30", 30, "Sink Base"), row("DB36", 36, "Drawer Base"), row("B42", 42)]);
+    expect(options.map((option) => option.cabinet.masterCode)).toEqual(["DB36", "SB30", "B24"]);
+    expect(options[0]).toMatchObject({ remaining: 2, needsFiller: true });
   });
 });

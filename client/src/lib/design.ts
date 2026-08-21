@@ -4767,6 +4767,26 @@ export function smartGapRecommendation<T extends Pick<DesignCabinet, "width">>(
   return { kind: "cabinet", cabinet, remaining };
 }
 
+export type SmartGapCatalogOption<T> = { cabinet: T; remaining: number; needsFiller: boolean };
+
+/** All fitting catalog choices for a short active-wall gap, before the user filters or orders them. */
+export function smartGapCatalogOptions<T extends Pick<DesignCabinet, "masterCode" | "width">>(
+  gap: Pick<WallGap, "length">,
+  candidates: readonly T[],
+  threshold = 60,
+): SmartGapCatalogOption<T>[] {
+  const length = Math.round(gap.length * 100) / 100;
+  if (length <= 6 || length >= threshold) return [];
+  return candidates
+    .map((cabinet) => ({ cabinet, width: Number(cabinet.width) || 0 }))
+    .filter(({ width }) => width >= 9 && width <= length + 0.01)
+    .map(({ cabinet, width }) => {
+      const remaining = Math.round((length - width) * 100) / 100;
+      return { cabinet, remaining, needsFiller: remaining > 0.01 && remaining <= 6 };
+    })
+    .sort((a, b) => Number(b.cabinet.width) - Number(a.cabinet.width) || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode));
+}
+
 // ─── Dining Furniture ─────────────────────────────────────────────────────────
 // Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
 

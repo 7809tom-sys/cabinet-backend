@@ -7,7 +7,7 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
-  wallGaps, smartGapRecommendation, type WallGap,
+  wallGaps, smartGapCatalogOptions, smartGapRecommendation, type WallGap,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -176,6 +176,10 @@ interface Props {
   // fit a measured gap. When onFillGap is provided the popover rows become
   // click-to-place actions.
   gapFillCandidates?: Map<number, DesignCabinet>;
+  /** Full selected-line catalog for Smart Gap type filtering and price ordering. */
+  smartGapCandidates?: DesignCabinet[];
+  /** Approved current unit prices keyed by active catalog cabinet ID. */
+  smartGapCandidatePrices?: Map<number, number>;
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
   onPlaceFiller?: (gap: WallGap) => void;
   /** Place a cabinet + auto-sized filler in a gap as a combo. */
@@ -228,6 +232,8 @@ export function PlanCanvas({
   flooringPattern = "random-stagger",
   cabinetsLocked = false,
   gapFillCandidates,
+  smartGapCandidates = [],
+  smartGapCandidatePrices,
   onFillGap,
   onPlaceFiller,
   onFillGapWithCabAndFiller,
@@ -368,6 +374,8 @@ export function PlanCanvas({
   const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
   const [activeGap, setActiveGap] = useState<WallGap | null>(null);
+  const [smartGapType, setSmartGapType] = useState<"all" | "base" | "sink" | "drawer">("all");
+  const [smartGapOrder, setSmartGapOrder] = useState<"fit" | "price">("fit");
   // Furniture drag state.
   const furnDrag = useRef<{ uid: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
   const onFurnPointerDown = (e: React.PointerEvent, f: PlacedFurniture) => {
@@ -1713,7 +1721,7 @@ export function PlanCanvas({
                 style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
                 title={g.length < 60 && gapFillCandidates ? `Smart options for ${formatInches(g.length)} open space` : t("dt_gap_title", { len: formatInches(g.length) })}
                 aria-label={`Open ${formatInches(g.length)} smart gap options`}
-                onClick={(event) => { event.stopPropagation(); if (g.length < 60 && gapFillCandidates) setActiveGap(g); }}
+                onClick={(event) => { event.stopPropagation(); if (g.length < 60 && gapFillCandidates) { setSmartGapType("all"); setSmartGapOrder("fit"); setActiveGap(g); } }}
               >
                 {formatInches(g.length)}
               </button>
@@ -1860,11 +1868,28 @@ export function PlanCanvas({
         const recommendation = smartGapRecommendation(activeGap, gapFillCandidates);
         if (!recommendation) return null;
         const close = () => setActiveGap(null);
+        const candidateType = (cabinet: DesignCabinet): "base" | "sink" | "drawer" => {
+          const text = `${cabinet.masterCode} ${cabinet.description} ${cabinet.subCategory ?? ""}`.toLowerCase();
+          if (/sink|^sb/.test(text)) return "sink";
+          if (/drawer|^db/.test(text)) return "drawer";
+          return "base";
+        };
+        const availableSmartGapCandidates = smartGapCandidates.length > 0 ? smartGapCandidates : Array.from(gapFillCandidates.values());
+        const approvedPriceFor = (cabinet: DesignCabinet) => smartGapCandidatePrices?.get(cabinet.id) ?? (cabinet as DesignCabinet & { approvedPrice?: number }).approvedPrice;
+        const options = smartGapCatalogOptions(activeGap, availableSmartGapCandidates)
+          .filter((option) => smartGapType === "all" || candidateType(option.cabinet) === smartGapType)
+          .sort((a, b) => {
+            if (smartGapOrder !== "price") return 0;
+            const aPrice = approvedPriceFor(a.cabinet);
+            const bPrice = approvedPriceFor(b.cabinet);
+            const aSort = aPrice != null && aPrice > 0 ? aPrice : Number.POSITIVE_INFINITY;
+            const bSort = bPrice != null && bPrice > 0 ? bPrice : Number.POSITIVE_INFINITY;
+            return aSort - bSort || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode);
+          });
         return <div data-testid="smart-gap-recommendation" className="absolute left-3 top-3 z-40 max-w-[calc(100%-1.5rem)] rounded-xl border border-[#d9c196] bg-[#fffaf1]/95 p-3 text-xs shadow-lg backdrop-blur">
           <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="font-semibold text-[#634b20]">Smart fit for {formatInches(activeGap.length)} open space</p><p className="mt-0.5 text-[#765416]">Suggestions use the active wall and available cabinets in your selected style.</p>
             {recommendation.kind === "filler" && onPlaceFiller && <button type="button" onClick={() => { onPlaceFiller(activeGap); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add fitted catalog filler · {formatInches(recommendation.remaining)}</button>}
-            {recommendation.kind === "cabinet" && onFillGap && <button type="button" onClick={() => { onFillGap(activeGap, recommendation.cabinet); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add {recommendation.cabinet.masterCode} · leaves {formatInches(recommendation.remaining)}</button>}
-            {recommendation.kind === "cabinet-with-filler" && onFillGapWithCabAndFiller && <button type="button" onClick={() => { onFillGapWithCabAndFiller(activeGap, recommendation.cabinet); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add {recommendation.cabinet.masterCode} + fitted {formatInches(recommendation.remaining)} filler</button>}
+            {recommendation.kind !== "filler" && <><div className="mt-2 flex flex-wrap gap-1" aria-label="Smart Gap cabinet type filters">{(["all", "base", "sink", "drawer"] as const).map((type) => <button key={type} type="button" onClick={() => setSmartGapType(type)} className={`rounded-full border px-2 py-1 font-semibold capitalize ${smartGapType === type ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-[#d9c196] text-[#765416]"}`}>{type}</button>)}<button type="button" onClick={() => setSmartGapOrder((current) => current === "fit" ? "price" : "fit")} className="rounded-full border border-[#d9c196] px-2 py-1 font-semibold text-[#765416]">{smartGapOrder === "price" ? "Price ↑" : "Best fit"}</button></div><div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">{options.map((option) => { const unitPrice = approvedPriceFor(option.cabinet); const label = option.needsFiller ? `Add ${option.cabinet.masterCode} + fitted ${formatInches(option.remaining)} filler` : `Add ${option.cabinet.masterCode} · leaves ${formatInches(option.remaining)}`; return <button key={option.cabinet.id} type="button" onClick={() => { if (option.needsFiller) onFillGapWithCabAndFiller?.(activeGap, option.cabinet); else onFillGap?.(activeGap, option.cabinet); close(); }} className="flex w-full items-center justify-between gap-2 rounded-md border border-[#e7d7b7] bg-white px-2 py-1.5 text-left font-semibold text-[#49381a] active:scale-[0.99]"><span className="min-w-0 truncate">{label}</span><span className="shrink-0 text-[10px] text-muted-foreground">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></button>; })}{options.length === 0 && <p className="rounded-md border border-dashed p-2 text-muted-foreground">No selected-style cabinet matches this filter.</p>}</div></>}
           </div><button type="button" onClick={close} aria-label="Close smart gap recommendation" className="text-base leading-none text-muted-foreground hover:text-foreground">×</button></div>
         </div>;
       })()}
