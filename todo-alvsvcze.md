@@ -699,3 +699,4 @@
 - [x] Smart Gap filters: Add quick cabinet-type filtering and approved-price ordering to the under-60-inch recommendation popup
 - [x] Smart Gap preview: Add a temporary 3D preview for each recommendation that does not change the saved plan, cart, or invoice until confirmed
 - [x] Smart Gap preview navigation: Add safe left-and-right keyboard shortcuts to cycle filtered recommendations during active 3D preview
+- [x] Smart Gap preview motion: Add a brief reduced-motion-aware fade transition while cycling temporary 3D cabinet previews

@@ -5802,6 +5802,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
 	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
 	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
+	      temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
 	    />;
   };
 
@@ -10211,6 +10212,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                } : undefined}
 	                temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
 	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
+	                temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
 	              />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
