@@ -53,7 +53,7 @@ import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliate
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
 import { currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
-import { catalogFillerForGap, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
@@ -996,6 +996,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
     [threeDAccessoryCatalog],
   );
+  const pricingIdForPlacedCabinet = useCallback(
+    (cabinet: PlacedCabinet) => catalogFillerPricingId(cabinet, catalogFillers) ?? pricingCabinetIdFor(cabinet),
+    [catalogFillers, pricingCabinetIdFor],
+  );
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -1361,7 +1365,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       pairs.push({ cabinetId, styleId: sid });
     };
     placed.forEach((p) => {
-      push(pricingCabinetIdFor(p), effectiveStyleId(p, styleId) ?? styleId);
+      push(pricingIdForPlacedCabinet(p), effectiveStyleId(p, styleId) ?? styleId);
       // Also fetch price for the GD variant if glassDoor is enabled.
       if (p.glassDoor) {
         const gdCode = p.masterCode + "GD";
@@ -1370,7 +1374,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
     });
     return pairs;
-  }, [placed, pricingCabinetIdFor, styleId]);
+  }, [placed, pricingIdForPlacedCabinet, styleId]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -1390,7 +1394,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // placeholder catalog; everything else prices from the DB price map keyed by
   // (cabinetId, effective styleId).
   const unitPriceFor = useCallback(
-    (p: { masterCode: string; cabinetId: number; styleId?: number | null; glassDoor?: boolean }): number | null => {
+    (p: PlacedCabinet): number | null => {
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
       if (!styleId) return null;
       const sid = effectiveStyleId(p, styleId) ?? styleId;
@@ -1403,10 +1407,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           if (gdPrice != null) return gdPrice;
         }
       }
-      const v = priceMap.get(`${pricingCabinetIdFor(p)}:${sid}`);
+      const v = priceMap.get(`${pricingIdForPlacedCabinet(p)}:${sid}`);
       return v ?? null;
     },
-    [priceMap, pricingCabinetIdFor, styleId]
+    [priceMap, pricingIdForPlacedCabinet, styleId]
   );
 
   // LS3612 shares its 36-inch corner body with the shelf-corner ER36/BER36

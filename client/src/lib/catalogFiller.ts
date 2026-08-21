@@ -53,3 +53,24 @@ export function fittedCatalogFillerDescription(candidate: Pick<CatalogFillerCand
   const rounded = Math.round(gapWidth * 100) / 100;
   return `${source} — cut to ${rounded}"`;
 }
+
+/**
+ * Legacy saved designs may contain generic FILL-* records with cabinetId=0.
+ * Resolve only those filler records to the same active catalog item a new gap
+ * placement would use; regular cabinets retain their persisted catalog ID.
+ */
+export function catalogFillerPricingId(
+  cabinet: { masterCode: string; description?: string | null; category?: string | null; subCategory?: string | null; width: number; id?: number | null; cabinetId?: number | null; placement?: string | null },
+  candidates: readonly CatalogFillerCandidate[],
+): number | null {
+  const persistedId = numberValue(cabinet.cabinetId ?? cabinet.id);
+  if (persistedId > 0) return persistedId;
+  if (!isCatalogFiller({
+    masterCode: cabinet.masterCode,
+    description: cabinet.description ?? cabinet.masterCode,
+    category: cabinet.category ?? null,
+    subCategory: cabinet.subCategory ?? null,
+  })) return null;
+  const placement: CatalogFillerPlacement = cabinet.placement === "wall" ? "wall" : "base";
+  return catalogFillerForGap(candidates, numberValue(cabinet.width), placement)?.id ?? null;
+}

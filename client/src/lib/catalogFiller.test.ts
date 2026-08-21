@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogFillerForGap, fittedCatalogFillerDescription } from "./catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "./catalogFiller";
 import { CUSTOM_SIZE_FEE, customSizeFee } from "./design";
 
 const fillers = [
@@ -23,5 +23,10 @@ describe("catalogFillerForGap", () => {
   it("keeps a trimmed catalog filler at its approved SKU price rather than applying a generic cabinet resize fee", () => {
     expect(customSizeFee({ width: 2.5, nominalWidth: 3, depth: 24, nominalDepth: 24, masterCode: "BF-3", subCategory: "Filler" })).toBe(0);
     expect(customSizeFee({ width: 25, nominalWidth: 24, depth: 24, nominalDepth: 24, masterCode: "B24", subCategory: "Base" })).toBe(CUSTOM_SIZE_FEE);
+  });
+
+  it("resolves a legacy generic filler to the same active catalog item used for a new fitted gap", () => {
+    expect(catalogFillerPricingId({ id: 0, masterCode: "FILL-2.25", description: '2.25" Filler', category: "Accessory", subCategory: "Filler", width: 2.25, placement: "base" }, fillers)).toBe(1);
+    expect(catalogFillerPricingId({ id: 24, masterCode: "B24", description: "Base", category: "Base", subCategory: "Base", width: 24, placement: "base" }, fillers)).toBe(24);
   });
 });

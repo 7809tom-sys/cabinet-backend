@@ -694,3 +694,4 @@
 - [x] 3D measurement: Automatically show the selected cabinet’s usable remaining width on its active wall from neighboring cabinet and wall edges
 - [x] Filler automation: Size a placed filler to its exact active-wall gap, select the best matching catalog filler, and add that catalog line to the design invoice
 - [x] 3D filler labels: Display the exact installed cut width for every automatically fitted catalog filler in the 3D designer view
+- [x] Filler pricing: Resolve the fitted filler’s exact active distributor/style/SKU price in the 3D designer and invoice without changing any catalog amount
