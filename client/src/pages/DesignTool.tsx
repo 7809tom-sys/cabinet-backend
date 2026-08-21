@@ -439,6 +439,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   const [smartGapPreview, setSmartGapPreview] = useState<PlacedCabinet[]>([]);
+  const [smartGapPreviewPosition, setSmartGapPreviewPosition] = useState<{ current: number; total: number } | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
 
   // Last line of defense for legacy designs and any future placement path that
@@ -3283,6 +3284,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setSmartGapPreview(preview);
 	    }
 	    smartGapPreviewSessionRef.current = { gap, choices, index };
+	    setSmartGapPreviewPosition({ current: index + 1, total: choices.length });
 	    setViewMode("threeD");
 	    toast.info("Preview only — use ← and → to compare suggestions, or place one to save it.");
 	  }, [catalogFillers, room]);
@@ -5801,7 +5803,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
 	      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
 	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
-	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
+	      temporaryPreviewCounter={smartGapPreviewPosition ?? undefined}
+	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreviewPosition(null); setSmartGapPreview([]); } : undefined}
 	      temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
 	    />;
   };
@@ -10211,7 +10214,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  styleId,
 	                } : undefined}
 	                temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
-	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
+	                temporaryPreviewCounter={smartGapPreviewPosition ?? undefined}
+	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreviewPosition(null); setSmartGapPreview([]); } : undefined}
 	                temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
 	              />
             ) : (
