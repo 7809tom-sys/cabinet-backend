@@ -4787,6 +4787,11 @@ export function smartGapCatalogOptions<T extends Pick<DesignCabinet, "masterCode
     .sort((a, b) => Number(b.cabinet.width) - Number(a.cabinet.width) || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode));
 }
 
+/** Preview layers are derived for rendering only and never mutate saved placements. */
+export function withTemporarySmartGapPreview<T>(placed: readonly T[], preview: readonly T[]): T[] {
+  return preview.length > 0 ? [...placed, ...preview] : [...placed];
+}
+
 // ─── Dining Furniture ─────────────────────────────────────────────────────────
 // Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
 

@@ -697,3 +697,4 @@
 - [x] Filler pricing: Resolve the fitted filler’s exact active distributor/style/SKU price in the 3D designer and invoice without changing any catalog amount
 - [x] Smart gap recommendations: When an active wall has under 60 inches of usable space, suggest compatible active-style catalog cabinets or a fitted filler without automatic placement
 - [x] Smart Gap filters: Add quick cabinet-type filtering and approved-price ordering to the under-60-inch recommendation popup
+- [x] Smart Gap preview: Add a temporary 3D preview for each recommendation that does not change the saved plan, cart, or invoice until confirmed

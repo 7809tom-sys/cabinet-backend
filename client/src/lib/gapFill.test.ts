@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gapFillCandidatesByWidth, smartGapCatalogOptions, smartGapRecommendation } from "./design";
+import { gapFillCandidatesByWidth, smartGapCatalogOptions, smartGapRecommendation, withTemporarySmartGapPreview } from "./design";
 
 // Minimal palette rows for the pure candidate-selection helper.
 type Row = Parameters<typeof gapFillCandidatesByWidth>[0][number];
@@ -76,5 +76,12 @@ describe("gapFillCandidatesByWidth", () => {
     const options = smartGapCatalogOptions({ length: 38 }, [row("B24", 24), row("SB30", 30, "Sink Base"), row("DB36", 36, "Drawer Base"), row("B42", 42)]);
     expect(options.map((option) => option.cabinet.masterCode)).toEqual(["DB36", "SB30", "B24"]);
     expect(options[0]).toMatchObject({ remaining: 2, needsFiller: true });
+  });
+
+  it("creates a temporary preview layer without mutating saved placements", () => {
+    const saved = [{ uid: "saved" }];
+    const preview = [{ uid: "smart-gap-preview" }];
+    expect(withTemporarySmartGapPreview(saved, preview)).toEqual([{ uid: "saved" }, { uid: "smart-gap-preview" }]);
+    expect(saved).toEqual([{ uid: "saved" }]);
   });
 });

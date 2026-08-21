@@ -80,7 +80,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
+  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, withTemporarySmartGapPreview,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
@@ -438,6 +438,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [polygonEditMode, setPolygonEditMode] = useState(false);
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+  const [smartGapPreview, setSmartGapPreview] = useState<PlacedCabinet[]>([]);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. A refrigerator or tall end panel wins
@@ -3181,7 +3182,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
 
   // ── Combo: place a cabinet + auto-sized filler in one click ─────────────────
-  const fillGapWithCabAndFiller = useCallback(
+	  const fillGapWithCabAndFiller = useCallback(
     (gap: WallGap, c: DesignCabinet) => {
       if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
       const cabWidth = dim(c.width, 24);
@@ -3248,10 +3249,44 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
     },
-    [cabinetsLocked, catalogFillers, room, t]
-  );
+	    [cabinetsLocked, catalogFillers, room, t]
+	  );
 
-  // ── Range/oven corner clearance: one-click fix ──────────────────────────────
+	  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean) => {
+	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
+	    const previewSeed = `smart-gap-preview-${Date.now()}`;
+	    const makePreview = (cabinet: Pick<DesignCabinet, "id" | "masterCode" | "description" | "category" | "subCategory" | "width" | "height" | "depth" | "catalogImageUrl"> & { numberOfDoors?: number | null; numberOfDrawers?: number | null }, width: number, start: number, uid: string, description = cabinet.description): PlacedCabinet => {
+	      const depth = dim(cabinet.depth, placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+	      const height = dim(cabinet.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+	      const spot = wallPlacementAt(start, width, depth, gap.side, room);
+	      return {
+	        uid, cabinetId: cabinet.id, masterCode: cabinet.masterCode, description, category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null,
+	        placement, x: spot.x, y: spot.y, width, nominalWidth: dim(cabinet.width, width), depth, nominalDepth: depth, height, nominalHeight: height,
+	        rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors ?? 0, numberOfDrawers: cabinet.numberOfDrawers ?? 0, catalogImageUrl: cabinet.catalogImageUrl ?? null,
+	        styleId: styleIdRef.current ?? null,
+	      };
+	    };
+	    if (!candidate) {
+	      const filler = catalogFillerForGap(catalogFillers, gap.length, placement);
+	      if (!filler) { toast.error(`No sellable catalog filler can preview this ${formatInches(gap.length)} gap.`); return; }
+	      setSmartGapPreview([makePreview(filler, gap.length, gap.start, previewSeed, fittedCatalogFillerDescription(filler, gap.length))]);
+	    } else {
+	      const cabinetWidth = dim(candidate.width, 24);
+	      const preview = [makePreview(candidate, cabinetWidth, gap.start, previewSeed)];
+	      if (needsFiller) {
+	        const fillerWidth = Math.round((gap.length - cabinetWidth) * 100) / 100;
+	        const filler = catalogFillerForGap(catalogFillers, fillerWidth, placement);
+	        if (!filler) { toast.error(`No sellable catalog filler can preview the remaining ${formatInches(fillerWidth)}.`); return; }
+	        preview.push(makePreview(filler, fillerWidth, gap.start + cabinetWidth, `${previewSeed}-filler`, fittedCatalogFillerDescription(filler, fillerWidth)));
+	      }
+	      setSmartGapPreview(preview);
+	    }
+	    setViewMode("threeD");
+	    toast.info("Preview only — place the suggestion to save it to your plan and cart.");
+	  }, [catalogFillers, room]);
+	  const threeDPlaced = useMemo(() => withTemporarySmartGapPreview(placed, smartGapPreview), [placed, smartGapPreview]);
+
+	  // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
   // auto-insert fillers or shift cabinets — the designer places the clearance
   // filler manually with the Filler tool. (Former auto-fix removed by request.)
@@ -5705,11 +5740,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
     return <InteractiveRoom3D
-      key={interactive3dRevision}
-      embedded
-      className="h-full min-h-0"
-      scene={resolvedInteractive3dScene}
-      placed={placed}
+	      key={interactive3dRevision}
+	      embedded
+	      className="h-full min-h-0"
+	      scene={resolvedInteractive3dScene}
+	      placed={threeDPlaced}
       roomOverride={room}
       openings={openings}
       sinks={sinks}
@@ -5745,9 +5780,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
       onRoomWallHeightsChange={(heights) => setRoom((current) => ({ ...current, wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"] }))}
       onMoveCabinet={moveCabinetFrom3D}
-      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
-      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
-    />;
+	      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
+	      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
+	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — not saved to plan, cart, or invoice." : undefined}
+	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => setSmartGapPreview([]) : undefined}
+	    />;
   };
 
   if (!verified) {
@@ -8155,9 +8192,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               />
             </div>
           )}
-          {viewMode === "plan" && (
-            <PlanCanvas
-              room={room}
+	          {viewMode === "plan" && (
+	            <PlanCanvas onPreviewGap={previewSmartGap}
+	              room={room}
               cabinets={placed}
               selectedUid={selectedUid}
               onSelect={selectCabinet}
@@ -8319,11 +8356,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               drawerSampleUrlFor={drawerSampleForCab}
             />
           )}
-          {viewMode === "split" && (
-            <div className="flex flex-col h-full">
-              <div className="flex-1 min-h-0 border-b border-border">
-                <PlanCanvas
-                  room={room}
+	          {viewMode === "split" && (
+	            <div className="flex flex-col h-full">
+	              <div className="flex-1 min-h-0 border-b border-border">
+	                <PlanCanvas onPreviewGap={previewSmartGap}
+	                  room={room}
                   cabinets={placed}
                   selectedUid={selectedUid}
                   onSelect={selectCabinet}
@@ -10104,16 +10141,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </DialogContent>
       </Dialog>
 
-      <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
+	      <Dialog open={interactive3dOpen} onOpenChange={setInteractive3dOpen}>
         <DialogContent className="flex h-[94vh] w-[calc(100vw-1rem)] max-w-[1500px] flex-col overflow-hidden p-0 sm:w-[96vw]">
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
-              <InteractiveRoom3D
-                key={interactive3dRevision}
-                scene={resolvedInteractive3dScene}
-                placed={placed}
+	              <InteractiveRoom3D
+	                key={interactive3dRevision}
+	                scene={resolvedInteractive3dScene}
+	                placed={threeDPlaced}
                 roomOverride={room}
                 openings={openings}
                 sinks={sinks}
@@ -10149,12 +10186,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 cabinetConfigHref={isAdmin
                   ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId)
                   : undefined}
-                shareContext={selectedStyleDistributorId != null && styleId != null ? {
-                  layoutPresetId: activeSceneLayoutPresetId,
-                  distributorId: selectedStyleDistributorId,
-                  styleId,
-                } : undefined}
-              />
+	                shareContext={selectedStyleDistributorId != null && styleId != null ? {
+	                  layoutPresetId: activeSceneLayoutPresetId,
+	                  distributorId: selectedStyleDistributorId,
+	                  styleId,
+	                } : undefined}
+	                temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — not saved to plan, cart, or invoice." : undefined}
+	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => setSmartGapPreview([]) : undefined}
+	              />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>
             )}
