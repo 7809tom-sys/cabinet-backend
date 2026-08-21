@@ -4739,6 +4739,34 @@ export function gapFillCandidatesByWidth(
   return byWidth;
 }
 
+export type SmartGapRecommendation<T> =
+  | { kind: "filler"; remaining: number }
+  | { kind: "cabinet"; cabinet: T; remaining: number }
+  | { kind: "cabinet-with-filler"; cabinet: T; remaining: number };
+
+/**
+ * Deterministic, catalog-scoped advice for a short active-wall run. The caller
+ * supplies only available cabinets in the selected line/style, so the helper
+ * cannot recommend a generic or unsellable cabinet. It intentionally produces
+ * advice only; the user must click a suggested action to place anything.
+ */
+export function smartGapRecommendation<T extends Pick<DesignCabinet, "width">>(
+  gap: Pick<WallGap, "length">,
+  candidates: Map<number, T>,
+  threshold = 60,
+): SmartGapRecommendation<T> | null {
+  const length = Math.round(gap.length * 100) / 100;
+  if (length <= 0 || length >= threshold) return null;
+  if (length <= 6) return { kind: "filler", remaining: length };
+  const widths = Array.from(candidates.keys()).filter((width) => width <= length + 0.01).sort((a, b) => b - a);
+  const selectedWidth = widths[0];
+  if (selectedWidth == null) return null;
+  const cabinet = candidates.get(selectedWidth)!;
+  const remaining = Math.round((length - selectedWidth) * 100) / 100;
+  if (remaining > 0.01 && remaining <= 6) return { kind: "cabinet-with-filler", cabinet, remaining };
+  return { kind: "cabinet", cabinet, remaining };
+}
+
 // ─── Dining Furniture ─────────────────────────────────────────────────────────
 // Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
 

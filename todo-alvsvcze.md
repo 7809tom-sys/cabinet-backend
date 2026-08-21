@@ -695,3 +695,4 @@
 - [x] Filler automation: Size a placed filler to its exact active-wall gap, select the best matching catalog filler, and add that catalog line to the design invoice
 - [x] 3D filler labels: Display the exact installed cut width for every automatically fitted catalog filler in the 3D designer view
 - [x] Filler pricing: Resolve the fitted filler’s exact active distributor/style/SKU price in the 3D designer and invoice without changing any catalog amount
+- [x] Smart gap recommendations: When an active wall has under 60 inches of usable space, suggest compatible active-style catalog cabinets or a fitted filler without automatic placement

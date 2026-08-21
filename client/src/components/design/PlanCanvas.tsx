@@ -7,7 +7,7 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
-  wallGaps, type WallGap,
+  wallGaps, smartGapRecommendation, type WallGap,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -1699,21 +1699,24 @@ export function PlanCanvas({
             if (g.side === "left")   return { left: BAND, top: g.center * ppi };
             return { left: roomPxW - BAND, top: g.center * ppi };
           };
-          // Only show base-layer gaps (most actionable for the user).
-          const baseGaps = gaps.filter((g) => g.layer === "base" && g.length >= 3);
+          // Only show base-layer gaps on the wall being edited. The active wall
+          // makes recommendations contextual rather than offering unrelated room gaps.
+          const baseGaps = gaps.filter((g) => g.layer === "base" && g.length >= 3 && (!activeWall || g.side === activeWall));
           return baseGaps.map((g, i) => {
             const pos = gapPx(g);
             const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
             return (
-              // Gap measurement label chip — display only, no suggestion popover
-              <div
+              <button
+                type="button"
                 key={`gap-${g.side}-${i}`}
-                className="absolute z-30 select-none -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md pointer-events-none"
+                className={`absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md transition-transform active:scale-95 ${g.length < 60 && gapFillCandidates ? "cursor-pointer ring-2 ring-white/70" : "pointer-events-none"}`}
                 style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
-                title={t("dt_gap_title", { len: formatInches(g.length) })}
+                title={g.length < 60 && gapFillCandidates ? `Smart options for ${formatInches(g.length)} open space` : t("dt_gap_title", { len: formatInches(g.length) })}
+                aria-label={`Open ${formatInches(g.length)} smart gap options`}
+                onClick={(event) => { event.stopPropagation(); if (g.length < 60 && gapFillCandidates) setActiveGap(g); }}
               >
                 {formatInches(g.length)}
-              </div>
+              </button>
             );
           });
         })()}
@@ -1852,6 +1855,19 @@ export function PlanCanvas({
             : t("dt_pc_measure_done")}
         </div>
       )}
+
+      {activeGap && gapFillCandidates && (() => {
+        const recommendation = smartGapRecommendation(activeGap, gapFillCandidates);
+        if (!recommendation) return null;
+        const close = () => setActiveGap(null);
+        return <div data-testid="smart-gap-recommendation" className="absolute left-3 top-3 z-40 max-w-[calc(100%-1.5rem)] rounded-xl border border-[#d9c196] bg-[#fffaf1]/95 p-3 text-xs shadow-lg backdrop-blur">
+          <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="font-semibold text-[#634b20]">Smart fit for {formatInches(activeGap.length)} open space</p><p className="mt-0.5 text-[#765416]">Suggestions use the active wall and available cabinets in your selected style.</p>
+            {recommendation.kind === "filler" && onPlaceFiller && <button type="button" onClick={() => { onPlaceFiller(activeGap); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add fitted catalog filler · {formatInches(recommendation.remaining)}</button>}
+            {recommendation.kind === "cabinet" && onFillGap && <button type="button" onClick={() => { onFillGap(activeGap, recommendation.cabinet); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add {recommendation.cabinet.masterCode} · leaves {formatInches(recommendation.remaining)}</button>}
+            {recommendation.kind === "cabinet-with-filler" && onFillGapWithCabAndFiller && <button type="button" onClick={() => { onFillGapWithCabAndFiller(activeGap, recommendation.cabinet); close(); }} className="mt-2 rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add {recommendation.cabinet.masterCode} + fitted {formatInches(recommendation.remaining)} filler</button>}
+          </div><button type="button" onClick={close} aria-label="Close smart gap recommendation" className="text-base leading-none text-muted-foreground hover:text-foreground">×</button></div>
+        </div>;
+      })()}
 
       <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded">
         {(() => {

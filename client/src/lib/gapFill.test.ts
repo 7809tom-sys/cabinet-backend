@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gapFillCandidatesByWidth } from "./design";
+import { gapFillCandidatesByWidth, smartGapRecommendation } from "./design";
 
 // Minimal palette rows for the pure candidate-selection helper.
 type Row = Parameters<typeof gapFillCandidatesByWidth>[0][number];
@@ -62,5 +62,13 @@ describe("gapFillCandidatesByWidth", () => {
 
   it("returns an empty map for an empty pool", () => {
     expect(gapFillCandidatesByWidth([]).size).toBe(0);
+  });
+
+  it("offers only active-style catalog options for under-60-inch gaps without automatic placement", () => {
+    const candidates = gapFillCandidatesByWidth([row("B24", 24), row("B30", 30), row("B36", 36)]);
+    expect(smartGapRecommendation({ length: 5 }, candidates)).toMatchObject({ kind: "filler", remaining: 5 });
+    expect(smartGapRecommendation({ length: 38 }, candidates)).toMatchObject({ kind: "cabinet-with-filler", cabinet: { masterCode: "B36" }, remaining: 2 });
+    expect(smartGapRecommendation({ length: 48 }, candidates)).toMatchObject({ kind: "cabinet", cabinet: { masterCode: "B36" }, remaining: 12 });
+    expect(smartGapRecommendation({ length: 60 }, candidates)).toBeNull();
   });
 });
