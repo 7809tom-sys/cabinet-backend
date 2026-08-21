@@ -4792,6 +4792,12 @@ export function withTemporarySmartGapPreview<T>(placed: readonly T[], preview: r
   return preview.length > 0 ? [...placed, ...preview] : [...placed];
 }
 
+/** Wrap-safe navigation for temporary Smart Gap previews. */
+export function nextSmartGapPreviewIndex(currentIndex: number, optionCount: number, direction: -1 | 1): number {
+  if (optionCount <= 1) return 0;
+  return (currentIndex + direction + optionCount) % optionCount;
+}
+
 // ─── Dining Furniture ─────────────────────────────────────────────────────────
 // Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
 

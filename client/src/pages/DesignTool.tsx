@@ -80,7 +80,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, withTemporarySmartGapPreview,
+  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
@@ -439,6 +439,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   const [smartGapPreview, setSmartGapPreview] = useState<PlacedCabinet[]>([]);
+  const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. A refrigerator or tall end panel wins
@@ -3252,7 +3253,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    [cabinetsLocked, catalogFillers, room, t]
 	  );
 
-	  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean) => {
+	  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
 	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
 	    const previewSeed = `smart-gap-preview-${Date.now()}`;
 	    const makePreview = (cabinet: Pick<DesignCabinet, "id" | "masterCode" | "description" | "category" | "subCategory" | "width" | "height" | "depth" | "catalogImageUrl"> & { numberOfDoors?: number | null; numberOfDrawers?: number | null }, width: number, start: number, uid: string, description = cabinet.description): PlacedCabinet => {
@@ -3281,10 +3282,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      setSmartGapPreview(preview);
 	    }
+	    smartGapPreviewSessionRef.current = { gap, choices, index };
 	    setViewMode("threeD");
-	    toast.info("Preview only — place the suggestion to save it to your plan and cart.");
+	    toast.info("Preview only — use ← and → to compare suggestions, or place one to save it.");
 	  }, [catalogFillers, room]);
 	  const threeDPlaced = useMemo(() => withTemporarySmartGapPreview(placed, smartGapPreview), [placed, smartGapPreview]);
+	  useEffect(() => {
+	    if (smartGapPreview.length === 0) return;
+	    const onKeyDown = (event: KeyboardEvent) => {
+	      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+	      const target = event.target as HTMLElement | null;
+	      if (target?.closest("input, textarea, select, [contenteditable='true'], [role='textbox']")) return;
+	      const session = smartGapPreviewSessionRef.current;
+	      if (!session || session.choices.length <= 1) return;
+	      event.preventDefault();
+	      const index = nextSmartGapPreviewIndex(session.index, session.choices.length, event.key === "ArrowRight" ? 1 : -1);
+	      const choice = session.choices[index];
+	      previewSmartGap(session.gap, choice.cabinet, choice.needsFiller, session.choices, index);
+	    };
+	    window.addEventListener("keydown", onKeyDown);
+	    return () => window.removeEventListener("keydown", onKeyDown);
+	  }, [previewSmartGap, smartGapPreview.length]);
 
 	  // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
@@ -5782,8 +5800,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       onMoveCabinet={moveCabinetFrom3D}
 	      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
 	      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
-	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — not saved to plan, cart, or invoice." : undefined}
-	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => setSmartGapPreview([]) : undefined}
+	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
+	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
 	    />;
   };
 
@@ -10191,8 +10209,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  distributorId: selectedStyleDistributorId,
 	                  styleId,
 	                } : undefined}
-	                temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — not saved to plan, cart, or invoice." : undefined}
-	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => setSmartGapPreview([]) : undefined}
+	                temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
+	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreview([]); } : undefined}
 	              />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>

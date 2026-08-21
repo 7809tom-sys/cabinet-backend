@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gapFillCandidatesByWidth, smartGapCatalogOptions, smartGapRecommendation, withTemporarySmartGapPreview } from "./design";
+import { gapFillCandidatesByWidth, nextSmartGapPreviewIndex, smartGapCatalogOptions, smartGapRecommendation, withTemporarySmartGapPreview } from "./design";
 
 // Minimal palette rows for the pure candidate-selection helper.
 type Row = Parameters<typeof gapFillCandidatesByWidth>[0][number];
@@ -83,5 +83,12 @@ describe("gapFillCandidatesByWidth", () => {
     const preview = [{ uid: "smart-gap-preview" }];
     expect(withTemporarySmartGapPreview(saved, preview)).toEqual([{ uid: "saved" }, { uid: "smart-gap-preview" }]);
     expect(saved).toEqual([{ uid: "saved" }]);
+  });
+
+  it("cycles preview choices in both directions and wraps at either end", () => {
+    expect(nextSmartGapPreviewIndex(0, 3, 1)).toBe(1);
+    expect(nextSmartGapPreviewIndex(2, 3, 1)).toBe(0);
+    expect(nextSmartGapPreviewIndex(0, 3, -1)).toBe(2);
+    expect(nextSmartGapPreviewIndex(0, 1, 1)).toBe(0);
   });
 });
