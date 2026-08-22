@@ -37,7 +37,7 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
-import { crmCustomerImportIdentity } from "@shared/crmCustomerListImport";
+import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -219,15 +219,10 @@ export const crmRouter = router({
       const where = scopeWhere(scope);
       const existingQuery = db.select({ contactEmail: crmDeals.contactEmail, contactPhone: crmDeals.contactPhone }).from(crmDeals);
       const existing = await (where ? existingQuery.where(where) : existingQuery);
-      const seen = new Set(existing.map((row) => crmCustomerImportIdentity(row)).filter((key): key is string => !!key));
-      const rows = input.rows.filter((row) => {
-        const key = crmCustomerImportIdentity(row);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      if (rows.length) {
-        await db.insert(crmDeals).values(rows.map((row) => ({
+      const existingIdentities = new Set(existing.flatMap((row) => crmCustomerImportIdentities(row)));
+      const report = prepareCrmCustomerImport(input.rows, existingIdentities);
+      if (report.accepted.length) {
+        await db.insert(crmDeals).values(report.accepted.map((row) => ({
           affiliateId: scope.kind === "affiliate" ? scope.affiliateId : null,
           ownerUserId: scope.kind === "contractor" ? scope.userId : ctx.user.id,
           title: `${row.company ?? row.contactName} — ${row.contactName}`.slice(0, 256),
@@ -242,7 +237,7 @@ export const crmRouter = router({
           notes: row.notes ? `Customer list import: ${row.notes}` : "Customer list import.",
         })));
       }
-      return { imported: rows.length, skipped: input.rows.length - rows.length };
+      return { imported: report.accepted.length, skipped: report.skipped };
     }),
 
   // ── Board: all deals grouped by stage for the caller's scope ────────────────

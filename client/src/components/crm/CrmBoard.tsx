@@ -28,7 +28,7 @@ import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
   CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload,
 } from "lucide-react";
-import { parseCrmCustomerListCsv, type CrmCustomerImportRow } from "@shared/crmCustomerListImport";
+import { parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
@@ -454,13 +454,14 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<CrmCustomerImportRow[]>([]);
-  const [rejected, setRejected] = useState(0);
+  const [preflightSkipped, setPreflightSkipped] = useState<CrmCustomerImportSkippedRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [report, setReport] = useState<{ imported: number; skipped: CrmCustomerImportSkippedRow[] } | null>(null);
   const importList = trpc.crm.importCustomerList.useMutation({
     onSuccess: ({ imported, skipped }) => {
-      toast.success(`${imported} customer${imported === 1 ? "" : "s"} added${skipped ? `; ${skipped} existing record${skipped === 1 ? "" : "s"} skipped` : ""}.`);
+      setReport({ imported, skipped: [...preflightSkipped, ...skipped] });
+      toast.success(`${imported} customer${imported === 1 ? "" : "s"} added.`);
       utils.crm.board.invalidate();
-      setOpen(false); setRows([]); setRejected(0); setFileName("");
     },
     onError: (error) => toast.error(error.message || "Couldn't import the customer list"),
   });
@@ -469,7 +470,7 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
     const reader = new FileReader();
     reader.onload = () => {
       const parsed = parseCrmCustomerListCsv(String(reader.result ?? ""));
-      setRows(parsed.rows); setRejected(parsed.rejected); setFileName(file.name);
+      setRows(parsed.rows); setPreflightSkipped(parsed.skipped); setFileName(file.name); setReport(null);
       if (!parsed.rows.length) toast.error("No valid rows found. Include Name plus Email or Phone columns.");
     };
     reader.readAsText(file);
@@ -481,13 +482,18 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
         <DialogHeader><DialogTitle>Import customer list</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">Upload a CSV exported from Excel, Google Sheets, or another CRM. Supported columns: Name, Email, Phone, Company, City/ZIP, and Notes. The original file stays on your device; only previewed customer records are sent.</p>
         <Input type="file" accept=".csv,text/csv" onChange={(event) => readFile(event.target.files?.[0])} />
-        {fileName && <p className="text-xs text-muted-foreground">{fileName}: {rows.length} ready{rejected ? ` · ${rejected} invalid or duplicate row${rejected === 1 ? "" : "s"} skipped from the file` : ""}</p>}
+        {fileName && <p className="text-xs text-muted-foreground">{fileName}: {rows.length} ready{preflightSkipped.length ? ` · ${preflightSkipped.length} row${preflightSkipped.length === 1 ? "" : "s"} skipped before import` : ""}</p>}
         {rows.length > 0 && <div className="max-h-56 overflow-auto rounded border border-border">
           <table className="w-full text-sm"><thead className="sticky top-0 bg-muted text-left"><tr><th className="p-2">Customer</th><th className="p-2">Email / phone</th><th className="p-2">Company</th></tr></thead>
             <tbody>{rows.slice(0, 100).map((row, index) => <tr key={`${row.contactEmail ?? row.contactPhone}-${index}`} className="border-t border-border"><td className="p-2">{row.contactName}</td><td className="p-2">{row.contactEmail ?? row.contactPhone}</td><td className="p-2">{row.company ?? "—"}</td></tr>)}</tbody>
           </table>
         </div>}
-        <DialogFooter><Button disabled={!rows.length || importList.isPending} onClick={() => importList.mutate({ rows, ...(affiliateId != null ? { affiliateId } : {}) })} className="bg-[var(--color-navy,#1a2b4a)] text-white">{importList.isPending ? "Importing…" : `Import ${rows.length || ""} customer${rows.length === 1 ? "" : "s"}`}</Button></DialogFooter>
+        {report && <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2" role="status">
+          <p className="font-semibold text-sm">Import report</p>
+          <p className="text-sm"><strong>{report.imported}</strong> customer{report.imported === 1 ? "" : "s"} imported. <strong>{report.skipped.length}</strong> skipped.</p>
+          {report.skipped.length > 0 ? <ul className="max-h-32 overflow-auto space-y-1 text-xs text-muted-foreground">{report.skipped.map((row, index) => <li key={`${row.rowNumber}-${index}`}><strong className="text-foreground">Row {row.rowNumber}: {row.contactName}</strong> — {row.reason}</li>)}</ul> : <p className="text-xs text-muted-foreground">No rows were skipped.</p>}
+        </div>}
+        <DialogFooter>{report ? <Button onClick={() => { setOpen(false); setRows([]); setPreflightSkipped([]); setFileName(""); setReport(null); }}>Close</Button> : <Button disabled={!rows.length || importList.isPending} onClick={() => importList.mutate({ rows, ...(affiliateId != null ? { affiliateId } : {}) })} className="bg-[var(--color-navy,#1a2b4a)] text-white">{importList.isPending ? "Importing…" : `Import ${rows.length || ""} customer${rows.length === 1 ? "" : "s"}`}</Button>}</DialogFooter>
       </DialogContent>
     </Dialog>
   );

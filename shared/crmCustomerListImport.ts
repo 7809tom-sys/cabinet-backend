@@ -7,9 +7,15 @@ export type CrmCustomerImportRow = {
   notes: string | null;
 };
 
+export type CrmCustomerImportSkippedRow = {
+  rowNumber: number;
+  contactName: string;
+  reason: string;
+};
+
 export type ParsedCrmCustomerList = {
   rows: CrmCustomerImportRow[];
-  rejected: number;
+  skipped: CrmCustomerImportSkippedRow[];
 };
 
 function clean(value: string | undefined): string | null {
@@ -48,33 +54,64 @@ export function parseCsvRecords(text: string): string[][] {
 
 export function parseCrmCustomerListCsv(text: string): ParsedCrmCustomerList {
   const records = parseCsvRecords(text);
-  if (records.length < 2) return { rows: [], rejected: records.length ? 0 : 0 };
+  if (records.length < 2) return { rows: [], skipped: [] };
   const headers = records[0].map((header) => header.trim().toLowerCase().replace(/[^a-z0-9]+/g, ""));
   const seen = new Set<string>();
   const rows: CrmCustomerImportRow[] = [];
-  let rejected = 0;
-  for (const source of records.slice(1)) {
+  const skipped: CrmCustomerImportSkippedRow[] = [];
+  for (let index = 1; index < records.length; index += 1) {
+    const source = records[index];
     const record = Object.fromEntries(headers.map((header, index) => [header, source[index] ?? ""]));
     const contactName = clean(cell(record, ["contactname", "name", "customername", "fullname"]));
     const contactEmail = clean(cell(record, ["email", "emailaddress", "customeremail"]))?.toLowerCase() ?? null;
     const contactPhone = clean(cell(record, ["phone", "telephone", "mobile", "customerphone"]));
-    const identity = contactEmail ? `email:${contactEmail}` : contactPhone ? `phone:${contactPhone.replace(/\D/g, "")}` : null;
-    if (!identity || !contactName || seen.has(identity)) { rejected += 1; continue; }
-    seen.add(identity);
-    rows.push({
+    const candidate = {
       contactName,
       contactEmail,
       contactPhone,
       company: clean(cell(record, ["company", "business", "companyname"])),
       location: clean(cell(record, ["location", "city", "zip", "zipcode", "postalcode", "address"])),
       notes: clean(cell(record, ["notes", "note", "comments"])),
-    });
+    };
+    const identities = crmCustomerImportIdentities(candidate);
+    const displayName = contactName ?? contactEmail ?? contactPhone ?? `Row ${index + 1}`;
+    if (!contactName) { skipped.push({ rowNumber: index + 1, contactName: displayName, reason: "Missing customer name." }); continue; }
+    if (!identities.length) { skipped.push({ rowNumber: index + 1, contactName, reason: "Email or phone is required." }); continue; }
+    if (identities.some((identity) => seen.has(identity))) { skipped.push({ rowNumber: index + 1, contactName, reason: "Duplicate email or phone in this upload." }); continue; }
+    identities.forEach((identity) => seen.add(identity));
+    rows.push(candidate as CrmCustomerImportRow);
   }
-  return { rows, rejected };
+  return { rows, skipped };
+}
+
+export function crmCustomerImportIdentities(row: Pick<CrmCustomerImportRow, "contactEmail" | "contactPhone">): string[] {
+  const identities: string[] = [];
+  if (row.contactEmail?.trim()) identities.push(`email:${row.contactEmail.trim().toLowerCase()}`);
+  const phone = row.contactPhone?.replace(/\D/g, "");
+  if (phone) identities.push(`phone:${phone}`);
+  return identities;
 }
 
 export function crmCustomerImportIdentity(row: Pick<CrmCustomerImportRow, "contactEmail" | "contactPhone">): string | null {
-  if (row.contactEmail?.trim()) return `email:${row.contactEmail.trim().toLowerCase()}`;
-  const phone = row.contactPhone?.replace(/\D/g, "");
-  return phone ? `phone:${phone}` : null;
+  return crmCustomerImportIdentities(row)[0] ?? null;
+}
+
+export function prepareCrmCustomerImport(
+  rows: readonly CrmCustomerImportRow[],
+  existingIdentities: ReadonlySet<string>,
+): { accepted: CrmCustomerImportRow[]; skipped: CrmCustomerImportSkippedRow[] } {
+  const seen = new Set(existingIdentities);
+  const accepted: CrmCustomerImportRow[] = [];
+  const skipped: CrmCustomerImportSkippedRow[] = [];
+  rows.forEach((row, index) => {
+    const identities = crmCustomerImportIdentities(row);
+    if (!identities.length) { skipped.push({ rowNumber: index + 1, contactName: row.contactName, reason: "Email or phone is required." }); return; }
+    const existingEmail = identities.find((identity) => identity.startsWith("email:") && existingIdentities.has(identity));
+    const existingPhone = identities.find((identity) => identity.startsWith("phone:") && existingIdentities.has(identity));
+    if (existingEmail || existingPhone) { skipped.push({ rowNumber: index + 1, contactName: row.contactName, reason: existingEmail ? "Duplicate email already exists in this CRM." : "Duplicate phone already exists in this CRM." }); return; }
+    if (identities.some((identity) => seen.has(identity))) { skipped.push({ rowNumber: index + 1, contactName: row.contactName, reason: "Duplicate email or phone in this import." }); return; }
+    identities.forEach((identity) => seen.add(identity));
+    accepted.push(row);
+  });
+  return { accepted, skipped };
 }
