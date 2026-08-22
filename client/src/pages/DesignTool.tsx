@@ -52,7 +52,7 @@ import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
-import { currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
+import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildDesignShareUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
@@ -965,13 +965,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
   // Legacy saved plans can keep an older database ID after catalog maintenance.
   // Their placed geometry remains untouched, while pricing resolves through the
-  // active catalog record carrying the same exact master code.
+  // unambiguous active catalog record carrying the same exact master code.
   const activeCatalogIdByMasterCode = useMemo(
-    () => new Map(
-      ((liveMasterCabinets ?? []) as DesignCabinet[])
-        .filter((cabinet) => Boolean(cabinet.masterCode))
-        .map((cabinet) => [cabinet.masterCode, Number(cabinet.id)] as const),
-    ),
+    () => activeCatalogPricingIdsByMasterCode((liveMasterCabinets ?? []) as DesignCabinet[]),
     [liveMasterCabinets],
   );
   const pricingCabinetIdFor = useCallback(

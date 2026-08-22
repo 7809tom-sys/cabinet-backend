@@ -701,3 +701,4 @@
 - [x] Smart Gap preview navigation: Add safe left-and-right keyboard shortcuts to cycle filtered recommendations during active 3D preview
 - [x] Smart Gap preview motion: Add a brief reduced-motion-aware fade transition while cycling temporary 3D cabinet previews
 - [x] Smart Gap preview counter: Display the active recommendation number and total count in the 3D temporary preview overlay
+- [x] Designer pricing: Harden saved-design pricing so duplicate active master codes cannot silently resolve to an unrelated catalog price record in the designer or 3D view
