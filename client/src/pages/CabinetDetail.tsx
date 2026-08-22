@@ -42,7 +42,7 @@ import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
-import { canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE } from "@shared/cabinetConfigReview";
+import { CABINET_ATTENTION_RETURN_URL, canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE } from "@shared/cabinetConfigReview";
 
 // ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
 const FALLBACK_CATEGORIES = [
@@ -358,6 +358,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     const n = v ? Number(v) : NaN;
     return Number.isInteger(n) && n > 0 ? n : null;
   })();
+  const openedFromCabinetAttention = new URLSearchParams(searchStr).get("from") === "cabinet-attention";
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
   const { user } = useAuth();
   // The viewer's storefront tier: guests/homeowners see retail; logged-in pros
@@ -895,6 +896,14 @@ export default function CabinetDetail({ masterCode }: Props) {
             <ChevronLeft className="h-3.5 w-3.5" />
             Catalog
           </Link>
+          {openedFromCabinetAttention && (
+            <>
+              <span>/</span>
+              <Link href={CABINET_ATTENTION_RETURN_URL} className="font-medium text-primary hover:underline">
+                Back to Cabinet Attention
+              </Link>
+            </>
+          )}
           {cabinet.category && (
             <>
               <span>/</span>
@@ -1414,6 +1423,14 @@ export default function CabinetDetail({ masterCode }: Props) {
                 Edit Cabinet
                 <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{resolvedMasterCode}</span>
               </DialogTitle>
+              {openedFromCabinetAttention && (
+                <Button asChild size="sm" variant="outline" className="mt-3 w-fit gap-1.5">
+                  <Link href={CABINET_ATTENTION_RETURN_URL}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Back to Cabinet Attention
+                  </Link>
+                </Button>
+              )}
             </DialogHeader>
 
             <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
@@ -2313,6 +2330,11 @@ export default function CabinetDetail({ masterCode }: Props) {
             )}
 
             <DialogFooter className="gap-2 shrink-0 border-t border-border pt-4">
+              {openedFromCabinetAttention && (
+                <Button asChild variant="outline" className="mr-auto">
+                  <Link href={CABINET_ATTENTION_RETURN_URL}>Back to Attention</Link>
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setEditOpen(false)}>
                 Cancel
               </Button>

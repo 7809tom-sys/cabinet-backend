@@ -25,8 +25,10 @@ export function cabinetConfigQuickEditUrl(cabinetId: number): string {
 
 /** Opens the full front-end cabinet editor with an exact record ID for non-catalog entry points. */
 export function cabinetFrontEndQuickEditUrl(masterCode: string, cabinetId: number): string {
-  return `/catalog/${encodeURIComponent(masterCode)}?edit=1&cabinetId=${cabinetId}`;
+  return `/catalog/${encodeURIComponent(masterCode)}?edit=1&cabinetId=${cabinetId}&from=cabinet-attention`;
 }
+
+export const CABINET_ATTENTION_RETURN_URL = "/admin?tab=cabinet-attention";
 
 export const CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES = {
   target: "_blank",

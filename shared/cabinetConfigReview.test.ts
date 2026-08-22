@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CABINET_ATTENTION_SEARCH_PLACEHOLDER,
   CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
+  CABINET_ATTENTION_RETURN_URL,
   DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE,
   cabinetConfigAttentionReasons,
   cabinetFrontEndQuickEditUrl,
@@ -40,7 +41,11 @@ describe("cabinet configuration review queue", () => {
   });
 
   it("opens Cabinet Attention edits in the same front-end cabinet editor", () => {
-    expect(cabinetFrontEndQuickEditUrl("B24 A/2", 482)).toBe("/catalog/B24%20A%2F2?edit=1&cabinetId=482");
+    expect(cabinetFrontEndQuickEditUrl("B24 A/2", 482)).toBe("/catalog/B24%20A%2F2?edit=1&cabinetId=482&from=cabinet-attention");
+  });
+
+  it("provides a direct return destination for phone users editing from Cabinet Attention", () => {
+    expect(CABINET_ATTENTION_RETURN_URL).toBe("/admin?tab=cabinet-attention");
   });
 
   it("keeps the Cabinet Attention workspace open when launching the front-end editor", () => {
