@@ -28,7 +28,7 @@ import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
   CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload,
 } from "lucide-react";
-import { parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
+import { crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
@@ -457,6 +457,7 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
   const [preflightSkipped, setPreflightSkipped] = useState<CrmCustomerImportSkippedRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [report, setReport] = useState<{ imported: number; skipped: CrmCustomerImportSkippedRow[] } | null>(null);
+  const [progress, setProgress] = useState<{ value: number; label: string } | null>(null);
   const importList = trpc.crm.importCustomerList.useMutation({
     onSuccess: ({ imported, skipped }) => {
       setReport({ imported, skipped: [...preflightSkipped, ...skipped] });
@@ -467,12 +468,23 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
   });
   const readFile = (file?: File) => {
     if (!file) return;
+    setRows([]); setPreflightSkipped([]); setReport(null); setFileName(file.name);
+    setProgress({ value: 5, label: "Reading customer list…" });
     const reader = new FileReader();
+    reader.onprogress = (event) => setProgress({
+      value: crmCustomerFileReadProgress(event.loaded, event.total),
+      label: "Reading customer list…",
+    });
     reader.onload = () => {
-      const parsed = parseCrmCustomerListCsv(String(reader.result ?? ""));
-      setRows(parsed.rows); setPreflightSkipped(parsed.skipped); setFileName(file.name); setReport(null);
-      if (!parsed.rows.length) toast.error("No valid rows found. Include Name plus Email or Phone columns.");
+      setProgress({ value: 90, label: "Parsing customer rows…" });
+      window.setTimeout(() => {
+        const parsed = parseCrmCustomerListCsv(String(reader.result ?? ""));
+        setRows(parsed.rows); setPreflightSkipped(parsed.skipped); setProgress({ value: 100, label: "Preview ready." });
+        if (!parsed.rows.length) toast.error("No valid rows found. Include Name plus Email or Phone columns.");
+        window.setTimeout(() => setProgress(null), 700);
+      }, 0);
     };
+    reader.onerror = () => { setProgress(null); toast.error("Could not read that customer list."); };
     reader.readAsText(file);
   };
   return (
@@ -482,6 +494,12 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
         <DialogHeader><DialogTitle>Import customer list</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">Upload a CSV exported from Excel, Google Sheets, or another CRM. Supported columns: Name, Email, Phone, Company, City/ZIP, and Notes. The original file stays on your device; only previewed customer records are sent.</p>
         <Input type="file" accept=".csv,text/csv" onChange={(event) => readFile(event.target.files?.[0])} />
+        {progress && <div className="space-y-1.5" aria-live="polite">
+          <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{progress.label}</span><span>{progress.value}%</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Customer list upload and parsing progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.value}>
+            <div className="h-full rounded-full bg-[var(--color-gold,#d4a64a)] transition-[width] duration-200 ease-out" style={{ width: `${progress.value}%` }} />
+          </div>
+        </div>}
         {fileName && <p className="text-xs text-muted-foreground">{fileName}: {rows.length} ready{preflightSkipped.length ? ` · ${preflightSkipped.length} row${preflightSkipped.length === 1 ? "" : "s"} skipped before import` : ""}</p>}
         {rows.length > 0 && <div className="max-h-56 overflow-auto rounded border border-border">
           <table className="w-full text-sm"><thead className="sticky top-0 bg-muted text-left"><tr><th className="p-2">Customer</th><th className="p-2">Email / phone</th><th className="p-2">Company</th></tr></thead>

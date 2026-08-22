@@ -704,3 +704,4 @@
 - [x] Designer pricing: Harden saved-design pricing so duplicate active master codes cannot silently resolve to an unrelated catalog price record in the designer or 3D view
 - [x] CRM import: Add an administrator customer-list upload, preview, duplicate-safe import, and contact creation workflow
 - [x] CRM import reporting: Show imported totals and row-level skipped reasons after each customer-list import
+- [x] CRM import progress: Show accessible file-read and parsing progress for large customer-list uploads before preview

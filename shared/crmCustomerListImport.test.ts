@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCrmCustomerListCsv, prepareCrmCustomerImport } from "./crmCustomerListImport";
+import { crmCustomerFileReadProgress, parseCrmCustomerListCsv, prepareCrmCustomerImport } from "./crmCustomerListImport";
 
 describe("parseCrmCustomerListCsv", () => {
   it("maps common customer-list headers and removes duplicate identities", () => {
@@ -26,5 +26,11 @@ describe("parseCrmCustomerListCsv", () => {
       "Duplicate email already exists in this CRM.",
       "Duplicate email or phone in this import.",
     ]);
+  });
+
+  it("reserves progress feedback for the parsing phase after the file has been read", () => {
+    expect(crmCustomerFileReadProgress(50, 100)).toBe(43);
+    expect(crmCustomerFileReadProgress(100, 100)).toBe(85);
+    expect(crmCustomerFileReadProgress(0, 0)).toBe(5);
   });
 });

@@ -52,6 +52,12 @@ export function parseCsvRecords(text: string): string[][] {
   return rows;
 }
 
+/** Reserves the final portion of the indicator for synchronous CSV parsing. */
+export function crmCustomerFileReadProgress(loaded: number, total: number): number {
+  if (!Number.isFinite(total) || total <= 0) return 5;
+  return Math.max(5, Math.min(85, Math.round((Math.max(0, loaded) / total) * 85)));
+}
+
 export function parseCrmCustomerListCsv(text: string): ParsedCrmCustomerList {
   const records = parseCsvRecords(text);
   if (records.length < 2) return { rows: [], skipped: [] };
