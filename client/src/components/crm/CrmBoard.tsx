@@ -26,9 +26,9 @@ import {
 } from "@shared/crm";
 import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
-  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload,
+  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload, Download,
 } from "lucide-react";
-import { crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
+import { CRM_CUSTOMER_LIST_TEMPLATE, crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
@@ -487,12 +487,22 @@ function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliate
     reader.onerror = () => { setProgress(null); toast.error("Could not read that customer list."); };
     reader.readAsText(file);
   };
+  const downloadTemplate = () => {
+    const url = URL.createObjectURL(new Blob([CRM_CUSTOMER_LIST_TEMPLATE], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "cabinetdealz-customer-import-template.csv";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button variant="outline" className="bg-card"><Upload className="h-4 w-4 mr-1" />Customer list</Button></DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Import customer list</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Upload a CSV exported from Excel, Google Sheets, or another CRM. Supported columns: Name, Email, Phone, Company, City/ZIP, and Notes. The original file stays on your device; only previewed customer records are sent.</p>
+        <div className="flex flex-wrap items-start justify-between gap-2"><p className="text-sm text-muted-foreground">Upload a CSV exported from Excel, Google Sheets, or another CRM. Supported columns: Name, Email, Phone, Company, City/ZIP, and Notes. The original file stays on your device; only previewed customer records are sent.</p><Button type="button" size="sm" variant="outline" onClick={downloadTemplate}><Download className="h-3.5 w-3.5 mr-1" />Download sample CSV</Button></div>
         <Input type="file" accept=".csv,text/csv" onChange={(event) => readFile(event.target.files?.[0])} />
         {progress && <div className="space-y-1.5" aria-live="polite">
           <div className="flex items-center justify-between text-xs text-muted-foreground"><span>{progress.label}</span><span>{progress.value}%</span></div>

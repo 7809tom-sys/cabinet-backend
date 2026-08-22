@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crmCustomerFileReadProgress, parseCrmCustomerListCsv, prepareCrmCustomerImport } from "./crmCustomerListImport";
+import { CRM_CUSTOMER_LIST_TEMPLATE, crmCustomerFileReadProgress, parseCrmCustomerListCsv, prepareCrmCustomerImport } from "./crmCustomerListImport";
 
 describe("parseCrmCustomerListCsv", () => {
   it("maps common customer-list headers and removes duplicate identities", () => {
@@ -32,5 +32,11 @@ describe("parseCrmCustomerListCsv", () => {
     expect(crmCustomerFileReadProgress(50, 100)).toBe(43);
     expect(crmCustomerFileReadProgress(100, 100)).toBe(85);
     expect(crmCustomerFileReadProgress(0, 0)).toBe(5);
+  });
+
+  it("provides a sample CSV template that parses with the supported customer columns", () => {
+    const result = parseCrmCustomerListCsv(CRM_CUSTOMER_LIST_TEMPLATE);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ contactName: "Example Customer", contactEmail: "customer@example.com", company: "Example Company" });
   });
 });

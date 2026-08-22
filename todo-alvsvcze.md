@@ -705,3 +705,4 @@
 - [x] CRM import: Add an administrator customer-list upload, preview, duplicate-safe import, and contact creation workflow
 - [x] CRM import reporting: Show imported totals and row-level skipped reasons after each customer-list import
 - [x] CRM import progress: Show accessible file-read and parsing progress for large customer-list uploads before preview
+- [x] CRM import template: Add a sample CSV download with supported customer columns and an example record

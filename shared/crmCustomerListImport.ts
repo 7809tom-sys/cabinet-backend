@@ -18,6 +18,11 @@ export type ParsedCrmCustomerList = {
   skipped: CrmCustomerImportSkippedRow[];
 };
 
+export const CRM_CUSTOMER_LIST_TEMPLATE = [
+  "Name,Email,Phone,Company,City,Notes",
+  "Example Customer,customer@example.com,555-010-0100,Example Company,Tampa,Kitchen remodel inquiry",
+].join("\r\n");
+
 function clean(value: string | undefined): string | null {
   const result = value?.trim() ?? "";
   return result || null;
