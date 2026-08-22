@@ -30,6 +30,14 @@ export function cabinetFrontEndQuickEditUrl(masterCode: string, cabinetId: numbe
 
 export const CABINET_ATTENTION_RETURN_URL = "/admin?tab=cabinet-attention";
 
+/** Only administrators who entered from Cabinet Attention should see or trigger admin return navigation. */
+export function shouldShowCabinetAttentionReturn(
+  isAdministrator: boolean,
+  source: string | null | undefined,
+): boolean {
+  return isAdministrator && source === "cabinet-attention";
+}
+
 export const CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES = {
   target: "_blank",
   rel: "noopener noreferrer",

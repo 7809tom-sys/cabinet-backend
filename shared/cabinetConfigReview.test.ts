@@ -11,6 +11,7 @@ import {
   distributorLineLabels,
   needsCabinetConfigAttention,
   selectedDistributorLineId,
+  shouldShowCabinetAttentionReturn,
 } from "./cabinetConfigReview";
 
 describe("cabinet configuration review queue", () => {
@@ -46,6 +47,13 @@ describe("cabinet configuration review queue", () => {
 
   it("provides a direct return destination for phone users editing from Cabinet Attention", () => {
     expect(CABINET_ATTENTION_RETURN_URL).toBe("/admin?tab=cabinet-attention");
+  });
+
+  it("shows Cabinet Attention return navigation only to administrators from that queue", () => {
+    expect(shouldShowCabinetAttentionReturn(true, "cabinet-attention")).toBe(true);
+    expect(shouldShowCabinetAttentionReturn(false, "cabinet-attention")).toBe(false);
+    expect(shouldShowCabinetAttentionReturn(true, "catalog")).toBe(false);
+    expect(shouldShowCabinetAttentionReturn(true, null)).toBe(false);
   });
 
   it("keeps the Cabinet Attention workspace open when launching the front-end editor", () => {

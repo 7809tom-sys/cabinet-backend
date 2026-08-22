@@ -707,3 +707,5 @@
 - [x] CRM import progress: Show accessible file-read and parsing progress for large customer-list uploads before preview
 - [x] CRM import template: Add a sample CSV download with supported customer columns and an example record
 - [x] Cabinet Attention mobile return: Add a direct Back to Cabinet Attention shortcut when Edit Config opens the cabinet editor on phones
+- [x] Cabinet Attention post-save return: After saving an editor opened from Cabinet Attention, return directly to Admin → Cabinet Attention instead of the catalog page
+- [x] Cabinet Attention admin-only return: Keep Back to Cabinet Attention shortcuts and post-save return hidden and inactive for non-admin public viewers

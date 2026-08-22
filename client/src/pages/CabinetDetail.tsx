@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check, Lock,
@@ -42,7 +42,7 @@ import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
-import { CABINET_ATTENTION_RETURN_URL, canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE } from "@shared/cabinetConfigReview";
+import { CABINET_ATTENTION_RETURN_URL, canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE, shouldShowCabinetAttentionReturn } from "@shared/cabinetConfigReview";
 
 // ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
 const FALLBACK_CATEGORIES = [
@@ -340,6 +340,7 @@ interface Props {
 export default function CabinetDetail({ masterCode }: Props) {
   const { categoryNames, subCategoriesMap } = useDynamicCategories();
   const searchStr = useSearch();
+  const [, setLocation] = useLocation();
   const canonicalMasterCode = canonicalCabinetDetailCode(masterCode);
   const affiliateSlug = useMemo(() => {
     if (typeof window === "undefined") return undefined;
@@ -358,7 +359,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     const n = v ? Number(v) : NaN;
     return Number.isInteger(n) && n > 0 ? n : null;
   })();
-  const openedFromCabinetAttention = new URLSearchParams(searchStr).get("from") === "cabinet-attention";
+  const cabinetAttentionReturnSource = new URLSearchParams(searchStr).get("from");
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
   const { user } = useAuth();
   // The viewer's storefront tier: guests/homeowners see retail; logged-in pros
@@ -374,6 +375,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Administration sees raw My Cost. An authorized affiliate owner sees only a
   // separate, multiplier-adjusted Affiliate Cost. Customers and staff see neither.
   const isOwner = user?.role === "admin";
+  const showCabinetAttentionReturn = shouldShowCabinetAttentionReturn(isOwner, cabinetAttentionReturnSource);
   const visibleTiers: PricingTier[] = isPro || isOwner
     ? ["homeowner", "contractor", "wholesale"]
     : ["homeowner"];
@@ -648,6 +650,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       toast.success("Cabinet updated");
       utils.cabinets.byCode.invalidate({ masterCode });
       setEditOpen(false);
+      if (showCabinetAttentionReturn) {
+        setLocation(CABINET_ATTENTION_RETURN_URL);
+      }
     },
     onError: (err) => toast.error(`Save failed: ${err.message}`),
   });
@@ -896,7 +901,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             <ChevronLeft className="h-3.5 w-3.5" />
             Catalog
           </Link>
-          {openedFromCabinetAttention && (
+          {showCabinetAttentionReturn && (
             <>
               <span>/</span>
               <Link href={CABINET_ATTENTION_RETURN_URL} className="font-medium text-primary hover:underline">
@@ -1423,7 +1428,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                 Edit Cabinet
                 <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{resolvedMasterCode}</span>
               </DialogTitle>
-              {openedFromCabinetAttention && (
+              {showCabinetAttentionReturn && (
                 <Button asChild size="sm" variant="outline" className="mt-3 w-fit gap-1.5">
                   <Link href={CABINET_ATTENTION_RETURN_URL}>
                     <ChevronLeft className="h-3.5 w-3.5" />
@@ -2330,7 +2335,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             )}
 
             <DialogFooter className="gap-2 shrink-0 border-t border-border pt-4">
-              {openedFromCabinetAttention && (
+              {showCabinetAttentionReturn && (
                 <Button asChild variant="outline" className="mr-auto">
                   <Link href={CABINET_ATTENTION_RETURN_URL}>Back to Attention</Link>
                 </Button>
