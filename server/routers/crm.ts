@@ -37,6 +37,7 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
+import { crmCustomerImportIdentity } from "@shared/crmCustomerListImport";
 
 /**
  * Record a flat $400 commission when a deal owned by a sales rep transitions to
@@ -197,6 +198,53 @@ const dealCoreInput = {
 };
 
 export const crmRouter = router({
+  // ── Import a customer list into the caller's CRM scope ──────────────────────
+  importCustomerList: protectedProcedure
+    .input(z.object({
+      rows: z.array(z.object({
+        contactName: z.string().min(1).max(256),
+        contactEmail: z.string().email().max(320).nullable(),
+        contactPhone: z.string().max(32).nullable(),
+        company: z.string().max(256).nullable(),
+        location: z.string().max(256).nullable(),
+        notes: z.string().max(8000).nullable(),
+      })).min(1).max(500),
+      affiliateId: z.number().int().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const callerScope = await resolveScope(ctx);
+      const scope = resolveBoardScope(callerScope, input.affiliateId);
+      const where = scopeWhere(scope);
+      const existingQuery = db.select({ contactEmail: crmDeals.contactEmail, contactPhone: crmDeals.contactPhone }).from(crmDeals);
+      const existing = await (where ? existingQuery.where(where) : existingQuery);
+      const seen = new Set(existing.map((row) => crmCustomerImportIdentity(row)).filter((key): key is string => !!key));
+      const rows = input.rows.filter((row) => {
+        const key = crmCustomerImportIdentity(row);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (rows.length) {
+        await db.insert(crmDeals).values(rows.map((row) => ({
+          affiliateId: scope.kind === "affiliate" ? scope.affiliateId : null,
+          ownerUserId: scope.kind === "contractor" ? scope.userId : ctx.user.id,
+          title: `${row.company ?? row.contactName} — ${row.contactName}`.slice(0, 256),
+          stage: "new" as const,
+          priority: "medium" as const,
+          contactName: row.contactName,
+          contactEmail: row.contactEmail,
+          contactPhone: row.contactPhone,
+          company: row.company,
+          location: row.location,
+          source: "manual" as const,
+          notes: row.notes ? `Customer list import: ${row.notes}` : "Customer list import.",
+        })));
+      }
+      return { imported: rows.length, skipped: input.rows.length - rows.length };
+    }),
+
   // ── Board: all deals grouped by stage for the caller's scope ────────────────
   board: protectedProcedure
     .input(z.object({ affiliateId: z.number().int().optional() }).optional())

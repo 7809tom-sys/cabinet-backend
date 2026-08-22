@@ -26,8 +26,9 @@ import {
 } from "@shared/crm";
 import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
-  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText,
+  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload,
 } from "lucide-react";
+import { parseCrmCustomerListCsv, type CrmCustomerImportRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
 import { MASTER_AFFILIATE_FILTER_ALL, masterAffiliateFilterId } from "@/lib/crmMasterFilter";
 import { crmQuickInvoiceTotal, openCrmQuickInvoicePdf, type CrmQuickInvoiceBrand, type CrmQuickInvoiceLine } from "@/lib/crmQuickInvoice";
@@ -190,6 +191,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
             </Select>
           )}
           <ImportLeadsDialog lang={lang} />
+          <CustomerListImportDialog lang={lang} affiliateId={affiliateId} />
           <NewDealDialog lang={lang} affiliateId={affiliateId} />
         </div>
       </div>
@@ -445,6 +447,49 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label className="text-xs">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function CustomerListImportDialog({ lang, affiliateId }: { lang: Lang; affiliateId?: number }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<CrmCustomerImportRow[]>([]);
+  const [rejected, setRejected] = useState(0);
+  const [fileName, setFileName] = useState("");
+  const importList = trpc.crm.importCustomerList.useMutation({
+    onSuccess: ({ imported, skipped }) => {
+      toast.success(`${imported} customer${imported === 1 ? "" : "s"} added${skipped ? `; ${skipped} existing record${skipped === 1 ? "" : "s"} skipped` : ""}.`);
+      utils.crm.board.invalidate();
+      setOpen(false); setRows([]); setRejected(0); setFileName("");
+    },
+    onError: (error) => toast.error(error.message || "Couldn't import the customer list"),
+  });
+  const readFile = (file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = parseCrmCustomerListCsv(String(reader.result ?? ""));
+      setRows(parsed.rows); setRejected(parsed.rejected); setFileName(file.name);
+      if (!parsed.rows.length) toast.error("No valid rows found. Include Name plus Email or Phone columns.");
+    };
+    reader.readAsText(file);
+  };
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button variant="outline" className="bg-card"><Upload className="h-4 w-4 mr-1" />Customer list</Button></DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Import customer list</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">Upload a CSV exported from Excel, Google Sheets, or another CRM. Supported columns: Name, Email, Phone, Company, City/ZIP, and Notes. The original file stays on your device; only previewed customer records are sent.</p>
+        <Input type="file" accept=".csv,text/csv" onChange={(event) => readFile(event.target.files?.[0])} />
+        {fileName && <p className="text-xs text-muted-foreground">{fileName}: {rows.length} ready{rejected ? ` · ${rejected} invalid or duplicate row${rejected === 1 ? "" : "s"} skipped from the file` : ""}</p>}
+        {rows.length > 0 && <div className="max-h-56 overflow-auto rounded border border-border">
+          <table className="w-full text-sm"><thead className="sticky top-0 bg-muted text-left"><tr><th className="p-2">Customer</th><th className="p-2">Email / phone</th><th className="p-2">Company</th></tr></thead>
+            <tbody>{rows.slice(0, 100).map((row, index) => <tr key={`${row.contactEmail ?? row.contactPhone}-${index}`} className="border-t border-border"><td className="p-2">{row.contactName}</td><td className="p-2">{row.contactEmail ?? row.contactPhone}</td><td className="p-2">{row.company ?? "—"}</td></tr>)}</tbody>
+          </table>
+        </div>}
+        <DialogFooter><Button disabled={!rows.length || importList.isPending} onClick={() => importList.mutate({ rows, ...(affiliateId != null ? { affiliateId } : {}) })} className="bg-[var(--color-navy,#1a2b4a)] text-white">{importList.isPending ? "Importing…" : `Import ${rows.length || ""} customer${rows.length === 1 ? "" : "s"}`}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
