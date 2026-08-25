@@ -64,13 +64,18 @@ export function catalogFillerPricingId(
   candidates: readonly CatalogFillerCandidate[],
 ): number | null {
   const persistedId = numberValue(cabinet.cabinetId ?? cabinet.id);
-  if (persistedId > 0) return persistedId;
-  if (!isCatalogFiller({
+  const isFiller = isCatalogFiller({
     masterCode: cabinet.masterCode,
     description: cabinet.description ?? cabinet.masterCode,
     category: cabinet.category ?? null,
     subCategory: cabinet.subCategory ?? null,
-  })) return null;
+  });
+  if (!isFiller) return persistedId > 0 ? persistedId : null;
   const placement: CatalogFillerPlacement = cabinet.placement === "wall" ? "wall" : "base";
-  return catalogFillerForGap(candidates, numberValue(cabinet.width), placement)?.id ?? null;
+  const installedWidth = numberValue(cabinet.width);
+  const activePersisted = candidates.find((candidate) => candidate.id === persistedId);
+  if (activePersisted && isCatalogFiller(activePersisted) && numberValue(activePersisted.width) + 0.001 >= installedWidth) {
+    return persistedId;
+  }
+  return catalogFillerForGap(candidates, installedWidth, placement)?.id ?? null;
 }

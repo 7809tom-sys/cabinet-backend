@@ -712,3 +712,5 @@
 - [x] Cabinet Config save scope: Verify and clearly document whether Save Changes updates the shared master cabinet record across linked lines versus a single distributor override
 - [x] Cabinet Config save label: Rename the main editor Save Changes button to Save Master Changes (All Distributors) without changing save behavior
 - [x] Cabinet Config save confirmation: Add an administrator confirmation dialog before Save Master Changes (All Distributors) runs
+- [ ] Shared remote design sessions: Let a designer, sales rep, and homeowner open the same saved kitchen design from secure role-appropriate links for remote collaboration
+- [x] Designer pricing repair: Trace and correct the current designer/3D price issue using exact distributor, style, SKU, and approved catalog source without inventing prices
