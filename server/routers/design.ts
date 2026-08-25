@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
@@ -15,6 +16,7 @@ import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
+import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import {
   relevantCategories,
@@ -64,6 +66,47 @@ async function requireAffiliateDesignerAccess(
   }
   if (affiliateId != null && access.affiliateId !== affiliateId) {
     throw new TRPCError({ code: "FORBIDDEN", message: "This design belongs to another affiliate." });
+  }
+}
+
+type RemoteDesignSharePayload = {
+  designId: number;
+  affiliateId: number | null;
+  issuedAt: number;
+};
+
+function remoteDesignShareSecret() {
+  return ENV.cookieSecret || ENV.appId || "cabinet-dealz-remote-design-share-dev";
+}
+
+function encodeRemoteDesignSharePayload(payload: RemoteDesignSharePayload) {
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+}
+
+function signRemoteDesignSharePayload(encodedPayload: string) {
+  return createHmac("sha256", remoteDesignShareSecret()).update(encodedPayload).digest("base64url");
+}
+
+function createRemoteDesignShareToken(payload: RemoteDesignSharePayload) {
+  const encodedPayload = encodeRemoteDesignSharePayload(payload);
+  return `${encodedPayload}.${signRemoteDesignSharePayload(encodedPayload)}`;
+}
+
+function verifyRemoteDesignShareToken(token: string): RemoteDesignSharePayload | null {
+  const [encodedPayload, signature, extra] = token.split(".");
+  if (!encodedPayload || !signature || extra) return null;
+  const expected = signRemoteDesignSharePayload(encodedPayload);
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length || !timingSafeEqual(expectedBuffer, signatureBuffer)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Partial<RemoteDesignSharePayload>;
+    if (!Number.isInteger(parsed.designId) || parsed.designId! <= 0) return null;
+    if (parsed.affiliateId !== null && parsed.affiliateId !== undefined && (!Number.isInteger(parsed.affiliateId) || parsed.affiliateId <= 0)) return null;
+    if (!Number.isInteger(parsed.issuedAt) || parsed.issuedAt! <= 0) return null;
+    return { designId: parsed.designId!, affiliateId: parsed.affiliateId ?? null, issuedAt: parsed.issuedAt! };
+  } catch {
+    return null;
   }
 }
 
@@ -1136,6 +1179,82 @@ export const designRouter = router({
         ))
         .limit(1);
       return rows[0] ?? null;
+    }),
+
+  createRemoteShareLink: protectedProcedure
+    .input(z.object({ designId: z.number().int().positive(), affiliateSlug: z.string().max(255).optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const affiliateId = affiliate?.id ?? null;
+      await requireAffiliateDesignerAccess(db, ctx, affiliateId);
+
+      const rows = await db
+        .select({
+          id: kitchenDesigns.id,
+          userId: kitchenDesigns.userId,
+          affiliateId: kitchenDesigns.affiliateId,
+          name: kitchenDesigns.name,
+        })
+        .from(kitchenDesigns)
+        .where(and(
+          eq(kitchenDesigns.id, input.designId),
+          affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+        ))
+        .limit(1);
+      const design = rows[0];
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+      if (ctx.user.role !== "admin" && affiliateId == null && design.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only share your own saved design." });
+      }
+
+      const token = createRemoteDesignShareToken({
+        designId: design.id,
+        affiliateId,
+        issuedAt: Date.now(),
+      });
+      return { token, designName: design.name };
+    }),
+
+  remoteSharedDesign: publicProcedure
+    .input(z.object({ token: z.string().min(24).max(512) }))
+    .query(async ({ input }) => {
+      const payload = verifyRemoteDesignShareToken(input.token);
+      if (!payload) throw new TRPCError({ code: "NOT_FOUND", message: "This shared design link is not valid." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const rows = await db
+        .select({
+          id: kitchenDesigns.id,
+          name: kitchenDesigns.name,
+          projectName: kitchenDesigns.projectName,
+          roomLabel: kitchenDesigns.roomLabel,
+          roomType: kitchenDesigns.roomType,
+          roomData: kitchenDesigns.roomData,
+          placedCabinets: kitchenDesigns.placedCabinets,
+          selectedSurfaces: kitchenDesigns.selectedSurfaces,
+          threeDPresentation: kitchenDesigns.threeDPresentation,
+          selectedStyleId: kitchenDesigns.selectedStyleId,
+          selectedDistributorId: kitchenDesigns.selectedDistributorId,
+          updatedAt: kitchenDesigns.updatedAt,
+        })
+        .from(kitchenDesigns)
+        .where(and(
+          eq(kitchenDesigns.id, payload.designId),
+          payload.affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, payload.affiliateId),
+        ))
+        .limit(1);
+      const design = rows[0];
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "This shared design is no longer available." });
+      return {
+        session: {
+          kind: "remote_design" as const,
+          status: "live" as const,
+          issuedAt: new Date(payload.issuedAt),
+        },
+        design,
+      };
     }),
 
   // ─── Lead capture at designer launch ──────────────────────────────────────

@@ -91,6 +91,8 @@ interface Props {
   contactEmail?: string | null;
   /** Affiliate context makes saved designs, plans, exports, and CRM links private to that affiliate. */
   affiliateSlug?: string | null;
+  /** Existing saved-design identity. When present, Save updates that shared plan instead of creating an unrelated copy. */
+  currentDesignId?: number | null;
   /** Visible only in affiliate sessions; removes platform branding from exports. */
   brandName?: string | null;
   // Incrementing signals from a parent (e.g. the mobile "More" sheet) to open the
@@ -100,6 +102,7 @@ interface Props {
   /** Called after a design is successfully saved (after the user confirms in the dialog). */
   onSaveSuccess?: (designName: string, designId: number) => void;
   onLoad: (d: {
+    id?: number;
     room: RoomData;
     placed: PlacedCabinet[];
     styleId: number | null;
@@ -343,7 +346,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -411,6 +414,7 @@ export function DesignActions({
     const proj = projectName.trim();
     const rlabel = roomLabel.trim();
     saveMutation.mutate({
+      id: currentDesignId ?? undefined,
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
       email: contactEmail ?? undefined,
       affiliateSlug: affiliateSlug ?? undefined,
@@ -592,9 +596,10 @@ export function DesignActions({
                         <button
                           key={d.id}
                           className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                          onClick={() => {
-                            onLoad({
-                              room: (d.roomData as RoomData) ?? room,
+	                          onClick={() => {
+	                            onLoad({
+	                              id: d.id,
+	                              room: (d.roomData as RoomData) ?? room,
                               placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
                               styleId: d.selectedStyleId ?? null,
                               distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,

@@ -54,7 +54,7 @@ import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
-import { buildDesignShareUrl } from "@/lib/designShare";
+import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -341,6 +341,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
+  const [activeSavedDesignId, setActiveSavedDesignId] = useState<number | null>(() => loadDesignId);
+  useEffect(() => {
+    setActiveSavedDesignId(loadDesignId);
+  }, [loadDesignId]);
   // Administration can inspect an existing saved design directly. This is a
   // read-only entry path into the same renderer and intentionally avoids
   // creating another customer lead merely to validate or support that design.
@@ -5655,32 +5659,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   };
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [planImportOpen, setPlanImportOpen] = useState(false);
+  const createRemoteShareLinkMut = trpc.design.createRemoteShareLink.useMutation();
   const shareCurrentDesign = async () => {
-    if (loadDesignId == null) {
-      toast.info("Save this design first to create a shareable design link.");
+    const designIdForShare = activeSavedDesignId ?? loadDesignId;
+    if (designIdForShare == null) {
+      toast.info("Save this design first to create a remote homeowner link.");
       return;
     }
-    const url = buildDesignShareUrl({
-      origin: window.location.origin,
-      designId: loadDesignId,
-      affiliateSlug,
-    });
-    const title = savedDesign?.name?.trim() || "Kitchen design";
     try {
+      const share = await createRemoteShareLinkMut.mutateAsync({
+        designId: designIdForShare,
+        affiliateSlug: affiliateSlug ?? undefined,
+      });
+      const url = buildRemoteDesignSessionUrl({ origin: window.location.origin, token: share.token });
+      const title = share.designName?.trim() || savedDesign?.name?.trim() || "Kitchen design";
       if (navigator.share) {
-        await navigator.share({ title, text: `View ${title}`, url });
-        toast.success("Design share link opened.");
+        await navigator.share({ title, text: `Open the remote live view for ${title}`, url });
+        toast.success("Remote design link opened.");
         return;
       }
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        toast.success("Affiliate-branded design link copied.");
+        toast.success("Remote homeowner design link copied.");
         return;
       }
-      window.prompt("Copy this design link", url);
+      window.prompt("Copy this remote design link", url);
     } catch (error) {
       if ((error as { name?: string } | null)?.name !== "AbortError") {
-        toast.error("Could not share this design. Please try again.");
+        toast.error("Could not create the remote design link. Please save and try again.");
       }
     }
   };
@@ -5894,14 +5900,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="hidden lg:inline-flex shrink-0"
-          onClick={shareCurrentDesign}
-          disabled={loadDesignId == null}
-          title={loadDesignId == null ? "Save this design before sharing" : "Share this affiliate-branded design"}
-        >
-          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share Design
-        </Button>
+	          size="sm"
+	          className="hidden lg:inline-flex shrink-0"
+	          onClick={shareCurrentDesign}
+	          disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
+	          title={(activeSavedDesignId ?? loadDesignId) == null ? "Save this design before sharing" : "Share a read-only remote homeowner view"}
+	        >
+	          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Remote Share
+	        </Button>
 
         <div className="lg:hidden flex shrink-0 items-center rounded-full border border-border bg-muted/30 p-0.5">
           <button
@@ -6949,12 +6955,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             buildRows={buildRows}
             roomType={roomType}
             contactEmail={verifiedEmail}
-            affiliateSlug={affiliateSlug}
-            brandName={affiliateBrand?.storeName}
+	            affiliateSlug={affiliateSlug}
+	            currentDesignId={activeSavedDesignId ?? loadDesignId}
+	            brandName={affiliateBrand?.storeName}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
-            onSaveSuccess={(designName, designId) => {
-              if (isMobile) {
+	            onSaveSuccess={(designName, designId) => {
+	              setActiveSavedDesignId(designId);
+	              if (isMobile) {
                 toast.success("Design saved", {
                   description: designName,
                   action: {
@@ -6970,7 +6978,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             }}
             onLoad={(d) =>
               {
-                loadSavedDesign({
+	                setActiveSavedDesignId(d.id ?? null);
+	                loadSavedDesign({
                   ...d,
                   selectedSurfaces: Array.isArray(d.selectedSurfaces)
                     ? (d.selectedSurfaces as SelectedSurface[])
@@ -9466,10 +9475,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             />
             <MobileBarButton
               icon={<Share2 className="h-5 w-5" />}
-              label="Share"
-              disabled={loadDesignId == null}
-              onClick={shareCurrentDesign}
-            />
+	              label="Share"
+	              disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
+	              onClick={shareCurrentDesign}
+	            />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
               label="Cart"

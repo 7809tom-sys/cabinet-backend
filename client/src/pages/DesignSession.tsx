@@ -12,6 +12,7 @@ export default function DesignSession() {
   const params = useParams();
   const token = (params as { token?: string }).token ?? "";
   const { t } = useLanguage();
+  const isRemoteDesignToken = token.includes(".");
 
   const MODE_META: Record<string, { icon: React.ReactNode; label: string }> = {
     video: { icon: <Video className="h-4 w-4" />, label: t("ds_mode_video") },
@@ -20,9 +21,13 @@ export default function DesignSession() {
   };
 
   // Poll every 4s so the customer sees the designer's saved updates near-live.
-  const { data, isLoading, error } = trpc.consultations.sharedSession.useQuery(
+  const consultationQuery = trpc.consultations.sharedSession.useQuery(
     { token },
-    { enabled: token.length >= 8, refetchInterval: 4000 },
+    { enabled: token.length >= 8 && !isRemoteDesignToken, refetchInterval: 4000, retry: false },
+  );
+  const remoteDesignQuery = trpc.design.remoteSharedDesign.useQuery(
+    { token },
+    { enabled: token.length >= 8 && isRemoteDesignToken, refetchInterval: 4000, retry: false },
   );
 
   if (token.length < 8) {
@@ -34,6 +39,11 @@ export default function DesignSession() {
     );
   }
 
+  const isLoading = isRemoteDesignToken ? remoteDesignQuery.isLoading : consultationQuery.isLoading;
+  const error = isRemoteDesignToken ? remoteDesignQuery.error : consultationQuery.error;
+  const remoteData = remoteDesignQuery.data;
+  const consultationData = consultationQuery.data;
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -43,7 +53,7 @@ export default function DesignSession() {
     );
   }
 
-  if (error || !data) {
+  if (error || (!remoteData && !consultationData)) {
     return (
       <div className="container max-w-md py-20 text-center">
         <h1 className="font-serif text-2xl font-bold mb-2">{t("ds_notfound_title")}</h1>
@@ -54,10 +64,12 @@ export default function DesignSession() {
     );
   }
 
-  const { consultation, design } = data;
-  const mode = MODE_META[consultation.mode] ?? MODE_META.video;
+  const consultation = consultationData?.consultation ?? null;
+  const design = isRemoteDesignToken ? remoteData?.design : consultationData?.design;
+  const mode = consultation ? (MODE_META[consultation.mode] ?? MODE_META.video) : null;
   const room = (design?.roomData ?? null) as RoomData | null;
   const cabinets = (design?.placedCabinets ?? []) as PlacedCabinet[];
+  const designTitle = consultation?.designName || design?.name || t("ds_your_design");
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -66,44 +78,46 @@ export default function DesignSession() {
           <div>
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-[#a87f33]" />
-              <h1 className="font-serif text-xl font-bold">{t("ds_live_title")}</h1>
+              <h1 className="font-serif text-xl font-bold">
+                {isRemoteDesignToken ? "Remote shared design" : t("ds_live_title")}
+              </h1>
               <Badge variant="outline" className="capitalize">
-                {consultation.status}
+                {consultation?.status ?? remoteData?.session.status ?? "live"}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {t("ds_with", {
-                name: consultation.designerName ?? t("ds_default_designer"),
-              })}{" "}
-              ·{" "}
-              {new Date(consultation.startAt).toLocaleString(undefined, {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {consultation
+                ? `${t("ds_with", { name: consultation.designerName ?? t("ds_default_designer") })} · ${new Date(consultation.startAt).toLocaleString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}`
+                : "Your designer can save updates while you follow the same plan from anywhere."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-              {mode.icon} {mode.label}
-            </span>
-            {consultation.meetingUrl && (
-              <a href={consultation.meetingUrl} target="_blank" rel="noreferrer">
-                <Button size="sm" className="gap-1 bg-[#a87f33] hover:bg-[#946e2b]">
-                  {t("ds_join_call")} <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-              </a>
-            )}
-          </div>
+          {consultation && mode && (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                {mode.icon} {mode.label}
+              </span>
+              {consultation.meetingUrl && (
+                <a href={consultation.meetingUrl} target="_blank" rel="noreferrer">
+                  <Button size="sm" className="gap-1 bg-[#a87f33] hover:bg-[#946e2b]">
+                    {t("ds_join_call")} <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="container py-6">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-foreground">
-            {consultation.designName || design?.name || t("ds_your_design")}
+            {designTitle}
           </p>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="relative flex h-2 w-2">
@@ -132,7 +146,9 @@ export default function DesignSession() {
         )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          {t("ds_viewonly")}
+          {isRemoteDesignToken
+            ? "Read-only customer view. Ask your designer or sales rep to save updates, then this page will refresh automatically."
+            : t("ds_viewonly")}
         </p>
       </div>
     </div>

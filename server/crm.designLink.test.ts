@@ -140,4 +140,45 @@ describe("crm router — design linking", () => {
       await cleanup(dealId, [foreignId]);
     }
   });
+
+  it("creates a secure remote design link that exposes only a read-only latest snapshot", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(adminCtx());
+    const saved = await caller.design.save({
+      name: "Remote Customer Kitchen",
+      roomData: { width: 144, depth: 120 },
+      placedCabinets: [{ uid: "remote-sb33", cabinetId: 33, masterCode: "SB-33", x: 0, y: 0, rotation: 0 }],
+      selectedStyleId: 101,
+      selectedDistributorId: 202,
+    });
+
+    try {
+      const share = await caller.design.createRemoteShareLink({ designId: saved.id });
+      expect(share.token).toContain(".");
+      expect(share.token).not.toContain(String(saved.id));
+
+      const publicCaller = appRouter.createCaller({
+        user: null,
+        req: { protocol: "https", headers: {} } as TrpcContext["req"],
+        res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
+      } as unknown as TrpcContext);
+      const shared = await publicCaller.design.remoteSharedDesign({ token: share.token });
+      expect(shared.session.kind).toBe("remote_design");
+      expect(shared.design.name).toBe("Remote Customer Kitchen");
+      expect(shared.design.placedCabinets).toEqual(expect.arrayContaining([expect.objectContaining({ uid: "remote-sb33" })]));
+
+      await caller.design.save({
+        id: saved.id,
+        name: "Remote Customer Kitchen FINAL",
+        roomData: { width: 156, depth: 120 },
+        placedCabinets: [{ uid: "remote-sb33", cabinetId: 33, masterCode: "SB-33", x: 0, y: 0, rotation: 0 }],
+      });
+      const updated = await publicCaller.design.remoteSharedDesign({ token: share.token });
+      expect(updated.design.name).toBe("Remote Customer Kitchen FINAL");
+      expect(updated.design.roomData).toMatchObject({ width: 156 });
+    } finally {
+      await cleanup(0, [saved.id]);
+    }
+  });
 });

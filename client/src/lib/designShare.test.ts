@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDesignShareUrl } from "./designShare";
+import { buildDesignShareUrl, buildRemoteDesignSessionUrl } from "./designShare";
 
 describe("affiliate-branded design sharing", () => {
   it("preserves the active affiliate host and identifies the saved design", () => {
@@ -15,5 +15,12 @@ describe("affiliate-branded design sharing", () => {
       origin: "https://www.cabinetdealz.com",
       designId: 42,
     })).toBe("https://www.cabinetdealz.com/design?load=42");
+  });
+
+  it("builds a tokenized remote design session link without exposing a raw design id", () => {
+    expect(buildRemoteDesignSessionUrl({
+      origin: "https://www.cabinetdealz.com",
+      token: "abc.123/encoded",
+    })).toBe("https://www.cabinetdealz.com/design/session/abc.123%2Fencoded");
   });
 });
