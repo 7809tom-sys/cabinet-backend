@@ -102,6 +102,7 @@ vi.mock("@/hooks/useSeo", () => ({ useSeo: vi.fn() }));
 vi.mock("wouter", () => ({
   Link: ({ children }: { children: React.ReactNode }) => createElement("a", null, children),
   useSearch: () => "?style=330005&cabinetId=9390110",
+  useLocation: () => ["/cabinet/W-12-30", vi.fn()],
 }));
 
 import CabinetDetail from "./CabinetDetail";

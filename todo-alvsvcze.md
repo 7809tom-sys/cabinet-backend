@@ -709,3 +709,5 @@
 - [x] Cabinet Attention mobile return: Add a direct Back to Cabinet Attention shortcut when Edit Config opens the cabinet editor on phones
 - [x] Cabinet Attention post-save return: After saving an editor opened from Cabinet Attention, return directly to Admin → Cabinet Attention instead of the catalog page
 - [x] Cabinet Attention admin-only return: Keep Back to Cabinet Attention shortcuts and post-save return hidden and inactive for non-admin public viewers
+- [x] Cabinet Config save scope: Verify and clearly document whether Save Changes updates the shared master cabinet record across linked lines versus a single distributor override
+- [x] Cabinet Config save label: Rename the main editor Save Changes button to Save Master Changes (All Distributors) without changing save behavior

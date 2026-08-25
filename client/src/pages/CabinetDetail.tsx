@@ -2353,7 +2353,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                 ) : (
                   <Check className="h-3.5 w-3.5" />
                 )}
-                Save Changes
+                Save Master Changes (All Distributors)
               </Button>
             </DialogFooter>
           </DialogContent>
