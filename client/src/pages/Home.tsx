@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { buildMainSiteJsonLd } from "@/lib/seo/jsonLd";
 import { EditableText } from "@/components/admin/EditableText";
+import { HomepageWelcomeBanner } from "@/components/home/HomepageWelcomeBanner";
 
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
 
@@ -46,6 +48,13 @@ function StorefrontBanner() {
       </div>
     </div>
   );
+}
+
+function AuthenticatedWelcomeBanner() {
+  const { user, loading } = useAuth();
+
+  if (loading || !user) return null;
+  return <HomepageWelcomeBanner user={user} />;
 }
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
@@ -822,6 +831,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <StorefrontBanner />
+      <AuthenticatedWelcomeBanner />
       <Hero />
       <FeaturedStyles />
       <ProductShowcase />
