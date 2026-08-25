@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 import { MediaPicker } from "@/components/admin/MediaPicker";
+import { CabinetVerificationControl } from "@/components/admin/CabinetVerificationControl";
 import { requiresImageReplacementScope } from "@/lib/cabinetImageReplacement";
 
 // ─── Spec Drawing Picker ─────────────────────────────────────────────────────
@@ -1545,21 +1546,17 @@ function EditModal({
             </div>
 
             {/* ── Config Verified ── */}
-            <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: merged.configVerified ? 'var(--color-green-300)' : 'var(--color-border)', background: merged.configVerified ? 'oklch(0.95 0.02 145)' : 'transparent' }}>
-              <div>
-                <p className="text-sm font-medium">{merged.configVerified ? "✅ Verified" : "Mark as Verified"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {merged.configVerified && merged.configVerifiedAt
-                    ? `Verified on ${new Date(merged.configVerifiedAt).toLocaleDateString()}`
-                    : "Check this when you've reviewed all fields and everything is correct"}
-                </p>
-              </div>
-              <Switch
-                checked={merged.configVerified === true}
-                onCheckedChange={(v) => set("configVerified", v)}
-                disabled={busy}
-              />
-            </div>
+            <CabinetVerificationControl
+              checked={merged.configVerified === true}
+              onCheckedChange={(v) => set("configVerified", v)}
+              disabled={busy}
+              verifiedDescription={
+                merged.configVerifiedAt
+                  ? `Verified on ${new Date(merged.configVerifiedAt).toLocaleDateString()}`
+                  : "You've reviewed all fields and confirmed everything is correct"
+              }
+              pendingDescription="Check this when you've reviewed all fields and everything is correct"
+            />
 
             {/* Catalog Image */}
             <div className="space-y-2">

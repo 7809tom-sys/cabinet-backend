@@ -716,3 +716,5 @@
 - [x] Designer pricing repair: Trace and correct the current designer/3D price issue using exact distributor, style, SKU, and approved catalog source without inventing prices
 - [x] Sign-in failure: Diagnose the CabinetDealz login flow safely, confirm the account was temporarily locked, and verify the user can sign in again without exposing or reusing screenshot credentials
 - [x] CabinetDealz login ownership: Keep ordinary customer sign-in on CabinetDealz and remove any visible Manus redirect from the standard login path
+- [ ] Homepage welcome banner: Greet authenticated users by name after login and keep the banner hidden for guests on mobile and desktop
+- [x] Edit Cabinet verification visibility: Give Mark as Verified a prominent accessible pink-accent treatment so administrators do not scroll past it

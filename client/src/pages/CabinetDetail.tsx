@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CabinetVerificationControl } from "@/components/admin/CabinetVerificationControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1893,20 +1894,10 @@ export default function CabinetDetail({ masterCode }: Props) {
               )}
 
               {/* Config Verified */}
-              <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: editConfigVerified ? '#86efac' : undefined, background: editConfigVerified ? '#f0fdf4' : undefined }}>
-                <div>
-                  <p className="text-sm font-medium">{editConfigVerified ? "✅ Verified" : "Mark as Verified"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {editConfigVerified
-                      ? "You've reviewed all fields and confirmed everything is correct"
-                      : "Check this when you've finished reviewing all fields"}
-                  </p>
-                </div>
-                <Switch
-                  checked={editConfigVerified}
-                  onCheckedChange={setEditConfigVerified}
-                />
-              </div>
+              <CabinetVerificationControl
+                checked={editConfigVerified}
+                onCheckedChange={setEditConfigVerified}
+              />
 
               {/* Catalog image */}
               <div className="space-y-1.5">
