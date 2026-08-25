@@ -2183,6 +2183,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       quantity: line.qty,
       unitPrice,
       lineTotal: unitPrice == null ? null : unitPrice * line.qty,
+      placementUids: line.placementUids,
     };
   }), [interactive3dPricingLines]);
 

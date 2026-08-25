@@ -142,4 +142,29 @@ describe("designer cabinet cart lines", () => {
     ]));
     expect(calculateCartSubtotal(lines)).toBe(365.95);
   });
+
+  it("keeps the exact placed-cabinet UIDs on 3D preview price lines so a selected SB-33 reads its own price", () => {
+    const pricedSinkBase = {
+      ...bec,
+      uid: "selected-sb-33",
+      masterCode: "SB-33",
+      description: '33" Sink Base Cabinet',
+    } as PlacedCabinet;
+    const lines = buildDesignPreviewPricingLines({
+      placed: [pricedSinkBase],
+      styleId: 330006,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330006, "Greek Villa"]]),
+      unitPriceFor: () => 375.89,
+    });
+
+    expect(lines).toEqual([
+      expect.objectContaining({
+        masterCode: "SB-33",
+        unitPrice: 375.89,
+        placementUids: ["selected-sb-33"],
+      }),
+    ]);
+  });
 });

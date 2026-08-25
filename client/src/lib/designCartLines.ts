@@ -12,6 +12,11 @@ type BuildDesignCabinetCartLinesArgs = {
   unitPriceFor: (cabinet: PlacedCabinet) => number | null;
 };
 
+export type DesignPreviewPricingLine = CartItem & {
+  /** Exact saved-plan cabinet UIDs represented by this 3D preview line. */
+  placementUids?: string[];
+};
+
 /** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
 export function buildDesignCabinetCartLines({
   placed,
@@ -60,7 +65,7 @@ export function buildDesignCabinetCartLines({
  * it never updates catalog data. Keeping the total on actual cabinet lines lets
  * the established cart-to-checkout price lock preserve it end to end.
  */
-export function lockDesignCartLinesToPackageTotal(lines: CartItem[], packageTotal: number): CartItem[] {
+export function lockDesignCartLinesToPackageTotal<T extends CartItem>(lines: T[], packageTotal: number): T[] {
   if (!Number.isFinite(packageTotal) || packageTotal < 0) return lines;
   const eligible = lines.filter((line) => line.unitPrice != null && line.qty > 0);
   const currentTotal = calculateCartSubtotal(eligible);
@@ -68,7 +73,7 @@ export function lockDesignCartLinesToPackageTotal(lines: CartItem[], packageTota
 
   const targetCents = Math.round(packageTotal * 100);
   let remainingCents = targetCents;
-  const locked = new Map<CartItem, CartItem>();
+  const locked = new Map<T, T>();
 
   for (let index = 0; index < eligible.length; index += 1) {
     const line = eligible[index];
@@ -82,7 +87,7 @@ export function lockDesignCartLinesToPackageTotal(lines: CartItem[], packageTota
       ...line,
       unitPrice: lineCents / (line.qty * 100),
       priceLocked: true,
-    });
+    } as T);
     remainingCents -= lineCents;
   }
 
@@ -121,9 +126,9 @@ export function buildDesignPreviewPricingLines({
   tier,
   styleNameById,
   unitPriceFor,
-}: BuildDesignCabinetCartLinesArgs): CartItem[] {
+}: BuildDesignCabinetCartLinesArgs): DesignPreviewPricingLine[] {
   if (!styleId) return [];
-  const lines = new Map<string, CartItem>();
+  const lines = new Map<string, DesignPreviewPricingLine>();
   for (const cabinet of placed) {
     if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
     const basePrice = unitPriceFor(cabinet);
@@ -140,6 +145,7 @@ export function buildDesignPreviewPricingLines({
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
+      existing.placementUids = [...(existing.placementUids ?? []), cabinet.uid];
       continue;
     }
     lines.set(key, {
@@ -152,6 +158,7 @@ export function buildDesignPreviewPricingLines({
       unitPrice: adjustedUnitPrice,
       qty: 1,
       catalogImageUrl: cabinet.catalogImageUrl ?? null,
+      placementUids: [cabinet.uid],
     });
   }
   return Array.from(lines.values());
