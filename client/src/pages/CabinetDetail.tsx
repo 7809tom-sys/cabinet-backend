@@ -9,6 +9,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -551,6 +561,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [connectionDistributorId, setConnectionDistributorId] = useState<string>("");
   const [connectionStyleId, setConnectionStyleId] = useState<string>("");
   const [connectionSku, setConnectionSku] = useState<string>("");
+  const [confirmMasterSaveOpen, setConfirmMasterSaveOpen] = useState(false);
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -750,6 +761,11 @@ export default function CabinetDetail({ masterCode }: Props) {
       toast.error(DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE);
       return;
     }
+    setConfirmMasterSaveOpen(true);
+  }
+
+  function submitMasterCabinetChanges() {
+    if (!cabinet?.id) return;
     updateCabinet.mutate({
       id: cabinet.id,
       description: editDescription.trim() || undefined,
@@ -1420,6 +1436,7 @@ export default function CabinetDetail({ masterCode }: Props) {
 
       {/* Admin inline edit dialog — only rendered for admins */}
       {isOwner && (
+        <>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent className="max-w-lg flex flex-col max-h-[90dvh]">
             <DialogHeader className="shrink-0">
@@ -2358,6 +2375,27 @@ export default function CabinetDetail({ masterCode }: Props) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <AlertDialog open={confirmMasterSaveOpen} onOpenChange={setConfirmMasterSaveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Save master changes for all distributors?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This updates the shared master cabinet record for {resolvedMasterCode}. These values are used across every linked distributor line unless a distributor has its own saved override. Use Save Override for one-distributor dimension exceptions.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={updateCabinet.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-700"
+                disabled={updateCabinet.isPending}
+                onClick={submitMasterCabinetChanges}
+              >
+                Confirm Master Save
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        </>
       )}
     </div>
   );

@@ -711,3 +711,4 @@
 - [x] Cabinet Attention admin-only return: Keep Back to Cabinet Attention shortcuts and post-save return hidden and inactive for non-admin public viewers
 - [x] Cabinet Config save scope: Verify and clearly document whether Save Changes updates the shared master cabinet record across linked lines versus a single distributor override
 - [x] Cabinet Config save label: Rename the main editor Save Changes button to Save Master Changes (All Distributors) without changing save behavior
+- [x] Cabinet Config save confirmation: Add an administrator confirmation dialog before Save Master Changes (All Distributors) runs
