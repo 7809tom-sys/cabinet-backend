@@ -1535,7 +1535,14 @@ export function addCabinet(
     }
     cabinet.add(frameGroup);
   }
-  const { hasConfiguredOpening, doorCount, drawerCount } = resolvedThreeDFaceLayout(sku);
+  const resolvedFaceLayout = resolvedThreeDFaceLayout(sku);
+  // Sink bases use false drawer fronts above their doors. Some catalog rows
+  // omit those non-operable fronts from `numberOfDrawers`; the physical SB/CSB
+  // front standard is still two false fronts over its standard door pair.
+  const isStandardSinkBase = placement === "base" && /^(?:SB|CSB)[-_]?\d/i.test(sku.masterCode ?? "");
+  const hasConfiguredOpening = resolvedFaceLayout.hasConfiguredOpening;
+  const doorCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.doorCount) : resolvedFaceLayout.doorCount;
+  const drawerCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.drawerCount) : resolvedFaceLayout.drawerCount;
   const usableHeight = bodyHeight - 0.08;
   const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
   // A drawer-only cabinet's authored rows own its whole usable face. The former
@@ -1649,7 +1656,6 @@ export function addCabinet(
     }
   };
   const isPlacedAppliance = placement === "appliance";
-  const isStandardSinkBase = !isPlacedAppliance && /^(?:SB|CSB)[-_]?\d/i.test(sku.masterCode ?? "");
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isRefrigeratorEndPanel) {
@@ -2363,7 +2369,7 @@ export function addCabinet(
       const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
       const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
-      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, flushPhysicalFace: true };
+      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ...(isStandardSinkBase ? { falseDrawerFront: true } : {}), flushPhysicalFace: true };
       frontGroup.add(drawer);
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);

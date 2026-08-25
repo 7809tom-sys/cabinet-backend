@@ -2795,6 +2795,12 @@
 - [x] Preserve collision, room-boundary, and wall-mount safeguards with user feedback
 - [ ] Add computer and phone regression coverage and verify the selected cabinet moves in/out
 
+## Fix: SB36 Sink-Base Front in 3D
+- [x] Trace sink-base identification and current SB36 front construction
+- [x] Render SB36 and equivalent sink bases with two false drawer fronts above two standard-height doors
+- [x] Preserve the sink opening and correct door-only hardware placement
+- [ ] Add computer and phone sink-base regressions and verify the reported scene
+
 ## Fix: Tall Pantry Door Count in 3D
 - [x] Trace tall-pantry catalog door metadata and upper/lower opening leaf allocation
 - [x] Render 18-inch two-door pantries as one upper door and one lower door
