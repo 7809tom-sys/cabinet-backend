@@ -14,11 +14,29 @@ export type LoginProvider = "google" | "apple" | "microsoft" | "github" | "email
 // instead of the app trying to embed a full email client.
 export const WEBMAIL_URL = "https://app.titan.email";
 
-// Generate login URL at runtime so redirect URI reflects the current origin.
-// This is what makes the flow work on localhost, the *.manus.space preview,
-// AND a custom domain like cabinetdeals.com without any code change — the
-// redirect always points back to wherever the user actually is.
+export function isSafeSiteReturnPath(value: string | null | undefined): value is string {
+  return Boolean(
+    value &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.startsWith("/signin") &&
+    !value.startsWith("/api/oauth/")
+  );
+}
+
+export function getSiteSignInUrl(returnTo?: string): string {
+  const currentPath = returnTo ?? `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const url = new URL("/signin", window.location.origin);
+  if (isSafeSiteReturnPath(currentPath)) url.searchParams.set("returnTo", currentPath);
+  return `${url.pathname}${url.search}`;
+}
+
+// Ordinary sign-in always stays on CabinetDealz. Explicit social-provider
+// buttons remain opt-in and use the hosted OAuth broker because those providers
+// require that secure exchange.
 export const getLoginUrl = (provider?: LoginProvider) => {
+  if (!provider) return getSiteSignInUrl();
+
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
@@ -33,11 +51,9 @@ export const getLoginUrl = (provider?: LoginProvider) => {
   url.searchParams.set("redirectUri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("type", "signIn");
-  if (provider) {
-    // Common hint keys the portal may honor; harmless if unrecognized.
-    url.searchParams.set("provider", provider);
-    url.searchParams.set("loginMethod", provider);
-  }
+  // Common hint keys the portal may honor; harmless if unrecognized.
+  url.searchParams.set("provider", provider);
+  url.searchParams.set("loginMethod", provider);
 
   return url.toString();
 };

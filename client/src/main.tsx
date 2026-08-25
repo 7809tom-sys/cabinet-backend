@@ -15,6 +15,8 @@ const queryClient = new QueryClient();
 
 const goToLogin = () => {
   if (typeof window === "undefined") return;
+  // getLoginUrl() without an explicit connected provider resolves to the
+  // CabinetDealz-owned /signin page, never the external OAuth broker.
   window.location.href = getLoginUrl();
 };
 

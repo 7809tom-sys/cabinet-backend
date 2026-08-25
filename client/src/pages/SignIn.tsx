@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { getLoginUrl, type LoginProvider } from "@/const";
+import { getLoginUrl, isSafeSiteReturnPath, type LoginProvider } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,6 +105,11 @@ export default function SignIn() {
     toast.success("Signed in successfully.");
     // Fetch fresh user to determine role-based redirect
     const me = await utils.auth.me.fetch();
+    const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
+    if (isSafeSiteReturnPath(requestedReturn)) {
+      navigate(requestedReturn);
+      return;
+    }
     if (me && (me as { role?: string }).role === "distributor") {
       navigate("/vendor");
     } else if (me && (me as { role?: string }).role === "admin") {
@@ -319,7 +324,7 @@ export default function SignIn() {
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              or continue with
+              optional connected account
             </span>
             <div className="h-px flex-1 bg-border" />
           </div>
@@ -336,14 +341,9 @@ export default function SignIn() {
             </SocialButton>
           </div>
 
-          <div className="mt-4 text-center">
-            <a
-              href={getLoginUrl()}
-              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              More sign-in options
-            </a>
-          </div>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Email and password sign-in stays on CabinetDealz. Connected-account buttons are optional.
+          </p>
         </CardContent>
       </Card>
     </div>
