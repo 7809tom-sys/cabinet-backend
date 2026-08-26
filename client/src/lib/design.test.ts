@@ -1384,6 +1384,26 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(hasCollision(candidate, [leftUpper, rightUpper, sinkBase])).toBe(false);
   });
 
+  it("snaps W-36-24 into the exact 36-inch selected-sink opening instead of reporting only the 24-inch overlap remainder", () => {
+    const sinkBase = cab({ uid: "selected-sink-36", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 24, y: 0, width: 36, depth: 24, height: 34.5 });
+    const leftUpper = cab({ uid: "left-boundary", masterCode: "W-12-42", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42 });
+    const rightUpper = cab({ uid: "right-boundary", masterCode: "W-12-42", placement: "wall", x: 48, y: 0, width: 12, depth: 12, height: 42 });
+    const spot = selectedSinkBaseWallPlacement(
+      sinkBase,
+      ROOM_12x10,
+      36,
+      12,
+      24,
+      [leftUpper, sinkBase, rightUpper],
+      [],
+    );
+    expect(spot).toEqual({ x: 12, y: 0, rotation: 0 });
+    const candidate = cab({ uid: "exact-fit-w3624", masterCode: "W-36-24", placement: "wall", ...spot!, width: 36, depth: 12, height: 24, mountBottom: 70 });
+    expect(hasCollision(candidate, [leftUpper, sinkBase, rightUpper])).toBe(false);
+    const fit = wallCabinetFitMeasure(candidate, ROOM_12x10, [leftUpper, sinkBase, rightUpper], []);
+    expect(fit).toMatchObject({ availableStart: 12, availableEnd: 48, availableSpan: 36, before: 0, after: 0, status: "fits" });
+  });
+
   it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {
     const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
     const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });

@@ -2,6 +2,13 @@ export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promis
 
 const TRPC_PATH = "/api/trpc";
 
+/**
+ * Cabinet pricing can request hundreds of exact cabinet/style identities at
+ * once. Queries must travel in the request body instead of the URL so preview
+ * and production proxies cannot reject them with an HTML 414 response.
+ */
+export const TRPC_QUERY_METHOD_OVERRIDE = "POST" as const;
+
 export function isTrpcRequest(input: RequestInfo | URL): boolean {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   return url.includes(TRPC_PATH);

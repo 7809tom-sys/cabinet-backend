@@ -754,3 +754,5 @@
 - [x] 3D camera persistence during cabinet moves: Preserve the user’s exact camera position, target, angle, and zoom while selected-cabinet coordinates or mount height change
 - [x] Permanent Full Height Base section: Always render Full Height as the fifth Base section even when its active supplier/style count is zero, and classify every authoritative Honey Core/Madison full-height base into that section rather than Base or Specialty
 - [x] Live publication approval: Publish the validated designer correction bundle to cabinetdealz.com after final task-list, test, diff, and temporary-QA cleanup checks, then verify a normal refresh loads the new live version
+- [x] Preview tRPC HTML-response error: Identify the authenticated /design?from_webdev=1 query receiving an HTML document instead of JSON, correct API routing or recovery, and verify refresh no longer raises Unexpected token '<'
+- [x] Exact 36-inch W-36-24 opening: Correct wall-run neighbor and boundary selection so a true 36-inch opening accepts the 36-inch cabinet at exact 0-inch overlap instead of being misreported as 24 inches

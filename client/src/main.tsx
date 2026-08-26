@@ -8,7 +8,7 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import { shouldRedirectToLoginOnError } from "./lib/authRedirect";
-import { fetchTrpcJson } from "./lib/trpcTransport";
+import { fetchTrpcJson, TRPC_QUERY_METHOD_OVERRIDE } from "./lib/trpcTransport";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -46,6 +46,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      methodOverride: TRPC_QUERY_METHOD_OVERRIDE,
       fetch(input, init) {
         return fetchTrpcJson(input, init);
       },

@@ -119,6 +119,10 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      // The designer prices hundreds of exact cabinet/style identities in one
+      // query. The client sends query batches by POST so proxy URL limits cannot
+      // return an HTML 414 page where tRPC expects JSON.
+      allowMethodOverride: true,
     })
   );
   // SEO: dynamic robots.txt + sitemap.xml (must be registered before the

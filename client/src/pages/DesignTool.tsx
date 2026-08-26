@@ -2592,7 +2592,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       } else {
         const selectedSinkTarget = selectedUid ? prev.find((cabinet) => cabinet.uid === selectedUid) : null;
         const selectedSinkSpot = accPlacement === "wall"
-          ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height)
+          ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height, prev, openings)
           : null;
         const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
           accPlacement === "base" ||

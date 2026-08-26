@@ -1802,6 +1802,8 @@ export function selectedSinkBaseWallPlacement(
   width: number,
   depth: number,
   height: number,
+  placed: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
 ): { x: number; y: number; rotation: number } | null {
   if (!selected || !isSinkBaseCabinet(selected) || selected.placement !== "base") return null;
   const side = cabinetWall(selected, room);
@@ -1811,7 +1813,34 @@ export function selectedSinkBaseWallPlacement(
   const sinkSpan = horizontal ? sinkFootprint.w : sinkFootprint.d;
   const wallLength = horizontal ? room.width : room.depth;
   const centeredStart = Math.max(0, Math.min(sinkStart + sinkSpan / 2 - width / 2, Math.max(0, wallLength - width)));
-  return wallPlacementAt(centeredStart, width, depth, side, room);
+  const centeredSpot = wallPlacementAt(centeredStart, width, depth, side, room);
+  const candidate: PlacedCabinet = {
+    ...selected,
+    uid: "__selected-sink-wall-target__",
+    masterCode: "SELECTED-SINK-WALL-TARGET",
+    placement: "wall",
+    ...centeredSpot,
+    width,
+    depth,
+    height,
+    mountBottom: height < 30 ? OVER_SINK_WALL_MOUNT_BOTTOM : WALL_MOUNT_BOTTOM,
+  };
+  const samePlanWithoutSink = placed.filter((cabinet) => cabinet.uid !== selected.uid);
+  const available = freeSegmentsOnWall(
+    side,
+    room,
+    samePlanWithoutSink,
+    openings,
+    width,
+    WALL_OPENING_CLEARANCE_IN,
+    "wall",
+    false,
+    candidate,
+  );
+  const fittedStart = nearestAvailableWallStart(available, centeredStart, width);
+  return fittedStart == null
+    ? centeredSpot
+    : wallPlacementAt(fittedStart, width, depth, side, room);
 }
 
 /**
@@ -4617,7 +4646,10 @@ export function wallCabinetFitMeasure(
   const peers = others
     .filter((other) => other.uid !== moving.uid)
     .filter((other) => sharesPlanCollisionZone(moving, other))
-    .filter((other) => isAgainstWall(other, side, room));
+    // A cabinet touching a corner can be physically close to two walls, but it
+    // belongs to only one selected-wall run. Counting a perpendicular cabinet
+    // here shortened a true 36-inch opening to 24 inches.
+    .filter((other) => cabinetWall(other, room) === side);
   const segments = freeSegmentsOnWall(
     side,
     room,

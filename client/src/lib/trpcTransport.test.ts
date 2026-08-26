@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchTrpcJson, isHtmlApiFallback, isTrpcRequest } from "./trpcTransport";
+import { fetchTrpcJson, isHtmlApiFallback, isTrpcRequest, TRPC_QUERY_METHOD_OVERRIDE } from "./trpcTransport";
 
 describe("tRPC transport", () => {
+  it("uses POST for query batches so large cabinet-price payloads stay out of the URL", () => {
+    expect(TRPC_QUERY_METHOD_OVERRIDE).toBe("POST");
+  });
+
   it("identifies tRPC paths and HTML fallback responses", () => {
     expect(isTrpcRequest("/api/trpc/pageContent.getAll?batch=1")).toBe(true);
     expect(isTrpcRequest("/catalog")).toBe(false);
