@@ -753,4 +753,4 @@
 - [x] 3D cabinet D-pad semantics: Up raises the selected cabinet, down lowers it, left moves it left, and right moves it right with the existing movement increment, collision validation, and no camera rotation or default-view reset on computer, tablet, or phone
 - [x] 3D camera persistence during cabinet moves: Preserve the user’s exact camera position, target, angle, and zoom while selected-cabinet coordinates or mount height change
 - [x] Permanent Full Height Base section: Always render Full Height as the fifth Base section even when its active supplier/style count is zero, and classify every authoritative Honey Core/Madison full-height base into that section rather than Base or Specialty
-- [ ] Live publication approval: Publish the validated designer correction bundle to cabinetdealz.com after final task-list, test, diff, and temporary-QA cleanup checks, then verify a normal refresh loads the new live version
+- [x] Live publication approval: Publish the validated designer correction bundle to cabinetdealz.com after final task-list, test, diff, and temporary-QA cleanup checks, then verify a normal refresh loads the new live version
