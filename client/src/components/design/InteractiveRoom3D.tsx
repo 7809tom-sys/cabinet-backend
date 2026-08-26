@@ -514,6 +514,27 @@ export function threeDCatalogDropPlane(
   if (wall === "bottom") return new THREE.Plane(new THREE.Vector3(0, 0, -1), room.depth * INCH);
   return new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 }
+
+/**
+ * Uses the first visible saved-placement hit for a catalog drop. Projecting the
+ * same screen point all the way back to the physical wall can shift the run-axis
+ * coordinate in an angled camera view because cabinets and countertops stand in
+ * front of that wall. The tagged placement hit preserves the position the user
+ * actually pointed at; the active-wall plane remains the deterministic fallback
+ * when the ray crosses only open wall/floor geometry.
+ */
+export function threeDCatalogDropTargetFromIntersections(
+  intersections: Array<Pick<THREE.Intersection<THREE.Object3D>, "object" | "point">>,
+  wallPlaneHit: THREE.Vector3,
+  room: Pick<RoomData, "width" | "depth">,
+): ThreeDCatalogDropTarget {
+  const placedIntersection = intersections.find((intersection) => Boolean(threeDCabinetHitFromObject(intersection.object)));
+  const point = placedIntersection?.point ?? wallPlaneHit;
+  return {
+    x: Math.max(0, Math.min(room.width, point.x / INCH)),
+    y: Math.max(0, Math.min(room.depth, point.z / INCH)),
+  };
+}
 // Drawer reveals must sit behind the physical front. Keeping this near the
 // carcass face avoids line geometry projecting through painted door panels.
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
@@ -3844,6 +3865,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const catalogDropTargetAtPoint = (clientX: number, clientY: number): ThreeDCatalogDropTarget | undefined => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
+    const root = catalogRootRef.current;
     const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
     if (!renderer || !camera || !room) return undefined;
     const bounds = renderer.domElement.getBoundingClientRect();
@@ -3853,10 +3875,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const plane = threeDCatalogDropPlane(catalogDropWall, room);
     const hit = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, hit)) return undefined;
-    return {
-      x: Math.max(0, Math.min(room.width, hit.x / INCH)),
-      y: Math.max(0, Math.min(room.depth, hit.z / INCH)),
-    };
+    const intersections = root ? raycaster.intersectObjects(root.children, true) : [];
+    return threeDCatalogDropTargetFromIntersections(intersections, hit, room);
   };
 
   const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {

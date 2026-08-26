@@ -8,7 +8,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDropPlane } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -343,6 +343,38 @@ describe("interactive 3D room scene helpers", () => {
     const hit = ray.intersectPlane(plane, new THREE.Vector3());
     expect(hit?.x).toBeCloseTo(10);
     expect(hit?.z).toBeCloseTo(4);
+  });
+
+  it("uses the visible Aspin sink-run placement hit instead of a perspective-shifted back-wall projection", () => {
+    const untaggedSink = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    const taggedCountertop = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 2));
+    applyThreeDPlacementIdentity(taggedCountertop, {
+      uid: "aspin-sb36",
+      masterCode: "SB-36",
+      description: "36-inch Sink Base Cabinet",
+      distributorSkuId: 9390064,
+    });
+
+    const target = threeDCatalogDropTargetFromIntersections(
+      [
+        { object: untaggedSink, point: new THREE.Vector3(6, 1, 1.5) },
+        { object: taggedCountertop, point: new THREE.Vector3(72 * 0.0833333333, 1, 1.5) },
+      ],
+      new THREE.Vector3(42 * 0.0833333333, 1, 0),
+      { width: 144, depth: 145 },
+    );
+
+    expect(target.x).toBeCloseTo(72);
+    expect(target.y).toBeCloseTo(18);
+  });
+
+  it("retains the active-wall plane target when the drop ray crosses no saved placement geometry", () => {
+    const wallSurface = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    expect(threeDCatalogDropTargetFromIntersections(
+      [{ object: wallSurface, point: new THREE.Vector3(9, 2, 0) }],
+      new THREE.Vector3(54 * 0.0833333333, 2, 0),
+      { width: 144, depth: 145 },
+    )).toMatchObject({ x: expect.closeTo(54), y: 0 });
   });
 
   it("passes the active wall into every DesignTool 3D renderer for direct-drop projection", () => {

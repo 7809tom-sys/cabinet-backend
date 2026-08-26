@@ -12,6 +12,10 @@ describe("nearestFreeWallDropStart", () => {
     expect(nearestFreeWallDropStart(78, 24, segments)).toBe(66);
   });
 
+  it("fits W-36-24 exactly into the Aspin SB36 upper opening from 54 to 90 inches", () => {
+    expect(nearestFreeWallDropStart(72, 36, [{ start: 54, length: 36 }])).toBe(54);
+  });
+
   it("rejects a drop that is outside a true width-fitting segment", () => {
     expect(nearestFreeWallDropStart(60, 60, segments)).toBeNull();
     expect(nearestFreeWallDropStart(28, 24, segments)).toBeNull();
