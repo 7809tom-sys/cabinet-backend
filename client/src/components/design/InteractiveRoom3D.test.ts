@@ -8,7 +8,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRoomWallSideFromObject } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -102,13 +102,19 @@ describe("interactive 3D room scene helpers", () => {
   });
 
   it("reports exact fit and true overlap in one-eighth-inch increments", () => {
-    const base = { side: "top" as const, seated: true, requiredSpan: 36, start: 12, end: 48, wallLen: 96, availableStart: 12, availableEnd: 48, availableSpan: 36, before: 0, after: 0 };
+    const base = { side: "top" as const, layer: "wall" as const, seated: true, requiredSpan: 36, start: 12, end: 48, wallLen: 96, availableStart: 12, availableEnd: 48, availableSpan: 36, before: 0, after: 0, shortage: 0, snapStart: 12, snapEnd: 48, snapBefore: 0, snapAfter: 0, beforeBoundary: "W1230", afterBoundary: "wall end" };
     expect(threeDWallFitGuideText({ ...base, leftOverlap: 0, rightOverlap: 0, status: "fits" }))
-      .toBe('Fit guide: cabinet width 36" · 36" clear wall span · edge contact allowed');
-    expect(threeDWallFitGuideText({ ...base, availableEnd: 47.875, availableSpan: 35.875, leftOverlap: 0, rightOverlap: 0.125, status: "overlap" }))
-      .toBe('Fit guide: cabinet width 36" · 35⅞" clear wall span · right overlap ⅛"');
+      .toBe('Used 36" · available opening 36" (W1230 to wall end) · snap target 12"–48" · left remaining 0" · right remaining 0" · 0" overlap');
+    expect(threeDWallFitGuideText({ ...base, availableEnd: 47.875, availableSpan: 35.875, snapEnd: 47.875, leftOverlap: 0, rightOverlap: 0.125, status: "overlap" }))
+      .toBe('Used 36" · available opening 35⅞" (W1230 to wall end) · right overlap ⅛" · valid snap target 12"–47⅞"');
     expect(threeDWallFitGuideText({ ...base, seated: false, leftOverlap: 0, rightOverlap: 0, status: "fits" }))
-      .toBe('Placement guide: cabinet width 36" · not seated on the top wall · snap to a wall to measure left and right clearance');
+      .toBe('Placement guide: cabinet uses 36" · not seated on the top wall · snap to a wall to measure available space');
+  });
+
+  it("shows used, available, snap, and remaining space while dragging in 3D", () => {
+    const gap = { side: "right" as const, layer: "wall" as const, start: 54, length: 36, center: 72, isStandardSize: true, isFillerSize: false };
+    const fit = { gap, containsTarget: true, requiredSpan: 36, availableSpan: 36, shortage: 0, snapStart: 54, snapEnd: 90, before: 0, after: 0, status: "valid" as const };
+    expect(threeDCatalogDragFitText({ masterCode: "W-36-24" }, fit)).toBe('W-36-24 uses 36" of 36" · snap 54"–90" · left 0" · right 0"');
   });
 
   it("shows the exact installed cut width for catalog fillers created from a measured gap", () => {
@@ -377,9 +383,20 @@ describe("interactive 3D room scene helpers", () => {
     )).toMatchObject({ x: expect.closeTo(54), y: 0 });
   });
 
+  it("uses the physical wall behind the visible drop instead of a stale toolbar wall", () => {
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    rightWall.userData = { roomWall: true, physicalWallSide: "right" };
+    const child = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    rightWall.add(child);
+    expect(threeDRoomWallSideFromObject(child)).toBe("right");
+    expect(threeDCatalogDropTargetFromIntersections([{ object: child, point: new THREE.Vector3(10, 2, 6) }], new THREE.Vector3(10, 2, 6), { width: 144, depth: 145 }, "top")).toMatchObject({ wall: "right", y: expect.closeTo(72) });
+  });
+
   it("passes the active wall into every DesignTool 3D renderer for direct-drop projection", () => {
     const designToolSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(designToolSource.match(/catalogDropWall=\{activeWall\}/g)).toHaveLength(2);
+    expect(designToolSource.match(/catalogDragItem=\{interactive3dCatalogDragItem\}/g)).toHaveLength(2);
+    expect(designToolSource).toContain("const dropWall = dropTarget.wall ?? activeWall");
   });
 
   it("keeps catalog additions available while rendering an existing saved 2D plan", () => {

@@ -1864,29 +1864,53 @@ export function overSinkWallMountBottom(
   return Math.max(OVER_SINK_WALL_MOUNT_BOTTOM, bridgeMountBottomAboveWindow(cabinet, openings, room) ?? 0);
 }
 
-/** Whether a short over-sink cabinet crosses a window that cannot clear below the ceiling. */
-export function overSinkWindowClearanceBlocked(
+export type OverSinkWindowClearanceMeasure = {
+  side: WallSide;
+  openingLabel: string;
+  openingTop: number;
+  clearance: number;
+  requiredBottom: number;
+  cabinetHeight: number;
+  requiredTop: number;
+  ceiling: number;
+  shortage: number;
+};
+
+export function overSinkWindowClearanceMeasure(
   cabinet: PlacedCabinet,
   placed: PlacedCabinet[],
   openings: WallOpening[],
   room: RoomData,
-): boolean {
-  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return false;
+  clearance = WALL_OPENING_CLEARANCE_IN,
+): OverSinkWindowClearanceMeasure | null {
+  if (cabinet.placement !== "wall" || placedHeight(cabinet) >= 30) return null;
   const centeredStart = overSinkWindowStart(cabinet, placed, openings, room);
-  if (centeredStart == null) return false;
+  if (centeredStart == null) return null;
   const side = cabinetWall(cabinet, room);
   const horizontal = side === "top" || side === "bottom";
   const currentStart = horizontal ? cabinet.x : cabinet.y;
-  if (Math.abs(currentStart - centeredStart) > 0.5) return false;
+  if (Math.abs(currentStart - centeredStart) > 0.5) return null;
   const size = rotatedSize(cabinet);
   const span = horizontal ? size.w : size.d;
-  const crossesWindow = openings.some((opening) =>
+  const crossedWindows = openings.filter((opening) =>
     opening.kind === "window" &&
     opening.side === side &&
     currentStart < opening.offset + opening.width - 0.01 &&
     currentStart + span > opening.offset + 0.01,
   );
-  return crossesWindow && bridgeMountBottomAboveWindow(cabinet, openings, room) == null;
+  if (crossedWindows.length === 0) return null;
+  const limitingWindow = crossedWindows.reduce((highest, opening) => opening.sill + opening.height > highest.sill + highest.height ? opening : highest);
+  const openingTop = limitingWindow.sill + limitingWindow.height;
+  const requiredBottom = Math.max(OVER_SINK_WALL_MOUNT_BOTTOM, openingTop + clearance);
+  const cabinetHeight = placedHeight(cabinet);
+  const requiredTop = requiredBottom + cabinetHeight;
+  const ceiling = room.ceilingHeight ?? 96;
+  return { side, openingLabel: limitingWindow.label || "window", openingTop, clearance, requiredBottom, cabinetHeight, requiredTop, ceiling, shortage: Math.max(0, requiredTop - ceiling) };
+}
+
+/** Whether a short over-sink cabinet crosses a window that cannot clear below the ceiling. */
+export function overSinkWindowClearanceBlocked(cabinet: PlacedCabinet, placed: PlacedCabinet[], openings: WallOpening[], room: RoomData): boolean {
+  return (overSinkWindowClearanceMeasure(cabinet, placed, openings, room)?.shortage ?? 0) > 0.01;
 }
 
 /**
@@ -4608,6 +4632,7 @@ export type WallCabinetFitStatus = "fits" | "overlap" | "insufficient";
 
 export interface WallCabinetFitMeasure {
   side: WallSide;
+  layer: PlacedCabinet["placement"];
   /** Whether the cabinet is currently seated against the measured wall. */
   seated: boolean;
   requiredSpan: number;
@@ -4621,6 +4646,13 @@ export interface WallCabinetFitMeasure {
   after: number;
   leftOverlap: number;
   rightOverlap: number;
+  shortage: number;
+  snapStart: number;
+  snapEnd: number;
+  snapBefore: number;
+  snapAfter: number;
+  beforeBoundary: string;
+  afterBoundary: string;
   status: WallCabinetFitStatus;
 }
 
@@ -4698,9 +4730,34 @@ export function wallCabinetFitMeasure(
     : availableSpan + COLLISION_EPSILON_IN < requiredSpan
       ? "insufficient"
       : "fits";
+  const shortage = Math.max(0, requiredSpan - availableSpan);
+  const snapStart = availableSpan + COLLISION_EPSILON_IN >= requiredSpan
+    ? Math.max(availableStart, Math.min(me.start, availableEnd - requiredSpan))
+    : availableStart;
+  const snapEnd = snapStart + requiredSpan;
+  const boundaryLabel = (coordinate: number, edge: "before" | "after"): string => {
+    if (coordinate <= COLLISION_EPSILON_IN) return "wall start";
+    if (coordinate >= wallLen - COLLISION_EPSILON_IN) return "wall end";
+    const peer = peers.find((candidate) => {
+      const span = runSpan(candidate, side);
+      const boundary = edge === "before" ? span.end : span.start;
+      return Math.abs(boundary - coordinate) <= CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN;
+    });
+    if (peer) return peer.masterCode;
+    const opening = openings.find((candidate) => {
+      if (candidate.side !== side) return false;
+      const clearance = moving.placement === "wall" ? openingClearance : 0;
+      const near = candidate.offset - clearance;
+      const far = candidate.offset + candidate.width + clearance;
+      return Math.abs(near - coordinate) <= 0.13 || Math.abs(far - coordinate) <= 0.13;
+    });
+    if (opening) return `${opening.label || opening.kind} clearance`;
+    return "corner/opening boundary";
+  };
 
   return {
     side,
+    layer: moving.placement,
     seated: isAgainstWall(moving, side, room),
     requiredSpan,
     start: me.start,
@@ -4713,6 +4770,13 @@ export function wallCabinetFitMeasure(
     after: Math.max(0, availableEnd - me.end),
     leftOverlap,
     rightOverlap,
+    shortage,
+    snapStart,
+    snapEnd,
+    snapBefore: Math.max(0, snapStart - availableStart),
+    snapAfter: Math.max(0, availableEnd - snapEnd),
+    beforeBoundary: boundaryLabel(availableStart, "before"),
+    afterBoundary: boundaryLabel(availableEnd, "after"),
     status,
   };
 }
@@ -4729,16 +4793,24 @@ export function wallCabinetPlacementReason(
   openings: WallOpening[],
 ): string | null {
   const collision = cabinetCollisionDetail(moving, others);
-  if (!collision || moving.placement !== "wall") return collisionReason(moving, others);
+  if (moving.placement !== "wall" && moving.placement !== "base") return collisionReason(moving, others);
   const fit = wallCabinetFitMeasure(moving, room, others, openings);
+  if (!fit.seated) return collisionReason(moving, others);
   const required = formatEighthInches(fit.requiredSpan);
   const available = formatEighthInches(fit.availableSpan);
-  const overlap = formatEighthInches(collision.penetration);
+  const sideName = ({ top: "back/top", bottom: "front/bottom", left: "left", right: "right" } as const)[fit.side];
+  const layerName = moving.placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
+  const boundaries = `${fit.beforeBoundary} and ${fit.afterBoundary}`;
   if (fit.availableSpan + COLLISION_EPSILON_IN < fit.requiredSpan) {
-    const shortage = formatEighthInches(fit.requiredSpan - fit.availableSpan);
-    return `Cannot place ${moving.masterCode} here: it needs ${required} of clear wall space, but the nearest opening is ${available} (${shortage} too narrow). It overlaps ${collision.cabinet.masterCode} by ${overlap}. Choose a smaller wall cabinet with a fitted catalog filler or adjust the run.`;
+    const shortage = formatEighthInches(fit.shortage);
+    const overlapText = collision ? ` It also overlaps ${collision.cabinet.masterCode} by ${formatEighthInches(collision.penetration)}.` : "";
+    return `Cannot place ${moving.masterCode} on the ${sideName} wall ${layerName}: the cabinet uses ${required}, but only ${available} is clear between ${boundaries}. The opening is ${shortage} too small.${overlapText} Choose a smaller matching cabinet or adjust the run.`;
   }
-  return `Cannot place ${moving.masterCode} at this exact position: it overlaps ${collision.cabinet.masterCode} by ${overlap}, but a ${available} clear opening is available. Snap it edge-to-edge; zero gap is allowed.`;
+  if (collision) {
+    const overlap = formatEighthInches(collision.penetration);
+    return `Cannot place ${moving.masterCode} at this exact position on the ${sideName} wall ${layerName}: it overlaps ${collision.cabinet.masterCode} by ${overlap}. A ${available} clear opening exists between ${boundaries}; snap the cabinet to ${formatEighthInches(fit.snapStart)}–${formatEighthInches(fit.snapEnd)}. Edge-to-edge contact is allowed and physical overlap must be 0".`;
+  }
+  return null;
 }
 
 // ─── Countertop materials & surfaces ─────────────────────────────────────────
@@ -5129,6 +5201,45 @@ export type WallGap = {
   isFillerSize: boolean;
 };
 
+export type WallGapFitPreview = {
+  gap: WallGap;
+  containsTarget: boolean;
+  requiredSpan: number;
+  availableSpan: number;
+  shortage: number;
+  snapStart: number;
+  snapEnd: number;
+  before: number;
+  after: number;
+  status: "valid" | "invalid";
+};
+
+export function nearestRectRoomWallAtPoint(room: Pick<RoomData, "width" | "depth">, point: { x: number; y: number }): WallSide {
+  const x = Math.max(0, Math.min(room.width, point.x));
+  const y = Math.max(0, Math.min(room.depth, point.y));
+  const distances: Array<{ side: WallSide; distance: number }> = [
+    { side: "top", distance: y }, { side: "bottom", distance: room.depth - y }, { side: "left", distance: x }, { side: "right", distance: room.width - x },
+  ];
+  return distances.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best).side;
+}
+
+export function wallGapFitPreview(gaps: readonly WallGap[], targetAlong: number, requiredSpan: number): WallGapFitPreview | null {
+  const width = Math.max(0, requiredSpan);
+  if (gaps.length === 0 || width <= 0) return null;
+  const distance = (gap: WallGap) => targetAlong < gap.start ? gap.start - targetAlong : targetAlong > gap.start + gap.length ? targetAlong - gap.start - gap.length : 0;
+  const gap = gaps.reduce((best, candidate) => {
+    const currentDistance = distance(candidate);
+    const bestDistance = distance(best);
+    if (currentDistance !== bestDistance) return currentDistance < bestDistance ? candidate : best;
+    return Math.abs(candidate.center - targetAlong) < Math.abs(best.center - targetAlong) ? candidate : best;
+  });
+  const containsTarget = targetAlong >= gap.start - COLLISION_EPSILON_IN && targetAlong <= gap.start + gap.length + COLLISION_EPSILON_IN;
+  const valid = containsTarget && gap.length + COLLISION_EPSILON_IN >= width;
+  const snapStart = valid ? Math.max(gap.start, Math.min(targetAlong - width / 2, gap.start + gap.length - width)) : gap.start;
+  const snapEnd = snapStart + width;
+  return { gap, containsTarget, requiredSpan: width, availableSpan: gap.length, shortage: Math.max(0, width - gap.length), snapStart, snapEnd, before: Math.max(0, snapStart - gap.start), after: Math.max(0, gap.start + gap.length - snapEnd), status: valid ? "valid" : "invalid" };
+}
+
 const STANDARD_WIDTHS_GAP = [9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48];
 
 export function wallGaps(
@@ -5203,7 +5314,7 @@ export type SmartGapRecommendation<T> =
 export function smartGapRecommendation<T extends Pick<DesignCabinet, "width">>(
   gap: Pick<WallGap, "length">,
   candidates: Map<number, T>,
-  threshold = 60,
+  threshold = Number.POSITIVE_INFINITY,
 ): SmartGapRecommendation<T> | null {
   const length = Math.round(gap.length * 100) / 100;
   if (length <= 0 || length >= threshold) return null;
@@ -5219,11 +5330,11 @@ export function smartGapRecommendation<T extends Pick<DesignCabinet, "width">>(
 
 export type SmartGapCatalogOption<T> = { cabinet: T; remaining: number; needsFiller: boolean };
 
-/** All fitting catalog choices for a short active-wall gap, before the user filters or orders them. */
+/** All fitting catalog choices for a selected active-wall gap, before filtering or ordering. */
 export function smartGapCatalogOptions<T extends Pick<DesignCabinet, "masterCode" | "width">>(
   gap: Pick<WallGap, "length">,
   candidates: readonly T[],
-  threshold = 60,
+  threshold = Number.POSITIVE_INFINITY,
 ): SmartGapCatalogOption<T>[] {
   const length = Math.round(gap.length * 100) / 100;
   if (length <= 6 || length >= threshold) return [];
@@ -5234,10 +5345,12 @@ export function smartGapCatalogOptions<T extends Pick<DesignCabinet, "masterCode
       const remaining = Math.round((length - width) * 100) / 100;
       return { cabinet, remaining, needsFiller: remaining > 0.01 && remaining <= 6 };
     })
-    // A Smart Gap option must finish the complete opening. Never offer a box
-    // that silently leaves more than one sellable fitted-filler span unfilled.
-    .filter(({ remaining }) => remaining <= 0.01 || remaining <= 6)
     .sort((a, b) => Number(b.cabinet.width) - Number(a.cabinet.width) || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode));
+}
+
+/** The one-action best fit for any selected empty space; never invents a SKU. */
+export function bestFitCatalogOption<T extends Pick<DesignCabinet, "masterCode" | "width">>(gap: Pick<WallGap, "length">, candidates: readonly T[]): SmartGapCatalogOption<T> | null {
+  return smartGapCatalogOptions(gap, candidates)[0] ?? null;
 }
 
 function cabinetFamilyPrefix(masterCode: string): string {
@@ -5270,7 +5383,7 @@ export function compatibleWallCabinetAlternatives<T extends Pick<DesignCabinet, 
       Math.abs(depth - requestedDepth) <= COLLISION_EPSILON_IN;
     return compatible ? [{ ...candidate, width: String(width), height: String(height), depth: String(depth) } as T] : [];
   });
-  return smartGapCatalogOptions({ length: availableSpan }, matching, Number.POSITIVE_INFINITY);
+  return smartGapCatalogOptions({ length: availableSpan }, matching, Number.POSITIVE_INFINITY).filter((option) => option.remaining <= 0.01 || option.remaining <= 6);
 }
 
 /** Preview layers are derived for rendering only and never mutate saved placements. */

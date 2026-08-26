@@ -5,7 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -110,7 +110,19 @@ export type InteractiveRoomCatalogItem = {
   description: string | null;
   category: "Cabinet" | "Accessory" | "Appliance";
   catalogGroup?: ThreeDCatalogGroup;
+  placement?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
 };
+
+export function threeDCatalogDragFitText(item: Pick<InteractiveRoomCatalogItem, "masterCode">, fit: WallGapFitPreview): string {
+  if (fit.status === "invalid") {
+    if (!fit.containsTarget) return `${item.masterCode} uses ${formatEighthInches(fit.requiredSpan)} · pointer is outside the nearest ${formatEighthInches(fit.availableSpan)} opening at ${formatEighthInches(fit.gap.start)}–${formatEighthInches(fit.gap.start + fit.gap.length)}`;
+    return `${item.masterCode} uses ${formatEighthInches(fit.requiredSpan)} · opening ${formatEighthInches(fit.availableSpan)} · short ${formatEighthInches(fit.shortage)}`;
+  }
+  return `${item.masterCode} uses ${formatEighthInches(fit.requiredSpan)} of ${formatEighthInches(fit.availableSpan)} · snap ${formatEighthInches(fit.snapStart)}–${formatEighthInches(fit.snapEnd)} · left ${formatEighthInches(fit.before)} · right ${formatEighthInches(fit.after)}`;
+}
 
 export const THREE_D_CATALOG_GROUPS = ["All", "Base", "Corner", "Wall", "Tall", "Appliances", "Accessories"] as const;
 export type ThreeDCatalogGroup = (typeof THREE_D_CATALOG_GROUPS)[number];
@@ -151,22 +163,22 @@ export function threeDWallFitGuideText(measurement: WallCabinetFitMeasure | null
   if (!measurement) return null;
   const required = exactFittedFillerInches(measurement.requiredSpan);
   const available = exactFittedFillerInches(measurement.availableSpan);
+  const boundaries = `${measurement.beforeBoundary} to ${measurement.afterBoundary}`;
+  const snap = `${exactFittedFillerInches(measurement.snapStart)}–${exactFittedFillerInches(measurement.snapEnd)}`;
   if (!measurement.seated) {
-    return `Placement guide: cabinet width ${required} · not seated on the ${measurement.side} wall · snap to a wall to measure left and right clearance`;
+    return `Placement guide: cabinet uses ${required} · not seated on the ${measurement.side} wall · snap to a wall to measure available space`;
   }
   if (measurement.status === "overlap") {
     const overlaps = [
       measurement.leftOverlap > 0 ? `left overlap ${exactFittedFillerInches(measurement.leftOverlap)}` : null,
       measurement.rightOverlap > 0 ? `right overlap ${exactFittedFillerInches(measurement.rightOverlap)}` : null,
     ].filter((value): value is string => value != null);
-    return `Fit guide: cabinet width ${required} · ${available} clear wall span · ${overlaps.join(" · ")}`;
+    return `Used ${required} · available opening ${available} (${boundaries}) · ${overlaps.join(" · ")} · valid snap target ${snap}`;
   }
   if (measurement.status === "insufficient") {
-    return `Fit guide: cabinet width ${required} · ${available} clear wall span · cabinet is ${exactFittedFillerInches(measurement.requiredSpan - measurement.availableSpan)} too wide`;
+    return `Used ${required} · available opening ${available} (${boundaries}) · short ${exactFittedFillerInches(measurement.shortage)} · choose a smaller cabinet`;
   }
-  const edgeContact = measurement.before <= 0.01 || measurement.after <= 0.01;
-  const gapText = `left gap ${exactFittedFillerInches(measurement.before)} · right gap ${exactFittedFillerInches(measurement.after)}`;
-  return `Fit guide: cabinet width ${required} · ${available} clear wall span · ${edgeContact ? "edge contact allowed" : gapText}`;
+  return `Used ${required} · available opening ${available} (${boundaries}) · snap target ${snap} · left remaining ${exactFittedFillerInches(measurement.snapBefore)} · right remaining ${exactFittedFillerInches(measurement.snapAfter)} · 0\" overlap`;
 }
 
 export function exactFittedFillerInches(width: number): string {
@@ -207,7 +219,7 @@ export function threeDScreenHorizontalPlanDelta(
   const y = screenRight.y * step * sign;
   return { x: Math.abs(x) < 1e-9 ? 0 : x, y: Math.abs(y) < 1e-9 ? 0 : y };
 }
-export type ThreeDCatalogDropTarget = { x: number; y: number };
+export type ThreeDCatalogDropTarget = { x: number; y: number; wall?: WallSide };
 export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
 export const THREE_D_EMBEDDED_TOOLBAR_CLASS = "absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur";
 export function threeDPreviewFadeAllowed(prefersReducedMotion: boolean): boolean {
@@ -259,6 +271,8 @@ interface Props {
   catalogCountertopColor?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
+  /** Reactive left-panel drag item used when browsers protect DataTransfer reads during dragover. */
+  catalogDragItem?: InteractiveRoomCatalogItem | null;
   /** Active designer wall used to project explicit 3D catalog drops onto the correct wall plane. */
   catalogDropWall?: WallSide;
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem, dropTarget?: ThreeDCatalogDropTarget) => void;
@@ -527,13 +541,26 @@ export function threeDCatalogDropTargetFromIntersections(
   intersections: Array<Pick<THREE.Intersection<THREE.Object3D>, "object" | "point">>,
   wallPlaneHit: THREE.Vector3,
   room: Pick<RoomData, "width" | "depth">,
+  fallbackWall?: WallSide,
 ): ThreeDCatalogDropTarget {
   const placedIntersection = intersections.find((intersection) => Boolean(threeDCabinetHitFromObject(intersection.object)));
+  const wallIntersection = intersections.find((intersection) => threeDRoomWallSideFromObject(intersection.object) != null);
   const point = placedIntersection?.point ?? wallPlaneHit;
   return {
     x: Math.max(0, Math.min(room.width, point.x / INCH)),
     y: Math.max(0, Math.min(room.depth, point.z / INCH)),
+    wall: wallIntersection ? threeDRoomWallSideFromObject(wallIntersection.object) ?? fallbackWall : fallbackWall,
   };
+}
+
+export function threeDRoomWallSideFromObject(object: THREE.Object3D | null | undefined): WallSide | null {
+  let current: THREE.Object3D | null | undefined = object;
+  while (current) {
+    const side = current.userData?.physicalWallSide;
+    if (current.userData?.roomWall === true && (side === "top" || side === "bottom" || side === "left" || side === "right")) return side;
+    current = current.parent;
+  }
+  return null;
 }
 // Drawer reveals must sit behind the physical front. Keeping this near the
 // carcass face avoids line geometry projecting through painted door panels.
@@ -3447,7 +3474,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3481,6 +3508,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
+  const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide } | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
   useEffect(() => {
@@ -3872,11 +3900,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(pointer, camera);
-    const plane = threeDCatalogDropPlane(catalogDropWall, room);
+    const intersections = root ? raycaster.intersectObjects(root.children, true) : [];
+    const physicalWallHit = intersections.find((intersection) => threeDRoomWallSideFromObject(intersection.object) != null);
+    const targetedWall = physicalWallHit ? threeDRoomWallSideFromObject(physicalWallHit.object) ?? catalogDropWall : catalogDropWall;
+    const plane = threeDCatalogDropPlane(targetedWall, room);
     const hit = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, hit)) return undefined;
-    const intersections = root ? raycaster.intersectObjects(root.children, true) : [];
-    return threeDCatalogDropTargetFromIntersections(intersections, hit, room);
+    return threeDCatalogDropTargetFromIntersections(intersections, hit, room, targetedWall);
   };
 
   const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {
@@ -4059,8 +4089,23 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); }}>
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
+        event.preventDefault();
+        const key = event.dataTransfer.getData("text/plain") || draggedCatalogId || "";
+        const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem;
+        if (!item || !roomOverride || !item.width || item.width <= 0) { setCatalogDragMeasurement(null); return; }
+        const target = catalogDropTargetAtPoint(event.clientX, event.clientY);
+        const wall = target?.wall ?? catalogDropWall;
+        if (!target || !wall) { setCatalogDragMeasurement(null); return; }
+        const layer = item.placement === "wall" ? "wall" : "base";
+        const gaps = wallGaps(roomOverride, placed, openings, 0.5).filter((gap) => gap.side === wall && gap.layer === layer);
+        const targetAlong = wall === "top" || wall === "bottom" ? target.x : target.y;
+        const fit = wallGapFitPreview(gaps, targetAlong, item.width);
+        setCatalogDragMeasurement(fit ? { item, fit, wall } : null);
+      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 		        <div ref={mountRef} className="h-full w-full" />
+		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
+		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{catalogDragMeasurement.fit.status === "valid" ? "Valid snap space" : "Invalid drop space"} · {catalogDragMeasurement.wall} wall · ⅛&quot; precision</span><span>{threeDCatalogDragFitText(catalogDragMeasurement.item, catalogDragMeasurement.fit)}</span></div>}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
 	        {embedded && <div className={THREE_D_EMBEDDED_TOOLBAR_CLASS} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" /><span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span><span className="sm:hidden">{showWallLayer ? "Hide walls" : "Show walls"}</span></button>}</div>}

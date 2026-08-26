@@ -1,4 +1,6 @@
-export type ThreeDWallDropTarget = { x: number; y: number };
+import type { WallSide } from "@/lib/design";
+
+export type ThreeDWallDropTarget = { x: number; y: number; wall?: WallSide };
 
 export type WallFreeSegment = { start: number; length: number };
 

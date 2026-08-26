@@ -18,7 +18,7 @@ import {
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
-  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
   isStacker,
@@ -1802,6 +1802,7 @@ describe("wall cabinet clearance from doors/windows", () => {
     const candidate = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15 });
     const highWindow = { ...topWindow(54), sill: 76, height: 10 };
     expect(overSinkWindowClearanceBlocked(candidate, [sinkBase], [highWindow], lowRoom)).toBe(true);
+    expect(overSinkWindowClearanceMeasure(candidate, [sinkBase], [highWindow], lowRoom)).toMatchObject({ side: "top", openingTop: 86, clearance: 3, requiredBottom: 89, cabinetHeight: 15, requiredTop: 104, ceiling: 90, shortage: 14 });
     expect(overSinkWallMountBottom(candidate, [sinkBase], [highWindow], lowRoom)).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
   });
 

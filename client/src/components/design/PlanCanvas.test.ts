@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
@@ -132,5 +133,16 @@ describe("plan tape measure", () => {
     );
 
     expect(markup).toContain("Tape measure: tap the start point");
+  });
+});
+
+describe("plan placement assistance wiring", () => {
+  it("keeps best fit and measured valid/invalid drag feedback in the shared canvas", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="smart-gap-place-best"');
+    expect(source).toContain('data-testid="catalog-drag-gap-highlight"');
+    expect(source).toContain('data-testid="catalog-drag-snap-ghost"');
+    expect(source).toContain('data-testid="catalog-drag-fit-status"');
+    expect(source).toContain("bestFitCatalogOption(activeGap, layerCandidates)");
   });
 });

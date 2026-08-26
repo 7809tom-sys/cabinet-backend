@@ -81,10 +81,10 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatEighthInches, formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
+  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -445,6 +445,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   const [smartGapPreview, setSmartGapPreview] = useState<PlacedCabinet[]>([]);
   const [smartGapPreviewPosition, setSmartGapPreviewPosition] = useState<{ current: number; total: number } | null>(null);
+  const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
 
   // Last line of defense for legacy designs and any future placement path that
@@ -2215,21 +2216,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
       ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
     ].filter((item, index, all) => all.findIndex((candidate) => Number(candidate.id) === Number(item.id)) === index);
-    const cabinets = activeCabinets.map((item) => ({
+    const cabinets = activeCabinets.map((item) => {
+      const dimensions = resolvedDesignCabinetDimensions(item);
+      return {
         id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
         catalogGroup: isCornerBase(item) || isCornerWall(item) ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
-      }));
+        placement: item.placement ?? null, width: dimensions.width, height: dimensions.height, depth: dimensions.depth,
+      };
+    });
     const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const, catalogGroup: "Accessories" as const,
+      placement: accessoryPlacement(item), width: dim(item.width, 24), height: dim(item.height, standardHeight(accessoryPlacement(item))), depth: isPanelItem(item) ? 0.75 : footprintDepth(item),
     }));
     // Appliances are already part of the live Design Tool palette. They are
     // presentation/plan items unless a distributor exposes a priced SKU, so the
     // itemized drawer accurately marks them as price pending when applicable.
     const appliances = appliancePalette.map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const, catalogGroup: "Appliances" as const,
+      placement: item.placement ?? "appliance", width: dim(item.width, 30), height: dim(item.height, 36), depth: footprintDepth(item),
     }));
     return [...cabinets, ...accessories, ...appliances];
   }, [autoFillCabinets, wallCabPool, tallCabPool, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
+  const interactive3dCatalogDragItem = useMemo(() => {
+    if (!catalogDragPreview) return null;
+    const category = paletteType === "accessory" ? "Accessory" : "Cabinet";
+    return interactive3dCatalogItems.find((item) => Number(item.id) === Number(catalogDragPreview.id) && item.category === category) ?? null;
+  }, [catalogDragPreview, interactive3dCatalogItems, paletteType]);
 
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
@@ -2795,7 +2807,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // 70-inch finished-floor bottom. A real window may raise that bottom just enough
       // to clear it; the cabinet must never be ceiling-mounted by default.
       if (overSinkWindowClearanceBlocked(finalCab, prev, openings, room)) {
-        const message = `${finalCab.masterCode} cannot fit above this sink window because the required clearance exceeds the ceiling height.`;
+        const vertical = overSinkWindowClearanceMeasure(finalCab, prev, openings, room);
+        const message = vertical
+          ? `Cannot place ${finalCab.masterCode} above the ${vertical.openingLabel} on the ${WALL_LABELS[vertical.side]} wall: the opening top is ${formatEighthInches(vertical.openingTop)} and requires ${formatEighthInches(vertical.clearance)} clearance, so the ${formatEighthInches(vertical.cabinetHeight)} cabinet must start at ${formatEighthInches(vertical.requiredBottom)} and reach ${formatEighthInches(vertical.requiredTop)}. The ceiling is ${formatEighthInches(vertical.ceiling)}, leaving it ${formatEighthInches(vertical.shortage)} too tall. Choose a shorter cabinet or raise the ceiling.`
+          : `${finalCab.masterCode} cannot fit above this sink window because the required clearance exceeds the ceiling height.`;
         setPlacementWarning(message);
         toast.error(message);
         return;
@@ -2938,16 +2953,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const width = forceAccessory ? dim(cabinet.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : forceAccessory ? footprintDepth(cabinet) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(cabinet) : cabinet.placement;
-      const segments = freeSegmentsOnWall(activeWall, room, placed, openings, Math.min(width, 9), 0, placement);
-      const targetAlong = activeWall === "top" || activeWall === "bottom" ? dropTarget.x : dropTarget.y;
+      const dropWall = dropTarget.wall ?? activeWall;
+      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
+      const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
       const along = nearestFreeWallDropStart(targetAlong, width, segments);
       if (along == null) {
-        const message = `${cabinet.masterCode} was not added because there is no ${width}" opening at the selected drop location on the active wall.`;
+        const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
+        const measured = wallGapFitPreview(gaps, targetAlong, width);
+        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
+        const message = measured
+          ? !measured.containsTarget
+            ? `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the selected point is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}. Move the pointer into that opening and release again.`
+            : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} from ${formatEighthInches(measured.gap.start)} to ${formatEighthInches(measured.gap.start + measured.gap.length)}. The opening is ${formatEighthInches(measured.shortage)} too small. Choose a smaller matching cabinet or select a wider opening.`
+          : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but there is no clear opening at the selected point. Choose another measured opening or move a blocking item.`;
         setPlacementWarning(message);
         toast.error(message);
         return;
       }
-      const spot = wallPlacementAt(along, width, depth, activeWall, room);
+      const spot = wallPlacementAt(along, width, depth, dropWall, room);
       addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true);
     };
     if (item.category === "Cabinet") {
@@ -3122,6 +3145,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ];
     return Array.from(new Map(catalog.map((cabinet) => [cabinet.id, { cabinetId: cabinet.id, styleId }])).values()).slice(0, 2000);
   }, [autoFillCabinets, styleId, wallCabPool]);
+  const smartGapCatalogCandidates = useMemo(
+    () => Array.from(new Map([
+      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+    ].map((cabinet) => {
+      const dimensions = resolvedDesignCabinetDimensions(cabinet);
+      return [cabinet.id, { ...cabinet, width: String(dimensions.width), height: String(dimensions.height), depth: String(dimensions.depth) } as DesignCabinet] as const;
+    })).values()),
+    [autoFillCabinets, wallCabPool],
+  );
   const { data: smartGapPriceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: smartGapPricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: smartGapPricePairs.length > 0 && !!styleId },
@@ -4228,12 +4261,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     (clientX: number, clientY: number, roomRect: DOMRect, ppi: number) => {
       const data = dragDataRef.current;
       if (!data) return;
-      const x = (clientX - roomRect.left) / ppi - dim(data.width, 24) / 2;
-      const y = (clientY - roomRect.top) / ppi - footprintDepth(data) / 2;
-      addCabinet(data, Math.max(0, x), Math.max(0, y));
+      const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
+      const dropWall = nearestRectRoomWallAtPoint(room, center);
+      const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
+      const dimensions = resolvedDesignCabinetDimensions(data);
+      const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
+      const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
+      const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
+      const targetAlong = dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
+      const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
+      const measured = wallGapFitPreview(gaps, targetAlong, width);
+      if (!measured || measured.status !== "valid") {
+        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
+        const message = measured
+          ? !measured.containsTarget
+            ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
+            : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`
+          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.`;
+        setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
+      }
+      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room);
+      addCabinet(data, spot.x, spot.y, forceAccessory, spot.rotation, true);
       dragDataRef.current = null;
+      setCatalogDragPreview(null);
     },
-    [addCabinet]
+    [addCabinet, openings, paletteType, placed, room]
   );
 
   const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number) => {
@@ -5876,6 +5929,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      key={interactive3dRevision}
 		      embedded
 		      hybridPlanUnderlay={hybridPlanUnderlay}
+		      catalogDragItem={interactive3dCatalogDragItem}
 	      className="h-full min-h-0"
 	      scene={resolvedInteractive3dScene}
 	      placed={threeDPlaced}
@@ -8215,7 +8269,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         <button
                           key={c.masterCode}
                           draggable
-                          onDragStart={(event) => { dragDataRef.current = c; const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
+                          onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
+                          onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
                           onClick={() => addCabinet(c)}
                           className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                         >
@@ -8235,7 +8290,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <button
                       key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
-                      onDragStart={(event) => { dragDataRef.current = c; const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
+                      onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
+                      onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
                       onClick={() => addCabinet(c)}
                       className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                     >
@@ -8363,6 +8419,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          {viewMode === "plan" && (
 	            <PlanCanvas onPreviewGap={previewSmartGap}
 	              room={room}
+	              catalogDragCabinet={catalogDragPreview}
+	              smartGapCandidates={smartGapCatalogCandidates}
+	              smartGapCandidatePrices={smartGapCandidatePrices}
               cabinets={placed}
               selectedUid={selectedUid}
               onSelect={selectCabinet}
@@ -8530,6 +8589,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              <div className="flex-1 min-h-0 border-b border-border">
 	                <PlanCanvas onPreviewGap={previewSmartGap}
 	                  room={room}
+	                  catalogDragCabinet={catalogDragPreview}
+	                  smartGapCandidates={smartGapCatalogCandidates}
+	                  smartGapCandidatePrices={smartGapCandidatePrices}
                   cabinets={placed}
                   selectedUid={selectedUid}
                   onSelect={selectCabinet}
@@ -10321,6 +10383,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                scene={resolvedInteractive3dScene}
 		                placed={threeDPlaced}
 		                catalogDropWall={activeWall}
+		                catalogDragItem={interactive3dCatalogDragItem}
                 roomOverride={room}
                 openings={openings}
                 sinks={sinks}
