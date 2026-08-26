@@ -8,6 +8,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDropPlane } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -313,6 +314,40 @@ describe("interactive 3D room scene helpers", () => {
       description: "36-inch Base Easy Reach corner cabinet",
       distributorSkuId: 936036,
     });
+  });
+
+  it("skips untagged room geometry and resolves the visible BER36 countertop to its exact placement UID", () => {
+    const roomSurface = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    const berCountertop = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 3));
+    applyThreeDPlacementIdentity(berCountertop, {
+      uid: "placed-ber36",
+      masterCode: "BER36",
+      description: "36-inch Base Easy Reach corner cabinet",
+      distributorSkuId: 936036,
+    });
+
+    expect(threeDCabinetHitFromIntersections([
+      { object: roomSurface },
+      { object: berCountertop },
+    ])).toEqual({
+      uid: "placed-ber36",
+      masterCode: "BER36",
+      description: "36-inch Base Easy Reach corner cabinet",
+      distributorSkuId: 936036,
+    });
+  });
+
+  it("projects an explicit catalog drop onto the active Right wall instead of the floor", () => {
+    const plane = threeDCatalogDropPlane("right", { width: 120, depth: 96 });
+    const ray = new THREE.Ray(new THREE.Vector3(0, 4, 4), new THREE.Vector3(1, 0, 0));
+    const hit = ray.intersectPlane(plane, new THREE.Vector3());
+    expect(hit?.x).toBeCloseTo(10);
+    expect(hit?.z).toBeCloseTo(4);
+  });
+
+  it("passes the active wall into every DesignTool 3D renderer for direct-drop projection", () => {
+    const designToolSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+    expect(designToolSource.match(/catalogDropWall=\{activeWall\}/g)).toHaveLength(2);
   });
 
   it("keeps catalog additions available while rendering an existing saved 2D plan", () => {

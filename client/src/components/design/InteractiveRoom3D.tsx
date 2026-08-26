@@ -259,6 +259,8 @@ interface Props {
   catalogCountertopColor?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
+  /** Active designer wall used to project explicit 3D catalog drops onto the correct wall plane. */
+  catalogDropWall?: WallSide;
   onAddCatalogItem?: (item: InteractiveRoomCatalogItem, dropTarget?: ThreeDCatalogDropTarget) => void;
   /** Adds the matching hood to the editable 2D range position when one is absent. */
   onAddRangeHood?: () => void;
@@ -472,6 +474,45 @@ export function threeDCabinetHitFromObject(object: THREE.Object3D): ThreeDCabine
   }
 
   return masterCode ? { uid, masterCode, description, distributorSkuId } : null;
+}
+
+/** Select the first actual placed-cabinet hit, skipping room/countertop decoration with no placement identity. */
+export function threeDCabinetHitFromIntersections(
+  intersections: Array<Pick<THREE.Intersection, "object">>,
+): ThreeDCabinetHit | null {
+  for (const intersection of intersections) {
+    const hit = threeDCabinetHitFromObject(intersection.object);
+    if (hit?.uid) return hit;
+  }
+  return null;
+}
+
+/** Stamp exact saved-placement identity onto every visible part of a generated cabinet assembly. */
+export function applyThreeDPlacementIdentity(
+  object: THREE.Object3D,
+  identity: Pick<ThreeDCabinetHit, "uid" | "masterCode" | "description" | "distributorSkuId">,
+): void {
+  object.traverse((child) => {
+    child.userData = {
+      ...child.userData,
+      placedUid: identity.uid,
+      masterCode: identity.masterCode,
+      label: identity.description,
+      distributorSkuId: identity.distributorSkuId,
+    };
+  });
+}
+
+/** Projects explicit 3D catalog drops onto the active designer wall rather than the floor. */
+export function threeDCatalogDropPlane(
+  wall: WallSide | undefined,
+  room: Pick<RoomData, "width" | "depth">,
+): THREE.Plane {
+  if (wall === "left") return new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+  if (wall === "right") return new THREE.Plane(new THREE.Vector3(-1, 0, 0), room.width * INCH);
+  if (wall === "top") return new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  if (wall === "bottom") return new THREE.Plane(new THREE.Vector3(0, 0, -1), room.depth * INCH);
+  return new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 }
 // Drawer reveals must sit behind the physical front. Keeping this near the
 // carcass face avoids line geometry projecting through painted door panels.
@@ -2570,6 +2611,13 @@ export function addCabinet(
     edges.position.copy(bodyMesh.position);
     cabinet.add(edges);
   }
+  const placementIdentity: ThreeDCabinetHit = {
+    uid: sku.placementUid ?? null,
+    masterCode: sku.masterCode,
+    description: sku.description ?? null,
+    distributorSkuId: sku.distributorSkuId,
+  };
+  applyThreeDPlacementIdentity(cabinet, placementIdentity);
   root.add(cabinet);
 
   if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode, sku.description)) {
@@ -2587,6 +2635,7 @@ export function addCabinet(
         slab.userData = { specialtyProfile: specialty.kind, lCornerCountertop: true };
         counterGroup.add(slab);
       }
+      applyThreeDPlacementIdentity(counterGroup, placementIdentity);
       root.add(counterGroup);
     } else if (specialty.kind === "end-return") {
       const diagram = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
@@ -2604,6 +2653,7 @@ export function addCabinet(
         nonCornerEndReturnCountertop: true,
         diagramDefinedRearApexCountertop: true,
       };
+      applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else if (specialty.kind === "diagonal-corner") {
       const counter = new THREE.Mesh(
@@ -2614,6 +2664,7 @@ export function addCabinet(
       counter.rotation.y = rotation;
       counter.position.y = countertopCenterY;
       counter.userData = { diagonalCornerCountertop: true };
+      applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else if (specialty.kind === "triangle-corner") {
       const counter = new THREE.Mesh(
@@ -2624,6 +2675,7 @@ export function addCabinet(
       counter.rotation.y = rotation;
       counter.position.y = countertopCenterY;
       counter.userData = { triangleCornerCountertop: true };
+      applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else {
       const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, threeDCountertopDepthIn(bodyDepth / INCH) * INCH), counterMaterial);
@@ -2634,6 +2686,7 @@ export function addCabinet(
       counter.userData = { countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH) };
       if (specialty.kind === "blind-corner") counter.userData = { ...counter.userData, blindCornerCountertop: true };
       if (isFloorDishwasher) counter.userData = { ...counter.userData, dishwasherCountertopSupport: true, floorApplianceSupport: true };
+      applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     }
   }
@@ -3373,7 +3426,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -3774,10 +3827,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(pointer, camera);
-    const hit = raycaster.intersectObjects(root.children, true)[0];
-    renderer.domElement.style.cursor = hit ? "pointer" : "grab";
-    if (!hit) return null;
-    const hitSelection = threeDCabinetHitFromObject(hit.object);
+    const hits = raycaster.intersectObjects(root.children, true);
+    renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "grab";
+    const hitSelection = threeDCabinetHitFromIntersections(hits);
     if (!hitSelection) return null;
     const placedCabinet = hitSelection.uid ? placed.find((cabinet) => cabinet.uid === hitSelection.uid) ?? null : null;
     const selection = {
@@ -3798,8 +3850,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(pointer, camera);
+    const plane = threeDCatalogDropPlane(catalogDropWall, room);
     const hit = new THREE.Vector3();
-    if (!raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return undefined;
+    if (!raycaster.ray.intersectPlane(plane, hit)) return undefined;
     return {
       x: Math.max(0, Math.min(room.width, hit.x / INCH)),
       y: Math.max(0, Math.min(room.depth, hit.z / INCH)),

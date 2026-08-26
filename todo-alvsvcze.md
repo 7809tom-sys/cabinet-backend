@@ -756,3 +756,6 @@
 - [x] Live publication approval: Publish the validated designer correction bundle to cabinetdealz.com after final task-list, test, diff, and temporary-QA cleanup checks, then verify a normal refresh loads the new live version
 - [x] Preview tRPC HTML-response error: Identify the authenticated /design?from_webdev=1 query receiving an HTML document instead of JSON, correct API routing or recovery, and verify refresh no longer raises Unexpected token '<'
 - [x] Exact 36-inch W-36-24 opening: Correct wall-run neighbor and boundary selection so a true 36-inch opening accepts the 36-inch cabinet at exact 0-inch overlap instead of being misreported as 24 inches
+- [x] Right-wall exact 36-inch W-36-24 fit: Reproduce the active Right-wall sink opening and correct vertical-wall run-axis, selected-drop, and neighbor-boundary conversion so W-36-24 fits edge-to-edge at exact 0-inch overlap
+- [x] BER36 full-geometry 3D selection: In the reported BER36/TB09 adjacency, tag every visible BER36 child mesh and prioritize the exact raycast hit so click, right-click, and touch select BER36 rather than TB09 or another overlapping neighbor
+- [x] Right-wall direct 3D drop fit: Make a W-36-24 dropped in the active Right-wall sink opening use the correct vertical wall-run coordinate and nearest exact 36-inch free segment instead of reporting no opening

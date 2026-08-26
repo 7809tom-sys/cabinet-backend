@@ -5879,6 +5879,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      className="h-full min-h-0"
 	      scene={resolvedInteractive3dScene}
 	      placed={threeDPlaced}
+	      catalogDropWall={activeWall}
       roomOverride={room}
       openings={openings}
       sinks={sinks}
@@ -10315,10 +10316,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
-	              <InteractiveRoom3D
-	                key={interactive3dRevision}
-	                scene={resolvedInteractive3dScene}
-	                placed={threeDPlaced}
+		              <InteractiveRoom3D
+		                key={interactive3dRevision}
+		                scene={resolvedInteractive3dScene}
+		                placed={threeDPlaced}
+		                catalogDropWall={activeWall}
                 roomOverride={room}
                 openings={openings}
                 sinks={sinks}
