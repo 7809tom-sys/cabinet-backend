@@ -440,7 +440,7 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
     ).toBe("base");
   });
 
-  it("classifies a full-height base as base (grouped with bases)", () => {
+  it("classifies a full-height base in the dedicated Full Height section", () => {
     expect(
       baseSubGroup({
         masterCode: "B-30FH",
@@ -449,7 +449,7 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
         numberOfDoors: 2,
         numberOfDrawers: 0,
       }),
-    ).toBe("base");
+    ).toBe("full-height");
   });
 
   it("classifies an all-drawer base as drawer", () => {
@@ -536,9 +536,9 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
   });
 
   // Regression: some rows are mis-tagged subCategory="Drawer Base" but are really
-  // single-door full-height bases (BFH-12/15/18). A real drawer base has 0 doors,
-  // so a 1-door box tagged "Drawer Base" must still land in the base group.
-  it("classifies a single-door base mis-tagged subCategory=Drawer Base as base", () => {
+  // single-door full-height bases (BFH-12/15/18). They must live only in the
+  // dedicated Full Height section.
+  it("classifies a single-door BFH base mis-tagged as Drawer Base as full height", () => {
     expect(
       baseSubGroup({
         masterCode: "BFH-12",
@@ -548,7 +548,31 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
         numberOfDoors: 1,
         numberOfDrawers: 0,
       }),
-    ).toBe("base");
+    ).toBe("full-height");
+  });
+
+  it("recognizes compact and distributor full-height base code families", () => {
+    for (const masterCode of ["B12FH", "B15FHD", "B18FHTD", "B18FH1RS", "B21FH2RS", "B36FH3RS", "B18FHTCPO", "TFHB-21", "HB-24"]) {
+      expect(
+        baseSubGroup({
+          masterCode,
+          description: 'Full Height Base Cabinet',
+          category: "Base",
+          numberOfDoors: 1,
+          numberOfDrawers: 0,
+        }),
+      ).toBe("full-height");
+    }
+  });
+
+  it("keeps a full-height vanity sink cabinet in Sink Bases", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "BFH-30",
+        description: '30" Full Height Door Vanity Sink Cabinet',
+        category: "Base",
+      }),
+    ).toBe("sink");
   });
 
   it("sink wins over drawer when a sink base also has drawers", () => {

@@ -12,11 +12,11 @@ import {
   crownLinearInches, toeKickLinearInches, trimPiecesNeeded,
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
-  doorPanelKind, wallSpanMeasure,
+  doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -25,7 +25,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, orientToWall, hasCollision, collisionReason, shouldBlockPlacementCollision, isHoodOverRangePair,
+  snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -1164,6 +1164,38 @@ describe("wallSpanMeasure (live drag tape, both sides)", () => {
   });
 });
 
+describe("wallCabinetFitMeasure (3D placement guide)", () => {
+  const room: RoomData = { width: 96, depth: 120 };
+
+  it("accepts a WR3624 in an exact 36-inch opening with edge contact on both sides", () => {
+    const left = cab({ uid: "left", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+    const right = cab({ uid: "right", placement: "wall", masterCode: "W-4842", x: 48, y: 0, width: 48, depth: 12, height: 42, mountBottom: 54 });
+    const measure = wallCabinetFitMeasure(wr, room, [left, wr, right], [], "top");
+    expect(measure).toMatchObject({ requiredSpan: 36, availableSpan: 36, before: 0, after: 0, leftOverlap: 0, rightOverlap: 0, status: "fits" });
+  });
+
+  it("reports the measurable overlap instead of converting it to zero open space", () => {
+    const left = cab({ uid: "left", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 11.75, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+    const measure = wallCabinetFitMeasure(wr, room, [left, wr], [], "top");
+    expect(measure.status).toBe("overlap");
+    expect(measure.leftOverlap).toBeCloseTo(0.25);
+    expect(measure.rightOverlap).toBe(0);
+  });
+
+  it("reports a 33-inch clear segment when a 36-inch cabinet intrudes three inches into its right neighbor", () => {
+    const left = cab({ uid: "left", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const right = cab({ uid: "right", placement: "wall", x: 45, y: 0, width: 51, depth: 12, height: 42, mountBottom: 54 });
+    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+    const measure = wallCabinetFitMeasure(wr, room, [left, wr, right], [], "top");
+    expect(measure.availableSpan).toBe(33);
+    expect(measure.requiredSpan).toBe(36);
+    expect(measure.status).toBe("overlap");
+    expect(measure.rightOverlap).toBe(3);
+  });
+});
+
 describe("countertopSurfaces", () => {
   it("creates a slab for each base cabinet pinned to its wall", () => {
     const back = cab({ uid: "a", placement: "base", width: 36, depth: 24, x: 0, y: 0 });
@@ -1281,6 +1313,107 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
 
     const filledTopRun = [cab({ uid: "base-run", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
     expect(paletteActiveWallPlacement("top", ROOM_12x10, filledTopRun, [], 36, 24, "base")).toBeNull();
+  });
+
+  it("fills the earliest valid selected-wall opening instead of jumping past later floor-run items", () => {
+    const existing = [
+      cab({ uid: "base-a", placement: "base", x: 24, y: 0, width: 30, depth: 24 }),
+      cab({ uid: "base-b", placement: "base", x: 54, y: 0, width: 18, depth: 24 }),
+    ];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, existing, [], 24, 24, "base"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+  });
+
+  it("keeps wall and floor runs independent while tall cabinets reserve both sequences", () => {
+    const baseOnly = cab({ uid: "base", placement: "base", x: 0, y: 0, width: 48, depth: 24 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [baseOnly], [], 30, 12, "wall"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+
+    const wallOnly = cab({ uid: "wall", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [wallOnly], [], 24, 24, "base"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+
+    const tall = cab({ uid: "tall", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 84 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [tall], [], 30, 12, "wall"))
+      .toEqual({ x: 24, y: 0, rotation: 0 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [tall], [], 30, 24, "base"))
+      .toEqual({ x: 24, y: 0, rotation: 0 });
+
+    const splitRuns = [
+      cab({ uid: "base-long", placement: "base", x: 0, y: 0, width: 42, depth: 24 }),
+      cab({ uid: "wall-long", placement: "wall", x: 0, y: 0, width: 60, depth: 12, height: 30 }),
+    ];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, splitRuns, [], 24, 24, "tall"))
+      .toEqual({ x: 60, y: 0, rotation: 0 });
+  });
+
+  it("places W-30-24 after the current upper run instead of jumping over a matching stove", () => {
+    const upper = cab({ uid: "upper", masterCode: "W-30-30", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
+    const stove = cab({ uid: "range", masterCode: "RANGE-30", placement: "appliance", x: 72, y: 0, width: 30, depth: 24, height: 36 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [upper, stove], [], 30, 12, "wall"))
+      .toEqual({ x: 30, y: 0, rotation: 0 });
+  });
+
+  it("centers W-30-24 above an explicitly selected sink base instead of using the generic wall sequence", () => {
+    const sinkBase = cab({ uid: "selected-sink-base", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
+    const spot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, 24);
+    expect(spot).toEqual({ x: 51, y: 0, rotation: 0 });
+    const w3024 = cab({ uid: "over-sink-w3024", masterCode: "W-30-24", placement: "wall", ...spot!, width: 30, depth: 12, height: 24 });
+    expect(overSinkWindowStart(w3024, [sinkBase], [], ROOM_12x10)).toBe(51);
+    expect(overSinkWallMountBottom(w3024, [sinkBase], [], ROOM_12x10)).toBe(70);
+    expect(hasCollision(w3024, [sinkBase])).toBe(false);
+  });
+
+  it("uses normal sequence placement when the selected lower cabinet is not a sink, while any wall height may target a selected sink", () => {
+    const ordinaryBase = cab({ uid: "selected-ordinary-base", masterCode: "B-36", description: "36-inch Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
+    const sinkBase = cab({ uid: "selected-sink-for-tall-upper", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
+    expect(selectedSinkBaseWallPlacement(ordinaryBase, ROOM_12x10, 30, 12, 24)).toBeNull();
+    const tallWallSpot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, 42);
+    expect(tallWallSpot).toEqual({ x: 51, y: 0, rotation: 0 });
+    const tallWall = cab({ uid: "over-sink-w3042", masterCode: "W-30-42", placement: "wall", ...tallWallSpot!, width: 30, depth: 12, height: 42 });
+    expect(elevationBox(tallWall, ROOM_12x10)).toEqual({ bottom: 54, height: 42 });
+  });
+
+  it.each([12, 18, 24, 30, 36, 42])("allows a %i-inch wall cabinet to use the selected sink opening regardless of neighboring heights", (height) => {
+    const sinkBase = cab({ uid: `sink-${height}`, masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
+    const leftUpper = cab({ uid: `left-${height}`, masterCode: "W-30-42", placement: "wall", x: 21, y: 0, width: 30, depth: 12, height: 42 });
+    const rightUpper = cab({ uid: `right-${height}`, masterCode: "W-30-30", placement: "wall", x: 81, y: 0, width: 30, depth: 12, height: 30 });
+    const spot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, height);
+    expect(spot).toEqual({ x: 51, y: 0, rotation: 0 });
+    const candidate = cab({ uid: `selected-height-${height}`, masterCode: `W-30-${height}`, placement: "wall", ...spot!, width: 30, depth: 12, height });
+    expect(hasCollision(candidate, [leftUpper, rightUpper, sinkBase])).toBe(false);
+  });
+
+  it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {
+    const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
+    const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });
+    const spot = paletteActiveWallPlacement("top", ROOM_12x10, [previous, laterTall], [], 30, 12, "wall");
+    expect(spot).toEqual({ x: 30, y: 0, rotation: 0 });
+    const w3024 = cab({ uid: "w3024-open-run", masterCode: "W-30-24", placement: "wall", ...spot!, width: 30, depth: 12, height: 24 });
+    expect(hasCollision(w3024, [previous, laterTall])).toBe(false);
+    expect(w3024.x - (previous.x + previous.width)).toBe(0);
+    expect(laterTall.x - (w3024.x + w3024.width)).toBe(24);
+    expect(adjoiningWallRunMountBottom(w3024, ROOM_12x10, [previous, laterTall])).toBe(72);
+  });
+
+  it("does not let a perpendicular corner cabinet consume the selected wall's open run", () => {
+    const leftWallTall = cab({ uid: "left-corner-tall", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 96, rotation: 90 });
+    expect(cabinetWall(leftWallTall, ROOM_12x10)).toBe("left");
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftWallTall], [], 30, 12, "wall"))
+      .toEqual({ x: 0, y: 0, rotation: 0 });
+  });
+
+  it("advances the wall run past a door or window clearance instead of jumping into an earlier occupied or unrelated opening", () => {
+    const existing = cab({ uid: "wall-a", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
+    const window = opening({ uid: "window", kind: "window", side: "top", offset: 48, width: 36, height: 36, sill: 42 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [existing], [window], 30, 12, "wall"))
+      .toEqual({ x: 87, y: 0, rotation: 0 });
+  });
+
+  it("uses cabinet width as the run span on vertical walls and continues downward from the wall start", () => {
+    const first = cab({ uid: "left-wall-a", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30, rotation: 90 });
+    expect(paletteActiveWallPlacement("left", ROOM_12x10, [first], [], 24, 12, "wall"))
+      .toEqual({ x: 0, y: 30, rotation: 90 });
   });
 
   it("returns the whole wall when nothing blocks it", () => {
@@ -2121,6 +2254,21 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
 
+  it("aligns a short WR3624 top with an adjoining 42-inch wall-cabinet run", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const adjoining = cab({ uid: "left-wall", masterCode: "W-1242", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 68 });
+    const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+
+    const normalized = normalizeRefrigeratorBayUppers([adjoining, fridge, fridgeWall], room);
+    const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
+    const adjoiningBox = elevationBox(adjoining, room);
+    const upperBox = elevationBox(normalizedUpper, room);
+
+    expect(normalizedUpper.mountBottom).toBe(72);
+    expect(upperBox.bottom + upperBox.height).toBe(adjoiningBox.bottom + adjoiningBox.height);
+  });
+
   it("raises legacy refrigerator end panels to the same 96-inch cap as the refrigerator cabinet", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 24, y: 0, width: 36, depth: 24, height: 70 });
@@ -2556,12 +2704,70 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     const wall = cab({ uid: "wall", placement: "wall", masterCode: "W-24", x: 0, y: 0, width: 24, depth: 12, height: 30, mountBottom: 54 });
     const movingWall = cab({ uid: "moving-wall", placement: "wall", masterCode: "W-18", x: 6, y: 0, width: 18, depth: 12, height: 30, mountBottom: 54 });
     expect(collisionReason(movingWall, [base])).toBeNull();
-    expect(collisionReason(movingWall, [wall])).toBe('Cannot place W-18 here: it overlaps W-24, another wall cabinet. Cabinets may touch edge-to-edge but cannot overlap.');
+    expect(collisionReason(movingWall, [wall])).toBe('Cannot place W-18 here: it overlaps W-24, another wall cabinet, by 18". Edge-to-edge contact is allowed; physical overlap must be 0".');
   });
 
-  it("blocks a true collision by default and permits it only with explicit custom placement", () => {
+  it("uses one-sixteenth inch only to snap to exact zero overlap", () => {
+    const wall = cab({ uid: "wall", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const exact = cab({ uid: "exact", placement: "wall", masterCode: "WR3624", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+    const seamTolerance = { ...exact, uid: "tolerance", x: 11.9375 };
+    const trueOverlap = { ...exact, uid: "overlap", x: 11.875 };
+    expect(hasCollision(exact, [wall])).toBe(false);
+    expect(hasCollision(seamTolerance, [wall])).toBe(true);
+    const snapped = snapCabinetSeamOverlap(seamTolerance, [wall]);
+    expect(snapped.x).toBe(12);
+    expect(snapped.x - (wall.x + wall.width)).toBe(0);
+    expect(hasCollision(snapped, [wall])).toBe(false);
+    expect(hasCollision(trueOverlap, [wall])).toBe(true);
+    expect(collisionReason(trueOverlap, [wall])).toContain('by ⅛"');
+  });
+
+  it("snaps a one-sixteenth-inch wall-cabinet gap to exact zero gap and zero overlap", () => {
+    const left = cab({ uid: "left-wall", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, mountBottom: 54 });
+    const right = cab({ uid: "right-wall", placement: "wall", x: 24.0625, y: 0, width: 18, depth: 12, height: 42, mountBottom: 54 });
+    const snapped = snapCabinetSeamOverlap(right, [left]);
+    expect(snapped.x).toBe(24);
+    expect(snapped.x - (left.x + left.width)).toBe(0);
+    expect(hasCollision(snapped, [left])).toBe(false);
+  });
+
+  it("enforces exact-zero adjacency for horizontal and rotated base-cabinet runs", () => {
+    const horizontal = cab({ uid: "horizontal-base", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0 });
+    const horizontalMoving = cab({ uid: "horizontal-moving", placement: "base", x: 23.95, y: 0, width: 18, depth: 24, rotation: 0 });
+    const horizontalSnapped = snapCabinetSeamOverlap(horizontalMoving, [horizontal]);
+    expect(horizontalSnapped.x).toBe(24);
+    expect(hasCollision(horizontalSnapped, [horizontal])).toBe(false);
+
+    const vertical = cab({ uid: "vertical-base", placement: "base", x: 72, y: 0, width: 24, depth: 24, rotation: 90 });
+    const verticalMoving = cab({ uid: "vertical-moving", placement: "base", x: 72, y: 23.95, width: 18, depth: 24, rotation: 90 });
+    const verticalSnapped = snapCabinetSeamOverlap(verticalMoving, [vertical]);
+    expect(verticalSnapped.y).toBe(24);
+    expect(hasCollision(verticalSnapped, [vertical])).toBe(false);
+  });
+
+  it("restores a saved near-seam wall cabinet at exact zero overlap instead of removing it", () => {
+    const wall = cab({ uid: "wall", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 11.9375, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+    const restored = removeOverlappingPlacements([wall, wr]);
+    expect(restored.rejected).toEqual([]);
+    expect(restored.placed.find((item) => item.uid === "wr")?.x).toBe(12);
+    expect(hasCollision(restored.placed[1], [restored.placed[0]])).toBe(false);
+  });
+
+  it("never permits base/base or wall/wall overlap, even with explicit custom placement", () => {
     const existing = cab({ uid: "existing", placement: "base", masterCode: "B-24", x: 0, y: 0, width: 24, depth: 24 });
     const moving = cab({ uid: "moving", placement: "base", masterCode: "B-18", x: 6, y: 0, width: 18, depth: 24 });
+    expect(shouldBlockPlacementCollision(moving, [existing])).toBe(true);
+    expect(shouldBlockPlacementCollision(moving, [existing], true)).toBe(true);
+
+    const existingWall = cab({ uid: "existing-wall", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, mountBottom: 54 });
+    const movingWall = cab({ uid: "moving-wall", placement: "wall", x: 12, y: 0, width: 18, depth: 12, height: 42, mountBottom: 54 });
+    expect(shouldBlockPlacementCollision(movingWall, [existingWall], true)).toBe(true);
+  });
+
+  it("retains the explicit custom-placement override for non-cabinet items", () => {
+    const existing = cab({ uid: "existing-appliance", placement: "appliance", masterCode: "CUSTOM-A", x: 0, y: 0, width: 24, depth: 24 });
+    const moving = cab({ uid: "moving-appliance", placement: "appliance", masterCode: "CUSTOM-B", x: 6, y: 0, width: 18, depth: 24 });
     expect(shouldBlockPlacementCollision(moving, [existing])).toBe(true);
     expect(shouldBlockPlacementCollision(moving, [existing], true)).toBe(false);
   });

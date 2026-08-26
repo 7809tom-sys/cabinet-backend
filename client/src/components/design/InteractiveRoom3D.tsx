@@ -5,7 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -146,12 +146,31 @@ export function threeDWallClearanceText(measurement: Pick<WallSpanMeasure, "befo
   return `Open space: ${formatInches(measurement.before)} to ${beforeBoundary} · ${formatInches(measurement.after)} to ${afterBoundary}`;
 }
 
+/** Live 3D fit text derived from the same plan coordinates used by collision validation. */
+export function threeDWallFitGuideText(measurement: WallCabinetFitMeasure | null): string | null {
+  if (!measurement) return null;
+  const required = exactFittedFillerInches(measurement.requiredSpan);
+  const available = exactFittedFillerInches(measurement.availableSpan);
+  if (!measurement.seated) {
+    return `Placement guide: cabinet width ${required} · not seated on the ${measurement.side} wall · snap to a wall to measure left and right clearance`;
+  }
+  if (measurement.status === "overlap") {
+    const overlaps = [
+      measurement.leftOverlap > 0 ? `left overlap ${exactFittedFillerInches(measurement.leftOverlap)}` : null,
+      measurement.rightOverlap > 0 ? `right overlap ${exactFittedFillerInches(measurement.rightOverlap)}` : null,
+    ].filter((value): value is string => value != null);
+    return `Fit guide: cabinet width ${required} · ${available} clear wall span · ${overlaps.join(" · ")}`;
+  }
+  if (measurement.status === "insufficient") {
+    return `Fit guide: cabinet width ${required} · ${available} clear wall span · cabinet is ${exactFittedFillerInches(measurement.requiredSpan - measurement.availableSpan)} too wide`;
+  }
+  const edgeContact = measurement.before <= 0.01 || measurement.after <= 0.01;
+  const gapText = `left gap ${exactFittedFillerInches(measurement.before)} · right gap ${exactFittedFillerInches(measurement.after)}`;
+  return `Fit guide: cabinet width ${required} · ${available} clear wall span · ${edgeContact ? "edge contact allowed" : gapText}`;
+}
+
 export function exactFittedFillerInches(width: number): string {
-  const eighths = Math.round(width * 8);
-  const whole = Math.floor(eighths / 8);
-  const fraction = eighths % 8;
-  const glyph = ["", "⅛", "¼", "⅜", "½", "⅝", "¾", "⅞"][fraction];
-  return `${whole || !glyph ? whole : ""}${glyph}"`;
+  return formatEighthInches(width);
 }
 
 /** Automatic gap fillers retain a source-catalog description marked "cut to". */
@@ -169,6 +188,25 @@ export type InteractiveRoomPresentation = {
 };
 
 export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
+
+export type ThreeDPlanMoveDelta = { x: number; y: number };
+
+/** Converts a screen-left/right request into the selected wall's horizontal plan axis. */
+export function threeDScreenHorizontalPlanDelta(
+  side: WallSide,
+  direction: "left" | "right",
+  incrementIn: number,
+  cameraRight: Pick<THREE.Vector3, "x" | "z">,
+): ThreeDPlanMoveDelta {
+  const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
+  const run = side === "top" || side === "bottom" ? { x: 1, y: 0 } : { x: 0, y: 1 };
+  const runPointsScreenRight = run.x * cameraRight.x + run.y * cameraRight.z >= 0;
+  const screenRight = runPointsScreenRight ? run : { x: -run.x, y: -run.y };
+  const sign = direction === "right" ? 1 : -1;
+  const x = screenRight.x * step * sign;
+  const y = screenRight.y * step * sign;
+  return { x: Math.abs(x) < 1e-9 ? 0 : x, y: Math.abs(y) < 1e-9 ? 0 : y };
+}
 export type ThreeDCatalogDropTarget = { x: number; y: number };
 export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
 export const THREE_D_EMBEDDED_TOOLBAR_CLASS = "absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur";
@@ -233,7 +271,7 @@ interface Props {
   /** Persists individual back, left, right, and front wall heights. */
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
-  onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => void;
+  onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, planDelta?: ThreeDPlanMoveDelta) => void;
   /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
   selectedCabinetUid?: string | null;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
@@ -255,9 +293,101 @@ interface Props {
   temporaryPreviewTransitionKey?: string | null;
   /** Renders directly inside the main designer canvas rather than a standalone preview shell. */
   embedded?: boolean;
+  /** Draws the complete authoritative 2D plan as a subdued floor reference beneath full-opacity 3D geometry. */
+  hybridPlanUnderlay?: boolean;
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
   cabinetConfigHref?: (cabinet: PlacedCabinet) => string | null;
   className?: string;
+}
+
+export type HybridPlanUnderlayModel = {
+  room: { width: number; depth: number };
+  cabinets: Array<{ uid: string; masterCode: string; placement: PlacedCabinet["placement"]; x: number; y: number; width: number; depth: number }>;
+  openings: Array<{ uid: string; side: WallSide; offset: number; width: number; kind: WallOpening["kind"] }>;
+};
+
+/** The hybrid reference is derived from the same saved objects rendered in 3D. */
+export function hybridPlanUnderlayModel(room: RoomData, placed: PlacedCabinet[], openings: WallOpening[]): HybridPlanUnderlayModel {
+  return {
+    room: { width: room.width, depth: room.depth },
+    cabinets: placed.map((cabinet) => {
+      const footprint = placedFootprint(cabinet);
+      return { uid: cabinet.uid, masterCode: cabinet.masterCode, placement: cabinet.placement, x: cabinet.x, y: cabinet.y, width: footprint.w, depth: footprint.d };
+    }),
+    openings: openings.map((opening) => ({ uid: opening.uid, side: opening.side, offset: opening.offset, width: opening.width, kind: opening.kind })),
+  };
+}
+
+function hybridPlanTexture(model: HybridPlanUnderlayModel): THREE.CanvasTexture {
+  const longest = Math.max(model.room.width, model.room.depth, 1);
+  const pixelsPerInch = Math.max(3, Math.min(8, 1536 / longest));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(384, Math.round(model.room.width * pixelsPerInch));
+  canvas.height = Math.max(384, Math.round(model.room.depth * pixelsPerInch));
+  const context = canvas.getContext("2d")!;
+  const sx = canvas.width / model.room.width;
+  const sy = canvas.height / model.room.depth;
+  context.fillStyle = "rgba(255,255,255,0.88)";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.lineWidth = 1;
+  context.strokeStyle = "rgba(77,92,112,0.17)";
+  for (let inch = 12; inch < model.room.width; inch += 12) {
+    context.beginPath(); context.moveTo(inch * sx, 0); context.lineTo(inch * sx, canvas.height); context.stroke();
+  }
+  for (let inch = 12; inch < model.room.depth; inch += 12) {
+    context.beginPath(); context.moveTo(0, inch * sy); context.lineTo(canvas.width, inch * sy); context.stroke();
+  }
+  for (const cabinet of model.cabinets) {
+    const palette = cabinet.placement === "appliance"
+      ? ["rgba(71,85,105,0.18)", "rgba(51,65,85,0.58)"]
+      : cabinet.placement === "wall"
+        ? ["rgba(212,167,90,0.16)", "rgba(138,101,31,0.58)"]
+        : ["rgba(26,39,68,0.11)", "rgba(26,39,68,0.50)"];
+    const x = cabinet.x * sx;
+    const y = cabinet.y * sy;
+    const width = cabinet.width * sx;
+    const depth = cabinet.depth * sy;
+    context.fillStyle = palette[0];
+    context.strokeStyle = palette[1];
+    context.lineWidth = Math.max(1, pixelsPerInch * 0.22);
+    context.fillRect(x, y, width, depth);
+    context.strokeRect(x, y, width, depth);
+    if (width >= 34 && depth >= 16) {
+      context.fillStyle = "rgba(26,39,68,0.70)";
+      context.font = `600 ${Math.max(9, Math.round(pixelsPerInch * 1.25))}px system-ui, sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(cabinet.masterCode, x + width / 2, y + depth / 2, Math.max(0, width - 6));
+    }
+  }
+  context.lineCap = "square";
+  for (const opening of model.openings) {
+    context.lineWidth = Math.max(4, pixelsPerInch * 0.75);
+    context.strokeStyle = opening.kind === "door" ? "rgba(180,83,9,0.75)" : opening.kind === "window" ? "rgba(2,132,199,0.72)" : "rgba(124,58,237,0.68)";
+    context.beginPath();
+    if (opening.side === "top") { context.moveTo(opening.offset * sx, 0); context.lineTo((opening.offset + opening.width) * sx, 0); }
+    else if (opening.side === "bottom") { context.moveTo(opening.offset * sx, canvas.height); context.lineTo((opening.offset + opening.width) * sx, canvas.height); }
+    else if (opening.side === "left") { context.moveTo(0, opening.offset * sy); context.lineTo(0, (opening.offset + opening.width) * sy); }
+    else { context.moveTo(canvas.width, opening.offset * sy); context.lineTo(canvas.width, (opening.offset + opening.width) * sy); }
+    context.stroke();
+  }
+  context.strokeStyle = "rgba(26,39,68,0.88)";
+  context.lineWidth = Math.max(3, pixelsPerInch * 0.55);
+  context.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3);
+  context.fillStyle = "rgba(26,39,68,0.78)";
+  context.font = `700 ${Math.max(10, Math.round(pixelsPerInch * 1.35))}px system-ui, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  context.fillText(`${model.room.width}\"`, canvas.width / 2, 8);
+  context.save();
+  context.translate(8, canvas.height / 2);
+  context.rotate(-Math.PI / 2);
+  context.fillText(`${model.room.depth}\"`, 0, 0);
+  context.restore();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 const INCH = 1 / 12;
@@ -358,6 +488,23 @@ export function threeDCameraDistanceLimits(maxSpan: number) {
 }
 
 export type ThreeDCameraPreset = "presentation" | "front" | "wide" | "detail";
+
+export type ThreeDCameraViewSnapshot = {
+  preset: ThreeDCameraPreset;
+  resetKey: number;
+  position: THREE.Vector3;
+  target: THREE.Vector3;
+  zoom: number;
+};
+
+/** Scene rebuilds preserve the user's view; explicit camera resets and preset changes do not. */
+export function threeDShouldRestoreCameraView(
+  snapshot: Pick<ThreeDCameraViewSnapshot, "preset" | "resetKey"> | null | undefined,
+  preset: ThreeDCameraPreset,
+  resetKey: number,
+): boolean {
+  return Boolean(snapshot && snapshot.preset === preset && snapshot.resetKey === resetKey);
+}
 
 /** Stable framing presets keep 3D reviews clear without changing the active 2D design. */
 export function threeDCameraPresetPosition(preset: ThreeDCameraPreset, maxSpan: number) {
@@ -3104,6 +3251,13 @@ export function hasPersistedTwoDScene({
   );
 }
 
+export function threeDUsesAuthoritativePlanScene(
+  roomOverride: RoomData | undefined,
+  input: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">,
+) {
+  return Boolean(roomOverride) || hasPersistedTwoDScene(input);
+}
+
 export function rangeHoodSceneStatus(placed: PlacedCabinet[]) {
   const ranges = placed.filter((item) => /^RANGE-/.test(item.masterCode));
   const hasRange = ranges.length > 0;
@@ -3219,13 +3373,14 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
+  const cameraViewRef = useRef<ThreeDCameraViewSnapshot | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastEmittedPresentationRef = useRef<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -3253,17 +3408,21 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  const [movePanelOpen, setMovePanelOpen] = useState(false);
   useEffect(() => {
     const hostSelection = threeDSelectionFromPlaced(selectedCabinetUid, placed);
-    if (!hostSelection) return;
+    if (!hostSelection) {
+      setSelectedCabinet(null);
+      setMovePanelOpen(false);
+      return;
+    }
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
-  const [movePanelOpen, setMovePanelOpen] = useState(false);
   const [moveIncrementIn, setMoveIncrementIn] = useState<(typeof THREE_D_CABINET_MOVE_STEPS)[number]>(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
-  const renderExistingDesign = hasPersistedTwoDScene({ placed, openings, sinks, island, furniture, ponyWalls });
+  const renderExistingDesign = threeDUsesAuthoritativePlanScene(roomOverride, { placed, openings, sinks, island, furniture, ponyWalls });
   const upperCabinetWallMinimums = useMemo(
     () => roomOverride ? threeDUpperCabinetWallMinimums(placed, roomOverride) : {},
     [placed, roomOverride],
@@ -3389,9 +3548,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
     const maxSpan = Math.max(room.width, room.depth) * INCH;
     const cameraDistances = threeDCameraDistanceLimits(maxSpan);
-    camera.position.copy(threeDCameraPresetPosition(cameraPreset, maxSpan));
+    const savedCameraView = cameraViewRef.current;
+    const restoreCameraView = threeDShouldRestoreCameraView(savedCameraView, cameraPreset, resetKey);
+    camera.position.copy(restoreCameraView && savedCameraView ? savedCameraView.position : threeDCameraPresetPosition(cameraPreset, maxSpan));
+    if (restoreCameraView && savedCameraView) camera.zoom = savedCameraView.zoom;
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
+    if (restoreCameraView && savedCameraView) controls.target.copy(savedCameraView.target);
+    else controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
     controls.enableDamping = true;
     controls.dampingFactor = 0.075;
     controls.enablePan = true;
@@ -3434,6 +3597,29 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     floor.position.y = -0.08;
     floor.receiveShadow = true;
     threeScene.add(floor);
+    if (hybridPlanUnderlay && roomOverride) {
+      const underlayGeometry = new THREE.ShapeGeometry(floorShape);
+      underlayGeometry.computeBoundingBox();
+      const bounds = underlayGeometry.boundingBox;
+      const positions = underlayGeometry.getAttribute("position");
+      const uvs = underlayGeometry.getAttribute("uv");
+      if (bounds) {
+        const spanX = Math.max(bounds.max.x - bounds.min.x, 0.0001);
+        const spanY = Math.max(bounds.max.y - bounds.min.y, 0.0001);
+        for (let index = 0; index < positions.count; index++) {
+          uvs.setXY(index, (positions.getX(index) - bounds.min.x) / spanX, 1 - (positions.getY(index) - bounds.min.y) / spanY);
+        }
+        uvs.needsUpdate = true;
+      }
+      const underlay = new THREE.Mesh(
+        underlayGeometry,
+        new THREE.MeshBasicMaterial({ map: hybridPlanTexture(hybridPlanUnderlayModel(roomOverride, placed, openings)), transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide }),
+      );
+      underlay.rotation.x = -Math.PI / 2;
+      underlay.position.y = 0.008;
+      underlay.userData = { hybridPlanUnderlay: true, source: "authoritative-saved-plan" };
+      threeScene.add(underlay);
+    }
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
@@ -3537,6 +3723,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
+      cameraViewRef.current = {
+        preset: cameraPreset,
+        resetKey,
+        position: camera.position.clone(),
+        target: controls.target.clone(),
+        zoom: camera.zoom,
+      };
       controls.dispose();
       disposeObject(threeScene);
       renderer.dispose();
@@ -3546,7 +3739,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (cameraRef.current === camera) cameraRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
@@ -3615,7 +3808,14 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
   const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {
     if (!selectedCabinet?.uid || !onMoveCabinet) return;
-    onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn);
+    let planDelta: ThreeDPlanMoveDelta | undefined;
+    const selectedPlacedCabinet = placed.find((cabinet) => cabinet.uid === selectedCabinet.uid);
+    if ((direction === "left" || direction === "right") && cameraRef.current && selectedPlacedCabinet) {
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraRef.current.quaternion);
+      const movementRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+      planDelta = threeDScreenHorizontalPlanDelta(cabinetWall(selectedPlacedCabinet, movementRoom), direction, moveIncrementIn, cameraRight);
+    }
+    onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta);
   };
 
   const buildQuotePdf = async () => {
@@ -3786,8 +3986,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-	      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); }}>
-	        <div ref={mountRef} className="h-full w-full" />
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => { if (draggedCatalogId != null) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key); if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); }}>
+		        <div ref={mountRef} className="h-full w-full" />
+		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
 	        {embedded && <div className={THREE_D_EMBEDDED_TOOLBAR_CLASS} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" /><span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span><span className="sm:hidden">{showWallLayer ? "Hide walls" : "Show walls"}</span></button>}</div>}
 	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
@@ -3799,10 +4000,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
           const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
           const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
-          const wallClearance = selectedPlacedCabinet && roomOverride && selectedWall
-            ? wallSpanMeasure(selectedPlacedCabinet, roomOverride, placed, selectedWall)
-            : null;
-	          const wallClearanceText = threeDWallClearanceText(wallClearance);
+	          const wallFit = selectedPlacedCabinet && roomOverride && selectedWall
+	            ? wallCabinetFitMeasure(selectedPlacedCabinet, roomOverride, placed, openings, selectedWall)
+	            : null;
+	          const wallFitText = threeDWallFitGuideText(wallFit);
 	          const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
           return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
@@ -3814,7 +4015,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
                 <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
 	                <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
 	                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
-                {wallClearanceText && <p data-testid="three-d-active-wall-clearance" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-medium text-[#634b20]">{wallClearanceText}</p>}
+		                {wallFitText && <div data-testid="three-d-active-wall-clearance" role="status" aria-live="polite" className={`mt-1 rounded-md border px-2 py-1.5 font-medium ${!wallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : wallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">Live placement measurement · ⅛&quot; precision</span><span>{wallFitText}</span></div>}
                 {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
                   {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}

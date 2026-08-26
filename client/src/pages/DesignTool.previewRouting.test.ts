@@ -6,8 +6,9 @@ const designToolSource = readFileSync(resolve(process.cwd(), "client/src/pages/D
 
 describe("DesignTool deterministic 3D preview routing", () => {
   it("routes all preview controls through InteractiveRoom3D rather than the simplified preview modal", () => {
-    expect(designToolSource).toContain('onClick={() => setInteractive3dOpen(true)}');
-    expect(designToolSource).toContain('setTimeout(() => setInteractive3dOpen(true), 150)');
+    expect(designToolSource).toContain('onClick={() => setViewMode("threeD")}');
+    expect(designToolSource).toContain('setTimeout(() => setViewMode("threeD"), 150)');
+    expect(designToolSource).toContain('onClick={() => setViewMode("hybrid")}');
     expect(designToolSource).toContain("<InteractiveRoom3D");
     expect(designToolSource).not.toContain("<DesignPreviewModal");
     expect(designToolSource).not.toContain("setPreviewModalOpen");
@@ -30,7 +31,7 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).toContain('get("preview") === "3d"');
     expect(designToolSource).toContain("requestedThreeDPreview");
     expect(designToolSource).toContain("!canLoadInteractive3d || interactive3dLoading");
-    expect(designToolSource).toContain("setInteractive3dOpen(true)");
+    expect(designToolSource).toContain('setViewMode("threeD")');
   });
 
   it("keeps the desktop preview control compact while retaining the explicit 3D action", () => {

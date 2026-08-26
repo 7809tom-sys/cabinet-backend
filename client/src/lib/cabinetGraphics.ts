@@ -422,18 +422,19 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
 /**
  * Sub-grouping used by the designer's "Base" palette tab so floor cabinets are
- * organized logically instead of one long list. Four ordered buckets:
+ * organized logically instead of one long list. Five ordered buckets:
  *   1. base       — standard door base cabinets (the most common)
  *   2. drawer     — all-drawer drawer bases
  *   3. sink       — sink/farmhouse/vanity-sink fronts
- *   4. specialty  — everything else that's still a base box (blind/lazy-susan
+ *   4. full-height — full-height door bases (BFH/B-FH/TFHB/HB families)
+ *   5. specialty  — everything else that's still a base box (blind/lazy-susan
  *                   corners that land on the Base tab, microwave/oven/trash
  *                   bases, spice pull-outs, end/wine/desk specialty units, ADA)
  *
  * Pure + framework-free so it is unit-testable. Order of checks matters: the
- * most specific specialty signals win, then sink, then drawer, then plain base.
+ * sink signals win, then full-height identity, specialty, drawer, and plain base.
  */
-export type BaseSubGroup = "base" | "drawer" | "sink" | "specialty";
+export type BaseSubGroup = "base" | "drawer" | "sink" | "full-height" | "specialty";
 
 export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   const code = lc(cab.masterCode);
@@ -455,7 +456,19 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
     return "sink";
   }
 
-  // 2) Specialty bases: corners that fall on the Base tab, appliance bases
+  // 2) Full-height door bases. The description and authored sub-category are
+  // authoritative; code fallbacks cover common distributor forms including
+  // BFH-12, B12FH/B12FHD/B12FHTD, TFHB-12, and HB-12. Sink stays first so a
+  // full-height vanity sink cabinet remains in Sink Bases.
+  if (
+    /\bfull[-\s]?height\b/.test(hay) ||
+    /^(?:bfh|tfhb|hb)[-_ ]?\d/.test(code) ||
+    /^b\d+(?:fh|fhd|fhtd)/.test(code)
+  ) {
+    return "full-height";
+  }
+
+  // 3) Specialty bases: corners that fall on the Base tab, appliance bases
   //    (microwave/oven/trash/waste), spice pull-outs, blind/lazy-susan, ADA,
   //    end/wine/desk and other non-standard boxes.
   if (
@@ -477,7 +490,7 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
     return "specialty";
   }
 
-  // 3) Drawer bases: ALL-drawer fronts only. We must NOT catch standard door
+  // 4) Drawer bases: ALL-drawer fronts only. We must NOT catch standard door
   //    bases that happen to include one drawer (e.g. B-24 = "Double Door Single
   //    Drawer Base Cabinet"): those are regular bases and belong in the "base"
   //    bucket. So classify as drawer ONLY when the drawing type is a drawer base,
@@ -496,7 +509,7 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
     return "drawer";
   }
 
-  // 4) Everything else is a standard door base.
+  // 5) Everything else is a standard door base.
   return "base";
 }
 

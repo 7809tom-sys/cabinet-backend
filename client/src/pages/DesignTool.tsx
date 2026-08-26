@@ -9,7 +9,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,9 +61,10 @@ import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
+  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, shouldBlockPlacementCollision, appendCollisionFreePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -80,10 +81,10 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
+  formatEighthInches, formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -97,7 +98,6 @@ import {
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
-import { resolveFarmSinkPalettePlacement } from "./designToolFarmSinkPlacement";
 import { threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
@@ -126,9 +126,10 @@ import { DesignActions, type BuildSheetRow } from "@/components/design/DesignAct
 import { canOpenAdministratorMaterialList, openAdministratorMaterialListPdf } from "@/lib/designMaterialListPdf";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, threeDSceneRevisionKey, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDSceneRevisionKey, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
+import { catalogHeightOptions, filterCatalogByHeight, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -177,7 +178,7 @@ type ConsultPlanWall = {
   leftoverInches: number;
 };
 
-type ViewMode = "plan" | "threeD" | "elevation" | "split" | "corner" | "island";
+type ViewMode = "plan" | "threeD" | "hybrid" | "elevation" | "split" | "corner" | "island";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
 
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
@@ -447,9 +448,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
 
   // Last line of defense for legacy designs and any future placement path that
-  // bypasses an explicit add/move helper. A refrigerator or tall end panel wins
-  // over a base cabinet occupying the same physical opening, so the canvas can
-  // never retain the B-24-inside-refrigerator state shown in the reported plan.
+  // bypasses an explicit add/move helper. Saved order remains authoritative, so
+  // a later refrigerator or other item is rejected instead of replacing an
+  // already accepted cabinet occupying that physical opening.
   useEffect(() => {
     const resolution = removeOverlappingPlacements(placed);
     if (resolution.rejected.length > 0) setPlaced(resolution.placed);
@@ -532,6 +533,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
+  const [failedWallFit, setFailedWallFit] = useState<{ requested: PlacedCabinet; gap: WallGap } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return initialDesignWorkspaceView(window.location.search);
   });
@@ -666,7 +668,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
+  const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
+  const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   // Text annotations placed on the floor plan.
@@ -1190,6 +1193,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       })
       .filter((c) => matchesPaletteSearch(c, s));
   }, [paletteCabinets, cornerWallCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
+  const paletteHeightOptions = useMemo(
+    () => catalogHeightOptions(filteredPalette, paletteType, isCornerBase),
+    [filteredPalette, paletteType, isCornerBase],
+  );
+  const selectedPaletteHeight = paletteHeightByType[paletteType] ?? null;
+  useEffect(() => {
+    if (selectedPaletteHeight == null) return;
+    if (paletteHeightOptions.some((option) => Math.abs(option.height - selectedPaletteHeight) < 0.01)) return;
+    setPaletteHeightByType((current) => ({ ...current, [paletteType]: null }));
+  }, [paletteHeightOptions, paletteType, selectedPaletteHeight]);
+  const heightFilteredPalette = useMemo(
+    () => filterCatalogByHeight(filteredPalette, paletteType, selectedPaletteHeight, isCornerBase),
+    [filteredPalette, paletteType, selectedPaletteHeight, isCornerBase],
+  );
 
   // Total cabinets available in the active style for the CURRENT tab, ignoring
   // the search box (so the hint reflects the real lineup size, not the filtered
@@ -1257,7 +1274,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Build accordion sections only from items that can be put on the 2D plan.
       // Previously headings used all catalog add-ons while their bodies silently
       // filtered non-placeable lines, producing rows that opened to a blank area.
-      for (const c of filteredPalette.filter(isPlaceableAccessory)) {
+      for (const c of heightFilteredPalette.filter(isPlaceableAccessory)) {
         const label = (c.subCategory || "Other").trim() || "Other";
         const arr = bySub.get(label);
         if (arr) arr.push(c);
@@ -1271,36 +1288,37 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Cabinets and Corner Wall Cabinets — so every corner type lives under one
     // tab but stays organized by where it mounts.
     if (paletteType === "corner") {
-      const cornerBases = filteredPalette.filter((c) => isCornerBase(c));
-      const cornerWalls = filteredPalette.filter((c) => !isCornerBase(c));
+      const cornerBases = heightFilteredPalette.filter((c) => isCornerBase(c));
+      const cornerWalls = heightFilteredPalette.filter((c) => !isCornerBase(c));
       const sections: { label: string; items: DesignCabinet[] }[] = [];
       if (cornerBases.length > 0) sections.push({ label: t("dt_pl_grp_corner_base"), items: cornerBases });
       if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
       return sortGroups(sections);
     }
     // The "Base" tab is organized by base TYPE (not height): standard door
-    // bases first, then drawer bases, then sink bases, then specialty bases —
-    // each a collapsible accordion section. Full-height (tall) base cabinets are
-    // standard door bases and live in the first "Base Cabinets" group; there is
-    // no separate section for them. Empty sections are dropped.
+    // bases first, then drawer bases, sink bases, full-height door bases, and
+    // specialty bases — each an exclusive collapsible section. All five headings
+    // remain visible even when an active supplier/style has zero items in one
+    // section, so Full Height never disappears from the Base catalog.
     if (paletteType === "base") {
       const order: { key: BaseSubGroup; labelKey: SiteStringKey }[] = [
         { key: "base", labelKey: "dt_pl_grp_base_std" },
         { key: "drawer", labelKey: "dt_pl_grp_base_drawer" },
         { key: "sink", labelKey: "dt_pl_grp_base_sink" },
+        { key: "full-height", labelKey: "dt_pl_grp_base_full_height" },
         { key: "specialty", labelKey: "dt_pl_grp_base_specialty" },
       ];
       const buckets: Record<BaseSubGroup, DesignCabinet[]> = {
         base: [],
         drawer: [],
         sink: [],
+        "full-height": [],
         specialty: [],
       };
-      for (const c of filteredPalette) buckets[baseSubGroup(c)].push(c);
+      for (const c of heightFilteredPalette) buckets[baseSubGroup(c)].push(c);
       return sortGroups(
         order
           .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
-          .filter((g) => g.items.length > 0)
       );
     }
     // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
@@ -1314,8 +1332,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       paletteType === "vanity";
     const BASE_STD_HEIGHT = 34.5;
     const groups = new Map<number, DesignCabinet[]>();
-    for (const c of filteredPalette) {
-      const h = isBaseFamilyTab ? BASE_STD_HEIGHT : dim(c.height, 0);
+    for (const c of heightFilteredPalette) {
+      const h = isBaseFamilyTab ? BASE_STD_HEIGHT : resolvedDesignCabinetDimensions(c).height;
       const arr = groups.get(h);
       if (arr) arr.push(c);
       else groups.set(h, [c]);
@@ -1343,7 +1361,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           : t("dt_pl_grp_other"),
         items,
       })));
-  }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
+  }, [heightFilteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
 
   // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
@@ -2513,6 +2531,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
+  const rememberFailedWallFit = useCallback((requested: PlacedCabinet, peers: PlacedCabinet[]) => {
+    if (requested.placement !== "wall") {
+      setFailedWallFit(null);
+      return null;
+    }
+    const fit = wallCabinetFitMeasure(requested, room, peers, openings);
+    if (fit.availableSpan + 1e-9 >= fit.requiredSpan) {
+      setFailedWallFit(null);
+      return fit;
+    }
+    setFailedWallFit({
+      requested,
+      gap: {
+        side: fit.side,
+        layer: "wall",
+        start: fit.availableStart,
+        length: fit.availableSpan,
+        center: fit.availableStart + fit.availableSpan / 2,
+        isStandardSize: Math.abs(fit.availableSpan / 3 - Math.round(fit.availableSpan / 3)) < 0.01,
+        isFillerSize: fit.availableSpan <= 6,
+      },
+    });
+    return fit;
+  }, [openings, room]);
+
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
@@ -2527,11 +2570,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const isAccessory = (forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c);
       const accPlacement = isAccessory ? accessoryPlacement(c) : c.placement;
       const isFlatPanel = isAccessory && isPanelItem(c);
-      const width = dim(c.width, isAccessory ? 24 : 24);
-      const depth = isFlatPanel ? 0.75 : footprintDepth(c);
-      const height = isFlatPanel
-        ? dim(c.height, standardHeight(accPlacement))
-        : dim(c.height, standardHeight(accPlacement));
+      const catalogDimensions = resolvedDesignCabinetDimensions(c);
+      const width = isAccessory ? dim(c.width, 24) : catalogDimensions.width;
+      const depth = isFlatPanel ? 0.75 : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
+      const height = isAccessory ? dim(c.height, standardHeight(accPlacement)) : catalogDimensions.height;
       // ── Build the new cabinet object OUTSIDE setPlaced so we can run side
       // effects (dialogs, toasts, sink auto-place) exactly once afterward.
       // setPlaced updaters can be called multiple times by React in concurrent
@@ -2539,85 +2581,68 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // We snapshot `placed` via closure (stable within this callback invocation).
       const prev = placed;
 
-      // Explicit drop position (drag-and-drop) wins. Otherwise seat the cabinet
-      // flush against the ACTIVE wall at the first free segment.
+      // Explicit drag-and-drop coordinates win. A normal catalog selection uses
+      // the active wall's deterministic left-to-right sequence: floor cabinets
+      // advance the floor run and wall cabinets advance the upper run.
       let spot: { x: number; y: number; rotation: number };
+      let preserveResolvedPlacement = false;
+      let explicitSelectedSinkTarget = false;
       if (x != null && y != null) {
         spot = { x, y, rotation };
       } else {
-        const farmSinkPlacement = resolveFarmSinkPalettePlacement({
-          masterCode: c.masterCode,
-          description: c.description,
-          subCategory: c.subCategory,
-        }, activeWall, room, prev, openings, width, depth);
-        if (farmSinkPlacement.applies) {
-          if (!farmSinkPlacement.spot) {
-            setPlacementWarning(farmSinkPlacement.message);
-            toast.error(farmSinkPlacement.message);
-            return;
-          }
-          spot = farmSinkPlacement.spot;
-        } else {
-        const segs = freeSegmentsOnWall(
-          activeWall,
-          room,
-          prev,
-          openings,
-          Math.min(width, 9),
-          0,
-          c.placement,
-          isRefrigerator({ masterCode: c.masterCode, placement: accPlacement }),
+        const selectedSinkTarget = selectedUid ? prev.find((cabinet) => cabinet.uid === selectedUid) : null;
+        const selectedSinkSpot = accPlacement === "wall"
+          ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height)
+          : null;
+        const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
+          accPlacement === "base" ||
+          accPlacement === "wall" ||
+          accPlacement === "tall" ||
+          accPlacement === "appliance"
         );
-        const fit = segs.find((s) => s.length >= width) ?? segs[0];
-        if (fit) {
-          const wallLen = (activeWall === "top" || activeWall === "bottom") ? room.width : room.depth;
-          const isCorner = isCornerCabinet(c.masterCode, c.description || undefined) || c.isCornerCabinet === true;
-          let along = fit.start;
-          if (isCorner) {
-            const distFromEnd = wallLen - (fit.start + width);
-            if (distFromEnd < fit.start) {
-              along = Math.max(0, wallLen - width);
-            } else {
-              along = 0;
-            }
-          }
-          spot = wallPlacementAt(along, width, depth, activeWall, room);
-        } else {
-          const requiresWallPlacement = accPlacement === "base" || accPlacement === "wall";
-          if (requiresWallPlacement) {
-            const message = `${c.masterCode} was not added because there is no ${width}\" opening on the active wall. Select a wall with enough clear space or drag the cabinet to a valid wall position.`;
+        if (selectedSinkSpot) {
+          spot = selectedSinkSpot;
+          preserveResolvedPlacement = true;
+          explicitSelectedSinkTarget = true;
+        } else if (followsCabinetRun) {
+          const nextSpot = paletteActiveWallPlacement(
+            activeWall,
+            room,
+            prev,
+            openings,
+            width,
+            depth,
+            accPlacement,
+          );
+          if (!nextSpot) {
+            const runName = accPlacement === "wall" ? "wall-cabinet" : "base-cabinet";
+            const message = `${c.masterCode} was not added because there is no ${width}\" opening after the current ${runName} run on the selected ${WALL_LABELS[activeWall]} wall. The existing layout was not changed.`;
             setPlacementWarning(message);
             toast.error(message);
             return;
           }
-          const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
-          const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
-          spot = { x: cx, y: cy, rotation: 0 };
+          spot = nextSpot;
+          preserveResolvedPlacement = true;
+        } else {
+          const segs = freeSegmentsOnWall(
+            activeWall,
+            room,
+            prev,
+            openings,
+            Math.min(width, 9),
+            0,
+            accPlacement,
+            isRefrigerator({ masterCode: c.masterCode, placement: accPlacement }),
+          );
+          const fit = segs.find((segment) => segment.length >= width) ?? segs[0];
+          if (fit) {
+            spot = wallPlacementAt(fit.start, width, depth, activeWall, room);
+          } else {
+            const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
+            const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
+            spot = { x: cx, y: cy, rotation: 0 };
+          }
         }
-        }
-      }
-
-      // A short wall cabinet over a sink belongs over the sink's window rather
-      // than in the first generic run gap. Its vertical mount is resolved below;
-      // this step only centers its plan projection on the sink/window pair.
-      const provisionalWallCab: PlacedCabinet = {
-        uid: "provisional-over-sink",
-        cabinetId: c.id,
-        masterCode: c.masterCode,
-        description: c.description,
-        placement: accPlacement,
-        x: spot.x,
-        y: spot.y,
-        width,
-        depth,
-        height,
-        rotation: spot.rotation,
-      };
-      const overSinkStart = x == null && y == null
-        ? overSinkWindowStart(provisionalWallCab, prev, openings, room)
-        : null;
-      if (overSinkStart != null) {
-        spot = wallPlacementAt(overSinkStart, width, depth, activeWall, room);
       }
 
       // ── Stacker auto-snap ──────────────────────────────────────────────
@@ -2641,6 +2666,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const bw = rotatedSize(bestMatch).w;
           spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
           stackWidth = bw;
+          preserveResolvedPlacement = true;
           toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
         }
       }
@@ -2661,6 +2687,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         spot = otrPlacement.spot;
         otrMountBottom = otrPlacement.mountBottom;
         otrRangeUid = otrPlacement.rangeUid;
+        preserveResolvedPlacement = true;
         toast.success(t("dt_otr_snapped_over_range"));
       }
 
@@ -2778,6 +2805,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (bridgeMountBottom != null) {
         finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
       }
+      if (
+        finalCab.placement === "wall" &&
+        bridgeMountBottom == null &&
+        stackerMountBottom == null &&
+        otrMountBottom == null &&
+        !explicitSelectedSinkTarget &&
+        !isStacker(finalCab) &&
+        !isOverRangeMicrowave(finalCab)
+      ) {
+        const runMountBottom = adjoiningWallRunMountBottom(finalCab, room, prev);
+        if (runMountBottom != null) finalCab = { ...finalCab, mountBottom: runMountBottom };
+      }
 
       // A free segment or drop coordinate can become stale if the customer adds
       // several items quickly. Reject a true footprint collision rather than
@@ -2792,16 +2831,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
-      } else if (!strictDropTarget) {
+      } else if (!strictDropTarget && !preserveResolvedPlacement) {
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
-      let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
-      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
+	      let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
+	      finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
       const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
-      if (hasCollision(finalCab, normalizedPrevious)) {
-        if (strictDropTarget) {
-          const message = `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
+		      if (hasCollision(finalCab, normalizedPrevious)) {
+		        if (strictDropTarget || preserveResolvedPlacement) {
+	          rememberFailedWallFit(finalCab, normalizedPrevious);
+	          const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
           setPlacementWarning(message);
           toast.error(message);
           return;
@@ -2835,15 +2877,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
         }
       }
-      if (hasCollision(finalCab, normalizedPrevious) && !validMountedMicrowavePair) {
-        const message = collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
+	      if (hasCollision(finalCab, normalizedPrevious) && !validMountedMicrowavePair) {
+	        rememberFailedWallFit(finalCab, normalizedPrevious);
+	        const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);
         return;
       }
 
       // ── Now do all state updates and side effects exactly once ──────────
-      setPlacementWarning(null);
+	      setPlacementWarning(null);
+	      setFailedWallFit(null);
       justPlacedRef.current = true;
       setSelectedUid(finalCab.uid);
       setPlaced(() => normalizedRun);
@@ -2868,7 +2912,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-    [room, activeWall, openings, placed, island, setSinks, setSelectedSinkUid, setCountertop]
+    [room, activeWall, openings, placed, island, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -2890,8 +2934,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem, dropTarget?: ThreeDWallDropTarget) => {
     const addAtDropTarget = (cabinet: DesignCabinet, forceAccessory = false) => {
       if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
-      const width = dim(cabinet.width, forceAccessory ? 24 : 24);
-      const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : footprintDepth(cabinet);
+      const dimensions = resolvedDesignCabinetDimensions(cabinet);
+      const width = forceAccessory ? dim(cabinet.width, 24) : dimensions.width;
+      const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : forceAccessory ? footprintDepth(cabinet) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(cabinet) : cabinet.placement;
       const segments = freeSegmentsOnWall(activeWall, room, placed, openings, Math.min(width, 9), 0, placement);
       const targetAlong = activeWall === "top" || activeWall === "bottom" ? dropTarget.x : dropTarget.y;
@@ -3071,9 +3116,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
   const smartGapPricePairs = useMemo(() => {
     if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
-    const catalog = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    const catalog = [
+      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+    ];
     return Array.from(new Map(catalog.map((cabinet) => [cabinet.id, { cabinetId: cabinet.id, styleId }])).values()).slice(0, 2000);
-  }, [autoFillCabinets, styleId]);
+  }, [autoFillCabinets, styleId, wallCabPool]);
   const { data: smartGapPriceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: smartGapPricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: smartGapPricePairs.length > 0 && !!styleId },
@@ -3086,6 +3134,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => new Map(Array.from(baseGapFillCandidates, ([width, cabinet]) => [width, { ...cabinet, approvedPrice: smartGapCandidatePrices.get(cabinet.id) } as DesignCabinet])),
     [baseGapFillCandidates, smartGapCandidatePrices],
   );
+  const failedWallAlternativeOptions = useMemo(() => {
+    if (!failedWallFit) return [];
+    return compatibleWallCabinetAlternatives(
+      failedWallFit.requested,
+      failedWallFit.gap.length,
+      (wallCabPool as DesignCabinet[] | undefined) ?? [],
+    ).filter((option) => option.remaining <= 0.01 || catalogFillerForGap(catalogFillers, option.remaining, "wall") != null);
+  }, [catalogFillers, failedWallFit, wallCabPool]);
 
   // Place a chosen real cabinet flush at a gap's run-axis start. Respects the
   // cabinet lock; drops the box exactly at gap.start along gap.side so it lands
@@ -3093,9 +3149,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const fillGap = useCallback(
     (gap: WallGap, c: DesignCabinet) => {
       if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
-      const width = dim(c.width, 24);
-      const depth = footprintDepth(c);
-      const height = dim(c.height, standardHeight(c.placement));
+      const dimensions = resolvedDesignCabinetDimensions(c);
+      const width = dimensions.width;
+      const depth = dimensions.depth;
+      const height = dimensions.height;
+      const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
       const newCab: PlacedCabinet = {
         uid: makeUid(),
@@ -3104,7 +3162,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         description: c.description,
         category: c.category ?? null,
         subCategory: c.subCategory ?? null,
-        placement: "base",
+        placement,
         x: spot.x,
         y: spot.y,
         width,
@@ -3188,11 +3246,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  const fillGapWithCabAndFiller = useCallback(
     (gap: WallGap, c: DesignCabinet) => {
       if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
-      const cabWidth = dim(c.width, 24);
+      const dimensions = resolvedDesignCabinetDimensions(c);
+      const cabWidth = dimensions.width;
       const fillerW = Math.round((gap.length - cabWidth) * 10) / 10;
       if (fillerW <= 0 || fillerW > 6) return;
-      const depth = footprintDepth(c);
-      const height = dim(c.height, standardHeight(c.placement));
+      const depth = dimensions.depth;
+      const height = dimensions.height;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
       // Place cabinet at gap start
       const cabSpot = wallPlacementAt(gap.start, cabWidth, depth, gap.side, room);
@@ -3255,16 +3314,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    [cabinetsLocked, catalogFillers, room, t]
 	  );
 
-	  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
+		  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
 	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
-	    const previewSeed = `smart-gap-preview-${Date.now()}`;
-	    const makePreview = (cabinet: Pick<DesignCabinet, "id" | "masterCode" | "description" | "category" | "subCategory" | "width" | "height" | "depth" | "catalogImageUrl"> & { numberOfDoors?: number | null; numberOfDrawers?: number | null }, width: number, start: number, uid: string, description = cabinet.description): PlacedCabinet => {
-	      const depth = dim(cabinet.depth, placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-	      const height = dim(cabinet.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
-	      const spot = wallPlacementAt(start, width, depth, gap.side, room);
-	      return {
-	        uid, cabinetId: cabinet.id, masterCode: cabinet.masterCode, description, category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null,
-	        placement, x: spot.x, y: spot.y, width, nominalWidth: dim(cabinet.width, width), depth, nominalDepth: depth, height, nominalHeight: height,
+		    const previewSeed = `smart-gap-preview-${Date.now()}`;
+		    const makePreview = (cabinet: Pick<DesignCabinet, "id" | "masterCode" | "description" | "category" | "subCategory" | "width" | "height" | "depth" | "catalogImageUrl"> & { numberOfDoors?: number | null; numberOfDrawers?: number | null }, width: number, start: number, uid: string, description = cabinet.description): PlacedCabinet => {
+		      const skuDimensions = placement === "wall" ? wallCabinetSkuDimensions(cabinet.masterCode) : null;
+		      const depth = skuDimensions?.depth ?? dim(cabinet.depth, placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+		      const height = skuDimensions?.height ?? dim(cabinet.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+		      const spot = wallPlacementAt(start, width, depth, gap.side, room);
+		      return {
+		        uid, cabinetId: cabinet.id, masterCode: cabinet.masterCode, description, category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null,
+		        placement, x: spot.x, y: spot.y, width, nominalWidth: skuDimensions?.width ?? dim(cabinet.width, width), depth, nominalDepth: depth, height, nominalHeight: height,
 	        rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors ?? 0, numberOfDrawers: cabinet.numberOfDrawers ?? 0, catalogImageUrl: cabinet.catalogImageUrl ?? null,
 	        styleId: styleIdRef.current ?? null,
 	      };
@@ -3273,8 +3333,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const filler = catalogFillerForGap(catalogFillers, gap.length, placement);
 	      if (!filler) { toast.error(`No sellable catalog filler can preview this ${formatInches(gap.length)} gap.`); return; }
 	      setSmartGapPreview([makePreview(filler, gap.length, gap.start, previewSeed, fittedCatalogFillerDescription(filler, gap.length))]);
-	    } else {
-	      const cabinetWidth = dim(candidate.width, 24);
+		    } else {
+		      const cabinetWidth = placement === "wall" ? wallCabinetSkuDimensions(candidate.masterCode)?.width ?? dim(candidate.width, 24) : dim(candidate.width, 24);
 	      const preview = [makePreview(candidate, cabinetWidth, gap.start, previewSeed)];
 	      if (needsFiller) {
 	        const fillerWidth = Math.round((gap.length - cabinetWidth) * 100) / 100;
@@ -3397,9 +3457,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         | { deepAbove: DesignCabinet[]; bridgeAbove: DesignCabinet[]; endPanels: DesignCabinet[]; smoothPanels: DesignCabinet[] }
         | undefined;
       if (!fridge || !surround) { setFridgeDialog(null); return; }
-      const side = cabinetWall(fridge, room);
+      let configuredFridge = fridge;
+      if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
+        const newW = opts.fridgeWidth ?? fridge.width;
+        const newH = opts.fridgeHeight ?? fridge.height;
+        const newD = opts.fridgeDepth ?? fridge.depth;
+        const resizedFridge = {
+          ...fridge,
+          width: newW,
+          nominalWidth: newW,
+          height: newH,
+          nominalHeight: newH,
+          depth: newD,
+          nominalDepth: newD,
+          masterCode: `FRIDGE-${newW}`,
+          description: `Refrigerator ${newW}"`,
+        };
+        const peers = placed.filter((item) => item.uid !== fridge.uid);
+        if (hasCollision(resizedFridge, peers)) {
+          const message = collisionReason(resizedFridge, peers) ?? `The refrigerator cannot be resized because it would cover an existing cabinet.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        configuredFridge = resizedFridge;
+        setPlaced((prev) => prev.map((item) => item.uid === fridge.uid ? resizedFridge : item));
+      }
+      const side = cabinetWall(configuredFridge, room);
       const horizontal = side === "top" || side === "bottom";
-      const fp = placedFootprint(fridge);
+      const fp = placedFootprint(configuredFridge);
       const fw = fp.w; // width along the wall run
       const fd = fp.d; // depth into the room
 
@@ -3419,38 +3505,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return pickByWidth(rows, fallbackTarget);
       };
 
-      // 0) Resize the fridge itself if the user changed its dimensions.
-      if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
-        setPlaced((prev) =>
-          prev.map((p) => {
-            if (p.uid !== fridge.uid) return p;
-            const newW = opts.fridgeWidth ?? p.width;
-            const newH = opts.fridgeHeight ?? p.height;
-            const newD = opts.fridgeDepth ?? p.depth;
-            return {
-              ...p,
-              width: newW,
-              nominalWidth: newW,
-              height: newH,
-              nominalHeight: newH,
-              depth: newD,
-              nominalDepth: newD,
-              masterCode: `FRIDGE-${newW}`,
-              description: `Refrigerator ${newW}"`,
-            };
-          })
-        );
-        // Re-derive fp/fw/fd from the new dimensions so surround pieces align.
-        const newW = opts.fridgeWidth ?? fw;
-        const newD = opts.fridgeDepth ?? fd;
-        Object.assign(fp, { w: newW, d: newD });
-      }
-
       const toPlace: PlacedCabinet[] = [];
-      const fridgePanelBands: { leftEdge: boolean; thickness: number }[] = [];
       // Track the bridge height so end panels can be sized to fridge + bridge combined.
       let bridgeHeightPlaced = 0;
-      const actualFridgeHeight = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
+      const actualFridgeHeight = typeof configuredFridge.height === "number" && configuredFridge.height > 0 ? configuredFridge.height : 70;
       // Refrigerator end panels are architectural sides of the same enclosure as
       // the cabinet above. Keep their top as a single shared value rather than
       // deriving it from the appliance height, which loses the 2-inch clearance.
@@ -3467,39 +3525,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         if (opts.above === "bridge" && opts.bridgeHeight) {
           const targetH = opts.bridgeHeight;
           const targetD = opts.bridgeDepth ?? 12;
-          // Parse dimensions from SKU masterCode when stored columns are null.
-          // Supports W[WW][HH][DD] (e.g. W362424), WR[WW][HH] (depth always 24), and W[WW][HH]GD.
-          const parseCabDims = (code: string) => {
-            const c = code.replace(/^[^W]*W/, "W");
-            // Clark & Sons 24"-deep WR format: WR[WW][HH] e.g. WR3612, WR3624
-            const mR = c.match(/^WR(\d{2})(\d{2})$/);
-            if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
-            // Clark & Sons dash format 12"-deep: W-WW-HH e.g. W-36-12, W-33-18, W-30-24
-            const mDash = c.match(/^W-(\d{2})-(\d{2})$/);
-            if (mDash) return { w: parseInt(mDash[1], 10), h: parseInt(mDash[2], 10), d: 12 };
-            // Skyline/USCD glass-door 12"-deep: W[WW][HH]GD e.g. W3012GD, W3612GD (check before 8-char)
-            const mGD = c.match(/^W(\d{2})(\d{2})GD$/);
-            if (mGD) return { w: parseInt(mGD[1], 10), h: parseInt(mGD[2], 10), d: 12 };
-            // 8-char Skyline: W[WW][HH][DD] e.g. W301224, W362424
-            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
-            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
-            // Skyline/Milestone 4-char 12"-deep: W[WW][HH] e.g. W3012, W3315, W3618, W3624
-            const m4 = c.match(/^W(30|33|36)(12|15|18|21|24)$/);
-            if (m4) return { w: parseInt(m4[1], 10), h: parseInt(m4[2], 10), d: 12 };
-            return null;
-          };
           const heightFiltered = src.filter((c) => {
-            const sku = parseCabDims(c.masterCode);
-            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
-            const d = parseFloat(String(c.depth ?? "")) || (sku ? sku.d : 0);
+            const sku = wallCabinetSkuDimensions(c.masterCode);
+            const h = sku?.height ?? (parseFloat(String(c.height ?? "")) || 0);
+            const d = sku?.depth ?? (parseFloat(String(c.depth ?? "")) || 0);
             const heightOk = Math.abs(h - targetH) < 1.5;
             const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
             return heightOk && depthOk;
           });
           // Fall back to height-only match if no depth-matched candidates exist.
           const fallback = src.filter((c) => {
-            const sku = parseCabDims(c.masterCode);
-            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
+            const sku = wallCabinetSkuDimensions(c.masterCode);
+            const h = sku?.height ?? (parseFloat(String(c.height ?? "")) || 0);
             return Math.abs(h - targetH) < 1.5;
           });
           chosen = pickByWidth(
@@ -3531,7 +3568,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
           bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
-          const fridgeCenterAlong = horizontal ? fridge.x + fw / 2 : fridge.y + fw / 2;
+          const fridgeCenterAlong = horizontal ? configuredFridge.x + fw / 2 : configuredFridge.y + fw / 2;
           const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
@@ -3620,10 +3657,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // Clamp to room bounds so the panel never lands outside the room.
         let along: number;
         if (horizontal) {
-          along = leftEdge ? fridge.x - pThick : fridge.x + fw;
+          along = leftEdge ? configuredFridge.x - pThick : configuredFridge.x + fw;
           along = Math.max(0, Math.min(along, room.width - pThick));
         } else {
-          along = leftEdge ? fridge.y - pThick : fridge.y + fw;
+          along = leftEdge ? configuredFridge.y - pThick : configuredFridge.y + fw;
           along = Math.max(0, Math.min(along, room.depth - pThick));
         }
         const spot = wallPlacementAt(along, pThick, pDepth, side, room);
@@ -3650,42 +3687,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           catalogImageUrl: panelRow.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
         });
-        fridgePanelBands.push({ leftEdge, thickness: pThick });
       };
       if (opts.panels === "left" || opts.panels === "both") placePanel(true);
       if (opts.panels === "right" || opts.panels === "both") placePanel(false);
 
-      // A cabinet beside a refrigerator must butt to the OUTSIDE of its finished
-      // end panel, never overlap it or make the panel appear to stop at cabinet height.
-      if (fridgePanelBands.length) {
-        const fridgeStart = horizontal ? fridge.x : fridge.y;
-        const fridgeEnd = fridgeStart + fw;
-        setPlaced((previous) => previous.map((candidate) => {
-          if (candidate.uid === fridge.uid || cabinetWall(candidate, room) !== side || candidate.placement === "appliance") return candidate;
-          const candidateStart = horizontal ? candidate.x : candidate.y;
-          const candidateSize = rotatedSize(candidate);
-          const candidateEnd = candidateStart + candidateSize.w;
-          for (const panel of fridgePanelBands) {
-            if (panel.leftEdge && candidateEnd > fridgeStart - panel.thickness - 1 && candidateEnd <= fridgeStart + 1) {
-              const nextStart = fridgeStart - panel.thickness - candidateSize.w;
-              return horizontal ? { ...candidate, x: Math.max(0, nextStart) } : { ...candidate, y: Math.max(0, nextStart) };
-            }
-            if (!panel.leftEdge && candidateStart < fridgeEnd + panel.thickness + 1 && candidateStart >= fridgeEnd - 1) {
-              const nextStart = fridgeEnd + panel.thickness;
-              return horizontal ? { ...candidate, x: nextStart } : { ...candidate, y: nextStart };
-            }
-          }
-          return candidate;
-        }));
-      }
-
       // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
       // flat-stock item flush to the fridge face; carried as a thin wall panel.
       if (opts.smooth) {
-        const skin = pickByWidth(surround.smoothPanels, rotatedSize(fridge).w) ?? surround.smoothPanels?.[0];
+        const skin = pickByWidth(surround.smoothPanels, rotatedSize(configuredFridge).w) ?? surround.smoothPanels?.[0];
         if (skin) {
-          const sWidth = parseFloat(String(skin.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
-          const along = horizontal ? fridge.x + fw / 2 - sWidth / 2 : fridge.y + fw / 2 - sWidth / 2;
+          const sWidth = parseFloat(String(skin.width ?? rotatedSize(configuredFridge).w)) || rotatedSize(configuredFridge).w;
+          const along = horizontal ? configuredFridge.x + fw / 2 - sWidth / 2 : configuredFridge.y + fw / 2 - sWidth / 2;
           const spot = wallPlacementAt(along, sWidth, 0.75, side, room);
           toPlace.push({
             uid: makeUid(),
@@ -3707,8 +3719,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 
       if (toPlace.length > 0) {
-        setPlaced((prev) => appendCollisionFreePlacements(prev, toPlace).placed);
-        toast.success(t("dt_fridge_added_toast"));
+        const previewResult = appendRefrigeratorEnclosurePlacements(placed, toPlace, fridge.uid);
+        setPlaced((prev) => appendRefrigeratorEnclosurePlacements(prev, toPlace, fridge.uid).placed);
+        if (previewResult.panelConflicts.length > 0) {
+          const conflicts = previewResult.panelConflicts.map(({ cabinet, overlapIn }) => `${cabinet.masterCode} by ${formatEighthInches(overlapIn)}`);
+          toast.error(`Refrigerator panel not added because it would overlap ${conflicts.join(", ")}. The existing cabinet was preserved in its exact position.`);
+        }
+        if (previewResult.placed.length > placed.length) toast.success(t("dt_fridge_added_toast"));
       }
       setFridgeDialog(null);
     },
@@ -4226,9 +4243,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
       const peers = prev.filter((p) => p.uid !== uid);
       const edgeSnap = customPlacementMode ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
-      const movedCabinet = { ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y };
+		      const movedCabinet = snapCabinetSeamOverlap({ ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y }, peers);
       if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)) {
-        const message = collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
+        const message = wallCabinetPlacementReason(movedCabinet, room, peers, openings) ?? collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -4293,8 +4310,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           room,
           prev.filter((c) => c.uid !== p.uid && (c.placement === p.placement || c.placement === "appliance" || p.placement === "appliance"))
         );
-        const seated = { ...rotated, x: snapped.x, y: snapped.y };
-        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+        const peers = prev.filter((c) => c.uid !== p.uid);
+        const seated = snapCabinetSeamOverlap({ ...rotated, x: snapped.x, y: snapped.y }, peers);
+        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not rotated because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);
@@ -4345,14 +4363,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           : p
       );
       const clamped = clampCabinetsToRoom(moved, room);
-      const candidate = clamped.find((p) => p.uid === selectedUid);
-      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode)) {
-        const message = collisionReason(candidate, clamped.filter((p) => p.uid !== selectedUid)) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
+	      const rawCandidate = clamped.find((p) => p.uid === selectedUid);
+	      const peers = clamped.filter((p) => p.uid !== selectedUid);
+		      const candidate = rawCandidate ? snapCabinetSeamOverlap(rawCandidate, peers) : rawCandidate;
+	      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode)) {
+	        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
       }
-      return clamped;
+	      return candidate ? clamped.map((item) => item.uid === selectedUid ? candidate : item) : clamped;
     });
   }, [selectedUid, room, customPlacementMode]);
 
@@ -4384,7 +4404,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const candidate = { ...current, mountBottom: bounded };
       const peers = prev.filter((p) => p.uid !== uid);
       if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-        const message = collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
+        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -4396,7 +4416,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // The 3D attributes panel delegates every move to this authoritative 2D
   // placement path. Relative directions are resolved from the cabinet's wall,
   // then checked before a state update so plan and scene never diverge.
-  const moveCabinetFrom3D = useCallback((uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number) => {
+  const moveCabinetFrom3D = useCallback((uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, screenPlanDelta?: { x: number; y: number }) => {
     const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
     setSelectedUid(uid);
     setPlaced((prev) => {
@@ -4416,30 +4436,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const candidate = { ...cabinet, mountBottom: nextBottom };
         const peers = prev.filter((item) => item.uid !== uid);
         if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-          const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+          const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
           setPlacementWarning(message);
           toast.error(message);
           return prev;
         }
         return prev.map((item) => item.uid === uid ? candidate : item);
       }
-      const delta = threeDPlanMoveDelta(cabinet, room, direction, step);
-      const candidate = {
-        ...cabinet,
+      const delta = (direction === "left" || direction === "right") && screenPlanDelta
+        ? screenPlanDelta
+        : threeDPlanMoveDelta(cabinet, room, direction, step);
+	      const movedCandidate = {
+	        ...cabinet,
         x: Math.round((cabinet.x + delta.x) * 8) / 8,
         y: Math.round((cabinet.y + delta.y) * 8) / 8,
         ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
       };
-      const footprint = rotatedSize(candidate);
+	      const peers = prev.filter((item) => item.uid !== uid);
+		      const candidate = snapCabinetSeamOverlap(movedCandidate, peers);
+	      const footprint = rotatedSize(candidate);
       if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
         const message = `${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
       }
-      const peers = prev.filter((item) => item.uid !== uid);
-      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-        const message = collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+	      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -4612,8 +4635,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           room,
           prev.filter((c) => c.uid !== p.uid)
         );
-        const seated = { ...resized, x: snapped.x, y: snapped.y };
-        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+        const peers = prev.filter((c) => c.uid !== p.uid);
+        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers);
+        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);
@@ -4674,9 +4698,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         if (p.uid !== selectedUid) return p;
         const next = Math.max(MIN_D, Math.min(MAX_D, Math.round(nextRaw * 10) / 10));
         const resized = { ...p, depth: next };
-        const snapped = snapPosition(resized, room, prev.filter((c) => c.uid !== p.uid));
-        const seated = { ...resized, x: snapped.x, y: snapped.y };
-        if (hasCollision(seated, prev.filter((c) => c.uid !== p.uid))) {
+        const peers = prev.filter((c) => c.uid !== p.uid);
+        const snapped = snapPosition(resized, room, peers);
+        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers);
+        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);
@@ -5517,6 +5542,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   const selectedCab = placed.find((p) => p.uid === selectedUid);
   const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
+  const selectedCabWallFit = useMemo(
+    () => selectedCab && (selectedCab.placement === "base" || selectedCab.placement === "wall")
+      ? wallCabinetFitMeasure(selectedCab, room, placed, openings)
+      : null,
+    [openings, placed, room, selectedCab],
+  );
+  const selectedCabWallFitText = threeDWallFitGuideText(selectedCabWallFit);
 
   // Mobile cabinet-edit bottom sheet: auto-opens when a cabinet is selected on
   // mobile, auto-closes when deselected. On desktop the inline contextual row
@@ -5702,6 +5734,84 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // click, which would call addCabinet twice. Block re-entry for 500 ms after
   // the first call so the second synthetic event is a no-op.
   const isAddingRef = useRef(false);
+  const clearCurrentDesign = usePersistFn(() => {
+    const hasDesignContent = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0 || smartGapPreview.length > 0;
+    if (hasDesignContent && !window.confirm(t("dt_sh_start_new_confirm"))) return false;
+
+    const emptyPlaced: PlacedCabinet[] = [];
+    smartGapPreviewSessionRef.current = null;
+    undoRedoRef.current.clear();
+    lastPushedRef.current = emptyPlaced;
+    loadedDesignRef.current = loadDesignId;
+    loadedBundleRef.current = bundleIdParam;
+    clearDraft();
+
+    setPlaced(emptyPlaced);
+    setSmartGapPreview([]);
+    setSmartGapPreviewPosition(null);
+    setPlacementWarning(null);
+    setFailedWallFit(null);
+    setOpenings([]);
+    setIsland(null);
+    setSinks([]);
+    setFurniture([]);
+    setPonyWalls([]);
+    setAnnotations([]);
+    setSelectedUid(null);
+    setSelectedOpeningUid(null);
+    setSelectedSinkUid(null);
+    setSelectedFurnUid(null);
+    setSelectedPonyWallUid(null);
+    setSelectedAnnotationUid(null);
+    setAttrUid(null);
+    setAttrOpen(false);
+    setCabEditSheetOpen(false);
+    setFridgeDialog(null);
+    setOvenDialog(null);
+    setSinkBaseDialog(null);
+    setRangeTopStep("choose");
+    setPendingSinkProduct(null);
+    setPendingRangeTopType(null);
+    setBuiltinRunArmed(false);
+    setCrown(false);
+    setToeKick(false);
+    setBatten(false);
+    setLightRail(false);
+    setCountertop(false);
+    setValance(false);
+    setTrimQtyOverride({});
+    trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false };
+    setCountertopMaterialId(DEFAULT_COUNTERTOP_MATERIAL_ID);
+    setEdgeProfileId(DEFAULT_EDGE_PROFILE_ID);
+    setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+    setBacksplashMaterialId(null);
+    setFlooringMaterialId(null);
+    setFlooringPattern("random-stagger");
+    setSelectedSurfaces([]);
+    setCabinetsLocked(false);
+    setLayoutLocked(false);
+    setLockedWalls(new Set());
+    setCustomPlacementMode(false);
+    setMeasureMode(false);
+    setDrawMode(false);
+    setConsultMessages([]);
+    setConsultOpen(false);
+    setInteractive3dPresentation(null);
+    setLoadedBundlePriceLock(null);
+    setActiveSavedDesignId(null);
+    setLayoutStarterOpen(false);
+    setMobilePanel(null);
+    setMoreSheetOpen(false);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("load");
+      url.searchParams.delete("bundleId");
+      window.history.replaceState({}, "", url.toString());
+    }
+    toast.success(t("dt_sh_started_new"));
+    return true;
+  });
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
@@ -5759,12 +5869,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }));
   }, [placed, liveMasterCabinets]);
 
-  const renderNativeThreeDCanvas = () => {
+  const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
     return <InteractiveRoom3D
-	      key={interactive3dRevision}
-	      embedded
+		      key={interactive3dRevision}
+		      embedded
+		      hybridPlanUnderlay={hybridPlanUnderlay}
 	      className="h-full min-h-0"
 	      scene={resolvedInteractive3dScene}
 	      placed={threeDPlaced}
@@ -5924,15 +6035,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             Elevation
           </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("threeD")}
-            disabled={!canLoadInteractive3d || interactive3dLoading}
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
-          >
-            3D
-          </button>
-        </div>
+	          <button
+	            type="button"
+	            onClick={() => setViewMode("threeD")}
+	            disabled={!canLoadInteractive3d || interactive3dLoading}
+	            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
+	          >
+	            3D
+	          </button>
+	          <button
+	            type="button"
+	            onClick={() => setViewMode("hybrid")}
+	            disabled={!canLoadInteractive3d || interactive3dLoading}
+	            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "hybrid" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
+	          >
+	            3D+Plan
+	          </button>
+	        </div>
 
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
@@ -6052,16 +6171,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={() => setViewMode("threeD")}
-            disabled={!canLoadInteractive3d || interactive3dLoading}
-            title="Show the synchronized 3D designer canvas"
-            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-          >
-            <Boxes className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("split")}
+	          <button
+	            onClick={() => setViewMode("threeD")}
+	            disabled={!canLoadInteractive3d || interactive3dLoading}
+	            title="Show the synchronized 3D designer canvas"
+	            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+	          >
+	            <Boxes className="h-3.5 w-3.5" />
+	          </button>
+	          <button
+	            onClick={() => setViewMode("hybrid")}
+	            disabled={!canLoadInteractive3d || interactive3dLoading}
+	            title="Show full 3D cabinetry over the authoritative 2D plan reference"
+	            className={`inline-flex h-6 w-7 items-center justify-center rounded transition-colors disabled:opacity-40 ${viewMode === "hybrid" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+	          >
+	            <Layers3 className="h-3.5 w-3.5" />
+	          </button>
+	          <button
+	            onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
             className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
               viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -6105,31 +6232,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           type="button"
           className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10"
           title="Start new design (clears all cabinets)"
-          onClick={() => {
-            if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
-            setPlaced([]);
-            setOpenings([]);
-            setIsland(null);
-            setSelectedUid(null);
-            setSelectedOpeningUid(null);
-            setSinks([]);
-            setSelectedSinkUid(null);
-            setFurniture([]);
-            setSelectedFurnUid(null);
-            setPonyWalls([]);
-            setSelectedPonyWallUid(null);
-            setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
-            setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
-            setBacksplashMaterialId(null);
-            setFlooringMaterialId(null);
-            setFlooringPattern("random-stagger");
-            setSelectedSurfaces([]);
-            setCabinetsLocked(false);
-            setConsultMessages([]);
-            setConsultOpen(false);
-            clearDraft();
-            toast.success(t("dt_sh_started_new"));
-          }}
+          onClick={clearCurrentDesign}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -6579,32 +6682,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    onClick={() => {
-                      if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
-                      setPlaced([]);
-                      setOpenings([]);
-                      setIsland(null);
-                      setSelectedUid(null);
-                      setSelectedOpeningUid(null);
-                      setSinks([]);
-                      setSelectedSinkUid(null);
-                      setFurniture([]);
-                      setSelectedFurnUid(null);
-                      setPonyWalls([]);
-                      setSelectedPonyWallUid(null);
-                      setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
-                      setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
-                      setBacksplashMaterialId(null);
-                      setFlooringMaterialId(null);
-                      setFlooringPattern("random-stagger");
-                      setSelectedSurfaces([]);
-                      setCabinetsLocked(false);
-                      setConsultMessages([]);
-                      setConsultOpen(false);
-                      clearDraft();
-                      toast.success(t("dt_sh_started_new"));
-                      setMoreSheetOpen(false);
-                    }}
+                    onClick={clearCurrentDesign}
                   >
                     <Trash2 className="h-4 w-4 shrink-0" />
                     <span>{t("dt_sh_start_new")}</span>
@@ -7443,9 +7521,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       )}
                     </div>
                   )}
-                </div>
+	                </div>
 
-                {/* Door & Drawer Layout diagram — shown immediately after cabinet header */}
+		                {selectedCabWallFitText && <div data-testid="mobile-cabinet-fit-guide" role="status" aria-live="polite" className={`rounded-xl border p-3 text-xs font-medium ${!selectedCabWallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : selectedCabWallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}>
+	                  <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em]">Live placement measurement · ⅛&quot; precision</div>
+	                  <p>{selectedCabWallFitText}</p>
+	                </div>}
+
+	                {/* Door & Drawer Layout diagram — shown immediately after cabinet header */}
                 {!selectedCab.noDoor && (
                   <div className="rounded-xl border border-border bg-muted/30 p-3">
                     <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
@@ -8051,13 +8134,48 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             ) : paletteLoading ? (
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
-              groupedPalette.map((group) => {
+              <>
+              {paletteHeightOptions.length > 0 && (
+                <div data-testid="catalog-height-selector" className="mb-2 rounded-lg border border-border bg-muted/25 p-2">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("dt_pl_height_filter")}</span>
+                    <span className="text-[9px] text-muted-foreground">{selectedPaletteHeight == null ? t("dt_pl_all_heights") : paletteHeightOptions.find((option) => Math.abs(option.height - selectedPaletteHeight) < 0.01)?.label}</span>
+                  </div>
+                  <div role="group" aria-label={t("dt_pl_height_filter")} className="grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      aria-pressed={selectedPaletteHeight == null}
+                      title={t("dt_pl_all_heights")}
+                      onClick={() => setPaletteHeightByType((current) => ({ ...current, [paletteType]: null }))}
+                      className={`min-h-8 rounded-md border px-1.5 py-1 text-[10px] font-semibold transition-colors active:scale-[0.98] ${selectedPaletteHeight == null ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border bg-background text-foreground hover:border-[#1a2744]/50 hover:bg-muted"}`}
+                    >
+                      {t("dt_pl_all_heights").split(" ")[0]}
+                    </button>
+                    {paletteHeightOptions.map((option) => {
+                      const selected = selectedPaletteHeight != null && Math.abs(option.height - selectedPaletteHeight) < 0.01;
+                      return (
+                        <button
+                          key={option.height}
+                          type="button"
+                          aria-pressed={selected}
+                          data-testid={`catalog-height-${String(option.height).replace(".", "-")}`}
+                          onClick={() => setPaletteHeightByType((current) => ({ ...current, [paletteType]: option.height }))}
+                          className={`min-h-8 rounded-md border px-1.5 py-1 text-[10px] font-semibold transition-colors active:scale-[0.98] ${selected ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border bg-background text-foreground hover:border-[#1a2744]/50 hover:bg-muted"}`}
+                        >
+                          <span>{option.label}</span><span className={`ml-1 font-normal ${selected ? "text-white/75" : "text-muted-foreground"}`}>({option.count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {groupedPalette.map((group) => {
                 // Accordion: each height/category group collapses. Keyed per-tab.
                 // Force-open while searching so no matching item is ever hidden.
                 const groupKey = `${paletteType}:${group.label}`;
                 const groupId = `catalog-group-${groupKey.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
                 const searching = normalizePaletteSearch(paletteSearch).length > 0;
-                const open = searching || !collapsedGroups.has(groupKey);
+                const open = searching || selectedPaletteHeight != null || !collapsedGroups.has(groupKey);
                 return (
                 <div key={group.label} className="space-y-1.5">
                   <button
@@ -8079,7 +8197,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{group.label}</span>
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
-                  {open && <div id={groupId} data-testid={`catalog-group-content-${groupId}`}>{group.items.map((c) => {
+                  {open && <div id={groupId} data-testid={`catalog-group-content-${groupId}`}>{group.items.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border bg-muted/25 px-3 py-2 text-[10px] text-muted-foreground">
+                      {t("dt_pl_no_category")}
+                    </div>
+                  ) : group.items.map((c) => {
                     // Accessories & Trim: only PHYSICAL placeable items
                     // (decorative/end panels, skins, appliance garages) appear —
                     // they drop onto the drawing like a cabinet box. Loose
@@ -8131,10 +8253,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                             paletteType === "base" ||
                             paletteType === "vanity" ||
                             (paletteType === "corner" && isCornerBase(c));
-                          const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
-                          const showH = isBaseBox || dim(c.height, 0) > 0;
+                          const dimensions = resolvedDesignCabinetDimensions(c);
+                          const hVal = isBaseBox ? "34.5" : dimensions.height > 0 ? String(dimensions.height) : "—";
+                          const showH = isBaseBox || dimensions.height > 0;
                           return (
-                            <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
+                            <div className="text-[10px] text-muted-foreground">{dimensions.width}"W × {hVal}{showH ? "\"H" : ""}</div>
                           );
                         })()}
                       </div>
@@ -8153,7 +8276,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   })}</div>}
                 </div>
                 );
-              })
+              })}
+              </>
             )}
             {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
@@ -8179,14 +8303,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </PaletteShell>
 
         {/* Canvas */}
-        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
-          {placementWarning && (
-            <div role="alert" className="absolute left-3 right-3 top-3 z-40 flex items-start gap-2 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-md">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-              <p className="min-w-0 flex-1">{placementWarning}</p>
-              <button type="button" onClick={() => setPlacementWarning(null)} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
-            </div>
-          )}
+	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
+	          {placementWarning && (
+	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
+	              <div className="flex items-start gap-2">
+	                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+	                <p className="min-w-0 flex-1">{placementWarning}</p>
+	                <button type="button" onClick={() => { setPlacementWarning(null); setFailedWallFit(null); }} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
+	              </div>
+	              {failedWallFit && <div data-testid="failed-wall-smart-fit" className="mt-2 rounded-md border border-[#d9c196] bg-white/90 p-2">
+	                <p className="font-semibold text-[#634b20]">Smaller matching wall-cabinet options for the {formatEighthInches(failedWallFit.gap.length)} opening</p>
+	                <p className="mt-0.5 text-xs text-[#765416]">Preview is temporary. Nothing reaches the plan, cart, or invoice until you select Add.</p>
+	                {failedWallAlternativeOptions.length > 0 ? <div className="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">{failedWallAlternativeOptions.map((option, optionIndex) => {
+	                  const filler = option.remaining > 0.01 ? catalogFillerForGap(catalogFillers, option.remaining, "wall") : null;
+	                  const unitPrice = smartGapCandidatePrices.get(option.cabinet.id);
+	                  const choices = failedWallAlternativeOptions.map((choice) => ({ cabinet: choice.cabinet, needsFiller: choice.needsFiller }));
+	                  return <div key={option.cabinet.id} className="rounded-md border border-[#e7d7b7] bg-white p-2">
+	                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate font-semibold text-[#49381a]">{option.cabinet.masterCode} · {formatEighthInches(Number(option.cabinet.width) || 0)} cabinet</p><p className="text-[11px] text-muted-foreground">{filler ? `${filler.masterCode} catalog filler cut to ${formatEighthInches(option.remaining)}` : "Exact fit — no filler required"}</p></div><span className="shrink-0 text-xs font-semibold text-[#49381a]">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></div>
+	                    <div className="mt-1.5 flex gap-1"><button type="button" onClick={() => previewSmartGap(failedWallFit.gap, option.cabinet, option.needsFiller, choices, optionIndex)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button><button type="button" onClick={() => { if (option.needsFiller) fillGapWithCabAndFiller(failedWallFit.gap, option.cabinet); else fillGap(failedWallFit.gap, option.cabinet); setPlacementWarning(null); setFailedWallFit(null); }} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95">Add cabinet{filler ? " + filler" : ""}</button></div>
+	                  </div>;
+	                })}</div> : <p className="mt-2 rounded-md border border-dashed border-amber-300 p-2 text-xs font-medium">No smaller matching cabinet and sellable catalog filler can complete this opening in the selected distributor/style.</p>}
+	              </div>}
+	            </div>
+	          )}
           {customPlacementMode && (
             <div
               role="status"
@@ -8283,7 +8422,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
             />
           )}
-          {viewMode === "threeD" && renderNativeThreeDCanvas()}
+	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
+	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
           {viewMode === "elevation" && (
             <ElevationView
               room={room}

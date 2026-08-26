@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, lockDesignCartLinesToPackageTotal } from "./designCartLines";
-import { CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
+import { appendRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 
 const bec = {
   uid: "bec-one",
@@ -88,6 +88,27 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(365.95);
   });
 
+  it("keeps B-18 on the cart and invoice handoff after a conflicting refrigerator panel is rejected", () => {
+    const b18 = { ...bec, uid: "b18-fridge-neighbor", cabinetId: 1801, masterCode: "B-18", description: '18" Base Cabinet', width: 18 } as PlacedCabinet;
+    const fridge = { ...bec, uid: "fridge-36", cabinetId: 3601, masterCode: "FRIDGE-36", description: '36" Refrigerator', placement: "appliance", x: 18, width: 36, depth: 30, height: 70 } as PlacedCabinet;
+    const leftPanel = { ...bec, uid: "left-repv", cabinetId: 9601, masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 17.25, width: 0.75, depth: 30, height: 96 } as PlacedCabinet;
+    const rightPanel = { ...leftPanel, uid: "right-repv", cabinetId: 9602, x: 54 } as PlacedCabinet;
+    const enclosure = appendRefrigeratorEnclosurePlacements([b18, fridge], [leftPanel, rightPanel], fridge.uid);
+    const lines = buildDesignCabinetCartLines({
+      placed: enclosure.placed,
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 100,
+    });
+
+    expect(enclosure.rejected.map((item) => item.uid)).toEqual([leftPanel.uid]);
+    expect(lines.map((line) => line.masterCode)).toEqual(["B-18", "REPV-96"]);
+    expect(lines.find((line) => line.masterCode === "B-18")).toMatchObject({ qty: 1, unitPrice: 100, priceLocked: true });
+    expect(lines.map((line) => line.masterCode)).not.toContain("FRIDGE-36");
+  });
+
   it("locks loaded bundle lines to the verified package total without changing catalog source prices", () => {
     const secondCabinet = { ...bec, uid: "bec-other", masterCode: "B-30", description: '30" Base Cabinet', x: 24 } as PlacedCabinet;
     const lines = buildDesignCabinetCartLines({
@@ -166,5 +187,56 @@ describe("designer cabinet cart lines", () => {
         placementUids: ["selected-sb-33"],
       }),
     ]);
+  });
+
+  it("keeps the exact Cinder Core Madison W-30-24 price identity aligned between 3D and cart/invoice lines", () => {
+    const w3024 = {
+      ...bec,
+      uid: "placed-w-30-24",
+      cabinetId: 9390138,
+      masterCode: "W-30-24",
+      description: '30" Double Door Wall Cabinet',
+      category: "Wall",
+      placement: "wall",
+      width: 30,
+      height: 24,
+      depth: 12,
+      styleId: 330022,
+    } as PlacedCabinet;
+    const exactHomeownerPrice = 298.49;
+    const common = {
+      placed: [w3024],
+      styleId: 330022,
+      distributorId: 210002,
+      tier: "homeowner" as const,
+      styleNameById: new Map([[330022, "Cinder Core (Madison)"]]),
+      unitPriceFor: () => exactHomeownerPrice,
+    };
+    const cartLines = buildDesignCabinetCartLines(common);
+    const previewLines = buildDesignPreviewPricingLines(common);
+
+    expect(cartLines).toEqual([
+      expect.objectContaining({
+        masterCode: "W-30-24",
+        styleId: 330022,
+        styleLabel: "Cinder Core (Madison)",
+        distributorId: 210002,
+        tier: "homeowner",
+        unitPrice: exactHomeownerPrice,
+        priceLocked: true,
+        qty: 1,
+      }),
+    ]);
+    expect(previewLines).toEqual([
+      expect.objectContaining({
+        masterCode: "W-30-24",
+        styleId: 330022,
+        distributorId: 210002,
+        tier: "homeowner",
+        unitPrice: exactHomeownerPrice,
+        placementUids: ["placed-w-30-24"],
+      }),
+    ]);
+    expect(calculateCartSubtotal(cartLines)).toBe(calculateCartSubtotal(previewLines));
   });
 });

@@ -1,4 +1,4 @@
-export type DesignWorkspaceView = "plan" | "threeD" | "elevation" | "split" | "corner" | "island";
+export type DesignWorkspaceView = "plan" | "threeD" | "hybrid" | "elevation" | "split" | "corner" | "island";
 
 /**
  * The 3D workspace is the normal starting point. Precision-focused deep links
@@ -9,6 +9,7 @@ export function initialDesignWorkspaceView(search: string): DesignWorkspaceView 
   if (view === "plan") return "plan";
   if (view === "front") return "elevation";
   if (view === "split") return "split";
+  if (view === "hybrid" || view === "3d-plan") return "hybrid";
   if (view === "corner") return "corner";
   if (view === "island") return "island";
   return "threeD";

@@ -1014,6 +1014,39 @@ export function dim(value: string | null | undefined, fallback: number): number 
   return isNaN(n) || n <= 0 ? fallback : n;
 }
 
+export type CabinetDimensionsIn = { width: number; height: number; depth: number };
+
+/**
+ * Authoritative dimension formats used by active wall-cabinet catalog lines.
+ * A style/distributor prefix may precede the SKU; the dimensional code must be
+ * the final token. W-36-24 therefore always resolves to 36W × 24H × 12D even
+ * when a stale catalog column incorrectly contains 12 for width.
+ */
+export function wallCabinetSkuDimensions(masterCode: string | null | undefined): CabinetDimensionsIn | null {
+  const code = (masterCode ?? "").trim().toUpperCase();
+  const match = (pattern: RegExp) => code.match(pattern);
+  let parsed = match(/(?:^|[^A-Z0-9])W-(\d{2})-(\d{2})$/);
+  if (parsed) return { width: Number(parsed[1]), height: Number(parsed[2]), depth: 12 };
+  parsed = match(/(?:^|[^A-Z0-9])WR(\d{2})(\d{2})$/);
+  if (parsed) return { width: Number(parsed[1]), height: Number(parsed[2]), depth: 24 };
+  parsed = match(/(?:^|[^A-Z0-9])W(\d{2})(\d{2})GD$/);
+  if (parsed) return { width: Number(parsed[1]), height: Number(parsed[2]), depth: 12 };
+  parsed = match(/(?:^|[^A-Z0-9])W(\d{2})(\d{2})(\d{2})$/);
+  if (parsed) return { width: Number(parsed[1]), height: Number(parsed[2]), depth: Number(parsed[3]) };
+  parsed = match(/(?:^|[^A-Z0-9])W(\d{2})(\d{2})$/);
+  if (parsed) return { width: Number(parsed[1]), height: Number(parsed[2]), depth: 12 };
+  return null;
+}
+
+export function resolvedDesignCabinetDimensions(cabinet: DesignCabinet): CabinetDimensionsIn {
+  const sku = cabinet.placement === "wall" ? wallCabinetSkuDimensions(cabinet.masterCode) : null;
+  return {
+    width: sku?.width ?? dim(cabinet.width, 24),
+    height: sku?.height ?? dim(cabinet.height, standardHeight(cabinet.placement)),
+    depth: sku?.depth ?? footprintDepth(cabinet),
+  };
+}
+
 /**
  * A Base End Corner (BEC) is a 24x24 end return with two 12-inch faces. It is
  * deliberately not a lazy-Susan, diagonal, blind, or room-corner cabinet.
@@ -1027,6 +1060,8 @@ export function isBaseEndCornerCabinet(c: Pick<DesignCabinet, "masterCode" | "de
 export function footprintDepth(c: DesignCabinet): number {
   // Panels/skins are flat 3/4" stock regardless of placement bucket.
   if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
+  const wallSku = c.placement === "wall" ? wallCabinetSkuDimensions(c.masterCode) : null;
+  if (wallSku) return wallSku.depth;
   // BEC end returns occupy a true 24x24 box, even if historical supplier data
   // stored a shallow depth. They do not use room-corner snapping or fillers.
   if (isBaseEndCornerCabinet(c)) return STD.BASE_DEPTH;
@@ -1276,7 +1311,7 @@ export function snapPosition(
       const os = placedFootprint(o);
       const overlapX = Math.min(x + w, o.x + os.w) - Math.max(x, o.x);
       const overlapY = Math.min(y + d, o.y + os.d) - Math.max(y, o.y);
-      if (overlapX > 0.01 && overlapY > 0.01) {
+      if (overlapX > COLLISION_EPSILON_IN && overlapY > COLLISION_EPSILON_IN) {
         // Resolve along the axis of least penetration (the natural "butt" edge).
         if (overlapX <= overlapY) {
           // Push left or right to the nearer side of the neighbor.
@@ -1371,38 +1406,105 @@ export function orientToWall(
   return targetRot;
 }
 
-export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
+/** User-approved near-seam snap range; accepted placements are normalized to exact zero gap and zero overlap. */
+export const CABINET_SEAM_SNAP_IN = 1 / 16;
+/** Floating-point dust only. Any real positive overlap remains invalid. */
+export const COLLISION_EPSILON_IN = 1e-9;
+
+export type CabinetCollisionDetail = {
+  cabinet: PlacedCabinet;
+  overlapX: number;
+  overlapY: number;
+  /** Smallest penetration axis, which is the amount the cabinet must move to clear the collision. */
+  penetration: number;
+};
+
+export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabinet[]): CabinetCollisionDetail | null {
   const { w, d } = placedFootprint(moving);
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     if (!sharesPlanCollisionZone(moving, o)) continue;
     const os = placedFootprint(o);
-    const overlap =
-      moving.x < o.x + os.w &&
-      moving.x + w > o.x &&
-      moving.y < o.y + os.d &&
-      moving.y + d > o.y;
-    if (overlap) return true;
+    const overlapX = Math.min(moving.x + w, o.x + os.w) - Math.max(moving.x, o.x);
+    const overlapY = Math.min(moving.y + d, o.y + os.d) - Math.max(moving.y, o.y);
+    if (overlapX > COLLISION_EPSILON_IN && overlapY > COLLISION_EPSILON_IN) {
+      const movingAxis = (((moving.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
+      const otherAxis = (((o.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
+      const penetration = moving.placement === o.placement && movingAxis === otherAxis
+        ? movingAxis === "horizontal" ? overlapX : overlapY
+        : Math.min(overlapX, overlapY);
+      return { cabinet: o, overlapX, overlapY, penetration };
+    }
   }
-  return false;
+  return null;
+}
+
+export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
+  return cabinetCollisionDetail(moving, others) != null;
+}
+
+/**
+ * Resolve a near seam (gap or penetration of at most 1/16") to exact edge
+ * contact for every same-category base/base and wall/wall pair. This never
+ * approves an overlap: it returns coordinates whose saved gap and penetration
+ * are both zero. Larger overlaps remain untouched for normal rejection.
+ */
+export function snapCabinetSeamOverlap(moving: PlacedCabinet, others: PlacedCabinet[]): PlacedCabinet {
+  let next = moving;
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (const other of others) {
+      if (other.uid === next.uid || other.placement !== next.placement) continue;
+      if (next.placement !== "base" && next.placement !== "wall") continue;
+      const size = placedFootprint(next);
+      const otherSize = placedFootprint(other);
+      const overlapX = Math.min(next.x + size.w, other.x + otherSize.w) - Math.max(next.x, other.x);
+      const overlapY = Math.min(next.y + size.d, other.y + otherSize.d) - Math.max(next.y, other.y);
+      const axis = (((next.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
+      const otherAxis = (((other.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
+      if (axis !== otherAxis) continue;
+      const crossOverlap = axis === "horizontal" ? overlapY : overlapX;
+      if (crossOverlap <= COLLISION_EPSILON_IN) continue;
+      if (axis === "horizontal") {
+        const nextCenter = next.x + size.w / 2;
+        const otherCenter = other.x + otherSize.w / 2;
+        const seamDelta = nextCenter <= otherCenter
+          ? other.x - (next.x + size.w)
+          : other.x + otherSize.w - next.x;
+        if (Math.abs(seamDelta) > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
+        next = { ...next, x: next.x + seamDelta };
+      } else {
+        const nextCenter = next.y + size.d / 2;
+        const otherCenter = other.y + otherSize.d / 2;
+        const seamDelta = nextCenter <= otherCenter
+          ? other.y - (next.y + size.d)
+          : other.y + otherSize.d - next.y;
+        if (Math.abs(seamDelta) > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
+        next = { ...next, y: next.y + seamDelta };
+      }
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return next;
 }
 
 /** Returns an actionable explanation when a placement is rejected for a true collision. */
 export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[]): string | null {
-  const { w, d } = placedFootprint(moving);
-  const conflicting = others.find((other) => {
-    if (other.uid === moving.uid || !sharesPlanCollisionZone(moving, other)) return false;
-    const size = placedFootprint(other);
-    return moving.x < other.x + size.w && moving.x + w > other.x && moving.y < other.y + size.d && moving.y + d > other.y;
-  });
-  if (!conflicting) return null;
+  const detail = cabinetCollisionDetail(moving, others);
+  if (!detail) return null;
+  const conflicting = detail.cabinet;
   const category = conflicting.placement === "wall" ? "wall cabinet" : conflicting.placement === "base" ? "base cabinet" : "item";
-  return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}. Cabinets may touch edge-to-edge but cannot overlap.`;
+  const overlap = formatEighthInches(detail.penetration);
+  return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}, by ${overlap}. Edge-to-edge contact is allowed; physical overlap must be 0".`;
 }
 
-/** Custom placement is an explicit, temporary opt-in; normal placement always blocks true collisions. */
+/** Custom placement cannot bypass same-category base/base or wall/wall physical overlap. */
 export function shouldBlockPlacementCollision(moving: PlacedCabinet, others: PlacedCabinet[], customPlacement = false): boolean {
-  return !customPlacement && hasCollision(moving, others);
+  const detail = cabinetCollisionDetail(moving, others);
+  if (!detail) return false;
+  if (detail.cabinet.placement === moving.placement && (moving.placement === "base" || moving.placement === "wall")) return true;
+  return !customPlacement;
 }
 
 /**
@@ -1479,6 +1581,33 @@ export type CollisionResolution = {
   rejected: PlacedCabinet[];
 };
 
+/**
+ * Repairs stale saved wall-cabinet envelopes from the dimensional SKU. A user
+ * custom size is preserved when the installed value differs from its recorded
+ * nominal catalog value; otherwise the SKU remains authoritative.
+ */
+export function normalizePlacedWallCabinetSkuDimensions(cabinet: PlacedCabinet): PlacedCabinet {
+  if (cabinet.placement !== "wall") return cabinet;
+  const sku = wallCabinetSkuDimensions(cabinet.masterCode);
+  if (!sku) return cabinet;
+  const intentionallyCustom = (value: number, nominal: number | null | undefined) =>
+    Number.isFinite(nominal) && Math.abs(value - Number(nominal)) > COLLISION_EPSILON_IN;
+  const customWidth = intentionallyCustom(cabinet.width, cabinet.nominalWidth);
+  const customHeight = intentionallyCustom(cabinet.height ?? sku.height, cabinet.nominalHeight);
+  const customDepth = intentionallyCustom(cabinet.depth, cabinet.nominalDepth);
+  const width = customWidth ? cabinet.width : sku.width;
+  const height = customHeight ? cabinet.height : sku.height;
+  const depth = customDepth ? cabinet.depth : sku.depth;
+  const nominalWidth = customWidth ? cabinet.nominalWidth : sku.width;
+  const nominalHeight = customHeight ? cabinet.nominalHeight : sku.height;
+  const nominalDepth = customDepth ? cabinet.nominalDepth : sku.depth;
+  if (
+    cabinet.width === width && cabinet.height === height && cabinet.depth === depth &&
+    cabinet.nominalWidth === nominalWidth && cabinet.nominalHeight === nominalHeight && cabinet.nominalDepth === nominalDepth
+  ) return cabinet;
+  return { ...cabinet, width, height, depth, nominalWidth, nominalHeight, nominalDepth };
+}
+
 /** Adds a batch only when every new placement clears all accepted footprints. */
 export function appendCollisionFreePlacements(
   existing: PlacedCabinet[],
@@ -1487,31 +1616,108 @@ export function appendCollisionFreePlacements(
   const placed = [...existing];
   const rejected: PlacedCabinet[] = [];
   for (const candidate of additions) {
-    if (hasCollision(candidate, placed)) {
+    const snappedCandidate = snapCabinetSeamOverlap(candidate, placed);
+    if (hasCollision(snappedCandidate, placed)) {
       rejected.push(candidate);
       continue;
     }
-    placed.push(candidate);
+    placed.push(snappedCandidate);
   }
   return { placed, rejected };
 }
 
 /**
- * Repairs legacy/imported layouts before they render. Appliances are evaluated
- * first so a refrigerator is retained instead of a base cabinet hidden within
- * the appliance opening; original order is then restored for drawing and BOMs.
+ * Repairs legacy/imported layouts before they render while preserving saved
+ * order. Earlier accepted cabinets remain authoritative; a later overlapping
+ * refrigerator or other item is rejected instead of replacing its neighbor.
  */
 export function removeOverlappingPlacements(placements: PlacedCabinet[]): CollisionResolution {
-  const priority = (placement: PlacedCabinet["placement"]) => placement === "appliance" ? 2 : placement === "tall" ? 1 : 0;
-  const ordered = placements
-    .map((placement, index) => ({ placement, index }))
-    .sort((a, b) => priority(b.placement.placement) - priority(a.placement.placement) || a.index - b.index)
-    .map(({ placement }) => placement);
-  const resolution = appendCollisionFreePlacements([], ordered);
-  const accepted = new Set(resolution.placed.map((placement) => placement.uid));
+  const normalizedPlacements = placements.map(normalizePlacedWallCabinetSkuDimensions);
+  const resolution: CollisionResolution = { placed: [], rejected: [] };
+  for (const candidate of normalizedPlacements) {
+    if (isRefrigeratorEndPanel(candidate) && refrigeratorEndPanelConflictDetail(candidate, resolution.placed)) {
+      resolution.rejected.push(candidate);
+      continue;
+    }
+    const appended = appendCollisionFreePlacements(resolution.placed, [candidate]);
+    resolution.placed = appended.placed;
+    resolution.rejected.push(...appended.rejected);
+  }
+  const accepted = new Map(resolution.placed.map((placement) => [placement.uid, placement]));
   return {
-    placed: placements.filter((placement) => accepted.has(placement.uid)),
+    placed: placements.flatMap((placement) => {
+      const normalized = accepted.get(placement.uid);
+      return normalized ? [normalized] : [];
+    }),
     rejected: placements.filter((placement) => !accepted.has(placement.uid)),
+  };
+}
+
+/**
+ * Refrigerator end panels are architectural finish pieces and intentionally do
+ * not participate in normal cabinet collision cleanup. They still may not cover
+ * an existing cabinet. Return the first physical footprint conflict so the UI
+ * can skip that panel while preserving the already placed neighbor.
+ */
+export interface RefrigeratorEndPanelConflictDetail {
+  panel: PlacedCabinet;
+  cabinet: PlacedCabinet;
+  overlapIn: number;
+}
+
+export function refrigeratorEndPanelConflictDetail(
+  panel: PlacedCabinet,
+  existing: PlacedCabinet[],
+  refrigeratorUid?: string | null,
+): RefrigeratorEndPanelConflictDetail | null {
+  if (!isRefrigeratorEndPanel(panel)) return null;
+  const panelSize = placedFootprint(panel);
+  for (const item of existing) {
+    if (item.uid === refrigeratorUid || item.uid === panel.uid || isRefrigeratorEndPanel(item)) continue;
+    const itemSize = placedFootprint(item);
+    const overlapX = Math.min(panel.x + panelSize.w, item.x + itemSize.w) - Math.max(panel.x, item.x);
+    const overlapY = Math.min(panel.y + panelSize.d, item.y + itemSize.d) - Math.max(panel.y, item.y);
+    if (overlapX > COLLISION_EPSILON_IN && overlapY > COLLISION_EPSILON_IN) {
+      return { panel, cabinet: item, overlapIn: Math.min(overlapX, overlapY) };
+    }
+  }
+  return null;
+}
+
+export function refrigeratorEndPanelConflict(
+  panel: PlacedCabinet,
+  existing: PlacedCabinet[],
+  refrigeratorUid?: string | null,
+): PlacedCabinet | null {
+  return refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid)?.cabinet ?? null;
+}
+
+export interface RefrigeratorEnclosurePlacementResult extends CollisionResolution {
+  panelConflicts: RefrigeratorEndPanelConflictDetail[];
+}
+
+/**
+ * Adds refrigerator uppers/panels against the latest authoritative plan. Earlier
+ * cabinets are immutable: a newly conflicting end panel is rejected, and the
+ * normal collision resolver handles any other invalid enclosure component.
+ */
+export function appendRefrigeratorEnclosurePlacements(
+  existing: PlacedCabinet[],
+  additions: PlacedCabinet[],
+  refrigeratorUid?: string | null,
+): RefrigeratorEnclosurePlacementResult {
+  const panelConflicts = additions.flatMap((panel) => {
+    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid);
+    return detail ? [detail] : [];
+  });
+  const blockedPanelUids = new Set(panelConflicts.map(({ panel }) => panel.uid));
+  const allowedAdditions = additions.filter((addition) => !blockedPanelUids.has(addition.uid));
+  const appended = appendCollisionFreePlacements(existing, allowedAdditions);
+  const blockedPanels = additions.filter((addition) => blockedPanelUids.has(addition.uid));
+  return {
+    placed: appended.placed,
+    rejected: [...blockedPanels, ...appended.rejected],
+    panelConflicts,
   };
 }
 
@@ -1582,6 +1788,30 @@ export function overSinkWindowStart(
   const sinkCenter = horizontal ? sinkBase.x + sinkSize.w / 2 : sinkBase.y + sinkSize.d / 2;
   const centeredStart = sinkCenter - cabinetSpan / 2;
   return Math.max(0, Math.min(centeredStart, Math.max(0, wallLength - cabinetSpan)));
+}
+
+/**
+ * An explicitly selected sink base is a deliberate target. A short wall
+ * cabinet chosen next is centered over that sink on the sink's own wall instead
+ * of entering the generic selected-wall sequence. When no eligible sink is
+ * selected, callers fall back to the normal left-to-right placement rule.
+ */
+export function selectedSinkBaseWallPlacement(
+  selected: PlacedCabinet | null | undefined,
+  room: RoomData,
+  width: number,
+  depth: number,
+  height: number,
+): { x: number; y: number; rotation: number } | null {
+  if (!selected || !isSinkBaseCabinet(selected) || selected.placement !== "base") return null;
+  const side = cabinetWall(selected, room);
+  const horizontal = side === "top" || side === "bottom";
+  const sinkFootprint = placedFootprint(selected);
+  const sinkStart = horizontal ? selected.x : selected.y;
+  const sinkSpan = horizontal ? sinkFootprint.w : sinkFootprint.d;
+  const wallLength = horizontal ? room.width : room.depth;
+  const centeredStart = Math.max(0, Math.min(sinkStart + sinkSpan / 2 - width / 2, Math.max(0, wallLength - width)));
+  return wallPlacementAt(centeredStart, width, depth, side, room);
 }
 
 /**
@@ -2294,6 +2524,17 @@ export function formatInches(inches: number): string {
   const inch = rounded % 12;
   if (ft <= 0) return `${rounded}"`;
   return inch === 0 ? `${ft}'` : `${ft}' ${inch}"`;
+}
+
+/** Format a measured span to the nearest 1/8 inch for installation-oriented UI. */
+export function formatEighthInches(inches: number): string {
+  const measured = Math.max(0, Number.isFinite(inches) ? inches : 0);
+  const eighths = Math.round(measured * 8);
+  if (measured > COLLISION_EPSILON_IN && eighths === 0) return `<⅛"`;
+  const whole = Math.floor(eighths / 8);
+  const fraction = eighths % 8;
+  const glyph = ["", "⅛", "¼", "⅜", "½", "⅝", "¾", "⅞"][fraction];
+  return `${whole || !glyph ? whole : ""}${glyph}"`;
 }
 
 // ─── Doors & Windows (wall openings) ────────────────────────────────────────
@@ -3403,6 +3644,48 @@ export function refrigeratorSurroundElevation(room: RoomData | null | undefined,
   return { mountBottom, top: mountBottom + upperHeight };
 }
 
+function adjoiningWallCabinetTop(
+  cabinet: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room: RoomData,
+): number | null {
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const cabinetFootprint = placedFootprint(cabinet);
+  const cabinetStart = horizontal ? cabinet.x : cabinet.y;
+  const cabinetEnd = cabinetStart + (horizontal ? cabinetFootprint.w : cabinetFootprint.d);
+  let closestGap = Number.POSITIVE_INFINITY;
+  let adjoiningTop: number | null = null;
+  for (const neighbor of placed) {
+    if (neighbor.uid === cabinet.uid || neighbor.placement !== "wall" || isStacker(neighbor)) continue;
+    if (cabinetWall(neighbor, room) !== side || !isAgainstWall(neighbor, side, room)) continue;
+    const footprint = placedFootprint(neighbor);
+    const start = horizontal ? neighbor.x : neighbor.y;
+    const end = start + (horizontal ? footprint.w : footprint.d);
+    const gap = Math.min(Math.abs(end - cabinetStart), Math.abs(start - cabinetEnd));
+    if (gap > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN) continue;
+    const box = elevationBox(neighbor, room);
+    const top = box.bottom + box.height;
+    if (gap < closestGap - COLLISION_EPSILON_IN || (Math.abs(gap - closestGap) <= COLLISION_EPSILON_IN && top > (adjoiningTop ?? 0))) {
+      closestGap = gap;
+      adjoiningTop = top;
+    }
+  }
+  return adjoiningTop;
+}
+
+function refrigeratorUpperMountBottom(
+  cabinet: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room: RoomData,
+  fridgeTop: number,
+  upperHeight: number,
+): number {
+  const surroundMount = refrigeratorSurroundElevation(room, fridgeTop, upperHeight).mountBottom;
+  const adjoiningTop = adjoiningWallCabinetTop(cabinet, placed, room);
+  return Math.max(surroundMount, adjoiningTop == null ? surroundMount : adjoiningTop - upperHeight);
+}
+
 /**
  * Re-seat a dedicated refrigerator wall cabinet on top of its matching
  * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
@@ -3426,7 +3709,7 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
       const fridgeBox = elevationBox(fridge, room);
       const fridgeTop = fridgeBox.bottom + fridgeBox.height;
       const cabinetHeight = cabinet.height ?? elevationBox(cabinet, room).height;
-      const { mountBottom } = refrigeratorSurroundElevation(room, fridgeTop, cabinetHeight);
+      const mountBottom = refrigeratorUpperMountBottom(cabinet, placed, enclosure, fridgeTop, cabinetHeight);
       return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
     }
 
@@ -3458,9 +3741,12 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
     const fridgeTop = fridgeBox.bottom + fridgeBox.height;
     const upperHeight = matchingUpper?.height ?? 24;
     // `placed` still contains the pre-normalization WR mount while this map is
-    // running. Always derive the cap from the shared refrigerator contract so a
-    // legacy 54-inch WR record cannot shorten its adjacent panel to 84 inches.
-    const cap = refrigeratorSurroundElevation(room, fridgeTop, upperHeight).top;
+    // running, so recompute the same deterministic adjoining-run mount instead
+    // of reading a stale saved mount from the refrigerator upper.
+    const upperMount = matchingUpper
+      ? refrigeratorUpperMountBottom(matchingUpper, placed, enclosure, fridgeTop, upperHeight)
+      : refrigeratorSurroundElevation(room, fridgeTop, upperHeight).mountBottom;
+    const cap = upperMount + upperHeight;
     return cabinet.height === cap && cabinet.mountBottom === 0
       ? cabinet
       : { ...cabinet, height: cap, mountBottom: 0 };
@@ -3469,67 +3755,14 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
 }
 
 /**
- * Restores real clearance around fridge-side architectural panels in saved
- * layouts. Earlier drafts saved a thin panel at the refrigerator edge but left
- * the neighboring B-12 / drawer base at the same edge, so elevation painted a
- * panel across the cabinet face. Re-seat neighboring cabinet runs outside the
- * panel's true seam width on either side of the refrigerator.
+ * Legacy compatibility hook. Earlier builds moved neighboring cabinets away
+ * from refrigerator panel seams during restore, which silently changed a user's
+ * saved run. Earlier cabinets are now authoritative; invalid newer panels are
+ * rejected when the enclosure is added or when collision cleanup restores the
+ * saved order. Never move an accepted cabinet here.
  */
-export function normalizeRefrigeratorPanelSeams(placed: PlacedCabinet[], room?: RoomData | null): PlacedCabinet[] {
-  const enclosure = room ?? DEFAULT_ROOM;
-  const refrigerators = placed.filter(isRefrigerator);
-  if (refrigerators.length === 0) return placed;
-  const TOL = 2;
-  let changed = false;
-  const normalized = placed.map((candidate) => {
-    if (isRefrigerator(candidate) || isRefrigeratorEndPanel(candidate)) return candidate;
-    let next = candidate;
-    for (const fridge of refrigerators) {
-      const side = cabinetWall(fridge, enclosure);
-      if (cabinetWall(candidate, enclosure) !== side || candidate.placement === "appliance") continue;
-      const horizontal = side === "top" || side === "bottom";
-      const fridgeFootprint = placedFootprint(fridge);
-      const fridgeStart = horizontal ? fridge.x : fridge.y;
-      const fridgeEnd = fridgeStart + (horizontal ? fridgeFootprint.w : fridgeFootprint.d);
-      const panels = placed.filter((panel) => isRefrigeratorEndPanel(panel) && cabinetWall(panel, enclosure) === side);
-      const leftPanel = panels.find((panel) => {
-        const panelFootprint = placedFootprint(panel);
-        const panelEnd = (horizontal ? panel.x : panel.y) + (horizontal ? panelFootprint.w : panelFootprint.d);
-        return Math.abs(panelEnd - fridgeStart) <= TOL;
-      });
-      const rightPanel = panels.find((panel) => {
-        const panelStart = horizontal ? panel.x : panel.y;
-        return Math.abs(panelStart - fridgeEnd) <= TOL;
-      });
-      const footprint = placedFootprint(next);
-      const start = horizontal ? next.x : next.y;
-      const span = horizontal ? footprint.w : footprint.d;
-      const end = start + span;
-      if (leftPanel) {
-        const panelStart = horizontal ? leftPanel.x : leftPanel.y;
-        if (end > panelStart - TOL && end <= fridgeStart + TOL && start < fridgeStart) {
-          const shiftedStart = Math.max(0, panelStart - span);
-          if (Math.abs(shiftedStart - start) > 0.01) {
-            next = horizontal ? { ...next, x: shiftedStart } : { ...next, y: shiftedStart };
-            changed = true;
-          }
-        }
-      }
-      if (rightPanel) {
-        const panelFootprint = placedFootprint(rightPanel);
-        const panelEnd = (horizontal ? rightPanel.x : rightPanel.y) + (horizontal ? panelFootprint.w : panelFootprint.d);
-        const nextStart = horizontal ? next.x : next.y;
-        if (nextStart < panelEnd + TOL && nextStart >= fridgeEnd - TOL) {
-          if (Math.abs(panelEnd - nextStart) > 0.01) {
-            next = horizontal ? { ...next, x: panelEnd } : { ...next, y: panelEnd };
-            changed = true;
-          }
-        }
-      }
-    }
-    return next;
-  });
-  return changed ? normalized : placed;
+export function normalizeRefrigeratorPanelSeams(placed: PlacedCabinet[], _room?: RoomData | null): PlacedCabinet[] {
+  return placed;
 }
 
 // ── Staggered built-in look ────────────────────────────────────────────────
@@ -3877,13 +4110,17 @@ export function freeSegmentsOnWall(
   const blocksThisLayer = (pl: Placement): boolean => {
     if (pl === "tall") return true;
     if (reserveUpperZone && pl === "wall") return true;
+    if (layer === "tall") return pl === "base" || pl === "appliance" || pl === "wall";
     if (layer === "wall") return pl === "wall";
     // base/appliance share the floor layer
     return pl === "base" || pl === "appliance";
   };
   for (const p of placed) {
     if (!blocksThisLayer(p.placement)) continue;
-    if (!isAgainstWall(p, side, room)) continue;
+    // Corner items can touch two walls at once. Only the wall selected by the
+    // cabinet's orientation/explicit wall identity belongs to this run; a tall
+    // cabinet on the perpendicular wall must not consume this wall's open span.
+    if (cabinetWall(p, room) !== side) continue;
     // A raised short bridge above a sink/window can share the plan projection
     // with a neighboring upper only when its elevation band is genuinely
     // separate. Same-height uppers still reserve their run as before.
@@ -3939,10 +4176,13 @@ export function freeSegmentsOnWall(
 }
 
 /**
- * Resolves a palette-added base or wall cabinet to the first opening that can
- * contain its full width on the active wall. Returning null is intentional:
- * wall-bound catalog items must never silently fall back to a floating room
- * position when their selected wall is full.
+ * Resolves a palette-added cabinet to the next position in its selected-wall
+ * run. Floor items (base/appliance/tall) and wall items keep independent
+ * left-to-right cursors, while tall cabinets reserve both layers. We never
+ * back-fill an earlier gap after a run has started: the newly chosen cabinet
+ * belongs immediately after the rightmost item in its layer, advancing past a
+ * door/window only when the required opening clearance interrupts that run.
+ * Returning null is intentional; the caller must preserve the existing plan.
  */
 export function paletteActiveWallPlacement(
   side: WallSide,
@@ -3959,12 +4199,56 @@ export function paletteActiveWallPlacement(
     placed,
     openings,
     Math.min(width, 9),
-    0,
+    placement === "wall" ? WALL_OPENING_CLEARANCE_IN : 0,
     placement,
     false,
   );
-  const fit = segments.find((segment) => segment.length + 0.001 >= width);
-  return fit ? wallPlacementAt(fit.start, width, depth, side, room) : null;
+  // Work from the selected wall's visible left edge toward its right edge. A
+  // later tall cabinet or prior intentional gap must not push the next cabinet
+  // beyond a perfectly valid earlier opening. Narrow segments are skipped, but
+  // the first segment that can contain the requested cabinet is authoritative.
+  const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
+  if (segment) return wallPlacementAt(segment.start, width, depth, side, room);
+  return null;
+}
+
+/**
+ * Keeps a newly sequenced wall cabinet on the finished top line of the cabinet
+ * it directly touches. This is essential for short uppers such as W-30-24:
+ * their bottom changes with height, but the visible run top remains continuous.
+ */
+export function adjoiningWallRunMountBottom(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  placed: PlacedCabinet[],
+): number | null {
+  if (cabinet.placement !== "wall" || isStacker(cabinet)) return null;
+  const side = cabinetWall(cabinet, room);
+  const horizontal = side === "top" || side === "bottom";
+  const footprint = placedFootprint(cabinet);
+  const start = horizontal ? cabinet.x : cabinet.y;
+  const end = start + (horizontal ? footprint.w : footprint.d);
+  const peers = placed.filter((peer) => peer.placement === "wall" && !isStacker(peer) && cabinetWall(peer, room) === side);
+  const previous = peers
+    .map((peer) => {
+      const peerFootprint = placedFootprint(peer);
+      const peerStart = horizontal ? peer.x : peer.y;
+      const peerEnd = peerStart + (horizontal ? peerFootprint.w : peerFootprint.d);
+      return { peer, edgeDistance: Math.abs(start - peerEnd) };
+    })
+    .filter(({ edgeDistance }) => edgeDistance <= CABINET_SEAM_SNAP_IN + 1e-9)
+    .sort((a, b) => a.edgeDistance - b.edgeDistance)[0]?.peer;
+  const next = previous ? null : peers
+    .map((peer) => {
+      const peerStart = horizontal ? peer.x : peer.y;
+      return { peer, edgeDistance: Math.abs(peerStart - end) };
+    })
+    .filter(({ edgeDistance }) => edgeDistance <= CABINET_SEAM_SNAP_IN + 1e-9)
+    .sort((a, b) => a.edgeDistance - b.edgeDistance)[0]?.peer;
+  const neighbor = previous ?? next;
+  if (!neighbor) return null;
+  const neighborBox = elevationBox(neighbor, room);
+  return Math.max(0, neighborBox.bottom + neighborBox.height - placedHeight(cabinet));
 }
 
 
@@ -4289,6 +4573,140 @@ export function wallSpanMeasure(
     beforeIsCabinet,
     afterIsCabinet,
   };
+}
+
+export type WallCabinetFitStatus = "fits" | "overlap" | "insufficient";
+
+export interface WallCabinetFitMeasure {
+  side: WallSide;
+  /** Whether the cabinet is currently seated against the measured wall. */
+  seated: boolean;
+  requiredSpan: number;
+  start: number;
+  end: number;
+  wallLen: number;
+  availableStart: number;
+  availableEnd: number;
+  availableSpan: number;
+  before: number;
+  after: number;
+  leftOverlap: number;
+  rightOverlap: number;
+  status: WallCabinetFitStatus;
+}
+
+/**
+ * Measures the selected cabinet against the exact free segment on its active
+ * wall. The selected item is removed from the blockers first, so the result can
+ * distinguish a cabinet that fits edge-to-edge from a cabinet that is truly
+ * wider than the available run. Door and window clearances use the same
+ * authoritative three-inch rule as wall auto-placement.
+ */
+export function wallCabinetFitMeasure(
+  moving: PlacedCabinet,
+  room: RoomData,
+  others: PlacedCabinet[],
+  openings: WallOpening[],
+  side: WallSide = cabinetWall(moving, room),
+  openingClearance = WALL_OPENING_CLEARANCE_IN,
+): WallCabinetFitMeasure {
+  const horizontal = side === "top" || side === "bottom";
+  const wallLen = horizontal ? room.width : room.depth;
+  const me = runSpan(moving, side);
+  const requiredSpan = Math.max(0, me.end - me.start);
+  const peers = others
+    .filter((other) => other.uid !== moving.uid)
+    .filter((other) => sharesPlanCollisionZone(moving, other))
+    .filter((other) => isAgainstWall(other, side, room));
+  const segments = freeSegmentsOnWall(
+    side,
+    room,
+    peers,
+    openings,
+    0,
+    moving.placement === "wall" ? openingClearance : 0,
+    moving.placement,
+    false,
+    moving,
+  );
+  const distanceToSegment = (segment: WallSegment) => {
+    const segmentEnd = segment.start + segment.length;
+    if (me.end < segment.start) return segment.start - me.end;
+    if (me.start > segmentEnd) return me.start - segmentEnd;
+    return 0;
+  };
+  const selectedSegment = segments.reduce<WallSegment | null>((best, segment) => {
+    if (!best) return segment;
+    const distance = distanceToSegment(segment);
+    const bestDistance = distanceToSegment(best);
+    if (distance !== bestDistance) return distance < bestDistance ? segment : best;
+    const center = segment.start + segment.length / 2;
+    const bestCenter = best.start + best.length / 2;
+    const movingCenter = (me.start + me.end) / 2;
+    return Math.abs(center - movingCenter) < Math.abs(bestCenter - movingCenter) ? segment : best;
+  }, null);
+  const availableStart = selectedSegment?.start ?? Math.max(0, Math.min(wallLen, me.start));
+  const availableEnd = selectedSegment ? selectedSegment.start + selectedSegment.length : availableStart;
+  const availableSpan = Math.max(0, availableEnd - availableStart);
+
+  let leftOverlap = 0;
+  let rightOverlap = 0;
+  const movingCenter = (me.start + me.end) / 2;
+  for (const peer of peers) {
+    const span = runSpan(peer, side);
+    const overlap = Math.min(me.end, span.end) - Math.max(me.start, span.start);
+    if (overlap <= COLLISION_EPSILON_IN) continue;
+    const peerCenter = (span.start + span.end) / 2;
+    if (peerCenter <= movingCenter) leftOverlap = Math.max(leftOverlap, overlap);
+    else rightOverlap = Math.max(rightOverlap, overlap);
+  }
+
+  const status: WallCabinetFitStatus = leftOverlap > 0 || rightOverlap > 0
+    ? "overlap"
+    : availableSpan + COLLISION_EPSILON_IN < requiredSpan
+      ? "insufficient"
+      : "fits";
+
+  return {
+    side,
+    seated: isAgainstWall(moving, side, room),
+    requiredSpan,
+    start: me.start,
+    end: me.end,
+    wallLen,
+    availableStart,
+    availableEnd,
+    availableSpan,
+    before: Math.max(0, me.start - availableStart),
+    after: Math.max(0, availableEnd - me.end),
+    leftOverlap,
+    rightOverlap,
+    status,
+  };
+}
+
+/**
+ * Explains whether a rejected wall placement merely needs to snap into an
+ * otherwise adequate opening or whether no opening is wide enough. This keeps
+ * true collision details distinct from insufficient-space guidance.
+ */
+export function wallCabinetPlacementReason(
+  moving: PlacedCabinet,
+  room: RoomData,
+  others: PlacedCabinet[],
+  openings: WallOpening[],
+): string | null {
+  const collision = cabinetCollisionDetail(moving, others);
+  if (!collision || moving.placement !== "wall") return collisionReason(moving, others);
+  const fit = wallCabinetFitMeasure(moving, room, others, openings);
+  const required = formatEighthInches(fit.requiredSpan);
+  const available = formatEighthInches(fit.availableSpan);
+  const overlap = formatEighthInches(collision.penetration);
+  if (fit.availableSpan + COLLISION_EPSILON_IN < fit.requiredSpan) {
+    const shortage = formatEighthInches(fit.requiredSpan - fit.availableSpan);
+    return `Cannot place ${moving.masterCode} here: it needs ${required} of clear wall space, but the nearest opening is ${available} (${shortage} too narrow). It overlaps ${collision.cabinet.masterCode} by ${overlap}. Choose a smaller wall cabinet with a fitted catalog filler or adjust the run.`;
+  }
+  return `Cannot place ${moving.masterCode} at this exact position: it overlaps ${collision.cabinet.masterCode} by ${overlap}, but a ${available} clear opening is available. Snap it edge-to-edge; zero gap is allowed.`;
 }
 
 // ─── Countertop materials & surfaces ─────────────────────────────────────────
@@ -4784,7 +5202,43 @@ export function smartGapCatalogOptions<T extends Pick<DesignCabinet, "masterCode
       const remaining = Math.round((length - width) * 100) / 100;
       return { cabinet, remaining, needsFiller: remaining > 0.01 && remaining <= 6 };
     })
+    // A Smart Gap option must finish the complete opening. Never offer a box
+    // that silently leaves more than one sellable fitted-filler span unfilled.
+    .filter(({ remaining }) => remaining <= 0.01 || remaining <= 6)
     .sort((a, b) => Number(b.cabinet.width) - Number(a.cabinet.width) || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode));
+}
+
+function cabinetFamilyPrefix(masterCode: string): string {
+  return (masterCode.toUpperCase().match(/^[A-Z]+/)?.[0] ?? "").trim();
+}
+
+/**
+ * Catalog-only smaller wall alternatives for a failed placement. Matching the
+ * master-code family, height, and depth prevents a deep WR refrigerator upper
+ * from being replaced with an unrelated standard-depth W cabinet. Every result
+ * either fills the opening exactly or leaves at most one catalog-filler span.
+ */
+export function compatibleWallCabinetAlternatives<T extends Pick<DesignCabinet, "masterCode" | "width" | "height" | "depth" | "placement">>(
+  requested: Pick<PlacedCabinet, "masterCode" | "width" | "height" | "depth" | "placement">,
+  availableSpan: number,
+  candidates: readonly T[],
+): SmartGapCatalogOption<T>[] {
+  if (requested.placement !== "wall" || availableSpan <= 0) return [];
+  const family = cabinetFamilyPrefix(requested.masterCode);
+  const requestedHeight = Number(requested.height) || 0;
+  const requestedDepth = Number(requested.depth) || 0;
+  const matching: T[] = candidates.flatMap<T>((candidate) => {
+    if (candidate.placement !== "wall" || cabinetFamilyPrefix(candidate.masterCode) !== family) return [];
+    const skuDimensions = wallCabinetSkuDimensions(candidate.masterCode);
+    const width = skuDimensions?.width ?? (Number(candidate.width) || 0);
+    const height = skuDimensions?.height ?? (Number(candidate.height) || 0);
+    const depth = skuDimensions?.depth ?? (Number(candidate.depth) || 0);
+    const compatible = width > 0 && width < requested.width - COLLISION_EPSILON_IN &&
+      Math.abs(height - requestedHeight) <= COLLISION_EPSILON_IN &&
+      Math.abs(depth - requestedDepth) <= COLLISION_EPSILON_IN;
+    return compatible ? [{ ...candidate, width: String(width), height: String(height), depth: String(depth) } as T] : [];
+  });
+  return smartGapCatalogOptions({ length: availableSpan }, matching, Number.POSITIVE_INFINITY);
 }
 
 /** Preview layers are derived for rendering only and never mutate saved placements. */

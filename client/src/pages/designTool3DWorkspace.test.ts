@@ -11,6 +11,8 @@ describe("3D-first design workspace", () => {
     expect(initialDesignWorkspaceView("?view=plan")).toBe("plan");
     expect(initialDesignWorkspaceView("?view=front")).toBe("elevation");
     expect(initialDesignWorkspaceView("?view=split")).toBe("split");
+    expect(initialDesignWorkspaceView("?view=hybrid")).toBe("hybrid");
+    expect(initialDesignWorkspaceView("?view=3d-plan")).toBe("hybrid");
   });
 
   it("uses catalog payloads accepted by the 3D drop target for left-rail dragging", () => {

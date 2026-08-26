@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gapFillCandidatesByWidth, nextSmartGapPreviewIndex, smartGapCatalogOptions, smartGapRecommendation, withTemporarySmartGapPreview } from "./design";
+import { compatibleWallCabinetAlternatives, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, smartGapCatalogOptions, smartGapRecommendation, withTemporarySmartGapPreview } from "./design";
 
 // Minimal palette rows for the pure candidate-selection helper.
 type Row = Parameters<typeof gapFillCandidatesByWidth>[0][number];
@@ -74,8 +74,24 @@ describe("gapFillCandidatesByWidth", () => {
 
   it("returns every catalog cabinet that fits a smart gap so the user can filter by cabinet type or price", () => {
     const options = smartGapCatalogOptions({ length: 38 }, [row("B24", 24), row("SB30", 30, "Sink Base"), row("DB36", 36, "Drawer Base"), row("B42", 42)]);
-    expect(options.map((option) => option.cabinet.masterCode)).toEqual(["DB36", "SB30", "B24"]);
+    expect(options.map((option) => option.cabinet.masterCode)).toEqual(["DB36"]);
     expect(options[0]).toMatchObject({ remaining: 2, needsFiller: true });
+  });
+
+  it("offers only matching smaller WR wall cabinets that can complete the opening with a catalog filler", () => {
+    const wallRow = (masterCode: string, width: number, height: number, depth: number, placement: "wall" | "base" = "wall") => ({ masterCode, width: String(width), height: String(height), depth: String(depth), placement });
+    const requested = { masterCode: "WR3624", width: 36, height: 24, depth: 24, placement: "wall" as const };
+    const options = compatibleWallCabinetAlternatives(requested, 35, [
+      wallRow("WR3324", 33, 24, 24),
+      wallRow("WR3024", 30, 24, 24),
+      wallRow("WR2724", 27, 24, 24),
+      wallRow("W3324", 33, 24, 12),
+      wallRow("WR3330", 33, 30, 24),
+      wallRow("WR3324", 33, 24, 24, "base"),
+    ]);
+    expect(options.map((option) => option.cabinet.masterCode)).toEqual(["WR3324", "WR3024"]);
+    expect(options.map((option) => option.remaining)).toEqual([2, 5]);
+    expect(options.every((option) => option.needsFiller)).toBe(true);
   });
 
   it("creates a temporary preview layer without mutating saved placements", () => {

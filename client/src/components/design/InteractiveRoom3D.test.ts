@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
-import { threeDCameraPresetPosition } from "./InteractiveRoom3D";
+import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -19,6 +19,18 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+  it("keeps an explicitly empty designer room authoritative after Clear Design instead of rendering catalog suggestions", () => {
+    const empty = { placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] };
+    expect(threeDUsesAuthoritativePlanScene({ width: 144, depth: 120 }, empty)).toBe(true);
+    expect(threeDUsesAuthoritativePlanScene(undefined, empty)).toBe(false);
+  });
+
+  it("routes a normal 3D catalog choice without coordinates so DesignTool can place it next in line, while retaining explicit drag/drop coordinates", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("onAddCatalogItem?.(item); setWorkspacePanel(null);");
+    expect(rendererSource).toContain("onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY))");
+  });
+
   it("does not emit the full active-scene mesh payload as a console error", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).not.toContain("ACTIVE-3D-SCENE-MESHES");
@@ -31,9 +43,32 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDPointerSelectsCabinet("context")).toBe(true);
   });
 
+  it("opens Cabinet Attributes with the exact raycast placement UID on 3D right-click", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("if (selection?.uid && onOpenCabinetEditor)");
+    expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
+  });
+
   it("wraps the embedded 3D action controls instead of allowing them to overlap", () => {
     expect(THREE_D_EMBEDDED_TOOLBAR_CLASS).toContain("flex-wrap");
     expect(THREE_D_EMBEDDED_TOOLBAR_CLASS).toContain("max-w-[calc(100%-1.5rem)]");
+  });
+
+  it("builds the hybrid 2D reference from every saved item using the authoritative rotated footprint and opening geometry", () => {
+    const model = hybridPlanUnderlayModel(
+      { width: 120, depth: 96, ceilingHeight: 96 },
+      [
+        { uid: "base", cabinetId: 1, masterCode: "B-24", description: "Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 1, numberOfDrawers: 0 },
+        { uid: "wall", cabinetId: 2, masterCode: "WR3624", description: "Refrigerator wall", placement: "wall", x: 24, y: 0, width: 36, depth: 24, height: 24, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0 },
+        { uid: "appliance", cabinetId: 3, masterCode: "FRIDGE-36", description: "Refrigerator", placement: "appliance", x: 60, y: 0, width: 36, depth: 24, height: 70, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
+      ],
+      [{ uid: "window", kind: "window", label: "Window", side: "top", offset: 72, width: 30, height: 30, sill: 44 }],
+    );
+
+    expect(model.room).toEqual({ width: 120, depth: 96 });
+    expect(model.cabinets.map((cabinet) => cabinet.uid)).toEqual(["base", "wall", "appliance"]);
+    expect(model.cabinets[1]).toMatchObject({ masterCode: "WR3624", width: 24, depth: 36 });
+    expect(model.openings).toEqual([{ uid: "window", kind: "window", side: "top", offset: 72, width: 30 }]);
   });
 
   it("uses a visual preview fade unless the user requests reduced motion", () => {
@@ -63,6 +98,16 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDWallClearanceText({ before: 9, after: 12, beforeIsCabinet: true, afterIsCabinet: false }))
       .toBe('Open space: 9" to previous cabinet · 1\' to wall edge');
     expect(threeDWallClearanceText(null)).toBeNull();
+  });
+
+  it("reports exact fit and true overlap in one-eighth-inch increments", () => {
+    const base = { side: "top" as const, seated: true, requiredSpan: 36, start: 12, end: 48, wallLen: 96, availableStart: 12, availableEnd: 48, availableSpan: 36, before: 0, after: 0 };
+    expect(threeDWallFitGuideText({ ...base, leftOverlap: 0, rightOverlap: 0, status: "fits" }))
+      .toBe('Fit guide: cabinet width 36" · 36" clear wall span · edge contact allowed');
+    expect(threeDWallFitGuideText({ ...base, availableEnd: 47.875, availableSpan: 35.875, leftOverlap: 0, rightOverlap: 0.125, status: "overlap" }))
+      .toBe('Fit guide: cabinet width 36" · 35⅞" clear wall span · right overlap ⅛"');
+    expect(threeDWallFitGuideText({ ...base, seated: false, leftOverlap: 0, rightOverlap: 0, status: "fits" }))
+      .toBe('Placement guide: cabinet width 36" · not seated on the top wall · snap to a wall to measure left and right clearance');
   });
 
   it("shows the exact installed cut width for catalog fillers created from a measured gap", () => {
@@ -253,6 +298,23 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
+  it("resolves a BER36 corner child mesh to the exact saved placement UID used by right-click attributes", () => {
+    const berRoot = new THREE.Group();
+    berRoot.userData = { placedUid: "placed-ber36", masterCode: "BER36", label: "36-inch Base Easy Reach corner cabinet", distributorSkuId: 936036 };
+    const clippedCornerBody = new THREE.Group();
+    clippedCornerBody.userData = { cornerGeometryKind: "l-corner" };
+    const visibleDoor = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    berRoot.add(clippedCornerBody);
+    clippedCornerBody.add(visibleDoor);
+
+    expect(threeDCabinetHitFromObject(visibleDoor)).toEqual({
+      uid: "placed-ber36",
+      masterCode: "BER36",
+      description: "36-inch Base Easy Reach corner cabinet",
+      distributorSkuId: 936036,
+    });
+  });
+
   it("keeps catalog additions available while rendering an existing saved 2D plan", () => {
     expect(shouldShowThreeDCatalog([{ id: 30, masterCode: "B-30", description: "Base cabinet", category: "Cabinet" }])).toBe(true);
     expect(shouldShowThreeDCatalog([])).toBe(false);
@@ -302,6 +364,20 @@ describe("interactive 3D room scene helpers", () => {
     expect(front.z).toBeGreaterThan(presentation.z);
     expect(wide.y).toBeGreaterThan(presentation.y);
     expect(detail.length()).toBeLessThan(presentation.length());
+  });
+
+  it("preserves the exact camera view across cabinet moves but not explicit reset or preset changes", () => {
+    const snapshot = { preset: "presentation" as const, resetKey: 4 };
+    expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4)).toBe(true);
+    expect(threeDShouldRestoreCameraView(snapshot, "presentation", 5)).toBe(false);
+    expect(threeDShouldRestoreCameraView(snapshot, "front", 4)).toBe(false);
+  });
+
+  it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
+    expect(threeDScreenHorizontalPlanDelta("top", "right", 1, { x: 0.8, z: -0.4 })).toEqual({ x: 1, y: 0 });
+    expect(threeDScreenHorizontalPlanDelta("bottom", "left", 1, { x: 0.8, z: -0.4 })).toEqual({ x: -1, y: 0 });
+    expect(threeDScreenHorizontalPlanDelta("left", "right", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: -0.25 });
+    expect(threeDScreenHorizontalPlanDelta("right", "left", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: 0.25 });
   });
 
   it("builds architectural trim, sill, muntins, door panels, and hardware for room openings", () => {
@@ -2539,6 +2615,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderSavedSceneCabinet(range, [range, hood, microwave])).toBe(true);
     expect(shouldRenderSavedSceneCabinet(hood, [range, hood, microwave])).toBe(true);
     expect(shouldRenderSavedSceneCabinet(microwave, [range, hood, microwave])).toBe(false);
+  });
+
+  it("keeps a neighboring base cabinet visible when a refrigerator is added to the saved 3D scene", () => {
+    const base = {
+      uid: "left-base", cabinetId: 1, masterCode: "B-24", description: "Base cabinet",
+      placement: "base", width: 24, height: 34.5, depth: 24, rotation: 0, x: 0, y: 0,
+    } as never;
+    const fridge = {
+      uid: "fridge", cabinetId: 2, masterCode: "FRIDGE-36", description: "Refrigerator",
+      placement: "appliance", width: 36, height: 70, depth: 36, rotation: 0, x: 24, y: 0,
+    } as never;
+    expect(shouldRenderSavedSceneCabinet(base, [base, fridge])).toBe(true);
+    expect(shouldRenderSavedSceneCabinet(fridge, [base, fridge])).toBe(true);
   });
 
   it("reconstructs design 8190001's persisted base run, range, hood, and refrigerator without generic fallbacks", () => {

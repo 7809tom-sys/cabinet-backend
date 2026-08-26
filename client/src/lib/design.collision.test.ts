@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, refrigeratorEndPanelConflict, refrigeratorEndPanelConflictDetail, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -116,25 +116,61 @@ describe("design placement collision prevention", () => {
     expect(result.rejected).toEqual([]);
   });
 
-  it("re-seats saved cabinet runs outside refrigerator panel seams on both sides", () => {
+  it("never re-seats earlier saved cabinets around refrigerator panel seams", () => {
     const leftBase = placed({ uid: "left-base", masterCode: "B-12", x: 36, width: 12, height: 34.5 });
     const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 48, width: 36, depth: 25, height: 70 });
     const leftPanel = placed({ uid: "left-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", x: 46.5, width: 1.5, depth: 25, height: 96 });
     const rightPanel = placed({ uid: "right-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", x: 84, width: 1.5, depth: 25, height: 96 });
     const rightBase = placed({ uid: "right-base", masterCode: "3-DB24", x: 84, width: 24, height: 34.5 });
     const normalized = normalizeRefrigeratorPanelSeams([leftBase, fridge, leftPanel, rightPanel, rightBase], DEFAULT_ROOM);
-    expect(normalized.find((item) => item.uid === "left-base")?.x).toBe(34.5);
-    expect(normalized.find((item) => item.uid === "right-base")?.x).toBe(85.5);
+    expect(normalized.find((item) => item.uid === "left-base")?.x).toBe(36);
+    expect(normalized.find((item) => item.uid === "right-base")?.x).toBe(84);
     expect(normalized.find((item) => item.uid === "left-panel")?.x).toBe(46.5);
     expect(normalized.find((item) => item.uid === "right-panel")?.x).toBe(84);
   });
 
-  it("keeps a refrigerator and removes a colliding base from a restored legacy layout", () => {
+  it("preserves the earlier cabinet and rejects a later colliding refrigerator during restore", () => {
     const b24 = placed({ uid: "b24", masterCode: "B-24", x: 24, width: 24 });
     const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
     const result = removeOverlappingPlacements([b24, fridge]);
-    expect(result.placed).toEqual([fridge]);
-    expect(result.rejected).toEqual([b24]);
+    expect(result.placed).toEqual([b24]);
+    expect(result.rejected).toEqual([fridge]);
+  });
+
+  it("rejects a refrigerator end panel that would cover a neighboring cabinet while allowing exact edge contact", () => {
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, height: 70 });
+    const leftBase = placed({ uid: "left-base", masterCode: "B-24", x: 0, width: 24 });
+    const overlappingPanel = placed({ uid: "panel-overlap", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 23.25, width: 1.5, depth: 24, height: 96 });
+    const flushPanel = placed({ ...overlappingPanel, uid: "panel-flush", x: 24, width: 0.75 });
+    expect(refrigeratorEndPanelConflict(overlappingPanel, [leftBase, fridge], fridge.uid)).toBe(leftBase);
+    expect(refrigeratorEndPanelConflict(flushPanel, [leftBase, fridge], fridge.uid)).toBeNull();
+  });
+
+  it("preserves an earlier B-18 exactly and rejects only the new overlapping refrigerator panel", () => {
+    const b18 = placed({ uid: "b18", masterCode: "B-18", placement: "base", x: 0, width: 18, depth: 24, height: 34.5 });
+    const fridge = placed({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 18, width: 36, depth: 30, height: 70 });
+    const leftPanel = placed({ uid: "left-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 17.25, width: 0.75, depth: 30, height: 96 });
+    const rightPanel = placed({ uid: "right-panel", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 54, width: 0.75, depth: 30, height: 96 });
+    const result = appendRefrigeratorEnclosurePlacements([b18, fridge], [leftPanel, rightPanel], fridge.uid);
+    expect(result.placed).toEqual([b18, fridge, rightPanel]);
+    expect(result.rejected).toEqual([leftPanel]);
+    expect(result.placed.find((item) => item.uid === b18.uid)).toBe(b18);
+    expect(result.panelConflicts).toHaveLength(1);
+    expect(result.panelConflicts[0]?.cabinet).toBe(b18);
+    expect(result.panelConflicts[0]?.overlapIn).toBeCloseTo(0.75, 6);
+    expect(refrigeratorEndPanelConflictDetail(leftPanel, [b18, fridge], fridge.uid)?.overlapIn).toBeCloseTo(0.75, 6);
+  });
+
+  it("preserves B-18 through saved-design cleanup and rejects the later conflicting panel on restore", () => {
+    const b18 = placed({ uid: "b18-restore", masterCode: "B-18", placement: "base", x: 0, width: 18, depth: 24, height: 34.5 });
+    const fridge = placed({ uid: "fridge-restore", masterCode: "FRIDGE-36", placement: "appliance", x: 18, width: 36, depth: 30, height: 70 });
+    const leftPanel = placed({ uid: "left-panel-restore", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 17.25, width: 0.75, depth: 30, height: 96 });
+    const rightPanel = placed({ uid: "right-panel-restore", masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 54, width: 0.75, depth: 30, height: 96 });
+    const restored = removeOverlappingPlacements([b18, fridge, leftPanel, rightPanel]);
+    expect(restored.placed.map((item) => item.uid)).toEqual([b18.uid, fridge.uid, rightPanel.uid]);
+    expect(restored.rejected.map((item) => item.uid)).toEqual([leftPanel.uid]);
+    expect(restored.placed.find((item) => item.uid === b18.uid)).toBe(b18);
+    expect(restored.placed.find((item) => item.uid === b18.uid)?.x).toBe(0);
   });
 
   it("allows a base cabinet to butt against the refrigerator opening", () => {
