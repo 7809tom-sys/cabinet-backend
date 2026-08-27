@@ -9,6 +9,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -129,6 +140,8 @@ export interface CabinetAttributesDialogProps {
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
   onSetHandleSide: (uid: string, side: CabinetHardwarePosition) => void;
+  onApplyHandleSideToAll?: (side: CabinetHardwarePosition) => void;
+  hardwareApplyCount?: number;
   // Per-cabinet roll-out shelf add-on: the design's default door style + locked
   // line let the picker resolve the correct same-line RS shelf, and onSetRolloutQty
   // persists the (unlimited) quantity onto the cabinet.
@@ -179,6 +192,8 @@ export function CabinetAttributesDialog({
   onSetSwing,
   onSetNoDoor,
   onSetHandleSide,
+  onApplyHandleSideToAll,
+  hardwareApplyCount = 0,
   designStyleId,
   distributorId,
   onSetRolloutQty,
@@ -675,6 +690,35 @@ export function CabinetAttributesDialog({
                 >
                   Paired doors — pulls at the center meeting edge
                 </Button>
+              )}
+              {onApplyHandleSideToAll && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-9 w-full"
+                      disabled={noDoor || hardwareApplyCount === 0}
+                    >
+                      Apply to All Cabinets
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apply this door hardware position to all cabinets?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will apply {hardwarePosition === "auto" ? "Automatic" : hardwarePosition === "paired" ? "Paired doors" : hardwarePosition[0]!.toUpperCase() + hardwarePosition.slice(1)} to {hardwareApplyCount} eligible cabinet{hardwareApplyCount === 1 ? "" : "s"}. Open cabinets, appliances, panels, and drawer-only cabinets are skipped. Every drawer pull remains centered automatically.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onApplyHandleSideToAll(hardwarePosition)}>
+                        Apply to {hardwareApplyCount} cabinet{hardwareApplyCount === 1 ? "" : "s"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
           </section>

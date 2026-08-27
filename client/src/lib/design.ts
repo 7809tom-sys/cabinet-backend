@@ -676,6 +676,46 @@ export function resolveCabinetHardwarePosition(p: {
   return "auto";
 }
 
+/** Persist one door-hardware choice using both the current field and the legacy
+ * left/right alias needed by older saved-design consumers. */
+export function cabinetHardwarePositionPatch(
+  side: CabinetHardwarePosition,
+): Pick<PlacedCabinet, "hardwarePosition" | "handleSide"> {
+  return {
+    hardwarePosition: side === "auto" ? null : side,
+    handleSide: side === "left" || side === "right" ? side : null,
+  };
+}
+
+/** True when a placed record has a real door front eligible for the requested
+ * bulk hardware choice. Drawers, appliances, panels, and open units are never
+ * changed. Paired hardware applies only to two-door cabinet fronts. */
+export function isCabinetDoorHardwareEligible(
+  p: PlacedCabinet,
+  side: CabinetHardwarePosition,
+): boolean {
+  if (p.noDoor || p.placement === "appliance" || !hasDoorSwing(p)) return false;
+  if (side !== "paired") return true;
+  return resolveSwing(p) === "double" || (p.numberOfDoors ?? 0) >= 2;
+}
+
+/** Copy a door-hardware choice to every eligible cabinet without touching any
+ * unrelated cabinet attribute. Drawer pulls remain centered by renderer rule. */
+export function applyCabinetDoorHardwareToAll(
+  placed: PlacedCabinet[],
+  side: CabinetHardwarePosition,
+): PlacedCabinet[] {
+  const patch = cabinetHardwarePositionPatch(side);
+  let changed = false;
+  const next = placed.map((cabinet) => {
+    if (!isCabinetDoorHardwareEligible(cabinet, side)) return cabinet;
+    if (cabinet.hardwarePosition === patch.hardwarePosition && cabinet.handleSide === patch.handleSide) return cabinet;
+    changed = true;
+    return { ...cabinet, ...patch };
+  });
+  return changed ? next : placed;
+}
+
 export function cabinetAttrNote(p: {
   noDoor?: boolean;
   handleSide?: "left" | "right" | "top" | "bottom" | null;
@@ -1957,6 +1997,22 @@ export function normalizeOverSinkWallMounts(
   return changed ? normalized : placed;
 }
 
+/** Repair old WD18 placements that inherited the generic 54-inch wall mount. */
+export function normalizeWd18CountertopMounts(placed: PlacedCabinet[]): PlacedCabinet[] {
+  let changed = false;
+  const normalized = placed.map((cabinet) => {
+    if (!isWd18CountertopDrawerCabinet(cabinet)) return cabinet;
+    const storedBottom = typeof cabinet.mountBottom === "number" && cabinet.mountBottom >= 0
+      ? cabinet.mountBottom
+      : null;
+    if (storedBottom != null && Math.abs(storedBottom - WALL_MOUNT_BOTTOM) > 0.01) return cabinet;
+    if (storedBottom === STD.COUNTERTOP_HEIGHT) return cabinet;
+    changed = true;
+    return { ...cabinet, mountBottom: STD.COUNTERTOP_HEIGHT };
+  });
+  return changed ? normalized : placed;
+}
+
 /** Whether a wall cabinet crosses a window only after clearing it vertically. */
 export function wallCabinetClearsWindow(
   cabinet: PlacedCabinet,
@@ -2231,6 +2287,43 @@ export function isStacker(p: { description?: string | null; masterCode?: string 
   return false;
 }
 
+/**
+ * WD1848 / WD1854 / WD1860 are the single-door countertop cabinet family:
+ * an 18-inch-wide upper box with one tall door above two bottom drawers. The
+ * no-dash identity intentionally excludes ordinary WD-18-xx double-door wall
+ * cabinets, which remain standard 54-inch-mounted uppers.
+ */
+export function isWd18CountertopDrawerCabinet(p: {
+  masterCode?: string | null;
+  placement?: string | null;
+}): boolean {
+  if (p.placement != null && p.placement !== "wall") return false;
+  return /^WD18(?:48|54|60)$/i.test((p.masterCode ?? "").trim());
+}
+
+export type Wd18CountertopFaceLayout = {
+  doorHeight: number;
+  drawerHeights: number[];
+};
+
+/** Physical WD18 face sections in inches, ordered top-to-bottom. */
+export function wd18CountertopFaceLayout(
+  p: { masterCode?: string | null; placement?: string | null; numberOfDrawers?: number | null },
+  cabinetHeight: number,
+): Wd18CountertopFaceLayout | null {
+  if (!isWd18CountertopDrawerCabinet(p)) return null;
+  const height = Math.max(1, cabinetHeight);
+  const drawerCount = Math.max(1, Math.round(p.numberOfDrawers ?? 2));
+  // The supplied product drawing shows two shallow lower drawers below the tall
+  // door. Use a six-inch face for each drawer while retaining a usable door on
+  // every 48-, 54-, and 60-inch family member.
+  const drawerArea = Math.min(height * 0.45, drawerCount * 6);
+  return {
+    doorHeight: height - drawerArea,
+    drawerHeights: Array.from({ length: drawerCount }, () => drawerArea / drawerCount),
+  };
+}
+
 export function elevationBox(
   p: PlacedCabinet,
   room?: { ceilingHeight?: number } | null
@@ -2274,6 +2367,18 @@ export function elevationBox(
   }
   if (p.placement === "wall") {
     const h = placedHeight(p);
+    // WD18 countertop cabinets default to the 36-inch finished countertop line.
+    // A stale standard-wall 54-inch mount is treated as the former incorrect
+    // default; any other explicit user-adjusted mount remains intentional.
+    if (isWd18CountertopDrawerCabinet(p)) {
+      const storedBottom = typeof p.mountBottom === "number" && p.mountBottom >= 0 ? p.mountBottom : null;
+      return {
+        bottom: storedBottom == null || Math.abs(storedBottom - WALL_MOUNT_BOTTOM) <= 0.01
+          ? STD.COUNTERTOP_HEIGHT
+          : storedBottom,
+        height: h,
+      };
+    }
     // 1) Explicit user override always wins (drag/adjust up or down).
     if (typeof p.mountBottom === "number" && p.mountBottom >= 0) {
       return { bottom: p.mountBottom, height: h };

@@ -26,6 +26,27 @@ function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 }
 
 describe("mixed Cabinet Config elevation rules", () => {
+  it("renders WD1860 right-side-up with one tall door above two bottom drawers", () => {
+    const markup = renderToStaticMarkup(
+      createElement(DoorFront, {
+        kind: "shaker",
+        edge: "#555555",
+        face: "#eeeeee",
+        doors: 1,
+        drawers: 2,
+        isWall: true,
+        cabinetWidthIn: 18,
+        cabinetHeightIn: 60,
+        cabinetType: "standard-door",
+        masterCode: "WD1860",
+      }),
+    );
+    expect(markup.match(/data-wd18-upper-door="true"/g)).toHaveLength(1);
+    expect(markup.match(/data-wd18-bottom-drawer="true"/g)).toHaveLength(2);
+    expect(markup.indexOf('data-wd18-upper-door="true"')).toBeLessThan(markup.indexOf('data-wd18-bottom-drawer="true"'));
+    expect(markup).toContain("height:80%");
+  });
+
   it("normalizes legacy WDC2430 records into the configured two-door diagonal wall-corner elevation", () => {
     const legacyWdc2430 = {
       masterCode: "WDC2430",

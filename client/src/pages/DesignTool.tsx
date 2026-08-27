@@ -66,7 +66,7 @@ import {
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
-  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
+  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
@@ -555,7 +555,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // sink base changes. This removes a stale elevated mount after a window is
   // deleted while preserving the minimum valid clearance when a window remains.
   useEffect(() => {
-    const normalized = normalizeOverSinkWallMounts(placed, openings, room);
+    const normalized = normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room));
     if (normalized !== placed) setPlaced(normalized);
   }, [placed, openings, room]);
   // Trim toggles rendered in elevation + added to the BOM. These AUTO-APPLY
@@ -2719,6 +2719,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
         ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
+        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
       };
@@ -4572,13 +4573,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // Set the handle/pull side for a specific cabinet.
   const setHandleSideFor = useCallback((uid: string, side: import("@/lib/design").CabinetHardwarePosition) => {
-    setCabAttr(uid, {
-      hardwarePosition: side === "auto" ? null : side,
-      // Preserve the legacy left/right field for older renderers and saved-plan
-      // consumers while the new explicit field drives all current views.
-      handleSide: side === "left" || side === "right" ? side : null,
-    });
+    setCabAttr(uid, cabinetHardwarePositionPatch(side));
   }, [setCabAttr]);
+
+  // Copy only the selected door-hardware position across eligible cabinet door
+  // fronts. Drawer pulls are not edited and remain centered by construction rule.
+  const setHandleSideForAll = useCallback((side: import("@/lib/design").CabinetHardwarePosition) => {
+    setPlaced((prev) => applyCabinetDoorHardwareToAll(prev, side));
+  }, []);
 
   // Set the number of roll-out shelves added inside a specific base cabinet.
   // Unlimited quantity (clamped to >= 0); the matching same-line RS shelf is
@@ -9794,6 +9796,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
         onSetHandleSide={setHandleSideFor}
+        onApplyHandleSideToAll={setHandleSideForAll}
+        hardwareApplyCount={attrUid ? (() => {
+          const selected = placed.find((cabinet) => cabinet.uid === attrUid);
+          const side = selected ? resolveCabinetHardwarePosition(selected) : "auto";
+          return placed.filter((cabinet) => isCabinetDoorHardwareEligible(cabinet, side)).length;
+        })() : 0}
         designStyleId={styleId}
         distributorId={lockedDistributorId}
         onSetRolloutQty={setRolloutQtyFor}

@@ -42,7 +42,7 @@ const wallCabinet = {
   numberOfDrawers: 0,
 } as never;
 
-function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn()) {
+function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0) {
   const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
@@ -61,6 +61,8 @@ function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn()) {
       onSetSwing={vi.fn()}
       onSetNoDoor={vi.fn()}
       onSetHandleSide={onSetHandleSide}
+      onApplyHandleSideToAll={onApplyHandleSideToAll}
+      hardwareApplyCount={hardwareApplyCount}
       designStyleId={null}
       distributorId={null}
       onSetRolloutQty={vi.fn()}
@@ -126,5 +128,16 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetHandleSide).toHaveBeenNthCalledWith(3, "w3024", "right");
     expect(onSetHandleSide).toHaveBeenNthCalledWith(4, "w3024", "auto");
     expect(onSetHandleSide).toHaveBeenNthCalledWith(5, "w3024", "paired");
+  });
+
+  it("confirms before applying the selected door hardware position to every eligible cabinet", () => {
+    const onApplyHandleSideToAll = vi.fn();
+    renderDialog(vi.fn(), vi.fn(), onApplyHandleSideToAll, 4);
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    fireEvent.click(within(dialog).getByRole("button", { name: "Apply to All Cabinets" }));
+    expect(screen.getByText(/apply Automatic to 4 eligible cabinets/i)).toBeTruthy();
+    expect(screen.getByText(/every drawer pull remains centered automatically/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Apply to 4 cabinets" }));
+    expect(onApplyHandleSideToAll).toHaveBeenCalledWith("auto");
   });
 });

@@ -21,18 +21,71 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
-  isStacker,
+  isStacker, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
   snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
+
+describe("bulk cabinet door hardware", () => {
+  const cabinet = (uid: string, numberOfDoors: number, extra: Partial<PlacedCabinet> = {}): PlacedCabinet => ({
+    uid,
+    cabinetId: Number(uid.replace(/\D/g, "")) || 1,
+    masterCode: `B-${uid}`,
+    description: "Base Cabinet",
+    placement: "base",
+    x: 0,
+    y: 0,
+    width: 24,
+    depth: 24,
+    height: 34.5,
+    rotation: 0,
+    numberOfDoors,
+    numberOfDrawers: 0,
+    styleId: 330001,
+    discountPct: -5,
+    ...extra,
+  });
+
+  it("applies one door position to eligible cabinets without changing drawers, appliances, panels, open units, or unrelated attributes", () => {
+    const doubleDoor = cabinet("1", 2);
+    const singleDoor = cabinet("2", 1);
+    const drawerOnly = cabinet("3", 0, { masterCode: "DB-24-3", description: "Three Drawer Base", numberOfDrawers: 3 });
+    const appliance = cabinet("4", 0, { placement: "appliance", masterCode: "DW-24", description: "Dishwasher" });
+    const panel = cabinet("5", 0, { placement: "tall", masterCode: "REPV-96", description: "Refrigerator End Panel" });
+    const open = cabinet("6", 1, { noDoor: true });
+    const placed = [doubleDoor, singleDoor, drawerOnly, appliance, panel, open];
+
+    expect(cabinetHardwarePositionPatch("right")).toEqual({ hardwarePosition: "right", handleSide: "right" });
+    expect(placed.map((item) => isCabinetDoorHardwareEligible(item, "right"))).toEqual([true, true, false, false, false, false]);
+
+    const updated = applyCabinetDoorHardwareToAll(placed, "right");
+    expect(updated[0]).toMatchObject({ hardwarePosition: "right", handleSide: "right", styleId: 330001, discountPct: -5 });
+    expect(updated[1]).toMatchObject({ hardwarePosition: "right", handleSide: "right", styleId: 330001, discountPct: -5 });
+    expect(updated.slice(2)).toEqual(placed.slice(2));
+  });
+
+  it("limits Paired doors to two-door fronts while Automatic remains available to all eligible doors", () => {
+    const doubleDoor = cabinet("7", 2, { hardwarePosition: "left", handleSide: "left" });
+    const singleDoor = cabinet("8", 1, { hardwarePosition: "right", handleSide: "right" });
+    const paired = applyCabinetDoorHardwareToAll([doubleDoor, singleDoor], "paired");
+    expect(paired[0]).toMatchObject({ hardwarePosition: "paired", handleSide: null });
+    expect(paired[1]).toBe(singleDoor);
+
+    const automatic = applyCabinetDoorHardwareToAll(paired, "auto");
+    expect(automatic).toEqual([
+      expect.objectContaining({ hardwarePosition: null, handleSide: null }),
+      expect.objectContaining({ hardwarePosition: null, handleSide: null }),
+    ]);
+  });
+});
 
 describe("universal cooking-surface geometry", () => {
   it("keeps every range and cooktop burner surface at the 34½-inch finished-floor line", () => {
@@ -1620,6 +1673,35 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 });
 
 describe("wall cabinet elevation rules", () => {
+  it("mounts the no-dash WD18 countertop cabinet family at 36 inches and leaves ordinary dashed wall cabinets at 54 inches", () => {
+    for (const [masterCode, height] of [["WD1848", 48], ["WD1854", 54], ["WD1860", 60]] as const) {
+      const countertopCabinet = cab({ placement: "wall", width: 18, height, masterCode, numberOfDoors: 1, numberOfDrawers: 2 });
+      expect(isWd18CountertopDrawerCabinet(countertopCabinet)).toBe(true);
+      expect(elevationBox(countertopCabinet)).toEqual({ bottom: 36, height });
+    }
+    expect(isWd18CountertopDrawerCabinet({ masterCode: "WD-18-60", placement: "wall" })).toBe(false);
+    expect(elevationBox(cab({ placement: "wall", width: 18, height: 60, masterCode: "WD-18-60" })).bottom).toBe(54);
+  });
+
+  it("repairs only the stale 54-inch WD18 mount while preserving an intentional custom mount", () => {
+    const stale = cab({ uid: "wd-stale", placement: "wall", width: 18, height: 60, masterCode: "WD1860", numberOfDoors: 1, numberOfDrawers: 2, mountBottom: 54 });
+    const custom = cab({ uid: "wd-custom", placement: "wall", width: 18, height: 60, masterCode: "WD1860", numberOfDoors: 1, numberOfDrawers: 2, mountBottom: 42 });
+    const ordinary = cab({ uid: "ordinary", placement: "wall", width: 18, height: 60, masterCode: "WD-18-60", mountBottom: 54 });
+    const normalized = normalizeWd18CountertopMounts([stale, custom, ordinary]);
+    expect(normalized.map((item) => item.mountBottom)).toEqual([36, 42, 54]);
+  });
+
+  it("defines one tall upper door and two six-inch bottom drawers for every WD18 height", () => {
+    expect(wd18CountertopFaceLayout({ masterCode: "WD1860", placement: "wall", numberOfDrawers: 2 }, 60)).toEqual({
+      doorHeight: 48,
+      drawerHeights: [6, 6],
+    });
+    expect(wd18CountertopFaceLayout({ masterCode: "WD1848", placement: "wall", numberOfDrawers: 2 }, 48)).toEqual({
+      doorHeight: 36,
+      drawerHeights: [6, 6],
+    });
+  });
+
   it("a standard 30in wall cabinet tops at 84in (bottom 54)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 30 }));
     expect(box.bottom).toBe(54);

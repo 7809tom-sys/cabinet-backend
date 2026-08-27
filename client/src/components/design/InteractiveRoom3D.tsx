@@ -5,7 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -1293,6 +1293,7 @@ function disposeObject(root: THREE.Object3D) {
 }
 
 export function resolvedThreeDFaceLayout(input: {
+  masterCode?: string | null;
   placementType?: string | null;
   width?: unknown;
   description?: string | null;
@@ -1309,7 +1310,7 @@ export function resolvedThreeDFaceLayout(input: {
 }) {
   const hasProvidedFaceDescription = /\b(?:door|drawer|opening)\b/i.test(input.description ?? "");
   const descriptionFaceCounts = resolveDoorDrawerCounts({
-    masterCode: undefined,
+    masterCode: input.masterCode ?? undefined,
     description: input.description ?? null,
     placementType: input.placementType ?? null,
     width: typeof input.width === "number" || typeof input.width === "string" ? input.width : null,
@@ -1335,6 +1336,9 @@ export function resolvedThreeDFaceLayout(input: {
         : Math.max(0, input.numberOfDoors),
       drawers: Math.max(0, input.numberOfDrawers ?? 0),
     };
+  if (isWd18CountertopDrawerCabinet({ masterCode: input.masterCode, placement: input.placementType })) {
+    return { hasConfiguredOpening: false, doorCount: 1, drawerCount: 2 };
+  }
   return {
     hasConfiguredOpening: Boolean(input.openingType && input.openingType !== "none"),
     doorCount: configuredFaceCounts.doors,
@@ -1404,7 +1408,9 @@ export function addCabinet(
     : configuredHeightIn;
   const catalogMountBottom = sku.mountBottom != null
     ? numberValue(sku.mountBottom, 0)
-    : (isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
+    : (isWd18CountertopDrawerCabinet({ masterCode: sku.masterCode, placement })
+      ? STD.COUNTERTOP_HEIGHT
+      : isWall ? WALL_BOTTOM : isBaseCabinet ? THREE_D_TOE_KICK : 0);
   const requestedMountBottom = transform?.bottom ?? catalogMountBottom;
   // A cabinet that physically stands on the floor always has a recessed 4½in
   // kick. This includes tall cabinets and a wall profile deliberately dropped
@@ -1781,11 +1787,17 @@ export function addCabinet(
   const doorCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.doorCount) : resolvedFaceLayout.doorCount;
   const drawerCount = isStandardSinkBase ? Math.max(2, resolvedFaceLayout.drawerCount) : resolvedFaceLayout.drawerCount;
   const usableHeight = bodyHeight - 0.08;
+  const wd18Layout = wd18CountertopFaceLayout(
+    { masterCode: sku.masterCode, placement, numberOfDrawers: drawerCount },
+    usableHeight / INCH,
+  );
   const configuredDrawerHeight = sku.drawerHeight != null ? numberValue(sku.drawerHeight, 0) * INCH : 0;
   // A drawer-only cabinet's authored rows own its whole usable face. The former
   // generic 35% allowance left an invented blank upper section in 3D even though
   // the 2D elevation renders the saved drawer stack full height.
-  const drawerHeight = threeDDrawerZoneHeight({
+  const drawerHeight = wd18Layout
+    ? wd18Layout.drawerHeights.reduce((sum, heightIn) => sum + heightIn, 0) * INCH
+    : threeDDrawerZoneHeight({
     availableHeight: usableHeight,
     drawerCount,
     doorCount,
@@ -1794,7 +1806,7 @@ export function addCabinet(
     placement,
   });
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
-  const doorHeight = Math.max(0.2, configuredDoorHeight || usableHeight - drawerHeight);
+  const doorHeight = Math.max(0.2, wd18Layout ? wd18Layout.doorHeight * INCH : configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();
   frontGroup.userData = {
     decorativeFrontClearanceIn: 0.004 / INCH,
@@ -2589,8 +2601,12 @@ export function addCabinet(
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
-    door.position.set(-bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5), -bodyHeight / 2 + 0.04 + doorHeight / 2, 0);
-    door.userData = { cabinetFront: true, flushPhysicalFace: true };
+    door.position.set(
+      -bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5),
+      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : -bodyHeight / 2 + 0.04 + doorHeight / 2,
+      0,
+    );
+    door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
     frontGroup.add(door);
     addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
     addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
@@ -2606,21 +2622,24 @@ export function addCabinet(
       frontGroup.add(inner);
     }
   }
-  const drawerRows = resolvedThreeDDrawerRows(
-    sku,
-    drawerHeight,
-    drawerCount,
-    placement === "base" && doorCount === 0 && drawerCount > 1,
-  );
-  let drawerCursor = hasConfiguredOpening ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
+  const drawerRows = wd18Layout
+    ? wd18Layout.drawerHeights.map((heightIn) => ({ count: 1, height: heightIn * INCH }))
+    : resolvedThreeDDrawerRows(
+      sku,
+      drawerHeight,
+      drawerCount,
+      placement === "base" && doorCount === 0 && drawerCount > 1,
+    );
+  const drawersAtBottom = hasConfiguredOpening || Boolean(wd18Layout);
+  let drawerCursor = drawersAtBottom ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
   for (const row of drawerRows) {
     const rowHeight = Math.max(0.08, row.height - 0.025);
     const drawerWidth = (bodyWidth - 0.08) / row.count;
     for (let column = 0; column < row.count; column++) {
       const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
-      const rowY = hasConfiguredOpening ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
+      const rowY = drawersAtBottom ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
       drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
-      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ...(isStandardSinkBase ? { falseDrawerFront: true } : {}), flushPhysicalFace: true };
+      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ...(isStandardSinkBase ? { falseDrawerFront: true } : {}), ...(wd18Layout ? { wd18BottomDrawer: true } : {}), flushPhysicalFace: true };
       frontGroup.add(drawer);
       addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
       addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
@@ -2630,7 +2649,7 @@ export function addCabinet(
       // horizontal handle. Its vertical door pulls remain unchanged above.
       if (!isStandardSinkBase) addPull(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y, true);
     }
-    drawerCursor += hasConfiguredOpening ? row.height : -row.height;
+    drawerCursor += drawersAtBottom ? row.height : -row.height;
   }
   if (hasConfiguredOpening && doorCount === 0) {
     const availableOpeningWidth = Math.max(0.2, bodyWidth - 0.11);

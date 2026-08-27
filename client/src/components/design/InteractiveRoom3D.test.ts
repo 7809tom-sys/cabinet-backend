@@ -2834,6 +2834,40 @@ describe("interactive 3D room scene helpers", () => {
     expect(items.some((item) => item.userData?.cabinetHardware)).toBe(false);
   });
 
+  it("renders WD1860 at the 36-inch countertop line with one upper door and two lower drawer meshes", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 9360145,
+      cabinetId: 9360145,
+      masterCode: "WD1860",
+      description: '18" Single Door Wall Cabinet with 3 Adjustable Shelves and 2 drawers',
+      placementType: "wall",
+      width: 18,
+      height: 60,
+      depth: 12,
+      // Some legacy supplier rows persisted zeroes even though WD18 family
+      // identity authoritatively defines one upper door and two bottom drawers.
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    }, "back", {}, 144, 120, "#8a9ba8", "#f8f8f6");
+
+    const upperDoors: THREE.Object3D[] = [];
+    const bottomDrawers: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.wd18UpperDoor) upperDoors.push(node);
+      if (node.userData.wd18BottomDrawer) bottomDrawers.push(node);
+    });
+    expect(upperDoors).toHaveLength(1);
+    expect(bottomDrawers).toHaveLength(2);
+    expect(upperDoors[0]!.position.y).toBeGreaterThan(Math.max(...bottomDrawers.map((drawer) => drawer.position.y)));
+    const cabinetRoot = root.children.find((child) => {
+      let ownsWd18Door = false;
+      child.traverse((node) => { if (node.userData.wd18UpperDoor) ownsWd18Door = true; });
+      return ownsWd18Door;
+    });
+    expect(cabinetRoot?.position.y).toBeCloseTo((36 + 30) / 12, 5);
+  });
+
   it("enforces the admin panel door sample as the sole authoritative face texture over Cabinet Config line-art", () => {
     // The threeDCabinetFrontVisualUrl helper resolves a catalog front visual URL.
     // When a door sample URL exists (from door_styles.doorSampleImageUrl), the

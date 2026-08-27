@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition,
+  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -399,9 +399,11 @@ export function ElevationView({
     // those historic placements to the same contract as a fresh Cabinet Config
     // placement instead of drawing a generic single-door wall cabinet.
     const isLegacyWdcDiagonal = /^WDC[-_]?\d/i.test(p.masterCode ?? "") && cabType === "diagonal-corner";
-    const displayCounts = isLegacyWdcDiagonal
-      ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
-      : configuredDisplayCounts;
+    const displayCounts = isWd18CountertopDrawerCabinet(p)
+      ? { doors: 1, drawers: 2 }
+      : isLegacyWdcDiagonal
+        ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
+        : configuredDisplayCounts;
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
     if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);
@@ -497,6 +499,7 @@ export function ElevationView({
               doorOrientation={p.doorOrientation ?? null}
               layoutSpec={p.layoutSpec ?? null}
               drawerLayout={p.drawerLayout ?? null}
+              masterCode={p.masterCode}
               facePattern={p.facePattern ?? null}
               shelfCount={(p.fixedShelfCount ?? 0) + (p.adjustableShelfCount ?? 0)}
               frameInsetPx={cabFrameInset ?? undefined}
@@ -2173,7 +2176,7 @@ export function CustomProfileFace({
   );
 }
 
-export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, facePattern, shelfCount, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; frameInsetPx?: number }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; frameInsetPx?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -3048,6 +3051,34 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   if (drawerCount > 0) {
     const hasDoors = doorCount > 0;
     if (hasDoors) {
+      const wd18Layout = wd18CountertopFaceLayout(
+        { masterCode, placement: isWall ? "wall" : null, numberOfDrawers: drawerCount },
+        cabinetHeightIn ?? 60,
+      );
+      if (wd18Layout) {
+        const totalHeight = Math.max(1, cabinetHeightIn ?? 60);
+        const doorPct = (wd18Layout.doorHeight / totalHeight) * 100;
+        let drawerTopPct = doorPct;
+        return withFace(
+          <>
+            <div data-wd18-upper-door="true" className="absolute left-0 right-0 top-0" style={{ height: `${doorPct}%` }}>
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 18} faceHeightIn={wd18Layout.doorHeight} />
+            </div>
+            <div className="absolute left-0 right-0" style={{ top: `${doorPct}%`, height: 2, background: stroke }} />
+            {wd18Layout.drawerHeights.map((drawerHeightIn, index) => {
+              const top = drawerTopPct;
+              const heightPct = (drawerHeightIn / totalHeight) * 100;
+              drawerTopPct += heightPct;
+              return (
+                <div key={`wd18-drawer-${index}`} data-wd18-bottom-drawer="true" className="absolute left-0 right-0" style={{ top: `${top}%`, height: `${heightPct}%` }}>
+                  {index > 0 && <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />}
+                  <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 18} faceHeightIn={drawerHeightIn} />
+                </div>
+              );
+            })}
+          </>,
+        );
+      }
       // STANDARD BASE: always exactly ONE row of drawers at the top (20% of face),
       // with drawerCount drawers side-by-side in that row.
       // Below that is the door region split into doorCount side-by-side doors.
