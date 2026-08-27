@@ -81,7 +81,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview,
+  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
@@ -4289,14 +4289,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [addCabinet, openings, paletteType, placed, room]
   );
 
-  const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number) => {
+	const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
     setPlaced((prev) => {
       const cabinet = prev.find((p) => p.uid === uid);
       if (!cabinet) return prev;
       const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
       const peers = prev.filter((p) => p.uid !== uid);
-      const edgeSnap = customPlacementMode ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
-		      const movedCabinet = snapCabinetSeamOverlap({ ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y }, peers);
+	      const edgeSnap = customPlacementMode || exactWallDrag ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
+		      const movedCabinet = {
+		        ...snapCabinetSeamOverlap({ ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y }, peers),
+		        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
+		      };
       if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)) {
         const message = wallCabinetPlacementReason(movedCabinet, room, peers, openings) ?? collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
@@ -4330,7 +4333,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [setSinks, room, island, customPlacementMode]);
 
   const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number) => {
-    moveCabinet(uid, x, y);
+    moveCabinet(uid, x, y, undefined, true);
   }, [moveCabinet]);
 
   const swingSelected = () => {

@@ -132,7 +132,7 @@ describe("3D same-wall cabinet drag", () => {
     expect(neighbor.y - (preview.candidate!.y + placedFootprint(preview.candidate!).d)).toBe(0);
   });
 
-  it("allows floor refrigerators and dishwashers but excludes raised hoods from wall-run dragging", () => {
+  it("allows floor appliances and mounted range hoods while excluding unrelated raised appliances from wall-run dragging", () => {
     const appliance = (uid: string, masterCode: string, width: number, depth: number, height: number, mountBottom: number): PlacedCabinet => ({
       uid,
       cabinetId: 9100 + width,
@@ -152,7 +152,71 @@ describe("3D same-wall cabinet drag", () => {
 
     expect(isWallRunDraggable(appliance("fridge", "FRIDGE-36", 36, 30, 70, 0), ROOM_12x10)).toBe(true);
     expect(isWallRunDraggable(appliance("dishwasher", "DW-24", 24, 24, 34.5, 0), ROOM_12x10)).toBe(true);
-    expect(isWallRunDraggable(appliance("hood", "HOOD-30", 30, 12, 18, 66), ROOM_12x10)).toBe(false);
+    expect(isWallRunDraggable(appliance("hood", "HOOD-30", 30, 18, 18, 66), ROOM_12x10)).toBe(true);
+  });
+
+  it("right-drags a mounted range hood through the wall layer while preserving its 66-inch elevation", () => {
+    const hood: PlacedCabinet = {
+      uid: "hood",
+      cabinetId: 9201,
+      masterCode: "HOOD-30",
+      description: "30 inch Range Hood",
+      placement: "appliance",
+      x: 30,
+      y: 0,
+      width: 30,
+      depth: 18,
+      height: 18,
+      mountBottom: 66,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const leftWall: PlacedCabinet = {
+      ...hood,
+      uid: "left-wall",
+      cabinetId: 9202,
+      masterCode: "W-30-30",
+      description: "30 inch Wall Cabinet",
+      placement: "wall",
+      x: 0,
+      depth: 12,
+      height: 30,
+      mountBottom: 54,
+      numberOfDoors: 2,
+    };
+    const preview = cabinetWallDragPreview(hood, ROOM_12x10, [leftWall, hood], [], 45)!;
+
+    expect(preview.wall).toBe("top");
+    expect(preview.fit).toMatchObject({ snapStart: 30, snapEnd: 60, before: 0, status: "valid" });
+    expect(preview.candidate).toMatchObject({ x: 30, y: 0, mountBottom: 66, placement: "appliance" });
+    expect(preview.ghostCandidate).toMatchObject({ x: 30, y: 0, mountBottom: 66 });
+  });
+
+  it("keeps an invalid range-hood snap as a measured ghost target without committing a candidate", () => {
+    const hood: PlacedCabinet = {
+      uid: "hood-invalid",
+      cabinetId: 9211,
+      masterCode: "HOOD-30",
+      description: "30 inch Range Hood",
+      placement: "appliance",
+      x: 30,
+      y: 0,
+      width: 30,
+      depth: 18,
+      height: 18,
+      mountBottom: 66,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const leftWall = { ...hood, uid: "left-wall-62", cabinetId: 9212, masterCode: "W-62-30", placement: "wall" as const, x: 0, width: 62, depth: 12, height: 30, mountBottom: 54, numberOfDoors: 2 };
+    const rightWall = { ...leftWall, uid: "right-wall-62", cabinetId: 9213, x: 82 };
+    const preview = cabinetWallDragPreview(hood, ROOM_12x10, [leftWall, rightWall, hood], [], 72)!;
+
+    expect(preview.fit).toMatchObject({ status: "invalid", availableSpan: 20, requiredSpan: 30, shortage: 10 });
+    expect(preview.candidate).toBeNull();
+    expect(preview.ghostCandidate).toMatchObject({ x: 62, y: 0, mountBottom: 66 });
   });
 
   it("does not right-drag a raised over-range microwave through the floor appliance path", () => {

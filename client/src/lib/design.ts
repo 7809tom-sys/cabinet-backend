@@ -354,6 +354,9 @@ export interface PlacedCabinet {
   // Set after an intentional 3D Move In/Move Out action. Legacy placements
   // without this flag are seated against their nearest physical wall in 3D.
   depthPositionAdjusted?: boolean;
+  // Set after an intentional left/right move of a mounted range hood. Hoods
+  // without this flag remain auto-centered above their matching range.
+  rangeHoodPositionAdjusted?: boolean;
   // Official 20/20 catalog line-art for this cabinet code, if available.
   // Optional for backward-compat with older saved designs; the canvas falls
   // back to the to-scale code-drawn shape when absent.
@@ -5472,18 +5475,26 @@ export interface CabinetWallDragPreview {
   wall: WallSide;
   fit: WallGapFitPreview;
   candidate: PlacedCabinet | null;
+  /** Proposed snap footprint used by the 3D ghost, including invalid targets. */
+  ghostCandidate?: PlacedCabinet | null;
+}
+
+export function isRangeHoodPlacement(moving: Pick<PlacedCabinet, "placement" | "masterCode" | "description">): boolean {
+  return moving.placement === "appliance"
+    && (/^HOOD[-_]?/i.test(moving.masterCode ?? "") || /range\s+hood/i.test(moving.description ?? ""));
 }
 
 /**
- * Right-drag is available to cabinets and floor-seated appliances that occupy a
- * wall run. Raised appliances (hoods, OTR microwaves, sinks, etc.) keep their
- * specialized attachment rules and are intentionally excluded.
+ * Right-drag is available to cabinets, floor-seated appliances, and mounted
+ * range hoods that occupy a wall run. Other raised appliances (OTR microwaves,
+ * sinks, etc.) keep their specialized attachment rules and remain excluded.
  */
 export function isWallRunDraggable(
   moving: PlacedCabinet,
   room: RoomData,
 ): boolean {
   if (moving.placement === "base" || moving.placement === "wall") return true;
+  if (isRangeHoodPlacement(moving)) return true;
   return moving.placement === "appliance"
     && elevationBox(moving, room).bottom <= COLLISION_EPSILON_IN;
 }
@@ -5507,13 +5518,19 @@ export function cabinetWallDragPreview(
   const footprint = placedFootprint(moving);
   const horizontal = wall === "top" || wall === "bottom";
   const requiredSpan = horizontal ? footprint.w : footprint.d;
-  const dragLayer: "base" | "wall" = moving.placement === "wall" ? "wall" : "base";
+  const dragLayer: "base" | "wall" = moving.placement === "wall" || isRangeHoodPlacement(moving) ? "wall" : "base";
   const gaps = wallGaps(room, others.filter((item) => item.uid !== moving.uid), openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
   if (!initialFit.containsTarget || initialFit.status !== "valid") {
-    return { wall, fit: initialFit, candidate: null };
+    const rawStart = targetAlong - requiredSpan / 2;
+    const lastStart = initialFit.gap.start + initialFit.gap.length - requiredSpan;
+    const ghostStart = lastStart >= initialFit.gap.start
+      ? Math.max(initialFit.gap.start, Math.min(lastStart, rawStart))
+      : initialFit.gap.start;
+    const ghostSpot = wallPlacementAt(ghostStart, requiredSpan, Number(moving.depth) || STD.WALL_DEPTH, wall, room);
+    return { wall, fit: initialFit, candidate: null, ghostCandidate: { ...moving, x: ghostSpot.x, y: ghostSpot.y } };
   }
   const leadingStart = initialFit.gap.start;
   const trailingStart = initialFit.gap.start + initialFit.gap.length - requiredSpan;
@@ -5533,7 +5550,8 @@ export function cabinetWallDragPreview(
   const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
   const spot = wallPlacementAt(snapStart, requiredSpan, depth, wall, room);
   const candidate = snapCabinetSeamOverlap({ ...moving, x: spot.x, y: spot.y }, others.filter((item) => item.uid !== moving.uid));
-  return { wall, fit, candidate: hasCollision(candidate, others.filter((item) => item.uid !== moving.uid)) ? null : candidate };
+  const validCandidate = hasCollision(candidate, others.filter((item) => item.uid !== moving.uid)) ? null : candidate;
+  return { wall, fit, candidate: validCandidate, ghostCandidate: candidate };
 }
 
 // Build a map of one representative REAL base cabinet per standard width from a

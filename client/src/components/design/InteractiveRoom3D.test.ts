@@ -8,7 +8,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -54,21 +54,49 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
   });
 
-  it("right-drags cabinets and floor appliances through one shared exact wall-snap path in every 3D renderer", () => {
+  it("right-drags cabinets, floor appliances, and range hoods through one shared exact wall-snap path in every 3D renderer", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("onPointerMove={handleRoomPointerMove}");
     expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong)");
     expect(rendererSource).toContain("!isWallRunDraggable(source, movementRoom)");
     expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y)");
+    expect(rendererSource).toContain("updateRightDragGhost(session.source, preview, room)");
+    expect(rendererSource).toContain("rightDragSnapGhost: true");
+    expect(rendererSource).not.toContain("applyRightDragVisual(session");
     expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
+    expect(designerSource).toContain("rangeHoodPositionAdjusted: true");
+    expect(designerSource).toContain("moveCabinet(uid, x, y, undefined, true)");
   });
 
   it("describes a valid right-drag release as exact edge contact with no gap or overlap", () => {
     const fit = { gap: { side: "top" as const, layer: "base" as const, start: 0, length: 109, center: 54.5, isStandardSize: false, isFillerSize: false }, containsTarget: true, requiredSpan: 15, availableSpan: 109, shortage: 0, snapStart: 94, snapEnd: 109, before: 94, after: 0, status: "valid" as const };
     expect(threeDCabinetWallDragText({ masterCode: "B-15" }, { wall: "top", fit, candidate: { masterCode: "B-15" } as never }))
       .toBe('B-15 · snap 94"–109" · touching next edge · 0" gap · 0" overlap');
+  });
+
+  it("positions the appliance snap ghost at the exact proposed 3D footprint and saved elevation", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    const ghost = threeDWallDragGhostBox({
+      uid: "hood-ghost",
+      cabinetId: 9301,
+      masterCode: "HOOD-30",
+      description: "30 inch Range Hood",
+      placement: "appliance",
+      x: 30,
+      y: 0,
+      width: 30,
+      depth: 18,
+      height: 18,
+      mountBottom: 66,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    }, room);
+
+    expect(ghost.position).toEqual({ x: 3.75, y: 6.25, z: 0.75 });
+    expect(ghost.size).toEqual({ width: 2.5, height: 1.5, depth: 1.5 });
   });
 
   it("wraps the embedded 3D action controls instead of allowing them to overlap", () => {
@@ -2870,9 +2898,13 @@ describe("interactive 3D room scene helpers", () => {
     } as never;
     const room = { width: 144, depth: 145, ceilingHeight: 96 } as never;
     const hoodTransform = savedRangeHoodTransform(hood, [range, hood, microwave], room);
+    const manuallyMovedHood = { ...hood, y: 75, rangeHoodPositionAdjusted: true } as never;
+    const manualTransform = savedRangeHoodTransform(manuallyMovedHood, [range, manuallyMovedHood, microwave], room);
     const rangeTransform = existingCabinetTransform(range, room);
 
     expect(hoodTransform.z).toBeCloseTo(rangeTransform.z, 12);
+    expect(manualTransform.z).toBeCloseTo(existingCabinetTransform(manuallyMovedHood, room).z, 12);
+    expect(manualTransform.z).not.toBeCloseTo(rangeTransform.z, 12);
     expect(shouldRenderSavedSceneCabinet(range, [range, hood, microwave])).toBe(true);
     expect(shouldRenderSavedSceneCabinet(hood, [range, hood, microwave])).toBe(true);
     expect(shouldRenderSavedSceneCabinet(microwave, [range, hood, microwave])).toBe(false);

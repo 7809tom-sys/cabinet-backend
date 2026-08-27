@@ -2974,6 +2974,7 @@ export function savedRangeHoodTransform(
 ) {
   const transform = existingCabinetTransform(hood, room);
   if (!/^HOOD[-_]?/i.test(hood.masterCode ?? "")) return transform;
+  if (hood.rangeHoodPositionAdjusted) return transform;
   const hoodRotation = ((Number(hood.rotation) % 360) + 360) % 360;
   const range = placed.find((item) => {
     if (!/^RANGE[-_]?/i.test(item.masterCode ?? "")) return false;
@@ -2986,6 +2987,20 @@ export function savedRangeHoodTransform(
   // center; otherwise X is the along-wall center.
   if (hoodRotation === 90 || hoodRotation === 270) return { ...transform, z: rangeTransform.z };
   return { ...transform, x: rangeTransform.x };
+}
+
+export function threeDWallDragGhostBox(candidate: PlacedCabinet, room: RoomData) {
+  const transform = existingCabinetTransform(candidate, room);
+  const footprint = placedFootprint(candidate);
+  const box = elevationBox(candidate, room);
+  return {
+    position: { x: transform.x * INCH, y: (box.bottom + box.height / 2) * INCH, z: transform.z * INCH },
+    size: {
+      width: Math.max(0.125, footprint.w * INCH),
+      height: Math.max(0.125, box.height * INCH),
+      depth: Math.max(0.125, footprint.d * INCH),
+    },
+  };
 }
 
 /** When a saved range zone has both an old microwave placeholder and a true hood,
@@ -3570,6 +3585,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     preview: CabinetWallDragPreview | null;
     visualOrigins: Array<{ object: THREE.Object3D; x: number; z: number }>;
   } | null>(null);
+  const rightDragGhostRef = useRef<THREE.LineSegments | null>(null);
   const suppressContextMenuRef = useRef(false);
   const lastEmittedPresentationRef = useRef<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -4012,6 +4028,36 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta);
   };
 
+  const clearRightDragGhost = () => {
+    const ghost = rightDragGhostRef.current;
+    if (!ghost) return;
+    ghost.removeFromParent();
+    ghost.geometry.dispose();
+    const material = ghost.material;
+    if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
+    else material.dispose();
+    rightDragGhostRef.current = null;
+  };
+
+  const updateRightDragGhost = (source: PlacedCabinet, preview: CabinetWallDragPreview | null, room: RoomData) => {
+    clearRightDragGhost();
+    const candidate = preview?.ghostCandidate ?? preview?.candidate;
+    const renderedScene = sceneRef.current;
+    if (!candidate || !renderedScene) return;
+    const box = threeDWallDragGhostBox(candidate, room);
+    const boxGeometry = new THREE.BoxGeometry(box.size.width, box.size.height, box.size.depth);
+    const edges = new THREE.EdgesGeometry(boxGeometry);
+    boxGeometry.dispose();
+    const valid = Boolean(preview?.candidate);
+    const material = new THREE.LineBasicMaterial({ color: valid ? 0x059669 : 0xe11d48, transparent: true, opacity: 0.98, depthTest: false });
+    const ghost = new THREE.LineSegments(edges, material);
+    ghost.position.set(box.position.x, box.position.y, box.position.z);
+    ghost.renderOrder = 1000;
+    ghost.userData = { rightDragSnapGhost: true, placementUid: source.uid, valid };
+    renderedScene.add(ghost);
+    rightDragGhostRef.current = ghost;
+  };
+
   const restoreRightDragVisual = (session: NonNullable<typeof rightDragRef.current>) => {
     session.visualOrigins.forEach(({ object, x, z }) => object.position.set(x, object.position.y, z));
   };
@@ -4031,15 +4077,6 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     return horizontal
       ? Math.max(0, Math.min(room.width, hit.x / INCH))
       : Math.max(0, Math.min(room.depth, hit.z / INCH));
-  };
-
-  const applyRightDragVisual = (session: NonNullable<typeof rightDragRef.current>, candidate: PlacedCabinet) => {
-    const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
-    const sourceTransform = existingCabinetTransform(session.source, room);
-    const candidateTransform = existingCabinetTransform(candidate, room);
-    const dx = (candidateTransform.x - sourceTransform.x) * INCH;
-    const dz = (candidateTransform.z - sourceTransform.z) * INCH;
-    session.visualOrigins.forEach(({ object, x, z }) => object.position.set(x + dx, object.position.y, z + dz));
   };
 
   const handleRoomPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -4073,18 +4110,20 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (targetAlong == null) {
       session.preview = null;
       setCabinetDragMeasurement(null);
+      clearRightDragGhost();
       return;
     }
     const preview = cabinetWallDragPreview(session.source, room, placed, openings, targetAlong);
     session.preview = preview;
     setCabinetDragMeasurement(preview ? { cabinet: session.source, preview } : null);
-    if (preview?.candidate) applyRightDragVisual(session, preview.candidate);
+    updateRightDragGhost(session.source, preview, room);
   };
 
   const finishRightDrag = (event: ReactPointerEvent<HTMLDivElement>, cancelled = false): boolean => {
     const session = rightDragRef.current;
     if (!session || session.pointerId !== event.pointerId) return false;
     restoreRightDragVisual(session);
+    clearRightDragGhost();
     if (controlsRef.current) controlsRef.current.enabled = true;
     try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* Pointer capture may already be released. */ }
     rightDragRef.current = null;
