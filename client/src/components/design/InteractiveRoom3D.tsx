@@ -1871,7 +1871,10 @@ export function addCabinet(
     // the center meeting edge (opposite hinge). Upper doors pull from the
     // lower part; lower/pantry doors pull from the upper part.
     const automaticSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
-    const explicitSide = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : automaticSide;
+    // Drawers are fixed at the horizontal center by CabinetDealz construction
+    // rules. Saved hardware choices remain effective only for door pulls.
+    const resolvedHardwarePosition = drawer ? "center" : hardwarePosition;
+    const explicitSide = resolvedHardwarePosition === "left" ? -1 : resolvedHardwarePosition === "right" ? 1 : resolvedHardwarePosition === "center" ? 0 : automaticSide;
     const pullX = drawer
       ? x + explicitSide * Math.max(0.025, faceWidth * 0.24)
       : x + explicitSide * Math.max(0.035, faceWidth * 0.24);
@@ -1882,9 +1885,9 @@ export function addCabinet(
       cabinetPull: drawer ? "drawer" : "door",
       verticalPull: !drawer,
       pullDoorZone: drawer ? null : doorZone,
-      pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : hardwarePosition,
-      ...(hingeSide ? { hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition } : { handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : hardwarePosition }),
-      hardwarePosition,
+      pullEdge: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
+      ...(hingeSide ? { hingeSide, handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
+      hardwarePosition: resolvedHardwarePosition,
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);

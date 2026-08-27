@@ -770,3 +770,4 @@
 - [x] Price-path parity validation: Prove the corrected authoritative price remains consistent through saved design, 2D designer, selected-cabinet 3D card, 3D item list, cart, checkout, and applicable homeowner/contractor/wholesale/affiliate pricing rules
 - [x] Per-cabinet hardware Attributes control: Add accessible individual cabinet hardware choices for left, right, center, paired-door, and drawer-appropriate placement without changing other selected cabinets
 - [x] Hardware placement persistence and 2D/3D parity: Persist each cabinet’s hardware placement through save, restore, 2D elevation, 3D, and 3D+Plan while retaining Cabinet Config geometry, finish, pricing, SKU, and cart identity
+- [x] Drawer hardware truth rule: Enforce centered hardware on every drawer automatically in Attributes, 2D elevation, plan indicators, 3D, 3D+Plan, specialty cabinet fronts, save, and restore; left, right, center, and paired choices remain door-only controls

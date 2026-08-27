@@ -115,6 +115,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     const dialog = screen.getAllByRole("dialog").at(-1)!;
     const attributes = within(dialog);
     expect(attributes.getAllByText("Hardware placement").length).toBeGreaterThan(0);
+    expect(attributes.getByText(/every drawer pull stays centered automatically/i)).toBeTruthy();
     fireEvent.click(attributes.getByRole("button", { name: "Center" }));
     fireEvent.click(attributes.getByRole("button", { name: "dt_ca_left" }));
     fireEvent.click(attributes.getByRole("button", { name: "dt_ca_right" }));

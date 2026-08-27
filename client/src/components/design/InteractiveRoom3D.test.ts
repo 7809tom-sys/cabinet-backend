@@ -1313,6 +1313,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(paired.every((pull) => pull.userData.hardwarePosition === "paired" && pull.userData.pullEdge === "opposite-hinge")).toBe(true);
   });
 
+  it("centers every drawer pull even when the cabinet’s door hardware preference is left or right", () => {
+    const cabinet = {
+      uid: "drawer-centering-rule",
+      cabinetId: 1,
+      masterCode: "DB-30-3",
+      description: "30 inch Three Drawer Base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 30,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 3,
+      hardwarePosition: "left",
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+    const drawerPulls: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.cabinetHardware && node.userData.cabinetPull === "drawer") drawerPulls.push(node); });
+
+    expect(drawerPulls).toHaveLength(3);
+    expect(drawerPulls.every((pull) => pull.userData.hardwarePosition === "center" && pull.userData.pullEdge === "center" && pull.userData.handleSide === "center")).toBe(true);
+    expect(drawerPulls.map((pull) => pull.position.x)).toEqual([0, 0, 0]);
+  });
+
   it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
     const imported = {
       uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",

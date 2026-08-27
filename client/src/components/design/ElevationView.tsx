@@ -1898,7 +1898,9 @@ function HardwareOverlay({
   // For door hardware (knobs), position on the handle side (opposite of hinge).
   // Drawers always center their hardware.
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
-    const position = hardwarePosition === "paired" && !isDoor ? "center" : hardwarePosition ?? "auto";
+    // Drawer hardware is an authoritative center-only construction rule. Door
+    // fronts retain their individual Attributes choice, including paired pulls.
+    const position = isDoor ? hardwarePosition ?? "auto" : "center";
     const pairedPosition = position === "paired" && isDoor
       ? (index === 0 ? "40%" : "60%")
       : null;

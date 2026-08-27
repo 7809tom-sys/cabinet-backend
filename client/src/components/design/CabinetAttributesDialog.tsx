@@ -620,7 +620,7 @@ export function CabinetAttributesDialog({
             <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
               <div>
                 <Label className="text-sm">Hardware placement</Label>
-                <p className="text-[11px] text-muted-foreground">Choose where this cabinet’s pull or knob appears. This changes only this cabinet.</p>
+                <p className="text-[11px] text-muted-foreground">Choose where this cabinet’s door pull or knob appears. This changes only this cabinet; every drawer pull stays centered automatically.</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Button
