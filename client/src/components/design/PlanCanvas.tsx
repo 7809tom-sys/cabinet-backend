@@ -1483,12 +1483,10 @@ export function PlanCanvas({
                   if (sw !== "left" && sw !== "right") return null;
                   // Handles sit on the opening (non-hinge) edge; honor an explicit
                   // override, else default to the side opposite the hinge.
-                  const hSide =
-                    p.handleSide === "left" || p.handleSide === "right"
-                      ? p.handleSide
-                      : sw === "left"
-                        ? "right"
-                        : "left";
+                  const hardwarePosition = p.hardwarePosition ?? (p.handleSide === "left" || p.handleSide === "right" ? p.handleSide : "auto");
+                  const hSide = hardwarePosition === "auto"
+                    ? (sw === "left" ? "right" : "left")
+                    : hardwarePosition;
                   return (
                     <>
                       <div
@@ -1500,13 +1498,17 @@ export function PlanCanvas({
                         } as React.CSSProperties}
                         title={sw === "left" ? t("dt_pc_left_hinge") : t("dt_pc_right_hinge")}
                       />
-                      <div
+                      {hSide === "paired" ? <>
+                        <div className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]" style={{ left: "38%" }} title="Paired door hardware" />
+                        <div className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]" style={{ right: "38%" }} title="Paired door hardware" />
+                      </> : <div
                         className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]"
                         style={{
-                          [hSide === "left" ? "left" : "right"]: 2,
+                          ...(hSide === "center" ? { left: "50%", marginLeft: -3 } : { [hSide === "left" ? "left" : "right"]: 2 }),
                         } as React.CSSProperties}
-                        title={hSide === "left" ? t("dt_pc_handle_left") : t("dt_pc_handle_right")}
+                        title={hSide === "center" ? "Centered hardware" : hSide === "left" ? t("dt_pc_handle_left") : t("dt_pc_handle_right")}
                       />
+                      }
                     </>
                   );
                 })()}

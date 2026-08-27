@@ -28,6 +28,7 @@ type SceneSku = {
   doorOrientation?: "side-by-side" | "stacked" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   handleSide?: "left" | "right" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
   openingType?: string | null;
   openingWidth?: number | null;
   openingHeight?: number | null;
@@ -1863,14 +1864,17 @@ export function addCabinet(
     shadow.userData = { cabinetFaceShadowGap: true, dimensionalCabinetDetail: true };
     frontGroup.add(shadow);
   };
-  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null) => {
+  const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null, hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto") => {
     const pullLength = Math.min(Math.max(0.12, (drawer ? faceWidth : faceHeight) * (drawer ? 0.48 : 0.28)), drawer ? 0.62 : 0.86);
     const pull = new THREE.Mesh(new THREE.BoxGeometry(drawer ? pullLength : 0.022, drawer ? 0.022 : pullLength, 0.026), hardwareMaterial);
     // Doors swing from their outside edge. Pulls therefore sit vertically at
     // the center meeting edge (opposite hinge). Upper doors pull from the
     // lower part; lower/pantry doors pull from the upper part.
-    const oppositeHingeSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
-    const pullX = drawer ? x : x + oppositeHingeSide * Math.max(0.035, faceWidth * 0.24);
+    const automaticSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
+    const explicitSide = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : automaticSide;
+    const pullX = drawer
+      ? x + explicitSide * Math.max(0.025, faceWidth * 0.24)
+      : x + explicitSide * Math.max(0.035, faceWidth * 0.24);
     const pullY = drawer ? y : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, z);
     pull.userData = {
@@ -1878,8 +1882,9 @@ export function addCabinet(
       cabinetPull: drawer ? "drawer" : "door",
       verticalPull: !drawer,
       pullDoorZone: drawer ? null : doorZone,
-      pullEdge: drawer ? "center" : "opposite-hinge",
-      ...(hingeSide ? { hingeSide, handleSide: hingeSide === "left" ? "right" : "left" } : {}),
+      pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : hardwarePosition,
+      ...(hingeSide ? { hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition } : { handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : hardwarePosition }),
+      hardwarePosition,
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);
@@ -2286,7 +2291,7 @@ export function addCabinet(
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
         addFaceShadow(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y);
-        addPull(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, false, 0.086, row);
+        addPull(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, false, 0.086, row, doorsPerRow === 1 ? singleDoorHinge : null);
       }
     };
     addPantryRow(lowerDoorHeight, -bodyHeight / 2 + 0.05 + lowerDoorHeight / 2, "lower");
@@ -2337,7 +2342,8 @@ export function addCabinet(
         const pullLength = Math.min(Math.max(0.12, diagonalDoorHeight * 0.28), 0.86);
         const normalX = Math.sin(door.rotation.y);
         const normalZ = Math.cos(door.rotation.y);
-        const handleSide = sku.swing === "right" ? -1 : 1;
+        const hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto";
+        const handleSide = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : sku.swing === "right" ? -1 : 1;
         const tangentX = Math.cos(door.rotation.y);
         const tangentZ = -Math.sin(door.rotation.y);
         const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
@@ -2347,7 +2353,7 @@ export function addCabinet(
           door.position.z + tangentZ * handleSide * diagonalDoorWidth * 0.24 + normalZ * 0.058,
         );
         pull.rotation.y = door.rotation.y;
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: "opposite-hinge", hingeSide: singleDoorHinge, handleSide: singleDoorHinge === "left" ? "right" : "left", dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, hingeSide: singleDoorHinge, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? singleDoorHinge === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, dimensionalCabinetDetail: true };
         frontGroup.add(pull);
         for (const offset of [-1, 1] as const) {
           const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
@@ -2414,22 +2420,28 @@ export function addCabinet(
     const hingeSelectableCornerBase = placement === "base" && (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/i.test(sku.description ?? ""));
     if (hingeSelectableCornerBase) {
       const hingeSide = sku.swing === "right" ? "right" as const : "left" as const;
-      const handleSide = hingeSide === "left" ? "right" : "left";
-      const targetDoor = hingeSide === "left" ? backDoor : sideDoor;
-      const targetWidth = hingeSide === "left" ? exposedFrontWidth - 0.09 : lShape.sideLeg.depth - 0.09;
+      const hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto";
       const pullLength = Math.min(Math.max(0.12, faceHeight * 0.28), 0.86);
       // Base lazy-Susan pulls sit at the upper opening edge of their operative
       // door, unlike the lower-centered pull used on ordinary base doors.
       const upperOpeningPullY = faceHeight / 2 - pullLength / 2 - 0.08;
-      const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
-      if (targetDoor === backDoor) {
-        pull.position.set(backDoor.position.x + targetWidth * 0.24, upperOpeningPullY, backDoor.position.z + 0.066);
-      } else {
-        pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - targetWidth * 0.24);
-        pull.rotation.y = Math.PI / 2;
+      const targets = hardwarePosition === "paired"
+        ? [backDoor, sideDoor]
+        : [hingeSide === "left" ? backDoor : sideDoor];
+      for (const targetDoor of targets) {
+        const targetWidth = targetDoor === backDoor ? exposedFrontWidth - 0.09 : lShape.sideLeg.depth - 0.09;
+        const automaticSide = targetDoor === backDoor ? 1 : -1;
+        const offset = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : automaticSide;
+        const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
+        if (targetDoor === backDoor) {
+          pull.position.set(backDoor.position.x + targetWidth * 0.24 * offset, upperOpeningPullY, backDoor.position.z + 0.066);
+        } else {
+          pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - targetWidth * 0.24 * offset);
+          pull.rotation.y = Math.PI / 2;
+        }
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: hardwarePosition === "auto" || hardwarePosition === "paired", verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, pullHeight: "upper-opening-edge", hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, dimensionalCabinetDetail: true };
+        frontGroup.add(pull);
       }
-      pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: true, verticalPull: true, pullEdge: "opposite-hinge", pullHeight: "upper-opening-edge", hingeSide, handleSide, dimensionalCabinetDetail: true };
-      frontGroup.add(pull);
     }
   } else if (specialty.kind === "corner-drawer") {
     // CDB36 retains its 36-by-36 plan footprint while its front exactly follows
@@ -3206,6 +3218,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     doorOrientation: cabinet.doorOrientation ?? null,
     swing: cabinet.swing ?? null,
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,
+    hardwarePosition: cabinet.hardwarePosition ?? null,
     openingType: cabinet.openingType ?? null,
     openingWidth: cabinet.openingWidth ?? null,
     openingHeight: cabinet.openingHeight ?? null,

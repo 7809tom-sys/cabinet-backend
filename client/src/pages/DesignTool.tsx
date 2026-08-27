@@ -4571,8 +4571,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [setCabAttr]);
 
   // Set the handle/pull side for a specific cabinet.
-  const setHandleSideFor = useCallback((uid: string, side: "left" | "right") => {
-    setCabAttr(uid, { handleSide: side });
+  const setHandleSideFor = useCallback((uid: string, side: import("@/lib/design").CabinetHardwarePosition) => {
+    setCabAttr(uid, {
+      hardwarePosition: side === "auto" ? null : side,
+      // Preserve the legacy left/right field for older renderers and saved-plan
+      // consumers while the new explicit field drives all current views.
+      handleSide: side === "left" || side === "right" ? side : null,
+    });
   }, [setCabAttr]);
 
   // Set the number of roll-out shelves added inside a specific base cabinet.

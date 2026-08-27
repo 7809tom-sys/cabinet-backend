@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { CabinetAttributesDialog } from "./CabinetAttributesDialog";
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -42,7 +42,7 @@ const wallCabinet = {
   numberOfDrawers: 0,
 } as never;
 
-function renderDialog(onSetMountBottom = vi.fn()) {
+function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn()) {
   const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
@@ -60,7 +60,7 @@ function renderDialog(onSetMountBottom = vi.fn()) {
       onResetSize={vi.fn()}
       onSetSwing={vi.fn()}
       onSetNoDoor={vi.fn()}
-      onSetHandleSide={vi.fn()}
+      onSetHandleSide={onSetHandleSide}
       designStyleId={null}
       distributorId={null}
       onSetRolloutQty={vi.fn()}
@@ -75,7 +75,7 @@ function renderDialog(onSetMountBottom = vi.fn()) {
       onSetOvenType={vi.fn()}
     />
   );
-  return { onSetMountBottom, onMoveInOut };
+  return { onSetMountBottom, onMoveInOut, onSetHandleSide };
 }
 
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
@@ -108,5 +108,22 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     const { rerender } = render(<CabinetAttributesDialog cabinet={null} open={false} {...props} />);
 
     expect(() => rerender(<CabinetAttributesDialog cabinet={wallCabinet} open {...props} />)).not.toThrow();
+  });
+
+  it("offers independent automatic, left, center, right, and paired-door hardware choices", () => {
+    const { onSetHandleSide } = renderDialog();
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    const attributes = within(dialog);
+    expect(attributes.getAllByText("Hardware placement").length).toBeGreaterThan(0);
+    fireEvent.click(attributes.getByRole("button", { name: "Center" }));
+    fireEvent.click(attributes.getByRole("button", { name: "dt_ca_left" }));
+    fireEvent.click(attributes.getByRole("button", { name: "dt_ca_right" }));
+    fireEvent.click(attributes.getByRole("button", { name: "Automatic" }));
+    fireEvent.click(attributes.getByRole("button", { name: "Paired doors — pulls at the center meeting edge" }));
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(1, "w3024", "center");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(2, "w3024", "left");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(3, "w3024", "right");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(4, "w3024", "auto");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(5, "w3024", "paired");
   });
 });

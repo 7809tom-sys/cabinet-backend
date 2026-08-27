@@ -6,7 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance,
+  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -532,13 +532,7 @@ export function ElevationView({
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
-              handleSide={
-                p.handleSide === "left" || p.handleSide === "right"
-                  ? p.handleSide
-                  : resolveSwing(p) === "left" ? "right"
-                  : resolveSwing(p) === "right" ? "left"
-                  : null
-              }
+              hardwarePosition={resolveCabinetHardwarePosition(p)}
             />
           )}
           {/* Appliance-specific detail overlays */}
@@ -1888,14 +1882,14 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, handleSide,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition,
 }: {
   doors: number;
   drawers: number;
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
-  handleSide?: "left" | "right" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
   // top highlight and soft drop shadow so pieces read as real metal hardware.
@@ -1903,11 +1897,13 @@ function HardwareOverlay({
   const metalShadow = "0 2px 4px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.45)";
   // For door hardware (knobs), position on the handle side (opposite of hinge).
   // Drawers always center their hardware.
-  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean) => {
-    // Door knobs go on the handle side; drawers stay centered
-    const hSide = isDoor ? handleSide : null;
+  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
+    const position = hardwarePosition === "paired" && !isDoor ? "center" : hardwarePosition ?? "auto";
+    const pairedPosition = position === "paired" && isDoor
+      ? (index === 0 ? "40%" : "60%")
+      : null;
+    const leftPos = pairedPosition ?? (position === "left" ? "18%" : position === "right" ? "82%" : "50%");
     if (kind === "knob") {
-      const leftPos = hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%";
       return (
         <div
           key={key}
@@ -1919,10 +1915,12 @@ function HardwareOverlay({
     if (kind === "pull") {
       // Bar pulls: large, prominent, centered on drawers; on doors positioned on handle side
       // Width: ~42% of the cabinet face for doors, ~50% for drawers (like real bar pulls)
-      const pullStyle = isDoor && hSide
-        ? hSide === "left"
+      const pullStyle = isDoor && (position === "left" || position === "right")
+        ? position === "left"
           ? { left: "6%", width: "38%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
           : { right: "6%", width: "38%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+        : pairedPosition
+          ? { left: `calc(${pairedPosition} - 19%)`, width: "38%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
         : { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 };
       return (
         <div
@@ -1971,7 +1969,7 @@ function HardwareOverlay({
     // Knobs: position near the top 15% of the door (near the handle side corner).
     const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : 0.78);
     for (let i = 0; i < Math.min(doors, 2); i++) {
-      pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop, true));
+      pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop, true, i));
     }
   }
 

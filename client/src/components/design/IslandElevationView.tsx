@@ -20,7 +20,7 @@ import {
   type DoorPanelKind,
   countertopMaterial,
   isOnIsland, placedFootprint, bearsCountertop,
-  isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing,
+  isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
   isRangeOrOven, isStacker, wallCabinetTopLine,
   DEFAULT_CEILING_HEIGHT,
 } from "@/lib/design";
@@ -201,20 +201,21 @@ function DoorFront({
 }
 
 function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, handleSide,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
-  handleSide?: "left" | "right" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
-  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean) => {
-    const hSide = isDoor ? handleSide : null;
+  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
+    const hSide = isDoor ? hardwarePosition : null;
+    const pairedPosition = hSide === "paired" && isDoor ? (index === 0 ? "40%" : "60%") : null;
     if (kind === "knob") {
-      const leftPos = hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%";
+      const leftPos = pairedPosition ?? (hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%");
       return (
         <div key={key} className="absolute rounded-full"
           style={{ left: leftPos, top: `${topPct}%`, width: 5, height: 5, marginLeft: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
@@ -222,10 +223,12 @@ function HardwareOverlay({
       );
     }
     if (kind === "pull") {
-      const pullStyle = isDoor && hSide
+      const pullStyle = isDoor && (hSide === "left" || hSide === "right")
         ? hSide === "left"
           ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
           : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+        : pairedPosition
+          ? { left: `calc(${pairedPosition} - 9%)`, width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
         : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
       return <div key={key} className="absolute" style={pullStyle} />;
     }
@@ -241,7 +244,9 @@ function HardwareOverlay({
   const items: React.ReactNode[] = [];
   if (doors > 0 && doorPiece !== "none") {
     const topPct = 50;
-    items.push(piece(doorPiece as "knob" | "pull", `door-0`, topPct, true));
+    for (let index = 0; index < Math.min(doors, hardwarePosition === "paired" ? 2 : 1); index++) {
+      items.push(piece(doorPiece as "knob" | "pull", `door-${index}`, topPct, true, index));
+    }
   }
   if (drawers > 0 && drawerPiece !== "none") {
     const drawerH = 100 / (drawers + (doors > 0 ? 1 : 0));
@@ -441,13 +446,7 @@ export function IslandElevationView({
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
-              handleSide={
-                p.handleSide === "left" || p.handleSide === "right"
-                  ? p.handleSide
-                  : resolveSwing(p) === "left" ? "right"
-                  : resolveSwing(p) === "right" ? "left"
-                  : null
-              }
+              hardwarePosition={resolveCabinetHardwarePosition(p)}
             />
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

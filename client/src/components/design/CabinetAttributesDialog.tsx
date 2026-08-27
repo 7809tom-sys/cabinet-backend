@@ -20,8 +20,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
   PlacedCabinet,
+  type CabinetHardwarePosition,
   hasDoorSwing,
   resolveSwing,
+  resolveCabinetHardwarePosition,
   placedHeight,
   isCustomWidth,
   isCustomHeight,
@@ -126,7 +128,7 @@ export interface CabinetAttributesDialogProps {
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
-  onSetHandleSide: (uid: string, side: "left" | "right") => void;
+  onSetHandleSide: (uid: string, side: CabinetHardwarePosition) => void;
   // Per-cabinet roll-out shelf add-on: the design's default door style + locked
   // line let the picker resolve the correct same-line RS shelf, and onSetRolloutQty
   // persists the (unlimited) quantity onto the cabinet.
@@ -223,14 +225,7 @@ export function CabinetAttributesDialog({
   const canSwing = hasDoorSwing(cabinet) && swing !== "double";
   const isDouble = swing === "double";
   const noDoor = !!cabinet.noDoor;
-  const handleSide: "left" | "right" =
-    cabinet.handleSide === "left" || cabinet.handleSide === "right"
-      ? cabinet.handleSide
-      : // Default the handle to the opposite of the hinge (handles sit on the
-        // opening edge); double doors default to right.
-        swing === "left"
-        ? "right"
-        : "left";
+  const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
   const isBase = cabinet.placement === "base";
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
   const canMoveInOut = typeof onMoveInOut === "function";
@@ -621,29 +616,66 @@ export function CabinetAttributesDialog({
               )}
             </div>
 
-            {/* Handle position */}
+            {/* Hardware position */}
             <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-              <Label className="text-sm">{t("dt_ca_handle_position")}</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-sm">Hardware placement</Label>
+                <p className="text-[11px] text-muted-foreground">Choose where this cabinet’s pull or knob appears. This changes only this cabinet.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Button
                   type="button"
-                  variant={handleSide === "left" ? "default" : "outline"}
+                  variant={hardwarePosition === "auto" ? "default" : "outline"}
                   size="sm"
                   className="h-8"
+                  disabled={noDoor}
+                  onClick={() => onSetHandleSide(uid, "auto")}
+                >
+                  Automatic
+                </Button>
+                <Button
+                  type="button"
+                  variant={hardwarePosition === "left" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  disabled={noDoor}
                   onClick={() => onSetHandleSide(uid, "left")}
                 >
                   {t("dt_ca_left")}
                 </Button>
                 <Button
                   type="button"
-                  variant={handleSide === "right" ? "default" : "outline"}
+                  variant={hardwarePosition === "center" ? "default" : "outline"}
                   size="sm"
                   className="h-8"
+                  disabled={noDoor}
+                  onClick={() => onSetHandleSide(uid, "center")}
+                >
+                  Center
+                </Button>
+                <Button
+                  type="button"
+                  variant={hardwarePosition === "right" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  disabled={noDoor}
                   onClick={() => onSetHandleSide(uid, "right")}
                 >
                   {t("dt_ca_right")}
                 </Button>
               </div>
+              {isDouble && (
+                <Button
+                  type="button"
+                  variant={hardwarePosition === "paired" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-full"
+                  disabled={noDoor}
+                  onClick={() => onSetHandleSide(uid, "paired")}
+                >
+                  Paired doors — pulls at the center meeting edge
+                </Button>
+              )}
             </div>
           </section>
 

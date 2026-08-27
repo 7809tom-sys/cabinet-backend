@@ -2613,9 +2613,11 @@ describe("per-cabinet door/hardware attributes (right-click dialog)", () => {
     );
   });
 
-  it("notes the handle side when a door is present", () => {
-    expect(cabinetAttrNote({ handleSide: "left" })).toBe("Handle left");
-    expect(cabinetAttrNote({ handleSide: "right" })).toBe("Handle right");
+  it("notes legacy and explicit hardware placement when a door is present", () => {
+    expect(cabinetAttrNote({ handleSide: "left" })).toBe("Hardware left");
+    expect(cabinetAttrNote({ handleSide: "right" })).toBe("Hardware right");
+    expect(cabinetAttrNote({ hardwarePosition: "center" })).toBe("Hardware center");
+    expect(cabinetAttrNote({ hardwarePosition: "paired" })).toBe("Hardware paired");
   });
 
   it("returns an empty note when nothing is set", () => {
@@ -2624,9 +2626,10 @@ describe("per-cabinet door/hardware attributes (right-click dialog)", () => {
   });
 
   it("accepts the new attribute fields on PlacedCabinet", () => {
-    const p = cab({ noDoor: true, handleSide: "right", rolloutQty: 2 });
+    const p = cab({ noDoor: true, handleSide: "right", hardwarePosition: "center", rolloutQty: 2 });
     expect(p.noDoor).toBe(true);
     expect(p.handleSide).toBe("right");
+    expect(p.hardwarePosition).toBe("center");
     expect(p.rolloutQty).toBe(2);
   });
 });

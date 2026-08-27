@@ -1271,6 +1271,48 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("renders each saved cabinet hardware position independently, including paired-door pulls", () => {
+    const renderPulls = (hardwarePosition: "left" | "center" | "right" | "paired", doors = 1) => {
+      const cabinet = {
+        uid: `hardware-${hardwarePosition}`,
+        cabinetId: 1,
+        masterCode: "B-30",
+        description: "30 inch Base Cabinet",
+        placement: "base",
+        x: 0,
+        y: 0,
+        width: 30,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: doors,
+        numberOfDrawers: 0,
+        hardwarePosition,
+      } as never;
+      const root = new THREE.Group();
+      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      const pulls: THREE.Object3D[] = [];
+      root.traverse((node) => { if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") pulls.push(node); });
+      return pulls;
+    };
+
+    const left = renderPulls("left");
+    const center = renderPulls("center");
+    const right = renderPulls("right");
+    const paired = renderPulls("paired", 2);
+
+    expect(left).toHaveLength(1);
+    expect(center).toHaveLength(1);
+    expect(right).toHaveLength(1);
+    expect(left[0]?.userData).toMatchObject({ hardwarePosition: "left", pullEdge: "left" });
+    expect(center[0]?.userData).toMatchObject({ hardwarePosition: "center", pullEdge: "center" });
+    expect(right[0]?.userData).toMatchObject({ hardwarePosition: "right", pullEdge: "right" });
+    expect(left[0]!.position.x).toBeLessThan(center[0]!.position.x);
+    expect(right[0]!.position.x).toBeGreaterThan(center[0]!.position.x);
+    expect(paired).toHaveLength(2);
+    expect(paired.every((pull) => pull.userData.hardwarePosition === "paired" && pull.userData.pullEdge === "opposite-hinge")).toBe(true);
+  });
+
   it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
     const imported = {
       uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",

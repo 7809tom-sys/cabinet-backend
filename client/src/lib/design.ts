@@ -317,6 +317,8 @@ export interface DesignCabinet {
 // items without a hinged door (drawer bases, open shelves, panels, appliances).
 export type DoorSwing = "left" | "right" | "double" | "none";
 export type DecorativeEndTreatment = "none" | "left" | "right" | "both";
+/** Horizontal position of the visible pull or knob on a placed cabinet front. */
+export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "paired";
 
 export interface PlacedCabinet {
   uid: string;
@@ -396,9 +398,13 @@ export interface PlacedCabinet {
   // noDoor: order this cabinet as an OPEN unit (no door/front) — e.g. open
   // shelving or a glass-ready box; the shop omits the door.
   noDoor?: boolean;
-  // handleSide: where the pull/knob mounts on the door, independent of the
-  // hinge side. "left" | "right" for a door; "top"|"bottom" reserved for drawers.
+  // Legacy left/right pull position. Retained so older saved designs restore
+  // unchanged; new individual hardware choices use `hardwarePosition` below.
   handleSide?: "left" | "right" | "top" | "bottom" | null;
+  // Individual cabinet hardware placement chosen in Attributes. `auto` (or no
+  // value) retains the cabinet's hinge-aware supplier/default pull position.
+  // `paired` places one pull at the meeting edge of each leaf on paired doors.
+  hardwarePosition?: CabinetHardwarePosition | null;
   // rolloutQty: number of roll-out (pull-out) trays to add inside this base
   // cabinet. Priced as an add-on line per tray.
   rolloutQty?: number | null;
@@ -653,13 +659,31 @@ export function customSizeNote(p: PlacedCabinet): string {
 // Build-sheet note for the per-cabinet door/hardware attributes set in the
 // right-click attributes dialog. "No door" wins (an open unit has no handle);
 // otherwise an explicit handle side is noted. Returns "" when nothing applies.
+export function resolveCabinetHardwarePosition(p: {
+  hardwarePosition?: CabinetHardwarePosition | null;
+  handleSide?: "left" | "right" | "top" | "bottom" | null;
+}): CabinetHardwarePosition {
+  if (
+    p.hardwarePosition === "auto" ||
+    p.hardwarePosition === "left" ||
+    p.hardwarePosition === "center" ||
+    p.hardwarePosition === "right" ||
+    p.hardwarePosition === "paired"
+  ) {
+    return p.hardwarePosition;
+  }
+  if (p.handleSide === "left" || p.handleSide === "right") return p.handleSide;
+  return "auto";
+}
+
 export function cabinetAttrNote(p: {
   noDoor?: boolean;
-  handleSide?: "left" | "right" | null;
+  handleSide?: "left" | "right" | "top" | "bottom" | null;
+  hardwarePosition?: CabinetHardwarePosition | null;
 }): string {
   if (p.noDoor) return "No door (open unit)";
-  if (p.handleSide === "left" || p.handleSide === "right")
-    return `Handle ${p.handleSide}`;
+  const hardwarePosition = resolveCabinetHardwarePosition(p);
+  if (hardwarePosition !== "auto") return `Hardware ${hardwarePosition}`;
   return "";
 }
 
