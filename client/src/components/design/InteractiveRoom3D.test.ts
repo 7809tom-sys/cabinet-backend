@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetCardClearanceClass, threeDSelectedCabinetDescription, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -1396,6 +1396,40 @@ describe("interactive 3D room scene helpers", () => {
     expect(drawerPulls.map((pull) => pull.position.x)).toEqual([0, 0, 0]);
   });
 
+  it("renders 2-DB24 as two equal drawer fronts with centered horizontal pulls", () => {
+    const cabinet = {
+      uid: "affiliate-two-db24",
+      cabinetId: 9400174,
+      masterCode: "2-DB24",
+      description: "24 inch Two Drawer Base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 1, height: 24 }]),
+      hardwarePosition: "right",
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#eee9dd", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+    const drawers: THREE.Mesh[] = [];
+    const drawerPulls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.cabinetDrawerFront && node instanceof THREE.Mesh) drawers.push(node);
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "drawer") drawerPulls.push(node);
+    });
+
+    expect(drawers).toHaveLength(2);
+    const heights = drawers.map((drawer) => (drawer.geometry as THREE.BoxGeometry).parameters.height);
+    expect(heights[0]).toBeCloseTo(heights[1], 12);
+    expect(drawerPulls).toHaveLength(2);
+    expect(drawerPulls.every((pull) => !pull.userData.verticalPull && pull.userData.hardwarePosition === "center" && pull.position.x === 0)).toBe(true);
+  });
+
   it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
     const imported = {
       uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",
@@ -1428,6 +1462,23 @@ describe("interactive 3D room scene helpers", () => {
       { count: 1, height: expect.closeTo(8 / 12, 12) },
       { count: 1, height: 1 },
     ]);
+  });
+
+  it("keeps 2-DB24 authoritative as two equal drawers despite a generic short-top flag or stale unequal saved layout", () => {
+    const availableHeight = 34.5 / 12 - 0.08;
+    const sku = {
+      masterCode: "2-DB24",
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 1, height: 24 }]),
+    };
+    expect(isEqualHeightTwoDrawerBase(sku, 2)).toBe(true);
+    expect(resolvedThreeDDrawerRows(sku, availableHeight, 2, true)).toEqual([
+      { count: 1, height: availableHeight / 2 },
+      { count: 1, height: availableHeight / 2 },
+    ]);
+    expect(isEqualHeightTwoDrawerBase({ ...sku, numberOfDoors: 2 }, 2)).toBe(true);
+    expect(isEqualHeightTwoDrawerBase({ ...sku, masterCode: "3-DB24", numberOfDrawers: 3 }, 3)).toBe(false);
   });
 
   it("uses the existing single-oven 2D drawer contract despite stale saved drawer rows", () => {

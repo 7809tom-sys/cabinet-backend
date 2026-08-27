@@ -812,12 +812,27 @@ function numberValue(value: unknown, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export function isEqualHeightTwoDrawerBase(
+  sku: Pick<SceneSku, "drawerLayout"> & Partial<Pick<SceneSku, "masterCode" | "numberOfDoors" | "numberOfDrawers">>,
+  fallbackCount: number,
+) {
+  const code = String(sku.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const drawerCount = Math.max(0, Number(sku.numberOfDrawers) || fallbackCount);
+  // The 2-DB code is authoritative. Some supplier or legacy rows incorrectly
+  // carry a positive door count even though the product is a two-drawer base.
+  return /^2DB\d/.test(code) && drawerCount === 2;
+}
+
 export function resolvedThreeDDrawerRows(
-  sku: Pick<SceneSku, "drawerLayout">,
+  sku: Pick<SceneSku, "drawerLayout"> & Partial<Pick<SceneSku, "masterCode" | "numberOfDoors" | "numberOfDrawers">>,
   availableHeight: number,
   fallbackCount: number,
   useShallowTopDrawer = false,
 ) {
+  const count = Math.max(0, fallbackCount);
+  if (isEqualHeightTwoDrawerBase(sku, fallbackCount)) {
+    return Array.from({ length: 2 }, () => ({ count: 1, height: availableHeight / 2 }));
+  }
   try {
     const parsed = JSON.parse(sku.drawerLayout ?? "null");
     if (Array.isArray(parsed) && parsed.length) {
@@ -832,7 +847,6 @@ export function resolvedThreeDDrawerRows(
   } catch {
     // Older placements may not have a valid JSON drawer layout. Use counts.
   }
-  const count = Math.max(0, fallbackCount);
   if (useShallowTopDrawer && count > 1 && availableHeight > 6 * INCH) {
     const topHeight = 6 * INCH;
     const remainingHeight = (availableHeight - topHeight) / (count - 1);
