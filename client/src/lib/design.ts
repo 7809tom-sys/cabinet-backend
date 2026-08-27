@@ -1760,6 +1760,73 @@ export interface RefrigeratorEnclosurePlacementResult extends CollisionResolutio
   panelConflicts: RefrigeratorEndPanelConflictDetail[];
 }
 
+export interface RefrigeratorEnclosureFitResult {
+  existing: PlacedCabinet[];
+  additions: PlacedCabinet[];
+  shiftIn: number;
+}
+
+/**
+ * When a requested refrigerator end panel would overlap an earlier cabinet,
+ * move the newly configured refrigerator enclosure as one assembly into the
+ * available wall space. Existing cabinets remain immutable. If neither wall-run
+ * direction can retain both panels without a real collision or leaving the room,
+ * return the original coordinates so the normal measured rejection still applies.
+ */
+export function fitRefrigeratorEnclosurePlacements(
+  existing: PlacedCabinet[],
+  additions: PlacedCabinet[],
+  refrigeratorUid: string,
+  room: RoomData,
+): RefrigeratorEnclosureFitResult {
+  const refrigerator = existing.find((item) => item.uid === refrigeratorUid);
+  if (!refrigerator) return { existing, additions, shiftIn: 0 };
+  const panels = additions.filter(isRefrigeratorEndPanel);
+  const conflicts = panels.flatMap((panel) => {
+    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid);
+    return detail ? [detail] : [];
+  });
+  if (conflicts.length === 0) return { existing, additions, shiftIn: 0 };
+
+  const side = cabinetWall(refrigerator, room);
+  const horizontal = side === "top" || side === "bottom";
+  const fridgeAlong = horizontal ? refrigerator.x : refrigerator.y;
+  const positiveShift = Math.max(0, ...conflicts
+    .filter(({ panel }) => (horizontal ? panel.x : panel.y) < fridgeAlong)
+    .map(({ overlapIn }) => overlapIn));
+  const negativeShift = -Math.max(0, ...conflicts
+    .filter(({ panel }) => (horizontal ? panel.x : panel.y) >= fridgeAlong)
+    .map(({ overlapIn }) => overlapIn));
+  const candidateShifts = [positiveShift, negativeShift].filter((shift, index, all) => Math.abs(shift) > COLLISION_EPSILON_IN && all.indexOf(shift) === index);
+  const peers = existing.filter((item) => item.uid !== refrigeratorUid && !isRefrigeratorEndPanel(item));
+
+  const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => horizontal
+    ? { ...item, x: item.x + shiftIn }
+    : { ...item, y: item.y + shiftIn };
+  const withinRoom = (item: PlacedCabinet): boolean => {
+    const size = placedFootprint(item);
+    return item.x >= -COLLISION_EPSILON_IN
+      && item.y >= -COLLISION_EPSILON_IN
+      && item.x + size.w <= room.width + COLLISION_EPSILON_IN
+      && item.y + size.d <= room.depth + COLLISION_EPSILON_IN;
+  };
+
+  for (const shiftIn of candidateShifts) {
+    const shiftedFridge = shifted(refrigerator, shiftIn);
+    const shiftedAdditions = additions.map((addition) => shifted(addition, shiftIn));
+    if (!withinRoom(shiftedFridge) || shiftedAdditions.some((addition) => !withinRoom(addition))) continue;
+    if (hasCollision(shiftedFridge, peers)) continue;
+    if (shiftedAdditions.filter(isRefrigeratorEndPanel).some((panel) => refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid))) continue;
+    return {
+      existing: existing.map((item) => item.uid === refrigeratorUid ? shiftedFridge : item),
+      additions: shiftedAdditions,
+      shiftIn,
+    };
+  }
+
+  return { existing, additions, shiftIn: 0 };
+}
+
 /**
  * Adds refrigerator uppers/panels against the latest authoritative plan. Earlier
  * cabinets are immutable: a newly conflicting end panel is rejected, and the

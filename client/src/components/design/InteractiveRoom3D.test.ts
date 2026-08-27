@@ -2852,7 +2852,7 @@ describe("interactive 3D room scene helpers", () => {
 
   it("renders refrigerator enclosure panels as plain finished skins with no cabinet hardware", () => {
     const root = new THREE.Group();
-    addCabinet(root, {
+    const panelSku = {
       distributorSkuId: 0,
       masterCode: "REPV-96",
       description: 'Refrigerator End Panel 96"H',
@@ -2863,10 +2863,12 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 0,
       numberOfDrawers: 0,
       customProfile: "refrigerator-end-panel",
-    }, "back", {}, 144, 120, "#4f5549", "#ffffff", undefined, { x: 30, z: 0, rotation: 0, bottom: 0 });
+    } as const;
+    addCabinet(root, panelSku, "back", {}, 144, 120, "#4f5549", "#ffffff", undefined, { x: 30, z: 0, rotation: 0, bottom: 0 });
+    addCabinet(root, panelSku, "back", {}, 144, 120, "#4f5549", "#ffffff", undefined, { x: 66.75, z: 0, rotation: 0, bottom: 0 });
     const items: THREE.Object3D[] = [];
     root.traverse((item) => items.push(item));
-    expect(items.some((item) => item.userData?.refrigeratorEndPanel)).toBe(true);
+    expect(items.filter((item) => item.userData?.refrigeratorEndPanel)).toHaveLength(2);
     expect(items.some((item) => item.userData?.cabinetHardware)).toBe(false);
   });
 

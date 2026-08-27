@@ -64,7 +64,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -3743,8 +3743,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 
       if (toPlace.length > 0) {
-        const previewResult = appendRefrigeratorEnclosurePlacements(placed, toPlace, fridge.uid);
-        setPlaced((prev) => appendRefrigeratorEnclosurePlacements(prev, toPlace, fridge.uid).placed);
+        const configuredPlaced = placed.map((item) => item.uid === fridge.uid ? configuredFridge : item);
+        const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
+        const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid);
+        setPlaced((prev) => {
+          const latestConfigured = prev.map((item) => item.uid === fridge.uid ? configuredFridge : item);
+          const fitted = fitRefrigeratorEnclosurePlacements(latestConfigured, toPlace, fridge.uid, room);
+          return appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid).placed;
+        });
+        if (Math.abs(fittedPreview.shiftIn) > 0.01) {
+          toast.info(`Refrigerator enclosure shifted ${formatEighthInches(Math.abs(fittedPreview.shiftIn))} along the wall to retain both end panels and preserve the neighboring cabinet.`);
+        }
         if (previewResult.panelConflicts.length > 0) {
           const conflicts = previewResult.panelConflicts.map(({ cabinet, overlapIn }) => `${cabinet.masterCode} by ${formatEighthInches(overlapIn)}`);
           toast.error(`Refrigerator panel not added because it would overlap ${conflicts.join(", ")}. The existing cabinet was preserved in its exact position.`);

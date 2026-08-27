@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "./designCartLines";
-import { appendRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
+import { appendRefrigeratorEnclosurePlacements, fitRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 
 const bec = {
   uid: "bec-one",
@@ -88,12 +88,13 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(365.95);
   });
 
-  it("keeps B-18 on the cart and invoice handoff after a conflicting refrigerator panel is rejected", () => {
+  it("keeps B-18 and both end panels by shifting the refrigerator enclosure into open wall space", () => {
     const b18 = { ...bec, uid: "b18-fridge-neighbor", cabinetId: 1801, masterCode: "B-18", description: '18" Base Cabinet', width: 18 } as PlacedCabinet;
     const fridge = { ...bec, uid: "fridge-36", cabinetId: 3601, masterCode: "FRIDGE-36", description: '36" Refrigerator', placement: "appliance", x: 18, width: 36, depth: 30, height: 70 } as PlacedCabinet;
     const leftPanel = { ...bec, uid: "left-repv", cabinetId: 9601, masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 17.25, width: 0.75, depth: 30, height: 96 } as PlacedCabinet;
     const rightPanel = { ...leftPanel, uid: "right-repv", cabinetId: 9602, x: 54 } as PlacedCabinet;
-    const enclosure = appendRefrigeratorEnclosurePlacements([b18, fridge], [leftPanel, rightPanel], fridge.uid);
+    const fitted = fitRefrigeratorEnclosurePlacements([b18, fridge], [leftPanel, rightPanel], fridge.uid, { width: 144, depth: 120, ceilingHeight: 96 });
+    const enclosure = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid);
     const lines = buildDesignCabinetCartLines({
       placed: enclosure.placed,
       styleId: 330001,
@@ -103,10 +104,32 @@ describe("designer cabinet cart lines", () => {
       unitPriceFor: () => 100,
     });
 
-    expect(enclosure.rejected.map((item) => item.uid)).toEqual([leftPanel.uid]);
+    expect(fitted.shiftIn).toBe(0.75);
+    expect(enclosure.rejected).toEqual([]);
+    expect(enclosure.panelConflicts).toEqual([]);
+    expect(enclosure.placed.find((item) => item.uid === b18.uid)?.x).toBe(0);
+    expect(enclosure.placed.find((item) => item.uid === fridge.uid)?.x).toBe(18.75);
+    expect(enclosure.placed.filter((item) => item.masterCode === "REPV-96")).toHaveLength(2);
     expect(lines.map((line) => line.masterCode)).toEqual(["B-18", "REPV-96"]);
     expect(lines.find((line) => line.masterCode === "B-18")).toMatchObject({ qty: 1, unitPrice: 100, priceLocked: true });
+    expect(lines.find((line) => line.masterCode === "REPV-96")).toMatchObject({ qty: 2, unitPrice: 100, priceLocked: true });
     expect(lines.map((line) => line.masterCode)).not.toContain("FRIDGE-36");
+  });
+
+  it("shifts a right-wall refrigerator enclosure along the vertical wall run without moving B-18", () => {
+    const b18 = { ...bec, uid: "right-wall-b18", cabinetId: 1801, masterCode: "B-18", description: '18" Base Cabinet', placement: "base", x: 120, y: 0, width: 18, depth: 24, rotation: 90 } as PlacedCabinet;
+    const fridge = { ...bec, uid: "right-wall-fridge", cabinetId: 3601, masterCode: "FRIDGE-36", description: '36" Refrigerator', placement: "appliance", x: 114, y: 18, width: 36, depth: 30, height: 70, rotation: 90 } as PlacedCabinet;
+    const leftPanel = { ...bec, uid: "right-wall-left-repv", cabinetId: 9601, masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: 114, y: 17.25, width: 0.75, depth: 30, height: 96, rotation: 90 } as PlacedCabinet;
+    const rightPanel = { ...leftPanel, uid: "right-wall-right-repv", cabinetId: 9602, y: 54 } as PlacedCabinet;
+
+    const fitted = fitRefrigeratorEnclosurePlacements([b18, fridge], [leftPanel, rightPanel], fridge.uid, { width: 144, depth: 120, ceilingHeight: 96 });
+    const enclosure = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid);
+
+    expect(fitted.shiftIn).toBe(0.75);
+    expect(enclosure.rejected).toEqual([]);
+    expect(enclosure.placed.find((item) => item.uid === b18.uid)).toMatchObject({ x: 120, y: 0 });
+    expect(enclosure.placed.find((item) => item.uid === fridge.uid)).toMatchObject({ x: 114, y: 18.75 });
+    expect(enclosure.placed.filter((item) => item.masterCode === "REPV-96")).toHaveLength(2);
   });
 
   it("locks loaded bundle lines to the verified package total without changing catalog source prices", () => {
