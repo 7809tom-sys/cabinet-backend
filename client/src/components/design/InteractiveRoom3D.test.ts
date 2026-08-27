@@ -8,7 +8,7 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRoomWallSideFromObject } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -42,12 +42,32 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDPointerSelectsCabinet("up", 5)).toBe(true);
     expect(threeDPointerSelectsCabinet("up", 6)).toBe(false);
     expect(threeDPointerSelectsCabinet("context")).toBe(true);
+    expect(threeDRightPointerGesture(2, 5, true)).toBe("context");
+    expect(threeDRightPointerGesture(2, 6, true)).toBe("drag");
+    expect(threeDRightPointerGesture(0, 20, true)).toBe("none");
+    expect(threeDRightPointerGesture(2, 20, false)).toBe("none");
   });
 
   it("opens Cabinet Attributes with the exact raycast placement UID on 3D right-click", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("if (selection?.uid && onOpenCabinetEditor)");
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
+  });
+
+  it("right-drags a cabinet through one shared exact wall-snap path in every 3D renderer", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("onPointerMove={handleRoomPointerMove}");
+    expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong)");
+    expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y)");
+    expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
+    expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
+  });
+
+  it("describes a valid right-drag release as exact edge contact with no gap or overlap", () => {
+    const fit = { gap: { side: "top" as const, layer: "base" as const, start: 0, length: 109, center: 54.5, isStandardSize: false, isFillerSize: false }, containsTarget: true, requiredSpan: 15, availableSpan: 109, shortage: 0, snapStart: 94, snapEnd: 109, before: 94, after: 0, status: "valid" as const };
+    expect(threeDCabinetWallDragText({ masterCode: "B-15" }, { wall: "top", fit, candidate: { masterCode: "B-15" } as never }))
+      .toBe('B-15 · snap 94"–109" · touching next edge · 0" gap · 0" overlap');
   });
 
   it("wraps the embedded 3D action controls instead of allowing them to overlap", () => {

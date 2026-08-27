@@ -28,11 +28,56 @@ import {
   snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
+
+describe("3D same-wall cabinet drag", () => {
+  const cabinet = (uid: string, x: number, y: number, width: number, rotation = 0): PlacedCabinet => ({
+    uid,
+    cabinetId: Number(uid.replace(/\D/g, "")) || 1,
+    masterCode: `B-${width}`,
+    description: `${width} inch Base Cabinet`,
+    placement: "base",
+    x,
+    y,
+    width,
+    depth: 24,
+    height: 34.5,
+    rotation,
+    numberOfDoors: width >= 21 ? 2 : 1,
+    numberOfDrawers: 1,
+  });
+
+  it("snaps a top-wall B-15 to exact contact with the next base and leaves zero gap and zero overlap", () => {
+    const moving = cabinet("moving-15", 92, 0, 15);
+    const neighbor = cabinet("neighbor-35", 109, 0, 35);
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 108)!;
+
+    expect(preview.wall).toBe("top");
+    expect(preview.fit).toMatchObject({ snapStart: 94, snapEnd: 109, before: 94, after: 0, status: "valid" });
+    expect(preview.candidate).toMatchObject({ x: 94, y: 0 });
+    expect(hasCollision(preview.candidate!, [neighbor])).toBe(false);
+    expect(neighbor.x - (preview.candidate!.x + placedFootprint(preview.candidate!).w)).toBe(0);
+  });
+
+  it("uses the vertical wall run axis and rejects an opening that is truly too small", () => {
+    const room: RoomData = { width: 144, depth: 145 };
+    const moving = cabinet("moving-right-15", 120, 92, 15, 90);
+    const neighbor = cabinet("neighbor-right-36", 120, 109, 36, 90);
+    const valid = cabinetWallDragPreview(moving, room, [moving, neighbor], [], 108)!;
+    expect(valid.wall).toBe("right");
+    expect(valid.candidate).toMatchObject({ x: 120, y: 94 });
+    expect(neighbor.y - (valid.candidate!.y + placedFootprint(valid.candidate!).d)).toBe(0);
+
+    const blocker = cabinet("blocker-right-12", 120, 12, 36, 90);
+    const invalid = cabinetWallDragPreview(moving, room, [moving, blocker], [], 6)!;
+    expect(invalid.fit).toMatchObject({ availableSpan: 12, requiredSpan: 15, shortage: 3, status: "invalid" });
+    expect(invalid.candidate).toBeNull();
+  });
+});
 
 describe("bulk cabinet door hardware", () => {
   const cabinet = (uid: string, numberOfDoors: number, extra: Partial<PlacedCabinet> = {}): PlacedCabinet => ({

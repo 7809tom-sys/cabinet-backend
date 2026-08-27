@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -235,6 +236,25 @@ export function threeDPointerSelectsCabinet(gesture: "move" | "up" | "context", 
   return gesture === "context" || (gesture === "up" && travelPx < 6);
 }
 
+export type ThreeDRightPointerGesture = "none" | "context" | "drag";
+export function threeDRightPointerGesture(button: number, travelPx: number, hasMovableCabinet: boolean): ThreeDRightPointerGesture {
+  if (button !== 2 || !hasMovableCabinet) return "none";
+  return travelPx >= 6 ? "drag" : "context";
+}
+
+export function threeDCabinetWallDragText(cabinet: Pick<PlacedCabinet, "masterCode">, preview: CabinetWallDragPreview): string {
+  const code = cabinet.masterCode || "Cabinet";
+  if (!preview.fit.containsTarget) {
+    return `${code} · pointer is outside the nearest ${formatEighthInches(preview.fit.availableSpan)} opening`;
+  }
+  if (preview.fit.status !== "valid") {
+    return `${code} uses ${formatEighthInches(preview.fit.requiredSpan)} · opening ${formatEighthInches(preview.fit.availableSpan)} · ${formatEighthInches(preview.fit.shortage)} too small`;
+  }
+  if (!preview.candidate) return `${code} · selected seam is blocked by another item`;
+  const contact = preview.fit.before <= 1e-9 ? "touching previous edge" : "touching next edge";
+  return `${code} · snap ${formatEighthInches(preview.fit.snapStart)}–${formatEighthInches(preview.fit.snapEnd)} · ${contact} · 0" gap · 0" overlap`;
+}
+
 interface Props {
   scene: InteractiveRoomScene;
   /** Current 2D design items take precedence over starter-layout suggestions. */
@@ -289,6 +309,8 @@ interface Props {
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, planDelta?: ThreeDPlanMoveDelta) => void;
+  /** Commits an absolute same-wall cabinet position after a right-button drag preview. */
+  onMoveCabinetTo?: (uid: string, x: number, y: number) => void;
   /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
   selectedCabinetUid?: string | null;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
@@ -3514,15 +3536,27 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
   const cameraViewRef = useRef<ThreeDCameraViewSnapshot | null>(null);
-  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number; button: number } | null>(null);
+  const rightDragRef = useRef<{
+    pointerId: number;
+    uid: string;
+    source: PlacedCabinet;
+    startX: number;
+    startY: number;
+    active: boolean;
+    preview: CabinetWallDragPreview | null;
+    visualOrigins: Array<{ object: THREE.Object3D; x: number; z: number }>;
+  } | null>(null);
+  const suppressContextMenuRef = useRef(false);
   const lastEmittedPresentationRef = useRef<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const [resetKey, setResetKey] = useState(0);
@@ -3549,6 +3583,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
   const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide } | null>(null);
+  const [cabinetDragMeasurement, setCabinetDragMeasurement] = useState<{ cabinet: PlacedCabinet; preview: CabinetWallDragPreview } | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
   useEffect(() => {
@@ -3695,6 +3730,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     camera.position.copy(restoreCameraView && savedCameraView ? savedCameraView.position : threeDCameraPresetPosition(cameraPreset, maxSpan));
     if (restoreCameraView && savedCameraView) camera.zoom = savedCameraView.zoom;
     const controls = new OrbitControls(camera, renderer.domElement);
+    controlsRef.current = controls;
     if (restoreCameraView && savedCameraView) controls.target.copy(savedCameraView.target);
     else controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
     controls.enableDamping = true;
@@ -3879,6 +3915,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (rendererRef.current === renderer) rendererRef.current = null;
       if (sceneRef.current === threeScene) sceneRef.current = null;
       if (cameraRef.current === camera) cameraRef.current = null;
+      if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
   }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
@@ -3959,6 +3996,107 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       planDelta = threeDScreenHorizontalPlanDelta(cabinetWall(selectedPlacedCabinet, movementRoom), direction, moveIncrementIn, cameraRight);
     }
     onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta);
+  };
+
+  const restoreRightDragVisual = (session: NonNullable<typeof rightDragRef.current>) => {
+    session.visualOrigins.forEach(({ object, x, z }) => object.position.set(x, object.position.y, z));
+  };
+
+  const cabinetWallRunAtPoint = (clientX: number, clientY: number, wall: WallSide): number | null => {
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    if (!renderer || !camera || !room) return null;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    const hit = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(threeDCatalogDropPlane(wall, room), hit)) return null;
+    const horizontal = wall === "top" || wall === "bottom";
+    return horizontal
+      ? Math.max(0, Math.min(room.width, hit.x / INCH))
+      : Math.max(0, Math.min(room.depth, hit.z / INCH));
+  };
+
+  const applyRightDragVisual = (session: NonNullable<typeof rightDragRef.current>, candidate: PlacedCabinet) => {
+    const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    const sourceTransform = existingCabinetTransform(session.source, room);
+    const candidateTransform = existingCabinetTransform(candidate, room);
+    const dx = (candidateTransform.x - sourceTransform.x) * INCH;
+    const dz = (candidateTransform.z - sourceTransform.z) * INCH;
+    session.visualOrigins.forEach(({ object, x, z }) => object.position.set(x + dx, object.position.y, z + dz));
+  };
+
+  const handleRoomPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY, button: event.button };
+    if (event.button !== 2 || !onMoveCabinetTo) return;
+    const selection = inspectCabinetAtPoint(event.clientX, event.clientY);
+    const source = selection?.uid ? placed.find((cabinet) => cabinet.uid === selection.uid) ?? null : null;
+    if (!source || (source.placement !== "base" && source.placement !== "wall")) return;
+    const visualOrigins = (catalogRootRef.current?.children ?? [])
+      .filter((object) => threeDCabinetHitFromObject(object)?.uid === source.uid)
+      .map((object) => ({ object, x: object.position.x, z: object.position.z }));
+    rightDragRef.current = { pointerId: event.pointerId, uid: source.uid, source, startX: event.clientX, startY: event.clientY, active: false, preview: null, visualOrigins };
+    if (controlsRef.current) controlsRef.current.enabled = false;
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional on older browsers. */ }
+    event.preventDefault();
+  };
+
+  const handleRoomPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const session = rightDragRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const travelPx = Math.hypot(event.clientX - session.startX, event.clientY - session.startY);
+    if (threeDRightPointerGesture(2, travelPx, true) !== "drag") return;
+    session.active = true;
+    event.preventDefault();
+    event.stopPropagation();
+    const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    const wall = cabinetWall(session.source, room);
+    const targetAlong = cabinetWallRunAtPoint(event.clientX, event.clientY, wall);
+    restoreRightDragVisual(session);
+    if (targetAlong == null) {
+      session.preview = null;
+      setCabinetDragMeasurement(null);
+      return;
+    }
+    const preview = cabinetWallDragPreview(session.source, room, placed, openings, targetAlong);
+    session.preview = preview;
+    setCabinetDragMeasurement(preview ? { cabinet: session.source, preview } : null);
+    if (preview?.candidate) applyRightDragVisual(session, preview.candidate);
+  };
+
+  const finishRightDrag = (event: ReactPointerEvent<HTMLDivElement>, cancelled = false): boolean => {
+    const session = rightDragRef.current;
+    if (!session || session.pointerId !== event.pointerId) return false;
+    restoreRightDragVisual(session);
+    if (controlsRef.current) controlsRef.current.enabled = true;
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* Pointer capture may already be released. */ }
+    rightDragRef.current = null;
+    setCabinetDragMeasurement(null);
+    if (!session.active) return false;
+    suppressContextMenuRef.current = true;
+    window.setTimeout(() => { suppressContextMenuRef.current = false; }, 0);
+    event.preventDefault();
+    event.stopPropagation();
+    if (!cancelled && session.preview?.candidate) {
+      onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y);
+    } else if (!cancelled) {
+      toast.error(session.preview ? threeDCabinetWallDragText(session.source, session.preview) : `${session.source.masterCode} has no valid same-wall snap at this position.`);
+    }
+    return true;
+  };
+
+  const handleRoomPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (finishRightDrag(event)) return;
+    if (start?.button === 2) return;
+    const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY;
+    if (threeDPointerSelectsCabinet("up", travelPx)) {
+      inspectCabinetAtPoint(event.clientX, event.clientY);
+      setMovePanelOpen(false);
+    }
   };
 
   const buildQuotePdf = async () => {
@@ -4129,7 +4267,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={(event) => { pointerStartRef.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={(event) => { const start = pointerStartRef.current; pointerStartRef.current = null; const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY; if (threeDPointerSelectsCabinet("up", travelPx)) { inspectCabinetAtPoint(event.clientX, event.clientY); setMovePanelOpen(false); } }} onContextMenu={(event) => { event.preventDefault(); const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onContextMenu={(event) => { event.preventDefault(); if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
         event.preventDefault();
         const key = event.dataTransfer.getData("text/plain") || draggedCatalogId || "";
         const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem;
@@ -4144,6 +4282,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         setCatalogDragMeasurement(fit ? { item, fit, wall } : null);
       }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 		        <div ref={mountRef} className="h-full w-full" />
+		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
+		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? "Valid zero-gap snap" : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · ⅛&quot; precision</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
 		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
 		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{catalogDragMeasurement.fit.status === "valid" ? "Valid snap space" : "Invalid drop space"} · {catalogDragMeasurement.wall} wall · ⅛&quot; precision</span><span>{threeDCatalogDragFitText(catalogDragMeasurement.item, catalogDragMeasurement.fit)}</span></div>}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}

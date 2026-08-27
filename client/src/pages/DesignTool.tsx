@@ -4329,6 +4329,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
   }, [setSinks, room, island, customPlacementMode]);
 
+  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number) => {
+    moveCabinet(uid, x, y);
+  }, [moveCabinet]);
+
   const swingSelected = () => {
     if (!selectedUid) return;
     setPlaced((prev) =>
@@ -5974,8 +5978,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       onPresentationChange={setInteractive3dPresentation}
       onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
       onRoomWallHeightsChange={(heights) => setRoom((current) => ({ ...current, wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"] }))}
-      onMoveCabinet={moveCabinetFrom3D}
-	      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
+	      onMoveCabinet={cabinetsLocked ? undefined : moveCabinetFrom3D}
+	      onMoveCabinetTo={cabinetsLocked ? undefined : moveCabinetToFrom3D}
+		      cabinetConfigHref={isAdmin ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId) : undefined}
 	      shareContext={selectedStyleDistributorId != null && styleId != null ? { layoutPresetId: activeSceneLayoutPresetId, distributorId: selectedStyleDistributorId, styleId } : undefined}
 	      temporaryPreviewMessage={smartGapPreview.length > 0 ? "Smart Gap preview only — use ←/→ to compare; not saved to plan, cart, or invoice." : undefined}
 	      temporaryPreviewCounter={smartGapPreviewPosition ?? undefined}
@@ -10426,8 +10431,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   ...current,
                   wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"],
                 }))}
-                onMoveCabinet={moveCabinetFrom3D}
-                onRotateCabinet={rotateCabinet}
+	                onMoveCabinet={cabinetsLocked ? undefined : moveCabinetFrom3D}
+	                onMoveCabinetTo={cabinetsLocked ? undefined : moveCabinetToFrom3D}
+	                onRotateCabinet={rotateCabinet}
                 cabinetConfigHref={isAdmin
                   ? (cabinet) => cabinetEditConfigHref(cabinet.masterCode, cabinet.cabinetId)
                   : undefined}

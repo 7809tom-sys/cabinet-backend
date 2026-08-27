@@ -5468,6 +5468,59 @@ export function wallGaps(
   return gaps;
 }
 
+export interface CabinetWallDragPreview {
+  wall: WallSide;
+  fit: WallGapFitPreview;
+  candidate: PlacedCabinet | null;
+}
+
+/**
+ * Resolve a right-button 3D drag along the cabinet's existing wall. The moving
+ * cabinet is removed from the blockers, then seated against the nearest edge of
+ * the selected free segment. A valid candidate therefore touches either the
+ * preceding or following boundary with an exact 0-inch gap and never relies on
+ * overlap tolerance.
+ */
+export function cabinetWallDragPreview(
+  moving: PlacedCabinet,
+  room: RoomData,
+  others: PlacedCabinet[],
+  openings: WallOpening[],
+  targetAlong: number,
+): CabinetWallDragPreview | null {
+  if (moving.placement !== "base" && moving.placement !== "wall") return null;
+  const wall = cabinetWall(moving, room);
+  const footprint = placedFootprint(moving);
+  const horizontal = wall === "top" || wall === "bottom";
+  const requiredSpan = horizontal ? footprint.w : footprint.d;
+  const gaps = wallGaps(room, others.filter((item) => item.uid !== moving.uid), openings, 0)
+    .filter((gap) => gap.side === wall && gap.layer === moving.placement);
+  const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
+  if (!initialFit) return null;
+  if (!initialFit.containsTarget || initialFit.status !== "valid") {
+    return { wall, fit: initialFit, candidate: null };
+  }
+  const leadingStart = initialFit.gap.start;
+  const trailingStart = initialFit.gap.start + initialFit.gap.length - requiredSpan;
+  const leadingCenter = leadingStart + requiredSpan / 2;
+  const trailingCenter = trailingStart + requiredSpan / 2;
+  const snapStart = Math.abs(targetAlong - trailingCenter) <= Math.abs(targetAlong - leadingCenter)
+    ? trailingStart
+    : leadingStart;
+  const snapEnd = snapStart + requiredSpan;
+  const fit: WallGapFitPreview = {
+    ...initialFit,
+    snapStart,
+    snapEnd,
+    before: Math.max(0, snapStart - initialFit.gap.start),
+    after: Math.max(0, initialFit.gap.start + initialFit.gap.length - snapEnd),
+  };
+  const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+  const spot = wallPlacementAt(snapStart, requiredSpan, depth, wall, room);
+  const candidate = snapCabinetSeamOverlap({ ...moving, x: spot.x, y: spot.y }, others.filter((item) => item.uid !== moving.uid));
+  return { wall, fit, candidate: hasCollision(candidate, others.filter((item) => item.uid !== moving.uid)) ? null : candidate };
+}
+
 // Build a map of one representative REAL base cabinet per standard width from a
 // palette pool. Prefers a plain base box over sink/specialty/corner units so a
 // gap suggestion reads like a clean filler-run cabinet. Only widths in the
