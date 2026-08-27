@@ -1,8 +1,41 @@
-import type { WallSide } from "@/lib/design";
+import { cabinetWall, isSinkBaseCabinet, placedFootprint, type PlacedCabinet, type RoomData, type WallSide } from "@/lib/design";
 
-export type ThreeDWallDropTarget = { x: number; y: number; wall?: WallSide };
+export type ThreeDWallDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
 
 export type WallFreeSegment = { start: number; length: number };
+
+/** A visible sink-base/countertop hit is an intentional over-sink target. */
+export function targetedSinkBaseForThreeDDrop(
+  placed: PlacedCabinet[],
+  target?: ThreeDWallDropTarget,
+  room?: RoomData,
+): PlacedCabinet | null {
+  if (!target) return null;
+  if (target.placementUid) {
+    const hit = placed.find((cabinet) => cabinet.uid === target.placementUid) ?? null;
+    // A direct hit on another cabinet remains an ordinary explicit drop. Only a
+    // sink-base/countertop identity is allowed to trigger over-sink centering.
+    return hit?.placement === "base" && isSinkBaseCabinet(hit) ? hit : null;
+  }
+  if (!room || !target.wall) return null;
+  const horizontal = target.wall === "top" || target.wall === "bottom";
+  const targetAlong = horizontal ? target.x : target.y;
+  const candidates = placed.filter((cabinet) => {
+    if (cabinet.placement !== "base" || !isSinkBaseCabinet(cabinet) || cabinetWall(cabinet, room) !== target.wall) return false;
+    const footprint = placedFootprint(cabinet);
+    const start = horizontal ? cabinet.x : cabinet.y;
+    const span = horizontal ? footprint.w : footprint.d;
+    return targetAlong >= start - 0.01 && targetAlong <= start + span + 0.01;
+  });
+  if (candidates.length === 0) return null;
+  return candidates.reduce((nearest, cabinet) => {
+    const footprint = placedFootprint(cabinet);
+    const nearestFootprint = placedFootprint(nearest);
+    const center = (horizontal ? cabinet.x : cabinet.y) + (horizontal ? footprint.w : footprint.d) / 2;
+    const nearestCenter = (horizontal ? nearest.x : nearest.y) + (horizontal ? nearestFootprint.w : nearestFootprint.d) / 2;
+    return Math.abs(center - targetAlong) < Math.abs(nearestCenter - targetAlong) ? cabinet : nearest;
+  });
+}
 
 /**
  * Chooses a cabinet start within a free wall segment nearest to the point where

@@ -5,7 +5,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { cabinetDrawingType, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { type PlacedCabinet } from "@/lib/design";
 import { planCornerGeometry } from "./PlanCanvas";
-import { DoorFront, ElevationView, normalizeElevationCabinetConfig, resolveElevationFacePresentation } from "./ElevationView";
+import { DoorFront, ElevationView, HardwareOverlay, normalizeElevationCabinetConfig, resolveElevationFacePresentation } from "./ElevationView";
 
 function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -26,6 +26,24 @@ function baseCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 }
 
 describe("mixed Cabinet Config elevation rules", () => {
+  it("renders a B-18 door pull vertically at the opposite-hinge edge while keeping its drawer pull centered and horizontal", () => {
+    const markup = renderToStaticMarkup(createElement(HardwareOverlay, {
+      doors: 1,
+      drawers: 1,
+      doorPiece: "pull",
+      drawerPiece: "pull",
+      accent: "#1a2744",
+      hardwarePosition: "auto",
+      swing: "left",
+      isWall: false,
+    }));
+    expect(markup.match(/data-cabinet-hardware="door-pull"/g)).toHaveLength(1);
+    expect(markup).toContain('data-hardware-orientation="vertical"');
+    expect(markup).toContain('data-hardware-position="right"');
+    expect(markup.match(/data-cabinet-hardware="drawer-pull"/g)).toHaveLength(1);
+    expect(markup).toContain('data-hardware-orientation="horizontal"');
+  });
+
   it("renders WD1860 right-side-up with one tall door above two bottom drawers", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {

@@ -372,6 +372,7 @@ describe("interactive 3D room scene helpers", () => {
 
     expect(target.x).toBeCloseTo(72);
     expect(target.y).toBeCloseTo(18);
+    expect(target.placementUid).toBe("aspin-sb36");
   });
 
   it("retains the active-wall plane target when the drop ray crosses no saved placement geometry", () => {
@@ -397,6 +398,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(designToolSource.match(/catalogDropWall=\{activeWall\}/g)).toHaveLength(2);
     expect(designToolSource.match(/catalogDragItem=\{interactive3dCatalogDragItem\}/g)).toHaveLength(2);
     expect(designToolSource).toContain("const dropWall = dropTarget.wall ?? activeWall");
+    expect(designToolSource).toContain("targetedSinkBaseForThreeDDrop(placed, dropTarget, room)");
   });
 
   it("keeps catalog additions available while rendering an existing saved 2D plan", () => {
@@ -1002,6 +1004,37 @@ describe("interactive 3D room scene helpers", () => {
     expect(THREE_D_DRAWER_REVEAL_DEPTH).toBe(0.002);
   });
 
+  it("renders a stale-count B-18 lower front as a hinged door with a vertical opposite-hinge handle", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 2640004,
+      cabinetId: 9390004,
+      masterCode: "B-18",
+      description: "Base Cabinet",
+      placementType: "base",
+      graphicType: "standard_base",
+      width: 18,
+      height: 34.5,
+      depth: 24,
+      mountBottom: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      swing: "left",
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.cabinetHardware) pulls.push(node); });
+    const doorPulls = pulls.filter((node) => node.userData.cabinetPull === "door");
+    const drawerPulls = pulls.filter((node) => node.userData.cabinetPull === "drawer");
+    expect(doorPulls).toHaveLength(1);
+    expect(drawerPulls).toHaveLength(1);
+    expect(doorPulls[0]?.userData).toMatchObject({ verticalPull: true, pullEdge: "opposite-hinge", hingeSide: "left", handleSide: "right" });
+    expect(drawerPulls[0]?.userData).toMatchObject({ verticalPull: false, pullEdge: "center", handleSide: "center" });
+    const doorGeometry = (doorPulls[0] as THREE.Mesh).geometry as THREE.BoxGeometry;
+    const drawerGeometry = (drawerPulls[0] as THREE.Mesh).geometry as THREE.BoxGeometry;
+    expect(doorGeometry.parameters.height).toBeGreaterThan(doorGeometry.parameters.width);
+    expect(drawerGeometry.parameters.width).toBeGreaterThan(drawerGeometry.parameters.height);
+  });
+
   it("preserves CDB36’s true 36-inch corner footprint and three-drawer profile from the saved 2D plan", () => {
     const cdb = {
       uid: "saved-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: '36" Corner Drawer Base Cabinet',
@@ -1273,20 +1306,23 @@ describe("interactive 3D room scene helpers", () => {
 
   it("renders each saved cabinet hardware position independently, including paired-door pulls", () => {
     const renderPulls = (hardwarePosition: "left" | "center" | "right" | "paired", doors = 1) => {
+      const isPairedDoorBase = doors > 1;
       const cabinet = {
         uid: `hardware-${hardwarePosition}`,
         cabinetId: 1,
-        masterCode: "B-30",
-        description: "30 inch Base Cabinet",
+        masterCode: isPairedDoorBase ? "B-30" : "B-18",
+        description: isPairedDoorBase
+          ? "30 inch Double Door Single Drawer Base Cabinet"
+          : "18 inch Single Door Single Drawer Base Cabinet",
         placement: "base",
         x: 0,
         y: 0,
-        width: 30,
+        width: isPairedDoorBase ? 30 : 18,
         depth: 24,
         height: 34.5,
         rotation: 0,
         numberOfDoors: doors,
-        numberOfDrawers: 0,
+        numberOfDrawers: 1,
         hardwarePosition,
       } as never;
       const root = new THREE.Group();

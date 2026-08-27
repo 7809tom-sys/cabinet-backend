@@ -138,6 +138,16 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     };
   }
 
+  // The exact B-12/B-15/B-18/... family is the standard base construction:
+  // one centered top drawer and lower hinged door(s). Saved/imported face counts
+  // must not turn the lower door into a second drawer, which would incorrectly
+  // render a horizontal centered pull on the door panel. Specialty B-prefixed
+  // families (BFH, BMC, blind, etc.) do not match this exact code contract.
+  const standardBaseCode = code.match(/^b[-_]?(\d{1,2})$/);
+  if (standardBaseCode && (w ?? Number(standardBaseCode[1])) >= 12) {
+    return { doors: standardDoorCountForFaceWidth(w ?? standardBaseCode[1]), drawers: 1 };
+  }
+
   // 0) Authored Cabinet Config is authoritative. Legacy supplier counts exist on
   // older rows too, so only a configuration signal promotes those values above
   // the legacy description parser. A configured zero then intentionally

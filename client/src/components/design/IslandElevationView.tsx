@@ -201,18 +201,22 @@ function DoorFront({
 }
 
 function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
   hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
+  swing?: "left" | "right" | "double" | "none" | null;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
-    const hSide = isDoor ? hardwarePosition : null;
+    const requestedSide = isDoor ? hardwarePosition ?? "auto" : null;
+    const hSide = requestedSide === "auto" && isDoor && doors === 1
+      ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
+      : requestedSide;
     const pairedPosition = hSide === "paired" && isDoor ? (index === 0 ? "40%" : "60%") : null;
     if (kind === "knob") {
       const leftPos = pairedPosition ?? (hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%");
@@ -223,14 +227,11 @@ function HardwareOverlay({
       );
     }
     if (kind === "pull") {
-      const pullStyle = isDoor && (hSide === "left" || hSide === "right")
-        ? hSide === "left"
-          ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-          : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-        : pairedPosition
-          ? { left: `calc(${pairedPosition} - 9%)`, width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+      const leftPos = pairedPosition ?? (hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%");
+      const pullStyle = isDoor
+        ? { left: leftPos, top: `${topPct}%`, width: 3, height: "24%", marginLeft: -1.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 2 }
         : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
-      return <div key={key} className="absolute" style={pullStyle} />;
+      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={isDoor ? "vertical" : "horizontal"} data-hardware-position={hSide ?? "center"} style={pullStyle} />;
     }
     if (kind === "cup") {
       return (
@@ -447,6 +448,7 @@ export function IslandElevationView({
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
               hardwarePosition={resolveCabinetHardwarePosition(p)}
+              swing={resolveSwing(p)}
             />
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

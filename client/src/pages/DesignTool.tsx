@@ -128,7 +128,7 @@ import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeCon
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
-import { nearestFreeWallDropStart, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
+import { nearestFreeWallDropStart, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { catalogHeightOptions, filterCatalogByHeight, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
@@ -2548,7 +2548,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
       if (isAddingRef.current) return;
@@ -2578,24 +2578,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       let spot: { x: number; y: number; rotation: number };
       let preserveResolvedPlacement = false;
       let explicitSelectedSinkTarget = false;
-      if (x != null && y != null) {
+      const selectedSinkTarget = targetCabinetUid
+        ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
+        : x == null && y == null && selectedUid
+          ? prev.find((cabinet) => cabinet.uid === selectedUid) ?? null
+          : null;
+      const selectedSinkSpot = accPlacement === "wall"
+        ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height, prev, openings)
+        : null;
+      if (selectedSinkSpot) {
+        spot = selectedSinkSpot;
+        preserveResolvedPlacement = true;
+        explicitSelectedSinkTarget = true;
+      } else if (x != null && y != null) {
         spot = { x, y, rotation };
       } else {
-        const selectedSinkTarget = selectedUid ? prev.find((cabinet) => cabinet.uid === selectedUid) : null;
-        const selectedSinkSpot = accPlacement === "wall"
-          ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height, prev, openings)
-          : null;
         const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
           accPlacement === "base" ||
           accPlacement === "wall" ||
           accPlacement === "tall" ||
           accPlacement === "appliance"
         );
-        if (selectedSinkSpot) {
-          spot = selectedSinkSpot;
-          preserveResolvedPlacement = true;
-          explicitSelectedSinkTarget = true;
-        } else if (followsCabinetRun) {
+        if (followsCabinetRun) {
           const nextSpot = paletteActiveWallPlacement(
             activeWall,
             room,
@@ -2933,6 +2937,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const width = forceAccessory ? dim(cabinet.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : forceAccessory ? footprintDepth(cabinet) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(cabinet) : cabinet.placement;
+      const targetedSinkBase = !forceAccessory && placement === "wall"
+        ? targetedSinkBaseForThreeDDrop(placed, dropTarget, room)
+        : null;
+      if (targetedSinkBase) {
+        addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedSinkBase.uid);
+        return;
+      }
       const dropWall = dropTarget.wall ?? activeWall;
       const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
       const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
@@ -2951,7 +2962,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const spot = wallPlacementAt(along, width, depth, dropWall, room);
-      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true);
+      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true, dropTarget.placementUid);
     };
     if (item.category === "Cabinet") {
       const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);

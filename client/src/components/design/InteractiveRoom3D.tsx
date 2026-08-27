@@ -220,7 +220,7 @@ export function threeDScreenHorizontalPlanDelta(
   const y = screenRight.y * step * sign;
   return { x: Math.abs(x) < 1e-9 ? 0 : x, y: Math.abs(y) < 1e-9 ? 0 : y };
 }
-export type ThreeDCatalogDropTarget = { x: number; y: number; wall?: WallSide };
+export type ThreeDCatalogDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
 export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
 export const THREE_D_EMBEDDED_TOOLBAR_CLASS = "absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur";
 export function threeDPreviewFadeAllowed(prefersReducedMotion: boolean): boolean {
@@ -545,12 +545,14 @@ export function threeDCatalogDropTargetFromIntersections(
   fallbackWall?: WallSide,
 ): ThreeDCatalogDropTarget {
   const placedIntersection = intersections.find((intersection) => Boolean(threeDCabinetHitFromObject(intersection.object)));
+  const placedHit = placedIntersection ? threeDCabinetHitFromObject(placedIntersection.object) : null;
   const wallIntersection = intersections.find((intersection) => threeDRoomWallSideFromObject(intersection.object) != null);
   const point = placedIntersection?.point ?? wallPlaneHit;
   return {
     x: Math.max(0, Math.min(room.width, point.x / INCH)),
     y: Math.max(0, Math.min(room.depth, point.z / INCH)),
     wall: wallIntersection ? threeDRoomWallSideFromObject(wallIntersection.object) ?? fallbackWall : fallbackWall,
+    placementUid: placedHit?.uid ?? null,
   };
 }
 
@@ -1309,6 +1311,7 @@ export function resolvedThreeDFaceLayout(input: {
   drawerHeight?: number | null;
 }) {
   const hasProvidedFaceDescription = /\b(?:door|drawer|opening)\b/i.test(input.description ?? "");
+  const isExactStandardBase = /^B[-_]?\d{1,2}$/i.test(input.masterCode ?? "");
   const descriptionFaceCounts = resolveDoorDrawerCounts({
     masterCode: input.masterCode ?? undefined,
     description: input.description ?? null,
@@ -1328,7 +1331,9 @@ export function resolvedThreeDFaceLayout(input: {
   // A generic label such as "Base Cabinet" has no face facts, so retain its
   // explicit Cabinet Config counts instead of discarding them. When neither
   // source specifies a count, use the shared 21-inch standard-face rule.
-  const configuredFaceCounts = hasProvidedFaceDescription
+  const configuredFaceCounts = isExactStandardBase
+    ? descriptionFaceCounts
+    : hasProvidedFaceDescription
     ? descriptionFaceCounts
     : {
       doors: input.numberOfDoors == null

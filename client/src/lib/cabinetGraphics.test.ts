@@ -345,6 +345,18 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
     expect(cabinetAltText(placed)).toContain("1-door cabinet");
   });
 
+  it("keeps the exact B-18 standard base as one drawer over one door even when stale saved counts say two drawers", () => {
+    expect(resolveDoorDrawerCounts({
+      masterCode: "B-18",
+      description: "Base Cabinet",
+      placementType: "base",
+      width: 18,
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      graphicType: "standard_base",
+    })).toEqual({ doors: 1, drawers: 1 });
+  });
+
   it("does not classify a Wall cabinet mentioning 'panel' as accessory", () => {
     const cab: CabinetLike = {
       masterCode: "W-30-30",
