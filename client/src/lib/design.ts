@@ -5475,11 +5475,25 @@ export interface CabinetWallDragPreview {
 }
 
 /**
- * Resolve a right-button 3D drag along the cabinet's existing wall. The moving
- * cabinet is removed from the blockers, then seated against the nearest edge of
- * the selected free segment. A valid candidate therefore touches either the
- * preceding or following boundary with an exact 0-inch gap and never relies on
- * overlap tolerance.
+ * Right-drag is available to cabinets and floor-seated appliances that occupy a
+ * wall run. Raised appliances (hoods, OTR microwaves, sinks, etc.) keep their
+ * specialized attachment rules and are intentionally excluded.
+ */
+export function isWallRunDraggable(
+  moving: PlacedCabinet,
+  room: RoomData,
+): boolean {
+  if (moving.placement === "base" || moving.placement === "wall") return true;
+  return moving.placement === "appliance"
+    && elevationBox(moving, room).bottom <= COLLISION_EPSILON_IN;
+}
+
+/**
+ * Resolve a right-button 3D drag along the item's existing wall. The moving
+ * cabinet or floor appliance is removed from the blockers, then seated against
+ * the nearest edge of the selected free segment. A valid candidate therefore
+ * touches either the preceding or following boundary with an exact 0-inch gap
+ * and never relies on overlap tolerance.
  */
 export function cabinetWallDragPreview(
   moving: PlacedCabinet,
@@ -5488,13 +5502,14 @@ export function cabinetWallDragPreview(
   openings: WallOpening[],
   targetAlong: number,
 ): CabinetWallDragPreview | null {
-  if (moving.placement !== "base" && moving.placement !== "wall") return null;
+  if (!isWallRunDraggable(moving, room)) return null;
   const wall = cabinetWall(moving, room);
   const footprint = placedFootprint(moving);
   const horizontal = wall === "top" || wall === "bottom";
   const requiredSpan = horizontal ? footprint.w : footprint.d;
+  const dragLayer: "base" | "wall" = moving.placement === "wall" ? "wall" : "base";
   const gaps = wallGaps(room, others.filter((item) => item.uid !== moving.uid), openings, 0)
-    .filter((gap) => gap.side === wall && gap.layer === moving.placement);
+    .filter((gap) => gap.side === wall && gap.layer === dragLayer);
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
   if (!initialFit.containsTarget || initialFit.status !== "valid") {

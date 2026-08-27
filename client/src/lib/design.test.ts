@@ -28,7 +28,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
 } from "./design";
 
@@ -76,6 +76,105 @@ describe("3D same-wall cabinet drag", () => {
     const invalid = cabinetWallDragPreview(moving, room, [moving, blocker], [], 6)!;
     expect(invalid.fit).toMatchObject({ availableSpan: 12, requiredSpan: 15, shortage: 3, status: "invalid" });
     expect(invalid.candidate).toBeNull();
+  });
+
+  it("moves a floor range on the base run and seats it exactly against the next cabinet", () => {
+    const range: PlacedCabinet = {
+      uid: "range-30",
+      cabinetId: 9001,
+      masterCode: "RANGE-30",
+      description: "30 inch Range",
+      placement: "appliance",
+      x: 0,
+      y: 0,
+      width: 30,
+      depth: 25,
+      height: 36,
+      mountBottom: 0,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const neighbor = cabinet("neighbor-15", 60, 0, 15);
+    const preview = cabinetWallDragPreview(range, ROOM_12x10, [range, neighbor], [], 45)!;
+
+    expect(isWallRunDraggable(range, ROOM_12x10)).toBe(true);
+    expect(preview.fit).toMatchObject({ snapStart: 30, snapEnd: 60, after: 0, status: "valid" });
+    expect(preview.candidate).toMatchObject({ uid: "range-30", masterCode: "RANGE-30", placement: "appliance", x: 30, y: 0 });
+    expect(hasCollision(preview.candidate!, [neighbor])).toBe(false);
+    expect(neighbor.x - (preview.candidate!.x + placedFootprint(preview.candidate!).w)).toBe(0);
+  });
+
+  it("moves a rotated range on the right-wall run and keeps exact edge contact on the vertical axis", () => {
+    const room: RoomData = { width: 144, depth: 145 };
+    const range: PlacedCabinet = {
+      uid: "range-right-30",
+      cabinetId: 9003,
+      masterCode: "RANGE-30",
+      description: "30 inch Range",
+      placement: "appliance",
+      x: 119,
+      y: 0,
+      width: 30,
+      depth: 25,
+      height: 36,
+      mountBottom: 0,
+      rotation: 90,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const neighbor = cabinet("right-neighbor-15", 120, 60, 15, 90);
+    const preview = cabinetWallDragPreview(range, room, [range, neighbor], [], 45)!;
+
+    expect(preview.wall).toBe("right");
+    expect(preview.fit).toMatchObject({ snapStart: 30, snapEnd: 60, after: 0, status: "valid" });
+    expect(preview.candidate).toMatchObject({ x: 119, y: 30, rotation: 90, placement: "appliance" });
+    expect(neighbor.y - (preview.candidate!.y + placedFootprint(preview.candidate!).d)).toBe(0);
+  });
+
+  it("allows floor refrigerators and dishwashers but excludes raised hoods from wall-run dragging", () => {
+    const appliance = (uid: string, masterCode: string, width: number, depth: number, height: number, mountBottom: number): PlacedCabinet => ({
+      uid,
+      cabinetId: 9100 + width,
+      masterCode,
+      description: masterCode,
+      placement: "appliance",
+      x: 0,
+      y: 0,
+      width,
+      depth,
+      height,
+      mountBottom,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+
+    expect(isWallRunDraggable(appliance("fridge", "FRIDGE-36", 36, 30, 70, 0), ROOM_12x10)).toBe(true);
+    expect(isWallRunDraggable(appliance("dishwasher", "DW-24", 24, 24, 34.5, 0), ROOM_12x10)).toBe(true);
+    expect(isWallRunDraggable(appliance("hood", "HOOD-30", 30, 12, 18, 66), ROOM_12x10)).toBe(false);
+  });
+
+  it("does not right-drag a raised over-range microwave through the floor appliance path", () => {
+    const microwave: PlacedCabinet = {
+      uid: "microwave",
+      cabinetId: 9002,
+      masterCode: "MW-30",
+      description: "Over the Range Microwave",
+      placement: "appliance",
+      x: 30,
+      y: 0,
+      width: 30,
+      depth: 15,
+      height: 17,
+      mountBottom: 54,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+
+    expect(isWallRunDraggable(microwave, ROOM_12x10)).toBe(false);
+    expect(cabinetWallDragPreview(microwave, ROOM_12x10, [microwave], [], 45)).toBeNull();
   });
 });
 

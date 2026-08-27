@@ -54,11 +54,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
   });
 
-  it("right-drags a cabinet through one shared exact wall-snap path in every 3D renderer", () => {
+  it("right-drags cabinets and floor appliances through one shared exact wall-snap path in every 3D renderer", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("onPointerMove={handleRoomPointerMove}");
     expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong)");
+    expect(rendererSource).toContain("!isWallRunDraggable(source, movementRoom)");
     expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y)");
     expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);

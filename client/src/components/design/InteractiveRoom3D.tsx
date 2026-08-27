@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -4047,7 +4047,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (event.button !== 2 || !onMoveCabinetTo) return;
     const selection = inspectCabinetAtPoint(event.clientX, event.clientY);
     const source = selection?.uid ? placed.find((cabinet) => cabinet.uid === selection.uid) ?? null : null;
-    if (!source || (source.placement !== "base" && source.placement !== "wall")) return;
+    const movementRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    if (!source || !isWallRunDraggable(source, movementRoom)) return;
     const visualOrigins = (catalogRootRef.current?.children ?? [])
       .filter((object) => threeDCabinetHitFromObject(object)?.uid === source.uid)
       .map((object) => ({ object, x: object.position.x, z: object.position.z }));
