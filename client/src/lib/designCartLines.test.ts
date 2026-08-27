@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, lockDesignCartLinesToPackageTotal } from "./designCartLines";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "./designCartLines";
 import { appendRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 
 const bec = {
@@ -140,6 +140,98 @@ describe("designer cabinet cart lines", () => {
     expect(lines).toHaveLength(2);
     expect(lines.map((line) => line.masterCode)).not.toContain("RANGE-30");
     expect(calculateCartSubtotal(lines)).toBe(90 + 100 + CUSTOM_SIZE_FEE);
+  });
+
+  it("locks the same discount and custom-size adjustments into the cart handoff used by checkout", () => {
+    const discountedBec = { ...bec, discountPct: -10 } as PlacedCabinet;
+    const customBec = { ...bec, uid: "custom-bec", width: 25, nominalWidth: 24 } as PlacedCabinet;
+    const cartLines = buildDesignCabinetCartLines({
+      placed: [discountedBec, customBec],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "contractor",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 100,
+    });
+    const previewLines = buildDesignPreviewPricingLines({
+      placed: [discountedBec, customBec],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "contractor",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 100,
+    });
+
+    expect(cartLines).toHaveLength(2);
+    expect(cartLines.every((line) => line.priceLocked)).toBe(true);
+    expect(calculateCartSubtotal(cartLines)).toBe(90 + 100 + CUSTOM_SIZE_FEE);
+    expect(calculateCartSubtotal(cartLines)).toBe(calculateCartSubtotal(previewLines));
+  });
+
+  it("uses one complete price basis for 3D, cart, and checkout while retaining pending cabinet identities", () => {
+    const cartLines = [
+      {
+        masterCode: "B-24",
+        name: "24-inch Base",
+        styleId: 330021,
+        styleLabel: "Honey Core (Madison)",
+        distributorId: 210002,
+        tier: "contractor" as const,
+        unitPrice: 300,
+        priceLocked: true,
+        qty: 1,
+      },
+      {
+        masterCode: "PEL-769",
+        name: "Faucet",
+        styleId: -769,
+        styleLabel: "Sinks & Faucets",
+        distributorId: null,
+        tier: "contractor" as const,
+        unitPrice: 84.39,
+        priceLocked: true,
+        qty: 1,
+      },
+    ];
+    const cabinetPreviewLines = [
+      { ...cartLines[0], placementUids: ["placed-b24"] },
+      {
+        ...cartLines[0],
+        masterCode: "WDC2442",
+        name: "Wall Diagonal Corner",
+        unitPrice: null,
+        placementUids: ["pending-wdc"],
+      },
+    ];
+
+    const complete = completeDesignPricingLines(cartLines, cabinetPreviewLines);
+    expect(calculateCartSubtotal(complete)).toBe(384.39);
+    expect(complete.find((line) => line.masterCode === "B-24")?.placementUids).toEqual(["placed-b24"]);
+    expect(complete.find((line) => line.masterCode === "PEL-769")).toMatchObject({ unitPrice: 84.39, priceLocked: true });
+    expect(complete.find((line) => line.masterCode === "WDC2442")).toMatchObject({ unitPrice: null, placementUids: ["pending-wdc"] });
+  });
+
+  it("merges only exact locked price identities and keeps adjusted cabinets separate", () => {
+    const common = {
+      masterCode: "B-24",
+      name: "24-inch Base",
+      styleId: 330021,
+      styleLabel: "Honey Core (Madison)",
+      distributorId: 210002,
+      tier: "contractor" as const,
+      priceLocked: true,
+      qty: 1,
+    };
+    const merged = mergeDesignCartLines([
+      { ...common, unitPrice: 300 },
+      { ...common, unitPrice: 300 },
+      { ...common, unitPrice: 270 },
+      { ...common, unitPrice: 400 },
+    ]);
+
+    expect(merged).toHaveLength(3);
+    expect(merged.find((line) => line.unitPrice === 300)?.qty).toBe(2);
+    expect(calculateCartSubtotal(merged)).toBe(1270);
   });
 
   it("keeps an unpriced placed cabinet in the 3D order lines as a pending-price item", () => {

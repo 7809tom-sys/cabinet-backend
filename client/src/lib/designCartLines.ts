@@ -17,6 +17,19 @@ export type DesignPreviewPricingLine = CartItem & {
   placementUids?: string[];
 };
 
+/**
+ * Apply only design-authored adjustments to an already-resolved authoritative
+ * tier price. This never reads or changes a catalog amount. Keeping the helper
+ * shared prevents the 3D estimate and locked cart handoff from disagreeing.
+ */
+export function adjustedDesignUnitPrice(
+  cabinet: PlacedCabinet,
+  basePrice: number | null,
+): number | null {
+  if (basePrice == null) return null;
+  return basePrice * (1 + (cabinet.discountPct ?? 0) / 100) + customSizeFee(cabinet);
+}
+
 /** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
 export function buildDesignCabinetCartLines({
   placed,
@@ -33,11 +46,13 @@ export function buildDesignCabinetCartLines({
     // plan and 3D selling view but are intentionally excluded from all cabinet
     // cart/quote/invoice/checkout commerce until appliance sales are enabled.
     if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
-    const unitPrice = unitPriceFor(cabinet);
+    const unitPrice = adjustedDesignUnitPrice(cabinet, unitPriceFor(cabinet));
     if (unitPrice == null) continue;
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
     const masterCode = cabinet.glassDoor ? `${cabinet.masterCode}GD` : cabinet.masterCode;
-    const key = `${masterCode}::${resolvedStyleId}`;
+    // Different discounts or custom-size fees must remain separate locked
+    // lines; combining them would assign one cabinet's adjusted price to both.
+    const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
@@ -135,9 +150,7 @@ export function buildDesignPreviewPricingLines({
     // A missing catalog price must never erase a cabinet from the 3D order
     // overlay. Retain it as an explicit pending line; do not infer or invent a
     // replacement amount from another distributor, tier, or style.
-    const adjustedUnitPrice = basePrice == null
-      ? null
-      : basePrice * (1 + (cabinet.discountPct ?? 0) / 100) + customSizeFee(cabinet);
+    const adjustedUnitPrice = adjustedDesignUnitPrice(cabinet, basePrice);
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
     const masterCode = cabinet.glassDoor ? `${cabinet.masterCode}GD` : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
@@ -162,6 +175,56 @@ export function buildDesignPreviewPricingLines({
     });
   }
   return Array.from(lines.values());
+}
+
+/**
+ * Build the exact 3D order drawer from the price-locked lines that are sent to
+ * cart/checkout, while preserving pending placed cabinets and their selection
+ * UIDs. Priced cabinet preview lines contribute identity only; their amount is
+ * always taken from the cart handoff so every visible total has one basis.
+ */
+export function completeDesignPricingLines(
+  cartableLines: readonly CartItem[],
+  cabinetPreviewLines: readonly DesignPreviewPricingLine[],
+): DesignPreviewPricingLine[] {
+  const matchedCabinetLines = new Set<number>();
+  const pricedLines = cartableLines.map((line) => {
+    const matchIndex = cabinetPreviewLines.findIndex((candidate, index) =>
+      !matchedCabinetLines.has(index) &&
+      candidate.unitPrice != null &&
+      candidate.masterCode === line.masterCode &&
+      candidate.styleId === line.styleId &&
+      Math.abs(Number(candidate.unitPrice) - Number(line.unitPrice)) < 0.0001 &&
+      candidate.qty === line.qty
+    );
+    if (matchIndex >= 0) matchedCabinetLines.add(matchIndex);
+    const match = matchIndex >= 0 ? cabinetPreviewLines[matchIndex] : null;
+    return { ...line, placementUids: match?.placementUids };
+  });
+  const pendingCabinets = cabinetPreviewLines.filter((line) => line.unitPrice == null);
+  return [...pricedLines, ...pendingCabinets];
+}
+
+/**
+ * Merge commerce lines only when their product, style, distributor, tier, and
+ * already-locked unit price are identical. A discounted or custom-sized cabinet
+ * must never be collapsed onto the regular unit price of the same master code.
+ */
+export function mergeDesignCartLines(lines: readonly CartItem[]): CartItem[] {
+  const merged = new Map<string, CartItem>();
+  for (const line of lines) {
+    const key = [
+      line.masterCode,
+      line.styleId,
+      line.distributorId ?? "none",
+      line.tier,
+      line.unitPrice ?? "pending",
+    ].join("::");
+    const existing = merged.get(key);
+    if (existing) existing.qty += line.qty;
+    else merged.set(key, { ...line });
+  }
+  return Array.from(merged.values());
 }
 
 export { calculateCartSubtotal };

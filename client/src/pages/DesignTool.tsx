@@ -51,7 +51,7 @@ import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
-import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, lockDesignCartLinesToPackageTotal } from "@/lib/designCartLines";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
@@ -1492,21 +1492,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(`${replacement.masterCode} shelf-corner cabinet selected. A carousel remains a separate optional add-on.`);
   }, [cabinetsLocked]);
 
-  const calculatedDesignTotal = useMemo(
-    () =>
-      placed.reduce((sum, p) => {
-        const base = unitPriceFor(p) ?? 0;
-        const disc = p.discountPct ?? 0;
-        return sum + base * (1 + disc / 100);
-      }, 0) +
-      placed.reduce((sum, p) => sum + customSizeFee(p), 0),
-    [placed, unitPriceFor]
-  );
   const activeBundlePriceLock = useMemo(() => {
     if (!loadedBundlePriceLock || loadedBundlePriceLock.cabinetSignature !== bundleCabinetPricingSignature(placed, styleId)) return null;
     return loadedBundlePriceLock;
   }, [loadedBundlePriceLock, placed, styleId]);
-  const total = activeBundlePriceLock?.total ?? calculatedDesignTotal;
 
   // ─── Per-cabinet roll-out shelves (add-on) → BOM / cart line items ───────────
   // Distinct effective door-style ids in the design (only cabinets that actually
@@ -1897,22 +1886,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       styleNameById,
       unitPriceFor,
     });
-    const map = new Map(
-      (activeBundlePriceLock
-        ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
-        : designLines
-      ).map((line) => [`${line.masterCode}::${line.styleId}`, line]),
-    );
+    const baseLines = activeBundlePriceLock
+      ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
+      : designLines;
+    const rolloutCartLines: CartItem[] = [];
     // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own
     // RS-* line items, priced + locked to the SAME distributor line as the design.
     for (const line of rolloutLines) {
       if (line.unitPrice == null) continue; // skip unpriced (no buyable SKU)
       const styleLabel = styleNameById.get(line.styleId) ?? "";
-      const key = `${line.masterCode}::${line.styleId}`;
-      const existing = map.get(key);
-      if (existing) existing.qty += line.qty;
-      else
-        map.set(key, {
+      rolloutCartLines.push({
           masterCode: line.masterCode,
           name: line.description ?? line.masterCode,
           styleId: line.styleId,
@@ -1921,15 +1904,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: line.unitPrice,
           qty: line.qty,
-        });
+      });
     }
-    return Array.from(map.values());
+    return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
   }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
 
-  // The interactive 3D quote mirrors the visible cabinet-design estimate. It
-  // deliberately excludes trim, surfaces, fixtures, and visual-only appliances
-  // that belong to the broader shopping-cart scope rather than this subtotal.
-  const interactive3dPricingLines = useMemo(() => {
+  // Cabinet-preview lines preserve exact placement UIDs and pending-price
+  // cabinets. Complete trim, surface, fixture, and cart parity is added below.
+  const interactive3dCabinetPricingLines = useMemo(() => {
     const lines = buildDesignPreviewPricingLines({
       placed,
       styleId,
@@ -2153,16 +2135,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // so every consumer of cartableLines (Add to Cart, the review list, the
   // running total) includes them automatically.
   const cartableLines = useMemo(() => {
-    const map = new Map<string, CartItem>();
-    for (const line of cabinetCartLines) {
-      map.set(`${line.masterCode}::${line.styleId}`, { ...line });
-    }
-    for (const t of trimCartLines) {
-      const key = `${t.masterCode}::${t.styleId}`;
-      const existing = map.get(key);
-      if (existing) existing.qty += t.qty;
-      else
-        map.set(key, {
+    const pricedTrimLines: CartItem[] = trimCartLines.map((t) => ({
           masterCode: t.masterCode,
           name: t.name,
           styleId: t.styleId,
@@ -2171,14 +2144,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: t.unitPrice,
           qty: t.qty,
-        });
-    }
-    for (const sfc of surfaceCartLines) {
-      // styleId is already unique per surface (-id), so a straight set is safe.
-      map.set(`${sfc.masterCode}::${sfc.styleId}`, { ...sfc });
-    }
-    return Array.from(map.values());
+    }));
+    return mergeDesignCartLines([...cabinetCartLines, ...pricedTrimLines, ...surfaceCartLines]);
   }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
+
+  // The designer total, cart, checkout, and 3D order drawer now share the same
+  // complete price-locked line basis. Keep unpriced placed cabinets as pending
+  // 3D lines while adding every priced cabinet, rollout, trim, surface, and
+  // fixture line that will actually be handed to the cart.
+  const interactive3dPricingLines = useMemo(
+    () => completeDesignPricingLines(cartableLines, interactive3dCabinetPricingLines),
+    [cartableLines, interactive3dCabinetPricingLines],
+  );
+
+  const total = useMemo(() => calculateCartSubtotal(cartableLines), [cartableLines]);
 
   const interactive3dOrderSummary = useMemo<InteractiveRoomOrderSummary>(() => {
     let subtotal = 0;
@@ -2197,10 +2176,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return { itemCount, pricedLineCount, unpricedLineCount, subtotal };
   }, [interactive3dPricingLines]);
 
-  const interactive3dOrderLines = useMemo<InteractiveRoomOrderLine[]>(() => interactive3dPricingLines.map((line) => {
+  const interactive3dOrderLines = useMemo<InteractiveRoomOrderLine[]>(() => interactive3dPricingLines.map((line, index) => {
     const unitPrice = line.unitPrice == null || !Number.isFinite(Number(line.unitPrice)) ? null : Number(line.unitPrice);
     return {
-      id: `${line.masterCode}:${line.styleId}:${line.tier}`,
+      id: `${line.masterCode}:${line.styleId}:${line.tier}:${unitPrice ?? "pending"}:${index}`,
       label: line.masterCode,
       detail: `${line.name}${line.styleLabel ? ` · ${line.styleLabel}` : ""}`,
       quantity: line.qty,
