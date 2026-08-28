@@ -1401,27 +1401,27 @@ describe("interactive 3D room scene helpers", () => {
     expect(center).toHaveLength(1);
     expect(right).toHaveLength(1);
     expect(left[0]?.userData).toMatchObject({ hardwarePosition: "left", pullEdge: "left" });
-    expect(center[0]?.userData).toMatchObject({ hardwarePosition: "center", pullEdge: "center" });
+    expect(center[0]?.userData).toMatchObject({ hardwarePosition: "auto", pullEdge: "opposite-hinge", frameCenterInsetIn: 1.5 });
     expect(right[0]?.userData).toMatchObject({ hardwarePosition: "right", pullEdge: "right" });
     expect(left[0]!.position.x).toBeLessThan(center[0]!.position.x);
-    expect(right[0]!.position.x).toBeGreaterThan(center[0]!.position.x);
+    expect(center[0]!.position.x).toBeCloseTo(right[0]!.position.x, 8);
     expect(paired).toHaveLength(2);
     expect(paired.every((pull) => pull.userData.hardwarePosition === "paired" && pull.userData.pullEdge === "opposite-hinge")).toBe(true);
   });
 
   it("places standard and paired 3D door pulls exactly 1.5 inches from their physical door edges", () => {
-    const renderDoorHardware = (width: number, doors: number, hardwarePosition: "right" | "paired") => {
+    const renderDoorHardware = (width: number, doors: number, hardwarePosition: "right" | "center" | "paired", placement: "base" | "wall" = "base") => {
       const cabinet = {
         uid: `measured-${width}-${doors}`,
         cabinetId: 1,
-        masterCode: doors === 1 ? "B-18" : "B-30",
-        description: doors === 1 ? "18 inch Single Door Base" : "30 inch Double Door Base",
-        placement: "base",
+        masterCode: placement === "wall" ? (doors === 1 ? "W-1830" : "W-3030") : doors === 1 ? "B-18" : "B-30",
+        description: `${width} inch ${doors === 1 ? "Single" : "Double"} Door ${placement === "wall" ? "Wall" : "Base"}`,
+        placement,
         x: 0,
         y: 0,
         width,
-        depth: 24,
-        height: 34.5,
+        depth: placement === "wall" ? 12 : 24,
+        height: placement === "wall" ? 30 : 34.5,
         rotation: 0,
         numberOfDoors: doors,
         numberOfDrawers: 0,
@@ -1455,6 +1455,22 @@ describe("interactive 3D room scene helpers", () => {
       const doorWidth = (door.geometry as THREE.BoxGeometry).parameters.width;
       expect((doorWidth / 2 - Math.abs(paired.pulls[index]!.position.x - door.position.x)) * 12).toBeCloseTo(1.5, 8);
       expect(paired.pulls[index]!.userData).toMatchObject({ frameWidthIn: 3, frameCenterInsetIn: 1.5 });
+    });
+
+    const legacyCenteredSingleUpper = renderDoorHardware(18, 1, "center", "wall");
+    expect(legacyCenteredSingleUpper.doors).toHaveLength(1);
+    expect(legacyCenteredSingleUpper.pulls).toHaveLength(1);
+    const upperSingleDoorWidth = (legacyCenteredSingleUpper.doors[0]!.geometry as THREE.BoxGeometry).parameters.width;
+    expect((upperSingleDoorWidth / 2 - Math.abs(legacyCenteredSingleUpper.pulls[0]!.position.x - legacyCenteredSingleUpper.doors[0]!.position.x)) * 12).toBeCloseTo(1.5, 8);
+    expect(legacyCenteredSingleUpper.pulls[0]!.userData).toMatchObject({ hardwarePosition: "auto", pullEdge: "opposite-hinge", pullDoorZone: "upper", frameWidthIn: 3, frameCenterInsetIn: 1.5 });
+
+    const legacyCenteredPairedUpper = renderDoorHardware(30, 2, "center", "wall");
+    expect(legacyCenteredPairedUpper.doors).toHaveLength(2);
+    expect(legacyCenteredPairedUpper.pulls).toHaveLength(2);
+    legacyCenteredPairedUpper.doors.forEach((door, index) => {
+      const doorWidth = (door.geometry as THREE.BoxGeometry).parameters.width;
+      expect((doorWidth / 2 - Math.abs(legacyCenteredPairedUpper.pulls[index]!.position.x - door.position.x)) * 12).toBeCloseTo(1.5, 8);
+      expect(legacyCenteredPairedUpper.pulls[index]!.userData).toMatchObject({ hardwarePosition: "auto", pullEdge: "opposite-hinge", pullDoorZone: "upper", frameWidthIn: 3, frameCenterInsetIn: 1.5 });
     });
   });
 

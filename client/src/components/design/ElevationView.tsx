@@ -16,6 +16,7 @@ import {
   displayDrawerCount,
   doorHardwareCenterFromLeftIn,
   FRAMED_STILE_CENTER_IN,
+  normalizeDoorHardwareFramePosition,
 } from "@/lib/hardware";
 import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
@@ -1906,12 +1907,13 @@ export function HardwareOverlay({
   // top highlight and soft drop shadow so pieces read as real metal hardware.
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 2px 4px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.45)";
+  const normalizedDoorPosition = normalizeDoorHardwareFramePosition(hardwarePosition);
   // For door hardware (knobs), position on the handle side (opposite of hinge).
   // Drawers always center their hardware.
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
     // Drawer hardware is an authoritative center-only construction rule. Door
     // fronts retain their individual Attributes choice, including paired pulls.
-    const requestedPosition = isDoor ? hardwarePosition ?? "auto" : "center";
+    const requestedPosition = isDoor ? normalizedDoorPosition : "center";
     const position = requestedPosition === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedPosition;
@@ -1997,7 +1999,7 @@ export function HardwareOverlay({
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
     const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
-    const visibleDoorPieces = hardwarePosition === "paired" || (hardwarePosition !== "left" && hardwarePosition !== "center" && hardwarePosition !== "right" && doors > 1)
+    const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;
     for (let i = 0; i < visibleDoorPieces; i++) {

@@ -666,10 +666,13 @@ export function resolveCabinetHardwarePosition(p: {
   hardwarePosition?: CabinetHardwarePosition | null;
   handleSide?: "left" | "right" | "top" | "bottom" | null;
 }): CabinetHardwarePosition {
+  // A door pull cannot sit in the center panel. Older plans may have saved the
+  // retired Center option; treat it as Automatic so every hinged door returns
+  // to the applicable opening-edge stile without mutating the saved cabinet.
+  if (p.hardwarePosition === "center") return "auto";
   if (
     p.hardwarePosition === "auto" ||
     p.hardwarePosition === "left" ||
-    p.hardwarePosition === "center" ||
     p.hardwarePosition === "right" ||
     p.hardwarePosition === "paired"
   ) {
@@ -684,9 +687,10 @@ export function resolveCabinetHardwarePosition(p: {
 export function cabinetHardwarePositionPatch(
   side: CabinetHardwarePosition,
 ): Pick<PlacedCabinet, "hardwarePosition" | "handleSide"> {
+  const normalizedSide = side === "center" ? "auto" : side;
   return {
-    hardwarePosition: side === "auto" ? null : side,
-    handleSide: side === "left" || side === "right" ? side : null,
+    hardwarePosition: normalizedSide === "auto" ? null : normalizedSide,
+    handleSide: normalizedSide === "left" || normalizedSide === "right" ? normalizedSide : null,
   };
 }
 

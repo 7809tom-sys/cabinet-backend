@@ -313,9 +313,21 @@ export const RAIL_OFFSET_MIN_IN = 2.5;
 export const RAIL_OFFSET_MAX_IN = 3;
 
 /**
+ * Door hardware must always land on a physical framed stile. Older saved plans
+ * can contain the retired face-center choice; render those records through the
+ * automatic opening-edge rule instead of leaving a pull in the door panel.
+ */
+export function normalizeDoorHardwareFramePosition(
+  position: "auto" | "left" | "center" | "right" | "paired" | null | undefined,
+): "auto" | "left" | "right" | "paired" {
+  return position === "left" || position === "right" || position === "paired" ? position : "auto";
+}
+
+/**
  * Horizontal centerline for door hardware, measured from the left edge of one
- * physical door face. Left/right positions are centered on the 3-inch stile;
- * explicit Center remains available as an intentional per-cabinet override.
+ * physical door face. Left/right positions are centered on the 3-inch stile.
+ * Center is accepted only for backward compatibility with older direct callers;
+ * cabinet-door renderers normalize that retired choice to an opening edge.
  */
 export function doorHardwareCenterFromLeftIn(
   faceWidthIn: number,

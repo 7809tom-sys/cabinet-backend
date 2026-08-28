@@ -32,6 +32,7 @@ import {
   displayDrawerCount,
   doorHardwareCenterFromLeftIn,
   FRAMED_STILE_CENTER_IN,
+  normalizeDoorHardwareFramePosition,
 } from "@/lib/hardware";
 import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState } from "react";
@@ -215,8 +216,9 @@ export function IslandHardwareOverlay({
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
+  const normalizedDoorPosition = normalizeDoorHardwareFramePosition(hardwarePosition);
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
-    const requestedSide = isDoor ? hardwarePosition ?? "auto" : null;
+    const requestedSide = isDoor ? normalizedDoorPosition : null;
     const hSide = requestedSide === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedSide;
@@ -225,7 +227,7 @@ export function IslandHardwareOverlay({
     const doorWidthIn = pairedDoorPull ? physicalWidthIn / 2 : physicalWidthIn;
     const horizontalPosition = pairedDoorPull
       ? (index === 0 ? "right" : "left")
-      : hSide === "left" || hSide === "right" || hSide === "center"
+      : hSide === "left" || hSide === "right"
         ? hSide
         : swing === "right" ? "left" : "right";
     const centerFromLeftIn = pairedDoorPull
@@ -234,7 +236,7 @@ export function IslandHardwareOverlay({
     const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
     const measuredHardwareData = isDoor ? {
       "data-hardware-center-in": centerFromLeftIn,
-      "data-hardware-edge-inset-in": horizontalPosition === "center" ? undefined : FRAMED_STILE_CENTER_IN,
+      "data-hardware-edge-inset-in": FRAMED_STILE_CENTER_IN,
     } : {};
     if (kind === "knob") {
       return (
@@ -262,7 +264,10 @@ export function IslandHardwareOverlay({
   const items: React.ReactNode[] = [];
   if (doors > 0 && doorPiece !== "none") {
     const topPct = 50;
-    for (let index = 0; index < Math.min(doors, hardwarePosition === "paired" ? 2 : 1); index++) {
+    const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
+      ? Math.min(doors, 2)
+      : 1;
+    for (let index = 0; index < visibleDoorPieces; index++) {
       items.push(piece(doorPiece as "knob" | "pull", `door-${index}`, topPct, true, index));
     }
   }

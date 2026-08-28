@@ -65,6 +65,40 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(markup.match(/data-hardware-edge-inset-in="1.5"/g)).toHaveLength(2);
   });
 
+  it("normalizes legacy Center hardware on ordinary upper doors to the same 1.5-inch opening-edge frame rule", () => {
+    const singleUpper = renderToStaticMarkup(createElement(HardwareOverlay, {
+      doors: 1,
+      drawers: 0,
+      doorPiece: "pull",
+      drawerPiece: "none",
+      accent: "#1a2744",
+      hardwarePosition: "center",
+      swing: "left",
+      isWall: true,
+      faceWidthIn: 18,
+    }));
+    expect(singleUpper.match(/data-cabinet-hardware="door-pull"/g)).toHaveLength(1);
+    expect(singleUpper).toContain('data-hardware-position="right"');
+    expect(singleUpper).toContain('data-hardware-center-in="16.5"');
+    expect(singleUpper).toContain('data-hardware-edge-inset-in="1.5"');
+
+    const pairedUpper = renderToStaticMarkup(createElement(HardwareOverlay, {
+      doors: 2,
+      drawers: 0,
+      doorPiece: "pull",
+      drawerPiece: "none",
+      accent: "#1a2744",
+      hardwarePosition: "center",
+      swing: "double",
+      isWall: true,
+      faceWidthIn: 30,
+    }));
+    expect(pairedUpper.match(/data-cabinet-hardware="door-pull"/g)).toHaveLength(2);
+    expect(pairedUpper).toContain('data-hardware-center-in="13.5"');
+    expect(pairedUpper).toContain('data-hardware-center-in="16.5"');
+    expect(pairedUpper.match(/data-hardware-edge-inset-in="1.5"/g)).toHaveLength(2);
+  });
+
   it("renders WD1860 right-side-up with one tall door above two bottom drawers", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {

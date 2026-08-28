@@ -112,22 +112,21 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(() => rerender(<CabinetAttributesDialog cabinet={wallCabinet} open {...props} />)).not.toThrow();
   });
 
-  it("offers independent automatic, left, center, right, and paired-door hardware choices", () => {
+  it("keeps every door on a framed edge while offering automatic, left, right, and paired-door choices", () => {
     const { onSetHandleSide } = renderDialog();
     const dialog = screen.getAllByRole("dialog").at(-1)!;
     const attributes = within(dialog);
     expect(attributes.getAllByText("Hardware placement").length).toBeGreaterThan(0);
-    expect(attributes.getByText(/every drawer pull stays centered automatically/i)).toBeTruthy();
-    fireEvent.click(attributes.getByRole("button", { name: "Center" }));
+    expect(attributes.getByText(/exactly 1.5 inches from the selected edge/i)).toBeTruthy();
+    expect(attributes.queryByRole("button", { name: "Center" })).toBeNull();
     fireEvent.click(attributes.getByRole("button", { name: "dt_ca_left" }));
     fireEvent.click(attributes.getByRole("button", { name: "dt_ca_right" }));
     fireEvent.click(attributes.getByRole("button", { name: "Automatic" }));
     fireEvent.click(attributes.getByRole("button", { name: "Paired doors — pulls at the center meeting edge" }));
-    expect(onSetHandleSide).toHaveBeenNthCalledWith(1, "w3024", "center");
-    expect(onSetHandleSide).toHaveBeenNthCalledWith(2, "w3024", "left");
-    expect(onSetHandleSide).toHaveBeenNthCalledWith(3, "w3024", "right");
-    expect(onSetHandleSide).toHaveBeenNthCalledWith(4, "w3024", "auto");
-    expect(onSetHandleSide).toHaveBeenNthCalledWith(5, "w3024", "paired");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(1, "w3024", "left");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(2, "w3024", "right");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(3, "w3024", "auto");
+    expect(onSetHandleSide).toHaveBeenNthCalledWith(4, "w3024", "paired");
   });
 
   it("confirms before applying the selected door hardware position to every eligible cabinet", () => {

@@ -635,9 +635,9 @@ export function CabinetAttributesDialog({
             <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
               <div>
                 <Label className="text-sm">Hardware placement</Label>
-                <p className="text-[11px] text-muted-foreground">Choose where this cabinet’s door pull or knob appears. This changes only this cabinet; every drawer pull stays centered automatically.</p>
+                <p className="text-[11px] text-muted-foreground">Every door pull or knob stays centered on its 3-inch frame, exactly 1.5 inches from the selected edge. Automatic uses the opening edge opposite the hinge; every drawer pull stays centered automatically.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-2">
                 <Button
                   type="button"
                   variant={hardwarePosition === "auto" ? "default" : "outline"}
@@ -657,16 +657,6 @@ export function CabinetAttributesDialog({
                   onClick={() => onSetHandleSide(uid, "left")}
                 >
                   {t("dt_ca_left")}
-                </Button>
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "center" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "center")}
-                >
-                  Center
                 </Button>
                 <Button
                   type="button"

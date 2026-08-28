@@ -12,6 +12,7 @@ import {
   doorConstruction,
   doorHardwareCenterFromLeftIn,
   doorHardwareOffsetFromFaceCenterIn,
+  normalizeDoorHardwareFramePosition,
   hardwarePlacementSpec,
   hardwarePlacementNote,
 } from "./hardware";
@@ -200,6 +201,11 @@ describe("hardware placement spec", () => {
     expect(doorHardwareOffsetFromFaceCenterIn(18, "left")).toBe(-7.5);
     expect(doorHardwareOffsetFromFaceCenterIn(18, "right")).toBe(7.5);
     expect(doorHardwareOffsetFromFaceCenterIn(18, "center")).toBe(0);
+    expect(normalizeDoorHardwareFramePosition("center")).toBe("auto");
+    expect(normalizeDoorHardwareFramePosition("auto")).toBe("auto");
+    expect(normalizeDoorHardwareFramePosition("left")).toBe("left");
+    expect(normalizeDoorHardwareFramePosition("right")).toBe("right");
+    expect(normalizeDoorHardwareFramePosition("paired")).toBe("paired");
   });
 
   it("classifies framed vs slab door styles", () => {

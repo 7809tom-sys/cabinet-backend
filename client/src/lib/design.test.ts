@@ -272,6 +272,7 @@ describe("bulk cabinet door hardware", () => {
     const placed = [doubleDoor, singleDoor, drawerOnly, appliance, panel, open];
 
     expect(cabinetHardwarePositionPatch("right")).toEqual({ hardwarePosition: "right", handleSide: "right" });
+    expect(cabinetHardwarePositionPatch("center")).toEqual({ hardwarePosition: null, handleSide: null });
     expect(placed.map((item) => isCabinetDoorHardwareEligible(item, "right"))).toEqual([true, true, false, false, false, false]);
 
     const updated = applyCabinetDoorHardwareToAll(placed, "right");
@@ -2906,7 +2907,7 @@ describe("per-cabinet door/hardware attributes (right-click dialog)", () => {
   it("notes legacy and explicit hardware placement when a door is present", () => {
     expect(cabinetAttrNote({ handleSide: "left" })).toBe("Hardware left");
     expect(cabinetAttrNote({ handleSide: "right" })).toBe("Hardware right");
-    expect(cabinetAttrNote({ hardwarePosition: "center" })).toBe("Hardware center");
+    expect(cabinetAttrNote({ hardwarePosition: "center" })).toBe("");
     expect(cabinetAttrNote({ hardwarePosition: "paired" })).toBe("Hardware paired");
   });
 
