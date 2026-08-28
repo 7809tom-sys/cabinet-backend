@@ -631,6 +631,45 @@ export type ThreeDCameraViewSnapshot = {
   zoom: number;
 };
 
+export type ThreeDCameraShareView = Pick<ThreeDCameraViewSnapshot, "position" | "target" | "zoom">;
+export const THREE_D_CAMERA_VIEW_QUERY_PARAM = "view";
+
+/** Encodes only transient camera state. The saved 2D plan and secure-share token are never included or altered here. */
+export function serializeThreeDCameraShareView(view: ThreeDCameraShareView): string {
+  const values = [view.position.x, view.position.y, view.position.z, view.target.x, view.target.y, view.target.z, view.zoom];
+  if (!values.every((value) => Number.isFinite(value))) return "";
+  return `1,${values.map((value) => value.toFixed(3)).join(",")}`;
+}
+
+/** Rejects malformed or extreme URL input before it reaches the Three.js camera. */
+export function parseThreeDCameraShareView(value: string | null | undefined): ThreeDCameraShareView | null {
+  if (!value) return null;
+  const parts = value.split(",");
+  if (parts.length !== 8 || parts[0] !== "1") return null;
+  const values = parts.slice(1).map(Number);
+  if (!values.every((entry) => Number.isFinite(entry) && Math.abs(entry) <= 1000)) return null;
+  const [x, y, z, targetX, targetY, targetZ, zoom] = values;
+  const position = new THREE.Vector3(x, y, z);
+  const target = new THREE.Vector3(targetX, targetY, targetZ);
+  if (position.distanceToSquared(target) < 0.0001 || zoom <= 0 || zoom > 4) return null;
+  return { position, target, zoom };
+}
+
+/** Keeps a shared perspective within the same supported OrbitControls distance range as a local wheel or pinch gesture. */
+export function constrainedThreeDCameraShareView(
+  view: ThreeDCameraShareView,
+  limits: Pick<ReturnType<typeof threeDCameraDistanceLimits>, "minDistance" | "maxDistance">,
+): ThreeDCameraShareView {
+  const offset = view.position.clone().sub(view.target);
+  const distance = offset.length();
+  const clampedDistance = Math.max(limits.minDistance, Math.min(limits.maxDistance, distance));
+  return {
+    position: view.target.clone().add(offset.normalize().multiplyScalar(clampedDistance)),
+    target: view.target.clone(),
+    zoom: Math.max(0.5, Math.min(2, view.zoom)),
+  };
+}
+
 /** Scene rebuilds preserve the user's view; explicit camera resets and preset changes do not. */
 export function threeDShouldRestoreCameraView(
   snapshot: Pick<ThreeDCameraViewSnapshot, "preset" | "resetKey"> | null | undefined,
@@ -3607,6 +3646,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const controlsRef = useRef<OrbitControls | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
   const cameraViewRef = useRef<ThreeDCameraViewSnapshot | null>(null);
+  const sharedCameraViewRef = useRef<ThreeDCameraShareView | null>(typeof window === "undefined" ? null : parseThreeDCameraShareView(new URLSearchParams(window.location.search).get(THREE_D_CAMERA_VIEW_QUERY_PARAM)));
   const pointerStartRef = useRef<{ x: number; y: number; button: number } | null>(null);
   const rightDragRef = useRef<{
     pointerId: number;
@@ -3788,14 +3828,17 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
     const maxSpan = Math.max(room.width, room.depth) * INCH;
     const cameraDistances = threeDCameraDistanceLimits(maxSpan);
+    const sharedCameraView = sharedCameraViewRef.current ? constrainedThreeDCameraShareView(sharedCameraViewRef.current, cameraDistances) : null;
     const savedCameraView = cameraViewRef.current;
-    const restoreCameraView = threeDShouldRestoreCameraView(savedCameraView, cameraPreset, resetKey);
-    camera.position.copy(restoreCameraView && savedCameraView ? savedCameraView.position : threeDCameraPresetPosition(cameraPreset, maxSpan));
-    if (restoreCameraView && savedCameraView) camera.zoom = savedCameraView.zoom;
+    const restoreCameraView = Boolean(sharedCameraView) || threeDShouldRestoreCameraView(savedCameraView, cameraPreset, resetKey);
+    const restoredView = sharedCameraView ?? savedCameraView;
+    camera.position.copy(restoreCameraView && restoredView ? restoredView.position : threeDCameraPresetPosition(cameraPreset, maxSpan));
+    if (restoreCameraView && restoredView) camera.zoom = restoredView.zoom;
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
-    if (restoreCameraView && savedCameraView) controls.target.copy(savedCameraView.target);
+    if (restoreCameraView && restoredView) controls.target.copy(restoredView.target);
     else controls.target.set(room.width * INCH * 0.5, 3.1, room.depth * INCH * 0.45);
+    sharedCameraViewRef.current = null;
     controls.enableDamping = true;
     controls.dampingFactor = 0.075;
     controls.enablePan = true;
@@ -4353,7 +4396,16 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     }
   };
 
-  const shareConfiguration = async () => {
+  const shareUrl = async (url: string, text: string) => {
+    if (navigator.share) {
+      await navigator.share({ title: "Cabinet Dealz 3D Room", text, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("Share link copied to your clipboard.");
+    }
+  };
+
+  const shareConfiguration = async (cameraView?: ThreeDCameraShareView) => {
     if (!shareContext || !roomOverride) {
       toast.error("Add your room and choose an active catalog door style before sharing.");
       return;
@@ -4368,16 +4420,36 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         presentation: { cabinetFinish, countertopFinish },
         orderSummary,
       });
-      const url = `${window.location.origin}/3d/${token}`;
-      if (navigator.share) {
-        await navigator.share({ title: "Cabinet Dealz 3D Room", text: "View this Cabinet Dealz 3D room configuration.", url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("Share link copied to your clipboard.");
-      }
+      const url = new URL(`/3d/${token}`, window.location.origin);
+      const serializedView = cameraView ? serializeThreeDCameraShareView(cameraView) : "";
+      if (serializedView) url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView);
+      await shareUrl(url.toString(), cameraView ? "View this Cabinet Dealz 3D room from the shared inspection perspective." : "View this Cabinet Dealz 3D room configuration.");
     } catch (error) {
       if ((error as DOMException)?.name !== "AbortError") toast.error("Could not create the share link. Please try again.");
     }
+  };
+
+  const shareCurrentView = async () => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) {
+      toast.error("The 3D view is still loading. Please try Share View again in a moment.");
+      return;
+    }
+    const cameraView = { position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom };
+    if (window.location.pathname.startsWith("/3d/")) {
+      try {
+        const url = new URL(window.location.href);
+        const serializedView = serializeThreeDCameraShareView(cameraView);
+        if (!serializedView) throw new Error("The current view could not be encoded.");
+        url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView);
+        await shareUrl(url.toString(), "View this Cabinet Dealz 3D room from the shared inspection perspective.");
+      } catch (error) {
+        if ((error as DOMException)?.name !== "AbortError") toast.error("Could not create the Share View link. Please try again.");
+      }
+      return;
+    }
+    await shareConfiguration(cameraView);
   };
 
   if (!scene.roomShape && !roomOverride) {
@@ -4467,6 +4539,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         </div>}
         <div data-testid="three-d-viewer-navigation" aria-label="3D viewer zoom and pan controls" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="absolute bottom-3 right-3 z-20 flex flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white/95 p-1.5 shadow-lg backdrop-blur">
           <div className="flex gap-1"><button data-testid="three-d-zoom-in" type="button" onClick={() => zoomViewer("in")} aria-label="Zoom in for a closer cabinet view" title="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Plus className="h-4 w-4" /></button><button data-testid="three-d-zoom-out" type="button" onClick={() => zoomViewer("out")} aria-label="Zoom out for a wider room view" title="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Minus className="h-4 w-4" /></button><button data-testid="three-d-reset-view" type="button" onClick={resetViewerNavigation} aria-label="Reset 3D room view" title="Reset view" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#a87f33]/50 bg-[#fffaf1] text-[#765416] transition hover:bg-amber-100 active:scale-95"><RefreshCw className="h-4 w-4" /></button></div>
+          <button data-testid="three-d-share-view" type="button" onClick={() => void shareCurrentView()} aria-label="Share the current 3D zoom and pan perspective" title="Share current view" className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-[#a87f33]/45 bg-[#fffaf1] px-2 text-[11px] font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Share2 className="h-3.5 w-3.5" />Share View</button>
           <div className="grid grid-cols-3 gap-1" aria-label="Pan the 3D room view"><span /><button data-testid="three-d-pan-up" type="button" onClick={() => panViewer("up")} aria-label="Pan view up" title="Pan up" className="flex h-8 w-8 items-center justify-center rounded-t-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowUp className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-left" type="button" onClick={() => panViewer("left")} aria-label="Pan view left" title="Pan left" className="flex h-8 w-8 items-center justify-center rounded-l-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowLeft className="h-4 w-4" /></button><span className="flex h-8 w-8 items-center justify-center text-[9px] font-bold text-slate-500">PAN</span><button data-testid="three-d-pan-right" type="button" onClick={() => panViewer("right")} aria-label="Pan view right" title="Pan right" className="flex h-8 w-8 items-center justify-center rounded-r-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowRight className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-down" type="button" onClick={() => panViewer("down")} aria-label="Pan view down" title="Pan down" className="flex h-8 w-8 items-center justify-center rounded-b-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowDown className="h-4 w-4" /></button><span /></div>
         </div>
       </div>
@@ -4514,7 +4587,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           {workspacePanel === "output" && <>
             <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>
             {orderSummary && <div className="mt-4 flex items-center justify-between rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><div><p className="text-sm font-semibold text-[#4b3a20]">Current design</p><p className="text-xs text-[#6e5d42]">{orderSummary.itemCount} items · {orderSummary.pricedLineCount} priced lines</p></div><p className="text-lg font-semibold text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>}
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={shareConfiguration} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
           </>}
         </SheetContent>
       </Sheet>

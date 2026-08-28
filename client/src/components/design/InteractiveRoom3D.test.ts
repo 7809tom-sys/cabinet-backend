@@ -7,7 +7,7 @@ import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./In
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
-import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
+import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
@@ -536,6 +536,36 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4)).toBe(true);
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 5)).toBe(false);
     expect(threeDShouldRestoreCameraView(snapshot, "front", 4)).toBe(false);
+  });
+
+  it("serializes, validates, and safely constrains a shared camera perspective without carrying plan data", () => {
+    const view = { position: new THREE.Vector3(12.3456, 8.2, -4.05), target: new THREE.Vector3(6.5, 3.1, 2.25), zoom: 1.25 };
+    const serialized = serializeThreeDCameraShareView(view);
+    expect(THREE_D_CAMERA_VIEW_QUERY_PARAM).toBe("view");
+    expect(serialized).toBe("1,12.346,8.200,-4.050,6.500,3.100,2.250,1.250");
+    const parsed = parseThreeDCameraShareView(serialized);
+    expect(parsed?.position.toArray()).toEqual([12.346, 8.2, -4.05]);
+    expect(parsed?.target.toArray()).toEqual([6.5, 3.1, 2.25]);
+    expect(parsed?.zoom).toBeCloseTo(1.25, 12);
+    expect(parseThreeDCameraShareView("2,1,2,3,4,5,6,1")).toBeNull();
+    expect(parseThreeDCameraShareView("1,1,2,3,4,5,6,0")).toBeNull();
+    expect(parseThreeDCameraShareView("1,1001,2,3,4,5,6,1")).toBeNull();
+    expect(serializeThreeDCameraShareView({ position: new THREE.Vector3(Number.NaN, 1, 1), target: new THREE.Vector3(0, 0, 0), zoom: 1 })).toBe("");
+
+    const constrained = constrainedThreeDCameraShareView({ position: new THREE.Vector3(40, 0, 0), target: new THREE.Vector3(0, 0, 0), zoom: 3 }, { minDistance: 5.5, maxDistance: 14 });
+    expect(constrained.position.distanceTo(constrained.target)).toBeCloseTo(14, 12);
+    expect(constrained.zoom).toBe(2);
+  });
+
+  it("provides Share View beside the on-canvas navigation controls and appends only perspective state to the existing protected 3D link", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain('data-testid="three-d-share-view"');
+    expect(rendererSource).toContain('Share View');
+    expect(rendererSource).toContain('await shareConfiguration(cameraView)');
+    expect(rendererSource).toContain('window.location.pathname.startsWith("/3d/")');
+    expect(rendererSource).toContain('url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView)');
+    expect(rendererSource).toContain('const url = new URL(`/3d/${token}`, window.location.origin)');
+    expect(rendererSource).toContain('sharedCameraViewRef.current = null');
   });
 
   it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
