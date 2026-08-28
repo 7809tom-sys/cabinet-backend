@@ -564,7 +564,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain('await shareConfiguration(cameraView)');
     expect(rendererSource).toContain('window.location.pathname.startsWith("/3d/")');
     expect(rendererSource).toContain('url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView)');
-    expect(rendererSource).toContain('const url = new URL(`/3d/${token}`, window.location.origin)');
+    expect(rendererSource).toContain('const url = new URL(`/api/shared-3d-view/${token}`, window.location.origin)');
     expect(rendererSource).toContain('sharedCameraViewRef.current = null');
   });
 

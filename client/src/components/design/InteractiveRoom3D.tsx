@@ -4459,7 +4459,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         orderSummary,
         thumbnailDataUrl,
       });
-      const url = new URL(`/3d/${token}`, window.location.origin);
+      const url = new URL(`/api/shared-3d-view/${token}`, window.location.origin);
       const serializedView = cameraView ? serializeThreeDCameraShareView(cameraView) : "";
       if (serializedView) url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView);
       await shareUrl(url.toString(), cameraView ? "View this Cabinet Dealz 3D room from the shared inspection perspective." : "View this Cabinet Dealz 3D room configuration.");
@@ -4479,10 +4479,11 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const thumbnailDataUrl = captureShareThumbnail();
     if (window.location.pathname.startsWith("/3d/")) {
       try {
-        const url = new URL(window.location.href);
         const serializedView = serializeThreeDCameraShareView(cameraView);
         if (!serializedView) throw new Error("The current view could not be encoded.");
         const token = window.location.pathname.split("/").filter(Boolean).at(-1);
+        if (!token) throw new Error("The shared room could not be identified.");
+        const url = new URL(`/api/shared-3d-view/${token}`, window.location.origin);
         if (thumbnailDataUrl && token) {
           await shareThumbnailMutation.mutateAsync({ token, thumbnailDataUrl });
         }
