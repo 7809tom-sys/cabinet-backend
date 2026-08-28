@@ -2240,6 +2240,12 @@ describe("door swing (hinge side)", () => {
     expect(resolveSwing(p)).toBe("left");
   });
 
+  it("keeps hinge editing available for a legacy B-15 placement with an explicit single-door description", () => {
+    const p = cab({ masterCode: "B-15", description: '15" Single Door Single Drawer Base Cabinet with Adjustable Shelf', numberOfDoors: 0, numberOfDrawers: 1, swing: "none" });
+    expect(hasDoorSwing(p)).toBe(true);
+    expect(resolveSwing(p)).toBe("left");
+  });
+
   it("defaults a two-door base to a double door (no single hinge side)", () => {
     const p = cab({ masterCode: "B-36", description: "Base 36 2 Door", numberOfDoors: 2 });
     expect(resolveSwing(p)).toBe("double");

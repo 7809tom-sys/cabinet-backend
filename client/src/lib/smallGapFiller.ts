@@ -2,8 +2,7 @@ import {
   FILLER_MIN_WIDTH_IN,
   cabinetWall,
   isFillerItem,
-  placedFootprint,
-  wallGaps,
+  wallSpanMeasure,
   type PlacedCabinet,
   type RoomData,
   type WallOpening,
@@ -37,6 +36,13 @@ function near(left: number, right: number) {
   return Math.abs(left - right) <= EDGE_EPSILON_IN;
 }
 
+function gapCrossesWallOpening(openings: readonly WallOpening[], wall: WallSide, start: number, length: number) {
+  const end = start + length;
+  return openings.some((opening) => opening.side === wall
+    && opening.offset < end - EDGE_EPSILON_IN
+    && opening.offset + opening.width > start + EDGE_EPSILON_IN);
+}
+
 /** Detects only a real post-placement wall opening of 3 inches or less beside the new cabinet. */
 export function findSmallGapFillerOpportunity(
   room: RoomData,
@@ -48,28 +54,36 @@ export function findSmallGapFillerOpportunity(
   if (!cabinet || isFillerItem(cabinet) || !["base", "wall", "tall"].includes(cabinet.placement)) return null;
 
   const wall = cabinetWall(cabinet, room);
-  const horizontal = wall === "top" || wall === "bottom";
-  const footprint = placedFootprint(cabinet);
-  const cabinetStart = horizontal ? cabinet.x : cabinet.y;
-  const cabinetSpan = horizontal ? footprint.w : footprint.d;
+  // Use the same nearest-neighbor measurement that powers the live 3D details
+  // panel. This recognizes corner-cabinet boundaries such as B-15 to LS3612,
+  // where generic free-segment classification can assign the corner footprint
+  // to its adjoining wall instead of the selected cabinet's run.
+  const measurement = wallSpanMeasure(cabinet, room, [...placed], wall);
+  const cabinetStart = measurement.start;
+  const cabinetSpan = measurement.end - measurement.start;
   const cabinetEnd = cabinetStart + cabinetSpan;
   const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
-  const adjacent = wallGaps(room, [...placed], [...openings], FILLER_MIN_WIDTH_IN)
-    .filter((gap) => gap.side === wall && gap.layer === layer && gap.length <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN);
-  const leading = adjacent.find((gap) => near(gap.start + gap.length, cabinetStart));
-  const trailing = adjacent.find((gap) => near(gap.start, cabinetEnd));
-  const leadingWidth = leading?.length ?? 0;
-  const trailingWidth = trailing?.length ?? 0;
+  const leadingStart = cabinetStart - measurement.before;
+  const leadingWidth = measurement.before >= FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN
+    && measurement.before <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN
+    && !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)
+      ? measurement.before
+      : 0;
+  const trailingWidth = measurement.after >= FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN
+    && measurement.after <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN
+    && !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)
+      ? measurement.after
+      : 0;
 
   let openingStart = cabinetStart;
   let remaining = 0;
-  if (leading && trailing && leadingWidth + trailingWidth <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) {
-    openingStart = leading.start;
+  if (leadingWidth > 0 && trailingWidth > 0 && leadingWidth + trailingWidth <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) {
+    openingStart = leadingStart;
     remaining = leadingWidth + trailingWidth;
-  } else if (leading) {
-    openingStart = leading.start;
+  } else if (leadingWidth > 0) {
+    openingStart = leadingStart;
     remaining = leadingWidth;
-  } else if (trailing) {
+  } else if (trailingWidth > 0) {
     remaining = trailingWidth;
   }
   if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;

@@ -18,6 +18,25 @@ describe("small-gap filler placement", () => {
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
   });
 
+  it("detects the measured two-and-a-half-inch opening between B-15 and an LS3612 corner cabinet", () => {
+    const b15: PlacedCabinet = { ...cabinet, uid: "b15", masterCode: "B-15", width: 15, x: 0 };
+    const lazySusan: PlacedCabinet = {
+      ...cabinet,
+      uid: "ls3612",
+      masterCode: "LS3612",
+      description: "Lazy Susan Corner Base",
+      x: 17.5,
+      width: 36,
+      depth: 36,
+    };
+    expect(findSmallGapFillerOpportunity(DEFAULT_ROOM, [b15, lazySusan], [], b15.uid)).toMatchObject({
+      cabinetUid: b15.uid,
+      openingStart: 0,
+      openingLength: 17.5,
+      remaining: 2.5,
+    });
+  });
+
   it("does not prompt for an opening larger than three inches", () => {
     expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 21.125 }, [cabinet], [], cabinet.uid)).toBeNull();
   });

@@ -1024,10 +1024,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
   const queueSmallGapFillerOpportunity = useCallback((nextPlaced: PlacedCabinet[], cabinetUid: string) => {
     const opportunity = findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid);
-    if (!opportunity || !catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)) return;
+    // Queue the measured opening immediately. The accessory catalog query can
+    // finish after placement; smallGapFillerDefinition will resolve as soon as
+    // the active style's filler arrives instead of silently losing the prompt.
+    if (!opportunity) return;
     setSmallGapFillerPrompt(opportunity);
     setMobilePanel(null);
-  }, [catalogFillers, openings, room]);
+  }, [openings, room]);
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -8077,10 +8080,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
+                ? (["appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
+                : (["base", "corner", "wall", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
@@ -8095,8 +8098,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     ? "Surfaces"
                     : tab === "opening"
                     ? t("dt_tab_door_win")
-                    : tab === "wallht"
-                    ? t("dt_tab_wall_by_ht")
                     : tab === "corner"
                     ? t("dt_tab_corner")
                     : tab === "vanity"

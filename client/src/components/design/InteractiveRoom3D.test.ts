@@ -206,6 +206,7 @@ describe("interactive 3D room scene helpers", () => {
   it("does not overlay a stale catalog front visual over a verified tall-pantry door layout", () => {
     expect(threeDHasVerifiedDoorLayout({ numberOfDoors: 2, numberOfDrawers: 0, doorOrientation: "stacked", drawerLayout: null, layoutSpec: null })).toBe(true);
     expect(threeDHasVerifiedDoorLayout({ numberOfDoors: 0, numberOfDrawers: 0, doorOrientation: null, drawerLayout: null, layoutSpec: null })).toBe(false);
+    expect(threeDHasVerifiedDoorLayout({ numberOfDoors: 0, numberOfDrawers: 0, doorOrientation: null, drawerLayout: null, layoutSpec: null, openingType: "middle" })).toBe(true);
     expect(threeDUsesCatalogFrontVisual({ hasCatalogFrontVisual: true, hasDoorSample: false, hasDoorTexture: false, specialtyKind: "standard", isRefrigeratorEndPanel: false, hasVerifiedDoorLayout: true })).toBe(false);
     expect(threeDUsesCatalogFrontVisual({ hasCatalogFrontVisual: true, hasDoorSample: false, hasDoorTexture: false, specialtyKind: "standard", isRefrigeratorEndPanel: false, hasVerifiedDoorLayout: false })).toBe(true);
   });

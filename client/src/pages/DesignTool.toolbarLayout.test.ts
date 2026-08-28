@@ -28,4 +28,16 @@ describe("designer toolbar layout", () => {
     expect(portal).toBeGreaterThan(-1);
     expect(trigger).toBeGreaterThan(portal);
   });
+
+  it("keeps one Wall tab and removes the redundant visible Wall By Ht tab", () => {
+    const tabsStart = source.indexOf("{/* Catalog tabs.");
+    const tabsEnd = source.indexOf(").map((tab) => (", tabsStart);
+    const visibleTabs = source.slice(tabsStart, tabsEnd);
+
+    expect(visibleTabs).toContain('"wall"');
+    expect(visibleTabs).not.toContain('"wallht"');
+    // Preserve the legacy internal mapping so a hot-reloaded old selection still
+    // resolves to the normal Wall catalog rather than issuing an invalid query.
+    expect(source).toContain('paletteType === "wallht"');
+  });
 });

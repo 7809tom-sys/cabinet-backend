@@ -7,7 +7,11 @@ describe("Design Tool small-gap filler workflow", () => {
   it("queues a catalog-backed opportunity after successful normal placement", () => {
     expect(source).toContain("queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid)");
     expect(source).toContain("findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
-    expect(source).toContain("catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)");
+    const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
+    const queueEnd = source.indexOf("// Always-on wall cabinet pool", queueStart);
+    const queueSource = source.slice(queueStart, queueEnd);
+    expect(queueSource).toContain("setSmallGapFillerPrompt(opportunity)");
+    expect(queueSource).not.toContain("catalogFillerForGap");
   });
 
   it("offers leave-open, split, left, and right outcomes", () => {

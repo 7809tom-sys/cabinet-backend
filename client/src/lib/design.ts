@@ -827,8 +827,15 @@ export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number |
   const code = (p.masterCode ?? "").toUpperCase();
   const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return true;
-  // If we know the door count, trust it.
-  if (typeof p.numberOfDoors === "number") return p.numberOfDoors > 0;
+  // Prefer an explicit positive count. Some legacy placed designs copied a
+  // master-default zero even though the source-backed description explicitly
+  // identifies a single-door cabinet (for example B-15). Preserve hinge editing
+  // for that unambiguous case without turning drawer-only products into doors.
+  if (typeof p.numberOfDoors === "number") {
+    if (p.numberOfDoors > 0) return true;
+    if (/\b(?:single|one|1)[- ]door\b/.test(hay)) return true;
+    return false;
+  }
   // Drawer-only bases (no doors) typically have a drawer count and no doors.
   if (/\bdrawer base\b|^db|drawer\b/.test(hay) && !/door/.test(hay)) return false;
   // Default: assume it has a door.
@@ -844,7 +851,11 @@ export function resolveSwing(p: PlacedCabinet): DoorSwing {
   const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   if (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/.test(hay)) return "left";
   if (typeof p.numberOfDoors === "number" && p.numberOfDoors >= 2) return "double";
-  return p.swing ?? "left";
+  // `none` on a legacy one-door placement means the swing was never authored,
+  // not that the physical door disappeared. Once hasDoorSwing has established
+  // a real hinged door, use the standard left default until the user selects a
+  // side in Cabinet Attributes.
+  return "left";
 }
 
 // Cycle a single-door swing Left -> Right -> Left. Double doors stay double.

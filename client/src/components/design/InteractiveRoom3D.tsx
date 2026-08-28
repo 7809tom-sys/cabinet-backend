@@ -947,12 +947,16 @@ export function threeDTallPantryDoorsPerRow(input: Pick<SceneSku, "numberOfDoors
   return numberValue(input.width, 18) <= 18.5 ? 1 : 2;
 }
 
-export function threeDHasVerifiedDoorLayout(input: Pick<SceneSku, "numberOfDoors" | "numberOfDrawers" | "doorOrientation" | "drawerLayout" | "layoutSpec">) {
+export function threeDHasVerifiedDoorLayout(input: Pick<SceneSku, "numberOfDoors" | "numberOfDrawers" | "doorOrientation" | "drawerLayout" | "layoutSpec" | "openingType">) {
   return (Number(input.numberOfDoors) || 0) > 0
     || (Number(input.numberOfDrawers) || 0) > 0
     || Boolean(input.doorOrientation)
     || Boolean(input.drawerLayout)
-    || Boolean(input.layoutSpec);
+    || Boolean(input.layoutSpec)
+    // An authored appliance opening is itself a verified cabinet-front layout.
+    // Never replace MW3042/BMC-style constructed geometry with a catalog/spec
+    // diagram image merely because the legacy row has zero door/drawer counts.
+    || Boolean(input.openingType);
 }
 
 export function threeDUsesCatalogFrontVisual(input: {
