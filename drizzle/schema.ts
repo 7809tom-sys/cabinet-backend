@@ -88,6 +88,30 @@ export const customerFavoriteSyncs = mysqlTable(
 
 export type CustomerFavoriteSync = typeof customerFavoriteSyncs.$inferSelect;
 
+// ─── Administrator shared notes ──────────────────────────────────────────────
+// Internal coordination only. Every API path is protected by adminProcedure;
+// author attribution is retained so staff can follow up on a note.
+export const adminStickyNotes = mysqlTable(
+  "admin_sticky_notes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    title: varchar("title", { length: 120 }),
+    body: text("body").notNull(),
+    color: varchar("color", { length: 16 }).notNull().default("yellow"),
+    isPinned: boolean("isPinned").notNull().default(false),
+    authorId: int("authorId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    pinAndUpdatedIndex: index("admin_sticky_notes_pin_updated_idx").on(t.isPinned, t.updatedAt),
+    authorIndex: index("admin_sticky_notes_author_idx").on(t.authorId),
+  }),
+);
+
+export type AdminStickyNote = typeof adminStickyNotes.$inferSelect;
+export type InsertAdminStickyNote = typeof adminStickyNotes.$inferInsert;
+
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributors = mysqlTable("distributors", {

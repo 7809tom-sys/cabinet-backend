@@ -53,6 +53,7 @@ import { catalogImportRouter } from "./routers/catalogImport";
 import { installationEstimatesRouter } from "./routers/installationEstimates";
 import { roomLayoutsRouter } from "./routers/roomLayouts";
 import { favoritesRouter } from "./routers/favorites";
+import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 
 export const appRouter = router({
   system: systemRouter,
@@ -116,6 +117,7 @@ export const appRouter = router({
   installationEstimates: installationEstimatesRouter,
   roomLayouts: roomLayoutsRouter,
   favorites: favoritesRouter,
+  adminStickyNotes: adminStickyNotesRouter,
 });
 
 export type AppRouter = typeof appRouter;

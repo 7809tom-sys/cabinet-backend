@@ -77,6 +77,7 @@ import PendingDistributorConnectionsAdmin from "@/components/admin/PendingDistri
 import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
 import PriceShop10x10 from "@/pages/PriceShop10x10";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
+import AdminStickyNotes from "@/components/admin/AdminStickyNotes";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -153,6 +154,7 @@ const GROUPS = [
       { value: "shipping", label: "Shipping" },
       { value: "coverage", label: "Designer Coverage" },
       { value: "designer-availability", label: "Designer Availability" },
+      { value: "team-notes", label: "Team Notes" },
     ],
   },
   {
@@ -503,6 +505,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="shipping" className="mt-6"><AdminTabHelp tab="shipping" /><ShippingAdmin /><div className="mt-6"><FreightApiLogsPanel /></div></TabsContent>
         <TabsContent value="coverage" className="mt-6"><AdminTabHelp tab="coverage" /><DesignerCoverageAdmin /></TabsContent>
         <TabsContent value="designer-availability" className="mt-6"><AdminTabHelp tab="designer-availability" /><DesignerAvailabilityAdmin /></TabsContent>
+        <TabsContent value="team-notes" className="mt-6"><AdminStickyNotes /></TabsContent>
 
         {/* Settings */}
         <TabsContent value="banners" className="mt-6"><BannerAdmin /></TabsContent>
