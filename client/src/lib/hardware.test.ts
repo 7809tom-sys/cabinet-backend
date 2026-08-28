@@ -10,6 +10,8 @@ import {
   hardwareSchedule,
   hardwareScheduleNote,
   doorConstruction,
+  doorHardwareCenterFromLeftIn,
+  doorHardwareOffsetFromFaceCenterIn,
   hardwarePlacementSpec,
   hardwarePlacementNote,
 } from "./hardware";
@@ -191,6 +193,15 @@ describe("hardware schedule aggregation", () => {
 });
 
 describe("hardware placement spec", () => {
+  it("centers left and right hardware on a three-inch frame exactly 1.5 inches from the door edge", () => {
+    expect(doorHardwareCenterFromLeftIn(18, "left")).toBe(1.5);
+    expect(doorHardwareCenterFromLeftIn(18, "right")).toBe(16.5);
+    expect(doorHardwareCenterFromLeftIn(18, "center")).toBe(9);
+    expect(doorHardwareOffsetFromFaceCenterIn(18, "left")).toBe(-7.5);
+    expect(doorHardwareOffsetFromFaceCenterIn(18, "right")).toBe(7.5);
+    expect(doorHardwareOffsetFromFaceCenterIn(18, "center")).toBe(0);
+  });
+
   it("classifies framed vs slab door styles", () => {
     expect(doorConstruction("Shaker")).toBe("framed");
     expect(doorConstruction("Slim Shaker")).toBe("framed");

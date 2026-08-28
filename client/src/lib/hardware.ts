@@ -306,9 +306,35 @@ export type DoorConstruction = "framed" | "slab";
 
 /** Default stile width (inches) used to center hardware on framed doors. */
 export const FRAMED_STILE_WIDTH_IN = 3;
+/** Centerline of the standard 3-inch framed-door stile, measured from its edge. */
+export const FRAMED_STILE_CENTER_IN = FRAMED_STILE_WIDTH_IN / 2;
 /** Hardware center offset from the near rail (inches), as a range. */
 export const RAIL_OFFSET_MIN_IN = 2.5;
 export const RAIL_OFFSET_MAX_IN = 3;
+
+/**
+ * Horizontal centerline for door hardware, measured from the left edge of one
+ * physical door face. Left/right positions are centered on the 3-inch stile;
+ * explicit Center remains available as an intentional per-cabinet override.
+ */
+export function doorHardwareCenterFromLeftIn(
+  faceWidthIn: number,
+  position: "left" | "center" | "right",
+): number {
+  const width = Number.isFinite(faceWidthIn) ? Math.max(0, faceWidthIn) : 0;
+  if (position === "center") return width / 2;
+  const edgeInset = Math.min(FRAMED_STILE_CENTER_IN, width / 2);
+  return position === "left" ? edgeInset : width - edgeInset;
+}
+
+/** Signed horizontal offset from a door face's center, in physical inches. */
+export function doorHardwareOffsetFromFaceCenterIn(
+  faceWidthIn: number,
+  position: "left" | "center" | "right",
+): number {
+  const width = Number.isFinite(faceWidthIn) ? Math.max(0, faceWidthIn) : 0;
+  return doorHardwareCenterFromLeftIn(width, position) - width / 2;
+}
 
 /**
  * Classify a door style string as framed vs slab. Shaker, slim shaker, and any

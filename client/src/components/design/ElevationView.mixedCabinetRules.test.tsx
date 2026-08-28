@@ -36,12 +36,33 @@ describe("mixed Cabinet Config elevation rules", () => {
       hardwarePosition: "auto",
       swing: "left",
       isWall: false,
+      faceWidthIn: 18,
     }));
     expect(markup.match(/data-cabinet-hardware="door-pull"/g)).toHaveLength(1);
     expect(markup).toContain('data-hardware-orientation="vertical"');
     expect(markup).toContain('data-hardware-position="right"');
+    expect(markup).toContain('data-hardware-center-in="16.5"');
+    expect(markup).toContain('data-hardware-edge-inset-in="1.5"');
     expect(markup.match(/data-cabinet-hardware="drawer-pull"/g)).toHaveLength(1);
     expect(markup).toContain('data-hardware-orientation="horizontal"');
+  });
+
+  it("centers paired pulls 1.5 inches from the meeting edges of two 15-inch doors", () => {
+    const markup = renderToStaticMarkup(createElement(HardwareOverlay, {
+      doors: 2,
+      drawers: 0,
+      doorPiece: "pull",
+      drawerPiece: "none",
+      accent: "#1a2744",
+      hardwarePosition: "paired",
+      swing: "double",
+      isWall: false,
+      faceWidthIn: 30,
+    }));
+    expect(markup.match(/data-cabinet-hardware="door-pull"/g)).toHaveLength(2);
+    expect(markup).toContain('data-hardware-center-in="13.5"');
+    expect(markup).toContain('data-hardware-center-in="16.5"');
+    expect(markup.match(/data-hardware-edge-inset-in="1.5"/g)).toHaveLength(2);
   });
 
   it("renders WD1860 right-side-up with one tall door above two bottom drawers", () => {

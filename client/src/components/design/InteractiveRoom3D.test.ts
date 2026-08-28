@@ -1348,8 +1348,19 @@ describe("interactive 3D room scene helpers", () => {
       root.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
       expect(pulls).toHaveLength(1);
       expect(pulls[0]?.userData).toMatchObject({ hingeSide: swing, handleSide: expectedHandle, pullEdge: "opposite-hinge" });
+      expect(pulls[0]?.userData).toMatchObject({ frameWidthIn: 3, frameCenterInsetIn: 1.5 });
       expect(pulls[0]?.userData.pullHeight).toBe("upper-opening-edge");
       expect(pulls[0]?.position.y).toBeGreaterThan(0);
+      const operativeDoor: THREE.Mesh[] = [];
+      root.traverse((node) => {
+        if (node.userData.lCornerDoor === (swing === "left" ? "back-leg" : "side-leg") && node instanceof THREE.Mesh) operativeDoor.push(node);
+      });
+      expect(operativeDoor).toHaveLength(1);
+      const doorWidth = (operativeDoor[0]!.geometry as THREE.BoxGeometry).parameters.width;
+      const lateralOffset = swing === "left"
+        ? Math.abs(pulls[0]!.position.x - operativeDoor[0]!.position.x)
+        : Math.abs(pulls[0]!.position.z - operativeDoor[0]!.position.z);
+      expect((doorWidth / 2 - lateralOffset) * 12).toBeCloseTo(1.5, 8);
     }
   });
 
@@ -1396,6 +1407,55 @@ describe("interactive 3D room scene helpers", () => {
     expect(right[0]!.position.x).toBeGreaterThan(center[0]!.position.x);
     expect(paired).toHaveLength(2);
     expect(paired.every((pull) => pull.userData.hardwarePosition === "paired" && pull.userData.pullEdge === "opposite-hinge")).toBe(true);
+  });
+
+  it("places standard and paired 3D door pulls exactly 1.5 inches from their physical door edges", () => {
+    const renderDoorHardware = (width: number, doors: number, hardwarePosition: "right" | "paired") => {
+      const cabinet = {
+        uid: `measured-${width}-${doors}`,
+        cabinetId: 1,
+        masterCode: doors === 1 ? "B-18" : "B-30",
+        description: doors === 1 ? "18 inch Single Door Base" : "30 inch Double Door Base",
+        placement: "base",
+        x: 0,
+        y: 0,
+        width,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: doors,
+        numberOfDrawers: 0,
+        hardwarePosition,
+      } as never;
+      const root = new THREE.Group();
+      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      const doorMeshes: THREE.Mesh[] = [];
+      const pullMeshes: THREE.Object3D[] = [];
+      root.traverse((node) => {
+        if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront && node instanceof THREE.Mesh) doorMeshes.push(node);
+        if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") pullMeshes.push(node);
+      });
+      return {
+        doors: doorMeshes.sort((a, b) => a.position.x - b.position.x),
+        pulls: pullMeshes.sort((a, b) => a.position.x - b.position.x),
+      };
+    };
+
+    const single = renderDoorHardware(18, 1, "right");
+    expect(single.doors).toHaveLength(1);
+    expect(single.pulls).toHaveLength(1);
+    const singleDoorWidth = (single.doors[0]!.geometry as THREE.BoxGeometry).parameters.width;
+    expect((singleDoorWidth / 2 - Math.abs(single.pulls[0]!.position.x - single.doors[0]!.position.x)) * 12).toBeCloseTo(1.5, 8);
+    expect(single.pulls[0]!.userData).toMatchObject({ frameWidthIn: 3, frameCenterInsetIn: 1.5 });
+
+    const paired = renderDoorHardware(30, 2, "paired");
+    expect(paired.doors).toHaveLength(2);
+    expect(paired.pulls).toHaveLength(2);
+    paired.doors.forEach((door, index) => {
+      const doorWidth = (door.geometry as THREE.BoxGeometry).parameters.width;
+      expect((doorWidth / 2 - Math.abs(paired.pulls[index]!.position.x - door.position.x)) * 12).toBeCloseTo(1.5, 8);
+      expect(paired.pulls[index]!.userData).toMatchObject({ frameWidthIn: 3, frameCenterInsetIn: 1.5 });
+    });
   });
 
   it("centers every drawer pull even when the cabinet’s door hardware preference is left or right", () => {
@@ -2003,8 +2063,16 @@ describe("interactive 3D room scene helpers", () => {
     expect(pulls[0]!.rotation.y).toBeCloseTo(doors[0]!.rotation.y, 8);
     expect(pulls[0]!.userData.hingeSide).toBe("left");
     expect(pulls[0]!.userData.handleSide).toBe("right");
+    expect(pulls[0]!.userData).toMatchObject({ frameWidthIn: 3, frameCenterInsetIn: 1.5 });
     expect(pulls[0]!.position.x).toBeGreaterThan(doors[0]!.position.x);
     expect(pulls[0]!.position.z).toBeLessThan(doors[0]!.position.z);
+    const diagonalDoorWidth = ((doors[0] as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width;
+    const tangent = new THREE.Vector2(Math.cos(doors[0]!.rotation.y), -Math.sin(doors[0]!.rotation.y));
+    const delta = new THREE.Vector2(
+      pulls[0]!.position.x - doors[0]!.position.x,
+      pulls[0]!.position.z - doors[0]!.position.z,
+    );
+    expect((diagonalDoorWidth / 2 - Math.abs(delta.dot(tangent))) * 12).toBeCloseTo(1.5, 8);
   });
 
   it("builds AW1230 as a 12-by-12 angled wall wedge with one side-hinged diagonal door and two adjustable shelves configured", () => {

@@ -14,6 +14,8 @@ import {
   doorCountForCabinet,
   drawerCountForCabinet,
   displayDrawerCount,
+  doorHardwareCenterFromLeftIn,
+  FRAMED_STILE_CENTER_IN,
 } from "@/lib/hardware";
 import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
@@ -538,6 +540,7 @@ export function ElevationView({
               hardwarePosition={resolveCabinetHardwarePosition(p)}
               swing={resolveSwing(p)}
               isWall={isWall}
+              faceWidthIn={sizeAlong}
             />
           )}
           {/* Appliance-specific detail overlays */}
@@ -1887,7 +1890,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn,
 }: {
   doors: number;
   drawers: number;
@@ -1897,6 +1900,7 @@ export function HardwareOverlay({
   hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   isWall?: boolean;
+  faceWidthIn: number;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
   // top highlight and soft drop shadow so pieces read as real metal hardware.
@@ -1911,15 +1915,28 @@ export function HardwareOverlay({
     const position = requestedPosition === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedPosition;
-    const pairedPosition = position === "paired" && isDoor
-      ? (index === 0 ? "40%" : "60%")
-      : null;
-    const leftPos = pairedPosition ?? (position === "left" ? "18%" : position === "right" ? "82%" : "50%");
+    const pairedDoorPull = Boolean(isDoor && doors > 1 && (position === "auto" || position === "paired"));
+    const physicalWidthIn = Math.max(0, faceWidthIn);
+    const doorWidthIn = pairedDoorPull ? physicalWidthIn / 2 : physicalWidthIn;
+    const horizontalPosition = pairedDoorPull
+      ? (index === 0 ? "right" : "left")
+      : position === "left" || position === "right" || position === "center"
+        ? position
+        : swing === "right" ? "left" : "right";
+    const centerFromLeftIn = pairedDoorPull
+      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition)
+      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition);
+    const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
+    const measuredHardwareData = isDoor ? {
+      "data-hardware-center-in": centerFromLeftIn,
+      "data-hardware-edge-inset-in": horizontalPosition === "center" ? undefined : FRAMED_STILE_CENTER_IN,
+    } : {};
     if (kind === "knob") {
       return (
         <div
           key={key}
           className="absolute rounded-full"
+          {...measuredHardwareData}
           style={{ left: leftPos, top: `${topPct}%`, width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
         />
       );
@@ -1937,6 +1954,7 @@ export function HardwareOverlay({
           data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"}
           data-hardware-orientation={isDoor ? "vertical" : "horizontal"}
           data-hardware-position={position}
+          {...measuredHardwareData}
           style={pullStyle as React.CSSProperties}
         />
       );

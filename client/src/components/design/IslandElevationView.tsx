@@ -30,6 +30,8 @@ import {
   doorCountForCabinet,
   drawerCountForCabinet,
   displayDrawerCount,
+  doorHardwareCenterFromLeftIn,
+  FRAMED_STILE_CENTER_IN,
 } from "@/lib/hardware";
 import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState } from "react";
@@ -200,8 +202,8 @@ function DoorFront({
   }
 }
 
-function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing,
+export function IslandHardwareOverlay({
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
@@ -209,6 +211,7 @@ function HardwareOverlay({
   accent: string;
   hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
   swing?: "left" | "right" | "double" | "none" | null;
+  faceWidthIn: number;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
@@ -217,21 +220,35 @@ function HardwareOverlay({
     const hSide = requestedSide === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedSide;
-    const pairedPosition = hSide === "paired" && isDoor ? (index === 0 ? "40%" : "60%") : null;
+    const pairedDoorPull = Boolean(isDoor && doors > 1 && (hSide === "auto" || hSide === "paired"));
+    const physicalWidthIn = Math.max(0, faceWidthIn);
+    const doorWidthIn = pairedDoorPull ? physicalWidthIn / 2 : physicalWidthIn;
+    const horizontalPosition = pairedDoorPull
+      ? (index === 0 ? "right" : "left")
+      : hSide === "left" || hSide === "right" || hSide === "center"
+        ? hSide
+        : swing === "right" ? "left" : "right";
+    const centerFromLeftIn = pairedDoorPull
+      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition)
+      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition);
+    const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
+    const measuredHardwareData = isDoor ? {
+      "data-hardware-center-in": centerFromLeftIn,
+      "data-hardware-edge-inset-in": horizontalPosition === "center" ? undefined : FRAMED_STILE_CENTER_IN,
+    } : {};
     if (kind === "knob") {
-      const leftPos = pairedPosition ?? (hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%");
       return (
         <div key={key} className="absolute rounded-full"
+          {...measuredHardwareData}
           style={{ left: leftPos, top: `${topPct}%`, width: 5, height: 5, marginLeft: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
         />
       );
     }
     if (kind === "pull") {
-      const leftPos = pairedPosition ?? (hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%");
       const pullStyle = isDoor
         ? { left: leftPos, top: `${topPct}%`, width: 3, height: "24%", marginLeft: -1.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 2 }
         : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
-      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={isDoor ? "vertical" : "horizontal"} data-hardware-position={hSide ?? "center"} style={pullStyle} />;
+      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={isDoor ? "vertical" : "horizontal"} data-hardware-position={hSide ?? "center"} {...measuredHardwareData} style={pullStyle} />;
     }
     if (kind === "cup") {
       return (
@@ -441,7 +458,7 @@ export function IslandElevationView({
             />
           )}
           {!isAppliance && hw.id !== "none" && (
-            <HardwareOverlay
+            <IslandHardwareOverlay
               doors={displayCounts.doors}
               drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
@@ -449,6 +466,7 @@ export function IslandElevationView({
               accent="#1a2744"
               hardwarePosition={resolveCabinetHardwarePosition(p)}
               swing={resolveSwing(p)}
+              faceWidthIn={cabSizeAlong}
             />
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

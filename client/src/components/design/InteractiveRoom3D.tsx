@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
+import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -1929,8 +1930,11 @@ export function addCabinet(
     const resolvedHardwarePosition = drawer ? "center" : hardwarePosition;
     const explicitSide = resolvedHardwarePosition === "left" ? -1 : resolvedHardwarePosition === "right" ? 1 : resolvedHardwarePosition === "center" ? 0 : automaticSide;
     const pullX = drawer
-      ? x + explicitSide * Math.max(0.025, faceWidth * 0.24)
-      : x + explicitSide * Math.max(0.035, faceWidth * 0.24);
+      ? x
+      : x + doorHardwareOffsetFromFaceCenterIn(
+        faceWidth / INCH,
+        explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
+      ) * INCH;
     const pullY = drawer ? y : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, z);
     pull.userData = {
@@ -1941,6 +1945,7 @@ export function addCabinet(
       pullEdge: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
       ...(hingeSide ? { hingeSide, handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
       hardwarePosition: resolvedHardwarePosition,
+      ...(drawer || explicitSide === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }),
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);
@@ -2400,16 +2405,21 @@ export function addCabinet(
         const normalZ = Math.cos(door.rotation.y);
         const hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto";
         const handleSide = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : sku.swing === "right" ? -1 : 1;
+        const faceWidth = diagonalDoorWidth - 0.03;
+        const pullOffset = doorHardwareOffsetFromFaceCenterIn(
+          faceWidth / INCH,
+          handleSide < 0 ? "left" : handleSide > 0 ? "right" : "center",
+        ) * INCH;
         const tangentX = Math.cos(door.rotation.y);
         const tangentZ = -Math.sin(door.rotation.y);
         const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
         pull.position.set(
-          door.position.x + tangentX * handleSide * diagonalDoorWidth * 0.24 + normalX * 0.058,
+          door.position.x + tangentX * pullOffset + normalX * 0.058,
           door.position.y - diagonalDoorHeight * 0.3,
-          door.position.z + tangentZ * handleSide * diagonalDoorWidth * 0.24 + normalZ * 0.058,
+          door.position.z + tangentZ * pullOffset + normalZ * 0.058,
         );
         pull.rotation.y = door.rotation.y;
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, hingeSide: singleDoorHinge, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? singleDoorHinge === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, hingeSide: singleDoorHinge, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? singleDoorHinge === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, ...(handleSide === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }), dimensionalCabinetDetail: true };
         frontGroup.add(pull);
         for (const offset of [-1, 1] as const) {
           const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
@@ -2488,14 +2498,18 @@ export function addCabinet(
         const targetWidth = targetDoor === backDoor ? exposedFrontWidth - 0.09 : lShape.sideLeg.depth - 0.09;
         const automaticSide = targetDoor === backDoor ? 1 : -1;
         const offset = hardwarePosition === "left" ? -1 : hardwarePosition === "right" ? 1 : hardwarePosition === "center" ? 0 : automaticSide;
+        const pullOffset = doorHardwareOffsetFromFaceCenterIn(
+          targetWidth / INCH,
+          offset < 0 ? "left" : offset > 0 ? "right" : "center",
+        ) * INCH;
         const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
         if (targetDoor === backDoor) {
-          pull.position.set(backDoor.position.x + targetWidth * 0.24 * offset, upperOpeningPullY, backDoor.position.z + 0.066);
+          pull.position.set(backDoor.position.x + pullOffset, upperOpeningPullY, backDoor.position.z + 0.066);
         } else {
-          pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - targetWidth * 0.24 * offset);
+          pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - pullOffset);
           pull.rotation.y = Math.PI / 2;
         }
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: hardwarePosition === "auto" || hardwarePosition === "paired", verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, pullHeight: "upper-opening-edge", hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: hardwarePosition === "auto" || hardwarePosition === "paired", verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, pullHeight: "upper-opening-edge", hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, ...(offset === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }), dimensionalCabinetDetail: true };
         frontGroup.add(pull);
       }
     }
