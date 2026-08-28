@@ -430,6 +430,25 @@ export const distributorSkus = mysqlTable("distributor_skus", {
 
 export type DistributorSku = typeof distributorSkus.$inferSelect;
 
+// ─── Cabinet Distributor Eligibility ────────────────────────────────────────
+// This internal administrator-maintained relationship records that a
+// distributor may carry a master cabinet. It deliberately does not infer a
+// sellable SKU, door style, availability, publication state, or price.
+export const cabinetDistributorEligibility = mysqlTable("cabinet_distributor_eligibility", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  source: varchar("source", { length: 64 }).default("Distributor catalog import").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  uniqueCabinetDistributor: unique("cabinet_distributor_eligibility_unique").on(t.cabinetId, t.distributorId),
+  cabinetLookup: index("cabinet_distributor_eligibility_cabinet_idx").on(t.cabinetId),
+  distributorLookup: index("cabinet_distributor_eligibility_distributor_idx").on(t.distributorId),
+}));
+
+export type CabinetDistributorEligibility = typeof cabinetDistributorEligibility.$inferSelect;
+
 // ─── Room Shape & Starter Layout Presets ──────────────────────────────────────
 // Presets describe reusable room geometry and functional zones. They never copy
 // products, pricing, or vendor SKU data from the existing catalog.

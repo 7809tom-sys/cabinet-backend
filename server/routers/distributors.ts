@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, cabinets, distributorSkus, doorStyles, categoryAliases } from "../../drizzle/schema";
+import { distributors, cabinets, cabinetAliases, cabinetDistributorEligibility, distributorSkus, doorStyles, categoryAliases } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
   validateImport,
@@ -14,6 +14,11 @@ import {
   IMPORT_TEMPLATE_CSV,
 } from "@shared/distributorImport";
 import { buildCatalogCsv, type CatalogExportRow } from "@shared/catalogExport";
+import {
+  buildDistributorRoundTripCsv,
+  normalizeDistributorRoundTripCode,
+  parseDistributorRoundTripCsv,
+} from "@shared/distributorRoundTrip";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
@@ -164,6 +169,220 @@ export const distributorImportRouter = router({
     const date = new Date().toISOString().slice(0, 10);
     return { csv, filename: `cabinet-dealz-master-catalog-${date}.csv`, count: rows.length };
   }),
+
+  /**
+   * Versioned, round-trip safe catalog file. One row identifies a master item,
+   * all known aliases, and each active distributor that is eligible to carry
+   * it. It intentionally excludes prices and detailed SKU/style records.
+   */
+  roundTripExport: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { csv: "", filename: "cabinet-dealz-distributor-connections.csv", count: 0 };
+
+    const [masterRows, aliasRows, skuConnections, manualConnections] = await Promise.all([
+      db.select({
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        sku: cabinets.sku,
+        vendorSku: cabinets.vendorSku,
+        altSku1: cabinets.altSku1,
+        altSku2: cabinets.altSku2,
+        altSku3: cabinets.altSku3,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+      }).from(cabinets).orderBy(cabinets.category, cabinets.masterCode),
+      db.select({ cabinetId: cabinetAliases.cabinetId, alias: cabinetAliases.alias }).from(cabinetAliases),
+      db.select({ cabinetId: distributorSkus.cabinetId, distributorCode: distributors.code })
+        .from(distributorSkus)
+        .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .where(and(eq(distributorSkus.isAvailable, true), eq(distributorSkus.isPublished, true), eq(distributorSkus.status, "approved"), eq(distributors.isActive, true))),
+      db.select({ cabinetId: cabinetDistributorEligibility.cabinetId, distributorCode: distributors.code })
+        .from(cabinetDistributorEligibility)
+        .innerJoin(distributors, eq(cabinetDistributorEligibility.distributorId, distributors.id))
+        .where(eq(distributors.isActive, true)),
+    ]);
+
+    const aliasesByCabinet = new Map<number, string[]>();
+    const eligibleByCabinet = new Map<number, string[]>();
+    const add = (map: Map<number, string[]>, cabinetId: number, value: string | null) => {
+      if (!value?.trim()) return;
+      map.set(cabinetId, [...(map.get(cabinetId) ?? []), value]);
+    };
+    for (const row of aliasRows) add(aliasesByCabinet, row.cabinetId, row.alias);
+    for (const row of skuConnections) add(eligibleByCabinet, row.cabinetId, row.distributorCode);
+    for (const row of manualConnections) add(eligibleByCabinet, row.cabinetId, row.distributorCode);
+
+    const csv = buildDistributorRoundTripCsv(masterRows.map((row) => ({
+      templateVersion: "1",
+      itemCode: row.masterCode,
+      replacementMasterCode: null,
+      aliases: [row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3, ...(aliasesByCabinet.get(row.id) ?? [])].filter((value): value is string => Boolean(value?.trim())),
+      eligibleDistributorCodes: eligibleByCabinet.get(row.id) ?? [],
+      description: row.description ?? "",
+      category: row.category ?? "",
+      subCategory: row.subCategory ?? "",
+    })));
+    const date = new Date().toISOString().slice(0, 10);
+    return { csv, filename: `cabinet-dealz-distributor-connections-${date}.csv`, count: masterRows.length };
+  }),
+
+  /** Dry-run for the exact versioned download format. No writes occur here. */
+  roundTripPreview: adminProcedure
+    .input(z.object({ csv: z.string().min(1).max(2_000_000) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      const parsed = parseDistributorRoundTripCsv(input.csv);
+      if (parsed.errors.length > 0) return { ...parsed, rows: [], summary: { total: 0, matched: 0, masterCodesToReplace: 0, aliasesToAdd: 0, distributorLinksToAdd: 0 } };
+
+      const allCabinets = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode, sku: cabinets.sku, vendorSku: cabinets.vendorSku, altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 }).from(cabinets);
+      const allAliases = await db.select({ id: cabinetAliases.id, cabinetId: cabinetAliases.cabinetId, alias: cabinetAliases.alias }).from(cabinetAliases);
+      const activeDistributors = await db.select({ id: distributors.id, code: distributors.code }).from(distributors).where(eq(distributors.isActive, true));
+      const cabinetByCode = new Map<string, { id: number; masterCode: string }>();
+      for (const cabinet of allCabinets) {
+        for (const code of [cabinet.masterCode, cabinet.sku, cabinet.vendorSku, cabinet.altSku1, cabinet.altSku2, cabinet.altSku3]) {
+          if (code?.trim()) cabinetByCode.set(normalizeDistributorRoundTripCode(code), { id: cabinet.id, masterCode: cabinet.masterCode });
+        }
+      }
+      for (const alias of allAliases) {
+        const master = allCabinets.find((cabinet) => cabinet.id === alias.cabinetId);
+        const aliasCode = normalizeDistributorRoundTripCode(alias.alias);
+        if (master && aliasCode && !cabinetByCode.has(aliasCode)) cabinetByCode.set(aliasCode, { id: master.id, masterCode: master.masterCode });
+      }
+      const activeByCode = new Map(activeDistributors.map((distributor) => [normalizeDistributorRoundTripCode(distributor.code), distributor]));
+      const currentLinks = await db.select({ cabinetId: cabinetDistributorEligibility.cabinetId, distributorId: cabinetDistributorEligibility.distributorId }).from(cabinetDistributorEligibility);
+      const currentLinkKeys = new Set(currentLinks.map((row) => `${row.cabinetId}:${row.distributorId}`));
+      const replacementOwners = new Map<string, number>();
+
+      const rows = parsed.rows.map((row) => {
+        const master = cabinetByCode.get(row.itemCode);
+        const errors: string[] = [];
+        if (!master) errors.push(`ItemCode ${row.itemCode} does not match a master code or known alias.`);
+        const replacementMasterCode = row.replacementMasterCode;
+        const replacesMasterCode = Boolean(master && replacementMasterCode && replacementMasterCode !== normalizeDistributorRoundTripCode(master.masterCode));
+        if (master && replacementMasterCode && replacesMasterCode) {
+          const occupied = cabinetByCode.get(replacementMasterCode);
+          if (occupied && occupied.id !== master.id) errors.push(`ReplacementMasterCode ${replacementMasterCode} already belongs to ${occupied.masterCode}.`);
+          const priorOwner = replacementOwners.get(replacementMasterCode);
+          if (priorOwner !== undefined && priorOwner !== master.id) errors.push(`ReplacementMasterCode ${replacementMasterCode} is requested for more than one item.`);
+          replacementOwners.set(replacementMasterCode, master.id);
+        }
+        const aliasConflicts = row.aliases.filter((alias) => {
+          const matched = cabinetByCode.get(alias);
+          return Boolean(matched && master && matched.id !== master.id);
+        });
+        if (aliasConflicts.length) errors.push(`Alias already belongs to another cabinet: ${aliasConflicts.join(", ")}.`);
+        const unknownDistributors = row.eligibleDistributorCodes.filter((code) => !activeByCode.has(code));
+        if (unknownDistributors.length) errors.push(`Unknown or inactive distributor code: ${unknownDistributors.join(", ")}.`);
+        const distributorLinksToAdd = master
+          ? row.eligibleDistributorCodes.filter((code) => {
+              const distributor = activeByCode.get(code);
+              return distributor && !currentLinkKeys.has(`${master.id}:${distributor.id}`);
+            }).length
+          : 0;
+        return {
+          rowNumber: row.rowNumber ?? 0,
+          itemCode: row.itemCode,
+          resolvedMasterCode: master?.masterCode ?? null,
+          replacementMasterCode,
+          replacesMasterCode,
+          aliasesToAdd: master ? row.aliases.filter((alias) => !cabinetByCode.has(alias) && alias !== normalizeDistributorRoundTripCode(master.masterCode)).length : 0,
+          distributorLinksToAdd,
+          errors,
+        };
+      });
+      return {
+        errors: [],
+        rows,
+        summary: {
+          total: rows.length,
+          matched: rows.filter((row) => !row.errors.length).length,
+          masterCodesToReplace: rows.filter((row) => row.replacesMasterCode).length,
+          aliasesToAdd: rows.reduce((total, row) => total + row.aliasesToAdd, 0),
+          distributorLinksToAdd: rows.reduce((total, row) => total + row.distributorLinksToAdd, 0),
+        },
+      };
+    }),
+
+  /** Apply only reviewed aliases and internal eligibility links. Prices never change here. */
+  roundTripCommit: adminProcedure
+    .input(z.object({ csv: z.string().min(1).max(2_000_000) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      const parsed = parseDistributorRoundTripCsv(input.csv);
+      if (parsed.errors.length) throw new TRPCError({ code: "BAD_REQUEST", message: parsed.errors.join(" ") });
+
+      const preview = await (async () => {
+        const allCabinets = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode, sku: cabinets.sku, vendorSku: cabinets.vendorSku, altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 }).from(cabinets);
+        const allAliases = await db.select({ id: cabinetAliases.id, cabinetId: cabinetAliases.cabinetId, alias: cabinetAliases.alias }).from(cabinetAliases);
+        const activeDistributors = await db.select({ id: distributors.id, code: distributors.code }).from(distributors).where(eq(distributors.isActive, true));
+        const cabinetByCode = new Map<string, { id: number; masterCode: string }>();
+        for (const cabinet of allCabinets) for (const code of [cabinet.masterCode, cabinet.sku, cabinet.vendorSku, cabinet.altSku1, cabinet.altSku2, cabinet.altSku3]) if (code?.trim()) cabinetByCode.set(normalizeDistributorRoundTripCode(code), { id: cabinet.id, masterCode: cabinet.masterCode });
+        for (const alias of allAliases) {
+          const master = allCabinets.find((cabinet) => cabinet.id === alias.cabinetId);
+          const aliasCode = normalizeDistributorRoundTripCode(alias.alias);
+          if (master && aliasCode && !cabinetByCode.has(aliasCode)) cabinetByCode.set(aliasCode, { id: master.id, masterCode: master.masterCode });
+        }
+        return { cabinetByCode, allAliases, activeByCode: new Map(activeDistributors.map((distributor) => [normalizeDistributorRoundTripCode(distributor.code), distributor])) };
+      })();
+      const validationErrors: string[] = [];
+      const replacementOwners = new Map<string, number>();
+      for (const row of parsed.rows) {
+        const master = preview.cabinetByCode.get(row.itemCode);
+        if (!master) validationErrors.push(`Row ${row.rowNumber}: ItemCode ${row.itemCode} is not recognized.`);
+        const replacementMasterCode = row.replacementMasterCode;
+        if (master && replacementMasterCode && replacementMasterCode !== normalizeDistributorRoundTripCode(master.masterCode)) {
+          const occupied = preview.cabinetByCode.get(replacementMasterCode);
+          if (occupied && occupied.id !== master.id) validationErrors.push(`Row ${row.rowNumber}: replacement master code ${replacementMasterCode} belongs to ${occupied.masterCode}.`);
+          const priorOwner = replacementOwners.get(replacementMasterCode);
+          if (priorOwner !== undefined && priorOwner !== master.id) validationErrors.push(`Row ${row.rowNumber}: replacement master code ${replacementMasterCode} is requested more than once.`);
+          replacementOwners.set(replacementMasterCode, master.id);
+        }
+        for (const alias of row.aliases) {
+          const existing = preview.cabinetByCode.get(alias);
+          if (existing && master && existing.id !== master.id) validationErrors.push(`Row ${row.rowNumber}: alias ${alias} belongs to another cabinet.`);
+        }
+        for (const code of row.eligibleDistributorCodes) if (!preview.activeByCode.has(code)) validationErrors.push(`Row ${row.rowNumber}: distributor ${code} is unknown or inactive.`);
+      }
+      if (validationErrors.length) throw new TRPCError({ code: "BAD_REQUEST", message: validationErrors.join(" ") });
+
+      let aliasesAdded = 0;
+      let distributorLinksAdded = 0;
+      let masterCodesReplaced = 0;
+      for (const row of parsed.rows) {
+        const master = preview.cabinetByCode.get(row.itemCode)!;
+        const replacementMasterCode = row.replacementMasterCode;
+        if (replacementMasterCode && replacementMasterCode !== normalizeDistributorRoundTripCode(master.masterCode)) {
+          const formerMasterCode = normalizeDistributorRoundTripCode(master.masterCode);
+          const existingReplacementAlias = preview.allAliases.find((alias) => normalizeDistributorRoundTripCode(alias.alias) === replacementMasterCode && alias.cabinetId === master.id);
+          if (existingReplacementAlias) await db.delete(cabinetAliases).where(eq(cabinetAliases.id, existingReplacementAlias.id));
+          await db.insert(cabinetAliases)
+            .values({ cabinetId: master.id, alias: formerMasterCode })
+            .onDuplicateKeyUpdate({ set: { cabinetId: master.id } });
+          await db.update(cabinets).set({ masterCode: replacementMasterCode }).where(eq(cabinets.id, master.id));
+          master.masterCode = replacementMasterCode;
+          preview.cabinetByCode.set(formerMasterCode, master);
+          preview.cabinetByCode.set(replacementMasterCode, master);
+          masterCodesReplaced += 1;
+        }
+        for (const alias of row.aliases) {
+          if (alias === normalizeDistributorRoundTripCode(master.masterCode) || preview.cabinetByCode.has(alias)) continue;
+          await db.insert(cabinetAliases).values({ cabinetId: master.id, alias });
+          preview.cabinetByCode.set(alias, master);
+          aliasesAdded += 1;
+        }
+        for (const distributorCode of row.eligibleDistributorCodes) {
+          const distributor = preview.activeByCode.get(distributorCode)!;
+          const existing = await db.select({ id: cabinetDistributorEligibility.id }).from(cabinetDistributorEligibility).where(and(eq(cabinetDistributorEligibility.cabinetId, master.id), eq(cabinetDistributorEligibility.distributorId, distributor.id))).limit(1);
+          if (existing.length) continue;
+          await db.insert(cabinetDistributorEligibility).values({ cabinetId: master.id, distributorId: distributor.id, source: "Round-trip catalog import" });
+          distributorLinksAdded += 1;
+        }
+      }
+      return { rowsImported: parsed.rows.length, masterCodesReplaced, aliasesAdded, distributorLinksAdded };
+    }),
 
   /** Active distributors (lines) for the import picker + branding editor. */
   adminList: adminProcedure.query(async () => {

@@ -35,6 +35,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DistributorRoundTripTransfer } from "./DistributorRoundTripTransfer";
 
 const VALID_CATEGORIES = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"] as const;
 
@@ -999,6 +1000,8 @@ export default function DistributorImport() {
           </Button>
         </CardContent>
       </Card>
+
+      <DistributorRoundTripTransfer />
 
       {/* ── Import tabs ────────────────────────────────────────────────────── */}
       <Card>
