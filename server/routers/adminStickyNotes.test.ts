@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { adminStickyNoteFields, adminStickyNotesRouter } from "./adminStickyNotes";
 
 const nonAdminContext = {
@@ -26,5 +27,11 @@ describe("administrator shared sticky notes", () => {
   it("rejects non-administrators before a shared-note list can be read", async () => {
     const caller = adminStickyNotesRouter.createCaller(nonAdminContext);
     await expect(caller.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("keeps important notes pinned first and permits the pin state to be updated", () => {
+    const source = readFileSync(new URL("./adminStickyNotes.ts", import.meta.url), "utf8");
+    expect(source).toContain(".orderBy(desc(adminStickyNotes.isPinned), desc(adminStickyNotes.updatedAt))");
+    expect(source).toContain("if (changes.isPinned !== undefined) patch.isPinned = changes.isPinned;");
   });
 });
