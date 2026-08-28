@@ -218,7 +218,10 @@ export function RefrigeratorOptionsDialog({
   const [bridgeWidthChoice, setBridgeWidthChoice] = useState<number>(36);
 
   // ── End panels ─────────────────────────────────────────────────────────────
-  const [panels, setPanels] = useState<FridgePanels>("none");
+  // A finished refrigerator enclosure uses both structural end panels by
+  // default. Customers can still explicitly choose Left, Right, or None, but a
+  // new refrigerator must not silently start without its wall-side panel.
+  const [panels, setPanels] = useState<FridgePanels>("both");
   const [panelDepth, setPanelDepth] = useState<number>(24);
   const [selectedPanelId, setSelectedPanelId] = useState<string>("");
 
@@ -294,7 +297,7 @@ export function RefrigeratorOptionsDialog({
       setBridgeDepthChoice(12);
       setBridgeWidthChoice(36);
       setAbove("none");
-      setPanels("none");
+      setPanels("both");
       setPanelDepth(24);
       setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
       setSmooth(false);
@@ -510,6 +513,9 @@ export function RefrigeratorOptionsDialog({
           {/* ── 3. Fridge End Panels ─────────────────────────────────────── */}
           <Section title="Fridge End Panels">
             <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                Both enclosure panels are selected by default. Choose one side or None only when the design intentionally requires it.
+              </p>
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">
                   Panel height will be <span className="font-semibold text-foreground">{panelHeight}″</span>

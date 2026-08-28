@@ -132,6 +132,25 @@ describe("designer cabinet cart lines", () => {
     expect(enclosure.placed.filter((item) => item.masterCode === "REPV-96")).toHaveLength(2);
   });
 
+  it("moves a wall-start FRIDGE-36 inward so both panels fit inside the exact 43-inch opening before B-21", () => {
+    const fridge = { ...bec, uid: "seven-item-fridge", cabinetId: 3601, masterCode: "FRIDGE-36", description: '36" Refrigerator', placement: "appliance", x: 0, width: 36, depth: 30, height: 70 } as PlacedCabinet;
+    const b21 = { ...bec, uid: "seven-item-b21", cabinetId: 2101, masterCode: "B-21", description: '21" Base Cabinet', placement: "base", x: 43, width: 21, depth: 24, height: 34.5 } as PlacedCabinet;
+    const leftPanel = { ...bec, uid: "seven-item-left-panel", cabinetId: 9601, masterCode: "REPV-96", description: "Refrigerator End Panel", placement: "tall", customProfile: "refrigerator-end-panel", x: -0.75, width: 0.75, depth: 30, height: 96 } as PlacedCabinet;
+    const rightPanel = { ...leftPanel, uid: "seven-item-right-panel", cabinetId: 9602, x: 36 } as PlacedCabinet;
+
+    const fitted = fitRefrigeratorEnclosurePlacements([fridge, b21], [leftPanel, rightPanel], fridge.uid, { width: 144, depth: 120, ceilingHeight: 96 });
+    const enclosure = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid);
+
+    expect(fitted.shiftIn).toBe(0.75);
+    expect(enclosure.rejected).toEqual([]);
+    expect(enclosure.panelConflicts).toEqual([]);
+    expect(enclosure.placed.find((item) => item.uid === b21.uid)?.x).toBe(43);
+    expect(enclosure.placed.find((item) => item.uid === fridge.uid)?.x).toBe(0.75);
+    expect(enclosure.placed.find((item) => item.uid === leftPanel.uid)?.x).toBe(0);
+    expect(enclosure.placed.find((item) => item.uid === rightPanel.uid)?.x).toBe(36.75);
+    expect(enclosure.placed.filter((item) => item.masterCode === "REPV-96")).toHaveLength(2);
+  });
+
   it("locks loaded bundle lines to the verified package total without changing catalog source prices", () => {
     const secondCabinet = { ...bec, uid: "bec-other", masterCode: "B-30", description: '30" Base Cabinet', x: 24 } as PlacedCabinet;
     const lines = buildDesignCabinetCartLines({

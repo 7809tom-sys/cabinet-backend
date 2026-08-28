@@ -1789,18 +1789,30 @@ export function fitRefrigeratorEnclosurePlacements(
     const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid);
     return detail ? [detail] : [];
   });
-  if (conflicts.length === 0) return { existing, additions, shiftIn: 0 };
 
   const side = cabinetWall(refrigerator, room);
   const horizontal = side === "top" || side === "bottom";
   const fridgeAlong = horizontal ? refrigerator.x : refrigerator.y;
+  const wallLength = horizontal ? room.width : room.depth;
+  const enclosureItems = [refrigerator, ...additions];
+  const alongStart = (item: PlacedCabinet) => horizontal ? item.x : item.y;
+  const alongLength = (item: PlacedCabinet) => {
+    const size = placedFootprint(item);
+    return horizontal ? size.w : size.d;
+  };
+  const enclosureStart = Math.min(...enclosureItems.map(alongStart));
+  const enclosureEnd = Math.max(...enclosureItems.map((item) => alongStart(item) + alongLength(item)));
+  const positiveBoundaryShift = Math.max(0, -enclosureStart);
+  const negativeBoundaryShift = Math.min(0, wallLength - enclosureEnd);
   const positiveShift = Math.max(0, ...conflicts
     .filter(({ panel }) => (horizontal ? panel.x : panel.y) < fridgeAlong)
     .map(({ overlapIn }) => overlapIn));
   const negativeShift = -Math.max(0, ...conflicts
     .filter(({ panel }) => (horizontal ? panel.x : panel.y) >= fridgeAlong)
     .map(({ overlapIn }) => overlapIn));
-  const candidateShifts = [positiveShift, negativeShift].filter((shift, index, all) => Math.abs(shift) > COLLISION_EPSILON_IN && all.indexOf(shift) === index);
+  const candidateShifts = [positiveBoundaryShift, negativeBoundaryShift, positiveShift, negativeShift]
+    .filter((shift, index, all) => Math.abs(shift) > COLLISION_EPSILON_IN && all.indexOf(shift) === index);
+  if (candidateShifts.length === 0) return { existing, additions, shiftIn: 0 };
   const peers = existing.filter((item) => item.uid !== refrigeratorUid && !isRefrigeratorEndPanel(item));
 
   const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => horizontal

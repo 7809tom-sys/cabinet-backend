@@ -3678,14 +3678,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             ? opts.panelHeight
             : (parseFloat(String(panelRow.height ?? "")) || inferredHeight));
         // Along-wall position: just outside the fridge edge on the chosen side.
-        // Clamp to room bounds so the panel never lands outside the room.
+        // Keep the true coordinate even when the fridge begins at the wall edge.
+        // fitRefrigeratorEnclosurePlacements shifts the complete newly configured
+        // enclosure into the room; clamping only this panel to zero would place it
+        // inside the refrigerator footprint and make it appear missing.
         let along: number;
         if (horizontal) {
           along = leftEdge ? configuredFridge.x - pThick : configuredFridge.x + fw;
-          along = Math.max(0, Math.min(along, room.width - pThick));
         } else {
           along = leftEdge ? configuredFridge.y - pThick : configuredFridge.y + fw;
-          along = Math.max(0, Math.min(along, room.depth - pThick));
         }
         const spot = wallPlacementAt(along, pThick, pDepth, side, room);
         toPlace.push({
