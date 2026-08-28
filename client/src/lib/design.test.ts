@@ -1488,6 +1488,15 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([filler], ROOM_12x10)).toHaveLength(0);
   });
 
+  it("continues the countertop over both physical pieces of a confirmed split base filler", () => {
+    const left = cab({ uid: "fill-left", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 24, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
+    const right = cab({ uid: "fill-right", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 40.25, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
+    expect(countertopSurfaces([left, right], ROOM_12x10)).toMatchObject([
+      { x: 24, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
+      { x: 40.25, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
+    ]);
+  });
+
   it("pins a front-wall slab to the bottom of the room", () => {
     const front = cab({ placement: "base", width: 24, depth: 24, x: 10, y: 96 });
     const [s] = countertopSurfaces([front], ROOM_12x10);
@@ -1538,6 +1547,10 @@ describe("bearsCountertop", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "DWR-3", description: "Refrigerator End Panel" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "WS-12-42", description: "Wall Skin", subCategory: "Skin" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler / Scribe Strip', subCategory: "Filler" })).toBe(false);
+  });
+  it("is true only for a base filler carrying confirmed small-gap installation metadata", () => {
+    expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
+    expect(bearsCountertop({ placement: "wall", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(false);
   });
 });
 

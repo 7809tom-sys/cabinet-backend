@@ -5130,15 +5130,29 @@ export interface CountertopSurface {
 // does NOT carry a counter:
 //   - decorative end panels / refrigerator + dishwasher panels / skins
 //     (isPanelItem — 3/4" flat stock, not a box)
-//   - filler / scribe strips (FILL-* — a sliver, not a cabinet)
+//   - loose/manual filler or scribe strips (FILL-* — a sliver, not a cabinet)
+// Small-gap fillers installed as part of a confirmed base run are the exception:
+// their saved group metadata means the adjacent countertop must continue over
+// the installed width even though the filler itself is not a cabinet box.
 // Tall cabinets and appliances are already excluded by the placement check.
 export function bearsCountertop(p: {
   placement: Placement;
   masterCode?: string | null;
   description?: string | null;
   subCategory?: string | null;
+  fillerPieceGroupId?: string | null;
+  fillerTotalWidth?: number | null;
+  fillerPlacementMode?: "left" | "right" | "split" | null;
 }): boolean {
   if (p.placement !== "base") return false;
+  const installedFillerWidth = Number(p.fillerTotalWidth);
+  const isInstalledBaseFiller = Boolean(
+    p.fillerPieceGroupId &&
+    p.fillerPlacementMode &&
+    Number.isFinite(installedFillerWidth) &&
+    installedFillerWidth > 0,
+  );
+  if (isInstalledBaseFiller) return true;
   // Sink bases ARE counter-bearing even though their tops are cut for the sink.
   if (isSinkBaseCabinet(p)) return true;
   // Flat panels / skins carry no counter.
@@ -5159,8 +5173,8 @@ export function countertopSurfaces(
   const out: CountertopSurface[] = [];
   const D = COUNTERTOP_DEPTH_IN;
   for (const p of placed) {
-    // Only true countertop-bearing base cabinets get a slab (base/sink-base/
-    // island bases) — never tall cabinets, appliances, panels, or fillers.
+    // Countertop-bearing bases and confirmed installed filler pieces get a slab.
+    // Loose fillers, tall cabinets, appliances, and panels remain excluded.
     if (!bearsCountertop(p)) continue;
     const { w } = placedFootprint(p);
     const side = cabinetWall(p, room);

@@ -2001,6 +2001,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderCountertopOverSceneItem("base", "B-33")).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "RANGE-30")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FILL-3", "3 inch Filler")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem({ placement: "base", masterCode: "FILL-3", description: "3 inch Filler", subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "REP2496", "Refrigerator End Panel")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FRIDGE-36", "36 inch Refrigerator")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);

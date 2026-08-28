@@ -20,6 +20,7 @@ type SceneSku = {
   cabinetId: number;
   masterCode: string;
   description: string | null;
+  subCategory?: string | null;
   placementType: string | null;
   width: unknown;
   height: unknown;
@@ -47,6 +48,9 @@ type SceneSku = {
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
   decorativeEnd?: "none" | "left" | "right" | "both";
+  fillerPieceGroupId?: string | null;
+  fillerTotalWidth?: number | null;
+  fillerPlacementMode?: "left" | "right" | "split" | null;
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -733,7 +737,10 @@ function threeDDoorTextureAverageColor(texture: THREE.Texture | null, fallback: 
 }
 
 export function shouldRenderCountertopOverSceneItem(
-  placementOrItem: string | Pick<PlacedCabinet, "placement" | "masterCode" | "description" | "subCategory">,
+  placementOrItem: string | Pick<PlacedCabinet,
+    "placement" | "masterCode" | "description" | "subCategory" |
+    "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode"
+  >,
   masterCode = "",
   description: string | null = null,
 ) {
@@ -2819,7 +2826,15 @@ export function addCabinet(
   applyThreeDPlacementIdentity(cabinet, placementIdentity);
   root.add(cabinet);
 
-  if (shouldRenderCountertopOverSceneItem(placement, sku.masterCode, sku.description)) {
+  if (shouldRenderCountertopOverSceneItem({
+    placement: placement as PlacedCabinet["placement"],
+    masterCode: sku.masterCode,
+    description: sku.description ?? "",
+    subCategory: sku.subCategory ?? null,
+    fillerPieceGroupId: sku.fillerPieceGroupId ?? null,
+    fillerTotalWidth: sku.fillerTotalWidth ?? null,
+    fillerPlacementMode: sku.fillerPlacementMode ?? null,
+  })) {
     const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counterGroup = new THREE.Group();
@@ -3360,6 +3375,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
+    subCategory: cabinet.subCategory ?? null,
     placementType,
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that
@@ -3388,6 +3404,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     cornerGeometryKind: sharedCornerKind,
     catalogImageUrl: cabinet.catalogImageUrl ?? appliance?.catalogImageUrl ?? null,
     decorativeEnd: cabinet.decorativeEnd ?? "none",
+    fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
+    fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
+    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
   };
 }
 
@@ -3446,7 +3465,7 @@ export function threeDDesignParitySnapshot({
       footprint: normalizedThreeDFootprint(source),
       transform: existingCabinetTransform(source, room),
       sku: existingCabinetSku(source),
-      countertopSupported: shouldRenderCountertopOverSceneItem(source.placement, source.masterCode, source.description),
+      countertopSupported: shouldRenderCountertopOverSceneItem(source),
     })),
     openings: openings.map((source) => ({ source, transform: openingTransform(source, room.width, room.depth) })),
     sinks: sinks.map((source) => ({ source, transform: sinkFixtureTransform(source) })),
@@ -3558,7 +3577,7 @@ export function threeDSceneVisibilityContract(placed: PlacedCabinet[], room: Roo
       : null,
     tall: tall.map((item) => ({ masterCode: item.masterCode, transform: existingCabinetTransform(item, room) })),
     countertopSupport: placed
-      .filter((item) => shouldRenderCountertopOverSceneItem(item.placement, item.masterCode, item.description))
+      .filter((item) => shouldRenderCountertopOverSceneItem(item))
       .map((item) => item.masterCode),
   };
 }
