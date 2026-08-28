@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
+import {
+  CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
+  cabinetDesignerCoverageGapEditUrl,
+} from "@shared/cabinetConfigReview";
 
 const CATEGORIES = [
   "Base",
@@ -28,7 +32,9 @@ const CATEGORIES = [
 export function DesignerCoverageAdmin() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
-  const [gapsOnly, setGapsOnly] = useState(false);
+  const [gapsOnly, setGapsOnly] = useState(
+    () => new URLSearchParams(window.location.search).get("gapsOnly") === "1",
+  );
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Debounce search
@@ -73,7 +79,8 @@ export function DesignerCoverageAdmin() {
           Shows which door styles each cabinet has SKU coverage for. A{" "}
           <span className="text-red-500 font-medium">red ✗</span> means no
           published, available SKU exists for that style — the cabinet won't
-          appear in the designer when that style is selected.
+          appear in the designer when that style is selected. Click a red mark
+          to edit that exact cabinet and style connection.
         </p>
       </div>
 
@@ -275,12 +282,20 @@ export function DesignerCoverageAdmin() {
                           <td
                             key={s.id}
                             className={`px-1 py-1.5 text-center ${si === 0 ? "border-l" : ""}`}
-                            title={`${cab.masterCode} × ${s.featuredLabel || s.ourName}: ${has ? "✓ covered" : "✗ missing"}`}
+                            title={`${cab.masterCode} × ${s.featuredLabel || s.ourName}: ${has ? "✓ covered" : "✗ missing — open the editor"}`}
                           >
                             {has ? (
                               <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mx-auto" />
                             ) : (
-                              <XCircle className="h-3.5 w-3.5 text-red-400 mx-auto" />
+                              <Button asChild variant="ghost" size="icon" className="h-6 w-6 rounded-sm text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40">
+                                <a
+                                  href={cabinetDesignerCoverageGapEditUrl(cab.masterCode, cab.id, s.id, s.distributorId)}
+                                  aria-label={`Edit missing ${s.featuredLabel || s.ourName} SKU for ${cab.masterCode}`}
+                                  {...CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </a>
+                              </Button>
                             )}
                           </td>
                         );

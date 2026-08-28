@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { distributors, distributorSkus } from "../drizzle/schema";
+import { cabinets, distributors, distributorSkus } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 function ctxFor(user: Record<string, unknown> | null): TrpcContext {
@@ -37,6 +37,32 @@ describe("distributorPortal — access control", () => {
 });
 
 describe("distributorPortal — scoped data + visibility toggle", () => {
+  it("refuses to create a second cabinet/line/style connection", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const existing = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        distributorId: distributorSkus.distributorId,
+        styleId: distributorSkus.styleId,
+        distributorSku: distributorSkus.distributorSku,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .limit(1);
+    if (!existing[0]) return;
+
+    const caller = appRouter.createCaller(adminUser);
+    await expect(
+      caller.distributorPortal.submitNewProduct({
+        cabinetId: existing[0].cabinetId,
+        distributorId: existing[0].distributorId,
+        styleId: existing[0].styleId,
+        distributorSku: existing[0].distributorSku || "existing-sku",
+      }),
+    ).rejects.toThrow("already exists");
+  });
+
   it("a linked distributor sees only their line and can toggle SKU visibility", async () => {
     const db = await getDb();
     if (!db) return;

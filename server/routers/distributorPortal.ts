@@ -365,6 +365,27 @@ export const distributorPortalRouter = router({
         .limit(1);
       if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
 
+      // A Designer Coverage gap means there is no published and available SKU;
+      // it does not prove that no pending or unpublished connection exists. Do
+      // not create a duplicate row when an administrator is reviewing a gap.
+      const existing = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, input.cabinetId),
+            eq(distributorSkus.distributorId, lineId),
+            eq(distributorSkus.styleId, input.styleId),
+          ),
+        )
+        .limit(1);
+      if (existing[0]) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "A connection for this cabinet, line, and style already exists. Review that existing connection instead of adding another.",
+        });
+      }
+
       // Generate platform SKU: masterCode-styleCode-distCode
       const platformSku = `${cab[0].masterCode}-${input.distributorSku}-${lineId}`;
 

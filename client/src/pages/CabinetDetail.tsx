@@ -53,7 +53,14 @@ import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
-import { CABINET_ATTENTION_RETURN_URL, canFinalizeCabinetConfiguration, DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE, shouldShowCabinetAttentionReturn } from "@shared/cabinetConfigReview";
+import {
+  CABINET_ATTENTION_RETURN_URL,
+  DESIGNER_COVERAGE_RETURN_URL,
+  canFinalizeCabinetConfiguration,
+  DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE,
+  shouldShowCabinetAttentionReturn,
+  shouldShowDesignerCoverageReturn,
+} from "@shared/cabinetConfigReview";
 
 // ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
 const FALLBACK_CATEGORIES = [
@@ -371,6 +378,11 @@ export default function CabinetDetail({ masterCode }: Props) {
     return Number.isInteger(n) && n > 0 ? n : null;
   })();
   const cabinetAttentionReturnSource = new URLSearchParams(searchStr).get("from");
+  const gapDistributorParam = (() => {
+    const value = new URLSearchParams(searchStr).get("distributorId");
+    const parsed = value ? Number(value) : NaN;
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  })();
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
   const { user } = useAuth();
   // The viewer's storefront tier: guests/homeowners see retail; logged-in pros
@@ -387,6 +399,8 @@ export default function CabinetDetail({ masterCode }: Props) {
   // separate, multiplier-adjusted Affiliate Cost. Customers and staff see neither.
   const isOwner = user?.role === "admin";
   const showCabinetAttentionReturn = shouldShowCabinetAttentionReturn(isOwner, cabinetAttentionReturnSource);
+  const showDesignerCoverageReturn = shouldShowDesignerCoverageReturn(isOwner, cabinetAttentionReturnSource);
+  const isDesignerCoverageGapEdit = showDesignerCoverageReturn && styleParam != null && gapDistributorParam != null;
   const visibleTiers: PricingTier[] = isPro || isOwner
     ? ["homeowner", "contractor", "wholesale"]
     : ["homeowner"];
@@ -617,6 +631,15 @@ export default function CabinetDetail({ masterCode }: Props) {
     }
   }, [editOpen, cabinet]);
 
+  // A red Designer Coverage cell identifies a cabinet/style/line with no
+  // published SKU. Prefill that exact context, while still requiring the
+  // administrator to enter the supplier's real SKU before submission.
+  useEffect(() => {
+    if (!editOpen || !isDesignerCoverageGapEdit || styleParam == null || gapDistributorParam == null) return;
+    setConnectionDistributorId(String(gapDistributorParam));
+    setConnectionStyleId(String(styleParam));
+  }, [editOpen, gapDistributorParam, isDesignerCoverageGapEdit, styleParam]);
+
   // Distributor coverage + existing overrides for this cabinet (admin only)
   const { data: distCoverage, refetch: refetchDistCoverage } = trpc.genericCabinets.distributorCoverage.useQuery(
     { cabinetId: cabinet?.id ?? 0 },
@@ -651,6 +674,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       toast.success("Distributor connection saved for review. Add approved pricing before publishing it.");
       void refetchDistCoverage();
       utils.pricing.stylesForCabinet.invalidate({ cabinetId: cabinet?.id ?? 0, affiliateSlug });
+      void utils.cabinets.adminDesignerCoverage.invalidate();
       setConnectionDistributorId("");
       setConnectionStyleId("");
       setConnectionSku("");
@@ -664,6 +688,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditOpen(false);
       if (showCabinetAttentionReturn) {
         setLocation(CABINET_ATTENTION_RETURN_URL);
+      } else if (showDesignerCoverageReturn) {
+        setLocation(DESIGNER_COVERAGE_RETURN_URL);
       }
     },
     onError: (err) => toast.error(`Save failed: ${err.message}`),
@@ -923,6 +949,14 @@ export default function CabinetDetail({ masterCode }: Props) {
               <span>/</span>
               <Link href={CABINET_ATTENTION_RETURN_URL} className="font-medium text-primary hover:underline">
                 Back to Cabinet Attention
+              </Link>
+            </>
+          )}
+          {showDesignerCoverageReturn && (
+            <>
+              <span>/</span>
+              <Link href={DESIGNER_COVERAGE_RETURN_URL} className="font-medium text-primary hover:underline">
+                Back to Designer Coverage
               </Link>
             </>
           )}
@@ -2118,15 +2152,17 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <Label className="text-amber-700 dark:text-amber-400">Distributor Dimension Overrides</Label>
                   <span className="text-[11px] text-muted-foreground">Per-supplier corrections (override master dims)</span>
                 </div>
-                {(distCoverage ?? []).length === 0 ? (
+                {(distCoverage ?? []).length === 0 || isDesignerCoverageGapEdit ? (
                   <div className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-800 dark:text-amber-300">
                         <AlertTriangle className="h-4 w-4" />
-                        Distributor connection required
+                        {isDesignerCoverageGapEdit ? "Selected style SKU required" : "Distributor connection required"}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Select the supplier line, its door style, and the supplier’s actual SKU. This creates a pending connection; it does not invent pricing or publish the cabinet.
+                        {isDesignerCoverageGapEdit
+                          ? "Confirm the supplier’s actual SKU for the selected line and style. This creates a pending connection; it does not invent pricing or publish the cabinet."
+                          : "Select the supplier line, its door style, and the supplier’s actual SKU. This creates a pending connection; it does not invent pricing or publish the cabinet."}
                       </p>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-3">
@@ -2183,7 +2219,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                           });
                         }}
                       >
-                        {connectDistributor.isPending ? "Connecting…" : "Connect distributor"}
+                        {connectDistributor.isPending ? "Saving…" : isDesignerCoverageGapEdit ? "Save style SKU for review" : "Connect distributor"}
                       </Button>
                     </div>
                   </div>
@@ -2346,6 +2382,11 @@ export default function CabinetDetail({ masterCode }: Props) {
               {showCabinetAttentionReturn && (
                 <Button asChild variant="outline" className="mr-auto">
                   <Link href={CABINET_ATTENTION_RETURN_URL}>Back to Attention</Link>
+                </Button>
+              )}
+              {showDesignerCoverageReturn && (
+                <Button asChild variant="outline" className="mr-auto">
+                  <Link href={DESIGNER_COVERAGE_RETURN_URL}>Back to Designer Coverage</Link>
                 </Button>
               )}
               <Button variant="outline" onClick={() => setEditOpen(false)}>

@@ -29,6 +29,28 @@ export function cabinetFrontEndQuickEditUrl(masterCode: string, cabinetId: numbe
 }
 
 export const CABINET_ATTENTION_RETURN_URL = "/admin?tab=cabinet-attention";
+export const DESIGNER_COVERAGE_RETURN_URL = "/admin?tab=coverage&gapsOnly=1";
+
+/**
+ * Opens the exact missing cabinet/style connection from the Designer Coverage
+ * matrix. The editor still creates only a pending connection; it never infers
+ * a supplier SKU, price, or publication state.
+ */
+export function cabinetDesignerCoverageGapEditUrl(
+  masterCode: string,
+  cabinetId: number,
+  styleId: number,
+  distributorId: number,
+): string {
+  const params = new URLSearchParams({
+    edit: "1",
+    cabinetId: String(cabinetId),
+    style: String(styleId),
+    distributorId: String(distributorId),
+    from: "designer-coverage",
+  });
+  return `/catalog/${encodeURIComponent(masterCode)}?${params.toString()}`;
+}
 
 /** Only administrators who entered from Cabinet Attention should see or trigger admin return navigation. */
 export function shouldShowCabinetAttentionReturn(
@@ -36,6 +58,14 @@ export function shouldShowCabinetAttentionReturn(
   source: string | null | undefined,
 ): boolean {
   return isAdministrator && source === "cabinet-attention";
+}
+
+/** Only administrators who entered from Designer Coverage should see its return navigation. */
+export function shouldShowDesignerCoverageReturn(
+  isAdministrator: boolean,
+  source: string | null | undefined,
+): boolean {
+  return isAdministrator && source === "designer-coverage";
 }
 
 export const CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES = {
