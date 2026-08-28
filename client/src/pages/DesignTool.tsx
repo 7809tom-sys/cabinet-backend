@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearch, useLocation } from "wouter";
 import { useCart, type CartItem } from "@/contexts/CartContext";
@@ -5622,7 +5623,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-
+  const [moreToolsPortalElement, setMoreToolsPortalElement] = useState<HTMLDivElement | null>(null);
 
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
@@ -6342,18 +6343,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         >
           <Download className="h-3.5 w-3.5" />
         </button>
-        {/* Preview modes — desktop toolbar button */}
-        {placed.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setViewMode("threeD")}
-            title="Show the synchronized 3D designer canvas"
-            className={`hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${viewMode === "threeD" ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {/* Mobile: icon-only compact buttons in top bar */}
+	        {/* Mobile: icon-only compact buttons in top bar */}
         <div className="ml-auto flex items-center gap-1 lg:hidden">
           {/* View mode buttons */}
           <button
@@ -6933,13 +6923,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             <StickyNote className="h-3.5 w-3.5" />
           </Button>
-          <ConsultantRoomControl
-            compact
-            open={consultOpen}
-            onToggle={() => setConsultOpen((open) => !open)}
-            label={t("dt_sh_consultant_title")}
-          />
-          <div className="h-5 w-px bg-border mx-0.5" />
+	          <div className="h-5 w-px bg-border mx-0.5" />
           {/* Selected-item actions */}
           <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-7 w-7" title={`${t("dt_sh_rotate")} (R)`}>
             <RotateCw className="h-3.5 w-3.5" />
@@ -6966,8 +6950,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
           </Button>
-          {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
-          <DropdownMenu>
+	          {/* This single desktop menu is rendered beside the cabinet distributor selector. */}
+	          {moreToolsPortalElement && createPortal(
+	          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="relative h-7 w-7" title="More tools">
                 <MoreHorizontal className="h-3.5 w-3.5" />
@@ -7079,9 +7064,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 </>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
+	          </DropdownMenu>,
+	          moreToolsPortalElement
+	          )}
 
-          <div className="h-5 w-px bg-border" />
+	          <div className="h-5 w-px bg-border" />
 
           {/* Save / Load / Export */}
           <DesignActions
@@ -7995,11 +7982,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 </button>
               )}
             </div>
-            {/* Distributor / Collection filter — simple dropdown so the user
-                can switch between supply lines. Auto-selects the locked one. */}
-            {styleId && (distributorLabels ?? []).length > 1 && (
-              <div className="mt-2">
-                <Select
+	            {/* Distributor selector and relocated desktop More menu share one compact row. */}
+	            <div className="mt-2 flex items-center gap-1.5">
+	              {styleId && (distributorLabels ?? []).length > 1 ? (
+	              <div className="min-w-0 flex-1">
+	                <Select
                   value={lockedDistributorId != null ? String(lockedDistributorId) : "all"}
                   onValueChange={(val) => {
                     if (val === "all") {
@@ -8037,14 +8024,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <SelectItem key={d.id} value={String(d.id)}>
                         {d.name}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
+	                    ))}
+	                  </SelectContent>
+	                </Select>
+	              </div>
+	              ) : <div className="min-w-0 flex-1" />}
+	              <div ref={setMoreToolsPortalElement} data-testid="catalog-more-tools-slot" className="hidden shrink-0 lg:block" />
+	            </div>
+	          </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+	          <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {/* Door-style-first prompt: the palette is empty until a door style
                 is picked (catalog + pricing key off it). Make that obvious with a
                 clear call-out + a jump to the picker, instead of leaving users

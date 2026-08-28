@@ -477,9 +477,9 @@ export function threeDSelectionFromPlaced(uid: string | null | undefined, placed
     : null;
 }
 
-/** Keeps phone-sized selected-cabinet text clear of the on-canvas movement D-pad. */
-export function threeDSelectedCabinetCardClearanceClass(hasMovementDpad: boolean): string {
-  return hasMovementDpad ? "pl-28 sm:pl-3" : "";
+/** Keeps selected-cabinet details in document flow below the drawing instead of covering the 3D canvas. */
+export function threeDSelectedCabinetDockClass(): string {
+  return "mt-2 w-full rounded-lg border bg-background p-3 text-xs shadow-sm";
 }
 
 export type ThreeDCabinetHit = {
@@ -4541,40 +4541,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
 	        {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <div data-testid="three-d-range-hood-status" className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm backdrop-blur"><span>Add a range hood in the catalog to show it above this saved range.</span>{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add now</button>}</div>}
-        {selectedCabinet && (() => {
-	          const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
-          const description = threeDSelectedCabinetDescription(selectedCabinet);
-          const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
-          const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
-          const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
-	          const wallFit = selectedPlacedCabinet && roomOverride && selectedWall
-	            ? wallCabinetFitMeasure(selectedPlacedCabinet, roomOverride, placed, openings, selectedWall)
-	            : null;
-	          const wallFitText = threeDWallFitGuideText(wallFit);
-	          const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
-          const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
-          return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 max-w-[calc(100%-9rem)] sm:bottom-32 sm:left-auto sm:right-3 sm:max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
-            <div className="flex items-start gap-2">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
-              <div className="min-w-0">
-                <p className="font-semibold">{selectedCabinet.masterCode}</p>
-                <p data-testid="three-d-cabinet-description" className="text-muted-foreground">{description}</p>
-                <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
-	                <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
-	                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
-		                {wallFitText && <div data-testid="three-d-active-wall-clearance" role="status" aria-live="polite" className={`mt-1 rounded-md border px-2 py-1.5 font-medium ${!wallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : wallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">Live placement measurement · ⅛&quot; precision</span><span>{wallFitText}</span></div>}
-                {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
-                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
-                  {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
-                  {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
-                  {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
-                </div>}
-              </div>
-              <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="text-muted-foreground hover:text-foreground">×</button>
-            </div>
-          </div>;
-        })()}
-        {selectedCabinet?.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="absolute bottom-3 left-3 z-10 flex items-end gap-2">
+	        {selectedCabinet?.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="absolute bottom-3 left-3 z-10 flex items-end gap-2">
           <div className="flex flex-col items-center gap-0.5">
             <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-9 w-9 items-center justify-center rounded-t-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
             <div className="flex gap-0.5"><button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="flex h-9 w-9 items-center justify-center rounded-l-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button><button type="button" onClick={() => onRotateCabinet?.(selectedCabinet.uid!)} className="flex h-9 w-9 items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm transition-transform hover:bg-[#1a2744]/80 active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button><button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="flex h-9 w-9 items-center justify-center rounded-r-lg border border-border bg-white/90 shadow-sm transition-transform hover:bg-white active:scale-95"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button></div>
@@ -4586,9 +4553,41 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           <div className="flex gap-1"><button data-testid="three-d-zoom-in" type="button" onClick={() => zoomViewer("in")} aria-label="Zoom in for a closer cabinet view" title="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Plus className="h-4 w-4" /></button><button data-testid="three-d-zoom-out" type="button" onClick={() => zoomViewer("out")} aria-label="Zoom out for a wider room view" title="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Minus className="h-4 w-4" /></button><button data-testid="three-d-reset-view" type="button" onClick={resetViewerNavigation} aria-label="Reset 3D room view" title="Reset view" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#a87f33]/50 bg-[#fffaf1] text-[#765416] transition hover:bg-amber-100 active:scale-95"><RefreshCw className="h-4 w-4" /></button></div>
           <button data-testid="three-d-share-view" type="button" onClick={() => void shareCurrentView()} aria-label="Share the current 3D zoom and pan perspective" title="Share current view" className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-[#a87f33]/45 bg-[#fffaf1] px-2 text-[11px] font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Share2 className="h-3.5 w-3.5" />Share View</button>
           <div className="grid grid-cols-3 gap-1" aria-label="Pan the 3D room view"><span /><button data-testid="three-d-pan-up" type="button" onClick={() => panViewer("up")} aria-label="Pan view up" title="Pan up" className="flex h-8 w-8 items-center justify-center rounded-t-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowUp className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-left" type="button" onClick={() => panViewer("left")} aria-label="Pan view left" title="Pan left" className="flex h-8 w-8 items-center justify-center rounded-l-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowLeft className="h-4 w-4" /></button><span className="flex h-8 w-8 items-center justify-center text-[9px] font-bold text-slate-500">PAN</span><button data-testid="three-d-pan-right" type="button" onClick={() => panViewer("right")} aria-label="Pan view right" title="Pan right" className="flex h-8 w-8 items-center justify-center rounded-r-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowRight className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-down" type="button" onClick={() => panViewer("down")} aria-label="Pan view down" title="Pan down" className="flex h-8 w-8 items-center justify-center rounded-b-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowDown className="h-4 w-4" /></button><span /></div>
-        </div>
-      </div>
-      {!embedded && <>
+	        </div>
+	      </div>
+	      {selectedCabinet && (() => {
+	        const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
+	        const description = threeDSelectedCabinetDescription(selectedCabinet);
+	        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
+	        const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
+	        const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
+	        const wallFit = selectedPlacedCabinet && roomOverride && selectedWall
+	          ? wallCabinetFitMeasure(selectedPlacedCabinet, roomOverride, placed, openings, selectedWall)
+	          : null;
+	        const wallFitText = threeDWallFitGuideText(wallFit);
+	        const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
+	        return <div data-testid="three-d-cabinet-attributes" className={threeDSelectedCabinetDockClass()}>
+	          <div className="flex items-start gap-2">
+	            <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
+	            <div className="min-w-0 flex-1">
+	              <p className="font-semibold">{selectedCabinet.masterCode}</p>
+	              <p data-testid="three-d-cabinet-description" className="text-muted-foreground">{description}</p>
+	              <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
+	              <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
+	              {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
+	              {wallFitText && <div data-testid="three-d-active-wall-clearance" role="status" aria-live="polite" className={`mt-1 rounded-md border px-2 py-1.5 font-medium ${!wallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : wallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">Live placement measurement · ⅛&quot; precision</span><span>{wallFitText}</span></div>}
+	              {selectedCabinet.uid && <div className="mt-2 flex flex-wrap gap-2">
+	                {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
+	                {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
+	                {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
+	                {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
+	              </div>}
+	            </div>
+	            <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="shrink-0 text-muted-foreground hover:text-foreground">×</button>
+	          </div>
+	        </div>;
+	      })()}
+	      {!embedded && <>
         <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
