@@ -10,6 +10,7 @@ import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
+import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -1976,6 +1977,26 @@ describe("interactive 3D room scene helpers", () => {
     expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
   });
 
+  it("extends an installed shallow filler countertop to the full 24¼-inch base-run depth", () => {
+    const filler = {
+      fillerPieceGroupId: "filler-group",
+      fillerTotalWidth: 2.5,
+      fillerPlacementMode: "right" as const,
+    };
+    expect(threeDSceneCountertopDepthIn(filler, 0.75)).toBe(24.25);
+
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 88, cabinetId: 88, masterCode: "BF3", description: "Base Filler", placementType: "base",
+      width: 2.5, height: 34.5, depth: 0.75, numberOfDoors: 0, numberOfDrawers: 0,
+      ...filler,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    let countertop: THREE.Mesh | null = null;
+    root.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.installedFillerCountertop) countertop = node; });
+    expect(countertop).not.toBeNull();
+    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
+  });
+
   it("mounts a saved range hood directly to the wall without a cabinet-finish backing box", () => {
     const root = new THREE.Group();
     addCabinet(root, {
@@ -2998,6 +3019,24 @@ describe("interactive 3D room scene helpers", () => {
       expect(openings[0]!.userData.openingWidthIn).toBeCloseTo(fixture.openingWidth, 12);
       expect(openings[0]!.userData.openingHeightIn).toBeCloseTo(fixture.openingHeight, 12);
     }
+  });
+
+  it("renders MW3042 as two upper doors with a visible bottom opening instead of dropping the cabinet or using its catalog diagram", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 2613279, cabinetId: 9390053, masterCode: "MW3042", description: '30" Microwave Wall Cabinet', placementType: "wall",
+      width: 30, height: 42, depth: 18, numberOfDoors: 2, numberOfDrawers: 0,
+      openingType: "bottom", doorHeight: 24, catalogImageUrl: "https://example.com/mw3042-diagram.webp",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const openings: THREE.Object3D[] = [];
+    const doors: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.configuredOpening) openings.push(node);
+      if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront) doors.push(node);
+    });
+    expect(openings).toHaveLength(1);
+    expect(doors).toHaveLength(2);
+    expect(openings[0]!.position.y).toBeLessThan(doors[0]!.position.y);
   });
 
   it("normalizes legacy range and refrigerator base records into appliance meshes so the saved cooktop and fridge face cannot disappear", () => {

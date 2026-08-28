@@ -57,6 +57,7 @@ import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } f
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import {
   SMALL_GAP_FILLER_MAX_IN,
+  appendSmallGapFillerPlacement,
   canSplitSmallGapFiller,
   findSmallGapFillerOpportunity,
   removePlacedCabinetGroup,
@@ -3466,9 +3467,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         fillerPlacementMode: mode,
       };
     });
-    const base = placed.map((item) => item.uid === movedCabinet.uid ? movedCabinet : item);
-    const result = appendCollisionFreePlacements(base, pieces);
-    if (result.rejected.length > 0 || result.placed.length !== base.length + pieces.length) {
+    const result = appendSmallGapFillerPlacement(placed, movedCabinet, pieces);
+    if (result.rejected.length > 0 || result.placed.length !== placed.length + pieces.length) {
       toast.error("The filler could not be seated at exact zero overlap. The design was not changed.");
       return;
     }

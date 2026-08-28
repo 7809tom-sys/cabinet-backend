@@ -761,6 +761,20 @@ export function threeDCountertopDepthIn(cabinetDepthIn: number) {
   return cabinetDepthIn + 0.25;
 }
 
+/** Installed base fillers continue the adjacent 24-inch base countertop instead of using their shallow stock depth. */
+export function threeDSceneCountertopDepthIn(
+  item: Pick<SceneSku, "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode">,
+  cabinetDepthIn: number,
+) {
+  const installedFiller = Boolean(
+    item.fillerPieceGroupId &&
+    item.fillerPlacementMode &&
+    Number.isFinite(Number(item.fillerTotalWidth)) &&
+    Number(item.fillerTotalWidth) > 0,
+  );
+  return threeDCountertopDepthIn(installedFiller ? BASE_DEPTH : cabinetDepthIn);
+}
+
 export function rangeOvenFrontLayout(bodyHeight: number) {
   const drawerHeight = Math.max(0.12, bodyHeight * 0.14);
   const openingHeight = Math.max(0.2, bodyHeight * 0.54);
@@ -2725,9 +2739,12 @@ export function addCabinet(
   for (let i = 0; i < doorCount; i++) {
     const doorWidth = (bodyWidth - 0.08) / doorCount;
     const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
+    const configuredDoorCenterY = hasConfiguredOpening && sku.openingType === "bottom"
+      ? bodyHeight / 2 - 0.04 - doorHeight / 2
+      : -bodyHeight / 2 + 0.04 + doorHeight / 2;
     door.position.set(
       -bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5),
-      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : -bodyHeight / 2 + 0.04 + doorHeight / 2,
+      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : configuredDoorCenterY,
       0,
     );
     door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
@@ -2775,9 +2792,9 @@ export function addCabinet(
     }
     drawerCursor += drawersAtBottom ? row.height : -row.height;
   }
-  if (hasConfiguredOpening && doorCount === 0) {
+  if (hasConfiguredOpening) {
     const availableOpeningWidth = Math.max(0.2, bodyWidth - 0.11);
-    const availableOpeningHeight = Math.max(0.2, usableHeight - drawerHeight);
+    const availableOpeningHeight = Math.max(0.2, usableHeight - drawerHeight - (doorCount > 0 ? doorHeight : 0));
     // Cabinet Config is authoritative: a built-in appliance/opening can be
     // smaller than the surrounding box, never wider or taller than its explicit
     // opening envelope (for example, a 27-by-17 microwave bay).
@@ -2793,7 +2810,12 @@ export function addCabinet(
       new THREE.BoxGeometry(openingWidth, openingHeight - 0.03, 0.052),
       new THREE.MeshStandardMaterial({ color: "#343a43", roughness: 0.5, metalness: 0.2 }),
     );
-    opening.position.set(0, bodyHeight / 2 - 0.04 - openingHeight / 2, 0.006);
+    const openingCenterY = sku.openingType === "bottom"
+      ? -bodyHeight / 2 + 0.04 + openingHeight / 2
+      : sku.openingType === "top"
+        ? bodyHeight / 2 - 0.04 - openingHeight / 2
+        : 0;
+    opening.position.set(0, openingCenterY, 0.006);
     opening.userData = {
       configuredOpening: true,
       openingType: sku.openingType,
@@ -2892,12 +2914,16 @@ export function addCabinet(
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else {
-      const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, threeDCountertopDepthIn(bodyDepth / INCH) * INCH), counterMaterial);
+      const countertopDepthIn = threeDSceneCountertopDepthIn(sku, bodyDepth / INCH);
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, countertopDepthIn * INCH), counterMaterial);
       counter.position.copy(cabinet.position);
       counter.rotation.y = rotation;
       counter.translateZ(COUNTERTOP_FRONT_OVERHANG / 2);
       counter.position.y = countertopCenterY;
-      counter.userData = { countertopDepthIn: threeDCountertopDepthIn(bodyDepth / INCH) };
+      counter.userData = {
+        countertopDepthIn,
+        ...(sku.fillerPieceGroupId ? { installedFillerCountertop: true } : {}),
+      };
       if (specialty.kind === "blind-corner") counter.userData = { ...counter.userData, blindCornerCountertop: true };
       if (isFloorDishwasher) counter.userData = { ...counter.userData, dishwasherCountertopSupport: true, floorApplianceSupport: true };
       applyThreeDPlacementIdentity(counter, placementIdentity);

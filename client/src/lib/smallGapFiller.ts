@@ -1,5 +1,6 @@
 import {
   FILLER_MIN_WIDTH_IN,
+  appendCollisionFreePlacements,
   cabinetWall,
   isFillerItem,
   wallSpanMeasure,
@@ -120,6 +121,16 @@ export function smallGapFillerLayout(
   if (leftWidth > EDGE_EPSILON_IN) pieces.push({ side: "left", start: opportunity.openingStart, width: leftWidth });
   if (rightWidth > EDGE_EPSILON_IN) pieces.push({ side: "right", start: cabinetStart + opportunity.cabinetSpan, width: rightWidth });
   return { cabinetStart, leftWidth, rightWidth, pieces };
+}
+
+/** Replaces only the cabinet being repositioned, then appends filler pieces without dropping unrelated saved items. */
+export function appendSmallGapFillerPlacement(
+  placed: readonly PlacedCabinet[],
+  movedCabinet: PlacedCabinet,
+  pieces: readonly PlacedCabinet[],
+) {
+  const preserved = placed.map((item) => item.uid === movedCabinet.uid ? movedCabinet : item);
+  return appendCollisionFreePlacements(preserved, [...pieces]);
 }
 
 /** Removing either half removes the complete purchased filler group. */

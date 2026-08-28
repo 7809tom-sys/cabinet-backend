@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
 import { DEFAULT_ROOM, type PlacedCabinet } from "@/lib/design";
 import {
+  appendSmallGapFillerPlacement,
   findSmallGapFillerOpportunity,
   removePlacedCabinetGroup,
   smallGapFillerLayout,
@@ -61,6 +62,19 @@ describe("small-gap filler placement", () => {
       { ...cabinet, uid: "fill-right", masterCode: "BF3", fillerPieceGroupId: "fill-group", fillerBillingRole: "secondary" },
     ];
     expect(removePlacedCabinetGroup(pieces, "fill-right").map((item) => item.uid)).toEqual([cabinet.uid]);
+  });
+
+  it("preserves the refrigerator, its upper cabinet, panels, and every unrelated placement when filler pieces are added", () => {
+    const b15 = { ...cabinet, uid: "b15", masterCode: "B-15", width: 15 };
+    const refrigerator = { ...cabinet, uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance" as const, x: 30, width: 36, height: 70 };
+    const refrigeratorUpper = { ...cabinet, uid: "fridge-upper", masterCode: "MW3042", placement: "wall" as const, x: 30, width: 30, height: 42, mountBottom: 72 };
+    const panel = { ...cabinet, uid: "fridge-panel", masterCode: "REPV2496", placement: "tall" as const, x: 66, width: 0.75, height: 96 };
+    const moved = { ...b15, x: 1.25 };
+    const filler = { ...cabinet, uid: "filler", masterCode: "BF3", x: 0, y: 100, width: 1.25, fillerPieceGroupId: "filler-group", fillerTotalWidth: 1.25, fillerPlacementMode: "left" as const };
+    const result = appendSmallGapFillerPlacement([b15, refrigerator, refrigeratorUpper, panel], moved, [filler]);
+
+    expect(result.rejected).toEqual([]);
+    expect(result.placed.map((item) => item.uid)).toEqual(["b15", "fridge", "fridge-upper", "fridge-panel", "filler"]);
   });
 
   it("bills and previews a split filler as one catalog quantity", () => {
