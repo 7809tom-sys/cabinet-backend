@@ -4394,16 +4394,20 @@ export function freeSegmentsOnWall(
 
   // Only items on the SAME layer (wall vs floor) block this run. Tall cabinets
   // span floor-to-ceiling, so they block BOTH the base and wall layers.
-  const blocksThisLayer = (pl: Placement): boolean => {
+  const blocksThisLayer = (item: PlacedCabinet): boolean => {
+    const pl = item.placement;
     if (pl === "tall") return true;
     if (reserveUpperZone && pl === "wall") return true;
     if (layer === "tall") return pl === "base" || pl === "appliance" || pl === "wall";
-    if (layer === "wall") return pl === "wall";
+    // A refrigerator occupies the standard upper-cabinet elevation band. Normal
+    // wall-run sequencing must reserve that span, while a dedicated refrigerator
+    // wall cabinet may deliberately share it above the appliance.
+    if (layer === "wall") return pl === "wall" || (reserveUpperZone && isRefrigerator(item));
     // base/appliance share the floor layer
     return pl === "base" || pl === "appliance";
   };
   for (const p of placed) {
-    if (!blocksThisLayer(p.placement)) continue;
+    if (!blocksThisLayer(p)) continue;
     // Corner items can touch two walls at once. Only the wall selected by the
     // cabinet's orientation/explicit wall identity belongs to this run; a tall
     // cabinet on the perpendicular wall must not consume this wall's open span.
@@ -4479,6 +4483,7 @@ export function paletteActiveWallPlacement(
   width: number,
   depth: number,
   placement: Placement,
+  reserveFullHeightAppliances = false,
 ): { x: number; y: number; rotation: number } | null {
   const segments = freeSegmentsOnWall(
     side,
@@ -4488,7 +4493,7 @@ export function paletteActiveWallPlacement(
     Math.min(width, 9),
     placement === "wall" ? WALL_OPENING_CLEARANCE_IN : 0,
     placement,
-    false,
+    reserveFullHeightAppliances,
   );
   // Work from the selected wall's visible left edge toward its right edge. A
   // later tall cabinet or prior intentional gap must not push the next cabinet

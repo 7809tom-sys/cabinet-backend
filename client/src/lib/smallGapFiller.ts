@@ -1,5 +1,6 @@
 import {
   FILLER_MIN_WIDTH_IN,
+  STD,
   appendCollisionFreePlacements,
   cabinetWall,
   isFillerItem,
@@ -32,6 +33,42 @@ export type SmallGapFillerLayout = {
   rightWidth: number;
   pieces: Array<{ side: "left" | "right"; start: number; width: number }>;
 };
+
+export type InstalledFillerVerticalSpec = {
+  storedHeight: number;
+  visibleBottom: number;
+  visibleHeight: number;
+  visibleTop: number;
+};
+
+/**
+ * Base filler catalog records may describe taller stock. Once installed beside a
+ * standard base cabinet, only the 30-inch cabinet-box panel is visible above the
+ * 4½-inch toe kick. The saved height remains the standard inclusive 34½-inch base
+ * envelope so the existing 2D/3D toe-kick renderers do not subtract the kick twice.
+ */
+export function installedFillerVerticalSpec(
+  layer: "base" | "wall",
+  catalogHeight: number,
+): InstalledFillerVerticalSpec {
+  if (layer === "base") {
+    return {
+      storedHeight: STD.BASE_HEIGHT,
+      visibleBottom: STD.TOE_KICK,
+      visibleHeight: STD.BASE_HEIGHT - STD.TOE_KICK,
+      visibleTop: STD.BASE_HEIGHT,
+    };
+  }
+  const storedHeight = Number.isFinite(catalogHeight) && catalogHeight > 0
+    ? catalogHeight
+    : STD.WALL_HEIGHT;
+  return {
+    storedHeight,
+    visibleBottom: 0,
+    visibleHeight: storedHeight,
+    visibleTop: storedHeight,
+  };
+}
 
 function near(left: number, right: number) {
   return Math.abs(left - right) <= EDGE_EPSILON_IN;

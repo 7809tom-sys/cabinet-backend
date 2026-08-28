@@ -4,6 +4,7 @@ import { DEFAULT_ROOM, type PlacedCabinet } from "@/lib/design";
 import {
   appendSmallGapFillerPlacement,
   findSmallGapFillerOpportunity,
+  installedFillerVerticalSpec,
   removePlacedCabinetGroup,
   smallGapFillerLayout,
 } from "@/lib/smallGapFiller";
@@ -14,6 +15,24 @@ const cabinet: PlacedCabinet = {
 };
 
 describe("small-gap filler placement", () => {
+  it("installs a base filler as a 30-inch visible panel above the 4½-inch toe kick", () => {
+    expect(installedFillerVerticalSpec("base", 96)).toEqual({
+      storedHeight: 34.5,
+      visibleBottom: 4.5,
+      visibleHeight: 30,
+      visibleTop: 34.5,
+    });
+  });
+
+  it("preserves the catalog height for wall fillers", () => {
+    expect(installedFillerVerticalSpec("wall", 42)).toEqual({
+      storedHeight: 42,
+      visibleBottom: 0,
+      visibleHeight: 42,
+      visibleTop: 42,
+    });
+  });
+
   it("detects a three-inch or smaller trailing opening after placement", () => {
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 20.5 }, [cabinet], [], cabinet.uid);
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });

@@ -1629,6 +1629,20 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       .toEqual({ x: 30, y: 0, rotation: 0 });
   });
 
+  it("places a normal W-30-42 in the first valid upper opening to the right of a full-height refrigerator", () => {
+    const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
+    const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, refrigerator], [], 30, 12, "wall", true))
+      .toEqual({ x: 78, y: 0, rotation: 0 });
+  });
+
+  it("still permits a dedicated refrigerator wall cabinet to share the refrigerator span", () => {
+    const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
+    const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, refrigerator], [], 36, 24, "wall", false))
+      .toEqual({ x: 24, y: 0, rotation: 0 });
+  });
+
   it("centers W-30-24 above an explicitly selected sink base instead of using the generic wall sequence", () => {
     const sinkBase = cab({ uid: "selected-sink-base", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
     const spot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, 24);

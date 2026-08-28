@@ -60,6 +60,7 @@ import {
   appendSmallGapFillerPlacement,
   canSplitSmallGapFiller,
   findSmallGapFillerOpportunity,
+  installedFillerVerticalSpec,
   removePlacedCabinetGroup,
   smallGapFillerLayout,
   type SmallGapFillerOpportunity,
@@ -96,7 +97,7 @@ import {
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
-  isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
+  isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
@@ -2635,6 +2636,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             width,
             depth,
             accPlacement,
+            accPlacement === "wall" && !isRefrigeratorWallCabinet({
+              masterCode: c.masterCode,
+              description: c.description,
+              placement: accPlacement,
+            }),
           );
           if (!nextSpot) {
             const runName = accPlacement === "wall" ? "wall-cabinet" : "base-cabinet";
@@ -3282,7 +3288,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const width = w;
       const catalogWidth = dim(fillerDef.width, w);
       const depth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
-      const height = dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+      const vertical = installedFillerVerticalSpec(
+        placement,
+        dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+      );
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
       const newCab: PlacedCabinet = {
         uid: makeUid(),
@@ -3298,8 +3307,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         nominalWidth: catalogWidth,
         depth,
         nominalDepth: depth,
-        height,
-        nominalHeight: height,
+        height: vertical.storedHeight,
+        nominalHeight: vertical.storedHeight,
         rotation: spot.rotation,
         numberOfDoors: 0,
         numberOfDrawers: 0,
@@ -3377,7 +3386,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const fillerDepth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
-      const fillerHeight = dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+      const fillerHeight = installedFillerVerticalSpec(
+        placement,
+        dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+      ).storedHeight;
       const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
       const newFiller: PlacedCabinet = {
         uid: makeUid(),
@@ -3433,7 +3445,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
     const fillerGroupId = `filler-group-${makeUid()}`;
     const fillerDepth = dim(fillerDef.depth, opportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-    const fillerHeight = dim(fillerDef.height, opportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+    const fillerHeight = installedFillerVerticalSpec(
+      opportunity.layer,
+      dim(fillerDef.height, opportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+    ).storedHeight;
     const catalogWidth = dim(fillerDef.width, opportunity.remaining);
     const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {
       const spot = wallPlacementAt(piece.start, piece.width, fillerDepth, opportunity.wall, room);
