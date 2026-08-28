@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -600,6 +600,25 @@ export function threeDCameraDistanceLimits(maxSpan: number) {
     minDistance: Math.max(5.5, maxSpan * 0.55),
     maxDistance: Math.max(14, maxSpan * 3.4),
   };
+}
+
+/** One click makes a useful close-inspection change without skipping past the selected cabinet face. */
+export const THREE_D_VIEWER_ZOOM_FACTOR = 0.76;
+
+/** Directional pan remains proportional to the active camera distance, with a comfortable control range. */
+export function threeDViewerPanStep(distance: number): number {
+  return Math.max(0.35, Math.min(1.2, distance * 0.12));
+}
+
+/** Clamps button-driven zoom to the same safe OrbitControls range used for wheel and pinch input. */
+export function threeDViewerZoomDistance(
+  distance: number,
+  limits: Pick<ReturnType<typeof threeDCameraDistanceLimits>, "minDistance" | "maxDistance">,
+  direction: "in" | "out",
+): number {
+  const current = Math.min(limits.maxDistance, Math.max(limits.minDistance, distance));
+  const requested = direction === "in" ? current * THREE_D_VIEWER_ZOOM_FACTOR : current / THREE_D_VIEWER_ZOOM_FACTOR;
+  return Math.min(limits.maxDistance, Math.max(limits.minDistance, requested));
 }
 
 export type ThreeDCameraPreset = "presentation" | "front" | "wide" | "detail";
@@ -3988,6 +4007,51 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     camera.updateProjectionMatrix();
   };
 
+  const zoomViewer = (direction: "in" | "out") => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const roomDimensions = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+    const maxSpan = Math.max(roomDimensions.width, roomDimensions.depth) * INCH;
+    const currentDistance = camera.position.distanceTo(controls.target);
+    const nextDistance = threeDViewerZoomDistance(currentDistance, threeDCameraDistanceLimits(maxSpan), direction);
+    const offset = camera.position.clone().sub(controls.target);
+    if (offset.lengthSq() < 0.000001) return;
+    camera.position.copy(controls.target.clone().add(offset.normalize().multiplyScalar(nextDistance)));
+    controls.update();
+    setAutoRotate(false);
+  };
+
+  const panViewer = (direction: "up" | "down" | "left" | "right") => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const step = threeDViewerPanStep(camera.position.distanceTo(controls.target));
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    if (forward.lengthSq() < 0.000001) forward.set(0, 0, -1);
+    forward.normalize();
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    right.y = 0;
+    if (right.lengthSq() < 0.000001) right.set(1, 0, 0);
+    right.normalize();
+    const delta = direction === "up" ? forward.multiplyScalar(step)
+      : direction === "down" ? forward.multiplyScalar(-step)
+        : direction === "left" ? right.multiplyScalar(-step)
+          : right.multiplyScalar(step);
+    camera.position.add(delta);
+    controls.target.add(delta);
+    controls.update();
+    setAutoRotate(false);
+  };
+
+  const resetViewerNavigation = () => {
+    setAutoRotate(false);
+    setCameraPreset("presentation");
+    setResetKey((current) => current + 1);
+  };
+
   const inspectCabinetAtPoint = (clientX: number, clientY: number) => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
@@ -4372,7 +4436,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 	          const wallFitText = threeDWallFitGuideText(wallFit);
 	          const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
           const dpadClearanceClass = threeDSelectedCabinetCardClearanceClass(Boolean(selectedCabinet.uid && onMoveCabinet));
-          return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 sm:left-auto sm:right-3 max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
+          return <div data-testid="three-d-cabinet-attributes" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className={`absolute bottom-3 left-3 max-w-[calc(100%-9rem)] sm:bottom-32 sm:left-auto sm:right-3 sm:max-w-[calc(100%-1.5rem)] rounded-lg border bg-background/95 p-3 text-xs shadow-lg backdrop-blur ${dpadClearanceClass}`}>
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
               <div className="min-w-0">
@@ -4401,6 +4465,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           </div>
           <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded-md border px-2 py-1.5 text-[11px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white/90 text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
         </div>}
+        <div data-testid="three-d-viewer-navigation" aria-label="3D viewer zoom and pan controls" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="absolute bottom-3 right-3 z-20 flex flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white/95 p-1.5 shadow-lg backdrop-blur">
+          <div className="flex gap-1"><button data-testid="three-d-zoom-in" type="button" onClick={() => zoomViewer("in")} aria-label="Zoom in for a closer cabinet view" title="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Plus className="h-4 w-4" /></button><button data-testid="three-d-zoom-out" type="button" onClick={() => zoomViewer("out")} aria-label="Zoom out for a wider room view" title="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Minus className="h-4 w-4" /></button><button data-testid="three-d-reset-view" type="button" onClick={resetViewerNavigation} aria-label="Reset 3D room view" title="Reset view" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#a87f33]/50 bg-[#fffaf1] text-[#765416] transition hover:bg-amber-100 active:scale-95"><RefreshCw className="h-4 w-4" /></button></div>
+          <div className="grid grid-cols-3 gap-1" aria-label="Pan the 3D room view"><span /><button data-testid="three-d-pan-up" type="button" onClick={() => panViewer("up")} aria-label="Pan view up" title="Pan up" className="flex h-8 w-8 items-center justify-center rounded-t-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowUp className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-left" type="button" onClick={() => panViewer("left")} aria-label="Pan view left" title="Pan left" className="flex h-8 w-8 items-center justify-center rounded-l-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowLeft className="h-4 w-4" /></button><span className="flex h-8 w-8 items-center justify-center text-[9px] font-bold text-slate-500">PAN</span><button data-testid="three-d-pan-right" type="button" onClick={() => panViewer("right")} aria-label="Pan view right" title="Pan right" className="flex h-8 w-8 items-center justify-center rounded-r-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowRight className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-down" type="button" onClick={() => panViewer("down")} aria-label="Pan view down" title="Pan down" className="flex h-8 w-8 items-center justify-center rounded-b-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowDown className="h-4 w-4" /></button><span /></div>
+        </div>
       </div>
       {!embedded && <>
         <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">

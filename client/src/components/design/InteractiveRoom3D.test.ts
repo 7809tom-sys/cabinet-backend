@@ -9,6 +9,7 @@ import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPre
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
+import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -486,6 +487,35 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDCameraDistanceLimits(12).minDistance).toBeCloseTo(6.6, 12);
     expect(threeDCameraDistanceLimits(12).maxDistance).toBeCloseTo(40.8, 12);
     expect(threeDCameraDistanceLimits(8).minDistance).toBe(5.5);
+  });
+
+  it("provides bounded button zoom and distance-scaled pan steps for close hardware inspection", () => {
+    const limits = threeDCameraDistanceLimits(12);
+    expect(THREE_D_VIEWER_ZOOM_FACTOR).toBeCloseTo(0.76, 12);
+    expect(threeDViewerZoomDistance(12, limits, "in")).toBeCloseTo(9.12, 12);
+    expect(threeDViewerZoomDistance(limits.minDistance, limits, "in")).toBe(limits.minDistance);
+    expect(threeDViewerZoomDistance(limits.maxDistance, limits, "out")).toBe(limits.maxDistance);
+    expect(threeDViewerPanStep(1)).toBeCloseTo(0.35, 12);
+    expect(threeDViewerPanStep(6.6)).toBeCloseTo(0.792, 12);
+    expect(threeDViewerPanStep(40.8)).toBeCloseTo(1.2, 12);
+  });
+
+  it("renders accessible zoom, pan, and reset controls without replacing existing orbit, pinch, selection, or cabinet-move gestures", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain('data-testid="three-d-viewer-navigation"');
+    expect(rendererSource).toContain('data-testid="three-d-zoom-in"');
+    expect(rendererSource).toContain('data-testid="three-d-zoom-out"');
+    expect(rendererSource).toContain('data-testid="three-d-reset-view"');
+    expect(rendererSource).toContain('data-testid="three-d-pan-up"');
+    expect(rendererSource).toContain('data-testid="three-d-pan-down"');
+    expect(rendererSource).toContain('data-testid="three-d-pan-left"');
+    expect(rendererSource).toContain('data-testid="three-d-pan-right"');
+    expect(rendererSource).toContain('onClick={() => zoomViewer("in")}');
+    expect(rendererSource).toContain('onClick={() => panViewer("left")}');
+    expect(rendererSource).toContain('onClick={resetViewerNavigation}');
+    expect(rendererSource).toContain('Pinch or scroll to zoom');
+    expect(rendererSource).toContain('onPointerMove={handleRoomPointerMove}');
+    expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');
   });
 
   it("provides distinct stable camera presets for clear 3D review", () => {
