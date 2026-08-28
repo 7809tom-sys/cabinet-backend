@@ -57,6 +57,33 @@ describe("small-gap filler placement", () => {
     });
   });
 
+  it("does not prompt for W2442 when a three-quarter-inch clearance exists on one side but 59½ inches remains on the other", () => {
+    const previousUpper: PlacedCabinet = {
+      ...cabinet,
+      uid: "previous-upper",
+      masterCode: "W-24-42-PREV",
+      placement: "wall",
+      x: 36.75,
+      y: 0,
+      width: 24,
+      depth: 12,
+      height: 42,
+      mountBottom: 54,
+    };
+    const w2442: PlacedCabinet = {
+      ...previousUpper,
+      uid: "w2442",
+      masterCode: "W-24-42",
+      x: 61.5,
+    };
+    expect(findSmallGapFillerOpportunity(
+      { ...DEFAULT_ROOM, width: 145 },
+      [previousUpper, w2442],
+      [],
+      w2442.uid,
+    )).toBeNull();
+  });
+
   it("does not prompt for an opening larger than three inches", () => {
     expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 21.125 }, [cabinet], [], cabinet.uid)).toBeNull();
   });

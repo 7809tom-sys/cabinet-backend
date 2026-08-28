@@ -81,7 +81,7 @@ function gapCrossesWallOpening(openings: readonly WallOpening[], wall: WallSide,
     && opening.offset + opening.width > start + EDGE_EPSILON_IN);
 }
 
-/** Detects only a real post-placement wall opening of 3 inches or less beside the new cabinet. */
+/** Detects only a real post-placement bounded opening with 3 inches or less total remainder. */
 export function findSmallGapFillerOpportunity(
   room: RoomData,
   placed: readonly PlacedCabinet[],
@@ -102,29 +102,13 @@ export function findSmallGapFillerOpportunity(
   const cabinetEnd = cabinetStart + cabinetSpan;
   const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
   const leadingStart = cabinetStart - measurement.before;
-  const leadingWidth = measurement.before >= FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN
-    && measurement.before <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN
-    && !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)
-      ? measurement.before
-      : 0;
-  const trailingWidth = measurement.after >= FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN
-    && measurement.after <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN
-    && !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)
-      ? measurement.after
-      : 0;
-
-  let openingStart = cabinetStart;
-  let remaining = 0;
-  if (leadingWidth > 0 && trailingWidth > 0 && leadingWidth + trailingWidth <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) {
-    openingStart = leadingStart;
-    remaining = leadingWidth + trailingWidth;
-  } else if (leadingWidth > 0) {
-    openingStart = leadingStart;
-    remaining = leadingWidth;
-  } else if (trailingWidth > 0) {
-    remaining = trailingWidth;
-  }
+  const remaining = measurement.before + measurement.after;
+  // A small clearance on one side is not a filler opportunity when the other
+  // side still has room for more cabinets. The entire measured opening must be
+  // nearly consumed by this cabinet before the filler choices are offered.
   if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  if (gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)) return null;
+  if (gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)) return null;
   const roundedRemaining = Math.round(remaining * 1000) / 1000;
   return {
     cabinetUid,
@@ -132,7 +116,7 @@ export function findSmallGapFillerOpportunity(
     layer,
     cabinetStart,
     cabinetSpan,
-    openingStart,
+    openingStart: leadingStart,
     openingLength: cabinetSpan + roundedRemaining,
     remaining: roundedRemaining,
   };
