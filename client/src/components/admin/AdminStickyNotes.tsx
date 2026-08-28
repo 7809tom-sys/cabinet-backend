@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { AdminStickyNoteRichText, AdminStickyNoteRichTextEditor } from "./AdminStickyNoteRichText";
 
 const NOTE_COLORS = [
   { value: "yellow", label: "Yellow", className: "border-amber-300 bg-amber-100 text-amber-950" },
@@ -85,7 +86,7 @@ export default function AdminStickyNotes() {
         <CardContent className="space-y-3 pt-5">
           <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-amber-950">Post a shared sticky note</p><label className="flex items-center gap-2 text-xs font-medium text-amber-900">Color<select aria-label="New note color" value={color} onChange={(event) => setColor(event.target.value as typeof color)} className="rounded border border-amber-300 bg-white px-2 py-1 text-amber-950">{NOTE_COLORS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
           <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title (optional)" maxLength={120} aria-label="New note title" className="bg-white" />
-          <Textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="What should the admin team know?" maxLength={3000} rows={4} aria-label="New note text" className="resize-y bg-white" />
+          <AdminStickyNoteRichTextEditor value={body} onChange={setBody} ariaLabel="New note text" />
           <div className="flex justify-end"><Button type="button" disabled={!body.trim() || create.isPending} onClick={() => create.mutate({ title: title.trim() || null, body: body.trim(), color, isPinned: false })} className="gap-2 bg-[var(--color-navy)] text-white"><Plus className="h-4 w-4" /> Post note</Button></div>
         </CardContent>
       </Card>
@@ -100,11 +101,11 @@ export default function AdminStickyNotes() {
             <CardContent className="flex h-full flex-col gap-3 p-4">
               {isEditing ? <>
                 <Input value={editing.title ?? ""} onChange={(event) => setEditing({ ...editing, title: event.target.value || null })} placeholder="Title (optional)" maxLength={120} aria-label="Edit note title" className="bg-white/80" />
-                <Textarea value={editing.body} onChange={(event) => setEditing({ ...editing, body: event.target.value })} rows={5} maxLength={3000} aria-label="Edit note text" className="min-h-28 flex-1 resize-y bg-white/80" />
+                <AdminStickyNoteRichTextEditor value={editing.body} onChange={(body) => setEditing({ ...editing, body })} rows={5} ariaLabel="Edit note text" className="flex-1 bg-white/80" />
                 <div className="flex flex-wrap items-center justify-between gap-2"><select aria-label="Edit note color" value={editing.color} onChange={(event) => setEditing({ ...editing, color: event.target.value })} className="rounded border border-current/30 bg-white/80 px-2 py-1 text-xs">{NOTE_COLORS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><div className="flex gap-2"><Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}><X className="h-4 w-4" /></Button><Button type="button" size="sm" disabled={!editing.body.trim() || update.isPending} onClick={() => update.mutate({ id: editing.id, title: editing.title, body: editing.body.trim(), color: editing.color as (typeof NOTE_COLORS)[number]["value"], isPinned: editing.isPinned })} className="gap-1 bg-white/80 text-current hover:bg-white"><Save className="h-3.5 w-3.5" /> Save</Button></div></div>
               </> : <>
                 <div className="flex items-start justify-between gap-2">{note.title ? <h3 className="font-semibold leading-snug">{note.title}</h3> : <span />}{note.isPinned && <span className="inline-flex items-center gap-1 rounded-full border border-current/30 bg-white/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wide"><Pin className="h-3 w-3" /> Pinned</span>}</div>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{note.body}</p>
+                <AdminStickyNoteRichText value={note.body} />
                 <div className="mt-auto space-y-3 border-t border-current/15 pt-3"><p className="text-[11px] opacity-80">{note.authorName || "Administrator"} · updated {localTimestamp(note.updatedAt)}</p><div className="flex items-center justify-between"><Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-current hover:bg-white/60" onClick={() => update.mutate({ id: note.id, isPinned: !note.isPinned })}><Pin className="h-3.5 w-3.5" /> {note.isPinned ? "Unpin" : "Pin"}</Button><div className="flex gap-1"><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => setEditing(note)}>Edit</Button><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => { if (window.confirm("Remove this shared note for every administrator?")) remove.mutate({ id: note.id }); }} aria-label={`Remove ${note.title || "shared note"}`}><Trash2 className="h-4 w-4" /></Button></div></div></div>
               </>}
             </CardContent>

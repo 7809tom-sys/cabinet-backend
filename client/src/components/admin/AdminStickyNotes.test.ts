@@ -11,6 +11,9 @@ describe("AdminStickyNotes workspace", () => {
     expect(source).toContain("Private working notes for CabinetDealz administrators.");
     expect(source).toContain("Post note");
     expect(source).toContain("Pinned");
+    expect(source).toContain("AdminStickyNoteRichTextEditor");
+    expect(source).toContain("AdminStickyNoteRichText value={note.body}");
+    expect(source).not.toContain("dangerouslySetInnerHTML");
     expect(source).toContain("Remove this shared note for every administrator?");
   });
 

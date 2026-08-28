@@ -18,6 +18,7 @@ describe("administrator shared sticky notes", () => {
       color: "mint",
       isPinned: true,
     });
+    expect(adminStickyNoteFields.parse({ body: "**Urgent**\n- Review sample\n1. Approve" }).body).toBe("**Urgent**\n- Review sample\n1. Approve");
     expect(() => adminStickyNoteFields.parse({ body: " ", color: "outside" })).toThrow();
     expect(() => adminStickyNoteFields.parse({ body: "x".repeat(3_001) })).toThrow();
   });
