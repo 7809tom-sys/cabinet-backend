@@ -870,3 +870,5 @@
 - [x] Skyline BFH33 evidence review and correction: Verified the active B33FH configuration and source-priced GR connection, then added the guarded resolving BFH33 alias with no price or availability change
 - [x] Skyline BFH36 evidence review and correction: Verified the active B36FH configuration and source-priced GR connection, then added the guarded resolving BFH36 alias with no price or availability change
 - [x] Skyline DWR3 evidence review and correction: Verified the active BEP(DWR)3 panel configuration and source-priced GR connection, then added the guarded resolving DWR3 alias with no price or availability change
+- [x] Skyline O339024 evidence review: Retained the source row as a protected identity/configuration conflict because its source-specific active GR SKU is attached to a zero-door/zero-drawer canonical record while the authoritative source and inactive duplicate specify two doors and three drawers
+- [x] Skyline O339624 evidence review: Retained the source row as a protected configuration conflict because all matching active/inactive oven candidates store zero doors and zero drawers while the source requires two doors and three drawers
