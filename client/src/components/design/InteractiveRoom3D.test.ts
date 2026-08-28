@@ -568,6 +568,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain('sharedCameraViewRef.current = null');
   });
 
+  it("confirms a copied Share View link while retaining native sharing and graceful clipboard-permission fallback", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const shareUrlStart = rendererSource.indexOf("const shareUrl = async");
+    const shareUrlEnd = rendererSource.indexOf("const shareConfiguration", shareUrlStart);
+    const shareUrlSource = rendererSource.slice(shareUrlStart, shareUrlEnd);
+    expect(shareUrlSource).toContain("await navigator.clipboard.writeText(url)");
+    expect(shareUrlSource).toContain('toast.success("Link copied to clipboard.")');
+    expect(shareUrlSource.indexOf("await navigator.clipboard.writeText(url)")).toBeLessThan(shareUrlSource.indexOf("if (navigator.share)"));
+    expect(shareUrlSource).toContain("if (navigator.share)");
+    expect(shareUrlSource).toContain("Native sharing remains available on devices where clipboard permission is denied.");
+    expect(shareUrlSource).toContain('throw new Error("Clipboard access is unavailable.")');
+  });
+
   it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
     expect(threeDScreenHorizontalPlanDelta("top", "right", 1, { x: 0.8, z: -0.4 })).toEqual({ x: 1, y: 0 });
     expect(threeDScreenHorizontalPlanDelta("bottom", "left", 1, { x: 0.8, z: -0.4 })).toEqual({ x: -1, y: 0 });

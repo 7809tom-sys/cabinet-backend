@@ -4397,11 +4397,20 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   };
 
   const shareUrl = async (url: string, text: string) => {
+    let copied = false;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+        toast.success("Link copied to clipboard.");
+      } catch {
+        // Native sharing remains available on devices where clipboard permission is denied.
+      }
+    }
     if (navigator.share) {
       await navigator.share({ title: "Cabinet Dealz 3D Room", text, url });
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Share link copied to your clipboard.");
+    } else if (!copied) {
+      throw new Error("Clipboard access is unavailable.");
     }
   };
 
