@@ -287,6 +287,8 @@ export const distributorImportRouter = router({
           resolvedMasterCode: master?.masterCode ?? null,
           replacementMasterCode,
           replacesMasterCode,
+          aliases: row.aliases,
+          eligibleDistributorCodes: row.eligibleDistributorCodes,
           aliasesToAdd: master ? row.aliases.filter((alias) => !cabinetByCode.has(alias) && alias !== normalizeDistributorRoundTripCode(master.masterCode)).length : 0,
           distributorLinksToAdd,
           errors,

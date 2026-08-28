@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
-import { Download, FileCheck2, Link2, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Download, FileCheck2, Link2, Search, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
-type RoundTripPreview = {
+export type DistributorRoundTripPreview = {
   errors: string[];
   rows: Array<{
     rowNumber: number;
@@ -14,6 +15,8 @@ type RoundTripPreview = {
     resolvedMasterCode: string | null;
     replacementMasterCode: string | null;
     replacesMasterCode: boolean;
+    aliases: string[];
+    eligibleDistributorCodes: string[];
     aliasesToAdd: number;
     distributorLinksToAdd: number;
     errors: string[];
@@ -26,6 +29,21 @@ type RoundTripPreview = {
     distributorLinksToAdd: number;
   };
 };
+
+export function filterDistributorRoundTripPreviewRows(
+  rows: DistributorRoundTripPreview["rows"],
+  query: string
+) {
+  const needle = query.trim().toUpperCase();
+  if (!needle) return rows;
+  return rows.filter((row) => [
+    row.itemCode,
+    row.resolvedMasterCode ?? "",
+    row.replacementMasterCode ?? "",
+    ...row.aliases,
+    ...row.eligibleDistributorCodes,
+  ].join(" ").toUpperCase().includes(needle));
+}
 
 function downloadCsv(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -43,17 +61,19 @@ export function DistributorRoundTripTransfer() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [csv, setCsv] = useState("");
   const [fileName, setFileName] = useState("");
-  const [preview, setPreview] = useState<RoundTripPreview | null>(null);
+  const [preview, setPreview] = useState<DistributorRoundTripPreview | null>(null);
+  const [previewSearch, setPreviewSearch] = useState("");
   const [exporting, setExporting] = useState(false);
 
   const previewMutation = trpc.distributorAdmin.roundTripPreview.useMutation({
-    onSuccess: (result) => setPreview(result as RoundTripPreview),
+    onSuccess: (result) => setPreview(result as DistributorRoundTripPreview),
     onError: (error) => toast.error(error.message),
   });
   const commitMutation = trpc.distributorAdmin.roundTripCommit.useMutation({
     onSuccess: (result) => {
       toast.success(`Imported ${result.rowsImported} rows: ${result.masterCodesReplaced} master codes replaced, ${result.aliasesAdded} aliases and ${result.distributorLinksAdded} eligible distributor links added.`);
       setPreview(null);
+      setPreviewSearch("");
       setCsv("");
       setFileName("");
     },
@@ -89,11 +109,16 @@ export function DistributorRoundTripTransfer() {
       setCsv(String(reader.result ?? ""));
       setFileName(file.name);
       setPreview(null);
+      setPreviewSearch("");
     };
     reader.readAsText(file);
   }
 
   const hasBlockingErrors = Boolean(preview?.errors.length || preview?.rows.some((row) => row.errors.length));
+  const visiblePreviewRows = useMemo(
+    () => filterDistributorRoundTripPreviewRows(preview?.rows ?? [], previewSearch),
+    [preview?.rows, previewSearch]
+  );
 
   return (
     <Card className="border-sky-200 bg-sky-50/40 dark:border-sky-900 dark:bg-sky-950/20">
@@ -134,6 +159,26 @@ export function DistributorRoundTripTransfer() {
                   <p><strong>{preview.summary.aliasesToAdd}</strong> aliases to add</p>
                   <p><strong>{preview.summary.distributorLinksToAdd}</strong> distributor links to add</p>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="distributor-preview-search">Find an item to verify</label>
+                  <div className="flex max-w-2xl items-center gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="distributor-preview-search" type="search" className="pl-9 pr-9" placeholder="Item code, master code, alias, or distributor" value={previewSearch} onChange={(event) => setPreviewSearch(event.target.value)} />
+                      {previewSearch && <button type="button" aria-label="Clear preview search" onClick={() => setPreviewSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">{visiblePreviewRows.length} of {preview.rows.length}</span>
+                  </div>
+                  <div className="max-h-64 overflow-auto rounded-md border" role="region" aria-label="Distributor connection upload preview">
+                    <table className="w-full min-w-[780px] text-left text-xs">
+                      <thead className="sticky top-0 bg-muted/95 text-muted-foreground"><tr><th className="p-2">Row</th><th className="p-2">Uploaded item</th><th className="p-2">Resolved master</th><th className="p-2">Replacement</th><th className="p-2">Aliases</th><th className="p-2">Eligible distributors</th><th className="p-2">Result</th></tr></thead>
+                      <tbody>
+                        {visiblePreviewRows.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-2 tabular-nums">{row.rowNumber}</td><td className="p-2 font-mono font-medium">{row.itemCode}</td><td className="p-2 font-mono">{row.resolvedMasterCode ?? "Not found"}</td><td className="p-2 font-mono">{row.replacementMasterCode ?? "—"}</td><td className="p-2 font-mono">{row.aliases.join("; ") || "—"}</td><td className="p-2 font-mono">{row.eligibleDistributorCodes.join("; ") || "—"}</td><td className={row.errors.length ? "p-2 text-destructive" : "p-2 text-emerald-700 dark:text-emerald-400"}>{row.errors.length ? row.errors.join(" ") : row.replacesMasterCode ? "Master code replacement ready" : "Ready"}</td></tr>)}
+                        {visiblePreviewRows.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-sm text-muted-foreground">No uploaded rows match “{previewSearch}”. Clear or change the search to review another item.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 {preview.rows.some((row) => row.errors.length) && (
                   <div className="max-h-32 space-y-1 overflow-auto text-xs text-destructive">
                     {preview.rows.filter((row) => row.errors.length).map((row) => <p key={row.rowNumber}>Row {row.rowNumber}: {row.errors.join(" ")}</p>)}
@@ -149,7 +194,7 @@ export function DistributorRoundTripTransfer() {
             )}
           </div>
         )}
-        <Textarea className="min-h-24 font-mono text-xs" aria-label="Distributor connections CSV" placeholder="Paste a previously downloaded distributor connections CSV here, then choose Preview changes." value={csv} onChange={(event) => { setCsv(event.target.value); setFileName("Pasted CSV"); setPreview(null); }} />
+        <Textarea className="min-h-24 font-mono text-xs" aria-label="Distributor connections CSV" placeholder="Paste a previously downloaded distributor connections CSV here, then choose Preview changes." value={csv} onChange={(event) => { setCsv(event.target.value); setFileName("Pasted CSV"); setPreview(null); setPreviewSearch(""); }} />
       </CardContent>
     </Card>
   );
