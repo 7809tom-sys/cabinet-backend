@@ -101,3 +101,26 @@ export function injectMainSeoHead(html: string, input: MainSeoHeadInput): string
   }
   return out;
 }
+
+export function injectSharedThreeDViewHead(html: string, input: {
+  canonicalUrl: string;
+  thumbnailUrl?: string | null;
+}): string {
+  const title = "Shared 3D Kitchen View | CabinetDealz";
+  const description = "Open this shared CabinetDealz 3D kitchen perspective.";
+  let out = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
+  out = replaceMeta(out, "name", "description", description);
+  out = replaceMeta(out, "property", "og:title", title);
+  out = replaceMeta(out, "property", "og:description", description);
+  out = replaceMeta(out, "property", "og:url", input.canonicalUrl);
+  out = replaceMeta(out, "name", "twitter:title", title);
+  out = replaceMeta(out, "name", "twitter:description", description);
+  out = replaceMeta(out, "name", "robots", "noindex, nofollow");
+  out = replaceMeta(out, "name", "twitter:card", input.thumbnailUrl ? "summary_large_image" : "summary");
+  out = replaceCanonical(out, input.canonicalUrl);
+  if (input.thumbnailUrl) {
+    out = replaceMeta(out, "property", "og:image", input.thumbnailUrl);
+    out = replaceMeta(out, "name", "twitter:image", input.thumbnailUrl);
+  }
+  return out;
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `three_d_room_shares` ADD `thumbnailKey` varchar(512);

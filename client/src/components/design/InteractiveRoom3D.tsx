@@ -3735,6 +3735,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     [catalogItems, catalogGroup, catalogSearch],
   );
   const shareMutation = trpc.roomLayouts.createShare.useMutation();
+  const shareThumbnailMutation = trpc.roomLayouts.updateShareThumbnail.useMutation();
   const emailQuoteMutation = trpc.roomLayouts.emailQuote.useMutation();
 
   useEffect(() => {
@@ -4048,6 +4049,33 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     renderer.setSize(currentSize.x, currentSize.y, false);
     camera.aspect = currentSize.x / currentSize.y;
     camera.updateProjectionMatrix();
+  };
+
+  const captureShareThumbnail = (): string | null => {
+    const renderer = rendererRef.current;
+    const threeScene = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!renderer || !threeScene || !camera) return null;
+    const currentSize = new THREE.Vector2();
+    renderer.getSize(currentSize);
+    const currentPixelRatio = renderer.getPixelRatio();
+    const exportWidth = 640;
+    const exportHeight = 360;
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(exportWidth, exportHeight, false);
+      camera.aspect = exportWidth / exportHeight;
+      camera.updateProjectionMatrix();
+      renderer.render(threeScene, camera);
+      return renderer.domElement.toDataURL("image/jpeg", 0.82);
+    } catch {
+      return null;
+    } finally {
+      renderer.setPixelRatio(currentPixelRatio);
+      renderer.setSize(currentSize.x, currentSize.y, false);
+      camera.aspect = currentSize.x / currentSize.y;
+      camera.updateProjectionMatrix();
+    }
   };
 
   const zoomViewer = (direction: "in" | "out") => {
@@ -4420,6 +4448,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       return;
     }
     try {
+      const thumbnailDataUrl = cameraView ? captureShareThumbnail() ?? undefined : undefined;
       const { token } = await shareMutation.mutateAsync({
         ...shareContext,
         room: { ...roomOverride },
@@ -4428,6 +4457,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         sinks,
         presentation: { cabinetFinish, countertopFinish },
         orderSummary,
+        thumbnailDataUrl,
       });
       const url = new URL(`/3d/${token}`, window.location.origin);
       const serializedView = cameraView ? serializeThreeDCameraShareView(cameraView) : "";
@@ -4446,11 +4476,16 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       return;
     }
     const cameraView = { position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom };
+    const thumbnailDataUrl = captureShareThumbnail();
     if (window.location.pathname.startsWith("/3d/")) {
       try {
         const url = new URL(window.location.href);
         const serializedView = serializeThreeDCameraShareView(cameraView);
         if (!serializedView) throw new Error("The current view could not be encoded.");
+        const token = window.location.pathname.split("/").filter(Boolean).at(-1);
+        if (thumbnailDataUrl && token) {
+          await shareThumbnailMutation.mutateAsync({ token, thumbnailDataUrl });
+        }
         url.searchParams.set(THREE_D_CAMERA_VIEW_QUERY_PARAM, serializedView);
         await shareUrl(url.toString(), "View this Cabinet Dealz 3D room from the shared inspection perspective.");
       } catch (error) {

@@ -581,6 +581,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(shareUrlSource).toContain('throw new Error("Clipboard access is unavailable.")');
   });
 
+  it("captures only the current rendered camera perspective at compact social-card dimensions and sends it through the secure Share View mutation", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("const captureShareThumbnail = (): string | null");
+    expect(rendererSource).toContain("const exportWidth = 640");
+    expect(rendererSource).toContain("const exportHeight = 360");
+    expect(rendererSource).toContain('renderer.domElement.toDataURL("image/jpeg", 0.82)');
+    expect(rendererSource).toContain("renderer.setPixelRatio(currentPixelRatio)");
+    expect(rendererSource).toContain("const thumbnailDataUrl = cameraView ? captureShareThumbnail() ?? undefined : undefined");
+    expect(rendererSource).toContain("thumbnailDataUrl,");
+    expect(rendererSource).toContain("trpc.roomLayouts.updateShareThumbnail.useMutation()");
+    expect(rendererSource).toContain("await shareThumbnailMutation.mutateAsync({ token, thumbnailDataUrl })");
+  });
+
   it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
     expect(threeDScreenHorizontalPlanDelta("top", "right", 1, { x: 0.8, z: -0.4 })).toEqual({ x: 1, y: 0 });
     expect(threeDScreenHorizontalPlanDelta("bottom", "left", 1, { x: 0.8, z: -0.4 })).toEqual({ x: -1, y: 0 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { injectMainSeoHead } from "./mainSeoHead";
+import { injectMainSeoHead, injectSharedThreeDViewHead } from "./mainSeoHead";
 
 const shell = `<!doctype html><html><head>
   <title>Cabinet Dealz</title>
@@ -30,5 +30,19 @@ describe("main SEO head", () => {
 
     expect(html).toContain('name="robots" content="noindex, nofollow"');
     expect(html).not.toContain('data-main-seo="true"');
+  });
+
+  it("emits noindex social metadata and a token-scoped preview image for an already authorized shared 3D view", () => {
+    const html = injectSharedThreeDViewHead(shell, {
+      canonicalUrl: "https://www.cabinetdealz.com/3d/aBcD1234_efGhI56",
+      thumbnailUrl: "https://www.cabinetdealz.com/api/shared-3d-preview/aBcD1234_efGhI56.jpg",
+    });
+
+    expect(html).toContain("<title>Shared 3D Kitchen View | CabinetDealz</title>");
+    expect(html).toContain('property="og:image" content="https://www.cabinetdealz.com/api/shared-3d-preview/aBcD1234_efGhI56.jpg"');
+    expect(html).toContain('name="twitter:image" content="https://www.cabinetdealz.com/api/shared-3d-preview/aBcD1234_efGhI56.jpg"');
+    expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    expect(html).toContain('name="robots" content="noindex, nofollow"');
+    expect(html).not.toContain("manus-storage");
   });
 });

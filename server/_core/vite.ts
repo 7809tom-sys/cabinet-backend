@@ -10,6 +10,7 @@ import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { injectAffiliateWhiteLabelHead } from "../lib/affiliateWhiteLabelHead";
 import { injectMainSeoHead } from "../lib/mainSeoHead";
+import { injectSharedRoomPreviewHead } from "../sharedRoomPreview";
 
 function affiliateSlugFromRequestPath(requestPath: string): string | null {
   const slugMatch = requestPath.match(/^\/store\/([^/?#]+)/);
@@ -36,6 +37,8 @@ async function whiteLabelAffiliateHtml(
   requestPath: string,
   req: express.Request,
 ): Promise<string> {
+  const sharedPreview = await injectSharedRoomPreviewHead(html, requestPath, req);
+  if (sharedPreview) return sharedPreview;
   const slug = affiliateSlugFromRequestPath(requestPath);
   const pathname = requestPath.split("?")[0].replace(/\/+$/, "") || "/";
   if (!slug) {
@@ -187,6 +190,13 @@ export function serveStatic(app: Express) {
         return next(error);
       }
     }
-    res.sendFile(path.resolve(distPath, "index.html"));
+    try {
+      const indexHtml = await fs.promises.readFile(path.resolve(distPath, "index.html"), "utf-8");
+      const headedPage = await whiteLabelAffiliateHtml(indexHtml, req.url, req);
+      res.setHeader("Content-Type", "text/html; charset=UTF-8");
+      return res.send(headedPage);
+    } catch (error) {
+      return next(error);
+    }
   });
 }

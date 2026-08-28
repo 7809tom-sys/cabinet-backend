@@ -619,6 +619,7 @@ export const threeDRoomShares = mysqlTable("three_d_room_shares", {
   kitchenDesignId: int("kitchenDesignId"),
   configuration: json("configuration").$type<object>().notNull(),
   orderSubtotal: decimal("orderSubtotal", { precision: 10, scale: 2 }),
+  thumbnailKey: varchar("thumbnailKey", { length: 512 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({

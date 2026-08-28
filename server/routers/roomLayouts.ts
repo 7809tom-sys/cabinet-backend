@@ -4,6 +4,7 @@ import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
 import { emailSettingsReady, sendEmail, sendEmailViaSettings } from "../email";
+import { storagePut } from "../storage";
 import {
   cabinets,
   distributors,
@@ -32,7 +33,20 @@ const sharedConfigurationInput = z.object({
   sinks: z.array(z.unknown()).max(50).optional(),
   presentation: z.object({ cabinetFinish: z.string().min(1).max(32), countertopFinish: z.string().regex(/^#[0-9a-f]{6}$/i) }),
   orderSummary: z.object({ itemCount: z.number().int().nonnegative(), pricedLineCount: z.number().int().nonnegative(), unpricedLineCount: z.number().int().nonnegative(), subtotal: z.number().nonnegative() }).optional(),
+  thumbnailDataUrl: z.string().regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).max(600_000).optional(),
 });
+
+const sharedThumbnailInput = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{16,48}$/),
+  thumbnailDataUrl: z.string().regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/).max(600_000),
+});
+
+function shareThumbnailBytes(dataUrl: string): Buffer {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const bytes = Buffer.from(base64, "base64");
+  if (!bytes.length || bytes.length > 450_000) throw new Error("The shared-view thumbnail is invalid or too large.");
+  return bytes;
+}
 
 const emailQuoteInput = z.object({
   pdfBase64: z.string().min(100).max(8_000_000),
@@ -243,12 +257,39 @@ export const roomLayoutsRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       const token = randomBytes(18).toString("base64url");
+      const { thumbnailDataUrl, ...configuration } = input;
+      const thumbnail = thumbnailDataUrl
+        ? await storagePut(`three-d-share-previews/${token}.jpg`, shareThumbnailBytes(thumbnailDataUrl), "image/jpeg")
+        : null;
       await db.insert(threeDRoomShares).values({
         token,
-        configuration: input,
-        orderSubtotal: input.orderSummary?.subtotal?.toFixed(2) ?? null,
+        configuration,
+        orderSubtotal: configuration.orderSummary?.subtotal?.toFixed(2) ?? null,
+        thumbnailKey: thumbnail?.key ?? null,
       });
       return { token };
+    }),
+
+  updateShareThumbnail: publicProcedure
+    .input(sharedThumbnailInput)
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const [share] = await db
+        .select({ id: threeDRoomShares.id })
+        .from(threeDRoomShares)
+        .where(eq(threeDRoomShares.token, input.token))
+        .limit(1);
+      if (!share) throw new Error("The shared 3D view could not be found.");
+      const thumbnail = await storagePut(
+        `three-d-share-previews/${input.token}.jpg`,
+        shareThumbnailBytes(input.thumbnailDataUrl),
+        "image/jpeg",
+      );
+      await db.update(threeDRoomShares)
+        .set({ thumbnailKey: thumbnail.key })
+        .where(eq(threeDRoomShares.id, share.id));
+      return { updated: true };
     }),
 
   sharedConfiguration: publicProcedure
