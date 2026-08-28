@@ -334,8 +334,11 @@ describe("interactive 3D room scene helpers", () => {
 
   it("docks selected-cabinet details below the 3D drawing instead of overlaying its controls", () => {
     const className = threeDSelectedCabinetDockClass();
-    expect(className).toContain("mt-2");
+    expect(className).toContain("mt-1");
     expect(className).toContain("w-full");
+    expect(className).toContain("px-2.5");
+    expect(className).toContain("py-2");
+    expect(className).not.toContain("p-3");
     expect(className).not.toContain("absolute");
   });
 
@@ -518,6 +521,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain('Pinch or scroll to zoom');
     expect(rendererSource).toContain('onPointerMove={handleRoomPointerMove}');
     expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');
+    expect(rendererSource.match(/data-testid="three-d-selected-cabinet-dpad"/g)).toHaveLength(1);
+    const detailsIndex = rendererSource.indexOf('data-testid="three-d-cabinet-attributes"');
+    const dpadIndex = rendererSource.indexOf('data-testid="three-d-selected-cabinet-dpad"');
+    const dpadOpeningTag = rendererSource.slice(dpadIndex, dpadIndex + 500);
+    expect(dpadIndex).toBeGreaterThan(detailsIndex);
+    expect(dpadOpeningTag).toContain("lg:hidden");
+    expect(rendererSource).not.toContain('⅛&quot; precision');
+    expect(rendererSource.match(/0&quot; overlap required/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
   it("provides distinct stable camera presets for clear 3D review", () => {

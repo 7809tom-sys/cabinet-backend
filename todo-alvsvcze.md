@@ -935,3 +935,11 @@
 - [x] Remove the duplicate 3D canvas button immediately left of Undo while preserving the primary 3D control
 - [x] Move the More menu from the top designer toolbar to beside the cabinet distributor selector in the cabinet selection panel, matching the supplied catalog screenshot and remaining responsive
 - [x] Fix the `/design` invalid-hook-call regression caused during the toolbar relocation work: move the More-menu portal state hook inside the Design Tool component, add a hook-placement regression guard, pass 192 focused tests and TypeScript validation, and confirm the designer renders successfully in preview
+- [x] Superseded by the user’s clarified placement before implementation: do not retain the cabinet movement D-pad inside the 3D drawing
+- [x] Reduce the bottom cabinet-details panel to compact content height while keeping the cabinet description, live measurement, price, and action buttons readable on desktop, tablet, and mobile
+- [x] Superseded by the user’s responsive-control clarification before implementation: do not show cabinet movement arrows on desktop where mouse and keyboard movement are available
+- [x] Place one compact cabinet movement-arrow control inside the bottom details panel on phones and tablets only, remove the canvas copy at every size, and keep touch movement clear of the cabinet information and action buttons
+- [x] Enforce exact 0-inch cabinet overlap for mouse, touch, arrow, keyboard, snap, save, and restore paths: edge contact is allowed, but every positive physical overlap remains invalid; visible placement labels now state the 0-inch requirement while seam assistance still normalizes near-edge input to exact contact
+- [ ] Detect a remaining wall opening greater than 0 inches and no more than 3 inches after cabinet placement, then ask whether the user wants that space filled from the active catalog filler selection
+- [ ] Offer four safe small-gap outcomes: no filler, split the filler equally left and right, place the full filler on the left, or place the full filler on the right
+- [ ] Snap the selected catalog filler into the chosen side or sides, reposition the cabinet only as required, preserve exact 0-inch overlap, and keep the filler’s catalog identity, width, price, saved-design state, 2D view, 3D view, and invoice line synchronized
