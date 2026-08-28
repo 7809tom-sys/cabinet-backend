@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { PlacedCabinet, RoomData } from "@/lib/design";
 import { Video, Phone, MapPin, ExternalLink, Eye } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  sharedDesignAutoRefreshQueryOptions,
+  sharedDesignRefreshLabel,
+} from "@/lib/designSessionRefresh";
 
 export default function DesignSession() {
   const params = useParams();
@@ -20,14 +24,16 @@ export default function DesignSession() {
     in_person: { icon: <MapPin className="h-4 w-4" />, label: t("ds_mode_in_person") },
   };
 
-  // Poll every 4s so the customer sees the designer's saved updates near-live.
+  // Viewers only receive the server-confirmed saved design. The query keeps
+  // refreshing in the background and catches up again on focus, so a shared
+  // page never needs a manual reload to follow the designer's saved updates.
   const consultationQuery = trpc.consultations.sharedSession.useQuery(
     { token },
-    { enabled: token.length >= 8 && !isRemoteDesignToken, refetchInterval: 4000, retry: false },
+    { enabled: token.length >= 8 && !isRemoteDesignToken, ...sharedDesignAutoRefreshQueryOptions },
   );
   const remoteDesignQuery = trpc.design.remoteSharedDesign.useQuery(
     { token },
-    { enabled: token.length >= 8 && isRemoteDesignToken, refetchInterval: 4000, retry: false },
+    { enabled: token.length >= 8 && isRemoteDesignToken, ...sharedDesignAutoRefreshQueryOptions },
   );
 
   if (token.length < 8) {
@@ -43,6 +49,7 @@ export default function DesignSession() {
   const error = isRemoteDesignToken ? remoteDesignQuery.error : consultationQuery.error;
   const remoteData = remoteDesignQuery.data;
   const consultationData = consultationQuery.data;
+  const activeQuery = isRemoteDesignToken ? remoteDesignQuery : consultationQuery;
 
   if (isLoading) {
     return (
@@ -145,11 +152,16 @@ export default function DesignSession() {
           </div>
         )}
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          {isRemoteDesignToken
-            ? "Read-only customer view. Ask your designer or sales rep to save updates, then this page will refresh automatically."
-            : t("ds_viewonly")}
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs text-muted-foreground">
+          <p>
+            {isRemoteDesignToken
+              ? "Read-only shared view. The page refreshes automatically after your designer saves an update."
+              : t("ds_viewonly")}
+          </p>
+          <span aria-live="polite" className="font-medium text-foreground/75">
+            {sharedDesignRefreshLabel(activeQuery.isFetching && !isLoading, activeQuery.dataUpdatedAt)}
+          </span>
+        </div>
       </div>
     </div>
   );
