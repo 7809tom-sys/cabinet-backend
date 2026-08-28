@@ -386,6 +386,14 @@ export interface PlacedCabinet {
   // locked distributor family as the design. When null/undefined the cabinet
   // inherits the design's default styleId (see effectiveStyleId).
   styleId?: number | null;
+  /** Shared identifier for physical pieces cut from one purchased catalog filler. */
+  fillerPieceGroupId?: string | null;
+  /** Only the primary piece contributes a catalog/cart/invoice quantity. */
+  fillerBillingRole?: "primary" | "secondary" | null;
+  /** Total installed filler width represented by every piece in the group. */
+  fillerTotalWidth?: number | null;
+  /** Installation choice retained in saved designs for build-sheet clarity. */
+  fillerPlacementMode?: "left" | "right" | "split" | null;
   // Original catalog width (inches) captured when the cabinet was placed. The
   // live `width` is what the customer sees/edits; when it differs from
   // nominalWidth the cabinet is a CUSTOM size and is flagged on the build sheet

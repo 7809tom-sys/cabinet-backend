@@ -45,7 +45,12 @@ export function buildDesignCabinetCartLines({
     // Launch appliances are visual-only design context. They remain in the 2D
     // plan and 3D selling view but are intentionally excluded from all cabinet
     // cart/quote/invoice/checkout commerce until appliance sales are enabled.
-    if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
+    if (
+      cabinet.placement === "appliance" ||
+      isClosetPart(cabinet.masterCode) ||
+      cabinet.cabinetId == null ||
+      cabinet.fillerBillingRole === "secondary"
+    ) continue;
     const unitPrice = adjustedDesignUnitPrice(cabinet, unitPriceFor(cabinet));
     if (unitPrice == null) continue;
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
@@ -112,7 +117,7 @@ export function lockDesignCartLinesToPackageTotal<T extends CartItem>(lines: T[]
 /** A bundle price remains valid only while its priced cabinet composition matches the saved snapshot. */
 export function bundleCabinetPricingSignature(placed: PlacedCabinet[], styleId: number | null): string {
   return placed
-    .filter((cabinet) => cabinet.placement !== "appliance" && !isClosetPart(cabinet.masterCode) && cabinet.cabinetId != null)
+    .filter((cabinet) => cabinet.placement !== "appliance" && !isClosetPart(cabinet.masterCode) && cabinet.cabinetId != null && cabinet.fillerBillingRole !== "secondary")
     .map((cabinet) => [
       cabinet.uid,
       cabinet.masterCode,
@@ -145,7 +150,12 @@ export function buildDesignPreviewPricingLines({
   if (!styleId) return [];
   const lines = new Map<string, DesignPreviewPricingLine>();
   for (const cabinet of placed) {
-    if (cabinet.placement === "appliance" || isClosetPart(cabinet.masterCode) || cabinet.cabinetId == null) continue;
+    if (
+      cabinet.placement === "appliance" ||
+      isClosetPart(cabinet.masterCode) ||
+      cabinet.cabinetId == null ||
+      cabinet.fillerBillingRole === "secondary"
+    ) continue;
     const basePrice = unitPriceFor(cabinet);
     // A missing catalog price must never erase a cabinet from the 3D order
     // overlay. Retain it as an explicit pending line; do not infer or invent a

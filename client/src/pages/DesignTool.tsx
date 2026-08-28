@@ -55,6 +55,15 @@ import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
+import {
+  SMALL_GAP_FILLER_MAX_IN,
+  canSplitSmallGapFiller,
+  findSmallGapFillerOpportunity,
+  removePlacedCabinetGroup,
+  smallGapFillerLayout,
+  type SmallGapFillerOpportunity,
+  type SmallGapFillerPlacementMode,
+} from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
 import { toast } from "sonner";
@@ -448,6 +457,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [smartGapPreviewPosition, setSmartGapPreviewPosition] = useState<{ current: number; total: number } | null>(null);
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
+  const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -1004,10 +1014,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
     [threeDAccessoryCatalog],
   );
+  const smallGapFillerDefinition = useMemo(() => {
+    if (!smallGapFillerPrompt) return null;
+    return catalogFillerForGap(catalogFillers, smallGapFillerPrompt.remaining, smallGapFillerPrompt.layer);
+  }, [catalogFillers, smallGapFillerPrompt]);
   const pricingIdForPlacedCabinet = useCallback(
     (cabinet: PlacedCabinet) => catalogFillerPricingId(cabinet, catalogFillers) ?? pricingCabinetIdFor(cabinet),
     [catalogFillers, pricingCabinetIdFor],
   );
+  const queueSmallGapFillerOpportunity = useCallback((nextPlaced: PlacedCabinet[], cabinetUid: string) => {
+    const opportunity = findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid);
+    if (!opportunity || !catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)) return;
+    setSmallGapFillerPrompt(opportunity);
+    setMobilePanel(null);
+  }, [catalogFillers, openings, room]);
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -1704,6 +1724,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const buildRows = useMemo<BuildSheetRow[]>(() => {
     const map = new Map<string, BuildSheetRow>();
     for (const p of placed) {
+      if (p.fillerBillingRole === "secondary") continue;
       const sw = resolveSwing(p);
       const sizeNote = customSizeNote(p);
       // Per-cabinet door/hardware attribute notes (from the right-click dialog).
@@ -2399,6 +2420,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       colorEdge: string | null;
     }>();
     for (const p of placed) {
+      if (p.fillerBillingRole === "secondary") continue;
       // Resolve THIS cabinet's specific color (two-tone designs place cabinets in
       // either Color 1 or Color 2). We key by color too so each color shows as
       // its own line, and surface the swatch + finish name for the line item.
@@ -2889,8 +2911,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setPlacementWarning(null);
 	      setFailedWallFit(null);
       justPlacedRef.current = true;
-      setSelectedUid(finalCab.uid);
-      setPlaced(() => normalizedRun);
+	      setSelectedUid(finalCab.uid);
+	      setPlaced(() => normalizedRun);
+      if (!isAccessory && finalCab.placement !== "appliance") {
+        queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid);
+      }
 
       // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
       // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
@@ -2912,7 +2937,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-    [room, activeWall, openings, placed, island, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop]
+    [room, activeWall, openings, placed, island, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -3214,9 +3239,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       };
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
+      const remaining = Math.round((gap.length - width) * 1000) / 1000;
+      if (
+        remaining > 0 &&
+        remaining <= SMALL_GAP_FILLER_MAX_IN &&
+        catalogFillerForGap(catalogFillers, remaining, placement)
+      ) {
+        setSmallGapFillerPrompt({
+          cabinetUid: newCab.uid,
+          wall: gap.side,
+          layer: placement,
+          cabinetStart: gap.start,
+          cabinetSpan: width,
+          openingStart: gap.start,
+          openingLength: gap.length,
+          remaining,
+        });
+      }
       toast.success(t("dt_gap_placed_toast", { code: c.masterCode, len: formatInches(gap.length) }));
     },
-    [cabinetsLocked, room, t]
+    [cabinetsLocked, catalogFillers, room, t]
   );
 
   // ── Auto-place filler in a gap ──────────────────────────────────────────────
@@ -3314,6 +3356,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(`No sellable catalog filler can cover this ${formatInches(fillerW)} gap for the selected line.`);
         return;
       }
+      if (fillerW <= SMALL_GAP_FILLER_MAX_IN) {
+        setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
+        setSelectedUid(newCab.uid);
+        setSmallGapFillerPrompt({
+          cabinetUid: newCab.uid,
+          wall: gap.side,
+          layer: placement,
+          cabinetStart: gap.start,
+          cabinetSpan: cabWidth,
+          openingStart: gap.start,
+          openingLength: gap.length,
+          remaining: fillerW,
+        });
+        toast.success(`${c.masterCode} placed. Choose how to use the remaining ${formatInches(fillerW)}.`);
+        return;
+      }
       const fillerDepth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
       const fillerHeight = dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
       const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
@@ -3338,6 +3396,91 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
 	    [cabinetsLocked, catalogFillers, room, t]
 	  );
+
+  const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode) => {
+    const opportunity = smallGapFillerPrompt;
+    const fillerDef = smallGapFillerDefinition;
+    if (!opportunity || !fillerDef) {
+      toast.error("The selected catalog filler is no longer available for this opening.");
+      setSmallGapFillerPrompt(null);
+      return;
+    }
+    if (cabinetsLocked) {
+      toast.info(t("dt_gap_locked"));
+      return;
+    }
+    if (mode === "split" && !canSplitSmallGapFiller(opportunity)) {
+      toast.error("This opening is too narrow to split into two installable filler pieces.");
+      return;
+    }
+    const cabinet = placed.find((item) => item.uid === opportunity.cabinetUid);
+    if (!cabinet) {
+      setSmallGapFillerPrompt(null);
+      return;
+    }
+    const layout = smallGapFillerLayout(opportunity, mode);
+    const cabinetSpot = wallPlacementAt(layout.cabinetStart, opportunity.cabinetSpan, cabinet.depth, opportunity.wall, room);
+    const movedCabinet: PlacedCabinet = { ...cabinet, x: cabinetSpot.x, y: cabinetSpot.y, rotation: cabinetSpot.rotation };
+    const peers = placed.filter((item) => item.uid !== cabinet.uid);
+    if (hasCollision(movedCabinet, peers)) {
+      toast.error("The cabinet cannot move to that filler position without overlapping another item.");
+      return;
+    }
+
+    const fillerGroupId = `filler-group-${makeUid()}`;
+    const fillerDepth = dim(fillerDef.depth, opportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+    const fillerHeight = dim(fillerDef.height, opportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT);
+    const catalogWidth = dim(fillerDef.width, opportunity.remaining);
+    const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {
+      const spot = wallPlacementAt(piece.start, piece.width, fillerDepth, opportunity.wall, room);
+      const installationNote = mode === "split"
+        ? ` — ${piece.side} half ${formatInches(piece.width)}`
+        : ` — install on ${piece.side}`;
+      return {
+        uid: makeUid(),
+        cabinetId: fillerDef.id,
+        masterCode: fillerDef.masterCode,
+        description: `${fittedCatalogFillerDescription(fillerDef, opportunity.remaining)}${installationNote}`,
+        category: fillerDef.category ?? "Filler",
+        subCategory: fillerDef.subCategory ?? "Filler",
+        placement: opportunity.layer,
+        x: spot.x,
+        y: spot.y,
+        width: piece.width,
+        nominalWidth: catalogWidth,
+        depth: fillerDepth,
+        nominalDepth: fillerDepth,
+        height: fillerHeight,
+        nominalHeight: fillerHeight,
+        rotation: spot.rotation,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+        catalogImageUrl: fillerDef.catalogImageUrl ?? null,
+        styleId: styleIdRef.current ?? null,
+        fillerPieceGroupId: fillerGroupId,
+        fillerBillingRole: index === 0 ? "primary" : "secondary",
+        fillerTotalWidth: opportunity.remaining,
+        fillerPlacementMode: mode,
+      };
+    });
+    const base = placed.map((item) => item.uid === movedCabinet.uid ? movedCabinet : item);
+    const result = appendCollisionFreePlacements(base, pieces);
+    if (result.rejected.length > 0 || result.placed.length !== base.length + pieces.length) {
+      toast.error("The filler could not be seated at exact zero overlap. The design was not changed.");
+      return;
+    }
+    const dx = movedCabinet.x - cabinet.x;
+    const dy = movedCabinet.y - cabinet.y;
+    if ((dx !== 0 || dy !== 0) && isSinkBaseCabinet(cabinet)) {
+      setSinks((current) => current.map((sink) => fixtureIsOnCabinetFootprint(sink, cabinet)
+        ? { ...sink, x: sink.x + dx, y: sink.y + dy }
+        : sink));
+    }
+    setPlaced(result.placed);
+    setSelectedUid(movedCabinet.uid);
+    setSmallGapFillerPrompt(null);
+    toast.success(`${fillerDef.masterCode} added as one catalog filler with ${formatInches(opportunity.remaining)} installed ${mode === "split" ? "equally left and right" : `on the ${mode}`}.`);
+  }, [cabinetsLocked, placed, room, setSinks, smallGapFillerDefinition, smallGapFillerPrompt, t]);
 
 		  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
 	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
@@ -4392,7 +4535,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === selectedUid));
-      setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
+      setPlaced((prev) => removePlacedCabinetGroup(prev, selectedUid));
       setSelectedUid(null);
       return;
     }
@@ -4979,7 +5122,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
     deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === uid));
-    setPlaced((prev) => prev.filter((p) => p.uid !== uid));
+    setPlaced((prev) => removePlacedCabinetGroup(prev, uid));
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, [placed, deleteAttachedSinkFixtures]);
 
@@ -5046,7 +5189,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // Remove ALL instances in a panel group (the whole line item).
   const deleteWholeGroup = useCallback((uids: string[]) => {
-    setPlaced((prev) => prev.filter((p) => !uids.includes(p.uid)));
+    setPlaced((prev) => {
+      const fillerGroups = new Set(
+        prev
+          .filter((item) => uids.includes(item.uid))
+          .map((item) => item.fillerPieceGroupId)
+          .filter((groupId): groupId is string => !!groupId),
+      );
+      return prev.filter((item) =>
+        !uids.includes(item.uid) &&
+        (!item.fillerPieceGroupId || !fillerGroups.has(item.fillerPieceGroupId)),
+      );
+    });
     setSelectedUid((prev) => (prev && uids.includes(prev) ? null : prev));
   }, []);
 
@@ -10265,6 +10419,37 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </SheetContent>
         </Sheet>
       )}
+
+      <Dialog
+        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}
+        onOpenChange={(open) => { if (!open) setSmallGapFillerPrompt(null); }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Fill the remaining {formatInches(smallGapFillerPrompt?.remaining ?? 0)}?</DialogTitle>
+            <DialogDescription>
+              {smallGapFillerDefinition
+                ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. It remains one priced invoice item even if it is split into two installed pieces.`
+                : "No active catalog filler is available for this opening."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button
+              variant="outline"
+              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !canSplitSmallGapFiller(smallGapFillerPrompt)}
+              onClick={() => applySmallGapFiller("split")}
+              data-testid="small-gap-filler-split"
+            >
+              Split left / right
+            </Button>
+            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")}>All on left</Button>
+            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")}>All on right</Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSmallGapFillerPrompt(null)}>Leave space open</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={layoutStarterOpen} onOpenChange={setLayoutStarterOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto p-0">
