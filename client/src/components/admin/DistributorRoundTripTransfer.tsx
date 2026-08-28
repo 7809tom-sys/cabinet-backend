@@ -45,6 +45,16 @@ export function filterDistributorRoundTripPreviewRows(
   ].join(" ").toUpperCase().includes(needle));
 }
 
+export const DISTRIBUTOR_PREVIEW_PAGE_SIZE = 50;
+
+export function paginateDistributorRoundTripPreviewRows<T>(rows: T[], requestedPage: number, pageSize = DISTRIBUTOR_PREVIEW_PAGE_SIZE) {
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const page = Math.min(Math.max(1, requestedPage), pageCount);
+  const startIndex = rows.length === 0 ? 0 : (page - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, rows.length);
+  return { page, pageCount, startIndex, endIndex, rows: rows.slice(startIndex, endIndex) };
+}
+
 function downloadCsv(csv: string, filename: string) {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -63,10 +73,11 @@ export function DistributorRoundTripTransfer() {
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<DistributorRoundTripPreview | null>(null);
   const [previewSearch, setPreviewSearch] = useState("");
+  const [previewPage, setPreviewPage] = useState(1);
   const [exporting, setExporting] = useState(false);
 
   const previewMutation = trpc.distributorAdmin.roundTripPreview.useMutation({
-    onSuccess: (result) => setPreview(result as DistributorRoundTripPreview),
+    onSuccess: (result) => { setPreview(result as DistributorRoundTripPreview); setPreviewPage(1); },
     onError: (error) => toast.error(error.message),
   });
   const commitMutation = trpc.distributorAdmin.roundTripCommit.useMutation({
@@ -74,6 +85,7 @@ export function DistributorRoundTripTransfer() {
       toast.success(`Imported ${result.rowsImported} rows: ${result.masterCodesReplaced} master codes replaced, ${result.aliasesAdded} aliases and ${result.distributorLinksAdded} eligible distributor links added.`);
       setPreview(null);
       setPreviewSearch("");
+      setPreviewPage(1);
       setCsv("");
       setFileName("");
     },
@@ -110,6 +122,7 @@ export function DistributorRoundTripTransfer() {
       setFileName(file.name);
       setPreview(null);
       setPreviewSearch("");
+      setPreviewPage(1);
     };
     reader.readAsText(file);
   }
@@ -118,6 +131,10 @@ export function DistributorRoundTripTransfer() {
   const visiblePreviewRows = useMemo(
     () => filterDistributorRoundTripPreviewRows(preview?.rows ?? [], previewSearch),
     [preview?.rows, previewSearch]
+  );
+  const pagedPreviewRows = useMemo(
+    () => paginateDistributorRoundTripPreviewRows(visiblePreviewRows, previewPage),
+    [visiblePreviewRows, previewPage]
   );
 
   return (
@@ -164,8 +181,8 @@ export function DistributorRoundTripTransfer() {
                   <div className="flex max-w-2xl items-center gap-2">
                     <div className="relative min-w-0 flex-1">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="distributor-preview-search" type="search" className="pl-9 pr-9" placeholder="Item code, master code, alias, or distributor" value={previewSearch} onChange={(event) => setPreviewSearch(event.target.value)} />
-                      {previewSearch && <button type="button" aria-label="Clear preview search" onClick={() => setPreviewSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>}
+                      <Input id="distributor-preview-search" type="search" className="pl-9 pr-9" placeholder="Item code, master code, alias, or distributor" value={previewSearch} onChange={(event) => { setPreviewSearch(event.target.value); setPreviewPage(1); }} />
+                      {previewSearch && <button type="button" aria-label="Clear preview search" onClick={() => { setPreviewSearch(""); setPreviewPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>}
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">{visiblePreviewRows.length} of {preview.rows.length}</span>
                   </div>
@@ -173,11 +190,12 @@ export function DistributorRoundTripTransfer() {
                     <table className="w-full min-w-[780px] text-left text-xs">
                       <thead className="sticky top-0 bg-muted/95 text-muted-foreground"><tr><th className="p-2">Row</th><th className="p-2">Uploaded item</th><th className="p-2">Resolved master</th><th className="p-2">Replacement</th><th className="p-2">Aliases</th><th className="p-2">Eligible distributors</th><th className="p-2">Result</th></tr></thead>
                       <tbody>
-                        {visiblePreviewRows.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-2 tabular-nums">{row.rowNumber}</td><td className="p-2 font-mono font-medium">{row.itemCode}</td><td className="p-2 font-mono">{row.resolvedMasterCode ?? "Not found"}</td><td className="p-2 font-mono">{row.replacementMasterCode ?? "—"}</td><td className="p-2 font-mono">{row.aliases.join("; ") || "—"}</td><td className="p-2 font-mono">{row.eligibleDistributorCodes.join("; ") || "—"}</td><td className={row.errors.length ? "p-2 text-destructive" : "p-2 text-emerald-700 dark:text-emerald-400"}>{row.errors.length ? row.errors.join(" ") : row.replacesMasterCode ? "Master code replacement ready" : "Ready"}</td></tr>)}
+                        {pagedPreviewRows.rows.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-2 tabular-nums">{row.rowNumber}</td><td className="p-2 font-mono font-medium">{row.itemCode}</td><td className="p-2 font-mono">{row.resolvedMasterCode ?? "Not found"}</td><td className="p-2 font-mono">{row.replacementMasterCode ?? "—"}</td><td className="p-2 font-mono">{row.aliases.join("; ") || "—"}</td><td className="p-2 font-mono">{row.eligibleDistributorCodes.join("; ") || "—"}</td><td className={row.errors.length ? "p-2 text-destructive" : "p-2 text-emerald-700 dark:text-emerald-400"}>{row.errors.length ? row.errors.join(" ") : row.replacesMasterCode ? "Master code replacement ready" : "Ready"}</td></tr>)}
                         {visiblePreviewRows.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-sm text-muted-foreground">No uploaded rows match “{previewSearch}”. Clear or change the search to review another item.</td></tr>}
                       </tbody>
                     </table>
                   </div>
+                  {visiblePreviewRows.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" aria-label="Preview table pagination"><span>Showing {pagedPreviewRows.startIndex + 1}–{pagedPreviewRows.endIndex} of {visiblePreviewRows.length} matching rows · Page {pagedPreviewRows.page} of {pagedPreviewRows.pageCount}</span><div className="flex gap-2"><Button type="button" size="sm" variant="outline" aria-label="Previous preview page" disabled={pagedPreviewRows.page <= 1} onClick={() => setPreviewPage((page) => Math.max(1, page - 1))}>Previous</Button><Button type="button" size="sm" variant="outline" aria-label="Next preview page" disabled={pagedPreviewRows.page >= pagedPreviewRows.pageCount} onClick={() => setPreviewPage((page) => Math.min(pagedPreviewRows.pageCount, page + 1))}>Next</Button></div></div>}
                 </div>
                 {preview.rows.some((row) => row.errors.length) && (
                   <div className="max-h-32 space-y-1 overflow-auto text-xs text-destructive">
@@ -185,7 +203,7 @@ export function DistributorRoundTripTransfer() {
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" onClick={() => setPreview(null)}>Choose another file</Button>
+                  <Button type="button" variant="outline" onClick={() => { setPreview(null); setPreviewPage(1); }}>Choose another file</Button>
                   <Button type="button" disabled={hasBlockingErrors || commitMutation.isPending} onClick={() => commitMutation.mutate({ csv })}>
                     {commitMutation.isPending ? "Importing reviewed connections…" : "Import aliases & eligible distributors"}
                   </Button>
@@ -194,7 +212,7 @@ export function DistributorRoundTripTransfer() {
             )}
           </div>
         )}
-        <Textarea className="min-h-24 font-mono text-xs" aria-label="Distributor connections CSV" placeholder="Paste a previously downloaded distributor connections CSV here, then choose Preview changes." value={csv} onChange={(event) => { setCsv(event.target.value); setFileName("Pasted CSV"); setPreview(null); setPreviewSearch(""); }} />
+        <Textarea className="min-h-24 font-mono text-xs" aria-label="Distributor connections CSV" placeholder="Paste a previously downloaded distributor connections CSV here, then choose Preview changes." value={csv} onChange={(event) => { setCsv(event.target.value); setFileName("Pasted CSV"); setPreview(null); setPreviewSearch(""); setPreviewPage(1); }} />
       </CardContent>
     </Card>
   );
