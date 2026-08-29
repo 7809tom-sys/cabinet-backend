@@ -2014,6 +2014,98 @@ export function selectedSinkBaseWallPlacement(
 }
 
 /**
+ * Aligns a wall cabinet to the exact projection of an intentionally selected
+ * lower cabinet or floor appliance. Unlike the sink-specific helper above, this
+ * target never slides to a different upper opening: it returns null when the
+ * selected lower run is too narrow, belongs to a corner, is a refrigerator, or
+ * already has an upper occupying the same elevation band. This lets a user aim
+ * W-36-24 at a clear 36-inch lower run without the earlier 24-inch upper gap
+ * taking precedence.
+ */
+export function selectedLowerCabinetWallPlacement(
+  selected: PlacedCabinet | null | undefined,
+  room: RoomData,
+  width: number,
+  depth: number,
+  height: number,
+  placed: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
+): { x: number; y: number; rotation: number } | null {
+  if (!selected || (selected.placement !== "base" && selected.placement !== "appliance")) return null;
+  if (selected.placement === "appliance" && (isRefrigerator(selected) || isRangeOrOven(selected.masterCode, selected.description) || elevationBox(selected, room).bottom > COLLISION_EPSILON_IN)) return null;
+  if (placedCornerGeometryKind(selected) !== "standard") return null;
+  const side = cabinetWall(selected, room);
+  const horizontal = side === "top" || side === "bottom";
+  const lowerFootprint = placedFootprint(selected);
+  const lowerStart = horizontal ? selected.x : selected.y;
+  const lowerSpan = horizontal ? lowerFootprint.w : lowerFootprint.d;
+  if (width > lowerSpan + COLLISION_EPSILON_IN) return null;
+  const wallLength = horizontal ? room.width : room.depth;
+  const centeredStart = Math.max(0, Math.min(lowerStart + lowerSpan / 2 - width / 2, Math.max(0, wallLength - width)));
+  const centeredSpot = wallPlacementAt(centeredStart, width, depth, side, room);
+  const candidate: PlacedCabinet = {
+    ...selected,
+    uid: "__selected-lower-wall-target__",
+    masterCode: "SELECTED-LOWER-WALL-TARGET",
+    placement: "wall",
+    ...centeredSpot,
+    width,
+    depth,
+    height,
+  };
+  const available = freeSegmentsOnWall(
+    side,
+    room,
+    placed,
+    openings,
+    width,
+    WALL_OPENING_CLEARANCE_IN,
+    "wall",
+    false,
+    candidate,
+  );
+  const exactProjectionIsClear = available.some((segment) => (
+    centeredStart >= segment.start - COLLISION_EPSILON_IN
+    && centeredStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+  ));
+  if (!exactProjectionIsClear || hasCollision(candidate, placed)) return null;
+  return centeredSpot;
+}
+
+/**
+ * Finds the first clear lower run whose physical span matches the requested
+ * upper width. This is the deterministic click-to-add counterpart to an
+ * explicit 2D/3D drop on a lower cabinet: occupied projections are skipped,
+ * and no unrelated lower width is guessed or centered automatically.
+ */
+export function matchingLowerCabinetWallPlacement(
+  side: WallSide,
+  room: RoomData,
+  width: number,
+  depth: number,
+  height: number,
+  placed: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
+): { targetUid: string; spot: { x: number; y: number; rotation: number } } | null {
+  const horizontal = side === "top" || side === "bottom";
+  const candidates = placed
+    .filter((cabinet) => (cabinet.placement === "base" || cabinet.placement === "appliance") && cabinetWall(cabinet, room) === side)
+    .filter((cabinet) => {
+      if (cabinet.placement === "appliance" && (isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode, cabinet.description) || elevationBox(cabinet, room).bottom > COLLISION_EPSILON_IN)) return false;
+      if (placedCornerGeometryKind(cabinet) !== "standard") return false;
+      const footprint = placedFootprint(cabinet);
+      const span = horizontal ? footprint.w : footprint.d;
+      return Math.abs(span - width) <= 0.5;
+    })
+    .sort((left, right) => (horizontal ? left.x - right.x : left.y - right.y));
+  for (const candidate of candidates) {
+    const spot = selectedLowerCabinetWallPlacement(candidate, room, width, depth, height, placed, openings);
+    if (spot) return { targetUid: candidate.uid, spot };
+  }
+  return null;
+}
+
+/**
  * A short cabinet directly above a sink is bottom-mounted at 70 inches from
  * the finished floor. It is raised only when a window on that same wall/run
  * requires the minimum three-inch opening clearance.
@@ -5590,6 +5682,57 @@ export function cabinetWallDragPreview(
   const peers = others.filter((item) => item.uid !== moving.uid);
   const gaps = wallGaps(room, peers, openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
+  const cornerKind = placedCornerGeometryKind(moving);
+  const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer" || cornerKind === "triangle";
+  if (trueRoomCorner) {
+    const wallSpan = horizontal ? room.width : room.depth;
+    const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;
+    const pointerStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), roundedPointerStart));
+    const cornerStarts = [0, Math.max(0, wallSpan - requiredSpan)];
+    const nearestCornerStart = cornerStarts.reduce((nearest, start) => (
+      Math.abs(pointerStart - start) < Math.abs(pointerStart - nearest) ? start : nearest
+    ));
+    const withinSnapRange = Math.abs(pointerStart - nearestCornerStart) <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN;
+    const cornerSpot = wallPlacementAt(nearestCornerStart, requiredSpan, Number(moving.depth) || requiredSpan, wall, room);
+    const unrotatedCornerCandidate = { ...moving, ...cornerSpot };
+    const cornerCandidate = {
+      ...unrotatedCornerCandidate,
+      rotation: cornerRotationForPlaced(unrotatedCornerCandidate, room),
+    };
+    const fittingCornerGap = gaps.find((gap) => (
+      nearestCornerStart >= gap.start - COLLISION_EPSILON_IN
+      && nearestCornerStart + requiredSpan <= gap.start + gap.length + COLLISION_EPSILON_IN
+    ));
+    const cornerIsClear = Boolean(fittingCornerGap) && !hasCollision(cornerCandidate, peers);
+    const gap: WallGap = fittingCornerGap ?? {
+      side: wall,
+      layer: dragLayer,
+      start: nearestCornerStart,
+      length: 0,
+      center: nearestCornerStart,
+      isStandardSize: false,
+      isFillerSize: false,
+    };
+    const fit: WallGapFitPreview = {
+      gap,
+      containsTarget: withinSnapRange,
+      requiredSpan,
+      availableSpan: gap.length,
+      shortage: Math.max(0, requiredSpan - gap.length),
+      snapStart: nearestCornerStart,
+      snapEnd: nearestCornerStart + requiredSpan,
+      before: Math.max(0, nearestCornerStart - gap.start),
+      after: Math.max(0, gap.start + gap.length - nearestCornerStart - requiredSpan),
+      status: withinSnapRange && cornerIsClear ? "valid" : "invalid",
+    };
+    return {
+      wall,
+      fit,
+      candidate: withinSnapRange && cornerIsClear ? cornerCandidate : null,
+      snapped: withinSnapRange,
+      ghostCandidate: cornerCandidate,
+    };
+  }
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
   const wallSpan = horizontal ? room.width : room.depth;

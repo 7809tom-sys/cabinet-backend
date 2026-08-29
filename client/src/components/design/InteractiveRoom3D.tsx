@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -4621,6 +4621,20 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         const wall = target?.wall ?? catalogDropWall;
         if (!target || !wall) { setCatalogDragMeasurement(null); return; }
         const layer = item.placement === "wall" ? "wall" : "base";
+        const lowerTarget = item.placement === "wall" && target.placementUid
+          ? placed.find((cabinet) => cabinet.uid === target.placementUid) ?? null
+          : null;
+        const lowerSpot = lowerTarget
+          ? selectedLowerCabinetWallPlacement(lowerTarget, roomOverride, item.width, item.depth ?? STD.WALL_DEPTH, item.height ?? STD.WALL_HEIGHT, placed, openings)
+          : null;
+        if (lowerSpot) {
+          const targetWall = cabinetWall(lowerTarget!, roomOverride);
+          const horizontal = targetWall === "top" || targetWall === "bottom";
+          const snapStart = horizontal ? lowerSpot.x : lowerSpot.y;
+          const exactGap = { side: targetWall, layer: "wall" as const, start: snapStart, length: item.width, center: snapStart + item.width / 2, isStandardSize: true, isFillerSize: false };
+          setCatalogDragMeasurement({ item, fit: { gap: exactGap, containsTarget: true, requiredSpan: item.width, availableSpan: item.width, shortage: 0, snapStart, snapEnd: snapStart + item.width, before: 0, after: 0, status: "valid" }, wall: targetWall });
+          return;
+        }
         const gaps = wallGaps(roomOverride, placed, openings, 0.5).filter((gap) => gap.side === wall && gap.layer === layer);
         const targetAlong = wall === "top" || wall === "bottom" ? target.x : target.y;
         const fit = wallGapFitPreview(gaps, targetAlong, item.width);

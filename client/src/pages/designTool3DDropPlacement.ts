@@ -1,4 +1,4 @@
-import { cabinetWall, isSinkBaseCabinet, placedFootprint, type PlacedCabinet, type RoomData, type WallSide } from "@/lib/design";
+import { cabinetWall, elevationBox, isRangeOrOven, isRefrigerator, isSinkBaseCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type RoomData, type WallSide } from "@/lib/design";
 
 export type ThreeDWallDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
 
@@ -22,6 +22,42 @@ export function targetedSinkBaseForThreeDDrop(
   const targetAlong = horizontal ? target.x : target.y;
   const candidates = placed.filter((cabinet) => {
     if (cabinet.placement !== "base" || !isSinkBaseCabinet(cabinet) || cabinetWall(cabinet, room) !== target.wall) return false;
+    const footprint = placedFootprint(cabinet);
+    const start = horizontal ? cabinet.x : cabinet.y;
+    const span = horizontal ? footprint.w : footprint.d;
+    return targetAlong >= start - 0.01 && targetAlong <= start + span + 0.01;
+  });
+  if (candidates.length === 0) return null;
+  return candidates.reduce((nearest, cabinet) => {
+    const footprint = placedFootprint(cabinet);
+    const nearestFootprint = placedFootprint(nearest);
+    const center = (horizontal ? cabinet.x : cabinet.y) + (horizontal ? footprint.w : footprint.d) / 2;
+    const nearestCenter = (horizontal ? nearest.x : nearest.y) + (horizontal ? nearestFootprint.w : nearestFootprint.d) / 2;
+    return Math.abs(center - targetAlong) < Math.abs(nearestCenter - targetAlong) ? cabinet : nearest;
+  });
+}
+
+/** A lower cabinet/appliance hit is an explicit request to align an upper to it. */
+export function targetedLowerCabinetForThreeDDrop(
+  placed: PlacedCabinet[],
+  target?: ThreeDWallDropTarget,
+  room?: RoomData,
+): PlacedCabinet | null {
+  if (!target || !room) return null;
+  const eligible = (cabinet: PlacedCabinet): boolean => {
+    if (cabinet.placement !== "base" && cabinet.placement !== "appliance") return false;
+    if (cabinet.placement === "appliance" && (isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode, cabinet.description) || elevationBox(cabinet, room).bottom > 0.01)) return false;
+    return placedCornerGeometryKind(cabinet) === "standard";
+  };
+  if (target.placementUid) {
+    const hit = placed.find((cabinet) => cabinet.uid === target.placementUid) ?? null;
+    return hit && eligible(hit) ? hit : null;
+  }
+  if (!target.wall) return null;
+  const horizontal = target.wall === "top" || target.wall === "bottom";
+  const targetAlong = horizontal ? target.x : target.y;
+  const candidates = placed.filter((cabinet) => {
+    if (!eligible(cabinet) || cabinetWall(cabinet, room) !== target.wall) return false;
     const footprint = placedFootprint(cabinet);
     const start = horizontal ? cabinet.x : cabinet.y;
     const span = horizontal ? footprint.w : footprint.d;

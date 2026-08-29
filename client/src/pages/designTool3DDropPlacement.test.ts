@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nearestFreeWallDropStart, targetedSinkBaseForThreeDDrop } from "./designTool3DDropPlacement";
+import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop } from "./designTool3DDropPlacement";
 
 describe("nearestFreeWallDropStart", () => {
   const segments = [{ start: 0, length: 18 }, { start: 42, length: 54 }];
@@ -43,5 +43,21 @@ describe("targetedSinkBaseForThreeDDrop", () => {
       { uid: "right-wall-12", masterCode: "W-1242", description: '12" Wall Cabinet', placement: "wall", x: 132, y: 90, rotation: 90, width: 12, depth: 12, height: 42 },
     ] as never[];
     expect(targetedSinkBaseForThreeDDrop(rightWall, { x: 144, y: 72, wall: "right" }, room)?.uid).toBe("right-sink-36");
+  });
+});
+
+describe("targetedLowerCabinetForThreeDDrop", () => {
+  const room = { width: 144, depth: 127, ceilingHeight: 96 } as never;
+  const placed = [
+    { uid: "right-lower-36", masterCode: "B-36", description: '36" Base Cabinet', placement: "base", x: 120, y: 60, rotation: 90, width: 36, depth: 24, height: 34.5 },
+    { uid: "right-upper-36", masterCode: "W-36-42", description: '36" Wall Cabinet', placement: "wall", x: 132, y: 24, rotation: 90, width: 36, depth: 12, height: 42 },
+  ] as never[];
+
+  it("uses a direct hit on the lower cabinet as the intentional W-36-24 alignment target", () => {
+    expect(targetedLowerCabinetForThreeDDrop(placed, { x: 144, y: 78, wall: "right", placementUid: "right-lower-36" }, room)?.uid).toBe("right-lower-36");
+  });
+
+  it("does not reinterpret an existing upper as a lower-run alignment target", () => {
+    expect(targetedLowerCabinetForThreeDDrop(placed, { x: 144, y: 42, wall: "right", placementUid: "right-upper-36" }, room)).toBeNull();
   });
 });

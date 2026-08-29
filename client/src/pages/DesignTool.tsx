@@ -77,7 +77,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -141,7 +141,7 @@ import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeCon
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
-import { nearestFreeWallDropStart, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
+import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { catalogHeightOptions, filterCatalogByHeight, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
@@ -2643,18 +2643,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       let spot: { x: number; y: number; rotation: number };
       let preserveResolvedPlacement = false;
       let explicitSelectedSinkTarget = false;
-      const selectedSinkTarget = targetCabinetUid
+      const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
           ? prev.find((cabinet) => cabinet.uid === selectedUid) ?? null
           : null;
+      const selectedLowerTarget = selectedPlacementTarget?.placement === "base" || selectedPlacementTarget?.placement === "appliance"
+        ? selectedPlacementTarget
+        : null;
       const selectedSinkSpot = accPlacement === "wall"
-        ? selectedSinkBaseWallPlacement(selectedSinkTarget, room, width, depth, height, prev, openings)
+        ? selectedSinkBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
+        : null;
+      const selectedLowerSpot = accPlacement === "wall" && !selectedSinkSpot
+        ? selectedLowerCabinetWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
+        : null;
+      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
+        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
         : null;
       if (selectedSinkSpot) {
         spot = selectedSinkSpot;
         preserveResolvedPlacement = true;
         explicitSelectedSinkTarget = true;
+      } else if (selectedLowerSpot) {
+        spot = selectedLowerSpot;
+        preserveResolvedPlacement = true;
+      } else if (automaticLowerMatch) {
+        spot = automaticLowerMatch.spot;
+        preserveResolvedPlacement = true;
       } else if (x != null && y != null) {
         spot = { x, y, rotation };
       } else {
@@ -3015,6 +3030,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         : null;
       if (targetedSinkBase) {
         addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedSinkBase.uid);
+        return;
+      }
+      const targetedLowerCabinet = !forceAccessory && placement === "wall"
+        ? targetedLowerCabinetForThreeDDrop(placed, dropTarget, room)
+        : null;
+      if (targetedLowerCabinet) {
+        addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedLowerCabinet.uid);
         return;
       }
       const dropWall = dropTarget.wall ?? activeWall;
@@ -4469,6 +4491,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
       const targetAlong = dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+      const targetedLowerCabinet = placement === "wall"
+        ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
+        : null;
+      if (targetedLowerCabinet) {
+        addCabinet(data, center.x, center.y, forceAccessory, 0, true, targetedLowerCabinet.uid);
+        dragDataRef.current = null;
+        setCatalogDragPreview(null);
+        return;
+      }
       const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
       const measured = wallGapFitPreview(gaps, targetAlong, width);

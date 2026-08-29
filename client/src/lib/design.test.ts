@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -102,6 +102,36 @@ describe("3D same-wall cabinet drag", () => {
     expect(preview.candidate).toMatchObject({ x: 108, y: 0 });
     expect(rightWallCorner.x - (preview.candidate!.x + placedFootprint(preview.candidate!).w)).toBe(0);
     expect(hasCollision(preview.candidate!, [rightWallCorner])).toBe(false);
+  });
+
+  it("keeps LS3612 off an invalid middle-of-wall drag and snaps it only to a valid room corner", () => {
+    const moving = cabinet("moving-ls3612", 0, 0, 36);
+    moving.masterCode = "LS3612";
+    moving.description = "36 inch Lazy Susan Corner Base";
+    moving.depth = 36;
+    moving.cornerType = "lazy-susan";
+
+    const middle = cabinetWallDragPreview(moving, ROOM_12x10, [moving], [], 72)!;
+    expect(middle.candidate).toBeNull();
+
+    const topRight = cabinetWallDragPreview(moving, ROOM_12x10, [moving], [], 126)!;
+    expect(topRight.snapped).toBe(true);
+    expect(topRight.candidate).toMatchObject({ x: 108, y: 0, rotation: 90, width: 36, depth: 36 });
+    expect(hasCollision(topRight.candidate!, [])).toBe(false);
+  });
+
+  it("rejects a true corner-cabinet snap when the destination corner is occupied", () => {
+    const moving = cabinet("moving-corner-occupied", 0, 0, 36);
+    moving.masterCode = "LS3612";
+    moving.description = "36 inch Lazy Susan Corner Base";
+    moving.depth = 36;
+    moving.cornerType = "lazy-susan";
+    const blocker = cabinet("occupied-top-right", 108, 0, 24);
+
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, blocker], [], 126)!;
+    expect(preview.candidate).toBeNull();
+    expect(preview.ghostCandidate).toMatchObject({ x: 108, y: 0, rotation: 90 });
+    expect(hasCollision(preview.ghostCandidate!, [blocker])).toBe(true);
   });
 
   it("right-drags a tall refrigerator end panel as a physical wall-run object", () => {
@@ -1762,6 +1792,73 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(hasCollision(candidate, [leftUpper, sinkBase, rightUpper])).toBe(false);
     const fit = wallCabinetFitMeasure(candidate, ROOM_12x10, [leftUpper, sinkBase, rightUpper], []);
     expect(fit).toMatchObject({ availableStart: 12, availableEnd: 48, availableSpan: 36, before: 0, after: 0, status: "fits" });
+  });
+
+  it("aligns W-36-24 to a targeted 36-inch lower cabinet on the right wall instead of the earlier 24-inch upper gap", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const earlierUpper = cab({ uid: "right-w3642", masterCode: "W-36-42", placement: "wall", x: 132, y: 24, width: 36, depth: 12, height: 42, rotation: 90 });
+    const lowerTarget = cab({ uid: "right-sb36", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const spot = selectedLowerCabinetWallPlacement(lowerTarget, room, 36, 12, 24, [earlierUpper, lowerTarget], []);
+
+    expect(spot).toEqual({ x: 132, y: 60, rotation: 90 });
+    const candidate = cab({ uid: "right-w3624", masterCode: "W-36-24", placement: "wall", ...spot!, width: 36, depth: 12, height: 24, rotation: 90 });
+    expect(hasCollision(candidate, [earlierUpper, lowerTarget])).toBe(false);
+    expect(adjoiningWallRunMountBottom(candidate, room, [earlierUpper, lowerTarget])).toBe(72);
+    expect(elevationBox({ ...candidate, mountBottom: 72 }, room)).toEqual({ bottom: 72, height: 24 });
+  });
+
+  it("does not shift a targeted W-36-24 away from its lower cabinet when that exact upper projection is occupied", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const lowerTarget = cab({ uid: "right-lower-occupied", masterCode: "B-36", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const occupiedUpper = cab({ uid: "right-upper-occupied", masterCode: "W-36-42", placement: "wall", x: 132, y: 60, width: 36, depth: 12, height: 42, rotation: 90 });
+    expect(selectedLowerCabinetWallPlacement(lowerTarget, room, 36, 12, 24, [lowerTarget, occupiedUpper], [])).toBeNull();
+  });
+
+  it("allows a matching upper over a floor dishwasher but rejects a range and refrigerator target", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const dishwasher = cab({ uid: "right-dw24", masterCode: "DW-24", description: "24 inch Dishwasher", placement: "appliance", x: 120, y: 36, width: 24, depth: 24, height: 34.5, rotation: 90 });
+    const range = cab({ uid: "right-range30", masterCode: "RANGE-30", description: "30 inch Range", placement: "appliance", x: 119, y: 60, width: 30, depth: 25, height: 36, rotation: 90 });
+    const refrigerator = cab({ uid: "right-fridge36", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 114, y: 90, width: 36, depth: 30, height: 70, rotation: 90 });
+
+    expect(selectedLowerCabinetWallPlacement(dishwasher, room, 24, 12, 30, [dishwasher, range, refrigerator], [])).toEqual({ x: 132, y: 36, rotation: 90 });
+    expect(selectedLowerCabinetWallPlacement(range, room, 30, 12, 30, [dishwasher, range, refrigerator], [])).toBeNull();
+    expect(selectedLowerCabinetWallPlacement(refrigerator, room, 36, 24, 24, [dishwasher, range, refrigerator], [])).toBeNull();
+  });
+
+  it("blocks a matching upper that violates the three-inch wall-opening clearance", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const base = cab({ uid: "window-base-36", masterCode: "B-36", placement: "base", x: 120, y: 48, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const window = opening({ uid: "right-window", kind: "window", side: "right", offset: 48, width: 36, height: 30, sill: 44 });
+
+    expect(selectedLowerCabinetWallPlacement(base, room, 36, 12, 24, [base], [window])).toBeNull();
+  });
+
+  it("keeps standard matching uppers at the 54-inch bottom while short uppers share an adjacent run top", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const firstLower = cab({ uid: "right-base-36-a", masterCode: "B-36", placement: "base", x: 120, y: 24, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const secondLower = cab({ uid: "right-base-36-b", masterCode: "B-36", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const standardSpot = selectedLowerCabinetWallPlacement(firstLower, room, 36, 12, 42, [firstLower, secondLower], []);
+    expect(standardSpot).toEqual({ x: 132, y: 24, rotation: 90 });
+    const standardUpper = cab({ uid: "right-standard-upper", masterCode: "W-36-42", placement: "wall", ...standardSpot!, width: 36, depth: 12, height: 42, rotation: 90 });
+    expect(elevationBox(standardUpper, room)).toEqual({ bottom: 54, height: 42 });
+
+    const shortSpot = selectedLowerCabinetWallPlacement(secondLower, room, 36, 12, 24, [firstLower, secondLower, standardUpper], []);
+    expect(shortSpot).toEqual({ x: 132, y: 60, rotation: 90 });
+    const shortUpper = cab({ uid: "right-short-upper", masterCode: "W-36-24", placement: "wall", ...shortSpot!, width: 36, depth: 12, height: 24, rotation: 90 });
+    expect(adjoiningWallRunMountBottom(shortUpper, room, [standardUpper])).toBe(72);
+    expect(elevationBox({ ...shortUpper, mountBottom: 72 }, room)).toEqual({ bottom: 72, height: 24 });
+  });
+
+  it("click-to-add finds the first clear same-width lower run when no lower cabinet is selected", () => {
+    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 96 };
+    const earlierUpper = cab({ uid: "click-right-w3642", masterCode: "W-36-42", placement: "wall", x: 132, y: 24, width: 36, depth: 12, height: 42, rotation: 90 });
+    const coveredLower = cab({ uid: "click-covered-b36", masterCode: "B-36", placement: "base", x: 120, y: 24, width: 36, depth: 24, height: 34.5, rotation: 90 });
+    const clearLower = cab({ uid: "click-clear-sb36", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
+
+    expect(matchingLowerCabinetWallPlacement("right", room, 36, 12, 24, [earlierUpper, coveredLower, clearLower], [])).toEqual({
+      targetUid: "click-clear-sb36",
+      spot: { x: 132, y: 60, rotation: 90 },
+    });
   });
 
   it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {

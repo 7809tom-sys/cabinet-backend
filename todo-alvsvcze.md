@@ -965,3 +965,7 @@
 - [x] Reproduce the reported right-wall small-gap filler result where the newly placed cabinet lands sideways after the filler is applied
 - [x] Preserve the cabinet’s correct wall-facing rotation and transformed coordinates when applying left, right, or split filler layouts on vertical walls, with exact 0-inch overlap
 - [x] Keep the cabinet and filler SKU, price, dimensions, finish, grouping, save/restore, cart, and unrelated placements unchanged while adding focused vertical-wall regressions
+- [x] Reproduce and fix W-36-24 being rejected on the right wall despite a reported clear upper-layer opening, using the full bounded opening and exact 0-inch edge contact
+- [x] Validate a matching upper-cabinet run over the demonstrated lower cabinets and appliances, preserving the normal 54-inch wall-cabinet bottom, shared top line for short uppers, and door/window/appliance clearances
+- [x] Test and correct moving a true corner cabinet so it snaps only to a physically valid room corner, retains its configured corner geometry and wall ownership, and never overlaps neighboring cabinets
+- [x] Preserve all cabinet SKUs, dimensions, prices, finishes, saved-design/cart identities, fillers, countertops, and unrelated placements while adding focused regressions for all three scenarios
