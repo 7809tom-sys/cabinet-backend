@@ -1032,3 +1032,8 @@
 - [x] Add coordinate-level movement telemetry or an authenticated-equivalent interaction harness that proves the selected cabinet UID changes by the entered increment
 - [x] Correct the actual click-to-state-to-3D-render path without changing cabinet identity, pricing, save/cart state, zero-overlap rules, or camera position/target/zoom
 - [x] Publish another D-pad correction only after all four directions and blocked feedback pass execution-level tests beyond source-string assertions
+- [x] Use the owner’s live screenshot evidence showing “Moved W-36-24 up 1 in (bottom 70 in → 71 in)” to isolate why the rendered mesh remains visually unchanged after a successful host commit
+- [x] Trace the selected cabinet mountBottom through placedRef, placed state, threeDPlaced projection, normalization effects, existingCabinetTransform, and final Three.js group position
+- [x] Correct any post-commit normalization or mesh-transform path that resets or ignores the selected cabinet’s committed X, Y, or elevation
+- [x] Add execution-level proof that changing mountBottom from 70 to 71 changes the rendered cabinet transform by exactly 1 inch without changing camera state
+- [x] Publish the post-commit rendering correction only after vertical and horizontal mesh transforms demonstrably follow the authoritative selected-cabinet record

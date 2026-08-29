@@ -373,6 +373,8 @@ export interface PlacedCabinet {
   // elevationBox derives the bottom from the default rule (stacker stacks on
   // top at 84"; a standalone short wall cabinet hangs from the 84" top line).
   mountBottom?: number | null;
+  /** True after a user intentionally changes mountBottom; automatic over-sink cleanup must preserve it. */
+  mountBottomAdjusted?: boolean;
   // Blind corner cabinets install ACROSS the corner with a manufacturer pull
   // range: the cabinet can be pulled away from the corner between pullMin and
   // pullMax inches (e.g. a 36" blind base that pulls out to 39"). These come
@@ -2258,6 +2260,7 @@ export function normalizeOverSinkWallMounts(
 ): PlacedCabinet[] {
   let changed = false;
   const normalized = placed.map((cabinet) => {
+    if (cabinet.mountBottomAdjusted) return cabinet;
     const mountBottom = overSinkWallMountBottom(cabinet, placed, openings, room);
     if (mountBottom == null || cabinet.mountBottom === mountBottom) return cabinet;
     changed = true;

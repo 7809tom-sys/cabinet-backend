@@ -4807,7 +4807,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         if (p.placement !== "wall") return p;
         const cur = elevationBox(p, room).bottom;
         const next = Math.max(0, Math.round((cur + deltaIn) * 10) / 10);
-        return { ...p, mountBottom: next };
+	        return { ...p, mountBottom: next, mountBottomAdjusted: true };
       })
     );
   }, [selectedUid, room]);
@@ -4821,7 +4821,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (!current || current.placement !== "wall") return prev;
 	      const limit = wallCabinetVerticalMoveLimit(current, room);
 	      const bounded = Math.max(0, Math.min(limit.maxBottom, Math.round(mountBottom * 8) / 8));
-      const candidate = { ...current, mountBottom: bounded };
+	      const candidate = { ...current, mountBottom: bounded, mountBottomAdjusted: true };
       const peers = prev.filter((p) => p.uid !== uid);
       if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
         const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
@@ -4878,7 +4878,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        return blocked(`${cabinet.masterCode} cannot move ${direction}; it must remain between the floor and the ${ceiling}\" ceiling.`);
 	      }
 	      const peers = prev.filter((item) => item.uid !== uid);
-	      const candidate = repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom }, room, peers, openings);
+	      const candidate = repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom, mountBottomAdjusted: true }, room, peers, openings);
 	      if (!candidate) {
 	        const failedCandidate = { ...cabinet, mountBottom: nextBottom };
 	        return blocked(wallCabinetPlacementReason(failedCandidate, room, peers, openings) ?? collisionReason(failedCandidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
@@ -4916,7 +4916,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const resetMountHeight = useCallback(() => {
     if (!selectedUid) return;
     setPlaced((prev) =>
-      prev.map((p) => (p.uid === selectedUid ? { ...p, mountBottom: null } : p))
+	      prev.map((p) => (p.uid === selectedUid ? { ...p, mountBottom: null, mountBottomAdjusted: false } : p))
     );
   }, [selectedUid]);
 

@@ -707,12 +707,38 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain("await shareThumbnailMutation.mutateAsync({ token, thumbnailDataUrl })");
   });
 
-  it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
+	  it("maps selected-cabinet left and right arrows to the visible screen direction on every wall axis", () => {
     expect(threeDScreenHorizontalPlanDelta("top", "right", 1, { x: 0.8, z: -0.4 })).toEqual({ x: 1, y: 0 });
     expect(threeDScreenHorizontalPlanDelta("bottom", "left", 1, { x: 0.8, z: -0.4 })).toEqual({ x: -1, y: 0 });
     expect(threeDScreenHorizontalPlanDelta("left", "right", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: -0.25 });
-    expect(threeDScreenHorizontalPlanDelta("right", "left", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: 0.25 });
-  });
+	    expect(threeDScreenHorizontalPlanDelta("right", "left", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: 0.25 });
+	  });
+
+	  it("moves the rendered W-36-24 transform bottom by exactly one inch when the authoritative mount changes from 70 to 71", () => {
+	    const room = { width: 144, depth: 120, ceilingHeight: 108 };
+	    const cabinet = { uid: "live-w3624", masterCode: "W-36-24", description: "36-inch wall cabinet", placement: "wall", x: 60, y: 0, width: 36, depth: 12, height: 24, rotation: 0, mountBottom: 70, mountBottomAdjusted: true } as any;
+	    const before = existingCabinetTransform(cabinet, room);
+	    const after = existingCabinetTransform({ ...cabinet, mountBottom: 71 }, room);
+	    const shiftedRight = existingCabinetTransform({ ...cabinet, x: 61 }, room);
+	    expect(before.bottom).toBe(70);
+	    expect(after.bottom).toBe(71);
+	    expect(after.bottom - before.bottom).toBe(1);
+	    expect(after.x).toBe(before.x);
+	    expect(after.z).toBe(before.z);
+	    expect(after.rotation).toBe(before.rotation);
+	    expect(shiftedRight.x - before.x).toBe(1);
+
+	    const beforeRoot = new THREE.Group();
+	    const afterRoot = new THREE.Group();
+	    const rightRoot = new THREE.Group();
+	    addCabinet(beforeRoot, existingCabinetSku(cabinet), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, before);
+	    addCabinet(afterRoot, existingCabinetSku({ ...cabinet, mountBottom: 71 }), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, after);
+	    addCabinet(rightRoot, existingCabinetSku({ ...cabinet, x: 61 }), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, shiftedRight);
+	    expect(afterRoot.children[0]!.position.y - beforeRoot.children[0]!.position.y).toBeCloseTo(1 / 12, 12);
+	    expect(rightRoot.children[0]!.position.x - beforeRoot.children[0]!.position.x).toBeCloseTo(1 / 12, 12);
+	    expect(afterRoot.children[0]!.position.x).toBe(beforeRoot.children[0]!.position.x);
+	    expect(afterRoot.children[0]!.position.z).toBe(beforeRoot.children[0]!.position.z);
+	  });
 
   it("accepts an editable movement amount at one-eighth-inch precision and bounds unsafe values", () => {
     expect(THREE_D_MIN_MOVE_INCREMENT_IN).toBe(0.125);

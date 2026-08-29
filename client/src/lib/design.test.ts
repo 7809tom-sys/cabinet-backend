@@ -2423,12 +2423,22 @@ describe("wall cabinet clearance from doors/windows", () => {
     expect(overSinkWallMountBottom(candidate, [sinkBase], [highWindow], lowRoom)).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
   });
 
-  it("lowers a saved over-sink cabinet to 70 inches after its window is removed", () => {
+	  it("lowers a saved over-sink cabinet to 70 inches after its window is removed", () => {
     const sinkBase = cab({ uid: "sink-base", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
     const staleBridge = cab({ uid: "w-36-15", masterCode: "W-36-15", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 15, mountBottom: 81 });
     const normalized = normalizeOverSinkWallMounts([sinkBase, staleBridge], [], room);
-    expect(normalized.find((cabinet) => cabinet.uid === "w-36-15")?.mountBottom).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
-  });
+	    expect(normalized.find((cabinet) => cabinet.uid === "w-36-15")?.mountBottom).toBe(OVER_SINK_WALL_MOUNT_BOTTOM);
+	  });
+
+	  it("preserves the owner-reported manual W-36-24 D-pad move from bottom 70 to 71 instead of normalizing it back", () => {
+	    const sinkBase = cab({ uid: "sink-base-manual", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 54, y: 0, width: 36, depth: 24, height: 34.5 });
+	    const manuallyRaised = cab({ uid: "w-36-24-manual", masterCode: "W-36-24", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 24, mountBottom: 71, mountBottomAdjusted: true });
+	    const placed = [sinkBase, manuallyRaised];
+	    const normalized = normalizeOverSinkWallMounts(placed, [], room);
+	    expect(normalized).toBe(placed);
+	    expect(normalized[1]).toBe(manuallyRaised);
+	    expect(normalized[1].mountBottom).toBe(71);
+	  });
 
   it("still blocks a short cabinet that occupies the neighboring upper's elevation band", () => {
     const leftUpper = cab({ uid: "w-12-42", masterCode: "W-12-42", description: "12x42 Wall", placement: "wall", x: 54, y: 0, width: 36, depth: 12, height: 42 });
