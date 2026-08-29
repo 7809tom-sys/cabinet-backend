@@ -24,17 +24,18 @@ describe("Design Tool Drop to countertop", () => {
   it("places Drop to countertop immediately beside Drop to floor in desktop and responsive touch controls", () => {
     const desktopStart = source.indexOf('{selectedCab.placement === "wall" && (');
     const desktopEnd = source.indexOf("{isBlindCorner", desktopStart);
-    const desktop = source.slice(desktopStart, desktopEnd);
-    expect(desktop.indexOf("dropToCountertop(selectedCab.uid)")).toBeGreaterThan(-1);
-    expect(desktop.indexOf("dropToFloor(selectedCab.uid)")).toBeGreaterThan(desktop.indexOf("dropToCountertop(selectedCab.uid)"));
+	    const desktop = source.slice(desktopStart, desktopEnd);
+	    expect(desktop).toContain("<SelectedCabinetDropActions");
+	    expect(desktop.indexOf("onDropToCountertop={() => dropToCountertop(selectedCab.uid)}")).toBeGreaterThan(-1);
+	    expect(desktop.indexOf("onDropToFloor={() => dropToFloor(selectedCab.uid)}")).toBeGreaterThan(desktop.indexOf("onDropToCountertop={() => dropToCountertop(selectedCab.uid)}"));
 
     const mobileStart = source.indexOf('{selectedCab.placement === "wall" && (', desktopEnd);
     const mobileEnd = source.indexOf("{isBlindCorner", mobileStart);
     const mobile = source.slice(mobileStart, mobileEnd);
-    expect(mobile).toContain('className="mt-3 flex flex-wrap gap-2"');
-    expect(mobile).toContain('className="h-9 min-w-[150px] flex-1');
-    expect(mobile.indexOf("dropToCountertop(selectedCab.uid)")).toBeGreaterThan(-1);
-    expect(mobile.indexOf("dropToFloor(selectedCab.uid)")).toBeGreaterThan(mobile.indexOf("dropToCountertop(selectedCab.uid)"));
+	    expect(mobile).toContain("<SelectedCabinetDropActions");
+	    expect(mobile).toContain("touch");
+	    expect(mobile.indexOf("onDropToCountertop={() => dropToCountertop(selectedCab.uid)}")).toBeGreaterThan(-1);
+	    expect(mobile.indexOf("onDropToFloor={() => dropToFloor(selectedCab.uid)}")).toBeGreaterThan(mobile.indexOf("onDropToCountertop={() => dropToCountertop(selectedCab.uid)}"));
   });
 
   it("provides the countertop action label, title, lock message, and success message in every supported locale", () => {

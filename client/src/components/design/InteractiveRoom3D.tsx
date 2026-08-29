@@ -2822,7 +2822,38 @@ export function addCabinet(
       const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
-  } else if (specialty.kind === "farmhouse-sink") {
+	  } else if (specialty.kind === "blind-corner") {
+	    const layout = threeDBlindCornerFrontLayout(bodyWidth, sku.swing === "left" ? "left" : "right");
+	    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+	    const blindPanel = new THREE.Mesh(
+	      new THREE.BoxGeometry(Math.max(0.08, layout.blindWidth - 0.04), faceHeight, 0.038),
+	      trimMaterial,
+	    );
+	    blindPanel.position.set(layout.blindX, 0, 0);
+	    blindPanel.userData = {
+	      specialtyProfile: "blind-corner",
+	      blindCornerBlindSide: layout.blindSide,
+	      blindCornerFixedPanel: true,
+	      cabinetFront: true,
+	    };
+	    frontGroup.add(blindPanel);
+	    const door = new THREE.Mesh(
+	      new THREE.BoxGeometry(Math.max(0.08, layout.doorWidth - 0.06), faceHeight, 0.052),
+	      faceMaterial,
+	    );
+	    door.position.set(layout.doorX, 0, 0.008);
+	    door.userData = {
+	      specialtyProfile: "blind-corner",
+	      blindCornerDoorSide: layout.doorSide,
+	      blindCornerExposedDoor: true,
+	      cabinetFront: true,
+	      flushPhysicalFace: true,
+	    };
+	    frontGroup.add(door);
+	    addFaceShadow(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y);
+	    addShakerFrame(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y);
+	    addPull(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", layout.doorSide);
+	  } else if (specialty.kind === "farmhouse-sink") {
     // FSB farmhouse bases carry their apron on the positive-Z local face. The
     // cabinet's resolved wall transform keeps that feature facing the room.
     const apronWidth = Math.max(0.3, bodyWidth * 0.68);
@@ -3169,7 +3200,9 @@ export function threeDRoomFacingRotation(
   // face the room at left- and right-hand corners, while their backs stay at the
   // two adjoining walls.
   if (kind === "l-shape" && /^(?:LSB?|ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
-  if (kind !== "standard") return fallbackRotation;
+	  // Non-standard corner bodies retain their saved 2D quarter-turn so their
+	  // authored specialty fronts and physical footprints stay on the same walls.
+	  if (kind !== "standard") return fallbackRotation;
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
     front: Math.PI,
@@ -3206,6 +3239,20 @@ export function threeDRoomFacingRotation(
 export function diagonalCornerRoomRotation(cornerTurn: number): number {
   const normalized = ((cornerTurn % 360) + 360) % 360;
   return (360 - normalized) % 360;
+}
+
+export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left" | "right") {
+  const doorWidth = bodyWidth * 0.6;
+  const blindWidth = bodyWidth - doorWidth;
+  const doorOnRight = doorSide === "right";
+  return {
+    doorSide,
+    blindSide: doorOnRight ? "left" as const : "right" as const,
+    doorWidth,
+    blindWidth,
+    doorX: doorOnRight ? bodyWidth / 2 - doorWidth / 2 : -bodyWidth / 2 + doorWidth / 2,
+    blindX: doorOnRight ? -bodyWidth / 2 + blindWidth / 2 : bodyWidth / 2 - blindWidth / 2,
+  };
 }
 
 export function existingCabinetTransform(

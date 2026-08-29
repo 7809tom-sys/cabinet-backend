@@ -7,11 +7,12 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles, Upload,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
+  ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowDownToLine, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7683,28 +7684,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              {selectedCab.placement === "wall" && (
 	                <>
 	                  <div className="h-4 w-px bg-border" />
-	                  <Button
-	                    variant="outline"
-	                    size="sm"
-	                    className="h-7 gap-1 px-2 text-[11px]"
-	                    title={t("dt_cx_drop_countertop")}
-	                    onClick={() => dropToCountertop(selectedCab.uid)}
-	                  >
-	                    <ArrowDownToLine className="h-3.5 w-3.5" />
-	                    {t("dt_cx_drop_to_countertop")}
-	                  </Button>
-	                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
-                    title={t("dt_cx_drop_island")}
-                    onClick={() => dropToFloor(selectedCab.uid)}
-                  >
-                    <ChevronsDown className="h-3.5 w-3.5" />
-                    {t("dt_cx_drop_to_floor")}
-                  </Button>
-                </>
-              )}
+	                  <SelectedCabinetDropActions
+	                    countertopLabel={t("dt_cx_drop_to_countertop")}
+	                    countertopTitle={t("dt_cx_drop_countertop")}
+	                    floorLabel={t("dt_cx_drop_to_floor")}
+	                    floorTitle={t("dt_cx_drop_island")}
+	                    onDropToCountertop={() => dropToCountertop(selectedCab.uid)}
+	                    onDropToFloor={() => dropToFloor(selectedCab.uid)}
+	                  />
+	                </>
+	              )}
               {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (() => {
                 const dRange = blindPullRange(selectedCab);
                 const dMin = dRange?.min ?? 3;
@@ -8034,28 +8023,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         </Button>
                       )}
                     </div>
-	                    <div className="mt-3 flex flex-wrap gap-2">
-	                      <Button
-	                        variant="outline"
-	                        size="sm"
-	                        className="h-9 min-w-[150px] flex-1 gap-1 px-3 text-[11px]"
-	                        title={t("dt_cx_drop_countertop")}
-	                        onClick={() => dropToCountertop(selectedCab.uid)}
-	                      >
-	                        <ArrowDownToLine className="h-3.5 w-3.5" />
-	                        {t("dt_cx_drop_to_countertop")}
-	                      </Button>
-	                      <Button
-	                        variant="outline"
-	                        size="sm"
-	                        className="h-9 min-w-[120px] flex-1 gap-1 px-3 text-[11px]"
-	                        title={t("dt_cx_drop_island")}
-	                        onClick={() => dropToFloor(selectedCab.uid)}
-	                      >
-	                        <ChevronsDown className="h-3.5 w-3.5" />
-	                        {t("dt_cx_drop_to_floor")}
-	                      </Button>
-	                    </div>
+	                    <SelectedCabinetDropActions
+	                      touch
+	                      countertopLabel={t("dt_cx_drop_to_countertop")}
+	                      countertopTitle={t("dt_cx_drop_countertop")}
+	                      floorLabel={t("dt_cx_drop_to_floor")}
+	                      floorTitle={t("dt_cx_drop_island")}
+	                      onDropToCountertop={() => dropToCountertop(selectedCab.uid)}
+	                      onDropToFloor={() => dropToFloor(selectedCab.uid)}
+	                    />
                   </div>
                 )}
 

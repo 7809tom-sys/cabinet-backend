@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addSinkFixture, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addSinkFixture, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -1176,7 +1176,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
   });
 
-  it("keeps left and right LSB36 lazy Susan fronts on their room-facing corner legs", () => {
+	  it("keeps left and right LSB36 lazy Susan fronts on their room-facing corner legs", () => {
     const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
     const left = {
       uid: "lsb36-top-left", cabinetId: 36, masterCode: "LSB36", description: "Lazy Susan Base Cabinet",
@@ -1187,8 +1187,28 @@ describe("interactive 3D room scene helpers", () => {
       placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0,
     } as never;
     expect(existingCabinetTransform(left, room).rotation).toBeCloseTo(0, 12);
-    expect(existingCabinetTransform(right, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
-  });
+	    expect(existingCabinetTransform(right, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+	  });
+
+	  it("faces rectangular 36-by-24 BBC36 fronts into the room on every wall while preserving the exposed door side", () => {
+	    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+	    const cases = [
+	      { cabinet: { uid: "bbc-back-left", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, swing: "right", numberOfDoors: 1 }, rotation: 0 },
+	      { cabinet: { uid: "bbc-back-right", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 84, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, swing: "left", numberOfDoors: 1 }, rotation: 0 },
+	      { cabinet: { uid: "bbc-front-left", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 0, y: 96, width: 36, depth: 24, height: 34.5, rotation: 180, swing: "right", numberOfDoors: 1 }, rotation: Math.PI },
+	      { cabinet: { uid: "bbc-front-right", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 84, y: 96, width: 36, depth: 24, height: 34.5, rotation: 180, swing: "left", numberOfDoors: 1 }, rotation: Math.PI },
+	      { cabinet: { uid: "bbc-left", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 0, y: 24, width: 36, depth: 24, height: 34.5, rotation: 90, swing: "right", numberOfDoors: 1 }, rotation: Math.PI / 2 },
+	      { cabinet: { uid: "bbc-right", masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 96, y: 24, width: 36, depth: 24, height: 34.5, rotation: 270, swing: "left", numberOfDoors: 1 }, rotation: Math.PI * 1.5 },
+	    ] as const;
+	    for (const { cabinet, rotation } of cases) {
+	      expect(threeDCornerBodyDimensions(cabinet as never)).toEqual({ width: 36, depth: 24 });
+	      expect(existingCabinetTransform(cabinet as never, room).rotation).toBeCloseTo(rotation, 12);
+	      const layout = threeDBlindCornerFrontLayout(36 / 12, cabinet.swing);
+	      expect(layout.doorSide).toBe(cabinet.swing);
+	      expect(layout.blindSide).toBe(cabinet.swing === "right" ? "left" : "right");
+	      expect(layout.doorWidth + layout.blindWidth).toBeCloseTo(36 / 12, 12);
+	    }
+	  });
 
   it("mounts FSB36's apron on the room-facing side of a right-wall placement", () => {
     const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
@@ -1431,7 +1451,7 @@ describe("interactive 3D room scene helpers", () => {
     const room = { width: 144, depth: 144, ceilingHeight: 96 } as never;
     const families = [
       { uid: "triangle", cabinetId: 1, masterCode: "BTC-24", description: "Triangle Corner Base", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, cornerType: "triangle", numberOfDoors: 2, numberOfDrawers: 0 },
-      { uid: "blind", cabinetId: 2, masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 90, cornerType: "blind-corner", numberOfDoors: 1, numberOfDrawers: 0 },
+	      { uid: "blind", cabinetId: 2, masterCode: "BBC-36", description: "Blind Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 90, swing: "left", cornerType: "blind-corner", numberOfDoors: 1, numberOfDrawers: 0 },
       { uid: "diagonal", cabinetId: 3, masterCode: "WDC2430", description: "Diagonal Wall Corner", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 30, rotation: 0, cornerType: "diagonal", numberOfDoors: 2, numberOfDrawers: 0 },
       { uid: "l-corner", cabinetId: 4, masterCode: "LS3612", description: "Lazy Susan Base", placement: "base", x: 108, y: 108, width: 36, depth: 24, height: 34.5, rotation: 180, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0 },
       { uid: "wall-l-corner", cabinetId: 5, masterCode: "WLS2424", description: "Wall Lazy Susan", placement: "wall", x: 108, y: 108, width: 24, depth: 12, height: 30, rotation: 180, cornerType: "lazy-susan", numberOfDoors: 2, numberOfDrawers: 0 },
@@ -1442,7 +1462,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(families.map(placedCornerGeometryKind)).toEqual(expectedKinds);
     expect(families.map((record) => existingCabinetTransform(record, room).rotation)).toEqual([
       0,
-      Math.PI / 2,
+	      Math.PI / 2,
       0,
       Math.PI,
       Math.PI,
@@ -1460,8 +1480,10 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.triangleCornerWedge)).toHaveLength(1);
     expect(nodes.filter((node) => node.userData.triangleDoor)).toHaveLength(2);
     expect(nodes.filter((node) => node.userData.triangleCornerCountertop)).toHaveLength(1);
-    expect(nodes.filter((node) => node.userData.blindCornerBody)).toHaveLength(1);
-    expect(nodes.filter((node) => node.userData.blindCornerCountertop)).toHaveLength(1);
+	    expect(nodes.filter((node) => node.userData.blindCornerBody)).toHaveLength(1);
+	    expect(nodes.filter((node) => node.userData.blindCornerExposedDoor && node.userData.blindCornerDoorSide === "left")).toHaveLength(1);
+	    expect(nodes.filter((node) => node.userData.blindCornerFixedPanel && node.userData.blindCornerBlindSide === "right")).toHaveLength(1);
+	    expect(nodes.filter((node) => node.userData.blindCornerCountertop)).toHaveLength(1);
     expect(nodes.filter((node) => node.userData.diagonalCornerWedge)).toHaveLength(1);
     const lCornerDoors = nodes.filter((node) => node.userData.lCornerDoor) as THREE.Mesh[];
     expect(lCornerDoors).toHaveLength(4);

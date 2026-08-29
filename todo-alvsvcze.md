@@ -1042,3 +1042,11 @@
 - [x] Block Drop to countertop with an exact collision or ceiling reason when the cabinet cannot occupy the countertop elevation with 0-inch physical overlap
 - [x] Mark the countertop placement as an intentional manual mount so automatic over-sink cleanup cannot reset it
 - [x] Add responsive toolbar, exact-elevation, collision, persistence, and 3D transform regressions before publishing the feature
+- [x] Reproduce the screenshot-confirmed BBC36 blind-corner cabinet facing backward in 3D and trace its stored wall, corner side, rotation, swing, and generated front orientation
+- [x] Correct BBC36 so its rectangular 36-inch by 24-inch footprint remains authoritative while the usable door/front faces into the room
+- [x] Preserve the blind-corner rule: left-corner BBC door on the right, right-corner BBC door on the left, with the required 3-inch filler opposite the pull on the open run side
+- [x] Add all-corner placement, swing, footprint, filler-side, 2D/3D identity, and responsive rendering regressions for BBC36 before publication
+- [x] Withdraw the mistaken 36-by-36 assumption after owner correction; retain BBC36 as an authoritative 36-inch-long by 24-inch-deep rectangular blind corner in placement, collision, countertop, 2D, and 3D geometry
+- [x] Verify the published source contained Drop to countertop despite the owner’s client screenshot omitting it, then replace duplicated markup with one directly tested shared toolbar group
+- [x] Ensure Drop to countertop visibly renders immediately beside Drop to floor in every actual selected wall-cabinet toolbar path on PC, tablet, and mobile
+- [x] Publish BBC36 dimension/facing and toolbar-visibility corrections only after rendered-path tests cover the owner’s exact screenshots
