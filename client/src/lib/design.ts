@@ -4409,10 +4409,19 @@ export function freeSegmentsOnWall(
   };
   for (const p of placed) {
     if (!blocksThisLayer(p)) continue;
-    // Corner items can touch two walls at once. Only the wall selected by the
-    // cabinet's orientation/explicit wall identity belongs to this run; a tall
-    // cabinet on the perpendicular wall must not consume this wall's open span.
-    if (cabinetWall(p, room) !== side) continue;
+    // Ordinary cabinets belong only to their oriented wall. A true room-corner
+    // footprint (lazy Susan/easy reach, diagonal corner, or corner drawer)
+    // physically reserves both wall legs, however. Include that footprint on
+    // the adjoining wall so a catalog click/drop starts at the corner's actual
+    // edge instead of being created inside it and rejected as a full overlap.
+    const assignedWall = cabinetWall(p, room);
+    const cornerKind = placedCornerGeometryKind(p);
+    const reservesAdjoiningWall = (
+      cornerKind === "l-shape" ||
+      cornerKind === "diagonal" ||
+      cornerKind === "corner-drawer"
+    ) && isAgainstWall(p, side, room);
+    if (assignedWall !== side && !reservesAdjoiningWall) continue;
     // A raised short bridge above a sink/window can share the plan projection
     // with a neighboring upper only when its elevation band is genuinely
     // separate. Same-height uppers still reserve their run as before.
@@ -4424,7 +4433,7 @@ export function freeSegmentsOnWall(
         placedBox.bottom >= candidateBox.bottom + candidateBox.height - 0.01;
       if (verticallySeparate) continue;
     }
-    const s = rotatedSize(p);
+    const s = assignedWall !== side && reservesAdjoiningWall ? placedFootprint(p) : rotatedSize(p);
     const start = horizontal ? p.x : p.y;
     const span = horizontal ? s.w : s.d;
     blocked.push({ s: start, e: start + span });

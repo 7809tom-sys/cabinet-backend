@@ -958,3 +958,7 @@
 - [x] Fix B-12 right-click drag so the selected object follows the intended pointer/run position and never jumps to an occupied corner snap target
 - [x] Apply one shared release rule to right-dragged cabinets, panels, fillers, and appliances: snap within 3 inches of a valid wall edge, neighboring-object seam, or fitted opening to exact contact with 0 physical overlap while allowing any valid intermediate movement distance
 - [x] When a dragged object fits between two existing objects, snap it into that bounded opening; if the remaining bounded space is greater than 0 and no more than 3 inches, invoke the existing catalog-backed leave-open, left, right, or split-filler workflow without changing object identity or pricing
+- [x] Reproduce the reported DW-24 false 24-inch overlap with LS3612 when placing the dishwasher to the right of the corner cabinet from the left catalog
+- [x] Fix both left-catalog click-to-add and drag-to-add so a base appliance beside LS3612 uses the corner cabinet’s actual adjoining-wall boundary, permits exact edge contact, and rejects only positive physical overlap
+- [x] Preserve DW-24 appliance identity, dimensions, price, active wall, saved design, cart, and unrelated cabinet placements while adding focused corner-placement regressions
+- [x] Apply the LS3612 adjoining-wall boundary correction to all base-layer left-catalog selections, including the demonstrated 3-DB18 drawer base, so no cabinet or floor appliance begins inside the corner footprint

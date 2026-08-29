@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -1781,6 +1781,46 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(cabinetWall(leftWallTall, ROOM_12x10)).toBe("left");
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftWallTall], [], 30, 12, "wall"))
       .toEqual({ x: 0, y: 0, rotation: 0 });
+  });
+
+  it("reserves LS3612's physical leg on the adjoining right-wall base run for DW-24 and 3-DB18 catalog placement", () => {
+    const ls3612 = cab({
+      uid: "ls3612-top-right",
+      masterCode: "LS3612",
+      description: "36 inch Lazy Susan Corner Base",
+      placement: "base",
+      x: 108,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    });
+    expect(cabinetWall(ls3612, ROOM_12x10)).toBe("top");
+    expect(placedFootprint(ls3612)).toEqual({ w: 36, d: 36 });
+    expect(freeSegmentsOnWall("right", ROOM_12x10, [ls3612], [], 0.5, 0, "appliance"))
+      .toEqual([{ start: 36, length: 84 }]);
+
+    const dishwasherSpot = paletteActiveWallPlacement("right", ROOM_12x10, [ls3612], [], 24, 24, "appliance");
+    expect(dishwasherSpot).toEqual({ x: 120, y: 36, rotation: 90 });
+    const dishwasher = cab({ uid: "dw24", masterCode: "DW-24", description: "24 inch Dishwasher", placement: "appliance", ...dishwasherSpot!, width: 24, depth: 24, height: 34.5 });
+    expect(hasCollision(dishwasher, [ls3612])).toBe(false);
+
+    const drawerBaseSpot = paletteActiveWallPlacement("right", ROOM_12x10, [ls3612], [], 18, 24, "base");
+    expect(drawerBaseSpot).toEqual({ x: 120, y: 36, rotation: 90 });
+    const drawerBase = cab({ uid: "3db18", masterCode: "3-DB18", description: "18 inch Three Drawer Base", placement: "base", ...drawerBaseSpot!, width: 18, depth: 24, height: 34.5 });
+    expect(hasCollision(drawerBase, [ls3612])).toBe(false);
+  });
+
+  it("offers the same LS3612-bounded right-wall opening to drag-to-add", () => {
+    const ls3612 = cab({ uid: "ls3612-drag", masterCode: "LS3612", description: "36 inch Lazy Susan Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0 });
+    const segments = freeSegmentsOnWall("right", ROOM_12x10, [ls3612], [], 0.5, 0, "base");
+    const gaps = segments.map((segment) => ({ side: "right" as const, layer: "base" as const, start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: true, isFillerSize: false }));
+    const preview = wallGapFitPreview(gaps, 48, 24);
+    expect(preview).toMatchObject({ status: "valid", containsTarget: true, snapStart: 36, availableSpan: 84 });
+    const spot = wallPlacementAt(preview!.snapStart, 24, 24, "right", ROOM_12x10);
+    const dishwasher = cab({ uid: "dw24-drag", masterCode: "DW-24", placement: "appliance", ...spot, width: 24, depth: 24, height: 34.5 });
+    expect(hasCollision(dishwasher, [ls3612])).toBe(false);
   });
 
   it("advances the wall run past a door or window clearance instead of jumping into an earlier occupied or unrelated opening", () => {
