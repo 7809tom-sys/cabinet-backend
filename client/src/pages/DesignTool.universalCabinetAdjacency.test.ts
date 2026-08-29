@@ -15,14 +15,20 @@ describe("universal exact-zero cabinet adjacency routing", () => {
   it.each([
     ["catalog and 3D add", "const addCabinet = useCallback", "const addManualFiller"],
     ["2D drag", "const moveCabinet = useCallback", "const swingSelected"],
-    ["rotation", "const rotateSelected", "const deleteSelected"],
-    ["keyboard and on-canvas nudge", "const nudgeSelected = useCallback", "const adjustMountHeight"],
-    ["3D movement", "const moveCabinetFrom3D = useCallback", "const resetMountHeight"],
-    ["width resizing", "const setCustomWidth = useCallback", "const adjustWidth"],
+	    ["rotation", "const rotateSelected", "const deleteSelected"],
+	    ["keyboard and on-canvas nudge", "const nudgeSelected = useCallback", "const adjustMountHeight"],
+	    ["width resizing", "const setCustomWidth = useCallback", "const adjustWidth"],
     ["depth resizing", "const setCustomDepth = useCallback", "const adjustDepth"],
   ])("normalizes %s before accepting the resulting cabinet", (_label, start, end) => {
-    expect(sourceBetween(start, end)).toContain("snapCabinetSeamOverlap");
-  });
+	    expect(sourceBetween(start, end)).toContain("snapCabinetSeamOverlap");
+	  });
+
+	  it("keeps an explicit 3D D-pad increment exact while rejecting any resulting positive overlap", () => {
+	    const threeDPath = sourceBetween("const moveCabinetFrom3D = useCallback", "const resetMountHeight");
+	    expect(threeDPath).not.toContain("snapCabinetSeamOverlap(");
+	    expect(threeDPath).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
+	    expect(threeDPath).toContain("return commit(candidate, delta)");
+	  });
 
   it("does not bypass exact-zero seam normalization when custom placement is active", () => {
     const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");

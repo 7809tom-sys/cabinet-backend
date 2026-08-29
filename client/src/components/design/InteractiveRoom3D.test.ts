@@ -611,16 +611,29 @@ describe("interactive 3D room scene helpers", () => {
 
     expect(moveStart).toBeGreaterThan(-1);
     expect(moveSource).toContain("preserveCurrentCameraView();");
-    expect(moveSource.indexOf("preserveCurrentCameraView();")).toBeLessThan(moveSource.indexOf("onMoveCabinet("));
-    expect(moveSource).toContain("setAutoRotate(false);");
-    expect(dpadSource).toContain("onPointerDown={stopCabinetMoveControlEvent}");
-    expect(dpadSource).toContain("onPointerUp={stopCabinetMoveControlEvent}");
+	    expect(moveSource.indexOf("preserveCurrentCameraView();")).toBeLessThan(moveSource.indexOf("onMoveCabinet("));
+	    expect(moveSource).toContain("setAutoRotate(false);");
+	    expect(moveSource).toContain("setCabinetMoveResult(onMoveCabinet(");
+	    expect(dpadSource).toContain('data-ui-overlay="cabinet-move"');
+	    expect(dpadSource).toContain("pointer-events-auto relative z-30");
+	    expect(dpadSource).toContain("onPointerDownCapture={claimCabinetMoveControlEvent}");
+	    expect(dpadSource).toContain("onPointerUpCapture={claimCabinetMoveControlEvent}");
+	    expect(dpadSource).toContain("onWheelCapture={claimCabinetMoveControlEvent}");
+	    expect(dpadSource).toContain("onContextMenu={claimCabinetMoveControlEvent}");
+	    const claimStart = rendererSource.indexOf("const claimCabinetMoveControlEvent = (");
+	    const claimSource = rendererSource.slice(claimStart, claimStart + 500);
+	    expect(claimSource).toContain("event.preventDefault();");
+	    expect(claimSource).toContain("event.stopPropagation();");
+	    expect(claimSource).toContain("stopImmediatePropagation?.()");
+	    expect(dpadSource).toContain("onPointerDown={stopCabinetMoveControlEvent}");
+	    expect(dpadSource).toContain("onPointerUp={stopCabinetMoveControlEvent}");
     expect(dpadSource).toContain("onClick={stopCabinetMoveControlEvent}");
     expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }}');
     expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }}');
-    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }}');
-    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }}');
-  });
+	    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }}');
+	    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }}');
+	    expect(dpadSource).toContain('data-testid="three-d-cabinet-move-result"');
+	  });
 
   it("captures the live orbit, target, and zoom before cabinet removal rebuilds the 3D scene", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
@@ -714,8 +727,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain('data-testid="three-d-move-increment"');
     expect(rendererSource).toContain('Move distance</span>');
     expect(rendererSource).toContain('type="text" inputMode="decimal"');
-    expect(rendererSource).toContain("onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta)");
-  });
+	    expect(rendererSource).toContain("setCabinetMoveResult(onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta))");
+	  });
 
   it("builds architectural trim, sill, muntins, door panels, and hardware for room openings", () => {
     const root = new THREE.Group();

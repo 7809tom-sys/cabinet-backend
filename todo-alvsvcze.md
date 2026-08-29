@@ -1024,6 +1024,6 @@
 - [x] Preserve cabinet positions, catalog identity, pricing, saved designs, carts, materials data, camera state, fillers, fixtures, countertops, and unrelated placements while adding focused responsive regressions
 - [ ] Reproduce the still-failing published D-pad in a real authenticated Designer interaction and record the selected cabinet coordinates plus camera position, target, and zoom before and after a click
 - [ ] Trace the complete live event from the in-panel arrow through orbit listeners, host move callback, placed-cabinet state update, and 3D scene restoration instead of relying only on source-string tests
-- [ ] Obtain an independent debugging analysis of the repeated live no-move and camera-rotation failure before another production fix
-- [ ] Fix the authoritative movement and camera-ownership path so every successful arrow click changes only cabinet position/elevation and never the current 3D viewpoint
+- [x] Obtain an independent debugging analysis of the repeated live no-move and camera-rotation failure before another production fix
+- [x] Fix the authoritative movement and camera-ownership path so every successful arrow click changes only cabinet position/elevation and never the current 3D viewpoint
 - [ ] Verify all four arrows and blocked-move feedback in the real browser with invariant camera coordinates, then publish only after that proof

@@ -213,6 +213,11 @@ export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in"
 
 export type ThreeDPlanMoveDelta = { x: number; y: number };
 
+export type ThreeDCabinetMoveResult = {
+  status: "moved" | "blocked";
+  message: string;
+};
+
 /** Converts a screen-left/right request into the selected wall's horizontal plan axis. */
 export function threeDScreenHorizontalPlanDelta(
   side: WallSide,
@@ -367,7 +372,7 @@ interface Props {
   /** Persists individual back, left, right, and front wall heights. */
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
-  onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, planDelta?: ThreeDPlanMoveDelta) => void;
+  onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, planDelta?: ThreeDPlanMoveDelta) => ThreeDCabinetMoveResult;
   /** Commits an absolute same-wall position and preserves its measured opening for the filler prompt. */
   onMoveCabinetTo?: (uid: string, x: number, y: number, preview: NonNullable<ReturnType<typeof cabinetWallDragPreview>>) => void;
   /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
@@ -3961,6 +3966,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   }, [placed, selectedCabinetUid]);
   const [moveIncrementText, setMoveIncrementText] = useState("1");
   const moveIncrementIn = normalizedThreeDCabinetMoveIncrement(moveIncrementText);
+  const [cabinetMoveResult, setCabinetMoveResult] = useState<ThreeDCabinetMoveResult | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
@@ -4451,12 +4457,18 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       const movementRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
       planDelta = threeDScreenHorizontalPlanDelta(cabinetWall(selectedPlacedCabinet, movementRoom), direction, moveIncrementIn, cameraRight);
     }
-    onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta);
+    setCabinetMoveResult(onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta));
   };
 
-  const stopCabinetMoveControlEvent = (event: { stopPropagation: () => void }) => {
-    event.stopPropagation();
-  };
+	const stopCabinetMoveControlEvent = (event: { stopPropagation: () => void }) => {
+	  event.stopPropagation();
+	};
+
+	const claimCabinetMoveControlEvent = (event: { preventDefault: () => void; stopPropagation: () => void; nativeEvent?: { stopImmediatePropagation?: () => void } }) => {
+	  event.preventDefault();
+	  event.stopPropagation();
+	  event.nativeEvent?.stopImmediatePropagation?.();
+	};
 
   const clearRightDragGhost = () => {
     const ghost = rightDragGhostRef.current;
@@ -4509,8 +4521,9 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       : Math.max(0, Math.min(room.depth, hit.z / INCH));
   };
 
-  const handleRoomPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerStartRef.current = { x: event.clientX, y: event.clientY, button: event.button };
+	const handleRoomPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+	  if ((event.target as Element | null)?.closest?.("[data-ui-overlay]")) return;
+	  pointerStartRef.current = { x: event.clientX, y: event.clientY, button: event.button };
     if (event.button !== 2 || !onMoveCabinetTo) return;
     const selection = inspectCabinetAtPoint(event.clientX, event.clientY);
     const source = selection?.uid ? placed.find((cabinet) => cabinet.uid === selection.uid) ?? null : null;
@@ -4888,7 +4901,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		              </dl>
 		              <span className="sr-only">{wallFitText}</span>
 		            </div>}
-		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={stopCabinetMoveControlEvent} onPointerUp={stopCabinetMoveControlEvent} onClick={stopCabinetMoveControlEvent} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
+		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" data-ui-overlay="cabinet-move" aria-label="Move selected cabinet" onPointerDownCapture={claimCabinetMoveControlEvent} onPointerUpCapture={claimCabinetMoveControlEvent} onWheelCapture={claimCabinetMoveControlEvent} onContextMenu={claimCabinetMoveControlEvent} onPointerDown={stopCabinetMoveControlEvent} onPointerUp={stopCabinetMoveControlEvent} onClick={stopCabinetMoveControlEvent} className="pointer-events-auto relative z-30 flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
 		                <button data-testid="three-d-move-up" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
@@ -4907,6 +4920,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		                  <span className="text-[10px] font-bold" aria-hidden="true">&quot;</span>
 		                </span>
 		              </label>
+		              {cabinetMoveResult && <p data-testid="three-d-cabinet-move-result" role="status" aria-live="polite" className={`max-w-36 text-[9px] font-semibold leading-tight ${cabinetMoveResult.status === "moved" ? "text-emerald-700" : "text-rose-700"}`}>{cabinetMoveResult.message}</p>}
 		            </div>}
 		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:col-span-3">
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
