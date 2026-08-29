@@ -1007,3 +1007,8 @@
 - [x] Add a visible Materials & Parts toolbar button that opens the existing complete view/print/CSV popup and remove its duplicate entry from the More menu on desktop and mobile
 - [x] Preserve cabinet identity, dimensions, pricing, saved design, cart, fixtures, hood placement, fillers, countertops, and unrelated layout data while adding focused hood, D-pad, toolbar, materials-action, and responsive regressions
 - [x] Reproduce why the now-visible in-panel D-pad did not execute horizontal movement, remove the seam snap-back that canceled exact button increments, verify all four button events reach the selected-cabinet host callback, and retain exact collision, lock, wall, or ceiling feedback
+- [x] Preserve the current 3D camera orbit, pan target, and zoom when a cabinet is removed so the drawing does not jump back to another viewpoint
+- [x] Replace the fixed 1-inch/¼-inch D-pad toggle with an editable movement amount at 1/8-inch precision, validate the value, and use it consistently for up, down, left, and right movement
+- [x] Reproduce the affiliate range-placement path that skips the measured small-gap filler prompt and route it through the existing catalog-backed left, right, split, leave-open, and Auto-fill workflow
+- [x] Reproduce HOOD-30 being rejected because placement searches for an empty 30-inch base opening, then target the actual saved range footprint, wall ownership, and safe over-range elevation instead
+- [x] Preserve cabinet, range, hood, filler, distributor, style, finish, SKU, price, camera, saved design, cart, countertop, and unrelated placement data while adding focused camera, movement, affiliate filler, hood, and responsive regressions

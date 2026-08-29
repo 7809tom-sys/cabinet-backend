@@ -114,6 +114,7 @@ import { buildTrimCartLines,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
+import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
 import { threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
@@ -2744,9 +2745,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Explicit drag-and-drop coordinates win. A normal catalog selection uses
       // the active wall's deterministic left-to-right sequence: floor cabinets
       // advance the floor run and wall cabinets advance the upper run.
-      let spot: { x: number; y: number; rotation: number };
-      let preserveResolvedPlacement = false;
-      let explicitSelectedSinkTarget = false;
+	      let spot: { x: number; y: number; rotation: number };
+	      let preserveResolvedPlacement = false;
+	      let explicitSelectedSinkTarget = false;
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -2761,11 +2762,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const selectedLowerSpot = accPlacement === "wall" && !selectedSinkSpot
         ? selectedLowerCabinetWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
         : null;
-      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
-        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
-        : null;
-      if (selectedSinkSpot) {
-        spot = selectedSinkSpot;
+	      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
+	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
+	        : null;
+	      const rangeHoodPlacement = isRangeHoodPlacement({ masterCode: c.masterCode, description: c.description ?? "", placement: accPlacement })
+	        ? resolveRangeHoodPlacement(
+	            prev,
+	            room,
+	            activeWall,
+	            selectedUid,
+	            { x: x ?? selectedPlacementTarget?.x ?? 0, y: y ?? selectedPlacementTarget?.y ?? 0 },
+	            { masterCode: c.masterCode, width, depth, mountBottom: (c as any).mountBottom ?? null },
+	          )
+	        : null;
+	      if (rangeHoodPlacement && !rangeHoodPlacement.ok) {
+	        setPlacementWarning(rangeHoodPlacement.message);
+	        toast.error(rangeHoodPlacement.message);
+	        return;
+	      }
+	      if (rangeHoodPlacement?.ok) {
+	        spot = rangeHoodPlacement.spot;
+	        preserveResolvedPlacement = true;
+	      } else if (selectedSinkSpot) {
+	        spot = selectedSinkSpot;
         preserveResolvedPlacement = true;
         explicitSelectedSinkTarget = true;
       } else if (selectedLowerSpot) {
@@ -2913,9 +2932,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         styleId: styleIdRef.current ?? null,
         ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
         ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
-        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
-        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
-      };
+	        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
+	        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
+	        ...(rangeHoodPlacement?.ok ? { mountBottom: rangeHoodPlacement.mountBottom } : {}),
+	      };
 
       // Blind corner: auto-position and auto-swing
       if (isBlindCorner(newCab.masterCode, newCab.description)) {
@@ -3079,9 +3099,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
 	      setPlaced(() => normalizedRun);
-      if (!isAccessory && finalCab.placement !== "appliance") {
-        queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid);
-      }
+	      if (!isAccessory && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+	        queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid);
+	      }
 
       // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
       // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
@@ -3191,7 +3211,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
     addCabinet(hood, range?.x, range?.y);
-    toast.success("Range hood added to the 2D plan above the saved range.");
   }, [appliancePalette, placed, addCabinet]);
 
   // ── Ceiling Filler: place a filler strip on top of wall cabinets to cover the

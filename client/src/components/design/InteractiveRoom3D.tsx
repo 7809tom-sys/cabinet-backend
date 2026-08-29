@@ -230,7 +230,14 @@ export function threeDScreenHorizontalPlanDelta(
   return { x: Math.abs(x) < 1e-9 ? 0 : x, y: Math.abs(y) < 1e-9 ? 0 : y };
 }
 export type ThreeDCatalogDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
-export const THREE_D_CABINET_MOVE_STEPS = [0.25, 1] as const;
+export const THREE_D_MIN_MOVE_INCREMENT_IN = 0.125;
+export const THREE_D_MAX_MOVE_INCREMENT_IN = 24;
+export function normalizedThreeDCabinetMoveIncrement(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  const bounded = Math.min(THREE_D_MAX_MOVE_INCREMENT_IN, Math.max(THREE_D_MIN_MOVE_INCREMENT_IN, parsed));
+  return Math.round(bounded * 8) / 8;
+}
 export const THREE_D_EMBEDDED_TOOLBAR_CLASS = "absolute right-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur";
 export function threeDPreviewFadeAllowed(prefersReducedMotion: boolean): boolean {
   return !prefersReducedMotion;
@@ -3921,7 +3928,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     }
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
-  const [moveIncrementIn, setMoveIncrementIn] = useState<(typeof THREE_D_CABINET_MOVE_STEPS)[number]>(1);
+  const [moveIncrementIn, setMoveIncrementIn] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
@@ -4344,6 +4351,19 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     setAutoRotate(false);
     setCameraPreset("presentation");
     setResetKey((current) => current + 1);
+  };
+
+  const preserveCurrentCameraView = () => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    cameraViewRef.current = {
+      preset: cameraPreset,
+      resetKey,
+      position: camera.position.clone(),
+      target: controls.target.clone(),
+      zoom: camera.zoom,
+    };
   };
 
   const inspectCabinetAtPoint = (clientX: number, clientY: number) => {
@@ -4833,22 +4853,26 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
-		                <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
 		                <button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-l-md border border-border bg-white shadow-sm active:scale-95" title="Move left"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button>
 		                <button type="button" onClick={() => onRotateCabinet?.(selectedCabinet.uid!)} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button>
 		                <button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-r-md border border-border bg-white shadow-sm active:scale-95" title="Move right"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
-		                <button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
 		              </div>
-		              <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded border px-1 py-0.5 text-[9px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
+		              <label className="flex items-center gap-0.5 rounded border border-border bg-white px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow-sm" title="Movement amount in inches; rounded to the nearest 1/8 inch">
+		                <span className="sr-only">Movement amount in inches</span>
+		                <input data-testid="three-d-move-increment" aria-label="Movement amount in inches" type="number" min={THREE_D_MIN_MOVE_INCREMENT_IN} max={THREE_D_MAX_MOVE_INCREMENT_IN} step={THREE_D_MIN_MOVE_INCREMENT_IN} value={moveIncrementIn} onFocus={(event) => event.currentTarget.select()} onChange={(event) => { if (event.currentTarget.value !== "") setMoveIncrementIn(normalizedThreeDCabinetMoveIncrement(event.currentTarget.value)); }} className="h-6 w-12 bg-transparent text-right text-[10px] font-bold tabular-nums outline-none" />
+		                <span aria-hidden="true">&quot;</span>
+		              </label>
 		            </div>}
 		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:col-span-3">
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
 		              {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
-		              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
+		              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { preserveCurrentCameraView(); onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
 		            </div>}
 		          </div>
 		        </div>;

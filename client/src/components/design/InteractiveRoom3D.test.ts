@@ -11,6 +11,7 @@ import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serialize
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
+import { normalizedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -599,6 +600,18 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDShouldRestoreCameraView(snapshot, "front", 4)).toBe(false);
   });
 
+  it("captures the live orbit, target, and zoom before cabinet removal rebuilds the 3D scene", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const preserveStart = rendererSource.indexOf("const preserveCurrentCameraView = () =>");
+    const removeStart = rendererSource.indexOf('data-testid="three-d-remove-cabinet"');
+    const removeEnd = rendererSource.indexOf("</button>", removeStart);
+    const removeAction = rendererSource.slice(removeStart, removeEnd);
+
+    expect(preserveStart).toBeGreaterThan(-1);
+    expect(rendererSource.slice(preserveStart, removeStart)).toContain("cameraViewRef.current = {");
+    expect(removeAction).toContain("preserveCurrentCameraView(); onRemoveCabinet(");
+  });
+
   it("serializes, validates, and safely constrains a shared camera perspective without carrying plan data", () => {
     const view = { position: new THREE.Vector3(12.3456, 8.2, -4.05), target: new THREE.Vector3(6.5, 3.1, 2.25), zoom: 1.25 };
     const serialized = serializeThreeDCameraShareView(view);
@@ -660,6 +673,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDScreenHorizontalPlanDelta("bottom", "left", 1, { x: 0.8, z: -0.4 })).toEqual({ x: -1, y: 0 });
     expect(threeDScreenHorizontalPlanDelta("left", "right", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: -0.25 });
     expect(threeDScreenHorizontalPlanDelta("right", "left", 0.25, { x: 0.8, z: -0.4 })).toEqual({ x: 0, y: 0.25 });
+  });
+
+  it("accepts an editable movement amount at one-eighth-inch precision and bounds unsafe values", () => {
+    expect(THREE_D_MIN_MOVE_INCREMENT_IN).toBe(0.125);
+    expect(THREE_D_MAX_MOVE_INCREMENT_IN).toBe(24);
+    expect(normalizedThreeDCabinetMoveIncrement(2.625)).toBe(2.625);
+    expect(normalizedThreeDCabinetMoveIncrement(2.68)).toBe(2.625);
+    expect(normalizedThreeDCabinetMoveIncrement(0)).toBe(0.125);
+    expect(normalizedThreeDCabinetMoveIncrement(200)).toBe(24);
+    expect(normalizedThreeDCabinetMoveIncrement("bad")).toBe(1);
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain('data-testid="three-d-move-increment"');
+    expect(rendererSource).toContain("onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta)");
   });
 
   it("builds architectural trim, sill, muntins, door panels, and hardware for room openings", () => {

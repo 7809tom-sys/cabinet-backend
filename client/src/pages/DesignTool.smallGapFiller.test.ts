@@ -6,12 +6,21 @@ const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8"
 describe("Design Tool small-gap filler workflow", () => {
   it("queues a catalog-backed opportunity after successful normal placement", () => {
     expect(source).toContain("queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid)");
+    expect(source).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
     expect(source).toContain("findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
     const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
     const queueEnd = source.indexOf("// Always-on wall cabinet pool", queueStart);
     const queueSource = source.slice(queueStart, queueEnd);
     expect(queueSource).toContain("setSmallGapFillerPrompt(opportunity)");
     expect(queueSource).not.toContain("catalogFillerForGap");
+  });
+
+  it("does not exclude a successfully placed affiliate range from the measured filler prompt", () => {
+    const placementStart = source.indexOf("// ── Now do all state updates and side effects exactly once");
+    const placementEnd = source.indexOf("const placedCabinet =", placementStart);
+    const placementSource = source.slice(placementStart, placementEnd);
+    expect(placementSource).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
+    expect(placementSource).toContain("queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid)");
   });
 
   it("offers leave-open, split, left, and right outcomes", () => {
