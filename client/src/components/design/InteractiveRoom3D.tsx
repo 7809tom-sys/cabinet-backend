@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3245,34 +3246,87 @@ export function sinkFaucetTransform(sink: SinkFixture) {
   };
 }
 
-function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
+export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const width = sink.width * INCH;
   const depth = sink.depth * INCH;
   const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
+  const steel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
+  const brushedSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
+  const basinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
+  const innerWidth = Math.max(0.26, width - 0.18);
+  const innerDepth = Math.max(0.24, depth - 0.18);
   const rim = new THREE.Mesh(
-    new THREE.BoxGeometry(width, 0.06, depth),
-    new THREE.MeshStandardMaterial({ color: "#9ba8af", metalness: 0.58, roughness: 0.28 }),
+    new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
+    steel,
   );
-  rim.position.set(centerX, countertopTop + 0.025, centerZ);
+  rim.position.set(centerX, countertopTop + 0.015, centerZ);
+  rim.userData = { sinkRim: true, fixtureDetail: true };
   root.add(rim);
   const bowl = new THREE.Mesh(
-    new THREE.BoxGeometry(Math.max(0.2, width - 0.14), 0.16, Math.max(0.2, depth - 0.14)),
-    new THREE.MeshStandardMaterial({ color: "#33414a", metalness: 0.44, roughness: 0.24 }),
+    new RoundedBoxGeometry(innerWidth, 0.26, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
+    basinInterior,
   );
-  bowl.position.set(centerX, countertopTop - 0.07, centerZ);
+  bowl.position.set(centerX, countertopTop - 0.13, centerZ);
+  bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true };
   root.add(bowl);
+  const bowlFloor = new THREE.Mesh(
+    new RoundedBoxGeometry(innerWidth * 0.72, 0.025, innerDepth * 0.68, 3, Math.min(0.08, innerWidth * 0.06, innerDepth * 0.06)),
+    brushedSteel,
+  );
+  bowlFloor.position.set(centerX, countertopTop - 0.26, centerZ);
+  bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true };
+  root.add(bowlFloor);
+  if (sink.type === "double") {
+    const divider = new THREE.Mesh(new RoundedBoxGeometry(0.055, 0.19, innerDepth * 0.88, 3, 0.02), steel);
+    divider.position.set(centerX, countertopTop - 0.11, centerZ);
+    divider.userData = { sinkBowlDivider: true, fixtureDetail: true };
+    root.add(divider);
+  }
+  const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
+  drain.position.set(centerX, countertopTop - 0.235, centerZ + innerDepth * 0.18);
+  drain.userData = { sinkDrain: true, fixtureDetail: true };
+  root.add(drain);
+  const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
+  drainRing.rotation.x = Math.PI / 2;
+  drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
+  drainRing.userData = { sinkDrainRing: true, fixtureDetail: true };
+  root.add(drainRing);
   if (!sink.faucet) return;
-  const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#c4d0d7", metalness: 0.76, roughness: 0.16 });
   const faucet = sinkFaucetTransform(sink);
-  const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.032, 0.52, 12), faucetMaterial);
-  riser.position.set(faucet.x, countertopTop + 0.27, faucet.z);
-  riser.userData = { sinkFaucet: true, faucetPlacement: "back" };
-  root.add(riser);
-  const spout = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 8, 16, Math.PI), faucetMaterial);
-  spout.rotation.x = Math.PI / 2;
-  spout.position.set(faucet.x - faucet.back.x * 0.55, countertopTop + 0.48, faucet.z - faucet.back.z * 0.55);
-  spout.userData = { sinkFaucetSpout: true, faucetPlacement: "back" };
+  const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#c8d0d4", metalness: 0.88, roughness: 0.14 });
+  const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
+  const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
+  const side = { x: -forward.z, z: forward.x };
+  const overallHeight = Math.min(2.24, Math.max(1.45, depth * 0.88));
+  const reach = Math.min(depth * 0.38, 0.72);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
+  base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
+  base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
+  root.add(base);
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
+    new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
+    new THREE.Vector3(faucet.x + forward.x * reach * 0.08, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.08),
+    new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * 0.88, faucet.z + forward.z * reach * 0.7),
+    new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.62, faucet.z + forward.z * reach),
+  ]);
+  const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.032, 10, false), faucetMaterial);
+  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true };
   root.add(spout);
+  const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, 0.23, 16), faucetMaterial);
+  sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.55, faucet.z + forward.z * reach);
+  sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true };
+  root.add(sprayHead);
+  const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.18, 16), faucetMaterial);
+  handleBase.position.set(faucet.x + side.x * 0.12, countertopTop + 0.14, faucet.z + side.z * 0.12);
+  handleBase.userData = { sinkFaucetHandleBase: true, fixtureDetail: true };
+  root.add(handleBase);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.24, 0.035), faucetMaterial);
+  handle.position.set(handleBase.position.x + side.x * 0.025, countertopTop + 0.29, handleBase.position.z + side.z * 0.025);
+  handle.rotation.z = side.x * -0.32;
+  handle.rotation.x = side.z * 0.32;
+  handle.userData = { sinkFaucetHandle: true, fixtureDetail: true };
+  root.add(handle);
 }
 
 export function islandZoneTransform(island: { x: number; y: number; width: number; depth: number }) {

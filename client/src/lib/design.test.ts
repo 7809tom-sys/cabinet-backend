@@ -15,7 +15,7 @@ import {
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
-	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, clampCeilingHeight,
+	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
@@ -526,6 +526,24 @@ describe("per-wall ceiling (flat + sloped)", () => {
 	    };
 	    const w3624 = cab({ uid: "slope-w3624", masterCode: "W-36-24", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 24, mountBottom: 72 });
 	    expect(wallCabinetVerticalMoveLimit(w3624, room)).toMatchObject({ side: "top", ceiling: 112.8, maxBottom: 88.8 });
+	  });
+
+	  it("repairs the reported one-inch W-36-24 and W-21-42 seam before an upward move creates vertical overlap", () => {
+	    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 108 };
+	    const left = cab({ uid: "repair-left", masterCode: "W-36-42", placement: "wall", x: 132, y: 24, width: 36, depth: 12, height: 42, rotation: 90, mountBottom: 54 });
+	    const right = cab({ uid: "repair-right", masterCode: "W-21-42", placement: "wall", x: 132, y: 96, width: 21, depth: 12, height: 42, rotation: 90, mountBottom: 54 });
+	    const moving = cab({ uid: "repair-moving", masterCode: "W-36-24", placement: "wall", x: 132, y: 61, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72.25 });
+
+	    const repaired = repairWallCabinetPlanSeamForVerticalMove(moving, room, [left, right], []);
+	    expect(repaired).toMatchObject({ x: 132, y: 60, rotation: 90, mountBottom: 72.25 });
+	    expect(hasCollision(repaired!, [left, right])).toBe(false);
+	  });
+
+	  it("does not move a wall cabinet across the run when the nearest valid seam repair exceeds three inches", () => {
+	    const room: RoomData = { width: 144, depth: 127, ceilingHeight: 108 };
+	    const blocker = cab({ uid: "far-blocker", masterCode: "W-21-42", placement: "wall", x: 132, y: 96, width: 21, depth: 12, height: 42, rotation: 90, mountBottom: 54 });
+	    const moving = cab({ uid: "far-moving", masterCode: "W-36-24", placement: "wall", x: 132, y: 64, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72.25 });
+	    expect(repairWallCabinetPlanSeamForVerticalMove(moving, room, [blocker], [])).toBeNull();
 	  });
 
   it("normalizes a sloped override so high >= low", () => {

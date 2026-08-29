@@ -79,7 +79,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -4834,8 +4834,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           toast.error(message);
           return prev;
         }
-        const candidate = { ...cabinet, mountBottom: nextBottom };
         const peers = prev.filter((item) => item.uid !== uid);
+        const candidate = repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom }, room, peers, openings);
+        if (!candidate) {
+          const blocked = { ...cabinet, mountBottom: nextBottom };
+          const message = wallCabinetPlacementReason(blocked, room, peers, openings) ?? collisionReason(blocked, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
         if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
           const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`;
           setPlacementWarning(message);
@@ -9043,9 +9050,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </div>
           )}
 
-          {/* D-pad nudge buttons — appears when a cabinet is selected */}
-	          {selectedUid && !cabinetsLocked && !measureMode && viewMode !== "threeD" && (
-            <div className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex items-end gap-2">
+          {/* Bird's-eye plan movement only. 3D/hybrid use the compact selected-item panel where up/down control elevation. */}
+	          {selectedUid && !cabinetsLocked && !measureMode && viewMode === "plan" && (
+	            <div data-testid="plan-selected-cabinet-dpad" aria-label="Move selected cabinet in the floor plan" className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex items-end gap-2">
               <div className="flex flex-col items-center gap-0.5">
                 <button
                   type="button"

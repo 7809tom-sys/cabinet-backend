@@ -993,3 +993,8 @@
 - [x] Allow W-36-24 to rise through the selected wall’s complete legal range while preserving its installed horizontal span, 0-inch overlap, local ceiling clearance, and door/window constraints
 - [x] Reconfigure the selected-cabinet information panel into compact readable information, measurement, and action regions that do not obscure each other on desktop, tablet, or phone
 - [x] Preserve W-36-24 SKU, dimensions, price, finish, saved design, cart, fillers, countertops, surrounding cabinets, and all existing movement controls while adding focused elevation and responsive-panel regressions
+- [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
+- [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
+- [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view
+- [x] Remove the remaining duplicate/absolute movement control that still covers selected-cabinet information, retaining only the compact touch control inside the panel on tablet and phone and mouse/keyboard movement on desktop
+- [x] Preserve W-36-24 SKU, dimensions, price, finish, wall ownership, saved design, cart, fixtures, fillers, countertops, and unrelated placements while adding focused fixture, elevation, direction, collision, and responsive regressions

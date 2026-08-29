@@ -1123,6 +1123,44 @@ export function wallCabinetVerticalMoveLimit(cabinet: PlacedCabinet, room: RoomD
 	};
 }
 
+/**
+ * A vertical move can expose a legacy horizontal seam overlap that was hidden
+ * while two wall cabinets occupied different elevation bands. Repair only a
+ * pointer-near wall-run error (the same three-inch attraction used by dragging)
+ * to exact edge contact; never approve or preserve positive overlap.
+ */
+export function repairWallCabinetPlanSeamForVerticalMove(
+	candidate: PlacedCabinet,
+	room: RoomData,
+	peers: PlacedCabinet[],
+	openings: WallOpening[],
+	maxRepairIn = 3,
+): PlacedCabinet | null {
+	if (candidate.placement !== "wall" || !hasCollision(candidate, peers)) return candidate;
+	const side = cabinetWall(candidate, room);
+	if (!isAgainstWall(candidate, side, room)) return null;
+	const horizontal = side === "top" || side === "bottom";
+	const footprint = placedFootprint(candidate);
+	const runSpan = horizontal ? footprint.w : footprint.d;
+	const wallDepth = horizontal ? footprint.d : footprint.w;
+	const currentStart = horizontal ? candidate.x : candidate.y;
+	const available = freeSegmentsOnWall(
+		side,
+		room,
+		peers,
+		openings,
+		Math.min(runSpan, 9),
+		WALL_OPENING_CLEARANCE_IN,
+		"wall",
+		false,
+		candidate,
+	);
+	const repairedStart = nearestAvailableWallStart(available, currentStart, runSpan);
+	if (repairedStart == null || Math.abs(repairedStart - currentStart) > maxRepairIn + COLLISION_EPSILON_IN) return null;
+	const repaired = { ...candidate, ...wallPlacementAt(repairedStart, runSpan, wallDepth, side, room) };
+	return hasCollision(repaired, peers) ? null : repaired;
+}
+
 export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120, ceilingHeight: DEFAULT_CEILING_HEIGHT };
 
 export function dim(value: string | null | undefined, fallback: number): number {

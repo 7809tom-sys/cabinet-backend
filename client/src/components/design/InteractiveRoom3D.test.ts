@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addSinkFixture, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -372,7 +372,20 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(rendererSource).toContain("overflow-x-auto");
 	    expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');
 	    expect(rendererSource).toContain("lg:hidden");
-	    expect(designerSource).toContain('selectedUid && !cabinetsLocked && !measureMode && viewMode !== "threeD"');
+	    expect(designerSource).toContain('selectedUid && !cabinetsLocked && !measureMode && viewMode === "plan"');
+	    expect(designerSource).toContain('data-testid="plan-selected-cabinet-dpad"');
+	    const up = rendererSource.indexOf('data-testid="three-d-move-up"');
+	    const left = rendererSource.indexOf('data-testid="three-d-move-left"');
+	    const right = rendererSource.indexOf('data-testid="three-d-move-right"');
+	    const down = rendererSource.indexOf('data-testid="three-d-move-down"');
+	    expect(up).toBeGreaterThan(-1);
+	    expect(up).toBeLessThan(left);
+	    expect(left).toBeLessThan(right);
+	    expect(right).toBeLessThan(down);
+	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("up")}');
+	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("down")}');
+	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("left")}');
+	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("right")}');
 	  });
 
   it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
@@ -2050,6 +2063,36 @@ describe("interactive 3D room scene helpers", () => {
     expect(transform.countertopTop).toBeCloseTo(3, 12);
     expect(faucet.z).toBeLessThan(transform.z);
     expect(faucet.z).toBeCloseTo(4.348333333333334, 12);
+  });
+
+  it("builds a recessed rounded sink with drain and a realistic pull-down faucet assembly", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "sink-realistic", type: "single", x: 24, y: 48, width: 30, depth: 22, faucet: true, wallSide: "top",
+    } as never);
+    const markers = new Set<string>();
+    root.traverse((node) => {
+      for (const [key, value] of Object.entries(node.userData)) if (value === true) markers.add(key);
+    });
+    expect(markers.has("sinkRim")).toBe(true);
+    expect(markers.has("recessedSinkBowl")).toBe(true);
+    expect(markers.has("sinkBowlFloor")).toBe(true);
+    expect(markers.has("sinkDrain")).toBe(true);
+    expect(markers.has("sinkDrainRing")).toBe(true);
+    expect(markers.has("sinkFaucetBase")).toBe(true);
+    expect(markers.has("sinkFaucetArc")).toBe(true);
+    expect(markers.has("sinkFaucetSprayHead")).toBe(true);
+    expect(markers.has("sinkFaucetHandle")).toBe(true);
+  });
+
+  it("keeps a visible divider for existing double-bowl sink choices", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "sink-double", type: "double", x: 24, y: 48, width: 33, depth: 20, faucet: false, wallSide: "top",
+    } as never);
+    let divider: THREE.Object3D | null = null;
+    root.traverse((node) => { if (node.userData.sinkBowlDivider) divider = node; });
+    expect(divider).not.toBeNull();
   });
 
   it("renders SB36 with two false drawer fronts, two standard doors, and no false-drawer pull", () => {
