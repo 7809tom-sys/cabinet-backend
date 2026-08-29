@@ -1044,6 +1044,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   });
   const wallCabPoolRef = useRef<DesignCabinet[]>([]);
   useEffect(() => { wallCabPoolRef.current = (wallCabPool as DesignCabinet[] | undefined) ?? []; }, [wallCabPool]);
+  const glassDoorCatalogProduct = useCallback((masterCode: string) => (
+    ((wallCabPool as DesignCabinet[] | undefined) ?? []).find((cabinet) => cabinet.masterCode === masterCode)
+    ?? catalogFillers.find((cabinet) => cabinet.masterCode === masterCode)
+    ?? null
+  ), [catalogFillers, wallCabPool]);
+  const glassDoorAddonCodeFor = useCallback((cabinet: Pick<PlacedCabinet, "cabinetId" | "masterCode" | "glassDoorAddonCode">) => (
+    cabinet.glassDoorAddonCode
+    ?? ((wallCabPool as DesignCabinet[] | undefined) ?? []).find((candidate) =>
+      candidate.id === cabinet.cabinetId || candidate.masterCode === cabinet.masterCode
+    )?.glassDoorAddonCode
+    ?? null
+  ), [wallCabPool]);
+  const placedWithGlassDoorLinks = useMemo(() => placed.map((cabinet) => {
+    const glassDoorAddonCode = glassDoorAddonCodeFor(cabinet);
+    return glassDoorAddonCode && !cabinet.glassDoorAddonCode
+      ? { ...cabinet, glassDoorAddonCode }
+      : cabinet;
+  }), [glassDoorAddonCodeFor, placed]);
 
   // Keep every tall cabinet available when matching a reviewed imported plan,
   // regardless of the palette tab the customer currently has open.
@@ -1414,15 +1432,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     };
     placed.forEach((p) => {
       push(pricingIdForPlacedCabinet(p), effectiveStyleId(p, styleId) ?? styleId);
-      // Also fetch price for the GD variant if glassDoor is enabled.
+      // Fetch the exact same-style glass product. Some lines use a separately
+      // priced replacement door; others use a complete GD cabinet variant.
       if (p.glassDoor) {
-        const gdCode = p.masterCode + "GD";
-        const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === gdCode);
+        const gdCode = glassDoorAddonCodeFor(p) ?? `${p.masterCode}GD`;
+        const gdCab = glassDoorCatalogProduct(gdCode);
         if (gdCab) push(gdCab.id, effectiveStyleId(p, styleId) ?? styleId);
       }
     });
     return pairs;
-  }, [placed, pricingIdForPlacedCabinet, styleId]);
+  }, [placed, pricingIdForPlacedCabinet, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -1446,10 +1465,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
       if (!styleId) return null;
       const sid = effectiveStyleId(p, styleId) ?? styleId;
-      // When glass door is enabled, look up the GD variant's price instead.
-      if (p.glassDoor) {
+      const linkedGlassDoorCode = glassDoorAddonCodeFor(p);
+      // A complete GD cabinet replaces the base price. A separately linked
+      // replacement door is additive, so WDC2442 retains its cabinet price.
+      if (p.glassDoor && !linkedGlassDoorCode) {
         const gdCode = p.masterCode + "GD";
-        const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === gdCode);
+        const gdCab = glassDoorCatalogProduct(gdCode);
         if (gdCab) {
           const gdPrice = priceMap.get(`${gdCab.id}:${sid}`);
           if (gdPrice != null) return gdPrice;
@@ -1458,8 +1479,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const v = priceMap.get(`${pricingIdForPlacedCabinet(p)}:${sid}`);
       return v ?? null;
     },
-    [priceMap, pricingIdForPlacedCabinet, styleId]
+    [priceMap, pricingIdForPlacedCabinet, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
   );
+
+  const glassDoorAddonFor = useCallback((p: PlacedCabinet, resolvedStyleId: number) => {
+    const linkedGlassDoorCode = glassDoorAddonCodeFor(p);
+    if (!linkedGlassDoorCode) return null;
+    const addon = glassDoorCatalogProduct(linkedGlassDoorCode);
+    if (!addon) return null;
+    return {
+      masterCode: addon.masterCode,
+      name: addon.description ?? `Glass Door (${addon.masterCode})`,
+      unitPrice: priceMap.get(`${addon.id}:${resolvedStyleId}`) ?? null,
+      catalogImageUrl: addon.catalogImageUrl ?? null,
+    };
+  }, [glassDoorAddonCodeFor, glassDoorCatalogProduct, priceMap]);
 
   // LS3612 shares its 36-inch corner body with the shelf-corner ER36/BER36
   // variants. A Lazy Susan carousel is an internal option, not a reason to
@@ -1906,12 +1940,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const cabinetCartLines = useMemo(() => {
     if (!styleId) return [] as CartItem[];
     const designLines = buildDesignCabinetCartLines({
-      placed,
+      placed: placedWithGlassDoorLinks,
       styleId,
       distributorId: lockedDistributorId ?? null,
       tier: DESIGN_TIER_TO_SHARED[tier],
       styleNameById,
       unitPriceFor,
+      glassDoorAddonFor,
     });
     const baseLines = activeBundlePriceLock
       ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
@@ -1934,21 +1969,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       });
     }
     return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
-  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
+  }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
 
   // Cabinet-preview lines preserve exact placement UIDs and pending-price
   // cabinets. Complete trim, surface, fixture, and cart parity is added below.
   const interactive3dCabinetPricingLines = useMemo(() => {
     const lines = buildDesignPreviewPricingLines({
-      placed,
+      placed: placedWithGlassDoorLinks,
       styleId,
       distributorId: lockedDistributorId ?? null,
       tier: DESIGN_TIER_TO_SHARED[tier],
       styleNameById,
       unitPriceFor,
+      glassDoorAddonFor,
     });
     return activeBundlePriceLock ? lockDesignCartLinesToPackageTotal(lines, activeBundlePriceLock.total) : lines;
-  }, [placed, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor, activeBundlePriceLock]);
+  }, [placedWithGlassDoorLinks, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor, glassDoorAddonFor, activeBundlePriceLock]);
 
 
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
@@ -4794,43 +4830,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Toggle glass door upgrade for a wall cabinet.
   // Auto-clear noDoor when enabling glassDoor (glass door = has a door).
   const setGlassDoorFor = useCallback((uid: string, glassDoor: boolean) => {
-    setCabAttr(uid, glassDoor ? { glassDoor, noDoor: false } : { glassDoor });
-  }, [setCabAttr]);
+    const cabinet = placed.find((candidate) => candidate.uid === uid);
+    const glassDoorAddonCode = cabinet ? glassDoorAddonCodeFor(cabinet) : null;
+    setCabAttr(uid, glassDoor
+      ? { glassDoor, noDoor: false, ...(glassDoorAddonCode ? { glassDoorAddonCode } : {}) }
+      : { glassDoor });
+  }, [glassDoorAddonCodeFor, placed, setCabAttr]);
 
-  // Whether the currently-open attributes cabinet has a GD variant in the catalog.
-  // We check if a code ending in GD exists for the cabinet's masterCode.
+  // A wall cabinet can use either a same-line replacement glass door or a
+  // complete same-line GD cabinet variant.
   const glassDoorAvailableForAttr = useMemo(() => {
     if (!attrUid) return false;
     const cab = placed.find((p) => p.uid === attrUid);
     if (!cab || cab.placement !== "wall") return false;
-    // The GD code pattern: append "GD" to the masterCode (e.g. W-30-30 → W-30-30GD)
-    const gdCode = cab.masterCode + "GD";
-    // Check if any cabinet in the wall cabinet pool has this code.
-    return wallCabPoolRef.current.some((c) => c.masterCode === gdCode);
-  }, [attrUid, placed]);
+    const gdCode = glassDoorAddonCodeFor(cab) ?? `${cab.masterCode}GD`;
+    return glassDoorCatalogProduct(gdCode) != null;
+  }, [attrUid, placed, glassDoorAddonCodeFor, glassDoorCatalogProduct]);
 
-  // Add the glass door add-on SKU (glassDoorAddonCode) to the cart as a separate line item.
+  // Legacy callback name retained for the attributes panel. The add-on is now a
+  // saved design choice; the shared price/cart builder emits its exact SKU once.
   const addGlassDoorToCart = useCallback((uid: string) => {
     const cab = placed.find((p) => p.uid === uid);
-    if (!cab || !cab.glassDoorAddonCode) return;
-    // Find the glass door cabinet in the catalog pool to get its id and catalogImageUrl
-    const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === cab.glassDoorAddonCode);
-    const cartLine: CartItem = {
-      masterCode: cab.glassDoorAddonCode,
-      name: gdCab?.description ?? `Glass Door (${cab.glassDoorAddonCode})`,
-      qty: 1,
-      styleId: cab.styleId ?? 0,
-      styleLabel: cartLockedStyleLabel ?? "",
-      distributorId: lockedDistributorId,
-      tier: DESIGN_TIER_TO_SHARED[tier],
-      unitPrice: null,
-      catalogImageUrl: gdCab?.catalogImageUrl ?? null,
-    };
-    addItem(cartLine);
-    // Also toggle the visual glass door on the placed cabinet
-    setCabAttr(uid, { glassDoor: true, noDoor: false });
-    toast.success(`Glass door ${cab.glassDoorAddonCode} added to cart`);
-  }, [placed, addItem, setCabAttr]);
+    const glassDoorAddonCode = cab ? glassDoorAddonCodeFor(cab) : null;
+    if (!cab || !glassDoorAddonCode) return;
+    setCabAttr(uid, { glassDoor: true, noDoor: false, glassDoorAddonCode });
+    toast.success(`Glass door ${glassDoorAddonCode} selected and included in the design price`);
+  }, [glassDoorAddonCodeFor, placed, setCabAttr]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a

@@ -311,6 +311,7 @@ export interface DesignCabinet {
   drawerLayout?: string | null;
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  glassDoorAddonCode?: string | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for

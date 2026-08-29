@@ -10,6 +10,12 @@ type BuildDesignCabinetCartLinesArgs = {
   tier: CartItem["tier"];
   styleNameById: Map<number, string>;
   unitPriceFor: (cabinet: PlacedCabinet) => number | null;
+  glassDoorAddonFor?: (cabinet: PlacedCabinet, resolvedStyleId: number) => {
+    masterCode: string;
+    name: string;
+    unitPrice: number | null;
+    catalogImageUrl?: string | null;
+  } | null;
 };
 
 export type DesignPreviewPricingLine = CartItem & {
@@ -38,6 +44,7 @@ export function buildDesignCabinetCartLines({
   tier,
   styleNameById,
   unitPriceFor,
+  glassDoorAddonFor,
 }: BuildDesignCabinetCartLinesArgs): CartItem[] {
   if (!styleId) return [];
   const lines = new Map<string, CartItem>();
@@ -54,27 +61,53 @@ export function buildDesignCabinetCartLines({
     const unitPrice = adjustedDesignUnitPrice(cabinet, unitPriceFor(cabinet));
     if (unitPrice == null) continue;
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
-    const masterCode = cabinet.glassDoor ? `${cabinet.masterCode}GD` : cabinet.masterCode;
+    // A linked glassDoorAddonCode is a separately priced replacement door. Keep
+    // the cabinet itself on its canonical SKU; only full-cabinet GD swaps use an
+    // appended-code identity.
+    const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
+      ? `${cabinet.masterCode}GD`
+      : cabinet.masterCode;
     // Different discounts or custom-size fees must remain separate locked
     // lines; combining them would assign one cabinet's adjusted price to both.
     const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
-      continue;
+    } else {
+      lines.set(key, {
+        masterCode,
+        name: cabinet.description ?? cabinet.masterCode,
+        styleId: resolvedStyleId,
+        styleLabel: styleNameById.get(resolvedStyleId) ?? "",
+        distributorId,
+        tier,
+        unitPrice,
+        priceLocked: true,
+        qty: 1,
+        catalogImageUrl: cabinet.catalogImageUrl ?? null,
+      });
     }
-    lines.set(key, {
-      masterCode,
-      name: cabinet.description ?? cabinet.masterCode,
-      styleId: resolvedStyleId,
-      styleLabel: styleNameById.get(resolvedStyleId) ?? "",
-      distributorId,
-      tier,
-      unitPrice,
-      priceLocked: true,
-      qty: 1,
-      catalogImageUrl: cabinet.catalogImageUrl ?? null,
-    });
+
+    if (cabinet.glassDoor && cabinet.glassDoorAddonCode) {
+      const addon = glassDoorAddonFor?.(cabinet, resolvedStyleId) ?? null;
+      if (addon?.unitPrice != null) {
+        const addonKey = `${addon.masterCode}::${resolvedStyleId}::${addon.unitPrice.toFixed(4)}`;
+        const existingAddon = lines.get(addonKey);
+        if (existingAddon) existingAddon.qty += 1;
+        else lines.set(addonKey, {
+          masterCode: addon.masterCode,
+          name: addon.name,
+          styleId: resolvedStyleId,
+          styleLabel: styleNameById.get(resolvedStyleId) ?? "",
+          distributorId,
+          tier,
+          unitPrice: addon.unitPrice,
+          priceLocked: true,
+          qty: 1,
+          catalogImageUrl: addon.catalogImageUrl ?? null,
+        });
+      }
+    }
   }
   return Array.from(lines.values());
 }
@@ -146,6 +179,7 @@ export function buildDesignPreviewPricingLines({
   tier,
   styleNameById,
   unitPriceFor,
+  glassDoorAddonFor,
 }: BuildDesignCabinetCartLinesArgs): DesignPreviewPricingLine[] {
   if (!styleId) return [];
   const lines = new Map<string, DesignPreviewPricingLine>();
@@ -162,27 +196,57 @@ export function buildDesignPreviewPricingLines({
     // replacement amount from another distributor, tier, or style.
     const adjustedUnitPrice = adjustedDesignUnitPrice(cabinet, basePrice);
     const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
-    const masterCode = cabinet.glassDoor ? `${cabinet.masterCode}GD` : cabinet.masterCode;
+    const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
+      ? `${cabinet.masterCode}GD`
+      : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
     const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice == null ? "pending" : adjustedUnitPrice.toFixed(4)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
       existing.placementUids = [...(existing.placementUids ?? []), cabinet.uid];
-      continue;
+    } else {
+      lines.set(key, {
+        masterCode,
+        name: cabinet.description ?? cabinet.masterCode,
+        styleId: resolvedStyleId,
+        styleLabel: styleNameById.get(resolvedStyleId) ?? "",
+        distributorId,
+        tier,
+        unitPrice: adjustedUnitPrice,
+        qty: 1,
+        catalogImageUrl: cabinet.catalogImageUrl ?? null,
+        placementUids: [cabinet.uid],
+      });
     }
-    lines.set(key, {
-      masterCode,
-      name: cabinet.description ?? cabinet.masterCode,
-      styleId: resolvedStyleId,
-      styleLabel: styleNameById.get(resolvedStyleId) ?? "",
-      distributorId,
-      tier,
-      unitPrice: adjustedUnitPrice,
-      qty: 1,
-      catalogImageUrl: cabinet.catalogImageUrl ?? null,
-      placementUids: [cabinet.uid],
-    });
+
+    if (cabinet.glassDoor && cabinet.glassDoorAddonCode) {
+      const addon = glassDoorAddonFor?.(cabinet, resolvedStyleId) ?? {
+        masterCode: cabinet.glassDoorAddonCode,
+        name: `Glass Door (${cabinet.glassDoorAddonCode})`,
+        unitPrice: null,
+        catalogImageUrl: null,
+      };
+      const addonKey = `${addon.masterCode}::${resolvedStyleId}::${addon.unitPrice == null ? "pending" : addon.unitPrice.toFixed(4)}`;
+      const existingAddon = lines.get(addonKey);
+      if (existingAddon) {
+        existingAddon.qty += 1;
+        existingAddon.placementUids = [...(existingAddon.placementUids ?? []), cabinet.uid];
+      } else {
+        lines.set(addonKey, {
+          masterCode: addon.masterCode,
+          name: addon.name,
+          styleId: resolvedStyleId,
+          styleLabel: styleNameById.get(resolvedStyleId) ?? "",
+          distributorId,
+          tier,
+          unitPrice: addon.unitPrice,
+          qty: 1,
+          catalogImageUrl: addon.catalogImageUrl ?? null,
+          placementUids: [cabinet.uid],
+        });
+      }
+    }
   }
   return Array.from(lines.values());
 }

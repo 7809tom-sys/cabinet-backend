@@ -373,4 +373,84 @@ describe("designer cabinet cart lines", () => {
     ]);
     expect(calculateCartSubtotal(cartLines)).toBe(calculateCartSubtotal(previewLines));
   });
+
+  it("prices WDC2442 plus exactly one same-style PGWDC42 replacement door without inventing a WDC2442GD SKU", () => {
+    const wdc2442 = {
+      ...bec,
+      uid: "hickory-wdc2442",
+      cabinetId: 9390174,
+      masterCode: "WDC2442",
+      description: '24" Diagonal Corner Wall Cabinet with 3 Adjustable Shelves',
+      category: "Wall",
+      placement: "wall",
+      width: 24,
+      height: 42,
+      depth: 24,
+      numberOfDoors: 1,
+      adjustableShelfCount: 3,
+      styleId: 330007,
+      glassDoor: true,
+      glassDoorAddonCode: "PGWDC42",
+    } as PlacedCabinet;
+    const common = {
+      placed: [wdc2442],
+      styleId: 330007,
+      distributorId: 210001,
+      tier: "homeowner" as const,
+      styleNameById: new Map([[330007, "Hickory Shaker"]]),
+      unitPriceFor: () => 427.70,
+      glassDoorAddonFor: () => ({
+        masterCode: "PGWDC42",
+        name: 'Hickory Shaker 42" Diagonal Glass Door',
+        unitPrice: 212.17,
+      }),
+    };
+
+    const cartLines = buildDesignCabinetCartLines(common);
+    const previewLines = buildDesignPreviewPricingLines(common);
+
+    expect(cartLines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "WDC2442", unitPrice: 427.70, priceLocked: true, qty: 1 }),
+      expect.objectContaining({ masterCode: "PGWDC42", unitPrice: 212.17, priceLocked: true, qty: 1 }),
+    ]));
+    expect(cartLines.map((line) => line.masterCode)).not.toContain("WDC2442GD");
+    expect(previewLines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "WDC2442", unitPrice: 427.70, placementUids: ["hickory-wdc2442"] }),
+      expect.objectContaining({ masterCode: "PGWDC42", unitPrice: 212.17, placementUids: ["hickory-wdc2442"] }),
+    ]));
+    expect(calculateCartSubtotal(cartLines)).toBe(639.87);
+    expect(calculateCartSubtotal(previewLines)).toBe(639.87);
+  });
+
+  it("aggregates one PGWDC42 replacement door per glass-selected WDC2442", () => {
+    const first = {
+      ...bec,
+      uid: "first-glass-wdc",
+      cabinetId: 9390174,
+      masterCode: "WDC2442",
+      description: "Diagonal Wall Corner",
+      placement: "wall",
+      styleId: 330007,
+      glassDoor: true,
+      glassDoorAddonCode: "PGWDC42",
+    } as PlacedCabinet;
+    const common = {
+      placed: [first, { ...first, uid: "second-glass-wdc", x: 24 }],
+      styleId: 330007,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330007, "Hickory Shaker"]]),
+      unitPriceFor: () => 427.70,
+      glassDoorAddonFor: () => ({ masterCode: "PGWDC42", name: "Diagonal Glass Door", unitPrice: 212.17 }),
+    } as const;
+    const lines = buildDesignCabinetCartLines(common);
+    const previewLines = buildDesignPreviewPricingLines(common);
+
+    expect(lines.find((line) => line.masterCode === "WDC2442")).toMatchObject({ qty: 2 });
+    expect(lines.find((line) => line.masterCode === "PGWDC42")).toMatchObject({ qty: 2 });
+    expect(previewLines.find((line) => line.masterCode === "WDC2442")).toMatchObject({ qty: 2, placementUids: ["first-glass-wdc", "second-glass-wdc"] });
+    expect(previewLines.find((line) => line.masterCode === "PGWDC42")).toMatchObject({ qty: 2, placementUids: ["first-glass-wdc", "second-glass-wdc"] });
+    expect(calculateCartSubtotal(lines)).toBe(1279.74);
+    expect(calculateCartSubtotal(previewLines)).toBe(1279.74);
+  });
 });

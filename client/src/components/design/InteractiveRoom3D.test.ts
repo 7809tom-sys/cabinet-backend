@@ -1347,6 +1347,51 @@ describe("interactive 3D room scene helpers", () => {
     ]);
   });
 
+  it("renders a glass-selected WDC2442 as one framed transparent diagonal door with its three configured shelves", () => {
+    const wdc = {
+      uid: "glass-wdc2442",
+      cabinetId: 9390174,
+      masterCode: "WDC2442",
+      description: '24" Diagonal Corner Wall Cabinet with 3 Adjustable Shelves',
+      placement: "wall",
+      x: 0,
+      y: 0,
+      width: 24,
+      depth: 12,
+      height: 42,
+      rotation: 0,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+      adjustableShelfCount: 3,
+      glassDoor: true,
+      glassDoorAddonCode: "PGWDC42",
+    } as never;
+    const sku = existingCabinetSku(wdc);
+    expect(sku).toMatchObject({ glassDoor: true, adjustableShelfCount: 3, numberOfDoors: 1 });
+
+    const root = new THREE.Group();
+    addCabinet(
+      root,
+      sku,
+      null,
+      {},
+      144,
+      120,
+      "#b78a54",
+      "#f8f8f6",
+      { doorStyle: "Shaker", doorPanelType: "recessed" },
+      existingCabinetTransform(wdc, { width: 144, depth: 120, ceilingHeight: 96 } as never),
+    );
+    const nodes: THREE.Object3D[] = [];
+    root.traverse((node) => nodes.push(node));
+    const glassDoors = nodes.filter((node) => node.userData.glassCabinetDoor) as THREE.Mesh[];
+    expect(glassDoors).toHaveLength(1);
+    expect(glassDoors[0]?.material).toBeInstanceOf(THREE.MeshPhysicalMaterial);
+    expect((glassDoors[0]?.material as THREE.MeshPhysicalMaterial).transparent).toBe(true);
+    expect(nodes.filter((node) => node.userData.diagonalGlassShelf)).toHaveLength(3);
+    expect(nodes.filter((node) => node.userData.selectedStyleFace === "shaker")).toHaveLength(5);
+  });
+
   it("uses the 17-inch diagonal front created by two 12-inch WDC returns", () => {
     expect(diagonalCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(12, 12), 8);
     expect(diagonalCornerFrontWidth(24, 24)).toBeCloseTo(16.97056275, 6);

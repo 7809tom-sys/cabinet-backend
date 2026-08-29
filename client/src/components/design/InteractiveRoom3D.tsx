@@ -28,6 +28,8 @@ type SceneSku = {
   mountBottom?: number | null;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  adjustableShelfCount?: number | null;
+  glassDoor?: boolean | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   handleSide?: "left" | "right" | null;
@@ -1824,6 +1826,16 @@ export function addCabinet(
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
+  const glassDoorMaterial = new THREE.MeshPhysicalMaterial({
+    color: "#b8d4dc",
+    roughness: 0.08,
+    metalness: 0.02,
+    transmission: 0.48,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
   const shadowRevealMaterial = new THREE.MeshStandardMaterial({ color: "#1c1814", roughness: 0.78, metalness: 0.02, transparent: true, opacity: 0.52 });
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
@@ -2463,7 +2475,10 @@ export function addCabinet(
     const tangentOffset = diagonalDoorWidth / 2;
     const directions = diagonalDoorCount === 1 ? [0] : [-1, 1];
     for (const direction of directions) {
-      const door = new THREE.Mesh(new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052), faceMaterial);
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(diagonalDoorWidth - 0.03, diagonalDoorHeight, 0.052),
+        sku.glassDoor ? glassDoorMaterial : faceMaterial,
+      );
       door.position.set(
         diagonalFaceCenterX + direction * Math.SQRT1_2 * tangentOffset + diagonalFaceNormal,
         0,
@@ -2473,6 +2488,9 @@ export function addCabinet(
       door.userData = angledWallProfile
         ? { specialtyProfile: "angled-wall", angledWallDoor: true, flushPhysicalFace: true, cabinetFront: true }
         : { specialtyProfile: "diagonal-corner", diagonalDoor: direction === -1 ? "left" : "right", cabinetFront: true, flushPhysicalFace: true };
+      if (sku.glassDoor) {
+        door.userData = { ...door.userData, glassCabinetDoor: true, linkedGlassDoorAddon: true };
+      }
       frontGroup.add(door);
       addShakerFrame(
         diagonalDoorWidth - 0.03,
@@ -2511,6 +2529,23 @@ export function addCabinet(
           stem.userData = { cabinetHardwareMount: true, diagonalDoorPullMount: true };
           frontGroup.add(stem);
         }
+      }
+    }
+    if (sku.glassDoor) {
+      const shelfCount = Math.max(0, Math.min(4, Math.round(sku.adjustableShelfCount ?? 0)));
+      for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex += 1) {
+        const shelf = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.max(0.08, diagonalWidth * 0.82), 0.024, Math.max(0.08, bodyDepth * 0.34)),
+          new THREE.MeshStandardMaterial({ color: "#d5c7ad", roughness: 0.62, metalness: 0.01 }),
+        );
+        shelf.position.set(
+          diagonalFaceCenterX - Math.SQRT1_2 * 0.08,
+          -diagonalDoorHeight / 2 + (diagonalDoorHeight * (shelfIndex + 1)) / (shelfCount + 1),
+          diagonalFaceCenterZ - Math.SQRT1_2 * 0.08,
+        );
+        shelf.rotation.y = angledWallFace?.rotation ?? Math.PI / 4;
+        shelf.userData = { visibleThroughGlassDoor: true, diagonalGlassShelf: shelfIndex + 1 };
+        frontGroup.add(shelf);
       }
     }
   } else if (specialty.kind === "triangle-corner") {
@@ -3411,6 +3446,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+    adjustableShelfCount: cabinet.adjustableShelfCount ?? null,
+    glassDoor: cabinet.glassDoor ?? false,
     doorOrientation: cabinet.doorOrientation ?? null,
     swing: cabinet.swing ?? null,
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,

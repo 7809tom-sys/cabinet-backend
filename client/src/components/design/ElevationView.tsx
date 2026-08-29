@@ -505,6 +505,7 @@ export function ElevationView({
               masterCode={p.masterCode}
               facePattern={p.facePattern ?? null}
               shelfCount={(p.fixedShelfCount ?? 0) + (p.adjustableShelfCount ?? 0)}
+              glassDoor={p.glassDoor ?? false}
               frameInsetPx={cabFrameInset ?? undefined}
             />
           )}
@@ -2205,7 +2206,7 @@ export function CustomProfileFace({
   );
 }
 
-export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; frameInsetPx?: number }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, glassDoor, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2867,6 +2868,17 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             }}
           >
             <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} frameInsetPx={frameInsetPx} faceWidthIn={faceWidth * ((doorSlice - 2) / 100)} faceHeightIn={faceHeight * 0.94} />
+            {glassDoor && (
+              <div
+                data-diagonal-corner-glass="true"
+                className="absolute inset-[12%]"
+                style={{
+                  background: "linear-gradient(145deg, rgba(226,244,249,0.58), rgba(79,113,125,0.28))",
+                  border: `1px solid ${edge}88`,
+                  boxShadow: "inset 0 0 12px rgba(255,255,255,0.32)",
+                }}
+              />
+            )}
             {Array.from({ length: visibleShelves }).map((_, shelfIndex) => (
               <div
                 key={`diagonal-shelf-${shelfIndex}`}

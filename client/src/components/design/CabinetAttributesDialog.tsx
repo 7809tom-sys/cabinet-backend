@@ -733,18 +733,18 @@ export function CabinetAttributesDialog({
                   aria-label={t("dt_ca_glass_door_toggle")}
                 />
               </div>
-              {/* Glass door add-on: add the separate glass door SKU to the cart */}
+              {/* Linked replacement door: persisted and priced with the design. */}
               {cabinet.glassDoorAddonCode && (
                 <div className="pt-2">
                   <p className="text-[11px] text-muted-foreground mb-2">
-                    Glass door sold separately ({cabinet.glassDoorAddonCode}). Add it to your cart as a separate line item.
+                    Glass door sold separately as {cabinet.glassDoorAddonCode}. The cabinet remains {cabinet.masterCode}, and one same-style glass-door line is included in the design price and cart.
                   </p>
                   <button
                     type="button"
                     className="w-full text-sm font-medium py-2 px-3 rounded-md border border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
                     onClick={() => onAddGlassDoorToCart(uid)}
                   >
-                    + Add Glass Door to Cart ({cabinet.glassDoorAddonCode})
+                    Use Glass Door ({cabinet.glassDoorAddonCode})
                   </button>
                 </div>
               )}
