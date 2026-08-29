@@ -355,11 +355,25 @@ describe("interactive 3D room scene helpers", () => {
     const className = threeDSelectedCabinetDockClass();
     expect(className).toContain("mt-1");
     expect(className).toContain("w-full");
-    expect(className).toContain("px-2.5");
-    expect(className).toContain("py-2");
+	    expect(className).toContain("px-2");
+	    expect(className).toContain("py-1.5");
+	    expect(className).toContain("text-[11px]");
     expect(className).not.toContain("p-3");
     expect(className).not.toContain("absolute");
   });
+
+	  it("keeps cabinet summary, measurements, actions, and touch movement readable without duplicate 3D controls", () => {
+	    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+	    const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+	    expect(rendererSource).toContain('data-testid="three-d-cabinet-summary"');
+	    expect(rendererSource).toContain('data-testid="three-d-cabinet-measurement-grid"');
+	    expect(rendererSource).toContain("sm:grid-cols-4");
+	    expect(rendererSource).toContain('data-testid="three-d-cabinet-actions"');
+	    expect(rendererSource).toContain("overflow-x-auto");
+	    expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');
+	    expect(rendererSource).toContain("lg:hidden");
+	    expect(designerSource).toContain('selectedUid && !cabinetsLocked && !measureMode && viewMode !== "threeD"');
+	  });
 
   it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
     const root = new THREE.Group();
@@ -547,7 +561,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(dpadIndex).toBeGreaterThan(detailsIndex);
     expect(dpadOpeningTag).toContain("lg:hidden");
     expect(rendererSource).not.toContain('⅛&quot; precision');
-    expect(rendererSource.match(/0&quot; overlap required/g)?.length).toBeGreaterThanOrEqual(3);
+	    expect(rendererSource.match(/0&quot; overlap required/g)?.length).toBeGreaterThanOrEqual(2);
+	    expect(rendererSource).toContain('Placement · 0&quot; overlap');
   });
 
   it("provides distinct stable camera presets for clear 3D review", () => {

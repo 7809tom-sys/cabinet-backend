@@ -15,7 +15,7 @@ import {
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
-  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
+	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, clampCeilingHeight,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
@@ -509,6 +509,24 @@ describe("per-wall ceiling (flat + sloped)", () => {
     // other walls still track the default
     expect(wallCeilingMin(room, "right")).toBe(96);
   });
+
+	  it("allows W-36-24 to move above the global 96-inch cap when its actual right wall is 108 inches high", () => {
+	    const room: RoomData = {
+	      width: 144, depth: 120, ceilingHeight: 96,
+	      wallCeilings: { right: { high: 108, low: 108 } },
+	    };
+	    const w3624 = cab({ uid: "right-w3624", masterCode: "W-36-24", placement: "wall", x: 132, y: 48, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72 });
+	    expect(wallCabinetVerticalMoveLimit(w3624, room)).toMatchObject({ side: "right", ceiling: 108, maxBottom: 84 });
+	  });
+
+	  it("uses the lowest ceiling across the cabinet footprint on a sloped wall", () => {
+	    const room: RoomData = {
+	      width: 120, depth: 120, ceilingHeight: 96,
+	      wallCeilings: { top: { high: 120, low: 96, slopeFrom: "start" } },
+	    };
+	    const w3624 = cab({ uid: "slope-w3624", masterCode: "W-36-24", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 24, mountBottom: 72 });
+	    expect(wallCabinetVerticalMoveLimit(w3624, room)).toMatchObject({ side: "top", ceiling: 112.8, maxBottom: 88.8 });
+	  });
 
   it("normalizes a sloped override so high >= low", () => {
     const room: RoomData = {

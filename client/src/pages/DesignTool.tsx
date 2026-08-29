@@ -79,7 +79,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -4796,12 +4796,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Set an ABSOLUTE mount height (inches from floor to the box bottom) for a
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
   // Wall cabinets only; clamped at 0.
-  const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
-    setPlaced((prev) => {
-      const current = prev.find((p) => p.uid === uid);
-      if (!current || current.placement !== "wall") return prev;
-      const height = elevationBox(current, room).height;
-      const bounded = Math.max(0, Math.min(Math.max(0, (room.ceilingHeight ?? 96) - height), Math.round(mountBottom * 10) / 10));
+	  const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
+	    setPlaced((prev) => {
+	      const current = prev.find((p) => p.uid === uid);
+	      if (!current || current.placement !== "wall") return prev;
+	      const limit = wallCabinetVerticalMoveLimit(current, room);
+	      const bounded = Math.max(0, Math.min(limit.maxBottom, Math.round(mountBottom * 8) / 8));
       const candidate = { ...current, mountBottom: bounded };
       const peers = prev.filter((p) => p.uid !== uid);
       if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
@@ -4823,9 +4823,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPlaced((prev) => {
       const cabinet = prev.find((item) => item.uid === uid);
       if (!cabinet) return prev;
-      if (direction === "up" || direction === "down") {
-        const currentElevation = elevationBox(cabinet, room);
-        const ceiling = roomCeiling(room);
+	      if (direction === "up" || direction === "down") {
+	        const currentElevation = elevationBox(cabinet, room);
+	        const { ceiling } = wallCabinetVerticalMoveLimit(cabinet, room);
         const signedStep = direction === "up" ? step : -step;
         const nextBottom = Math.round((currentElevation.bottom + signedStep) * 8) / 8;
         if (nextBottom < 0 || nextBottom + currentElevation.height > ceiling) {
@@ -9044,7 +9044,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           )}
 
           {/* D-pad nudge buttons — appears when a cabinet is selected */}
-          {selectedUid && !cabinetsLocked && !measureMode && (
+	          {selectedUid && !cabinetsLocked && !measureMode && viewMode !== "threeD" && (
             <div className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex items-end gap-2">
               <div className="flex flex-col items-center gap-0.5">
                 <button
@@ -10162,7 +10162,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetHeight={(_uid, v) => setCustomHeight(v)}
         onSetDepth={(_uid, v) => setCustomDepth(v)}
         mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? elevationBox(cabinet, room).bottom : null; })() : null}
-        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? Math.max(0, (room.ceilingHeight ?? 96) - elevationBox(cabinet, room).height) : 0; })() : 0}
+	        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? wallCabinetVerticalMoveLimit(cabinet, room).maxBottom : 0; })() : 0}
         onSetMountBottom={setMountBottomFor}
         onMoveInOut={(uid, direction) => moveCabinetFrom3D(uid, direction, 1)}
         onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}

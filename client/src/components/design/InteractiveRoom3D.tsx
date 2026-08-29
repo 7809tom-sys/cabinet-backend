@@ -498,7 +498,7 @@ export function threeDSelectionFromPlaced(uid: string | null | undefined, placed
 
 /** Keeps selected-cabinet details in document flow below the drawing instead of covering the 3D canvas. */
 export function threeDSelectedCabinetDockClass(): string {
-  return "relative mt-1 w-full rounded-lg border bg-background px-2.5 py-2 text-xs shadow-sm";
+	return "relative mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-[11px] shadow-sm";
 }
 
 export type ThreeDCabinetHit = {
@@ -4688,26 +4688,33 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 	        const wallFitText = threeDWallFitGuideText(wallFit);
 	        const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
 		        return <div data-testid="three-d-cabinet-attributes" className={threeDSelectedCabinetDockClass()}>
-		          <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="absolute right-2 top-1.5 z-10 text-muted-foreground hover:text-foreground">×</button>
-		          <div className="grid gap-2 pr-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end lg:grid-cols-1">
-		            <div className="flex min-w-0 items-start gap-2">
-		            <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a87f33]" />
-		            <div className="min-w-0 flex-1">
-	              <p className="font-semibold">{selectedCabinet.masterCode}</p>
-	              <p data-testid="three-d-cabinet-description" className="text-muted-foreground">{description}</p>
-	              <p className="mt-1">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</p>
-	              <p className="font-medium">{line?.lineTotal == null ? "Catalog price pending" : `Current line price: $${line.lineTotal.toFixed(2)}`}</p>
-	              {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 rounded-md border border-[#d9c196] bg-[#fffaf1] px-2 py-1 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
-		              {wallFitText && <div data-testid="three-d-active-wall-clearance" role="status" aria-live="polite" className={`mt-1 rounded-md border px-2 py-1 font-medium ${!wallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : wallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">Live placement measurement · 0&quot; overlap required</span><span>{wallFitText}</span></div>}
-		              {selectedCabinet.uid && <div className="mt-1.5 flex flex-wrap gap-1.5">
-		                {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
-	                {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="rounded-md border border-[#8a651f]/30 bg-amber-50 px-2.5 py-1.5 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
-	                {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
-	                {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex items-center gap-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
-		              </div>}
+		          <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="absolute right-1.5 top-1 z-10 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground">×</button>
+		          <div className="grid min-w-0 gap-1.5 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] md:items-start">
+		            <div data-testid="three-d-cabinet-summary" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-1.5">
+		              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
+		              <div className="min-w-0">
+		                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+		                  <p className="shrink-0 text-xs font-bold">{selectedCabinet.masterCode}</p>
+		                  <p data-testid="three-d-cabinet-description" className="min-w-0 truncate text-muted-foreground" title={description}>{description}</p>
+		                </div>
+		                <div className="mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+		                  <span className="truncate">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</span>
+		                  <span className="font-semibold text-foreground">{line?.lineTotal == null ? "Price pending" : `$${line.lineTotal.toFixed(2)}`}</span>
+		                </div>
+		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
+		              </div>
 		            </div>
-		            </div>
-		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-center gap-1 rounded-md border bg-muted/30 p-1 lg:hidden">
+		            {wallFitText && wallFit && <div data-testid="three-d-active-wall-clearance" role="status" aria-live="polite" className={`min-w-0 rounded border px-1.5 py-1 ${!wallFit.seated ? "border-amber-300 bg-amber-50 text-amber-900" : wallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}>
+		              <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold uppercase tracking-wide">Placement · 0&quot; overlap</span><span className="font-bold">{wallFit.status === "fits" ? "Fits" : wallFit.status === "overlap" ? "Overlap" : "Check"}</span></div>
+		              <dl data-testid="three-d-cabinet-measurement-grid" className="mt-0.5 grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-4">
+		                <div className="min-w-0"><dt className="text-[9px] uppercase opacity-75">Opening</dt><dd className="truncate font-semibold">{formatEighthInches(wallFit.availableSpan)}</dd></div>
+		                <div className="min-w-0"><dt className="text-[9px] uppercase opacity-75">Cabinet</dt><dd className="truncate font-semibold">{formatEighthInches(wallFit.requiredSpan)}</dd></div>
+		                <div className="min-w-0"><dt className="text-[9px] uppercase opacity-75">Position</dt><dd className="truncate font-semibold">{formatEighthInches(wallFit.snapStart)}–{formatEighthInches(wallFit.snapEnd)}</dd></div>
+		                <div className="min-w-0"><dt className="text-[9px] uppercase opacity-75">Remaining</dt><dd className="truncate font-semibold">{formatEighthInches(wallFit.before)} L · {formatEighthInches(wallFit.after)} R</dd></div>
+		              </dl>
+		              <span className="sr-only">{wallFitText}</span>
+		            </div>}
+		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center lg:hidden">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
 		                <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
@@ -4719,7 +4726,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		                <button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
 		              </div>
-		              <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded-md border px-1.5 py-1 text-[10px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
+		              <button type="button" onClick={() => setMoveIncrementIn((current) => current === 1 ? 0.25 : 1)} className={`rounded border px-1 py-0.5 text-[9px] font-bold shadow-sm ${moveIncrementIn === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white text-[#1a2744]"}`} title="Toggle move step">{moveIncrementIn === 1 ? '1"' : '¼"'}</button>
+		            </div>}
+		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:col-span-3">
+		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
+		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
+		              {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
+		              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
 		            </div>}
 		          </div>
 		        </div>;

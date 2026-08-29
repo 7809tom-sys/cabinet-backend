@@ -989,3 +989,7 @@
 - [x] Add a live 2D and 3D canvas dimension line that updates during cabinet dragging to show the authoritative remaining space to the nearest left/right or before/after boundaries at 1/8-inch precision
 - [x] Add an Auto-fill action for any measured remaining gap greater than 0 and no more than 3 inches that selects the narrowest active catalog filler, cuts it to the exact installed width, and inserts it at 0-inch overlap
 - [x] Preserve cabinet/style/distributor identity, source pricing, saved design, cart, filler grouping, countertops, existing WDC/W-36 placements, and unrelated items while adding focused interaction, geometry, pricing, and responsive regressions
+- [x] Reproduce why W-36-24 can move down and back up but stops below the intended height, and identify the incorrect global 96-inch room-ceiling clamp instead of the selected wall’s real flat or sloped ceiling
+- [x] Allow W-36-24 to rise through the selected wall’s complete legal range while preserving its installed horizontal span, 0-inch overlap, local ceiling clearance, and door/window constraints
+- [x] Reconfigure the selected-cabinet information panel into compact readable information, measurement, and action regions that do not obscure each other on desktop, tablet, or phone
+- [x] Preserve W-36-24 SKU, dimensions, price, finish, saved design, cart, fillers, countertops, surrounding cabinets, and all existing movement controls while adding focused elevation and responsive-panel regressions

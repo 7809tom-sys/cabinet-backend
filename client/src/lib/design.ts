@@ -1097,6 +1097,32 @@ export function wallCeilingAt(
   return startVal + (endVal - startVal) * f;
 }
 
+/**
+ * Highest legal mount bottom for a wall cabinet at its current plan position.
+ * Uses the selected wall's real flat or sloped ceiling across the cabinet's
+ * complete run span instead of the legacy global room ceiling.
+ */
+export function wallCabinetVerticalMoveLimit(cabinet: PlacedCabinet, room: RoomData) {
+	const side = cabinetWall(cabinet, room);
+	const horizontal = side === "top" || side === "bottom";
+	const footprint = placedFootprint(cabinet);
+	const wallLength = horizontal ? room.width : room.depth;
+	const runStart = horizontal ? cabinet.x : cabinet.y;
+	const runEnd = runStart + (horizontal ? footprint.w : footprint.d);
+	const startFraction = wallLength > 0 ? Math.max(0, Math.min(1, runStart / wallLength)) : 0;
+	const endFraction = wallLength > 0 ? Math.max(0, Math.min(1, runEnd / wallLength)) : 1;
+	const ceiling = Math.min(
+		wallCeilingAt(room, side, startFraction),
+		wallCeilingAt(room, side, endFraction),
+	);
+	const height = elevationBox(cabinet, room).height;
+	return {
+		side,
+		ceiling: Math.round(ceiling * 1000) / 1000,
+		maxBottom: Math.max(0, Math.round((ceiling - height) * 1000) / 1000),
+	};
+}
+
 export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120, ceilingHeight: DEFAULT_CEILING_HEIGHT };
 
 export function dim(value: string | null | undefined, fallback: number): number {
