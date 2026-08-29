@@ -58,8 +58,9 @@ import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } f
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import {
   SMALL_GAP_FILLER_MAX_IN,
-  appendSmallGapFillerPlacement,
-  canSplitSmallGapFiller,
+	  appendSmallGapFillerPlacement,
+	  automaticSmallGapFillerMode,
+	  canSplitSmallGapFiller,
   findSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
   removePlacedCabinetGroup,
@@ -8723,14 +8724,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              </div>
 	              {failedWallFit && <div data-testid="failed-wall-smart-fit" className="mt-2 rounded-md border border-[#d9c196] bg-white/90 p-2">
 	                <p className="font-semibold text-[#634b20]">Smaller matching wall-cabinet options for the {formatEighthInches(failedWallFit.gap.length)} opening</p>
-	                <p className="mt-0.5 text-xs text-[#765416]">Preview is temporary. Nothing reaches the plan, cart, or invoice until you select Add.</p>
+	                <p className="mt-0.5 text-xs text-[#765416]">Select a suggested cabinet row to place it immediately in this measured opening. Preview remains temporary.</p>
 	                {failedWallAlternativeOptions.length > 0 ? <div className="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">{failedWallAlternativeOptions.map((option, optionIndex) => {
 	                  const filler = option.remaining > 0.01 ? catalogFillerForGap(catalogFillers, option.remaining, "wall") : null;
 	                  const unitPrice = smartGapCandidatePrices.get(option.cabinet.id);
 	                  const choices = failedWallAlternativeOptions.map((choice) => ({ cabinet: choice.cabinet, needsFiller: choice.needsFiller }));
-		                  return <div key={option.cabinet.id} className="rounded-md border border-[#e7d7b7] bg-white p-2">
-		                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="flex items-center gap-1.5"><p className="truncate font-semibold text-[#49381a]">{option.cabinet.masterCode} · {formatEighthInches(Number(option.cabinet.width) || 0)} cabinet</p>{optionIndex === 0 && <span data-testid="closest-fit-badge" className="shrink-0 rounded bg-[#e8f1e7] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#315b32]">Closest fit</span>}</div><p className="text-[11px] text-muted-foreground">{filler ? `${filler.masterCode} catalog filler cut to ${formatEighthInches(option.remaining)}` : "Exact fit — no filler required"}</p></div><span className="shrink-0 text-xs font-semibold text-[#49381a]">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></div>
-	                    <div className="mt-1.5 flex gap-1"><button type="button" onClick={() => previewSmartGap(failedWallFit.gap, option.cabinet, option.needsFiller, choices, optionIndex)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button><button type="button" onClick={() => { if (option.needsFiller) fillGapWithCabAndFiller(failedWallFit.gap, option.cabinet); else fillGap(failedWallFit.gap, option.cabinet); setPlacementWarning(null); setFailedWallFit(null); }} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95">Add cabinet{filler ? " + filler" : ""}</button></div>
+		                  return <div key={option.cabinet.id} className="rounded-md border border-[#e7d7b7] bg-white p-1.5">
+		                    <button type="button" data-testid={`closest-fit-option-${option.cabinet.id}`} onClick={() => { if (option.needsFiller) fillGapWithCabAndFiller(failedWallFit.gap, option.cabinet); else fillGap(failedWallFit.gap, option.cabinet); setPlacementWarning(null); setFailedWallFit(null); }} className="block w-full rounded-md p-1 text-left transition hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-[0.99]" aria-label={`Replace ${failedWallFit.requested.masterCode} with ${option.cabinet.masterCode}${filler ? ` and ${filler.masterCode} filler` : ""}`}>
+		                      <span className="flex items-start justify-between gap-2"><span className="min-w-0"><span className="flex items-center gap-1.5"><span className="truncate font-semibold text-[#49381a]">{option.cabinet.masterCode} · {formatEighthInches(Number(option.cabinet.width) || 0)} cabinet</span>{optionIndex === 0 && <span data-testid="closest-fit-badge" className="shrink-0 rounded bg-[#e8f1e7] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#315b32]">Closest fit</span>}</span><span className="block text-[11px] text-muted-foreground">{filler ? `${filler.masterCode} catalog filler cut to ${formatEighthInches(option.remaining)}` : "Exact fit — no filler required"}</span></span><span className="shrink-0 text-xs font-semibold text-[#49381a]">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></span>
+		                      <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-[#315b32]">Select to replace and place</span>
+		                    </button>
+	                    <div className="mt-1 flex"><button type="button" onClick={() => previewSmartGap(failedWallFit.gap, option.cabinet, option.needsFiller, choices, optionIndex)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button></div>
 	                  </div>;
 	                })}</div> : <p className="mt-2 rounded-md border border-dashed border-amber-300 p-2 text-xs font-medium">No smaller matching cabinet and sellable catalog filler can complete this opening in the selected distributor/style.</p>}
 	              </div>}
@@ -10624,13 +10628,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Fill the remaining {formatInches(smallGapFillerPrompt?.remaining ?? 0)}?</DialogTitle>
-            <DialogDescription>
-              {smallGapFillerDefinition
-                ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. It remains one priced invoice item even if it is split into two installed pieces.`
-                : "No active catalog filler is available for this opening."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2 sm:grid-cols-3">
+	        <DialogDescription>
+	          {smallGapFillerDefinition
+	            ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. It remains one priced invoice item even if it is split into two installed pieces.`
+	            : "No active catalog filler is available for this opening."}
+	        </DialogDescription>
+	      </DialogHeader>
+	      <Button
+	        data-testid="small-gap-filler-auto"
+	        disabled={!smallGapFillerPrompt || !smallGapFillerDefinition}
+	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
+	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
+	      >
+	        <Wand2 className="mr-1.5 h-4 w-4" /> Auto-fill {smallGapFillerDefinition?.masterCode ?? "filler"} · cut {formatInches(smallGapFillerPrompt?.remaining ?? 0)}
+	      </Button>
+	      <div className="grid gap-2 sm:grid-cols-3">
             <Button
               variant="outline"
               disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !canSplitSmallGapFiller(smallGapFillerPrompt)}

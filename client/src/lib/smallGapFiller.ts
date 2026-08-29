@@ -14,6 +14,7 @@ import {
 
 const EDGE_EPSILON_IN = 0.001;
 export const SMALL_GAP_FILLER_MAX_IN = 3;
+export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.5;
 
 export type SmallGapFillerPlacementMode = "left" | "right" | "split";
 
@@ -150,7 +151,16 @@ export function smallGapFillerOpportunityFromDragPreview(
 }
 
 export function canSplitSmallGapFiller(opportunity: Pick<SmallGapFillerOpportunity, "remaining">) {
-  return opportunity.remaining + EDGE_EPSILON_IN >= FILLER_MIN_WIDTH_IN * 2;
+  return opportunity.remaining + EDGE_EPSILON_IN >= SMALL_GAP_SPLIT_PIECE_MIN_IN * 2;
+}
+
+/** Chooses the safest one-click layout while reusing the existing priced filler transaction. */
+export function automaticSmallGapFillerMode(opportunity: SmallGapFillerOpportunity): SmallGapFillerPlacementMode {
+  if (canSplitSmallGapFiller(opportunity)) return "split";
+  const leftOpen = Math.max(0, opportunity.cabinetStart - opportunity.openingStart);
+  const openingEnd = opportunity.openingStart + opportunity.openingLength;
+  const rightOpen = Math.max(0, openingEnd - (opportunity.cabinetStart + opportunity.cabinetSpan));
+  return leftOpen > rightOpen ? "left" : "right";
 }
 
 /** Returns exact edge-contact coordinates; every piece and cabinet seam has zero overlap. */

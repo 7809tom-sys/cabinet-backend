@@ -65,8 +65,13 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y, session.preview)");
     expect(rendererSource).toContain("updateRightDragGhost(session.source, preview, room)");
     expect(rendererSource).toContain("rightDragSnapGhost: true");
-    expect(rendererSource).not.toContain("applyRightDragVisual(session");
+	    expect(rendererSource).not.toContain("applyRightDragVisual(session");
 	    expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
+	    expect(rendererSource).toContain('data-testid="three-d-drag-remaining-line"');
+	    expect(rendererSource).toContain('data-testid="three-d-drag-remaining-before"');
+	    expect(rendererSource).toContain('data-testid="three-d-drag-remaining-after"');
+	    expect(rendererSource).toContain("<ThreeDRemainingSpaceLine before={cabinetDragMeasurement.preview.fit.before} after={cabinetDragMeasurement.preview.fit.after} />");
+	    expect(rendererSource).toContain("<ThreeDRemainingSpaceLine before={catalogDragMeasurement.fit.before} after={catalogDragMeasurement.fit.after} />");
 	    expect(rendererSource).toContain('cabinetDragMeasurement.preview.freehand ? "Shift freehand position"');
 	    expect(rendererSource).toContain("wallGapFreehandPreview(gaps, targetAlong, item.width)");
 	    expect(rendererSource).toContain("Boolean(session.preview?.freehand) !== event.shiftKey");

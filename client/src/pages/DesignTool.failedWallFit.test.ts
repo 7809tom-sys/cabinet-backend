@@ -10,6 +10,18 @@ describe("Design Tool failed wall-fit guidance", () => {
     expect(source).toContain("smartGapCandidatePrices.get(option.cabinet.id)");
   });
 
+  it("makes the suggested cabinet row the single direct replacement action", () => {
+    const blockStart = source.indexOf('data-testid="failed-wall-smart-fit"');
+    const blockEnd = source.indexOf("{customPlacementMode", blockStart);
+    const block = source.slice(blockStart, blockEnd);
+    expect(block).toContain('data-testid={`closest-fit-option-${option.cabinet.id}`}');
+    expect(block).toContain("Select to replace and place");
+    expect(block).toContain("fillGapWithCabAndFiller(failedWallFit.gap, option.cabinet)");
+    expect(block).toContain("else fillGap(failedWallFit.gap, option.cabinet)");
+    expect(block).toContain("setFailedWallFit(null)");
+    expect(block).not.toContain("Add cabinet{filler");
+  });
+
   it("stores the authoritative failed measurement once and exposes an exact comparison tooltip", () => {
     expect(source).toContain("measurement: fit");
     expect(source).toContain('data-testid="failed-fit-dimensions-trigger"');

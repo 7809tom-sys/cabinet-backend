@@ -849,12 +849,24 @@ export function PlanCanvas({
           const gapStyle: React.CSSProperties = horizontal
             ? { left: gap.start * ppi, top: gap.side === "top" ? 0 : roomPxH - depthIn * ppi, width: gap.length * ppi, height: depthIn * ppi }
             : { left: gap.side === "left" ? 0 : roomPxW - depthIn * ppi, top: gap.start * ppi, width: depthIn * ppi, height: gap.length * ppi };
-          const snapStyle: React.CSSProperties = horizontal
-            ? { left: (catalogDragFit.snapStart - gap.start) * ppi, top: 0, width: catalogDragFit.requiredSpan * ppi, height: depthIn * ppi }
-            : { left: 0, top: (catalogDragFit.snapStart - gap.start) * ppi, width: depthIn * ppi, height: catalogDragFit.requiredSpan * ppi };
-          return <div data-testid="catalog-drag-gap-highlight" aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-600 bg-rose-300/25"}`} style={gapStyle}>
-	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
-          </div>;
+	          const snapStyle: React.CSSProperties = horizontal
+	            ? { left: (catalogDragFit.snapStart - gap.start) * ppi, top: 0, width: catalogDragFit.requiredSpan * ppi, height: depthIn * ppi }
+	            : { left: 0, top: (catalogDragFit.snapStart - gap.start) * ppi, width: depthIn * ppi, height: catalogDragFit.requiredSpan * ppi };
+	          const remainingSegments = [
+	            { key: "before", inches: catalogDragFit.before, offset: 0 },
+	            { key: "after", inches: catalogDragFit.after, offset: catalogDragFit.snapEnd - gap.start },
+	          ].filter((segment) => segment.inches > 0.01);
+	          return <div data-testid="catalog-drag-gap-highlight" aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-600 bg-rose-300/25"}`} style={gapStyle}>
+		            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
+	            {valid && remainingSegments.map((segment) => {
+	              const lineStyle: React.CSSProperties = horizontal
+	                ? { left: segment.offset * ppi, top: "50%", width: segment.inches * ppi }
+	                : { left: "50%", top: segment.offset * ppi, height: segment.inches * ppi };
+	              return <div key={segment.key} data-testid={`catalog-drag-remaining-${segment.key}`} className={`absolute z-[19] border-[#1a2744] ${horizontal ? "border-t-2" : "border-l-2"}`} style={lineStyle}>
+	                <span className={`absolute rounded bg-[#1a2744] px-1 py-0.5 text-[9px] font-bold leading-none text-white shadow ${horizontal ? "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2" : "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2"}`}>{formatEighthInches(segment.inches)}</span>
+	              </div>;
+	            })}
+	          </div>;
         })()}
         {/* Draggable wall bands: click to highlight, drag to resize the room on
             that side. Rendered first so they sit beneath cabinets. */}

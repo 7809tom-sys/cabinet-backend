@@ -3,6 +3,7 @@ import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/l
 import { DEFAULT_ROOM, cabinetWallDragPreview, type PlacedCabinet } from "@/lib/design";
 import {
   appendSmallGapFillerPlacement,
+  automaticSmallGapFillerMode,
   findSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
   removePlacedCabinetGroup,
@@ -16,6 +17,22 @@ const cabinet: PlacedCabinet = {
 };
 
 describe("small-gap filler placement", () => {
+	it("selects the correct one-click layout for split and one-sided sub-three-inch gaps", () => {
+	  const baseOpportunity = {
+	    cabinetUid: "cabinet-1",
+	    wall: "top" as const,
+	    layer: "base" as const,
+	    cabinetStart: 1,
+	    cabinetSpan: 18,
+	    openingStart: 0,
+	    openingLength: 20,
+	    remaining: 2,
+	  };
+	  expect(automaticSmallGapFillerMode(baseOpportunity)).toBe("split");
+	  expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("left");
+	  expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("right");
+	});
+
   it("installs a base filler as a 30-inch visible panel above the 4½-inch toe kick", () => {
     expect(installedFillerVerticalSpec("base", 96)).toEqual({
       storedHeight: 34.5,

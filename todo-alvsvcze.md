@@ -985,3 +985,7 @@
 - [x] Preserve all cabinet identities, prices, finishes, WDC glass configuration, saved design, cart, fillers, countertops, and unrelated placements while adding focused geometry, recommendation, tooltip, and responsive regressions
 - [x] Use W-36-42 as the exact reported placement target, replacing the earlier W-36-24 interpretation, and prove it occupies the real 36-inch span immediately to the right of WDC42 at the standard 54-inch mount with 0-inch overlap
 - [x] Preserve the already installed W-36-24 over the sink exactly as placed; the active geometry correction must affect only WDC42 adjoining-wall measurement and the new W-36-42 placement beside it
+- [x] Make every suggested closest-fit cabinet row directly clickable to replace the failed oversized selection at the same measured wall opening, using the real active catalog SKU and price and never adding both items
+- [x] Add a live 2D and 3D canvas dimension line that updates during cabinet dragging to show the authoritative remaining space to the nearest left/right or before/after boundaries at 1/8-inch precision
+- [x] Add an Auto-fill action for any measured remaining gap greater than 0 and no more than 3 inches that selects the narrowest active catalog filler, cuts it to the exact installed width, and inserts it at 0-inch overlap
+- [x] Preserve cabinet/style/distributor identity, source pricing, saved design, cart, filler grouping, countertops, existing WDC/W-36 placements, and unrelated items while adding focused interaction, geometry, pricing, and responsive regressions

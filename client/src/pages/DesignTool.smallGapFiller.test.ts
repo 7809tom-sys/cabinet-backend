@@ -15,6 +15,9 @@ describe("Design Tool small-gap filler workflow", () => {
   });
 
   it("offers leave-open, split, left, and right outcomes", () => {
+	  expect(source).toContain('data-testid="small-gap-filler-auto"');
+	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt))");
+	  expect(source).toContain("Auto-fill {smallGapFillerDefinition?.masterCode");
     expect(source).toContain("Fill the remaining");
     expect(source).toContain("Split left / right");
     expect(source).toContain("All on left");
