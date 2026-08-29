@@ -51,10 +51,81 @@ describe("3D same-wall cabinet drag", () => {
     numberOfDrawers: 1,
   });
 
+  it("keeps a freely dragged B-12 at the pointer position instead of jumping to a distant wall edge", () => {
+    const moving = cabinet("free-moving-b12", 0, 0, 12);
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving], [], 66)!;
+
+    expect(preview.candidate).toMatchObject({ x: 60, y: 0 });
+    expect(preview.fit).toMatchObject({ snapStart: 60, snapEnd: 72, before: 60, after: 72, status: "valid" });
+  });
+
+  it("snaps within three inches of a neighbor seam but preserves a farther valid pointer position", () => {
+    const moving = cabinet("threshold-b12", 0, 0, 12);
+    const neighbor = cabinet("threshold-neighbor", 45, 0, 24);
+
+    const withinThree = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 36.5)!;
+    expect(withinThree.candidate).toMatchObject({ x: 33, y: 0 });
+    expect(neighbor.x - (withinThree.candidate!.x + placedFootprint(withinThree.candidate!).w)).toBe(0);
+
+    const beyondThree = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 35.875)!;
+    expect(beyondThree.candidate).toMatchObject({ x: 29.875, y: 0 });
+    expect(neighbor.x - (beyondThree.candidate!.x + placedFootprint(beyondThree.candidate!).w)).toBe(3.125);
+  });
+
+  it("fits B-12 between two objects and leaves the measured three-inch remainder for the filler workflow", () => {
+    const moving = cabinet("bounded-b12", 90, 0, 12);
+    const left = cabinet("bounded-left", 0, 0, 30);
+    const right = cabinet("bounded-right", 45, 0, 24);
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [left, moving, right], [], 37.5)!;
+
+    expect(preview.candidate).toMatchObject({ x: 30, y: 0 });
+    expect(preview.fit).toMatchObject({ availableSpan: 15, requiredSpan: 12, before: 0, after: 3, status: "valid" });
+    expect(hasCollision(preview.candidate!, [left, right])).toBe(false);
+  });
+
+  it("does not advertise an occupied perpendicular corner as a valid B-12 drop target", () => {
+    const moving = cabinet("corner-b12", 60, 0, 12);
+    const rightWallCorner = cabinet("right-wall-corner", 120, 0, 36, 90);
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, rightWallCorner], [], 132)!;
+
+    expect(preview.candidate).toBeNull();
+    expect(preview.ghostCandidate).toMatchObject({ x: 126, y: 0 });
+    expect(hasCollision(preview.ghostCandidate!, [rightWallCorner])).toBe(true);
+  });
+
+  it("snaps B-12 to the physical edge of a perpendicular corner cabinet when released within three inches", () => {
+    const moving = cabinet("corner-seam-b12", 60, 0, 12);
+    const rightWallCorner = cabinet("right-wall-seam", 120, 0, 36, 90);
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, rightWallCorner], [], 112)!;
+
+    expect(preview.snapped).toBe(true);
+    expect(preview.candidate).toMatchObject({ x: 108, y: 0 });
+    expect(rightWallCorner.x - (preview.candidate!.x + placedFootprint(preview.candidate!).w)).toBe(0);
+    expect(hasCollision(preview.candidate!, [rightWallCorner])).toBe(false);
+  });
+
+  it("right-drags a tall refrigerator end panel as a physical wall-run object", () => {
+    const panel: PlacedCabinet = {
+      ...cabinet("end-panel", 30, 0, 0.75),
+      masterCode: "REPV-96",
+      description: "Refrigerator End Panel",
+      placement: "tall",
+      customProfile: "refrigerator-end-panel",
+      depth: 27,
+      height: 96,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const preview = cabinetWallDragPreview(panel, ROOM_12x10, [panel], [], 48)!;
+
+    expect(isWallRunDraggable(panel, ROOM_12x10)).toBe(true);
+    expect(preview?.candidate).toMatchObject({ x: 47.625, y: 0, placement: "tall" });
+  });
+
   it("snaps a top-wall B-15 to exact contact with the next base and leaves zero gap and zero overlap", () => {
     const moving = cabinet("moving-15", 92, 0, 15);
     const neighbor = cabinet("neighbor-35", 109, 0, 35);
-    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 108)!;
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 101)!;
 
     expect(preview.wall).toBe("top");
     expect(preview.fit).toMatchObject({ snapStart: 94, snapEnd: 109, before: 94, after: 0, status: "valid" });
@@ -67,7 +138,7 @@ describe("3D same-wall cabinet drag", () => {
     const room: RoomData = { width: 144, depth: 145 };
     const moving = cabinet("moving-right-15", 120, 92, 15, 90);
     const neighbor = cabinet("neighbor-right-36", 120, 109, 36, 90);
-    const valid = cabinetWallDragPreview(moving, room, [moving, neighbor], [], 108)!;
+    const valid = cabinetWallDragPreview(moving, room, [moving, neighbor], [], 102.5)!;
     expect(valid.wall).toBe("right");
     expect(valid.candidate).toMatchObject({ x: 120, y: 94 });
     expect(neighbor.y - (valid.candidate!.y + placedFootprint(valid.candidate!).d)).toBe(0);
@@ -216,7 +287,7 @@ describe("3D same-wall cabinet drag", () => {
 
     expect(preview.fit).toMatchObject({ status: "invalid", availableSpan: 20, requiredSpan: 30, shortage: 10 });
     expect(preview.candidate).toBeNull();
-    expect(preview.ghostCandidate).toMatchObject({ x: 62, y: 0, mountBottom: 66 });
+    expect(preview.ghostCandidate).toMatchObject({ x: 57, y: 0, mountBottom: 66 });
   });
 
   it("does not right-drag a raised over-range microwave through the floor appliance path", () => {

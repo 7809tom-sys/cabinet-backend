@@ -258,6 +258,9 @@ export function threeDCabinetWallDragText(cabinet: Pick<PlacedCabinet, "masterCo
     return `${code} uses ${formatEighthInches(preview.fit.requiredSpan)} · opening ${formatEighthInches(preview.fit.availableSpan)} · ${formatEighthInches(preview.fit.shortage)} too small`;
   }
   if (!preview.candidate) return `${code} · selected seam is blocked by another item`;
+  if (!preview.snapped) {
+    return `${code} · position ${formatEighthInches(preview.fit.snapStart)}–${formatEighthInches(preview.fit.snapEnd)} · left clearance ${formatEighthInches(preview.fit.before)} · right clearance ${formatEighthInches(preview.fit.after)} · 0" overlap`;
+  }
   const contact = preview.fit.before <= 1e-9 ? "touching previous edge" : "touching next edge";
   return `${code} · snap ${formatEighthInches(preview.fit.snapStart)}–${formatEighthInches(preview.fit.snapEnd)} · ${contact} · 0" gap · 0" overlap`;
 }
@@ -316,8 +319,8 @@ interface Props {
   onRoomWallHeightsChange?: (heights: Record<WallSide, number>) => void;
   /** Applies a 3D attributes movement to the matching authoritative 2D placement. */
   onMoveCabinet?: (uid: string, direction: ThreeDCabinetMoveDirection, incrementIn: number, planDelta?: ThreeDPlanMoveDelta) => void;
-  /** Commits an absolute same-wall cabinet position after a right-button drag preview. */
-  onMoveCabinetTo?: (uid: string, x: number, y: number) => void;
+  /** Commits an absolute same-wall position and preserves its measured opening for the filler prompt. */
+  onMoveCabinetTo?: (uid: string, x: number, y: number, preview: NonNullable<ReturnType<typeof cabinetWallDragPreview>>) => void;
   /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
   selectedCabinetUid?: string | null;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
@@ -4368,8 +4371,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     window.setTimeout(() => { suppressContextMenuRef.current = false; }, 0);
     event.preventDefault();
     event.stopPropagation();
-    if (!cancelled && session.preview?.candidate) {
-      onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y);
+	    if (!cancelled && session.preview?.candidate) {
+	      onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y, session.preview);
     } else if (!cancelled) {
       toast.error(session.preview ? threeDCabinetWallDragText(session.source, session.preview) : `${session.source.masterCode} has no valid same-wall snap at this position.`);
     }
@@ -4618,7 +4621,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 		        <div ref={mountRef} className="h-full w-full" />
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
-		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? "Valid zero-gap snap" : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
+		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? (cabinetDragMeasurement.preview.snapped ? "Valid zero-gap snap" : "Valid drop position") : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
 		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
 		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{catalogDragMeasurement.fit.status === "valid" ? "Valid snap space" : "Invalid drop space"} · {catalogDragMeasurement.wall} wall · 0&quot; overlap required</span><span>{threeDCatalogDragFitText(catalogDragMeasurement.item, catalogDragMeasurement.fit)}</span></div>}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}

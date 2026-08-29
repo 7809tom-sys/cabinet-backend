@@ -62,6 +62,7 @@ import {
   findSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
   removePlacedCabinetGroup,
+  smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
   type SmallGapFillerOpportunity,
   type SmallGapFillerPlacementMode,
@@ -87,7 +88,7 @@ import {
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
-  type PlanAnnotation, makeAnnotation,
+	  type PlanAnnotation, type CabinetWallDragPreview, makeAnnotation,
   makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
@@ -4531,9 +4532,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
   }, [setSinks, room, island, customPlacementMode]);
 
-  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number) => {
-    moveCabinet(uid, x, y, undefined, true);
-  }, [moveCabinet]);
+	  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
+	    moveCabinet(uid, x, y, undefined, true);
+	    const opportunity = smallGapFillerOpportunityFromDragPreview(uid, preview);
+	    setSmallGapFillerPrompt(opportunity);
+	    if (opportunity) setMobilePanel(null);
+	  }, [moveCabinet]);
 
   const swingSelected = () => {
     if (!selectedUid) return;

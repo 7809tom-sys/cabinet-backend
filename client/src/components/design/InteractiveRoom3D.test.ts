@@ -56,13 +56,13 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
   });
 
-  it("right-drags cabinets, floor appliances, and range hoods through one shared exact wall-snap path in every 3D renderer", () => {
+  it("right-drags cabinets, panels, fillers, floor appliances, and range hoods through one shared measured wall path in every 3D renderer", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("onPointerMove={handleRoomPointerMove}");
     expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong)");
     expect(rendererSource).toContain("!isWallRunDraggable(source, movementRoom)");
-    expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y)");
+    expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y, session.preview)");
     expect(rendererSource).toContain("updateRightDragGhost(session.source, preview, room)");
     expect(rendererSource).toContain("rightDragSnapGhost: true");
     expect(rendererSource).not.toContain("applyRightDragVisual(session");
@@ -70,12 +70,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
     expect(designerSource).toContain("rangeHoodPositionAdjusted: true");
     expect(designerSource).toContain("moveCabinet(uid, x, y, undefined, true)");
+    expect(designerSource).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
   });
 
   it("describes a valid right-drag release as exact edge contact with no gap or overlap", () => {
     const fit = { gap: { side: "top" as const, layer: "base" as const, start: 0, length: 109, center: 54.5, isStandardSize: false, isFillerSize: false }, containsTarget: true, requiredSpan: 15, availableSpan: 109, shortage: 0, snapStart: 94, snapEnd: 109, before: 94, after: 0, status: "valid" as const };
-    expect(threeDCabinetWallDragText({ masterCode: "B-15" }, { wall: "top", fit, candidate: { masterCode: "B-15" } as never }))
+    expect(threeDCabinetWallDragText({ masterCode: "B-15" }, { wall: "top", fit, candidate: { masterCode: "B-15" } as never, snapped: true }))
       .toBe('B-15 · snap 94"–109" · touching next edge · 0" gap · 0" overlap');
+  });
+
+  it("describes a freely chosen valid right-drag position without claiming it snapped to an edge", () => {
+    const fit = { gap: { side: "top" as const, layer: "base" as const, start: 0, length: 144, center: 72, isStandardSize: true, isFillerSize: false }, containsTarget: true, requiredSpan: 12, availableSpan: 144, shortage: 0, snapStart: 60, snapEnd: 72, before: 60, after: 72, status: "valid" as const };
+    expect(threeDCabinetWallDragText({ masterCode: "B-12" }, { wall: "top", fit, candidate: { masterCode: "B-12" } as never, snapped: false }))
+      .toBe('B-12 · position 60"–72" · left clearance 60" · right clearance 72" · 0" overlap');
   });
 
   it("positions the appliance snap ghost at the exact proposed 3D footprint and saved elevation", () => {

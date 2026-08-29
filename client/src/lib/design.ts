@@ -5530,9 +5530,13 @@ export interface CabinetWallDragPreview {
   wall: WallSide;
   fit: WallGapFitPreview;
   candidate: PlacedCabinet | null;
+  /** True only when the pointer-near position was adjusted to an edge within 3 inches. */
+  snapped: boolean;
   /** Proposed snap footprint used by the 3D ghost, including invalid targets. */
   ghostCandidate?: PlacedCabinet | null;
 }
+
+export const RIGHT_DRAG_SNAP_THRESHOLD_IN = 3;
 
 export function isRangeHoodPlacement(moving: Pick<PlacedCabinet, "placement" | "masterCode" | "description">): boolean {
   return moving.placement === "appliance"
@@ -5548,18 +5552,18 @@ export function isWallRunDraggable(
   moving: PlacedCabinet,
   room: RoomData,
 ): boolean {
-  if (moving.placement === "base" || moving.placement === "wall") return true;
+  if (moving.placement === "base" || moving.placement === "wall" || moving.placement === "tall") return true;
   if (isRangeHoodPlacement(moving)) return true;
   return moving.placement === "appliance"
     && elevationBox(moving, room).bottom <= COLLISION_EPSILON_IN;
 }
 
 /**
- * Resolve a right-button 3D drag along the item's existing wall. The moving
- * cabinet or floor appliance is removed from the blockers, then seated against
- * the nearest edge of the selected free segment. A valid candidate therefore
- * touches either the preceding or following boundary with an exact 0-inch gap
- * and never relies on overlap tolerance.
+ * Resolve a right-button 3D drag along the item's existing wall. The object
+ * follows the pointer at 1/8-inch precision while it remains inside a valid free
+ * segment. Only an edge within three inches may pull the object into exact
+ * contact. This prevents distant occupied-corner jumps while retaining exact
+ * zero-overlap seams and bounded-opening placement.
  */
 export function cabinetWallDragPreview(
   moving: PlacedCabinet,
@@ -5574,39 +5578,106 @@ export function cabinetWallDragPreview(
   const horizontal = wall === "top" || wall === "bottom";
   const requiredSpan = horizontal ? footprint.w : footprint.d;
   const dragLayer: "base" | "wall" = moving.placement === "wall" || isRangeHoodPlacement(moving) ? "wall" : "base";
-  const gaps = wallGaps(room, others.filter((item) => item.uid !== moving.uid), openings, 0)
+  const peers = others.filter((item) => item.uid !== moving.uid);
+  const gaps = wallGaps(room, peers, openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
-  if (!initialFit.containsTarget || initialFit.status !== "valid") {
-    const rawStart = targetAlong - requiredSpan / 2;
-    const lastStart = initialFit.gap.start + initialFit.gap.length - requiredSpan;
-    const ghostStart = lastStart >= initialFit.gap.start
-      ? Math.max(initialFit.gap.start, Math.min(lastStart, rawStart))
-      : initialFit.gap.start;
-    const ghostSpot = wallPlacementAt(ghostStart, requiredSpan, Number(moving.depth) || STD.WALL_DEPTH, wall, room);
-    return { wall, fit: initialFit, candidate: null, ghostCandidate: { ...moving, x: ghostSpot.x, y: ghostSpot.y } };
+  const wallSpan = horizontal ? room.width : room.depth;
+  const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+  const candidateAtStart = (start: number): PlacedCabinet => {
+    const spot = wallPlacementAt(start, requiredSpan, depth, wall, room);
+    return { ...moving, x: spot.x, y: spot.y };
+  };
+  const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;
+  const pointerStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), roundedPointerStart));
+  const fittingGaps = gaps.filter((gap) => gap.length + COLLISION_EPSILON_IN >= requiredSpan);
+  const pointerGap = fittingGaps.find((gap) => (
+    pointerStart >= gap.start - COLLISION_EPSILON_IN
+    && pointerStart + requiredSpan <= gap.start + gap.length + COLLISION_EPSILON_IN
+  ));
+  const gapEdgeCandidates = fittingGaps.flatMap((gap) => {
+    const trailingStart = gap.start + gap.length - requiredSpan;
+    return [gap.start, trailingStart].map((start) => ({ gap, start, distance: Math.abs(pointerStart - start) }));
+  });
+  // A corner item can be oriented to the perpendicular wall and therefore be
+  // absent from this wall's free-segment list even though its physical footprint
+  // occupies the corner. Its actual plan edges remain valid seam targets.
+  const physicalEdgeCandidates = peers.flatMap((peer) => {
+    if (!sharesPlanCollisionZone(moving, peer)) return [];
+    const candidateCross = candidateAtStart(pointerStart);
+    const candidateSize = placedFootprint(candidateCross);
+    const peerSize = placedFootprint(peer);
+    const crossOverlap = horizontal
+      ? Math.min(candidateCross.y + candidateSize.d, peer.y + peerSize.d) - Math.max(candidateCross.y, peer.y)
+      : Math.min(candidateCross.x + candidateSize.w, peer.x + peerSize.w) - Math.max(candidateCross.x, peer.x);
+    if (crossOverlap <= COLLISION_EPSILON_IN) return [];
+    const peerStart = horizontal ? peer.x : peer.y;
+    const peerSpan = horizontal ? peerSize.w : peerSize.d;
+    const peerEnd = peerStart + peerSpan;
+    const currentGapEnd = initialFit.gap.start + initialFit.gap.length;
+    const beforeGapEnd = Math.min(currentGapEnd, peerStart);
+    const afterGapStart = Math.max(initialFit.gap.start, peerEnd);
+    return [
+      {
+        gap: { ...initialFit.gap, length: Math.max(0, beforeGapEnd - initialFit.gap.start), center: initialFit.gap.start + Math.max(0, beforeGapEnd - initialFit.gap.start) / 2 },
+        start: peerStart - requiredSpan,
+      },
+      {
+        gap: { ...initialFit.gap, start: afterGapStart, length: Math.max(0, currentGapEnd - afterGapStart), center: afterGapStart + Math.max(0, currentGapEnd - afterGapStart) / 2 },
+        start: peerEnd,
+      },
+    ].map((entry) => ({ ...entry, distance: Math.abs(pointerStart - entry.start) }));
+  });
+  const edgeCandidates = [...gapEdgeCandidates, ...physicalEdgeCandidates]
+    .filter((entry) => entry.start >= -COLLISION_EPSILON_IN && entry.start + requiredSpan <= wallSpan + COLLISION_EPSILON_IN)
+    .filter((entry) => entry.distance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN)
+    .filter((entry) => !hasCollision(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers), peers))
+    .sort((left, right) => left.distance - right.distance || left.start - right.start);
+  const edgeSnap = edgeCandidates[0] ?? null;
+  const snapStart = edgeSnap ? edgeSnap.start : pointerGap ? pointerStart : null;
+  const ghostStart = snapStart ?? pointerStart;
+  const snapEnd = ghostStart + requiredSpan;
+  const ghostCandidate = candidateAtStart(ghostStart);
+  const ghostSize = placedFootprint(ghostCandidate);
+  const baseGap = edgeSnap?.gap ?? pointerGap ?? initialFit.gap;
+  let boundedStart = baseGap.start;
+  let boundedEnd = baseGap.start + baseGap.length;
+  for (const peer of peers) {
+    if (!sharesPlanCollisionZone(moving, peer)) continue;
+    const peerSize = placedFootprint(peer);
+    const crossOverlap = horizontal
+      ? Math.min(ghostCandidate.y + ghostSize.d, peer.y + peerSize.d) - Math.max(ghostCandidate.y, peer.y)
+      : Math.min(ghostCandidate.x + ghostSize.w, peer.x + peerSize.w) - Math.max(ghostCandidate.x, peer.x);
+    if (crossOverlap <= COLLISION_EPSILON_IN) continue;
+    const peerStart = horizontal ? peer.x : peer.y;
+    const peerSpan = horizontal ? peerSize.w : peerSize.d;
+    const peerEnd = peerStart + peerSpan;
+    if (peerEnd <= ghostStart + COLLISION_EPSILON_IN) boundedStart = Math.max(boundedStart, peerEnd);
+    if (peerStart >= snapEnd - COLLISION_EPSILON_IN) boundedEnd = Math.min(boundedEnd, peerStart);
   }
-  const leadingStart = initialFit.gap.start;
-  const trailingStart = initialFit.gap.start + initialFit.gap.length - requiredSpan;
-  const leadingCenter = leadingStart + requiredSpan / 2;
-  const trailingCenter = trailingStart + requiredSpan / 2;
-  const snapStart = Math.abs(targetAlong - trailingCenter) <= Math.abs(targetAlong - leadingCenter)
-    ? trailingStart
-    : leadingStart;
-  const snapEnd = snapStart + requiredSpan;
+  const chosenGap: WallGap = {
+    ...baseGap,
+    start: boundedStart,
+    length: Math.max(0, boundedEnd - boundedStart),
+    center: boundedStart + Math.max(0, boundedEnd - boundedStart) / 2,
+  };
   const fit: WallGapFitPreview = {
     ...initialFit,
-    snapStart,
+    gap: chosenGap,
+    containsTarget: pointerGap != null || edgeSnap != null,
+    availableSpan: chosenGap.length,
+    shortage: Math.max(0, requiredSpan - chosenGap.length),
+    snapStart: ghostStart,
     snapEnd,
-    before: Math.max(0, snapStart - initialFit.gap.start),
-    after: Math.max(0, initialFit.gap.start + initialFit.gap.length - snapEnd),
+    before: Math.max(0, ghostStart - chosenGap.start),
+    after: Math.max(0, chosenGap.start + chosenGap.length - snapEnd),
+    status: snapStart == null ? "invalid" : "valid",
   };
-  const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-  const spot = wallPlacementAt(snapStart, requiredSpan, depth, wall, room);
-  const candidate = snapCabinetSeamOverlap({ ...moving, x: spot.x, y: spot.y }, others.filter((item) => item.uid !== moving.uid));
-  const validCandidate = hasCollision(candidate, others.filter((item) => item.uid !== moving.uid)) ? null : candidate;
-  return { wall, fit, candidate: validCandidate, ghostCandidate: candidate };
+  if (snapStart == null) return { wall, fit, candidate: null, snapped: false, ghostCandidate };
+  const candidate = snapCabinetSeamOverlap(ghostCandidate, peers);
+  const validCandidate = hasCollision(candidate, peers) ? null : candidate;
+  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate };
 }
 
 // Build a map of one representative REAL base cabinet per standard width from a

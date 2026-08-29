@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, type PlacedCabinet } from "@/lib/design";
+import { DEFAULT_ROOM, cabinetWallDragPreview, type PlacedCabinet } from "@/lib/design";
 import {
   appendSmallGapFillerPlacement,
   findSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
   removePlacedCabinetGroup,
+  smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
 } from "@/lib/smallGapFiller";
 
@@ -36,6 +37,77 @@ describe("small-gap filler placement", () => {
   it("detects a three-inch or smaller trailing opening after placement", () => {
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 20.5 }, [cabinet], [], cabinet.uid);
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
+  });
+
+  it("converts a fitted right-drag opening into the same catalog filler choices for cabinets, panels, fillers, and appliances", () => {
+    const preview = {
+      wall: "top" as const,
+      snapped: true,
+      candidate: { ...cabinet, x: 30 },
+      ghostCandidate: { ...cabinet, x: 30 },
+      fit: {
+        gap: { side: "top" as const, layer: "base" as const, start: 30, length: 15, center: 37.5, isStandardSize: true, isFillerSize: false },
+        containsTarget: true,
+        requiredSpan: 12,
+        availableSpan: 15,
+        shortage: 0,
+        snapStart: 30,
+        snapEnd: 42,
+        before: 0,
+        after: 3,
+        status: "valid" as const,
+      },
+    };
+
+    for (const uid of ["cabinet", "panel", "filler", "appliance"]) {
+      expect(smallGapFillerOpportunityFromDragPreview(uid, preview)).toEqual({
+        cabinetUid: uid,
+        wall: "top",
+        layer: "base",
+        cabinetStart: 30,
+        cabinetSpan: 12,
+        openingStart: 30,
+        openingLength: 15,
+        remaining: 3,
+      });
+    }
+  });
+
+  it("does not offer a dragged-object filler when the bounded remainder exceeds three inches", () => {
+    const preview = {
+      wall: "top" as const,
+      snapped: false,
+      candidate: { ...cabinet, x: 30 },
+      fit: {
+        gap: { side: "top" as const, layer: "base" as const, start: 30, length: 16, center: 38, isStandardSize: false, isFillerSize: false },
+        containsTarget: true,
+        requiredSpan: 12,
+        availableSpan: 16,
+        shortage: 0,
+        snapStart: 30,
+        snapEnd: 42,
+        before: 0,
+        after: 4,
+        status: "valid" as const,
+      },
+    };
+    expect(smallGapFillerOpportunityFromDragPreview("cabinet", preview)).toBeNull();
+  });
+
+  it("offers the exact two-and-a-half-inch filler remainder between a moved B-12 and a perpendicular corner cabinet", () => {
+    const leftRun: PlacedCabinet = { ...cabinet, uid: "left-run", masterCode: "B-105.5", width: 105.5, x: 0 };
+    const moving: PlacedCabinet = { ...cabinet, uid: "moving-b12", masterCode: "B-12", width: 12, x: 60 };
+    const corner: PlacedCabinet = { ...cabinet, uid: "corner", masterCode: "BER36", description: "36 inch Easy Reach Corner", width: 36, depth: 24, x: 120, y: 0, rotation: 90 };
+    const preview = cabinetWallDragPreview(moving, DEFAULT_ROOM, [leftRun, moving, corner], [], 112)!;
+
+    expect(preview.candidate).toMatchObject({ x: 105.5, y: 0 });
+    expect(preview.fit).toMatchObject({ gap: { start: 105.5, length: 14.5 }, before: 0, after: 2.5 });
+    expect(smallGapFillerOpportunityFromDragPreview(moving.uid, preview)).toMatchObject({
+      cabinetUid: moving.uid,
+      openingStart: 105.5,
+      openingLength: 14.5,
+      remaining: 2.5,
+    });
   });
 
   it("detects the measured two-and-a-half-inch opening between B-15 and an LS3612 corner cabinet", () => {

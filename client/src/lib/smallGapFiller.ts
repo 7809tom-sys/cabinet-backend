@@ -5,6 +5,7 @@ import {
   cabinetWall,
   isFillerItem,
   wallSpanMeasure,
+  type CabinetWallDragPreview,
   type PlacedCabinet,
   type RoomData,
   type WallOpening,
@@ -118,6 +119,32 @@ export function findSmallGapFillerOpportunity(
     cabinetSpan,
     openingStart: leadingStart,
     openingLength: cabinetSpan + roundedRemaining,
+    remaining: roundedRemaining,
+  };
+}
+
+/**
+ * A right-drag preview already identifies the exact bounded free segment and the
+ * accepted zero-overlap object position. Convert that measured result directly
+ * into the existing filler workflow so cabinets, panels, fillers, and floor
+ * appliances all receive the same left/right/split choices after a valid move.
+ */
+export function smallGapFillerOpportunityFromDragPreview(
+  cabinetUid: string,
+  preview: CabinetWallDragPreview,
+): SmallGapFillerOpportunity | null {
+  if (!preview.candidate || preview.fit.status !== "valid") return null;
+  const remaining = preview.fit.before + preview.fit.after;
+  if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  const roundedRemaining = Math.round(remaining * 1000) / 1000;
+  return {
+    cabinetUid,
+    wall: preview.wall,
+    layer: preview.fit.gap.layer,
+    cabinetStart: preview.fit.snapStart,
+    cabinetSpan: preview.fit.requiredSpan,
+    openingStart: preview.fit.gap.start,
+    openingLength: preview.fit.gap.length,
     remaining: roundedRemaining,
   };
 }
