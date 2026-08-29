@@ -7,6 +7,15 @@ export type CatalogFillerCandidate = Pick<
 
 export type CatalogFillerPlacement = "base" | "wall";
 
+export type CatalogFillerSuggestion = {
+  candidate: CatalogFillerCandidate;
+  gapWidth: number;
+  catalogWidth: number;
+  installedWidth: number;
+  trimAmount: number;
+  description: string;
+};
+
 function numberValue(value: unknown, fallback = 0): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -52,6 +61,30 @@ export function fittedCatalogFillerDescription(candidate: Pick<CatalogFillerCand
   const source = candidate.description ?? candidate.masterCode;
   const rounded = Math.round(gapWidth * 100) / 100;
   return `${source} — cut to ${rounded}"`;
+}
+
+/**
+ * Complete recommendation for a measured nonstandard gap. The approved catalog
+ * item remains the billing identity; only its installed width is trimmed to the
+ * exact opening. Null means no active filler can cover the measured gap.
+ */
+export function catalogFillerSuggestion(
+  candidates: readonly CatalogFillerCandidate[],
+  gapWidth: number,
+  placement: CatalogFillerPlacement,
+): CatalogFillerSuggestion | null {
+  const candidate = catalogFillerForGap(candidates, gapWidth, placement);
+  if (!candidate) return null;
+  const catalogWidth = numberValue(candidate.width);
+  const installedWidth = Math.round(gapWidth * 1000) / 1000;
+  return {
+    candidate,
+    gapWidth: installedWidth,
+    catalogWidth,
+    installedWidth,
+    trimAmount: Math.max(0, Math.round((catalogWidth - installedWidth) * 1000) / 1000),
+    description: fittedCatalogFillerDescription(candidate, installedWidth),
+  };
 }
 
 /**

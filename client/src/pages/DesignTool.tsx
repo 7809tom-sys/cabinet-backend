@@ -94,7 +94,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
-  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
+	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
@@ -102,11 +102,12 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  flooringMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
+	  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 } from "@/lib/design";
-import {
-  buildTrimCartLines,
+import { buildTrimCartLines,
+  TRIM_MASTER_CODES,
   type ActiveTrim,
+  type TrimKind,
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
@@ -136,7 +137,8 @@ import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/Pl
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
-import { canOpenAdministratorMaterialList, openAdministratorMaterialListPdf } from "@/lib/designMaterialListPdf";
+import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
+import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDSceneRevisionKey, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection } from "@/components/design/InteractiveRoom3D";
@@ -461,6 +463,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
+  const [materialsListOpen, setMaterialsListOpen] = useState(false);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -813,6 +816,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Neutral, customer-safe distributor labels (white-label safe) used to group the
   // door-style picker by supply line. Never carries the hidden supplier brand.
   const { data: distributorLabels } = trpc.distributors.list.useQuery();
+  const distributorNameById = useMemo(
+    () => new Map((distributorLabels ?? []).map((distributor) => [distributor.id, distributor.name] as const)),
+    [distributorLabels],
+  );
   // The distributor (supply line) behind the currently selected style.
   const selectedStyleDistributorId = useMemo(() => {
     const s = (doorStyles ?? []).find(
@@ -1782,13 +1789,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
-      // When glass door is enabled, use the GD variant code for ordering.
-      const orderCode = p.glassDoor ? p.masterCode + "GD" : p.masterCode;
       const existing = map.get(key);
       if (existing) existing.qty += 1;
       else
         map.set(key, {
-          code: orderCode,
+	          // The base cabinet keeps its canonical SKU. A separately priced glass
+	          // door appears as its own cart/material line instead of replacing it.
+	          code: p.masterCode,
           description: [p.description, sizeNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
@@ -1881,19 +1888,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     return rows;
   }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
-
-  const openAdministratorMaterialList = useCallback(async () => {
-    if (!canOpenAdministratorMaterialList((user as { role?: string } | null)?.role)) {
-      toast.error("This internal material list is available to administrators only.");
-      return;
-    }
-    const opened = await openAdministratorMaterialListPdf({
-      room,
-      styleName: activeStyleName,
-      buildRows,
-    });
-    if (!opened) toast.error("Add priced design items before opening the material list.");
-  }, [activeStyleName, buildRows, room, user]);
 
   const affiliatePriceListItems = useMemo(() => {
     if (!styleId) return [] as Array<{ masterCode: string; styleId: number; quantity: number }>;
@@ -2585,6 +2579,111 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return out;
   }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
+  const materialsListSupplements = useMemo<MaterialsListSupplement[]>(() => {
+    const out: MaterialsListSupplement[] = [];
+    const pricedCodes = new Set(cartableLines.map((line) => line.masterCode));
+    const surfaceRoles = new Set(selectedSurfaces.map((surface) => surfaceRole(surface)));
+    const styleColor = activeStyleName ?? null;
+    const trimLabels: Record<TrimKind, string> = {
+      crown: "Crown molding",
+      toeKick: "Toe kick",
+      batten: "Batten molding",
+      lightRail: "Light rail molding",
+      valance: "Arched valance",
+    };
+    for (const trim of activeTrims) {
+      const code = TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase();
+      if (pricedCodes.has(code)) continue;
+      out.push({
+        code,
+        description: trimLabels[trim.kind],
+        category: "Trim & molding",
+        qty: trim.pieces,
+        supplier: "Cabinet supplier / quote",
+        styleColor,
+        unitPrice: null,
+      });
+    }
+
+    if (countertop && counter && counter.squareFeet > 0 && !surfaceRoles.has("countertop")) {
+      const material = countertopMaterial(countertopMaterialId);
+      const edge = edgeProfile(edgeProfileId);
+      out.push({
+        code: "COUNTERTOP-QUOTE",
+        description: material?.name ?? "Countertop material",
+        category: "Countertop",
+        qty: 1,
+        supplier: "Fabricator / quote",
+        styleColor: material?.name ?? null,
+        dimensions: `${counter.squareFeet} sq ft · ${counter.linearFeet} lin ft`,
+        unitPrice: null,
+        notes: `${edge.name} edge profile`,
+      });
+    }
+
+    const selectedSurfaceIds = new Set(selectedSurfaces.map((surface) => surface.id));
+    const unpricedSinks = sinks.filter((sink) => !sink.pelicanProductId || !selectedSurfaceIds.has(sink.pelicanProductId));
+    const sinkGroups = new Map<string, { description: string; qty: number; width: number; depth: number }>();
+    for (const sink of unpricedSinks) {
+      const preset = SINK_PRESETS[sink.type];
+      const description = sink.pelicanProductName?.trim() || preset.name;
+      const current = sinkGroups.get(description);
+      if (current) current.qty += 1;
+      else sinkGroups.set(description, { description, qty: 1, width: sink.sourceWidth ?? sink.width, depth: sink.sourceDepth ?? sink.depth });
+    }
+	    for (const [description, group] of Array.from(sinkGroups.entries())) {
+      out.push({ code: `SINK-${description.toUpperCase().replace(/[^A-Z0-9]+/g, "-")}`, description, category: "Sink", qty: group.qty, supplier: "Fixture supplier / quote", dimensions: `${group.width}\" W × ${group.depth}\" D`, unitPrice: null });
+    }
+    const faucetCount = sinks.filter((sink) => sink.faucet).length;
+    if (faucetCount > 0 && !surfaceRoles.has("faucet")) {
+      out.push({ code: "FAUCET-QUOTE", description: "Selected sink faucet", category: "Faucet", qty: faucetCount, supplier: "Fixture supplier / quote", unitPrice: null });
+    }
+
+    if (hwSchedule.total > 0) {
+      out.push({
+        code: `HARDWARE-${hwSchedule.styleId.toUpperCase()}`,
+        description: hwSchedule.styleLabel,
+        category: "Handles & hardware",
+        qty: hwSchedule.total,
+        supplier: "Hardware supplier / quote",
+        styleColor: hwSchedule.styleLabel,
+        unitPrice: null,
+        notes: [hwSchedule.knobs > 0 ? `${hwSchedule.knobs} knobs` : null, hwSchedule.barPulls > 0 ? `${hwSchedule.barPulls} bar pulls` : null, hwSchedule.cupPulls > 0 ? `${hwSchedule.cupPulls} cup pulls` : null].filter(Boolean).join(" · "),
+      });
+    }
+
+    if (flooringMaterialId && !surfaceRoles.has("flooring")) {
+      const material = flooringMaterial(flooringMaterialId);
+      if (material.id !== "none") out.push({ code: `FLOOR-${material.id.toUpperCase()}`, description: material.name, category: "Flooring", qty: 1, supplier: "Flooring supplier / quote", styleColor: material.name, dimensions: `${Math.round((room.width * room.depth) / 144 * 10) / 10} sq ft`, unitPrice: null, notes: `Layout: ${flooringPattern}` });
+    }
+    if (backsplashMaterialId && !surfaceRoles.has("backsplash")) {
+      const material = backsplashMaterial(backsplashMaterialId);
+      if (material.id !== "none") out.push({ code: `BACKSPLASH-${material.id.toUpperCase()}`, description: material.name, category: "Backsplash", qty: 1, supplier: "Tile supplier / quote", styleColor: material.name, unitPrice: null });
+    }
+
+    const furnitureGroups = new Map<string, number>();
+    for (const item of furniture) furnitureGroups.set(item.defId, (furnitureGroups.get(item.defId) ?? 0) + 1);
+	    for (const [defId, qty] of Array.from(furnitureGroups.entries())) {
+      const definition = FURNITURE_CATALOG.find((item) => item.id === defId);
+      if (!definition) continue;
+      out.push({ code: definition.id.toUpperCase(), description: definition.name, category: "Furniture", qty, supplier: "Furniture supplier / quote", dimensions: `${definition.w}\" W × ${definition.d}\" D`, unitPrice: null });
+    }
+    if (island) out.push({ code: "ISLAND-LAYOUT", description: "Kitchen island structure", category: "Layout feature", qty: 1, supplier: "Fabricator / quote", dimensions: `${island.width}\" W × ${island.depth}\" D`, unitPrice: null });
+    if (ponyWalls.length > 0) out.push({ code: "PONY-WALL", description: "Pony wall construction", category: "Layout feature", qty: ponyWalls.length, supplier: "Contractor / quote", unitPrice: null });
+    return out;
+  }, [activeStyleName, activeTrims, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hwSchedule, island, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks]);
+
+  const materialsListRows = useMemo(() => buildMaterialsListRows({
+    buildRows,
+    pricingLines: cartableLines,
+    selectedSurfaces,
+    supplements: materialsListSupplements,
+    distributorNames: distributorNameById,
+    defaultDistributorId: lockedDistributorId,
+    defaultDistributorName: lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? null : null,
+    defaultStyleName: activeStyleName,
+  }), [activeStyleName, buildRows, cartableLines, distributorNameById, lockedDistributorId, materialsListSupplements, selectedSurfaces]);
+
   // ─── Placement actions ──────────────────────────────────────────────────────
 
   const rememberFailedWallFit = useCallback((requested: PlacedCabinet, peers: PlacedCabinet[]) => {
@@ -3018,21 +3117,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(t("dt_toast_added_filler", { w }));
   }, [layoutLocked, roomType, addCabinet]);
 
-  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem, dropTarget?: ThreeDWallDropTarget) => {
+	  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem, dropTarget?: ThreeDWallDropTarget, freehand = false) => {
     const addAtDropTarget = (cabinet: DesignCabinet, forceAccessory = false) => {
       if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
       const dimensions = resolvedDesignCabinetDimensions(cabinet);
       const width = forceAccessory ? dim(cabinet.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : forceAccessory ? footprintDepth(cabinet) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(cabinet) : cabinet.placement;
-      const targetedSinkBase = !forceAccessory && placement === "wall"
+	      const targetedSinkBase = !freehand && !forceAccessory && placement === "wall"
         ? targetedSinkBaseForThreeDDrop(placed, dropTarget, room)
         : null;
       if (targetedSinkBase) {
         addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedSinkBase.uid);
         return;
       }
-      const targetedLowerCabinet = !forceAccessory && placement === "wall"
+	      const targetedLowerCabinet = !freehand && !forceAccessory && placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, dropTarget, room)
         : null;
       if (targetedLowerCabinet) {
@@ -3040,12 +3139,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const dropWall = dropTarget.wall ?? activeWall;
-      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
-      const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
-      const along = nearestFreeWallDropStart(targetAlong, width, segments);
-      if (along == null) {
-        const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-        const measured = wallGapFitPreview(gaps, targetAlong, width);
+	      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
+	      const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
+	      const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
+	      const freehandMeasure = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : null;
+	      const along = freehand
+	        ? freehandMeasure?.status === "valid" ? freehandMeasure.snapStart : null
+	        : nearestFreeWallDropStart(targetAlong, width, segments);
+	      if (along == null) {
+	        const measured = freehandMeasure ?? wallGapFitPreview(gaps, targetAlong, width);
         const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
         const message = measured
           ? !measured.containsTarget
@@ -3057,7 +3159,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const spot = wallPlacementAt(along, width, depth, dropWall, room);
-      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true, dropTarget.placementUid);
+	      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true, freehand ? undefined : dropTarget.placementUid);
     };
     if (item.category === "Cabinet") {
       const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
@@ -4479,8 +4581,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [room, applyRoom]
   );
 
-  const handleDropNew = useCallback(
-    (clientX: number, clientY: number, roomRect: DOMRect, ppi: number) => {
+	  const handleDropNew = useCallback(
+	    (clientX: number, clientY: number, roomRect: DOMRect, ppi: number, freehand = false) => {
       const data = dragDataRef.current;
       if (!data) return;
       const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
@@ -4494,7 +4596,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
         : null;
-      if (targetedLowerCabinet) {
+	      if (!freehand && targetedLowerCabinet) {
         addCabinet(data, center.x, center.y, forceAccessory, 0, true, targetedLowerCabinet.uid);
         dragDataRef.current = null;
         setCatalogDragPreview(null);
@@ -4502,14 +4604,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-      const measured = wallGapFitPreview(gaps, targetAlong, width);
+	      const measured = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width);
       if (!measured || measured.status !== "valid") {
         const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
         const message = measured
           ? !measured.containsTarget
             ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
             : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`
-          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.`;
+	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
         setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
       }
       const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room);
@@ -6824,19 +6926,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <span className="flex-1 text-left">Save as Bundle Deal</span>
                     </button>
                   )}
-                  {isAdmin && (
-                    <button
-                      disabled={buildRows.length === 0}
-                      onClick={() => {
-                        setMoreSheetOpen(false);
-                        void openAdministratorMaterialList();
-                      }}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#1a2744] hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    >
-                      <FileText className="h-4 w-4 shrink-0" />
-                      <span className="flex-1 text-left">Open Material List PDF</span>
-                    </button>
-                  )}
+	                  <button
+	                    disabled={materialsListRows.length === 0}
+	                    onClick={() => {
+	                      setMoreSheetOpen(false);
+	                      setMaterialsListOpen(true);
+	                    }}
+	                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#1a2744] hover:bg-slate-50 transition-colors disabled:opacity-50"
+	                  >
+	                    <FileText className="h-4 w-4 shrink-0" />
+	                    <span className="flex-1 text-left">Materials &amp; Parts List</span>
+	                  </button>
                   {canAffiliatePriceShop && (
                     <button
                       disabled={affiliatePriceListItems.length === 0}
@@ -7160,13 +7260,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-7 w-7" title={`${t("dt_sh_rotate")} (R)`}>
             <RotateCw className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-7 w-7" title={`${t("dt_sh_swing")} (S)`}>
-            <DoorOpen className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-7 w-7 text-destructive" title={t("dt_sh_delete")}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-          <div className="h-5 w-px bg-border mx-0.5" />
+	          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-7 w-7" title={`${t("dt_sh_swing")} (S)`}>
+	            <DoorOpen className="h-3.5 w-3.5" />
+	          </Button>
+	          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-7 w-7 text-destructive" title={t("dt_sh_delete")}>
+	            <Trash2 className="h-3.5 w-3.5" />
+	          </Button>
+	          <Button variant="outline" size="icon" disabled={materialsListRows.length === 0} onClick={() => setMaterialsListOpen(true)} className="h-7 w-7 text-[#1a2744]" title="View, print, or export complete materials & parts list">
+	            <FileText className="h-3.5 w-3.5" />
+	          </Button>
+	          <div className="h-5 w-px bg-border mx-0.5" />
           {/* Lock Cabs */}
           <Button
             variant="outline"
@@ -7256,14 +7359,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               >
                 <Columns3 className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_filler_btn")}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={toggleCountertop}
-                disabled={!countertop && !hasBaseRun}
-                className={countertop ? "text-amber-600 font-medium" : ""}
-              >
-                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
-              </DropdownMenuItem>
-              {isAdmin && (
+	              <DropdownMenuItem
+	                onSelect={toggleCountertop}
+	                disabled={!countertop && !hasBaseRun}
+	                className={countertop ? "text-amber-600 font-medium" : ""}
+	              >
+	                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
+	              </DropdownMenuItem>
+	              <DropdownMenuItem onSelect={() => setMaterialsListOpen(true)} disabled={materialsListRows.length === 0} className="text-[#1a2744] font-medium">
+	                <FileText className="h-3.5 w-3.5 mr-2" /> Materials &amp; Parts List
+	              </DropdownMenuItem>
+	              {isAdmin && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel className="text-xs text-muted-foreground">Admin</DropdownMenuLabel>
@@ -7273,15 +7379,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   >
                     <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Bundle Deal
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => void openAdministratorMaterialList()}
-                    disabled={buildRows.length === 0}
-                    className="text-[#1a2744] font-medium"
-                  >
-                    <FileText className="h-3.5 w-3.5 mr-2" /> Open Material List PDF
-                  </DropdownMenuItem>
-                </>
-              )}
+	                </>
+	              )}
               {canAffiliatePriceShop && (
                 <>
                   <DropdownMenuSeparator />
@@ -8697,25 +8796,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
-              flooringMaterialId={flooringMaterialId}
-              flooringPattern={flooringPattern}
-              cabinetsLocked={cabinetsLocked}
-              gapFillCandidates={gapFillCandidates}
-              onFillGap={fillGap}
-              onPlaceFiller={fillGapWithFiller}
-              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
-              annotations={annotations}
-              selectedAnnotationUid={selectedAnnotationUid}
-              onSelectAnnotation={setSelectedAnnotationUid}
-              onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
-              onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
-              ponyWalls={ponyWalls}
-              selectedPonyWallUid={selectedPonyWallUid}
-              onSelectPonyWall={selectPonyWall}
-              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
-              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
-            />
-          )}
+	              flooringMaterialId={flooringMaterialId}
+	              flooringPattern={flooringPattern}
+	              cabinetsLocked={cabinetsLocked}
+	              gapFillCandidates={gapFillCandidates}
+	              catalogFillerCandidates={catalogFillers}
+	              onFillGap={fillGap}
+	              onPlaceFiller={fillGapWithFiller}
+	              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
+	              annotations={annotations}
+	              selectedAnnotationUid={selectedAnnotationUid}
+	              onSelectAnnotation={setSelectedAnnotationUid}
+	              onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
+	              onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
+	              ponyWalls={ponyWalls}
+	              selectedPonyWallUid={selectedPonyWallUid}
+	              onSelectPonyWall={selectPonyWall}
+	              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
+	              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
+	            />
+	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
 	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
           {viewMode === "elevation" && (
@@ -8867,13 +8967,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
-              flooringMaterialId={flooringMaterialId}
-              flooringPattern={flooringPattern}
-              cabinetsLocked={cabinetsLocked}
-              gapFillCandidates={gapFillCandidates}
-              onFillGap={fillGap}
-              onPlaceFiller={fillGapWithFiller}
-              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
+	              flooringMaterialId={flooringMaterialId}
+	              flooringPattern={flooringPattern}
+	              cabinetsLocked={cabinetsLocked}
+	              gapFillCandidates={gapFillCandidates}
+	              catalogFillerCandidates={catalogFillers}
+	              onFillGap={fillGap}
+	              onPlaceFiller={fillGapWithFiller}
+	              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
               annotations={annotations}
               selectedAnnotationUid={selectedAnnotationUid}
               onSelectAnnotation={setSelectedAnnotationUid}
@@ -8882,11 +8983,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               ponyWalls={ponyWalls}
               selectedPonyWallUid={selectedPonyWallUid}
               onSelectPonyWall={selectPonyWall}
-              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
-              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
-                />
-              </div>
-              <div className="flex-1 min-h-0">
+	              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
+	              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
+	                />
+	              </div>
+	              <div className="flex-1 min-h-0">
                 <ElevationView
                   room={room}
                   cabinets={placed}
@@ -10706,9 +10807,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             )}
           </div>
         </DialogContent>
-      </Dialog>
+	      </Dialog>
 
-      {/* Rename design dialog (opened from mobile save success toast) */}
+	      <DesignMaterialsListDialog
+	        open={materialsListOpen}
+	        onOpenChange={setMaterialsListOpen}
+	        rows={materialsListRows}
+	        roomLabel={`${room.width}\" × ${room.depth}\"`}
+	        styleName={activeStyleName}
+	        brandName={affiliateBrand?.storeName}
+	      />
+
+	      {/* Rename design dialog (opened from mobile save success toast) */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

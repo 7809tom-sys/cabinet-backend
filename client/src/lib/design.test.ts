@@ -28,7 +28,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
 } from "./design";
 
@@ -59,7 +59,7 @@ describe("3D same-wall cabinet drag", () => {
     expect(preview.fit).toMatchObject({ snapStart: 60, snapEnd: 72, before: 60, after: 72, status: "valid" });
   });
 
-  it("snaps within three inches of a neighbor seam but preserves a farther valid pointer position", () => {
+	  it("snaps within three inches of a neighbor seam but preserves a farther valid pointer position", () => {
     const moving = cabinet("threshold-b12", 0, 0, 12);
     const neighbor = cabinet("threshold-neighbor", 45, 0, 24);
 
@@ -69,8 +69,26 @@ describe("3D same-wall cabinet drag", () => {
 
     const beyondThree = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 35.875)!;
     expect(beyondThree.candidate).toMatchObject({ x: 29.875, y: 0 });
-    expect(neighbor.x - (beyondThree.candidate!.x + placedFootprint(beyondThree.candidate!).w)).toBe(3.125);
-  });
+	    expect(neighbor.x - (beyondThree.candidate!.x + placedFootprint(beyondThree.candidate!).w)).toBe(3.125);
+	  });
+
+	  it("holds Shift for exact pointer placement without seam attraction while retaining zero overlap", () => {
+	    const moving = cabinet("freehand-b12", 0, 0, 12);
+	    const neighbor = cabinet("freehand-neighbor", 45, 0, 24);
+	    const freehand = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 36.5, { disableSnapping: true })!;
+
+	    expect(freehand).toMatchObject({ freehand: true, snapped: false, candidate: { x: 30.5, y: 0 } });
+	    expect(neighbor.x - (freehand.candidate!.x + placedFootprint(freehand.candidate!).w)).toBe(2.5);
+	    const collision = cabinetWallDragPreview(moving, ROOM_12x10, [moving, neighbor], [], 42, { disableSnapping: true })!;
+	    expect(collision.candidate).toBeNull();
+	    expect(collision.fit.status).toBe("invalid");
+	  });
+
+	  it("computes a catalog freehand drop at the pointer without moving it to the opening edge", () => {
+	    const gaps = [{ side: "top", layer: "base", start: 30, length: 30, center: 45, isStandardSize: true, isFillerSize: false }] as const;
+	    expect(wallGapFreehandPreview([...gaps], 46.5, 12)).toMatchObject({ status: "valid", snapStart: 40.5, snapEnd: 52.5, before: 10.5, after: 7.5 });
+	    expect(wallGapFreehandPreview([...gaps], 58, 12)).toMatchObject({ status: "invalid", snapStart: 52, snapEnd: 64 });
+	  });
 
   it("fits B-12 between two objects and leaves the measured three-inch remainder for the filler workflow", () => {
     const moving = cabinet("bounded-b12", 90, 0, 12);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "./catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, fittedCatalogFillerDescription } from "./catalogFiller";
 import { CUSTOM_SIZE_FEE, customSizeFee } from "./design";
 
 const fillers = [
@@ -12,6 +12,18 @@ describe("catalogFillerForGap", () => {
   it("uses the narrowest real catalog filler that can be cut to the measured gap", () => {
     expect(catalogFillerForGap(fillers, 2.25, "base")?.masterCode).toBe("BF-3");
     expect(catalogFillerForGap(fillers, 4.5, "base")?.masterCode).toBe("BF-6");
+  });
+
+  it("automatically calculates the exact installed cut and retained catalog filler identity", () => {
+    expect(catalogFillerSuggestion(fillers, 2.5, "base")).toMatchObject({
+      candidate: { id: 1, masterCode: "BF-3" },
+      gapWidth: 2.5,
+      catalogWidth: 3,
+      installedWidth: 2.5,
+      trimAmount: 0.5,
+      description: '3" x 34.5" Base Filler — cut to 2.5"',
+    });
+    expect(catalogFillerSuggestion(fillers, 7, "base")).toBeNull();
   });
 
   it("prefers the matching wall-depth filler and preserves the catalog description with the exact cut size", () => {

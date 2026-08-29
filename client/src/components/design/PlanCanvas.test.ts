@@ -142,7 +142,12 @@ describe("plan placement assistance wiring", () => {
     expect(source).toContain('data-testid="smart-gap-place-best"');
     expect(source).toContain('data-testid="catalog-drag-gap-highlight"');
     expect(source).toContain('data-testid="catalog-drag-snap-ghost"');
-    expect(source).toContain('data-testid="catalog-drag-fit-status"');
-    expect(source).toContain("bestFitCatalogOption(activeGap, layerCandidates)");
-  });
+	    expect(source).toContain('data-testid="catalog-drag-fit-status"');
+	    expect(source).toContain("bestFitCatalogOption(activeGap, layerCandidates)");
+	    expect(source).toContain('data-testid="automatic-filler-size-suggestion"');
+	    expect(source).toContain("catalogFillerSuggestion(catalogFillerCandidates, recommendation.remaining, activeGap.layer)");
+	    expect(source).toContain("e.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, width)");
+	    expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, e.shiftKey)");
+	    expect(source).toContain("hold Shift for freehand");
+	  });
 });

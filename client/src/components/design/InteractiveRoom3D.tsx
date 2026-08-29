@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -306,7 +306,7 @@ interface Props {
   catalogDragItem?: InteractiveRoomCatalogItem | null;
   /** Active designer wall used to project explicit 3D catalog drops onto the correct wall plane. */
   catalogDropWall?: WallSide;
-  onAddCatalogItem?: (item: InteractiveRoomCatalogItem, dropTarget?: ThreeDCatalogDropTarget) => void;
+	  onAddCatalogItem?: (item: InteractiveRoomCatalogItem, dropTarget?: ThreeDCatalogDropTarget, freehand?: boolean) => void;
   /** Adds the matching hood to the editable 2D range position when one is absent. */
   onAddRangeHood?: () => void;
   onSaveToAccount?: () => void;
@@ -3750,9 +3750,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     source: PlacedCabinet;
     startX: number;
     startY: number;
-    active: boolean;
-    preview: CabinetWallDragPreview | null;
-    visualOrigins: Array<{ object: THREE.Object3D; x: number; z: number }>;
+	    active: boolean;
+	    preview: CabinetWallDragPreview | null;
+	    targetAlong: number | null;
+	    visualOrigins: Array<{ object: THREE.Object3D; x: number; z: number }>;
   } | null>(null);
   const rightDragGhostRef = useRef<THREE.LineSegments | null>(null);
   const suppressContextMenuRef = useRef(false);
@@ -3781,7 +3782,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
-  const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide } | null>(null);
+	  const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide; freehand?: boolean } | null>(null);
   const [cabinetDragMeasurement, setCabinetDragMeasurement] = useState<{ cabinet: PlacedCabinet; preview: CabinetWallDragPreview } | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
@@ -4334,7 +4335,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const visualOrigins = (catalogRootRef.current?.children ?? [])
       .filter((object) => threeDCabinetHitFromObject(object)?.uid === source.uid)
       .map((object) => ({ object, x: object.position.x, z: object.position.z }));
-    rightDragRef.current = { pointerId: event.pointerId, uid: source.uid, source, startX: event.clientX, startY: event.clientY, active: false, preview: null, visualOrigins };
+	    rightDragRef.current = { pointerId: event.pointerId, uid: source.uid, source, startX: event.clientX, startY: event.clientY, active: false, preview: null, targetAlong: null, visualOrigins };
     if (controlsRef.current) controlsRef.current.enabled = false;
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional on older browsers. */ }
     event.preventDefault();
@@ -4352,13 +4353,15 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     const wall = cabinetWall(session.source, room);
     const targetAlong = cabinetWallRunAtPoint(event.clientX, event.clientY, wall);
     restoreRightDragVisual(session);
-    if (targetAlong == null) {
-      session.preview = null;
+	    if (targetAlong == null) {
+	      session.preview = null;
+	      session.targetAlong = null;
       setCabinetDragMeasurement(null);
       clearRightDragGhost();
       return;
     }
-    const preview = cabinetWallDragPreview(session.source, room, placed, openings, targetAlong);
+	    session.targetAlong = targetAlong;
+	    const preview = cabinetWallDragPreview(session.source, room, placed, openings, targetAlong, { disableSnapping: event.shiftKey });
     session.preview = preview;
     setCabinetDragMeasurement(preview ? { cabinet: session.source, preview } : null);
     updateRightDragGhost(session.source, preview, room);
@@ -4376,8 +4379,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     if (!session.active) return false;
     suppressContextMenuRef.current = true;
     window.setTimeout(() => { suppressContextMenuRef.current = false; }, 0);
-    event.preventDefault();
-    event.stopPropagation();
+	    event.preventDefault();
+	    event.stopPropagation();
+	    if (!cancelled && session.targetAlong != null && Boolean(session.preview?.freehand) !== event.shiftKey) {
+	      const room = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
+	      session.preview = cabinetWallDragPreview(session.source, room, placed, openings, session.targetAlong, { disableSnapping: event.shiftKey });
+	    }
 	    if (!cancelled && session.preview?.candidate) {
 	      onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y, session.preview);
     } else if (!cancelled) {
@@ -4621,7 +4628,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         const wall = target?.wall ?? catalogDropWall;
         if (!target || !wall) { setCatalogDragMeasurement(null); return; }
         const layer = item.placement === "wall" ? "wall" : "base";
-        const lowerTarget = item.placement === "wall" && target.placementUid
+	        const lowerTarget = !event.shiftKey && item.placement === "wall" && target.placementUid
           ? placed.find((cabinet) => cabinet.uid === target.placementUid) ?? null
           : null;
         const lowerSpot = lowerTarget
@@ -4632,19 +4639,19 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
           const horizontal = targetWall === "top" || targetWall === "bottom";
           const snapStart = horizontal ? lowerSpot.x : lowerSpot.y;
           const exactGap = { side: targetWall, layer: "wall" as const, start: snapStart, length: item.width, center: snapStart + item.width / 2, isStandardSize: true, isFillerSize: false };
-          setCatalogDragMeasurement({ item, fit: { gap: exactGap, containsTarget: true, requiredSpan: item.width, availableSpan: item.width, shortage: 0, snapStart, snapEnd: snapStart + item.width, before: 0, after: 0, status: "valid" }, wall: targetWall });
+	          setCatalogDragMeasurement({ item, fit: { gap: exactGap, containsTarget: true, requiredSpan: item.width, availableSpan: item.width, shortage: 0, snapStart, snapEnd: snapStart + item.width, before: 0, after: 0, status: "valid" }, wall: targetWall, freehand: false });
           return;
         }
         const gaps = wallGaps(roomOverride, placed, openings, 0.5).filter((gap) => gap.side === wall && gap.layer === layer);
         const targetAlong = wall === "top" || wall === "bottom" ? target.x : target.y;
-        const fit = wallGapFitPreview(gaps, targetAlong, item.width);
-        setCatalogDragMeasurement(fit ? { item, fit, wall } : null);
-      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY)); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
+	        const fit = event.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, item.width) : wallGapFitPreview(gaps, targetAlong, item.width);
+	        setCatalogDragMeasurement(fit ? { item, fit, wall, freehand: event.shiftKey } : null);
+	      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY), event.shiftKey); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 		        <div ref={mountRef} className="h-full w-full" />
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
-		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? (cabinetDragMeasurement.preview.snapped ? "Valid zero-gap snap" : "Valid drop position") : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
+		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? (cabinetDragMeasurement.preview.freehand ? "Shift freehand position" : cabinetDragMeasurement.preview.snapped ? "Valid zero-gap snap" : "Valid drop position") : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
 		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
-		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{catalogDragMeasurement.fit.status === "valid" ? "Valid snap space" : "Invalid drop space"} · {catalogDragMeasurement.wall} wall · 0&quot; overlap required</span><span>{threeDCatalogDragFitText(catalogDragMeasurement.item, catalogDragMeasurement.fit)}</span></div>}
+		        {catalogDragMeasurement && <div data-testid="three-d-catalog-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${catalogDragMeasurement.fit.status === "valid" ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{catalogDragMeasurement.fit.status === "valid" ? (catalogDragMeasurement.freehand ? "Shift freehand space" : "Valid snap space") : "Invalid drop space"} · {catalogDragMeasurement.wall} wall · 0&quot; overlap required</span><span>{threeDCatalogDragFitText(catalogDragMeasurement.item, catalogDragMeasurement.fit)}</span></div>}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
 	        {embedded && <div className={THREE_D_EMBEDDED_TOOLBAR_CLASS} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" /><span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span><span className="sm:hidden">{showWallLayer ? "Hide walls" : "Show walls"}</span></button>}</div>}

@@ -28,11 +28,11 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDUsesAuthoritativePlanScene(undefined, empty)).toBe(false);
   });
 
-  it("routes a normal 3D catalog choice without coordinates so DesignTool can place it next in line, while retaining explicit drag/drop coordinates", () => {
-    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
-    expect(rendererSource).toContain("onAddCatalogItem?.(item); setWorkspacePanel(null);");
-    expect(rendererSource).toContain("onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY))");
-  });
+	  it("routes a normal 3D catalog choice without coordinates so DesignTool can place it next in line, while retaining explicit drag/drop coordinates", () => {
+	    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+	    expect(rendererSource).toContain("onAddCatalogItem?.(item); setWorkspacePanel(null);");
+	    expect(rendererSource).toContain("onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY), event.shiftKey)");
+	  });
 
   it("does not emit the full active-scene mesh payload as a console error", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
@@ -60,13 +60,18 @@ describe("interactive 3D room scene helpers", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("onPointerMove={handleRoomPointerMove}");
-    expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong)");
-    expect(rendererSource).toContain("!isWallRunDraggable(source, movementRoom)");
+	    expect(rendererSource).toContain("cabinetWallDragPreview(session.source, room, placed, openings, targetAlong, { disableSnapping: event.shiftKey })");
+	    expect(rendererSource).toContain("!isWallRunDraggable(source, movementRoom)");
     expect(rendererSource).toContain("onMoveCabinetTo?.(session.uid, session.preview.candidate.x, session.preview.candidate.y, session.preview)");
     expect(rendererSource).toContain("updateRightDragGhost(session.source, preview, room)");
     expect(rendererSource).toContain("rightDragSnapGhost: true");
     expect(rendererSource).not.toContain("applyRightDragVisual(session");
-    expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
+	    expect(rendererSource).toContain('data-testid="three-d-cabinet-drag-measurement"');
+	    expect(rendererSource).toContain('cabinetDragMeasurement.preview.freehand ? "Shift freehand position"');
+	    expect(rendererSource).toContain("wallGapFreehandPreview(gaps, targetAlong, item.width)");
+	    expect(rendererSource).toContain("Boolean(session.preview?.freehand) !== event.shiftKey");
+	    expect(designerSource).toContain("freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width)");
+	    expect(designerSource).toContain("freehand ? undefined : dropTarget.placementUid");
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
     expect(designerSource).toContain("rangeHoodPositionAdjusted: true");
     expect(designerSource).toContain("moveCabinet(uid, x, y, undefined, true)");

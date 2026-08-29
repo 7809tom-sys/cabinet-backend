@@ -5635,6 +5635,12 @@ export interface CabinetWallDragPreview {
   snapped: boolean;
   /** Proposed snap footprint used by the 3D ghost, including invalid targets. */
   ghostCandidate?: PlacedCabinet | null;
+  /** Shift-held mode: exact pointer placement with edge attraction disabled. */
+  freehand?: boolean;
+}
+
+export interface CabinetWallDragOptions {
+  disableSnapping?: boolean;
 }
 
 export const RIGHT_DRAG_SNAP_THRESHOLD_IN = 3;
@@ -5672,6 +5678,7 @@ export function cabinetWallDragPreview(
   others: PlacedCabinet[],
   openings: WallOpening[],
   targetAlong: number,
+  options: CabinetWallDragOptions = {},
 ): CabinetWallDragPreview | null {
   if (!isWallRunDraggable(moving, room)) return null;
   const wall = cabinetWall(moving, room);
@@ -5692,7 +5699,10 @@ export function cabinetWallDragPreview(
     const nearestCornerStart = cornerStarts.reduce((nearest, start) => (
       Math.abs(pointerStart - start) < Math.abs(pointerStart - nearest) ? start : nearest
     ));
-    const withinSnapRange = Math.abs(pointerStart - nearestCornerStart) <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN;
+	    const cornerDistance = Math.abs(pointerStart - nearestCornerStart);
+	    const withinSnapRange = options.disableSnapping
+	      ? cornerDistance <= COLLISION_EPSILON_IN
+	      : cornerDistance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN;
     const cornerSpot = wallPlacementAt(nearestCornerStart, requiredSpan, Number(moving.depth) || requiredSpan, wall, room);
     const unrotatedCornerCandidate = { ...moving, ...cornerSpot };
     const cornerCandidate = {
@@ -5728,10 +5738,11 @@ export function cabinetWallDragPreview(
     return {
       wall,
       fit,
-      candidate: withinSnapRange && cornerIsClear ? cornerCandidate : null,
-      snapped: withinSnapRange,
-      ghostCandidate: cornerCandidate,
-    };
+	      candidate: withinSnapRange && cornerIsClear ? cornerCandidate : null,
+	      snapped: !options.disableSnapping && withinSnapRange,
+	      ghostCandidate: cornerCandidate,
+	      freehand: options.disableSnapping === true,
+	    };
   }
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
@@ -5781,7 +5792,7 @@ export function cabinetWallDragPreview(
       },
     ].map((entry) => ({ ...entry, distance: Math.abs(pointerStart - entry.start) }));
   });
-  const edgeCandidates = [...gapEdgeCandidates, ...physicalEdgeCandidates]
+	  const edgeCandidates = (options.disableSnapping ? [] : [...gapEdgeCandidates, ...physicalEdgeCandidates])
     .filter((entry) => entry.start >= -COLLISION_EPSILON_IN && entry.start + requiredSpan <= wallSpan + COLLISION_EPSILON_IN)
     .filter((entry) => entry.distance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN)
     .filter((entry) => !hasCollision(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers), peers))
@@ -5827,9 +5838,40 @@ export function cabinetWallDragPreview(
     status: snapStart == null ? "invalid" : "valid",
   };
   if (snapStart == null) return { wall, fit, candidate: null, snapped: false, ghostCandidate };
-  const candidate = snapCabinetSeamOverlap(ghostCandidate, peers);
-  const validCandidate = hasCollision(candidate, peers) ? null : candidate;
-  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate };
+	  const candidate = options.disableSnapping ? ghostCandidate : snapCabinetSeamOverlap(ghostCandidate, peers);
+	  const validCandidate = hasCollision(candidate, peers) ? null : candidate;
+	  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate, freehand: options.disableSnapping === true };
+}
+
+/**
+ * Catalog-drop fit at the exact pointer center. Unlike wallGapFitPreview this
+ * never pulls to a gap edge. It remains valid only when the entire object fits
+ * inside one measured opening, preserving the same zero-overlap blockers.
+ */
+export function wallGapFreehandPreview(
+  gaps: WallGap[],
+  targetAlong: number,
+  requiredSpan: number,
+): WallGapFitPreview | null {
+  if (!Number.isFinite(targetAlong) || !Number.isFinite(requiredSpan) || requiredSpan <= 0 || gaps.length === 0) return null;
+  const pointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;
+  const containing = gaps.find((gap) => pointerStart >= gap.start - COLLISION_EPSILON_IN && pointerStart + requiredSpan <= gap.start + gap.length + COLLISION_EPSILON_IN);
+  const nearest = wallGapFitPreview(gaps, targetAlong, requiredSpan);
+  const gap = containing ?? nearest?.gap;
+  if (!gap) return null;
+  const end = pointerStart + requiredSpan;
+  return {
+    gap,
+    containsTarget: containing != null,
+    requiredSpan,
+    availableSpan: gap.length,
+    shortage: Math.max(0, requiredSpan - gap.length),
+    snapStart: pointerStart,
+    snapEnd: end,
+    before: Math.max(0, pointerStart - gap.start),
+    after: Math.max(0, gap.start + gap.length - end),
+    status: containing ? "valid" : "invalid",
+  };
 }
 
 // Build a map of one representative REAL base cabinet per standard width from a

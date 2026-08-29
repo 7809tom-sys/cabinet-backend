@@ -7,7 +7,7 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
-  wallGaps, wallGapFitPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+	  wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -18,6 +18,7 @@ import {
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
+import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 
 export type PlanMeasurePoint = { x: number; y: number };
 
@@ -117,7 +118,7 @@ interface Props {
   onRotate?: (uid: string) => void;
   // Right-click a cabinet to open its per-cabinet attributes dialog.
   onOpenAttributes?: (uid: string) => void;
-  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number) => void;
+	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean) => void;
   showWallLayer: boolean;
   measureMode?: boolean;
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
@@ -178,6 +179,8 @@ interface Props {
   // fit a measured gap. When onFillGap is provided the popover rows become
   // click-to-place actions.
   gapFillCandidates?: Map<number, DesignCabinet>;
+  /** Active selected-line fillers used to calculate the exact sellable cut recommendation. */
+  catalogFillerCandidates?: readonly CatalogFillerCandidate[];
   /** Full selected-line catalog for Smart Gap type filtering and price ordering. */
   smartGapCandidates?: DesignCabinet[];
   /** Approved current unit prices keyed by active catalog cabinet ID. */
@@ -236,6 +239,7 @@ export function PlanCanvas({
   flooringPattern = "random-stagger",
   cabinetsLocked = false,
   gapFillCandidates,
+  catalogFillerCandidates = [],
   smartGapCandidates = [],
   smartGapCandidatePrices,
   onFillGap,
@@ -378,8 +382,9 @@ export function PlanCanvas({
   const wallDrag = useRef<{ side: WallSide; startX: number; startY: number } | null>(null);
   const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
-  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
-  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
+	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
+	  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
+	  const [catalogDragFreehand, setCatalogDragFreehand] = useState(false);
   const [smartGapType, setSmartGapType] = useState<"all" | "base" | "sink" | "drawer">("all");
   const [smartGapOrder, setSmartGapOrder] = useState<"fit" | "price">("fit");
   // Furniture drag state.
@@ -693,18 +698,20 @@ export function PlanCanvas({
         const side = nearestRectRoomWallAtPoint(room, point);
         const placement = catalogDragCabinet.placement === "wall" ? "wall" : "base";
         const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
-        const targetAlong = side === "top" || side === "bottom" ? point.x : point.y;
-        const gaps = wallGaps(room, cabinets, openings, 0.5).filter((gap) => gap.side === side && gap.layer === placement);
-        setCatalogDragFit(wallGapFitPreview(gaps, targetAlong, width));
-      }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCatalogDragFit(null); }}
+	        const targetAlong = side === "top" || side === "bottom" ? point.x : point.y;
+	        const gaps = wallGaps(room, cabinets, openings, 0.5).filter((gap) => gap.side === side && gap.layer === placement);
+	        setCatalogDragFreehand(e.shiftKey);
+	        setCatalogDragFit(e.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width));
+	      }}
+	      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setCatalogDragFit(null); setCatalogDragFreehand(false); } }}
       onDrop={(e) => {
         e.preventDefault();
         const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
         if (roomEl && onDropNew) {
-          onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi);
-        }
-        setCatalogDragFit(null);
+	          onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, e.shiftKey);
+	        }
+	        setCatalogDragFit(null);
+	        setCatalogDragFreehand(false);
       }}
     >
       {/* Live draw-room rectangle (container coordinates) */}
@@ -846,7 +853,7 @@ export function PlanCanvas({
             ? { left: (catalogDragFit.snapStart - gap.start) * ppi, top: 0, width: catalogDragFit.requiredSpan * ppi, height: depthIn * ppi }
             : { left: 0, top: (catalogDragFit.snapStart - gap.start) * ppi, width: depthIn * ppi, height: catalogDragFit.requiredSpan * ppi };
           return <div data-testid="catalog-drag-gap-highlight" aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-600 bg-rose-300/25"}`} style={gapStyle}>
-            {valid && <div data-testid="catalog-drag-snap-ghost" className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
+	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
           </div>;
         })()}
         {/* Draggable wall bands: click to highlight, drag to resize the room on
@@ -1894,9 +1901,11 @@ export function PlanCanvas({
 
       {catalogDragFit && (
         <div data-testid="catalog-drag-fit-status" role="status" aria-live="polite" className={`absolute top-3 left-1/2 z-40 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-full border px-3 py-1 text-center text-xs font-semibold shadow-lg ${catalogDragFit.status === "valid" ? "border-emerald-700 bg-emerald-700 text-white" : "border-rose-700 bg-rose-700 text-white"}`}>
-          {catalogDragFit.status === "valid"
-            ? `Valid ${catalogDragFit.gap.layer} opening · cabinet uses ${formatEighthInches(catalogDragFit.requiredSpan)} of ${formatEighthInches(catalogDragFit.availableSpan)} · snap ${formatEighthInches(catalogDragFit.snapStart)}–${formatEighthInches(catalogDragFit.snapEnd)} · left ${formatEighthInches(catalogDragFit.before)} · right ${formatEighthInches(catalogDragFit.after)}`
-            : !catalogDragFit.containsTarget
+	          {catalogDragFit.status === "valid"
+	            ? catalogDragFreehand
+	              ? `Shift freehand · exact position ${formatEighthInches(catalogDragFit.snapStart)}–${formatEighthInches(catalogDragFit.snapEnd)} · left ${formatEighthInches(catalogDragFit.before)} · right ${formatEighthInches(catalogDragFit.after)} · 0\" overlap required`
+	              : `Valid ${catalogDragFit.gap.layer} opening · cabinet uses ${formatEighthInches(catalogDragFit.requiredSpan)} of ${formatEighthInches(catalogDragFit.availableSpan)} · snap ${formatEighthInches(catalogDragFit.snapStart)}–${formatEighthInches(catalogDragFit.snapEnd)} · left ${formatEighthInches(catalogDragFit.before)} · right ${formatEighthInches(catalogDragFit.after)} · hold Shift for freehand`
+	            : !catalogDragFit.containsTarget
               ? `Move onto the highlighted opening · cabinet uses ${formatEighthInches(catalogDragFit.requiredSpan)} · nearest opening ${formatEighthInches(catalogDragFit.gap.start)}–${formatEighthInches(catalogDragFit.gap.start + catalogDragFit.gap.length)}`
               : `Too small · cabinet uses ${formatEighthInches(catalogDragFit.requiredSpan)} · opening ${formatEighthInches(catalogDragFit.availableSpan)} · short ${formatEighthInches(catalogDragFit.shortage)}`}
         </div>
@@ -1941,12 +1950,15 @@ export function PlanCanvas({
             const bSort = bPrice != null && bPrice > 0 ? bPrice : Number.POSITIVE_INFINITY;
             return aSort - bSort || a.cabinet.masterCode.localeCompare(b.cabinet.masterCode);
           });
-        const best = bestFitCatalogOption(activeGap, layerCandidates);
-        const bestPrice = best ? approvedPriceFor(best.cabinet) : null;
+	        const best = bestFitCatalogOption(activeGap, layerCandidates);
+	        const bestPrice = best ? approvedPriceFor(best.cabinet) : null;
+	        const fillerSuggestion = recommendation?.kind === "filler"
+	          ? catalogFillerSuggestion(catalogFillerCandidates, recommendation.remaining, activeGap.layer)
+	          : null;
         return <div data-testid="smart-gap-recommendation" className="absolute left-3 top-3 z-40 max-w-[calc(100%-1.5rem)] rounded-xl border border-[#d9c196] bg-[#fffaf1]/95 p-3 text-xs shadow-lg backdrop-blur">
           <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="font-semibold text-[#634b20]">Smart fit for {formatInches(activeGap.length)} open space</p><p className="mt-0.5 text-[#765416]">Suggestions use the active wall and available cabinets in your selected style.</p>
             {best && <button type="button" data-testid="smart-gap-place-best" onClick={() => { if (best.needsFiller) onFillGapWithCabAndFiller?.(activeGap, best.cabinet); else onFillGap?.(activeGap, best.cabinet); close(); }} className="mt-2 w-full rounded-md bg-emerald-700 px-3 py-2 text-left font-bold text-white shadow-sm active:scale-[0.99]"><span className="block">Place best fit · {best.cabinet.masterCode}</span><span className="block text-[10px] font-medium text-emerald-50">Uses {formatInches(Number(best.cabinet.width))} of {formatInches(activeGap.length)} · {best.remaining <= 0.01 ? "exact fit" : best.needsFiller ? `${formatInches(best.remaining)} fitted filler` : `${formatInches(best.remaining)} remains open`} · {bestPrice != null && bestPrice > 0 ? `$${bestPrice.toFixed(2)}` : "Price pending"}</span></button>}
-            {recommendation?.kind === "filler" && <div className="mt-2 flex flex-wrap gap-1"><button type="button" onClick={() => onPreviewGap?.(activeGap, null, true, [{ cabinet: null, needsFiller: true }], 0)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button>{onPlaceFiller && <button type="button" onClick={() => { onPlaceFiller(activeGap); close(); }} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add fitted catalog filler · {formatInches(recommendation.remaining)}</button>}</div>}
+	            {recommendation?.kind === "filler" && <div className="mt-2 rounded-md border border-[#e7d7b7] bg-white p-2">{fillerSuggestion ? <><p data-testid="automatic-filler-size-suggestion" className="font-semibold text-[#49381a]">Recommended {fillerSuggestion.candidate.masterCode}: {formatInches(fillerSuggestion.catalogWidth)} catalog filler cut to {formatInches(fillerSuggestion.installedWidth)}</p><p className="mt-0.5 text-[10px] text-muted-foreground">Trim {formatInches(fillerSuggestion.trimAmount)} on site · installed width exactly fills the measured opening · catalog SKU and approved price stay unchanged.</p><div className="mt-2 flex flex-wrap gap-1"><button type="button" onClick={() => onPreviewGap?.(activeGap, null, true, [{ cabinet: null, needsFiller: true }], 0)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button>{onPlaceFiller && <button type="button" onClick={() => { onPlaceFiller(activeGap); close(); }} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 font-semibold text-white active:scale-95">Add {fillerSuggestion.candidate.masterCode} · cut to {formatInches(fillerSuggestion.installedWidth)}</button>}</div></> : <p className="font-medium text-rose-700">No active catalog filler can cover this measured opening in the selected distributor and style.</p>}</div>}
             {recommendation?.kind !== "filler" && <><div className="mt-2 flex flex-wrap gap-1" aria-label="Smart Gap cabinet type filters">{activeGap.layer === "base" && (["all", "base", "sink", "drawer"] as const).map((type) => <button key={type} type="button" onClick={() => setSmartGapType(type)} className={`rounded-full border px-2 py-1 font-semibold capitalize ${smartGapType === type ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-[#d9c196] text-[#765416]"}`}>{type}</button>)}<button type="button" onClick={() => setSmartGapOrder((current) => current === "fit" ? "price" : "fit")} className="rounded-full border border-[#d9c196] px-2 py-1 font-semibold text-[#765416]">{smartGapOrder === "price" ? "Price ↑" : "Best fit"}</button></div><div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">{options.map((option, optionIndex) => { const unitPrice = approvedPriceFor(option.cabinet); const label = option.needsFiller ? `Add ${option.cabinet.masterCode} + fitted ${formatInches(option.remaining)} filler` : `Add ${option.cabinet.masterCode} · leaves ${formatInches(option.remaining)}`; const previewChoices = options.map((choice) => ({ cabinet: choice.cabinet, needsFiller: choice.needsFiller })); return <div key={option.cabinet.id} className="flex items-center gap-1 rounded-md border border-[#e7d7b7] bg-white p-1"><button type="button" onClick={() => onPreviewGap?.(activeGap, option.cabinet, option.needsFiller, previewChoices, optionIndex)} className="shrink-0 rounded px-1.5 py-1 text-[10px] font-semibold text-[#1a2744] underline underline-offset-2 active:scale-95">Preview</button><button type="button" onClick={() => { if (option.needsFiller) onFillGapWithCabAndFiller?.(activeGap, option.cabinet); else onFillGap?.(activeGap, option.cabinet); close(); }} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded px-1 py-0.5 text-left font-semibold text-[#49381a] active:scale-[0.99]"><span className="min-w-0 truncate">{label}</span><span className="shrink-0 text-[10px] text-muted-foreground">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></button></div>; })}{options.length === 0 && <p className="rounded-md border border-dashed p-2 text-muted-foreground">No selected-style cabinet matches this filter.</p>}</div></>}
           </div><button type="button" onClick={close} aria-label="Close smart gap recommendation" className="text-base leading-none text-muted-foreground hover:text-foreground">×</button></div>
         </div>;

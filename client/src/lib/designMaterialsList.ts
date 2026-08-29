@@ -1,0 +1,224 @@
+import type { BuildSheetRow } from "@/components/design/DesignActions";
+import type { CartItem } from "@/contexts/CartContext";
+import type { SelectedSurface } from "@/components/design/SurfacesPickerDialog";
+import { isApplianceCode } from "@/lib/design";
+import { isCatalogFiller } from "@/lib/catalogFiller";
+
+export type MaterialsListSection = "cabinet" | "other";
+
+export type MaterialsListSupplement = {
+  code: string;
+  description: string;
+  category: string;
+  qty: number;
+  supplier?: string | null;
+  styleColor?: string | null;
+  dimensions?: string | null;
+  unitPrice?: number | null;
+  notes?: string | null;
+};
+
+export type MaterialsListRow = {
+  label: string;
+  section: MaterialsListSection;
+  code: string;
+  description: string;
+  category: string;
+  supplier: string;
+  styleColor: string;
+  dimensions: string;
+  qty: number;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  notes: string;
+};
+
+export type MaterialsListArgs = {
+  buildRows: readonly BuildSheetRow[];
+  pricingLines: readonly CartItem[];
+  selectedSurfaces?: readonly SelectedSurface[];
+  supplements?: readonly MaterialsListSupplement[];
+  distributorNames?: ReadonlyMap<number, string>;
+  defaultDistributorId?: number | null;
+  defaultDistributorName?: string | null;
+  defaultStyleName?: string | null;
+};
+
+function dimensionsFor(row: Pick<BuildSheetRow, "widthIn" | "heightIn" | "depthIn">): string {
+  const cell = (value: number) => Number.isFinite(value) && value > 0 ? `${Math.round(value * 100) / 100}\"` : "—";
+  return `${cell(row.widthIn)} W × ${cell(row.heightIn)} H × ${cell(row.depthIn)} D`;
+}
+
+function cabinetSection(row: BuildSheetRow): boolean {
+  if (!(["base", "wall", "tall"] as string[]).includes(row.placement)) return false;
+  if (isApplianceCode(row.code)) return false;
+  return !isCatalogFiller({ masterCode: row.code, description: row.description, category: row.placement, subCategory: row.placement });
+}
+
+function alphaLabel(index: number): string {
+  let value = index + 1;
+  let result = "";
+  while (value > 0) {
+    value -= 1;
+    result = String.fromCharCode(65 + (value % 26)) + result;
+    value = Math.floor(value / 26);
+  }
+  return result;
+}
+
+function supplierFor(line: Pick<CartItem, "distributorId" | "category">, names: ReadonlyMap<number, string>, fallback: string): string {
+  if (line.distributorId != null) return names.get(line.distributorId) ?? fallback;
+  return line.category?.trim() || "Surfaces & Fixtures";
+}
+
+function safePrice(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRow[] {
+  const names = args.distributorNames ?? new Map<number, string>();
+  const defaultSupplier = args.defaultDistributorName?.trim() || (args.defaultDistributorId != null ? names.get(args.defaultDistributorId) : null) || "Cabinet supplier";
+  const pricing = args.pricingLines.map((line, index) => ({ line, index, consumed: false }));
+  const rows: Omit<MaterialsListRow, "label">[] = [];
+
+  for (const build of args.buildRows.filter((row) => row.qty > 0)) {
+    const sameCode = pricing.filter(({ line }) => line.masterCode === build.code);
+    const exact = sameCode.find(({ line }) => build.color && line.styleLabel === build.color)
+      ?? (sameCode.length === 1 ? sameCode[0] : null);
+    if (exact) exact.consumed = true;
+    const unitPrice = safePrice(exact?.line.unitPrice ?? build.unitPrice);
+    const section: MaterialsListSection = cabinetSection(build) ? "cabinet" : "other";
+    rows.push({
+      section,
+      code: build.code,
+      description: build.description,
+      category: section === "cabinet" ? "Cabinet" : build.placement || "Other",
+      supplier: exact ? supplierFor(exact.line, names, defaultSupplier) : defaultSupplier,
+      styleColor: build.color?.trim() || exact?.line.styleLabel?.trim() || args.defaultStyleName?.trim() || "—",
+      dimensions: dimensionsFor(build),
+      qty: build.qty,
+      unitPrice,
+      lineTotal: unitPrice == null ? null : unitPrice * build.qty,
+      notes: build.swing ? `${build.swing} hinge` : "",
+    });
+  }
+
+  for (const entry of pricing.filter((value) => !value.consumed && value.line.qty > 0)) {
+    const line = entry.line;
+    const unitPrice = safePrice(line.unitPrice);
+    rows.push({
+      section: "other",
+      code: line.masterCode,
+      description: line.name,
+      category: line.category?.trim() || "Parts & materials",
+      supplier: supplierFor(line, names, defaultSupplier),
+      styleColor: line.styleLabel?.trim() || "—",
+      dimensions: "—",
+      qty: line.qty,
+      unitPrice,
+      lineTotal: unitPrice == null ? null : unitPrice * line.qty,
+      notes: line.qtyNote?.trim() || "",
+    });
+  }
+
+  const pricedSurfaceCodes = new Set(args.pricingLines.map((line) => line.masterCode));
+  for (const surface of args.selectedSurfaces ?? []) {
+    const code = `PEL-${surface.id}`;
+    if (pricedSurfaceCodes.has(code)) continue;
+    const unitPrice = safePrice(surface.sellPrice);
+    rows.push({
+      section: "other",
+      code,
+      description: surface.name,
+      category: surface.category,
+      supplier: surface.category || "Surfaces & Fixtures",
+      styleColor: surface.subCategory?.trim() || "—",
+      dimensions: surface.size?.trim() || "—",
+      qty: 1,
+      unitPrice,
+      lineTotal: unitPrice,
+      notes: unitPrice == null ? "Price pending / quote required" : "",
+    });
+  }
+
+  for (const item of args.supplements ?? []) {
+    if (!(item.qty > 0)) continue;
+    const unitPrice = safePrice(item.unitPrice);
+    rows.push({
+      section: "other",
+      code: item.code,
+      description: item.description,
+      category: item.category,
+      supplier: item.supplier?.trim() || defaultSupplier,
+      styleColor: item.styleColor?.trim() || "—",
+      dimensions: item.dimensions?.trim() || "—",
+      qty: item.qty,
+      unitPrice,
+      lineTotal: unitPrice == null ? null : unitPrice * item.qty,
+      notes: item.notes?.trim() || (unitPrice == null ? "Price pending / quote required" : ""),
+    });
+  }
+
+  const cabinets = rows
+    .filter((row) => row.section === "cabinet")
+    .sort((left, right) => left.code.localeCompare(right.code, undefined, { numeric: true }) || left.description.localeCompare(right.description));
+  const others = rows
+    .filter((row) => row.section === "other")
+    .sort((left, right) => left.description.localeCompare(right.description) || left.code.localeCompare(right.code, undefined, { numeric: true }));
+  return [
+    ...cabinets.map((row, index) => ({ ...row, label: String(index + 1) })),
+    ...others.map((row, index) => ({ ...row, label: alphaLabel(index) })),
+  ];
+}
+
+function csvEscape(value: string | number): string {
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+export function materialsListCsv(rows: readonly MaterialsListRow[]): string {
+  const header = ["No.", "Section", "Item Code", "Description", "Category", "Distributor", "Color / Style", "Dimensions", "Qty", "Unit Price", "Line Total", "Notes"];
+  const lines = [header.map(csvEscape).join(",")];
+  for (const row of rows) {
+    lines.push([
+      row.label, row.section === "cabinet" ? "Cabinets" : "Other materials", row.code, row.description, row.category,
+      row.supplier, row.styleColor, row.dimensions, row.qty,
+      row.unitPrice == null ? "" : row.unitPrice.toFixed(2), row.lineTotal == null ? "" : row.lineTotal.toFixed(2), row.notes,
+    ].map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
+
+export function materialsListPricedTotal(rows: readonly MaterialsListRow[]): number {
+  return rows.reduce((sum, row) => sum + (row.lineTotal ?? 0), 0);
+}
+
+function htmlEscape(value: string | number): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function materialsListPrintHtml(args: {
+  rows: readonly MaterialsListRow[];
+  title?: string | null;
+  roomLabel?: string | null;
+  styleName?: string | null;
+  generatedAt?: string | null;
+}): string {
+  const title = args.title?.trim() || "Kitchen Design Materials & Parts List";
+  const meta = [args.roomLabel?.trim(), args.styleName?.trim() ? `Cabinet color / style: ${args.styleName.trim()}` : null, args.generatedAt?.trim()]
+    .filter(Boolean).join(" · ");
+  const table = (section: MaterialsListSection, heading: string) => {
+    const rows = args.rows.filter((row) => row.section === section);
+    if (rows.length === 0) return "";
+    return `<h2>${htmlEscape(heading)}</h2><table><thead><tr><th>No.</th><th>Item code</th><th>Description</th><th>Category</th><th>Distributor</th><th>Color / style</th><th>Dimensions</th><th>Qty</th><th>Unit price</th><th>Line total</th><th>Notes</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${htmlEscape(row.label)}</td><td>${htmlEscape(row.code)}</td><td>${htmlEscape(row.description)}</td><td>${htmlEscape(row.category)}</td><td>${htmlEscape(row.supplier)}</td><td>${htmlEscape(row.styleColor)}</td><td>${htmlEscape(row.dimensions)}</td><td class="number">${row.qty}</td><td class="number">${row.unitPrice == null ? "Pending" : `$${row.unitPrice.toFixed(2)}`}</td><td class="number">${row.lineTotal == null ? "Pending" : `$${row.lineTotal.toFixed(2)}`}</td><td>${htmlEscape(row.notes)}</td></tr>`).join("")}</tbody></table>`;
+  };
+  const pending = args.rows.filter((row) => row.unitPrice == null).length;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(title)}</title><style>@page{size:letter landscape;margin:.35in}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0}h1{font-size:18px;margin:0 0 4px;color:#1a2744}p{font-size:9px;margin:0 0 12px;color:#5b6472}h2{font-size:12px;margin:12px 0 4px;color:#8a6422}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5px;margin-bottom:10px}th,td{border:1px solid #c8ced8;padding:4px;vertical-align:top;overflow-wrap:anywhere}th{background:#e9edf3;text-align:left;font-size:7px;text-transform:uppercase}.number{text-align:right;white-space:nowrap}.summary{display:flex;justify-content:flex-end;gap:18px;font-size:10px;font-weight:700}.pending{color:#8a6422}@media print{button{display:none}}</style></head><body><h1>${htmlEscape(title)}</h1><p>${htmlEscape(meta)}</p>${table("cabinet", "Numbered Cabinet List")}${table("other", "Other Materials & Parts — Alphabetical")}<div class="summary"><span>Priced total: $${materialsListPricedTotal(args.rows).toFixed(2)}</span><span class="pending">Pending price lines: ${pending}</span></div></body></html>`;
+}
