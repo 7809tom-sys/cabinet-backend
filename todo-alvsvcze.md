@@ -1001,3 +1001,9 @@
 - [x] Restore one compact selected-cabinet D-pad inside the information panel on desktop while retaining the same correctly ordered control on tablet and phone
 - [x] Keep the top/up, bottom/down, left/left, and right/right callbacks unchanged, remove no measurement or action information, and never restore an overlapping absolute control in 3D or hybrid views
 - [x] Preserve cabinet identity, price, position, saved design, cart, fixture, filler, countertop, and unrelated layout data while adding focused desktop/tablet/phone visibility and panel-layout regressions
+- [x] Research official realistic over-range hood references and improve the Designer’s procedural hood canopy, chimney, controls, filter underside, and task lighting without copied branded imagery or local deployment assets
+- [x] Confirm the selected-cabinet D-pad is visible at the user’s wide desktop layout and keep one compact in-panel movement control reliably visible without overlapping summary, measurement, or actions
+- [x] Remove redundant selected-cabinet wall, width, height, depth, and mount controls from the desktop main toolbar while preserving Cabinet Attributes editing, finish and Drop to floor actions, mobile attributes access, and the in-panel movement D-pad
+- [x] Add a visible Materials & Parts toolbar button that opens the existing complete view/print/CSV popup and remove its duplicate entry from the More menu on desktop and mobile
+- [x] Preserve cabinet identity, dimensions, pricing, saved design, cart, fixtures, hood placement, fillers, countertops, and unrelated layout data while adding focused hood, D-pad, toolbar, materials-action, and responsive regressions
+- [x] Reproduce why the now-visible in-panel D-pad did not execute horizontal movement, remove the seam snap-back that canceled exact button increments, verify all four button events reach the selected-cabinet host callback, and retain exact collision, lock, wall, or ceiling feedback

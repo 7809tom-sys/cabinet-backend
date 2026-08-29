@@ -4859,9 +4859,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         x: Math.round((cabinet.x + delta.x) * 8) / 8,
         y: Math.round((cabinet.y + delta.y) * 8) / 8,
         ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
-      };
+	      };
 	      const peers = prev.filter((item) => item.uid !== uid);
-		      const candidate = snapCabinetSeamOverlap(movedCandidate, peers);
+	      // D-pad movement is an explicit incremental edit. Do not run automatic
+	      // seam attraction here: a one-inch move beside an existing seam would
+	      // otherwise snap back to its starting position and appear nonfunctional.
+	      // Room bounds and positive-overlap collision checks below remain strict.
+	      const candidate = movedCandidate;
 	      const footprint = rotatedSize(candidate);
       if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
         const message = `${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`;
@@ -6436,6 +6440,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        >
 	          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Remote Share
 	        </Button>
+	        <Button
+	          variant="outline"
+	          size="sm"
+	          className="hidden shrink-0 lg:inline-flex"
+	          disabled={materialsListRows.length === 0}
+	          onClick={() => setMaterialsListOpen(true)}
+	          title="View, print, or export complete materials & parts list"
+	        >
+	          <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
+	        </Button>
 
         <div className="lg:hidden flex shrink-0 items-center rounded-full border border-border bg-muted/30 p-0.5">
           <button
@@ -6760,7 +6774,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             <Save className="h-4 w-4" />
           </button>
-          {/* More button */}
+	          {/* More button */}
           <button
             title="More options"
             onClick={() => setMoreSheetOpen(true)}
@@ -6938,17 +6952,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       <span className="flex-1 text-left">Save as Bundle Deal</span>
                     </button>
                   )}
-	                  <button
-	                    disabled={materialsListRows.length === 0}
-	                    onClick={() => {
-	                      setMoreSheetOpen(false);
-	                      setMaterialsListOpen(true);
-	                    }}
-	                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[#1a2744] hover:bg-slate-50 transition-colors disabled:opacity-50"
-	                  >
-	                    <FileText className="h-4 w-4 shrink-0" />
-	                    <span className="flex-1 text-left">Materials &amp; Parts List</span>
-	                  </button>
                   {canAffiliatePriceShop && (
                     <button
                       disabled={affiliatePriceListItems.length === 0}
@@ -7278,9 +7281,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-7 w-7 text-destructive" title={t("dt_sh_delete")}>
 	            <Trash2 className="h-3.5 w-3.5" />
 	          </Button>
-	          <Button variant="outline" size="icon" disabled={materialsListRows.length === 0} onClick={() => setMaterialsListOpen(true)} className="h-7 w-7 text-[#1a2744]" title="View, print, or export complete materials & parts list">
-	            <FileText className="h-3.5 w-3.5" />
-	          </Button>
 	          <div className="h-5 w-px bg-border mx-0.5" />
           {/* Lock Cabs */}
           <Button
@@ -7377,9 +7377,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                className={countertop ? "text-amber-600 font-medium" : ""}
 	              >
 	                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
-	              </DropdownMenuItem>
-	              <DropdownMenuItem onSelect={() => setMaterialsListOpen(true)} disabled={materialsListRows.length === 0} className="text-[#1a2744] font-medium">
-	                <FileText className="h-3.5 w-3.5 mr-2" /> Materials &amp; Parts List
 	              </DropdownMenuItem>
 	              {isAdmin && (
                 <>
@@ -7597,58 +7594,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </a>
                 ) : null;
               })()}
-              <div className="h-4 w-px bg-border" />
-              <WallPicker onPick={snapSelectedToWall} />
-              {/* Custom sizing: resize this cabinet's Width, Height and Depth to
-                  order it as a custom-size piece. Each dimension has −/+ (1")
-                  steppers and an exact field; a dimension turns gold + bold when
-                  it differs from the catalog size, and a single Reset restores
-                  all three to the catalog values. */}
-              <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-1.5">
-                <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
-                <DimStepper
-                  label="W"
-                  value={Math.round(selectedCab.width * 10) / 10}
-                  custom={isCustomWidth(selectedCab)}
-                  min={6}
-                  max={48}
-                  onStep={adjustWidth}
-                  onSet={setCustomWidth}
-                />
-                <DimStepper
-                  label="H"
-                  value={Math.round(placedHeight(selectedCab) * 10) / 10}
-                  custom={isCustomHeight(selectedCab)}
-                  min={6}
-                  max={96}
-                  onStep={adjustHeight}
-                  onSet={setCustomHeight}
-                />
-                <DimStepper
-                  label="D"
-                  value={Math.round(selectedCab.depth * 10) / 10}
-                  custom={isCustomDepth(selectedCab)}
-                  min={6}
-                  max={36}
-                  onStep={adjustDepth}
-                  onSet={setCustomDepth}
-                />
-                {(isCustomWidth(selectedCab) || isCustomHeight(selectedCab) || isCustomDepth(selectedCab)) && (
-                  <>
-                    <Badge variant="secondary" className="text-[10px]">{t("dt_cx_custom_fee", { fee: CUSTOM_SIZE_FEE })}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-[11px] text-muted-foreground"
-                      title={t("dt_cx_reset_dims")}
-                      onClick={() => { resetWidth(); resetHeight(); resetDepth(); }}
-                    >
-                      {t("dt_cx_reset")}
-                    </Button>
-                  </>
-                )}
-              </div>
               {/* Per-cabinet finish (two-tone): give THIS cabinet a different
                   color/finish than the design default, within the locked supply
                   line. "Match design" clears the override. */}
@@ -7685,45 +7630,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </div>
                 </>
               )}
-              {selectedCab.placement === "wall" && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-muted-foreground mr-0.5">{t("dt_cx_mount")}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title={t("dt_cx_raise")}
-                      onClick={() => adjustMountHeight(1)}
-                    >
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </Button>
-                    <span className="text-[11px] font-mono tabular-nums text-foreground min-w-[34px] text-center">
-                      {Math.round(elevationBox(selectedCab, room).bottom)}″
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      title={t("dt_cx_lower")}
-                      onClick={() => adjustMountHeight(-1)}
-                    >
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </Button>
-                    {typeof selectedCab.mountBottom === "number" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-[11px] text-muted-foreground"
-                        title={t("dt_cx_reset_mount")}
-                        onClick={resetMountHeight}
-                      >
-                        {t("dt_cx_reset")}
-                      </Button>
-                    )}
-                  </div>
-                  <div className="h-4 w-px bg-border" />
+	              {selectedCab.placement === "wall" && (
+	                <>
+	                  <div className="h-4 w-px bg-border" />
                   <Button
                     variant="outline"
                     size="sm"
@@ -9983,17 +9892,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 setMobilePanel("catalog");
               }}
             />
-            <MobileBarButton
-              icon={<Waves className="h-5 w-5" />}
-              label="Palette"
+	            <MobileBarButton
+	              icon={<Waves className="h-5 w-5" />}
+	              label="Palette"
               active={mobilePanel === "catalog" && paletteType === "surfaces"}
               onClick={() => {
                 setPaletteType("surfaces");
-                setMobilePanel("catalog");
-              }}
-            />
-            <MobileBarButton
-              icon={<Undo2 className="h-5 w-5" />}
+	                setMobilePanel("catalog");
+	              }}
+	            />
+	            <MobileBarButton
+	              icon={<FileText className="h-5 w-5" />}
+	              label="Materials"
+	              disabled={materialsListRows.length === 0}
+	              onClick={() => setMaterialsListOpen(true)}
+	            />
+	            <MobileBarButton
+	              icon={<Undo2 className="h-5 w-5" />}
               label="Undo"
               onClick={handleUndo}
             />

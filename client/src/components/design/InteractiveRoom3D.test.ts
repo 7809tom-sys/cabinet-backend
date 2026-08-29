@@ -1209,8 +1209,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.panelReadyFinish)).toHaveLength(2);
     expect(nodes.some((node) => node.userData.farmhouseSinkBasin)).toBe(true);
     expect(nodes.some((node) => node.userData.farmhouseSinkFaucetSpout)).toBe(true);
-    expect(nodes.filter((node) => node.userData.rangeHoodVent)).toHaveLength(3);
-    expect(nodes.filter((node) => node.userData.rangeHoodControl)).toHaveLength(2);
+    expect(nodes.some((node) => node.userData.pyramidalCanopy)).toBe(true);
+    expect(nodes.filter((node) => node.userData.rangeHoodFilter)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.rangeHoodFilterSlat)).toHaveLength(8);
+    expect(nodes.filter((node) => node.userData.rangeHoodTaskLight)).toHaveLength(2);
+    expect(nodes.filter((node) => node.userData.rangeHoodControlRail)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.rangeHoodControl)).toHaveLength(5);
   });
 
   it("uses vertical hinge-opposite pulls at the correct upper and lower pantry door zones", () => {

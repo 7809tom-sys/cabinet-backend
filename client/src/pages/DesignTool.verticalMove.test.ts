@@ -14,4 +14,15 @@ describe("Design Tool vertical wall-cabinet movement", () => {
       verticalMoveCallback.indexOf("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)"),
     );
   });
+
+  it("commits horizontal D-pad movement exactly instead of snapping it back to the original seam", () => {
+    const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
+    const callbackStart = source.indexOf("const moveCabinetFrom3D = useCallback");
+    const callbackSource = source.slice(callbackStart, callbackStart + 5200);
+    expect(callbackStart).toBeGreaterThan(-1);
+    expect(callbackSource).toContain("const candidate = movedCandidate;");
+    expect(callbackSource).not.toContain("snapCabinetSeamOverlap(movedCandidate, peers)");
+    expect(callbackSource).toContain("cannot move ${direction}; it would extend beyond the room boundary");
+    expect(callbackSource).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
+  });
 });

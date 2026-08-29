@@ -40,4 +40,23 @@ describe("designer toolbar layout", () => {
     // resolves to the normal Wall catalog rather than issuing an invalid query.
     expect(source).toContain('paletteType === "wallht"');
   });
+
+  it("removes redundant desktop cabinet adjustment controls while preserving the attributes workflow", () => {
+    const contextualStart = source.indexOf("{/* Contextual row:");
+    const contextualEnd = source.indexOf("{isBlindCorner(selectedCab.masterCode", contextualStart);
+    const desktopSelectedStrip = source.slice(contextualStart, contextualEnd);
+
+    expect(desktopSelectedStrip).not.toContain("<WallPicker");
+    expect(desktopSelectedStrip).not.toContain("<DimStepper");
+    expect(desktopSelectedStrip).not.toContain("adjustMountHeight(");
+    expect(source).toContain("<CabinetAttributesDialog");
+    expect(source).toContain("onMoveCabinet={cabinetsLocked ? undefined : moveCabinetFrom3D}");
+  });
+
+  it("keeps Materials & Parts as direct toolbar actions and removes every More-menu duplicate", () => {
+    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(2);
+	    expect(source).toContain('label="Materials"');
+    expect(source).toContain("Materials &amp; Parts");
+    expect(source).not.toContain("Materials &amp; Parts List");
+  });
 });

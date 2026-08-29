@@ -1097,15 +1097,56 @@ export function rangeHoodGeometry(widthIn: number, heightIn: number, depthIn: nu
   const height = heightIn * INCH;
   const depth = depthIn * INCH;
   const canopyHeight = Math.max(0.14, Math.min(height * 0.34, 0.46));
+  const chimneyWidth = Math.max(0.18, width * 0.42);
+  const chimneyDepth = Math.max(0.12, depth * 0.46);
   return {
     width,
     depth,
     height,
     canopyHeight,
-    chimneyWidth: Math.max(0.18, width * 0.42),
-    chimneyDepth: Math.max(0.12, depth * 0.46),
+    canopyLowerWidth: width * 0.96,
+    canopyLowerDepth: depth * 0.92,
+    canopyUpperWidth: Math.max(chimneyWidth * 1.08, width * 0.34),
+    canopyUpperDepth: Math.max(chimneyDepth * 1.08, depth * 0.34),
+    chimneyWidth,
+    chimneyDepth,
     chimneyHeight: Math.max(0.1, height - canopyHeight),
+    controlRailWidth: width * 0.38,
+    filterWidth: width * 0.31,
+    filterDepth: depth * 0.46,
   };
+}
+
+function taperedRangeHoodCanopyGeometry(
+  lowerWidth: number,
+  lowerDepth: number,
+  upperWidth: number,
+  upperDepth: number,
+  height: number,
+) {
+  const lx = lowerWidth / 2;
+  const lz = lowerDepth / 2;
+  const ux = upperWidth / 2;
+  const uz = upperDepth / 2;
+  const y0 = -height / 2;
+  const y1 = height / 2;
+  const vertices = new Float32Array([
+    -lx, y0, -lz,  lx, y0, -lz,  lx, y0, lz, -lx, y0, lz,
+    -ux, y1, -uz,  ux, y1, -uz,  ux, y1, uz, -ux, y1, uz,
+  ]);
+  const indices = [
+    0, 1, 2, 0, 2, 3,
+    4, 6, 5, 4, 7, 6,
+    0, 4, 5, 0, 5, 1,
+    1, 5, 6, 1, 6, 2,
+    2, 6, 7, 2, 7, 3,
+    3, 7, 4, 3, 4, 0,
+  ];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
 /** Matches the 2D Corner Drawer Base face: an 8% corner marker plus a 92% full-height drawer stack. */
@@ -2089,31 +2130,52 @@ export function addCabinet(
     const code = sku.masterCode.toUpperCase();
     if (/HOOD/.test(code)) {
       const hood = rangeHoodGeometry(widthIn, heightIn, depthIn);
-      const canopy = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.96, hood.canopyHeight, hood.depth * 0.92), applianceMaterial);
+      const canopy = new THREE.Mesh(taperedRangeHoodCanopyGeometry(
+        hood.canopyLowerWidth,
+        hood.canopyLowerDepth,
+        hood.canopyUpperWidth,
+        hood.canopyUpperDepth,
+        hood.canopyHeight,
+      ), applianceMaterial);
       canopy.position.set(0, -bodyHeight / 2 + hood.canopyHeight / 2, 0.025);
-      canopy.userData = { applianceCode: sku.masterCode, rangeHoodCanopy: true };
+      canopy.userData = { applianceCode: sku.masterCode, rangeHoodCanopy: true, pyramidalCanopy: true };
       frontGroup.add(canopy);
       const chimney = new THREE.Mesh(new THREE.BoxGeometry(hood.chimneyWidth, hood.chimneyHeight, hood.chimneyDepth), applianceMaterial);
       chimney.position.set(0, bodyHeight / 2 - hood.chimneyHeight / 2, -hood.depth * 0.13);
       chimney.userData = { applianceCode: sku.masterCode, rangeHoodChimney: true };
       frontGroup.add(chimney);
-      const intake = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.72, Math.max(0.035, hood.canopyHeight * 0.14), 0.07), glassMaterial);
-      intake.position.set(0, -bodyHeight / 2 + hood.canopyHeight * 0.48, 0.07);
-      intake.userData = { applianceCode: sku.masterCode, rangeHoodIntake: true, dimensionalApplianceDetail: true };
-      frontGroup.add(intake);
       const hoodDetailMaterial = new THREE.MeshStandardMaterial({ color: "#5a626b", roughness: 0.24, metalness: 0.76 });
-      for (const offset of [-0.18, 0, 0.18] as const) {
-        const vent = new THREE.Mesh(new THREE.BoxGeometry(hood.width * 0.16, 0.012, 0.032), hoodDetailMaterial);
-        vent.position.set(offset * hood.width, -bodyHeight / 2 + hood.canopyHeight * 0.52, 0.112);
-        vent.userData = { applianceCode: sku.masterCode, rangeHoodVent: true, dimensionalApplianceDetail: true };
-        frontGroup.add(vent);
-      }
-      for (const offset of [-0.05, 0.05] as const) {
-        const button = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.012, 12), hoodDetailMaterial);
+      const hoodFilterMaterial = new THREE.MeshStandardMaterial({ color: "#434b53", roughness: 0.34, metalness: 0.7 });
+      const hoodLightMaterial = new THREE.MeshStandardMaterial({ color: "#fff3c4", emissive: "#ffd46b", emissiveIntensity: 1.1, roughness: 0.18 });
+      const canopyBottom = -bodyHeight / 2;
+      const canopyFront = hood.canopyLowerDepth / 2 + 0.035;
+      const controlRail = new THREE.Mesh(new THREE.BoxGeometry(hood.controlRailWidth, 0.055, 0.035), glassMaterial);
+      controlRail.position.set(0, canopyBottom + hood.canopyHeight * 0.3, canopyFront);
+      controlRail.userData = { applianceCode: sku.masterCode, rangeHoodControlRail: true, dimensionalApplianceDetail: true };
+      frontGroup.add(controlRail);
+      for (const offset of [-0.32, -0.16, 0, 0.16, 0.32] as const) {
+        const button = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.014, 12), hoodDetailMaterial);
         button.rotation.x = Math.PI / 2;
-        button.position.set(offset, -bodyHeight / 2 + hood.canopyHeight * 0.27, 0.112);
+        button.position.set(offset * hood.controlRailWidth, canopyBottom + hood.canopyHeight * 0.3, canopyFront + 0.025);
         button.userData = { applianceCode: sku.masterCode, rangeHoodControl: true, dimensionalApplianceDetail: true };
         frontGroup.add(button);
+      }
+      for (const side of [-1, 1] as const) {
+        const filterX = side * hood.width * 0.18;
+        const filter = new THREE.Mesh(new THREE.BoxGeometry(hood.filterWidth, 0.018, hood.filterDepth), hoodFilterMaterial);
+        filter.position.set(filterX, canopyBottom + 0.016, 0.025);
+        filter.userData = { applianceCode: sku.masterCode, rangeHoodFilter: true, dimensionalApplianceDetail: true };
+        frontGroup.add(filter);
+        for (const slatOffset of [-0.3, -0.1, 0.1, 0.3] as const) {
+          const slat = new THREE.Mesh(new THREE.BoxGeometry(hood.filterWidth * 0.82, 0.008, 0.012), hoodDetailMaterial);
+          slat.position.set(filterX, canopyBottom + 0.03, slatOffset * hood.filterDepth);
+          slat.userData = { applianceCode: sku.masterCode, rangeHoodFilterSlat: true, dimensionalApplianceDetail: true };
+          frontGroup.add(slat);
+        }
+        const light = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.016, 18), hoodLightMaterial);
+        light.position.set(side * hood.width * 0.32, canopyBottom + 0.02, hood.depth * 0.2);
+        light.userData = { applianceCode: sku.masterCode, rangeHoodTaskLight: true, dimensionalApplianceDetail: true };
+        frontGroup.add(light);
       }
     } else {
       const dishwasherToeKickHeight = THREE_D_TOE_KICK * INCH;
