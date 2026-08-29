@@ -974,3 +974,7 @@
 - [x] Automatically calculate nonstandard gaps smaller than standard cabinet widths and suggest the narrowest active catalog filler that can be cut to the measured size, preserving one catalog identity and exact installed width
 - [x] Add a Shift-held freehand mode to right-drag and catalog drag placement that temporarily disables three-inch snap attraction while still enforcing room bounds, exact pointer placement, and 0-inch physical overlap
 - [x] Preserve cabinet, distributor, style, finish, SKU, price, cart, saved-design, filler grouping, countertop, and unrelated layout data while adding focused regressions and responsive UI validation for all three upgrades
+- [x] Reproduce the user’s current live W-36-24 catalog-click failure where the Designer still selects the 24-inch opening beside W-36-42 and reports a 12-inch overlap
+- [x] Identify the selected-sink helper’s unsafe shift to an unrelated upper opening and correct the authoritative click path rather than another preview-only path
+- [x] Place W-36-24 only when a true 36-inch upper-layer span remains meaningfully aligned to the selected 36-inch sink base at its final elevation; otherwise report the real blocker and shortage instead of shifting to an unrelated opening
+- [x] Preserve all existing cabinet identities, prices, finishes, wall ownership, saved design, cart, fillers, countertops, and unrelated placements while adding the exact screenshot-geometry regression

@@ -2007,10 +2007,17 @@ export function selectedSinkBaseWallPlacement(
     false,
     candidate,
   );
-  const fittedStart = nearestAvailableWallStart(available, centeredStart, width);
-  return fittedStart == null
-    ? centeredSpot
-    : wallPlacementAt(fittedStart, width, depth, side, room);
+	  const fittedStart = nearestAvailableWallStart(available, centeredStart, width);
+	  if (fittedStart == null) return null;
+	  const fittedEnd = fittedStart + width;
+	  const sinkEnd = sinkStart + sinkSpan;
+	  const alignedSpan = Math.max(0, Math.min(fittedEnd, sinkEnd) - Math.max(fittedStart, sinkStart));
+	  const minimumAlignedSpan = Math.min(width, sinkSpan) / 2;
+	  if (alignedSpan + COLLISION_EPSILON_IN < minimumAlignedSpan) return null;
+	  const fittedSpot = wallPlacementAt(fittedStart, width, depth, side, room);
+	  const fittedCandidate = { ...candidate, ...fittedSpot };
+	  if (hasCollision(fittedCandidate, placed)) return null;
+	  return fittedSpot;
 }
 
 /**
