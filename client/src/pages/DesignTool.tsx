@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowDownToLine, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +115,7 @@ import { buildTrimCartLines,
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
-import { commitThreeDCabinetCandidate, threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -5397,6 +5397,37 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(t("dt_toast_dropped_floor"));
   }, [layoutLocked]);
 
+  const dropToCountertop = useCallback((uid: string) => {
+    if (layoutLocked) { toast.info(t("dt_t_unlock_drop_countertop")); return; }
+    const currentPlaced = placedRef.current;
+    const current = currentPlaced.find((cabinet) => cabinet.uid === uid);
+    if (!current || current.placement !== "wall") return;
+    const candidate = countertopMountedCabinet(current);
+    const limit = wallCabinetVerticalMoveLimit(candidate, room);
+    const candidateTop = STD.COUNTERTOP_HEIGHT + elevationBox(candidate, room).height;
+    if (candidateTop > limit.ceiling + 0.001) {
+      const message = `${current.masterCode} cannot sit on the ${formatEighthInches(STD.COUNTERTOP_HEIGHT)}" countertop; its top would be ${formatEighthInches(candidateTop)}", above the ${formatEighthInches(limit.ceiling)}" ceiling.`;
+      setPlacementWarning(message);
+      toast.error(message);
+      return;
+    }
+    const peers = currentPlaced.filter((cabinet) => cabinet.uid !== uid);
+    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+      const message = wallCabinetPlacementReason(candidate, room, peers, openings)
+        ?? collisionReason(candidate, peers)
+        ?? `${current.masterCode} cannot sit on the countertop because it would overlap another item.`;
+      setPlacementWarning(message);
+      toast.error(message);
+      return;
+    }
+    const nextPlaced = commitThreeDCabinetCandidate(currentPlaced, uid, candidate);
+    if (!nextPlaced) return;
+    placedRef.current = nextPlaced;
+    setPlaced(nextPlaced);
+    setPlacementWarning(null);
+    toast.success(t("dt_toast_dropped_countertop", { height: formatEighthInches(STD.COUNTERTOP_HEIGHT) }));
+  }, [customPlacementMode, layoutLocked, openings, room, t]);
+
   // Remove ONE instance from a consolidated panel group (decrement qty).
   const deleteOneFromGroup = useCallback((uids: string[]) => {
     const last = uids[uids.length - 1];
@@ -7652,7 +7683,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              {selectedCab.placement === "wall" && (
 	                <>
 	                  <div className="h-4 w-px bg-border" />
-                  <Button
+	                  <Button
+	                    variant="outline"
+	                    size="sm"
+	                    className="h-7 gap-1 px-2 text-[11px]"
+	                    title={t("dt_cx_drop_countertop")}
+	                    onClick={() => dropToCountertop(selectedCab.uid)}
+	                  >
+	                    <ArrowDownToLine className="h-3.5 w-3.5" />
+	                    {t("dt_cx_drop_to_countertop")}
+	                  </Button>
+	                  <Button
                     variant="outline"
                     size="sm"
                     className="h-7 gap-1 px-2 text-[11px]"
@@ -7993,16 +8034,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         </Button>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 h-8 gap-1 px-3 text-[11px]"
-                      title={t("dt_cx_drop_island")}
-                      onClick={() => dropToFloor(selectedCab.uid)}
-                    >
-                      <ChevronsDown className="h-3.5 w-3.5" />
-                      {t("dt_cx_drop_to_floor")}
-                    </Button>
+	                    <div className="mt-3 flex flex-wrap gap-2">
+	                      <Button
+	                        variant="outline"
+	                        size="sm"
+	                        className="h-9 min-w-[150px] flex-1 gap-1 px-3 text-[11px]"
+	                        title={t("dt_cx_drop_countertop")}
+	                        onClick={() => dropToCountertop(selectedCab.uid)}
+	                      >
+	                        <ArrowDownToLine className="h-3.5 w-3.5" />
+	                        {t("dt_cx_drop_to_countertop")}
+	                      </Button>
+	                      <Button
+	                        variant="outline"
+	                        size="sm"
+	                        className="h-9 min-w-[120px] flex-1 gap-1 px-3 text-[11px]"
+	                        title={t("dt_cx_drop_island")}
+	                        onClick={() => dropToFloor(selectedCab.uid)}
+	                      >
+	                        <ChevronsDown className="h-3.5 w-3.5" />
+	                        {t("dt_cx_drop_to_floor")}
+	                      </Button>
+	                    </div>
                   </div>
                 )}
 

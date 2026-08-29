@@ -1,6 +1,17 @@
-import { cabinetWall, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { cabinetWall, STD, type PlacedCabinet, type RoomData } from "@/lib/design";
 
 export type ThreeDPlanMoveDirection = "left" | "right" | "in" | "out";
+
+export function countertopMountedCabinet(
+  cabinet: PlacedCabinet,
+  countertopTopIn = STD.COUNTERTOP_HEIGHT,
+): PlacedCabinet {
+  return {
+    ...cabinet,
+    mountBottom: countertopTopIn,
+    mountBottomAdjusted: true,
+  };
+}
 
 export function commitThreeDCabinetCandidate(
   placed: PlacedCabinet[],

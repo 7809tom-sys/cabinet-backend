@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { commitThreeDCabinetCandidate, threeDPlanMoveDelta } from "./designTool3DMovement";
+import { elevationBox, hasCollision, STD } from "@/lib/design";
+import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDPlanMoveDelta } from "./designTool3DMovement";
 
 const room = { width: 144, depth: 120, ceilingHeight: 96 } as const;
 
@@ -36,5 +37,53 @@ describe("3D cabinet movement plan mapping", () => {
 	    expect(result?.[1]).toBe(unrelated);
 	    expect(commitThreeDCabinetCandidate([selected, unrelated], "missing", moved)).toBeNull();
 	    expect(commitThreeDCabinetCandidate([selected, unrelated], "selected", { ...moved, uid: "other" })).toBeNull();
+	  });
+
+	  it("drops a selected wall cabinet exactly onto the finished countertop while preserving its identity and plan position", () => {
+	    const selected = {
+	      uid: "selected-wall",
+	      cabinetId: 3624,
+	      distributorSkuId: 93624,
+	      masterCode: "W-36-24",
+	      description: "36-inch wall cabinet",
+	      placement: "wall",
+	      x: 48,
+	      y: 0,
+	      width: 36,
+	      depth: 12,
+	      height: 24,
+	      rotation: 0,
+	      mountBottom: 70,
+	      styleId: 44,
+	      price: 259.35,
+	    } as any;
+	    const candidate = countertopMountedCabinet(selected);
+	    expect(candidate).toMatchObject({
+	      uid: "selected-wall",
+	      cabinetId: 3624,
+	      distributorSkuId: 93624,
+	      masterCode: "W-36-24",
+	      placement: "wall",
+	      x: 48,
+	      y: 0,
+	      width: 36,
+	      depth: 12,
+	      height: 24,
+	      rotation: 0,
+	      styleId: 44,
+	      price: 259.35,
+	      mountBottom: STD.COUNTERTOP_HEIGHT,
+	      mountBottomAdjusted: true,
+	    });
+	    expect(elevationBox(candidate, room as any)).toEqual({ bottom: STD.COUNTERTOP_HEIGHT, height: 24 });
+	  });
+
+	  it("allows exact edge contact above a base run and detects a real cabinet overlap at countertop height", () => {
+	    const base = { uid: "base", masterCode: "B-36", description: "Base cabinet", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0 } as any;
+	    const wall = { uid: "wall", masterCode: "W-36-24", description: "Wall cabinet", placement: "wall", x: 48, y: 0, width: 36, depth: 12, height: 24, rotation: 0, mountBottom: 70 } as any;
+	    const candidate = countertopMountedCabinet(wall);
+	    const blocker = { ...candidate, uid: "blocker", masterCode: "W-36-30" };
+	    expect(hasCollision(candidate, [base])).toBe(false);
+	    expect(hasCollision(candidate, [blocker])).toBe(true);
 	  });
 });

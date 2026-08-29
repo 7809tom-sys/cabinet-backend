@@ -1037,3 +1037,8 @@
 - [x] Correct any post-commit normalization or mesh-transform path that resets or ignores the selected cabinet’s committed X, Y, or elevation
 - [x] Add execution-level proof that changing mountBottom from 70 to 71 changes the rendered cabinet transform by exactly 1 inch without changing camera state
 - [x] Publish the post-commit rendering correction only after vertical and horizontal mesh transforms demonstrably follow the authoritative selected-cabinet record
+- [x] Add a selected-cabinet “Drop to countertop” toolbar action beside “Drop to floor” on PC, tablet, and mobile
+- [x] Move the selected eligible cabinet bottom to the finished countertop top line while preserving its X/Y position, SKU, style, distributor, finish, price, save/cart identity, and camera state
+- [x] Block Drop to countertop with an exact collision or ceiling reason when the cabinet cannot occupy the countertop elevation with 0-inch physical overlap
+- [x] Mark the countertop placement as an intentional manual mount so automatic over-sink cleanup cannot reset it
+- [x] Add responsive toolbar, exact-elevation, collision, persistence, and 3D transform regressions before publishing the feature
