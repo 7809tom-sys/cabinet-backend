@@ -962,3 +962,6 @@
 - [x] Fix both left-catalog click-to-add and drag-to-add so a base appliance beside LS3612 uses the corner cabinet’s actual adjoining-wall boundary, permits exact edge contact, and rejects only positive physical overlap
 - [x] Preserve DW-24 appliance identity, dimensions, price, active wall, saved design, cart, and unrelated cabinet placements while adding focused corner-placement regressions
 - [x] Apply the LS3612 adjoining-wall boundary correction to all base-layer left-catalog selections, including the demonstrated 3-DB18 drawer base, so no cabinet or floor appliance begins inside the corner footprint
+- [x] Reproduce the reported right-wall small-gap filler result where the newly placed cabinet lands sideways after the filler is applied
+- [x] Preserve the cabinet’s correct wall-facing rotation and transformed coordinates when applying left, right, or split filler layouts on vertical walls, with exact 0-inch overlap
+- [x] Keep the cabinet and filler SKU, price, dimensions, finish, grouping, save/restore, cart, and unrelated placements unchanged while adding focused vertical-wall regressions

@@ -3041,16 +3041,23 @@ export function threeDRoomFacingRotation(
   };
   const resolvedRoom = room as Pick<RoomData, "width" | "depth">;
   const defaultWall = threeDPlacedWall(cabinet, resolvedRoom);
-  // FSB36 can touch two walls at a run end. In that tie the 2D quarter turn
-  // determines its intended run: 90°/270° = left/right wall, 0°/180° = back/front.
+  // A cabinet and fitted filler can both touch two walls at the end of a run.
+  // In that tie, preserve the saved 2D run axis: 90°/270° belongs to the nearest
+  // left/right wall, while 0°/180° belongs to the nearest back/front wall. This
+  // prevents a right-wall cabinet moved by the filler workflow from becoming a
+  // front-wall cabinet merely because its final edge also touches the front wall.
   const savedQuarterTurn = ((Number(cabinet.rotation) % 360) + 360) % 360;
-  const isFarmhouseSink = /^(?:ADA)?FSB\d/.test(code);
   const footprint = normalizedThreeDFootprint(cabinet);
-  const sideWall = Math.abs(cabinet.x) <= Math.abs(resolvedRoom.width - (cabinet.x + footprint.w)) ? "left" : "right";
-  const horizontalWall = Math.abs(cabinet.y) <= Math.abs(resolvedRoom.depth - (cabinet.y + footprint.d)) ? "back" : "front";
-  const wall = isFarmhouseSink
-    ? (savedQuarterTurn === 90 || savedQuarterTurn === 270 ? sideWall : horizontalWall)
-    : defaultWall;
+  const leftDistance = Math.abs(cabinet.x);
+  const rightDistance = Math.abs(resolvedRoom.width - (cabinet.x + footprint.w));
+  const backDistance = Math.abs(cabinet.y);
+  const frontDistance = Math.abs(resolvedRoom.depth - (cabinet.y + footprint.d));
+  const sideWall: ThreeDPlacedWall = leftDistance <= rightDistance ? "left" : "right";
+  const horizontalWall: ThreeDPlacedWall = backDistance <= frontDistance ? "back" : "front";
+  const usesVerticalRun = savedQuarterTurn === 90 || savedQuarterTurn === 270;
+  const intendedWall = usesVerticalRun ? sideWall : horizontalWall;
+  const intendedWallDistance = usesVerticalRun ? Math.min(leftDistance, rightDistance) : Math.min(backDistance, frontDistance);
+  const wall = intendedWallDistance <= 6 ? intendedWall : defaultWall;
   return wall ? facing[wall] : fallbackRotation;
 }
 

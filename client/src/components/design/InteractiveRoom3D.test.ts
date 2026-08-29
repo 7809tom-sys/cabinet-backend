@@ -1074,6 +1074,49 @@ describe("interactive 3D room scene helpers", () => {
     expect(apronPosition.x).toBeLessThan(cabinetPosition.x);
   });
 
+  it("keeps a right-wall cabinet and fitted filler facing the room when either one touches the front-right corner", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const cabinetWithLeftFiller = {
+      uid: "b21-right-left-fill", cabinetId: 21, masterCode: "B-21-L", description: '21" Base Cabinet',
+      placement: "base", x: 96, y: 99, width: 21, depth: 24, height: 34.5, rotation: 90, numberOfDoors: 1, numberOfDrawers: 1,
+    } as never;
+    const leftFiller = {
+      uid: "f342-left", cabinetId: 342, masterCode: "F342-L", description: 'Filler cut to 3" — install on left',
+      placement: "base", x: 96, y: 96, width: 3, depth: 24, height: 34.5, rotation: 90, numberOfDoors: 0, numberOfDrawers: 0,
+      fillerPieceGroupId: "filler-group-left", fillerTotalWidth: 3, fillerPlacementMode: "left",
+    } as never;
+    const cabinetWithRightFiller = {
+      ...cabinetWithLeftFiller,
+      uid: "b21-right-right-fill", masterCode: "B-21-R", y: 72,
+    } as never;
+    const rightFiller = {
+      ...leftFiller,
+      uid: "f342-right", masterCode: "F342-R", description: 'Filler cut to 3" — install on right', y: 93, fillerPieceGroupId: "filler-group-right", fillerPlacementMode: "right",
+    } as never;
+    const root = new THREE.Group();
+    for (const placed of [cabinetWithLeftFiller, leftFiller, cabinetWithRightFiller, rightFiller]) {
+      addCabinet(root, existingCabinetSku(placed), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(placed, room));
+    }
+    root.updateMatrixWorld(true);
+    const measured = [cabinetWithLeftFiller, leftFiller, cabinetWithRightFiller, rightFiller].map((placed) => {
+      const group = root.children.find((node) => node.userData.placedUid === placed.uid)!;
+      const body = group.children.find((node) => node.userData.selectedStyleSideSkin)!;
+      return new THREE.Box3().setFromObject(body).getSize(new THREE.Vector3());
+    });
+
+    expect(measured[0]!.x).toBeCloseTo(24 / 12, 5);
+    expect(measured[0]!.z).toBeCloseTo(21 / 12, 5);
+    expect(measured[1]!.x).toBeCloseTo(24 / 12, 5);
+    expect(measured[1]!.z).toBeCloseTo(3 / 12, 5);
+    expect(measured[2]!.x).toBeCloseTo(24 / 12, 5);
+    expect(measured[2]!.z).toBeCloseTo(21 / 12, 5);
+    expect(measured[3]!.x).toBeCloseTo(24 / 12, 5);
+    expect(measured[3]!.z).toBeCloseTo(3 / 12, 5);
+    for (const placed of [cabinetWithLeftFiller, leftFiller, cabinetWithRightFiller, rightFiller]) {
+      expect(existingCabinetTransform(placed, room).rotation).toBeCloseTo(-Math.PI / 2, 12);
+    }
+  });
+
   it("keeps FSB36's apron on its rotated right-wall run when it also touches the front wall", () => {
     const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
     const fsbAtFrontRight = {
