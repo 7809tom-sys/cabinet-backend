@@ -383,10 +383,10 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(up).toBeLessThan(left);
 	    expect(left).toBeLessThan(right);
 	    expect(right).toBeLessThan(down);
-	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("up")}');
-	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("down")}');
-	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("left")}');
-	    expect(rendererSource).toContain('onClick={() => requestCabinetMove("right")}');
+	    expect(rendererSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }}');
+	    expect(rendererSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }}');
+	    expect(rendererSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }}');
+	    expect(rendererSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }}');
 	  });
 
   it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
@@ -598,6 +598,28 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4)).toBe(true);
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 5)).toBe(false);
     expect(threeDShouldRestoreCameraView(snapshot, "front", 4)).toBe(false);
+  });
+
+  it("captures the live viewpoint before every D-pad move and isolates the in-panel controls from orbit events", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const moveStart = rendererSource.indexOf("const requestCabinetMove = (");
+    const moveEnd = rendererSource.indexOf("const clearRightDragGhost", moveStart);
+    const moveSource = rendererSource.slice(moveStart, moveEnd);
+    const dpadStart = rendererSource.indexOf('data-testid="three-d-selected-cabinet-dpad"');
+    const dpadEnd = rendererSource.indexOf('data-testid="three-d-cabinet-actions"', dpadStart);
+    const dpadSource = rendererSource.slice(dpadStart, dpadEnd);
+
+    expect(moveStart).toBeGreaterThan(-1);
+    expect(moveSource).toContain("preserveCurrentCameraView();");
+    expect(moveSource.indexOf("preserveCurrentCameraView();")).toBeLessThan(moveSource.indexOf("onMoveCabinet("));
+    expect(moveSource).toContain("setAutoRotate(false);");
+    expect(dpadSource).toContain("onPointerDown={stopCabinetMoveControlEvent}");
+    expect(dpadSource).toContain("onPointerUp={stopCabinetMoveControlEvent}");
+    expect(dpadSource).toContain("onClick={stopCabinetMoveControlEvent}");
+    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }}');
+    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }}');
+    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }}');
+    expect(dpadSource).toContain('onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }}');
   });
 
   it("captures the live orbit, target, and zoom before cabinet removal rebuilds the 3D scene", () => {

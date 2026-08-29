@@ -1012,3 +1012,8 @@
 - [x] Reproduce the affiliate range-placement path that skips the measured small-gap filler prompt and route it through the existing catalog-backed left, right, split, leave-open, and Auto-fill workflow
 - [x] Reproduce HOOD-30 being rejected because placement searches for an empty 30-inch base opening, then target the actual saved range footprint, wall ownership, and safe over-range elevation instead
 - [x] Preserve cabinet, range, hood, filler, distributor, style, finish, SKU, price, camera, saved design, cart, countertop, and unrelated placement data while adding focused camera, movement, affiliate filler, hood, and responsive regressions
+- [x] Reproduce why the published in-panel D-pad still appears not to move the selected cabinet and why each arrow click rotates or resets the 3D drawing
+- [x] Stop D-pad pointer and click events from reaching 3D orbit handling while preserving keyboard focus and accessible button activation across mouse and touch input
+- [x] Capture the current camera position, orbit target, and zoom immediately before every selected-cabinet move, then restore that exact viewpoint after the scene rebuild
+- [x] Ensure each arrow dispatches the validated movement increment exactly once and retains the precise collision, lock, wall, opening, or ceiling blocker when the move cannot commit
+- [x] Preserve cabinet identity, position history, price, saved design, cart, camera preset, fixtures, fillers, countertops, and unrelated placements while adding focused live-interaction and responsive regressions

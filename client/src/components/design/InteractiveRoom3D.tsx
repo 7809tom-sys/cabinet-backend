@@ -4410,6 +4410,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 
   const requestCabinetMove = (direction: ThreeDCabinetMoveDirection) => {
     if (!selectedCabinet?.uid || !onMoveCabinet) return;
+    preserveCurrentCameraView();
+    setAutoRotate(false);
     let planDelta: ThreeDPlanMoveDelta | undefined;
     const selectedPlacedCabinet = placed.find((cabinet) => cabinet.uid === selectedCabinet.uid);
     if ((direction === "left" || direction === "right") && cameraRef.current && selectedPlacedCabinet) {
@@ -4418,6 +4420,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       planDelta = threeDScreenHorizontalPlanDelta(cabinetWall(selectedPlacedCabinet, movementRoom), direction, moveIncrementIn, cameraRight);
     }
     onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta);
+  };
+
+  const stopCabinetMoveControlEvent = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
   };
 
   const clearRightDragGhost = () => {
@@ -4850,16 +4856,16 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		              </dl>
 		              <span className="sr-only">{wallFitText}</span>
 		            </div>}
-		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
+		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={stopCabinetMoveControlEvent} onPointerUp={stopCabinetMoveControlEvent} onClick={stopCabinetMoveControlEvent} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
-		                <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button data-testid="three-d-move-up" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
-		                <button data-testid="three-d-move-left" type="button" onClick={() => requestCabinetMove("left")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-l-md border border-border bg-white shadow-sm active:scale-95" title="Move left"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button>
-		                <button type="button" onClick={() => onRotateCabinet?.(selectedCabinet.uid!)} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button>
-		                <button data-testid="three-d-move-right" type="button" onClick={() => requestCabinetMove("right")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-r-md border border-border bg-white shadow-sm active:scale-95" title="Move right"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button data-testid="three-d-move-left" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-l-md border border-border bg-white shadow-sm active:scale-95" title="Move left"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button type="button" onClick={(event) => { event.stopPropagation(); preserveCurrentCameraView(); setAutoRotate(false); onRotateCabinet?.(selectedCabinet.uid!); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button>
+		                <button data-testid="three-d-move-right" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-r-md border border-border bg-white shadow-sm active:scale-95" title="Move right"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
-		                <button data-testid="three-d-move-down" type="button" onClick={() => requestCabinetMove("down")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
+		                <button data-testid="three-d-move-down" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
 		              </div>
 		              <label className="flex items-center gap-0.5 rounded border border-border bg-white px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow-sm" title="Movement amount in inches; rounded to the nearest 1/8 inch">
