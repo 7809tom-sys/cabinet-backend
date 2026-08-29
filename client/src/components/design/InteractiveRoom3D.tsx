@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
@@ -217,6 +217,27 @@ export type ThreeDCabinetMoveResult = {
   status: "moved" | "blocked";
   message: string;
 };
+
+export function ThreeDCabinetMoveButton({ testId, direction, title, className, onMove, children }: {
+  testId: string;
+  direction: ThreeDCabinetMoveDirection;
+  title: string;
+  className: string;
+  onMove: (direction: ThreeDCabinetMoveDirection) => void;
+  children: ReactNode;
+}) {
+  const claimPointer = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation?.();
+    if (event.button === 0 && event.isPrimary !== false) onMove(direction);
+  };
+  const activateFromKeyboard = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (event.detail === 0) onMove(direction);
+  };
+  return <button data-testid={testId} type="button" onPointerDownCapture={claimPointer} onClick={activateFromKeyboard} className={className} title={title}>{children}</button>;
+}
 
 /** Converts a screen-left/right request into the selected wall's horizontal plan axis. */
 export function threeDScreenHorizontalPlanDelta(
@@ -4052,6 +4073,13 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
   }, [cabinetFinish, countertopFinish, onPresentationChange]);
 
   useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    controls.autoRotate = autoRotate;
+    controls.update();
+  }, [autoRotate]);
+
+  useEffect(() => {
     const syncFullscreenState = () => setIsFullscreen(document.fullscreenElement === previewRootRef.current);
     document.addEventListener("fullscreenchange", syncFullscreenState);
     return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
@@ -4293,7 +4321,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, autoRotate, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
@@ -4901,16 +4929,16 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		              </dl>
 		              <span className="sr-only">{wallFitText}</span>
 		            </div>}
-		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" data-ui-overlay="cabinet-move" aria-label="Move selected cabinet" onPointerDownCapture={claimCabinetMoveControlEvent} onPointerUpCapture={claimCabinetMoveControlEvent} onWheelCapture={claimCabinetMoveControlEvent} onContextMenu={claimCabinetMoveControlEvent} onPointerDown={stopCabinetMoveControlEvent} onPointerUp={stopCabinetMoveControlEvent} onClick={stopCabinetMoveControlEvent} className="pointer-events-auto relative z-30 flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
+		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" data-ui-overlay="cabinet-move" aria-label="Move selected cabinet" onWheelCapture={claimCabinetMoveControlEvent} onContextMenu={claimCabinetMoveControlEvent} onPointerDown={stopCabinetMoveControlEvent} onPointerUp={stopCabinetMoveControlEvent} onClick={stopCabinetMoveControlEvent} className="pointer-events-auto relative z-30 flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
-		                <button data-testid="three-d-move-up" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("up"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
+		                <ThreeDCabinetMoveButton testId="three-d-move-up" direction="up" onMove={requestCabinetMove} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${formatEighthInches(moveIncrementIn)}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></ThreeDCabinetMoveButton>
 		                <span />
-		                <button data-testid="three-d-move-left" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("left"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-l-md border border-border bg-white shadow-sm active:scale-95" title="Move left"><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></button>
+		                <ThreeDCabinetMoveButton testId="three-d-move-left" direction="left" onMove={requestCabinetMove} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-l-md border border-border bg-white shadow-sm active:scale-95" title={`Move left ${formatEighthInches(moveIncrementIn)}`}><ArrowLeft className="h-4 w-4 text-[#1a2744]" /></ThreeDCabinetMoveButton>
 		                <button type="button" onClick={(event) => { event.stopPropagation(); preserveCurrentCameraView(); setAutoRotate(false); onRotateCabinet?.(selectedCabinet.uid!); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-sm border border-[#1a2744] bg-[#1a2744] shadow-sm active:scale-95" title="Rotate 90 degrees"><Rotate3D className="h-4 w-4 text-white" /></button>
-		                <button data-testid="three-d-move-right" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("right"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-r-md border border-border bg-white shadow-sm active:scale-95" title="Move right"><ArrowRight className="h-4 w-4 text-[#1a2744]" /></button>
+		                <ThreeDCabinetMoveButton testId="three-d-move-right" direction="right" onMove={requestCabinetMove} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-r-md border border-border bg-white shadow-sm active:scale-95" title={`Move right ${formatEighthInches(moveIncrementIn)}`}><ArrowRight className="h-4 w-4 text-[#1a2744]" /></ThreeDCabinetMoveButton>
 		                <span />
-		                <button data-testid="three-d-move-down" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
+		                <ThreeDCabinetMoveButton testId="three-d-move-down" direction="down" onMove={requestCabinetMove} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></ThreeDCabinetMoveButton>
 		                <span />
 		              </div>
 		              <label className="flex min-w-[92px] flex-col rounded border border-border bg-white px-1.5 py-1 text-[#1a2744] shadow-sm" title="Type an exact movement amount in inches, such as 2.5, 1/2, 1 3/8, or ¾">

@@ -115,7 +115,7 @@ import { buildTrimCartLines,
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
-import { threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -4848,7 +4848,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
 	    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
-	      const nextPlaced = prev.map((item) => item.uid === uid ? candidate : item);
+	      const nextPlaced = commitThreeDCabinetCandidate(prev, uid, candidate);
+	      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
 	      placedRef.current = nextPlaced;
 	      setPlaced(nextPlaced);
 	      if (delta && isSinkBaseCabinet(cabinet) && (delta.x !== 0 || delta.y !== 0)) {
@@ -4861,7 +4862,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        }));
 	      }
 	      setPlacementWarning(null);
-	      return { status: "moved", message: `Moved ${cabinet.masterCode} ${direction} ${formatEighthInches(step)}.` };
+	      const coordinateChange = direction === "up" || direction === "down"
+	        ? `bottom ${formatEighthInches(elevationBox(cabinet, room).bottom)} → ${formatEighthInches(elevationBox(candidate, room).bottom)}`
+	        : delta?.x
+	          ? `X ${formatEighthInches(cabinet.x)} → ${formatEighthInches(candidate.x)}`
+	          : `Y ${formatEighthInches(cabinet.y)} → ${formatEighthInches(candidate.y)}`;
+	      return { status: "moved", message: `Moved ${cabinet.masterCode} ${direction} ${formatEighthInches(step)} (${coordinateChange}).` };
 	    };
 	    if (direction === "up" || direction === "down") {
 	      const currentElevation = elevationBox(cabinet, room);

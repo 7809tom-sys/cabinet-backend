@@ -36,6 +36,9 @@ describe("Design Tool vertical wall-cabinet movement", () => {
 	    expect(callbackSource.indexOf("placedRef.current = nextPlaced;")).toBeLessThan(callbackSource.indexOf("setPlaced(nextPlaced);"));
 	    expect(callbackSource).toContain('status: "moved"');
 	    expect(callbackSource).toContain('status: "blocked"');
+	    expect(callbackSource).toContain("coordinateChange");
+	    expect(callbackSource).toContain("X ${formatEighthInches(cabinet.x)} → ${formatEighthInches(candidate.x)}");
+	    expect(callbackSource).toContain("Y ${formatEighthInches(cabinet.y)} → ${formatEighthInches(candidate.y)}");
 	    expect(source).not.toContain("key={interactive3dRevision}");
 	    expect(source).not.toContain("const interactive3dRevision = useMemo");
 	  });

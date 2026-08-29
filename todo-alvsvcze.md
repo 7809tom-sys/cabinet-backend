@@ -1027,3 +1027,8 @@
 - [x] Obtain an independent debugging analysis of the repeated live no-move and camera-rotation failure before another production fix
 - [x] Fix the authoritative movement and camera-ownership path so every successful arrow click changes only cabinet position/elevation and never the current 3D viewpoint
 - [ ] Verify all four arrows and blocked-move feedback in the real browser with invariant camera coordinates, then publish only after that proof
+- [x] Reproduce the user-confirmed failure on published version 93755e5a and determine whether the arrow click fires, which cabinet UID is dispatched, and whether the returned result is moved or blocked
+- [x] Verify whether the authoritative placed array changes while the rendered threeDPlaced projection remains stale, filtered, or mapped from a different source
+- [x] Add coordinate-level movement telemetry or an authenticated-equivalent interaction harness that proves the selected cabinet UID changes by the entered increment
+- [x] Correct the actual click-to-state-to-3D-render path without changing cabinet identity, pricing, save/cart state, zero-overlap rules, or camera position/target/zoom
+- [x] Publish another D-pad correction only after all four directions and blocked feedback pass execution-level tests beyond source-string assertions

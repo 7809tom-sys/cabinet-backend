@@ -2,6 +2,15 @@ import { cabinetWall, type PlacedCabinet, type RoomData } from "@/lib/design";
 
 export type ThreeDPlanMoveDirection = "left" | "right" | "in" | "out";
 
+export function commitThreeDCabinetCandidate(
+  placed: PlacedCabinet[],
+  uid: string,
+  candidate: PlacedCabinet,
+): PlacedCabinet[] | null {
+  if (!placed.some((cabinet) => cabinet.uid === uid) || candidate.uid !== uid) return null;
+  return placed.map((cabinet) => cabinet.uid === uid ? candidate : cabinet);
+}
+
 /**
  * Converts the screen-relative 3D move controls into inches on the authoritative
  * 2D plan. The result follows the cabinet front that faces into the room.

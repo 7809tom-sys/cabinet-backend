@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, threeDPlanMoveDelta } from "./designTool3DMovement";
 
 const room = { width: 144, depth: 120, ceilingHeight: 96 } as const;
 
@@ -21,8 +21,20 @@ describe("3D cabinet movement plan mapping", () => {
     expect(threeDPlanMoveDelta(leftWall, room as any, "in", 6)).toEqual({ x: 6, y: 0 });
   });
 
-  it("limits an invalid movement increment to the controlled attributes range", () => {
-    const backWall = { uid: "back", masterCode: "W-30", description: "Wall cabinet", placement: "wall", x: 42, y: 0, width: 30, depth: 12, height: 30, rotation: 0 } as any;
-    expect(threeDPlanMoveDelta(backWall, room as any, "right", 999)).toEqual({ x: 24, y: 0 });
-  });
+	  it("limits an invalid movement increment to the controlled attributes range", () => {
+	    const backWall = { uid: "back", masterCode: "W-30", description: "Wall cabinet", placement: "wall", x: 42, y: 0, width: 30, depth: 12, height: 30, rotation: 0 } as any;
+	    expect(threeDPlanMoveDelta(backWall, room as any, "right", 999)).toEqual({ x: 24, y: 0 });
+	  });
+
+	  it("commits moved coordinates only to the exact selected UID and preserves unrelated cabinet identity", () => {
+	    const selected = { uid: "selected", masterCode: "W-36-24", x: 12, y: 0, width: 36, depth: 12, height: 24 } as any;
+	    const unrelated = { uid: "other", masterCode: "B-18", x: 60, y: 0, width: 18, depth: 24, height: 34.5 } as any;
+	    const moved = { ...selected, x: 13 };
+	    const result = commitThreeDCabinetCandidate([selected, unrelated], "selected", moved);
+	    expect(result?.[0]).toEqual(moved);
+	    expect(result?.[0]).not.toBe(selected);
+	    expect(result?.[1]).toBe(unrelated);
+	    expect(commitThreeDCabinetCandidate([selected, unrelated], "missing", moved)).toBeNull();
+	    expect(commitThreeDCabinetCandidate([selected, unrelated], "selected", { ...moved, uid: "other" })).toBeNull();
+	  });
 });
