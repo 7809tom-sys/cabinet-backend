@@ -1017,3 +1017,13 @@
 - [x] Capture the current camera position, orbit target, and zoom immediately before every selected-cabinet move, then restore that exact viewpoint after the scene rebuild
 - [x] Ensure each arrow dispatches the validated movement increment exactly once and retains the precise collision, lock, wall, opening, or ceiling blocker when the move cannot commit
 - [x] Preserve cabinet identity, position history, price, saved design, cart, camera preset, fixtures, fillers, countertops, and unrelated placements while adding focused live-interaction and responsive regressions
+- [x] Add a clearly labeled text input directly beside the selected-cabinet D-pad for an exact movement distance in inches, including decimals, simple fractions, mixed fractions, common fraction glyphs, and 1/8-inch normalization
+- [x] Make every D-pad direction use the currently entered exact movement distance while retaining bounds, collision, wall, opening, ceiling, and 0-inch-overlap enforcement
+- [x] Ensure the Materials & Parts popup has dedicated visible Print and Export CSV buttons on desktop, tablet, and phone
+- [x] Verify the popup print and CSV actions include the complete numbered cabinet and alphabetized non-cabinet table with identity, finish, quantity, dimensions, notes, pricing, and totals
+- [x] Preserve cabinet positions, catalog identity, pricing, saved designs, carts, materials data, camera state, fillers, fixtures, countertops, and unrelated placements while adding focused responsive regressions
+- [ ] Reproduce the still-failing published D-pad in a real authenticated Designer interaction and record the selected cabinet coordinates plus camera position, target, and zoom before and after a click
+- [ ] Trace the complete live event from the in-panel arrow through orbit listeners, host move callback, placed-cabinet state update, and 3D scene restoration instead of relying only on source-string tests
+- [ ] Obtain an independent debugging analysis of the repeated live no-move and camera-rotation failure before another production fix
+- [ ] Fix the authoritative movement and camera-ownership path so every successful arrow click changes only cabinet position/elevation and never the current 3D viewpoint
+- [ ] Verify all four arrows and blocked-move feedback in the real browser with invariant camera coordinates, then publish only after that proof

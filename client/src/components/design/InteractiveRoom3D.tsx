@@ -232,9 +232,40 @@ export function threeDScreenHorizontalPlanDelta(
 export type ThreeDCatalogDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
 export const THREE_D_MIN_MOVE_INCREMENT_IN = 0.125;
 export const THREE_D_MAX_MOVE_INCREMENT_IN = 24;
+const THREE_D_FRACTION_GLYPHS: Record<string, number> = {
+  "⅛": 0.125,
+  "¼": 0.25,
+  "⅜": 0.375,
+  "½": 0.5,
+  "⅝": 0.625,
+  "¾": 0.75,
+  "⅞": 0.875,
+};
+
+export function parsedThreeDCabinetMoveIncrement(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/(?:in(?:ches?)?|["″])$/i, "").trim();
+  if (!text) return null;
+  const glyph = text.match(/^(\d+(?:\.\d+)?)?\s*([⅛¼⅜½⅝¾⅞])$/);
+  if (glyph) return Number(glyph[1] || 0) + THREE_D_FRACTION_GLYPHS[glyph[2]];
+  const mixed = text.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) {
+    const denominator = Number(mixed[3]);
+    return denominator > 0 ? Number(mixed[1]) + Number(mixed[2]) / denominator : null;
+  }
+  const fraction = text.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (fraction) {
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? Number(fraction[1]) / denominator : null;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function normalizedThreeDCabinetMoveIncrement(value: unknown): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 1;
+  const parsed = parsedThreeDCabinetMoveIncrement(value);
+  if (parsed == null) return 1;
   const bounded = Math.min(THREE_D_MAX_MOVE_INCREMENT_IN, Math.max(THREE_D_MIN_MOVE_INCREMENT_IN, parsed));
   return Math.round(bounded * 8) / 8;
 }
@@ -3928,7 +3959,8 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
     }
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
-  const [moveIncrementIn, setMoveIncrementIn] = useState(1);
+  const [moveIncrementText, setMoveIncrementText] = useState("1");
+  const moveIncrementIn = normalizedThreeDCabinetMoveIncrement(moveIncrementText);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
@@ -4868,10 +4900,12 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		                <button data-testid="three-d-move-down" type="button" onClick={(event) => { event.stopPropagation(); requestCabinetMove("down"); }} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-b-md border border-border bg-white shadow-sm active:scale-95" title={`Move down ${formatEighthInches(moveIncrementIn)}`}><ArrowDown className="h-4 w-4 text-[#1a2744]" /></button>
 		                <span />
 		              </div>
-		              <label className="flex items-center gap-0.5 rounded border border-border bg-white px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow-sm" title="Movement amount in inches; rounded to the nearest 1/8 inch">
-		                <span className="sr-only">Movement amount in inches</span>
-		                <input data-testid="three-d-move-increment" aria-label="Movement amount in inches" type="number" min={THREE_D_MIN_MOVE_INCREMENT_IN} max={THREE_D_MAX_MOVE_INCREMENT_IN} step={THREE_D_MIN_MOVE_INCREMENT_IN} value={moveIncrementIn} onFocus={(event) => event.currentTarget.select()} onChange={(event) => { if (event.currentTarget.value !== "") setMoveIncrementIn(normalizedThreeDCabinetMoveIncrement(event.currentTarget.value)); }} className="h-6 w-12 bg-transparent text-right text-[10px] font-bold tabular-nums outline-none" />
-		                <span aria-hidden="true">&quot;</span>
+		              <label className="flex min-w-[92px] flex-col rounded border border-border bg-white px-1.5 py-1 text-[#1a2744] shadow-sm" title="Type an exact movement amount in inches, such as 2.5, 1/2, 1 3/8, or ¾">
+		                <span className="text-[8px] font-bold uppercase tracking-wide">Move distance</span>
+		                <span className="flex items-center gap-0.5">
+		                  <input data-testid="three-d-move-increment" aria-label="Move distance in inches" type="text" inputMode="decimal" value={moveIncrementText} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setMoveIncrementText(event.currentTarget.value)} onBlur={() => setMoveIncrementText(String(moveIncrementIn))} onKeyDown={(event) => { if (event.key === "Enter") { setMoveIncrementText(String(moveIncrementIn)); event.currentTarget.blur(); } else if (event.key === "Escape") { setMoveIncrementText(String(moveIncrementIn)); event.currentTarget.blur(); } }} className="h-6 min-w-0 w-16 bg-transparent text-right text-[11px] font-bold tabular-nums outline-none" />
+		                  <span className="text-[10px] font-bold" aria-hidden="true">&quot;</span>
+		                </span>
 		              </label>
 		            </div>}
 		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:col-span-3">

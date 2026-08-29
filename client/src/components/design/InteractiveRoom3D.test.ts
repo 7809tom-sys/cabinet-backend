@@ -11,7 +11,7 @@ import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serialize
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
-import { normalizedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
+import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 
@@ -700,13 +700,20 @@ describe("interactive 3D room scene helpers", () => {
   it("accepts an editable movement amount at one-eighth-inch precision and bounds unsafe values", () => {
     expect(THREE_D_MIN_MOVE_INCREMENT_IN).toBe(0.125);
     expect(THREE_D_MAX_MOVE_INCREMENT_IN).toBe(24);
+    expect(parsedThreeDCabinetMoveIncrement("1/2")).toBe(0.5);
+    expect(parsedThreeDCabinetMoveIncrement("1 3/8")).toBe(1.375);
+    expect(parsedThreeDCabinetMoveIncrement("2¾")).toBe(2.75);
+    expect(parsedThreeDCabinetMoveIncrement('2.5"')).toBe(2.5);
     expect(normalizedThreeDCabinetMoveIncrement(2.625)).toBe(2.625);
     expect(normalizedThreeDCabinetMoveIncrement(2.68)).toBe(2.625);
+    expect(normalizedThreeDCabinetMoveIncrement("1 5/16")).toBe(1.375);
     expect(normalizedThreeDCabinetMoveIncrement(0)).toBe(0.125);
     expect(normalizedThreeDCabinetMoveIncrement(200)).toBe(24);
     expect(normalizedThreeDCabinetMoveIncrement("bad")).toBe(1);
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain('data-testid="three-d-move-increment"');
+    expect(rendererSource).toContain('Move distance</span>');
+    expect(rendererSource).toContain('type="text" inputMode="decimal"');
     expect(rendererSource).toContain("onMoveCabinet(selectedCabinet.uid, direction, moveIncrementIn, planDelta)");
   });
 
