@@ -1,6 +1,7 @@
 import { cabinetWall, STD, type PlacedCabinet, type RoomData } from "@/lib/design";
 
 export type ThreeDPlanMoveDirection = "left" | "right" | "in" | "out";
+export const MAX_CABINET_PLAN_MOVE_IN = 120;
 
 export function countertopMountedCabinet(
   cabinet: PlacedCabinet,
@@ -32,7 +33,7 @@ export function threeDPlanMoveDelta(
   direction: ThreeDPlanMoveDirection,
   incrementIn: number,
 ) {
-  const step = Math.max(0.125, Math.min(24, Number(incrementIn) || 1));
+	  const step = Math.max(0.125, Math.min(MAX_CABINET_PLAN_MOVE_IN, Number(incrementIn) || 1));
   const side = cabinetWall(cabinet, room);
   const vectors: Record<ThreeDPlanMoveDirection, { x: number; y: number }> = {
     left: side === "top" ? { x: -step, y: 0 } : side === "bottom" ? { x: step, y: 0 } : side === "left" ? { x: 0, y: step } : { x: 0, y: -step },

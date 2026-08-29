@@ -51,6 +51,76 @@ import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLa
 import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
 import { trpc } from "@/lib/trpc";
 
+export const MIN_CABINET_DEPTH_MOVE_IN = 0.125;
+export const MAX_CABINET_DEPTH_MOVE_IN = 120;
+const DEPTH_MOVE_FRACTION_GLYPHS: Record<string, number> = {
+  "⅛": 0.125,
+  "¼": 0.25,
+  "⅜": 0.375,
+  "½": 0.5,
+  "⅝": 0.625,
+  "¾": 0.75,
+  "⅞": 0.875,
+};
+
+export function parsedCabinetDepthMoveDistance(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/(?:in(?:ches?)?|["″])$/i, "").trim();
+  if (!text) return null;
+  const glyph = text.match(/^(\d+(?:\.\d+)?)?\s*([⅛¼⅜½⅝¾⅞])$/);
+  if (glyph) return Number(glyph[1] || 0) + DEPTH_MOVE_FRACTION_GLYPHS[glyph[2]];
+  const mixed = text.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) {
+    const denominator = Number(mixed[3]);
+    return denominator > 0 ? Number(mixed[1]) + Number(mixed[2]) / denominator : null;
+  }
+  const fraction = text.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (fraction) {
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? Number(fraction[1]) / denominator : null;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function normalizedCabinetDepthMoveDistance(value: unknown): number {
+  const parsed = parsedCabinetDepthMoveDistance(value);
+  if (parsed == null) return 1;
+  const bounded = Math.min(MAX_CABINET_DEPTH_MOVE_IN, Math.max(MIN_CABINET_DEPTH_MOVE_IN, parsed));
+  return Math.round(bounded * 8) / 8;
+}
+
+export function CabinetDepthMoveControls({
+  onMove,
+}: {
+  onMove: (direction: "in" | "out", distanceIn: number) => void;
+}) {
+  const [distanceText, setDistanceText] = useState("1");
+  const distance = normalizedCabinetDepthMoveDistance(distanceText);
+  return (
+    <div className="flex flex-wrap items-end gap-2" data-testid="cabinet-depth-move-controls">
+      <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+        Depth move distance
+        <span className="flex items-center gap-1">
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={distanceText}
+            className="h-9 w-24 text-center font-mono text-sm"
+            aria-label="Depth move distance in inches"
+            onChange={(event) => setDistanceText(event.target.value)}
+            onBlur={() => setDistanceText(String(distance))}
+          />
+          <span className="text-xs">in.</span>
+        </span>
+      </label>
+      <Button type="button" variant="outline" size="sm" className="h-9 min-w-[116px]" title={`Move out ${distance} inches toward the wall`} onClick={() => onMove("out", distance)}>Move Out {distance}″</Button>
+      <Button type="button" variant="outline" size="sm" className="h-9 min-w-[106px]" title={`Move in ${distance} inches into the room`} onClick={() => onMove("in", distance)}>Move In {distance}″</Button>
+    </div>
+  );
+}
+
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
   label,
@@ -135,7 +205,7 @@ export interface CabinetAttributesDialogProps {
   mountBottom?: number | null;
   maxMountBottom?: number;
   onSetMountBottom?: (uid: string, v: number) => void;
-  onMoveInOut?: (uid: string, direction: "in" | "out") => void;
+	  onMoveInOut?: (uid: string, direction: "in" | "out", distanceIn: number) => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -210,8 +280,8 @@ export function CabinetAttributesDialog({
   savingMasterConfig,
   onSetOvenType,
 }: CabinetAttributesDialogProps) {
-  const { t } = useLanguage();
-  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
+	  const { t } = useLanguage();
+	  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
   const masterCode = cabinet?.masterCode ?? "";
   const cabinetId = cabinet?.cabinetId ?? 0;
@@ -243,7 +313,7 @@ export function CabinetAttributesDialog({
   const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
   const isBase = cabinet.placement === "base";
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
-  const canMoveInOut = typeof onMoveInOut === "function";
+	  const canMoveInOut = typeof onMoveInOut === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   return (
@@ -374,18 +444,15 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {canMoveInOut && (
-            <section className="space-y-2 border-t border-border pt-4">
-              <div>
-                <h4 className="text-sm font-semibold">Depth position</h4>
-                <p className="text-[11px] text-muted-foreground">Move this cabinet one inch toward the wall or into the room.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" title="Move out one inch toward the wall" onClick={() => onMoveInOut?.(uid, "out")}>Move Out 1″</Button>
-                <Button type="button" variant="outline" size="sm" title="Move in one inch into the room" onClick={() => onMoveInOut?.(uid, "in")}>Move In 1″</Button>
-              </div>
-            </section>
-          )}
+	          {canMoveInOut && (
+	            <section className="space-y-2 border-t border-border pt-4">
+	              <div>
+	                <h4 className="text-sm font-semibold">Depth position</h4>
+	                <p className="text-[11px] text-muted-foreground">Choose an exact distance, then move this cabinet toward the wall or into the room.</p>
+	              </div>
+	              <CabinetDepthMoveControls onMove={(direction, distanceIn) => onMoveInOut?.(uid, direction, distanceIn)} />
+	            </section>
+	          )}
 
           {/* Oven Type — only for oven-tall cabinets */}
           {cabinetDrawingType(cabinet) === "oven-tall" && (

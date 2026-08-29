@@ -1050,3 +1050,8 @@
 - [x] Verify the published source contained Drop to countertop despite the owner’s client screenshot omitting it, then replace duplicated markup with one directly tested shared toolbar group
 - [x] Ensure Drop to countertop visibly renders immediately beside Drop to floor in every actual selected wall-cabinet toolbar path on PC, tablet, and mobile
 - [x] Publish BBC36 dimension/facing and toolbar-visibility corrections only after rendered-path tests cover the owner’s exact screenshots
+- [x] Replace fixed one-inch Cabinet Attributes depth movement with a visible exact Depth move distance field beside Move Out and Move In
+- [x] Accept decimals, simple fractions, mixed fractions, fraction glyphs, and values of at least 30 inches, normalized to one-eighth inch
+- [x] Apply the selected depth distance exactly in both inward and outward directions while enforcing room bounds and 0-inch physical overlap
+- [x] Preserve the selected cabinet UID, plan dimensions, SKU, style, distributor, finish, price, saved-design/cart identity, and unrelated placements during depth moves
+- [x] Add PC, tablet, mobile, 30-inch, fraction, collision, boundary, and persistence regressions before publishing the selectable depth distance

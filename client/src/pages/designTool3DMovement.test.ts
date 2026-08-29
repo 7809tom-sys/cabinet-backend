@@ -22,9 +22,11 @@ describe("3D cabinet movement plan mapping", () => {
     expect(threeDPlanMoveDelta(leftWall, room as any, "in", 6)).toEqual({ x: 6, y: 0 });
   });
 
-	  it("limits an invalid movement increment to the controlled attributes range", () => {
+	  it("allows a 30-inch depth move and limits oversized input to the controlled attributes range", () => {
 	    const backWall = { uid: "back", masterCode: "W-30", description: "Wall cabinet", placement: "wall", x: 42, y: 0, width: 30, depth: 12, height: 30, rotation: 0 } as any;
-	    expect(threeDPlanMoveDelta(backWall, room as any, "right", 999)).toEqual({ x: 24, y: 0 });
+	    expect(threeDPlanMoveDelta(backWall, room as any, "in", 30)).toEqual({ x: 0, y: 30 });
+	    expect(threeDPlanMoveDelta(backWall, room as any, "out", 30)).toEqual({ x: 0, y: -30 });
+	    expect(threeDPlanMoveDelta(backWall, room as any, "right", 999)).toEqual({ x: 120, y: 0 });
 	  });
 
 	  it("commits moved coordinates only to the exact selected UID and preserves unrelated cabinet identity", () => {
