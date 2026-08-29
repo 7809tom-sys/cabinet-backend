@@ -998,3 +998,6 @@
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view
 - [x] Remove the remaining duplicate/absolute movement control that still covers selected-cabinet information, retaining only the compact touch control inside the panel on tablet and phone and mouse/keyboard movement on desktop
 - [x] Preserve W-36-24 SKU, dimensions, price, finish, wall ownership, saved design, cart, fixtures, fillers, countertops, and unrelated placements while adding focused fixture, elevation, direction, collision, and responsive regressions
+- [x] Restore one compact selected-cabinet D-pad inside the information panel on desktop while retaining the same correctly ordered control on tablet and phone
+- [x] Keep the top/up, bottom/down, left/left, and right/right callbacks unchanged, remove no measurement or action information, and never restore an overlapping absolute control in 3D or hybrid views
+- [x] Preserve cabinet identity, price, position, saved design, cart, fixture, filler, countertop, and unrelated layout data while adding focused desktop/tablet/phone visibility and panel-layout regressions

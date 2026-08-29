@@ -371,7 +371,7 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(rendererSource).toContain('data-testid="three-d-cabinet-actions"');
 	    expect(rendererSource).toContain("overflow-x-auto");
 	    expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');
-	    expect(rendererSource).toContain("lg:hidden");
+	    expect(rendererSource).not.toContain('data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center lg:hidden"');
 	    expect(designerSource).toContain('selectedUid && !cabinetsLocked && !measureMode && viewMode === "plan"');
 	    expect(designerSource).toContain('data-testid="plan-selected-cabinet-dpad"');
 	    const up = rendererSource.indexOf('data-testid="three-d-move-up"');
@@ -572,7 +572,8 @@ describe("interactive 3D room scene helpers", () => {
     const dpadIndex = rendererSource.indexOf('data-testid="three-d-selected-cabinet-dpad"');
     const dpadOpeningTag = rendererSource.slice(dpadIndex, dpadIndex + 500);
     expect(dpadIndex).toBeGreaterThan(detailsIndex);
-    expect(dpadOpeningTag).toContain("lg:hidden");
+    expect(dpadOpeningTag).not.toContain("lg:hidden");
+    expect(dpadOpeningTag).toContain('aria-label="Move selected cabinet"');
     expect(rendererSource).not.toContain('⅛&quot; precision');
 	    expect(rendererSource.match(/0&quot; overlap required/g)?.length).toBeGreaterThanOrEqual(2);
 	    expect(rendererSource).toContain('Placement · 0&quot; overlap');

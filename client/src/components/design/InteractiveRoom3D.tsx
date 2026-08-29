@@ -4768,7 +4768,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
 		              </dl>
 		              <span className="sr-only">{wallFitText}</span>
 		            </div>}
-		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center lg:hidden">
+		            {selectedCabinet.uid && onMoveCabinet && <div data-testid="three-d-selected-cabinet-dpad" aria-label="Move selected cabinet" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} className="flex shrink-0 items-end justify-start gap-1 rounded border bg-muted/30 p-0.5 md:justify-center">
 		              <div className="grid grid-cols-3 gap-0.5">
 		                <span />
 		                <button data-testid="three-d-move-up" type="button" onClick={() => requestCabinetMove("up")} className="flex h-8 w-8 touch-manipulation items-center justify-center rounded-t-md border border-border bg-white shadow-sm active:scale-95" title={`Move up ${moveIncrementIn === 1 ? '1"' : '¼"'}`}><ArrowUp className="h-4 w-4 text-[#1a2744]" /></button>
