@@ -3858,18 +3858,25 @@ export const WALL_LABELS: Record<WallSide, string> = {
 
 // Is the placed item sitting against `side` (within a tolerance)?
 function isAgainstWall(p: PlacedCabinet, side: WallSide, room: RoomData): boolean {
-  const { w, d } = rotatedSize(p);
-  const T = 2; // inches tolerance
-  switch (side) {
-    case "top":
-      return Math.abs(p.y - 0) <= T;
-    case "bottom":
-      return Math.abs(p.y + d - room.depth) <= T;
-    case "left":
-      return Math.abs(p.x - 0) <= T;
-    case "right":
-      return Math.abs(p.x + w - room.width) <= T;
-  }
+	  const rotated = rotatedSize(p);
+	  const cornerKind = placedCornerGeometryKind(p);
+	  const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer" || cornerKind === "triangle";
+	  const footprint = trueRoomCorner ? placedFootprint(p) : rotated;
+	  const T = 2; // inches tolerance
+	  switch (side) {
+	    case "top":
+	      return Math.abs(p.y - 0) <= T;
+	    case "bottom":
+	      return trueRoomCorner
+	        ? p.y <= room.depth + T && p.y + footprint.d >= room.depth - T
+	        : Math.abs(p.y + rotated.d - room.depth) <= T;
+	    case "left":
+	      return Math.abs(p.x - 0) <= T;
+	    case "right":
+	      return trueRoomCorner
+	        ? p.x <= room.width + T && p.x + footprint.w >= room.width - T
+	        : Math.abs(p.x + rotated.w - room.width) <= T;
+	  }
 }
 
 // Find the next free position for a `width`×`depth` item placed flush against
@@ -5023,13 +5030,20 @@ export function wallCabinetFitMeasure(
   const wallLen = horizontal ? room.width : room.depth;
   const me = runSpan(moving, side);
   const requiredSpan = Math.max(0, me.end - me.start);
-  const peers = others
-    .filter((other) => other.uid !== moving.uid)
-    .filter((other) => sharesPlanCollisionZone(moving, other))
-    // A cabinet touching a corner can be physically close to two walls, but it
-    // belongs to only one selected-wall run. Counting a perpendicular cabinet
-    // here shortened a true 36-inch opening to 24 inches.
-    .filter((other) => cabinetWall(other, room) === side);
+	  const peers = others
+	    .filter((other) => other.uid !== moving.uid)
+	    .filter((other) => sharesPlanCollisionZone(moving, other))
+	    // Ordinary perpendicular cabinets belong to only one selected-wall run.
+	    // A genuine diagonal/L/corner-drawer cabinet physically reserves both wall
+	    // legs, including legacy WDC records whose saved rotation still points at
+	    // the first wall. Count that square adjoining footprint in measurement and
+	    // snapping so the next cabinet starts at the true corner edge.
+	    .filter((other) => {
+	      if (cabinetWall(other, room) === side) return true;
+	      const cornerKind = placedCornerGeometryKind(other);
+	      const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
+	      return trueRoomCorner && isAgainstWall(other, side, room);
+	    });
   const segments = freeSegmentsOnWall(
     side,
     room,

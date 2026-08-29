@@ -37,6 +37,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
@@ -72,7 +73,7 @@ import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
+	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
@@ -551,7 +552,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
-  const [failedWallFit, setFailedWallFit] = useState<{ requested: PlacedCabinet; gap: WallGap } | null>(null);
+	  const [failedWallFit, setFailedWallFit] = useState<{ requested: PlacedCabinet; gap: WallGap; measurement: WallCabinetFitMeasure; blockers: string[] } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return initialDesignWorkspaceView(window.location.search);
   });
@@ -2696,9 +2697,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       setFailedWallFit(null);
       return fit;
     }
-    setFailedWallFit({
-      requested,
-      gap: {
+	    const blockers = Array.from(new Set([fit.beforeBoundary, fit.afterBoundary].filter((boundary) => boundary !== "wall start" && boundary !== "wall end")));
+	    setFailedWallFit({
+	      requested,
+	      measurement: fit,
+	      blockers,
+	      gap: {
         side: fit.side,
         layer: "wall",
         start: fit.availableStart,
@@ -8696,10 +8700,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
-	              <div className="flex items-start gap-2">
-	                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-	                <p className="min-w-0 flex-1">{placementWarning}</p>
-	                <button type="button" onClick={() => { setPlacementWarning(null); setFailedWallFit(null); }} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
+		              <div className="flex items-start gap-2">
+		                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+		                <p className="min-w-0 flex-1">{placementWarning}</p>
+		                {failedWallFit && <Tooltip>
+		                  <TooltipTrigger asChild><button type="button" data-testid="failed-fit-dimensions-trigger" className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Compare selected cabinet with available space"><Info className="h-4 w-4" /></button></TooltipTrigger>
+		                  <TooltipContent side="bottom" align="end" className="z-[100] w-[min(22rem,calc(100vw-2rem))] p-0">
+		                    <div data-testid="failed-fit-dimensions-tooltip" className="overflow-hidden rounded-md bg-popover text-popover-foreground">
+		                      <p className="border-b px-3 py-2 text-sm font-semibold">Selected cabinet vs. available space</p>
+		                      <table className="w-full table-fixed text-left text-xs"><tbody>
+		                        <tr className="border-b"><th className="w-2/5 px-3 py-1.5 font-medium">Selected</th><td className="px-3 py-1.5">{failedWallFit.requested.masterCode} · {formatEighthInches(failedWallFit.measurement.requiredSpan)}</td></tr>
+		                        <tr className="border-b"><th className="px-3 py-1.5 font-medium">Available</th><td className="px-3 py-1.5">{formatEighthInches(failedWallFit.measurement.availableSpan)}</td></tr>
+		                        <tr className="border-b"><th className="px-3 py-1.5 font-medium">Shortage</th><td className="px-3 py-1.5">{formatEighthInches(failedWallFit.measurement.shortage)}</td></tr>
+		                        <tr className="border-b"><th className="px-3 py-1.5 font-medium">Wall</th><td className="px-3 py-1.5 capitalize">{failedWallFit.measurement.side}</td></tr>
+		                        <tr className="border-b"><th className="px-3 py-1.5 font-medium">Opening</th><td className="px-3 py-1.5">{formatEighthInches(failedWallFit.measurement.availableStart)}–{formatEighthInches(failedWallFit.measurement.availableEnd)}</td></tr>
+		                        <tr><th className="px-3 py-1.5 font-medium">Blocked by</th><td className="break-words px-3 py-1.5">{failedWallFit.blockers.length > 0 ? failedWallFit.blockers.join(", ") : "Room wall boundaries"}</td></tr>
+		                      </tbody></table>
+		                    </div>
+		                  </TooltipContent>
+		                </Tooltip>}
+		                <button type="button" onClick={() => { setPlacementWarning(null); setFailedWallFit(null); }} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
 	              </div>
 	              {failedWallFit && <div data-testid="failed-wall-smart-fit" className="mt-2 rounded-md border border-[#d9c196] bg-white/90 p-2">
 	                <p className="font-semibold text-[#634b20]">Smaller matching wall-cabinet options for the {formatEighthInches(failedWallFit.gap.length)} opening</p>
@@ -8708,8 +8728,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  const filler = option.remaining > 0.01 ? catalogFillerForGap(catalogFillers, option.remaining, "wall") : null;
 	                  const unitPrice = smartGapCandidatePrices.get(option.cabinet.id);
 	                  const choices = failedWallAlternativeOptions.map((choice) => ({ cabinet: choice.cabinet, needsFiller: choice.needsFiller }));
-	                  return <div key={option.cabinet.id} className="rounded-md border border-[#e7d7b7] bg-white p-2">
-	                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate font-semibold text-[#49381a]">{option.cabinet.masterCode} · {formatEighthInches(Number(option.cabinet.width) || 0)} cabinet</p><p className="text-[11px] text-muted-foreground">{filler ? `${filler.masterCode} catalog filler cut to ${formatEighthInches(option.remaining)}` : "Exact fit — no filler required"}</p></div><span className="shrink-0 text-xs font-semibold text-[#49381a]">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></div>
+		                  return <div key={option.cabinet.id} className="rounded-md border border-[#e7d7b7] bg-white p-2">
+		                    <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="flex items-center gap-1.5"><p className="truncate font-semibold text-[#49381a]">{option.cabinet.masterCode} · {formatEighthInches(Number(option.cabinet.width) || 0)} cabinet</p>{optionIndex === 0 && <span data-testid="closest-fit-badge" className="shrink-0 rounded bg-[#e8f1e7] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#315b32]">Closest fit</span>}</div><p className="text-[11px] text-muted-foreground">{filler ? `${filler.masterCode} catalog filler cut to ${formatEighthInches(option.remaining)}` : "Exact fit — no filler required"}</p></div><span className="shrink-0 text-xs font-semibold text-[#49381a]">{unitPrice != null && unitPrice > 0 ? `$${unitPrice.toFixed(2)}` : "Price pending"}</span></div>
 	                    <div className="mt-1.5 flex gap-1"><button type="button" onClick={() => previewSmartGap(failedWallFit.gap, option.cabinet, option.needsFiller, choices, optionIndex)} className="rounded-md border border-[#1a2744] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] active:scale-95">Preview in 3D</button><button type="button" onClick={() => { if (option.needsFiller) fillGapWithCabAndFiller(failedWallFit.gap, option.cabinet); else fillGap(failedWallFit.gap, option.cabinet); setPlacementWarning(null); setFailedWallFit(null); }} className="rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95">Add cabinet{filler ? " + filler" : ""}</button></div>
 	                  </div>;
 	                })}</div> : <p className="mt-2 rounded-md border border-dashed border-amber-300 p-2 text-xs font-medium">No smaller matching cabinet and sellable catalog filler can complete this opening in the selected distributor/style.</p>}

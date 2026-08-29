@@ -110,6 +110,20 @@ describe("gapFillCandidatesByWidth", () => {
     expect(options.every((option) => option.needsFiller)).toBe(true);
   });
 
+  it("automatically orders the closest real W-36-42-family fit first for a genuinely undersized opening", () => {
+    const wallRow = (masterCode: string, width: number, height: number, depth: number) => ({ masterCode, width: String(width), height: String(height), depth: String(depth), placement: "wall" as const });
+    const requested = { masterCode: "W-36-42", width: 36, height: 42, depth: 12, placement: "wall" as const };
+    const options = compatibleWallCabinetAlternatives(requested, 33, [
+      wallRow("W-30-42", 30, 42, 12),
+      wallRow("W-33-42", 33, 42, 12),
+      wallRow("W-27-42", 27, 42, 12),
+      wallRow("W-33-36", 33, 36, 12),
+    ]);
+
+    expect(options.map((option) => option.cabinet.masterCode)).toEqual(["W-33-42", "W-30-42", "W-27-42"]);
+    expect(options[0]).toMatchObject({ remaining: 0, needsFiller: false });
+  });
+
   it("creates a temporary preview layer without mutating saved placements", () => {
     const saved = [{ uid: "saved" }];
     const preview = [{ uid: "smart-gap-preview" }];

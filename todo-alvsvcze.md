@@ -978,3 +978,10 @@
 - [x] Identify the selected-sink helper’s unsafe shift to an unrelated upper opening and correct the authoritative click path rather than another preview-only path
 - [x] Place W-36-24 only when a true 36-inch upper-layer span remains meaningfully aligned to the selected 36-inch sink base at its final elevation; otherwise report the real blocker and shortage instead of shifting to an unrelated opening
 - [x] Preserve all existing cabinet identities, prices, finishes, wall ownership, saved design, cart, fillers, countertops, and unrelated placements while adding the exact screenshot-geometry regression
+- [x] Reproduce the screenshot geometry where the 119-inch right-wall measurement omits the WDC42 adjoining-wall footprint and incorrectly reports 60 inches remaining instead of the 36-inch opening beside the 24-inch corner cabinet
+- [x] Make WDC42 and equivalent true wall-corner cabinets reserve their real adjoining-wall run across measurement, free-segment detection, snapping, placement, and collision explanations so W-36-42 can occupy the valid 36-inch span at exact 0-inch contact
+- [x] When a selected cabinet is genuinely too wide, suggest the closest smaller active cabinet from the current distributor/style/category/height catalog that fits the measured opening, with its real SKU and price only
+- [x] Add an exact-dimension no-fit tooltip showing selected cabinet width, available opening width, shortage, wall, opening start/end, and blocking objects in a column-and-row comparison
+- [x] Preserve all cabinet identities, prices, finishes, WDC glass configuration, saved design, cart, fillers, countertops, and unrelated placements while adding focused geometry, recommendation, tooltip, and responsive regressions
+- [x] Use W-36-42 as the exact reported placement target, replacing the earlier W-36-24 interpretation, and prove it occupies the real 36-inch span immediately to the right of WDC42 at the standard 54-inch mount with 0-inch overlap
+- [x] Preserve the already installed W-36-24 over the sink exactly as placed; the active geometry correction must affect only WDC42 adjoining-wall measurement and the new W-36-42 placement beside it

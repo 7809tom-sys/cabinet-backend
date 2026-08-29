@@ -1535,26 +1535,47 @@ describe("wallSpanMeasure (live drag tape, both sides)", () => {
     expect(m.beforeIsCabinet).toBe(true);
   });
 
-  it("works on a vertical (left) wall using the depth axis", () => {
-    // On the left wall, cabinets are rotated; run axis is Y.
-    const moving = cab({ uid: "m", x: 0, y: 40, width: 24, depth: 24, rotation: 90 });
-    const m = wallSpanMeasure(moving, room, [moving], "left");
-    // rotated: along-wall span = original width (24); start y=40
-    expect(Math.round(m.before)).toBe(40);
-    expect(Math.round(m.after)).toBe(120 - 40 - 24); // 56
-  });
-});
+	  it("works on a vertical (left) wall using the depth axis", () => {
+	    // On the left wall, cabinets are rotated; run axis is Y.
+	    const moving = cab({ uid: "m", x: 0, y: 40, width: 24, depth: 24, rotation: 90 });
+	    const m = wallSpanMeasure(moving, room, [moving], "left");
+	    // rotated: along-wall span = original width (24); start y=40
+	    expect(Math.round(m.before)).toBe(40);
+	    expect(Math.round(m.after)).toBe(120 - 40 - 24); // 56
+	  });
 
-describe("wallCabinetFitMeasure (3D placement guide)", () => {
+	  it("counts a legacy top-right WDC42 on the adjoining right wall so the installed W-36-24 reports 36 inches, not 60, to its left", () => {
+	    const reportedRoom: RoomData = { width: 144, depth: 119, ceilingHeight: 96 };
+	    const wdc42 = cab({ uid: "reported-wdc42", masterCode: "WDC42", description: "24-inch Diagonal Wall Corner Cabinet", placement: "wall", cornerType: "diagonal", x: 132, y: 0, width: 24, depth: 12, height: 42, rotation: 0, mountBottom: 54 });
+	    const installedW3624 = cab({ uid: "installed-w3624", masterCode: "W-36-24", placement: "wall", x: 132, y: 60, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72 });
+	    const measure = wallSpanMeasure(installedW3624, reportedRoom, [wdc42, installedW3624], "right");
+
+	    expect(measure).toMatchObject({ before: 36, after: 23, beforeIsCabinet: true, afterIsCabinet: false });
+	  });
+	});
+
+	describe("wallCabinetFitMeasure (3D placement guide)", () => {
   const room: RoomData = { width: 96, depth: 120 };
 
-  it("accepts a WR3624 in an exact 36-inch opening with edge contact on both sides", () => {
-    const left = cab({ uid: "left", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
-    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
-    const right = cab({ uid: "right", placement: "wall", masterCode: "W-4842", x: 48, y: 0, width: 48, depth: 12, height: 42, mountBottom: 54 });
-    const measure = wallCabinetFitMeasure(wr, room, [left, wr, right], [], "top");
-    expect(measure).toMatchObject({ requiredSpan: 36, availableSpan: 36, before: 0, after: 0, leftOverlap: 0, rightOverlap: 0, status: "fits" });
-  });
+	  it("accepts a WR3624 in an exact 36-inch opening with edge contact on both sides", () => {
+	    const left = cab({ uid: "left", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
+	    const wr = cab({ uid: "wr", placement: "wall", masterCode: "WR3624", x: 12, y: 0, width: 36, depth: 24, height: 24, mountBottom: 70 });
+	    const right = cab({ uid: "right", placement: "wall", masterCode: "W-4842", x: 48, y: 0, width: 48, depth: 12, height: 42, mountBottom: 54 });
+	    const measure = wallCabinetFitMeasure(wr, room, [left, wr, right], [], "top");
+	    expect(measure).toMatchObject({ requiredSpan: 36, availableSpan: 36, before: 0, after: 0, leftOverlap: 0, rightOverlap: 0, status: "fits" });
+	  });
+
+	  it("places W-36-42 in the exact 36-inch right-wall span between legacy WDC42 and the installed over-sink W-36-24", () => {
+	    const reportedRoom: RoomData = { width: 144, depth: 119, ceilingHeight: 96 };
+	    const wdc42 = cab({ uid: "fit-wdc42", masterCode: "WDC42", description: "24-inch Diagonal Wall Corner Cabinet", placement: "wall", cornerType: "diagonal", x: 132, y: 0, width: 24, depth: 12, height: 42, rotation: 0, mountBottom: 54 });
+	    const installedW3624 = cab({ uid: "fit-installed-w3624", masterCode: "W-36-24", placement: "wall", x: 132, y: 60, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72 });
+	    const spot = paletteActiveWallPlacement("right", reportedRoom, [wdc42, installedW3624], [], 36, 12, "wall", true);
+
+	    expect(spot).toEqual({ x: 132, y: 24, rotation: 90 });
+	    const w3642 = cab({ uid: "fit-w3642", masterCode: "W-36-42", placement: "wall", ...spot!, width: 36, depth: 12, height: 42, rotation: 90, mountBottom: 54 });
+	    expect(hasCollision(w3642, [wdc42, installedW3624])).toBe(false);
+	    expect(wallCabinetFitMeasure(w3642, reportedRoom, [wdc42, installedW3624], [], "right")).toMatchObject({ requiredSpan: 36, availableStart: 24, availableEnd: 60, availableSpan: 36, before: 0, after: 0, status: "fits" });
+	  });
 
   it("reports the measurable overlap instead of converting it to zero open space", () => {
     const left = cab({ uid: "left", placement: "wall", masterCode: "W-1242", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
