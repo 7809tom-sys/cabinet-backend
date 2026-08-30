@@ -1,6 +1,7 @@
 export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 const TRPC_PATH = "/api/trpc";
+export const TRPC_HTML_RETRY_DELAYS_MS = [250, 750, 1500] as const;
 
 /**
  * Cabinet pricing can request hundreds of exact cabinet/style identities at
@@ -29,13 +30,20 @@ export async function fetchTrpcJson(
   fetchImpl: FetchLike = globalThis.fetch,
   wait: (milliseconds: number) => Promise<void> = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 ): Promise<Response> {
-  const requestInit = { ...(init ?? {}), credentials: "include" as const };
-  let response = await fetchImpl(input, requestInit);
+	const headers = new Headers(init?.headers);
+	if (!headers.has("accept")) headers.set("accept", "application/json");
+	const requestInit = { ...(init ?? {}), headers, credentials: "include" as const };
+	let response = await fetchImpl(input, requestInit);
+	if (!isTrpcRequest(input)) return response;
 
-  if (isTrpcRequest(input) && isHtmlApiFallback(response)) {
-    await wait(350);
-    response = await fetchImpl(input, requestInit);
-  }
+	for (const delay of TRPC_HTML_RETRY_DELAYS_MS) {
+	  if (!isHtmlApiFallback(response)) return response;
+	  await wait(delay);
+	  response = await fetchImpl(input, requestInit);
+	}
 
-  return response;
+	if (isHtmlApiFallback(response)) {
+	  throw new Error("The CabinetDealz API is temporarily restarting. Please try again in a moment.");
+	}
+	return response;
 }

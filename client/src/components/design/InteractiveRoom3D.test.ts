@@ -554,7 +554,11 @@ describe("interactive 3D room scene helpers", () => {
 
   it("renders accessible zoom, pan, and reset controls without replacing existing orbit, pinch, selection, or cabinet-move gestures", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
-    expect(rendererSource).toContain('data-testid="three-d-viewer-navigation"');
+    expect(rendererSource).toContain('testId = "three-d-viewer-navigation"');
+    expect(rendererSource).toContain('data-testid="three-d-mobile-navigation-launcher"');
+    expect(rendererSource).toContain('data-testid="three-d-mobile-navigation-popup"');
+    expect(rendererSource).toContain('h-[0.5in] w-[0.5in]');
+    expect(rendererSource).toContain('className="absolute bottom-3 right-3 z-20 hidden sm:flex"');
     expect(rendererSource).toContain('data-testid="three-d-zoom-in"');
     expect(rendererSource).toContain('data-testid="three-d-zoom-out"');
     expect(rendererSource).toContain('data-testid="three-d-reset-view"');
@@ -562,9 +566,9 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).toContain('data-testid="three-d-pan-down"');
     expect(rendererSource).toContain('data-testid="three-d-pan-left"');
     expect(rendererSource).toContain('data-testid="three-d-pan-right"');
-    expect(rendererSource).toContain('onClick={() => zoomViewer("in")}');
-    expect(rendererSource).toContain('onClick={() => panViewer("left")}');
-    expect(rendererSource).toContain('onClick={resetViewerNavigation}');
+    expect(rendererSource).toContain('onClick={() => onZoom("in")}');
+    expect(rendererSource).toContain('onClick={() => onPan("left")}');
+    expect(rendererSource).toContain('onClick={onReset}');
     expect(rendererSource).toContain('Pinch or scroll to zoom');
     expect(rendererSource).toContain('onPointerMove={handleRoomPointerMove}');
     expect(rendererSource).toContain('data-testid="three-d-selected-cabinet-dpad"');

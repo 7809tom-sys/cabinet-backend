@@ -75,10 +75,17 @@ describe("isRollOutEligible", () => {
     expect(isRollOutEligible(base({ numberOfDoors: 0 }))).toBe(false);
   });
 
-  it("rejects base cabinets narrower than 18 inches", () => {
-    expect(isRollOutEligible(base({ masterCode: "B17", nominalWidth: 17, width: 17 }))).toBe(false);
-    expect(isRollOutEligible(base({ masterCode: "B18", nominalWidth: 18, width: 18 }))).toBe(true);
-  });
+	it("rejects base cabinets narrower than 18 inches", () => {
+	  expect(isRollOutEligible(base({ masterCode: "B17", nominalWidth: 17, width: 17 }))).toBe(false);
+	  expect(isRollOutEligible(base({ masterCode: "B18", nominalWidth: 18, width: 18 }))).toBe(true);
+	});
+
+	it("limits base and pantry rollout eligibility to 18 through 36 inches", () => {
+	  expect(isRollOutEligible(base({ masterCode: "B36", nominalWidth: 36, width: 36 }))).toBe(true);
+	  expect(isRollOutEligible(base({ masterCode: "B39", nominalWidth: 39, width: 39 }))).toBe(false);
+	  expect(isRollOutEligible(base({ placement: "tall", subCategory: "Pantry / Utility", masterCode: "P3696", nominalWidth: 36, width: 36, numberOfDoors: 4 }))).toBe(true);
+	  expect(isRollOutEligible(base({ placement: "tall", subCategory: "Pantry / Utility", masterCode: "P3996", nominalWidth: 39, width: 39, numberOfDoors: 4 }))).toBe(false);
+	});
 
   it("rejects fillers and panels", () => {
     expect(isRollOutEligible(base({ subCategory: "Base End Panel", masterCode: "BEP-3" }))).toBe(false);

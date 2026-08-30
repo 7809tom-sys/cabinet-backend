@@ -11,11 +11,12 @@
 //     pass only the shelves available for the cabinet's effective door style /
 //     line, so the match is always same-line.
 //   • Each eligible cabinet can carry 1–5 rollout trays, with 0 meaning removed.
-//   • Eligible cabinets: bases at least 18" wide with a door, plus pantry/tall
-//     cabinets with doors. Wall cabinets, corners, drawer-only cabinets,
+//   • Eligible cabinets: bases 18" through 36" wide with a door, plus pantry/tall
+//     cabinets 18" through 36" wide with doors. Wall cabinets, corners, drawer-only cabinets,
 //     appliance/opening towers, fillers, panels, and trim are excluded.
 
 export const MIN_ROLLOUT_ELIGIBLE_WIDTH_IN = 18;
+export const MAX_ROLLOUT_ELIGIBLE_WIDTH_IN = 36;
 export const MAX_ROLLOUT_TRAYS_PER_CABINET = 5;
 
 export function normalizedRollOutTrayQty(value: unknown): number {
@@ -61,7 +62,8 @@ export function isRollOutEligible(c: TrayTarget): boolean {
   const sub = (c.subCategory ?? "").toLowerCase();
   const cat = (c.category ?? "").toLowerCase();
 	  const hay = `${sub} ${cat} ${code}`.toLowerCase();
-	  if (targetWidth(c) + 1e-9 < MIN_ROLLOUT_ELIGIBLE_WIDTH_IN) return false;
+	  const width = targetWidth(c);
+	  if (width + 1e-9 < MIN_ROLLOUT_ELIGIBLE_WIDTH_IN || width - 1e-9 > MAX_ROLLOUT_ELIGIBLE_WIDTH_IN) return false;
 
   // Not a real base box: panels, skins, fillers, trim, accessories, the tray
   // itself, decorative legs, brackets, dummy fronts, etc.

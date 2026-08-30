@@ -993,6 +993,13 @@
 - [x] Allow W-36-24 to rise through the selected wall’s complete legal range while preserving its installed horizontal span, 0-inch overlap, local ceiling clearance, and door/window constraints
 - [x] Reconfigure the selected-cabinet information panel into compact readable information, measurement, and action regions that do not obscure each other on desktop, tablet, or phone
 - [x] Preserve W-36-24 SKU, dimensions, price, finish, saved design, cart, fillers, countertops, surrounding cabinets, and all existing movement controls while adding focused elevation and responsive-panel regressions
+- [x] Replace the large mobile 3D camera-control panel with an approximately 0.5-inch-square bottom-right launcher that opens zoom, reset, share, and pan controls in a popup
+- [x] Keep the mobile camera popup closed by default, touch-accessible, dismissible, and clear of the drawing and selected-cabinet panel
+- [x] Confirm Plan, Elevation, 3D, and 3D+Plan controls are absent from every mobile toolbar and More-menu path while desktop/tablet controls remain
+- [x] Reproduce and fix the live B18 Cabinet Attributes rollout query still showing the old no-match state after the Clark & Son UNIV-ROT catalog publication
+- [x] Limit universal rollout eligibility to base cabinets B18 through B36 and pantry cabinets 18 through 36 inches wide, excluding narrower and wider cabinets
+- [x] Identify and correct the tRPC route or client-base condition that returned the HTML app shell for an API query instead of JSON
+- [x] Add live-path, mobile-popup, viewport, B18 rollout, tier-price, cart, and JSON-content-type regressions before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view

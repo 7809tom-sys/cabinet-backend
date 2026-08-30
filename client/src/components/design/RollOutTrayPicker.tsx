@@ -54,10 +54,10 @@ export function RollOutTrayPicker({
   const sid = effectiveStyleId(cabinet, designStyleId);
   const width = targetWidth(cabinet);
 
-  const trayQuery = trpc.design.resolveRollOutTray.useQuery(
-    { styleId: sid ?? 0, width, distributorId: distributorId ?? undefined },
-    { enabled: eligible && sid != null && width > 0, retry: false, staleTime: 60_000 },
-  );
+	const trayQuery = trpc.design.resolveRollOutTray.useQuery(
+	  { styleId: sid ?? 0, width, distributorId: distributorId ?? undefined },
+	  { enabled: eligible && sid != null && width > 0, retry: 2, staleTime: 0, refetchOnMount: "always" },
+	);
 
   const tray = trayQuery.data ?? null;
 
@@ -67,7 +67,7 @@ export function RollOutTrayPicker({
   if (!eligible || sid == null || width <= 0) return null;
 
   // Loading: keep the section quiet (no flash) until we know if a shelf fits.
-  if (trayQuery.isLoading) return null;
+	if (trayQuery.isLoading || (trayQuery.isFetching && trayQuery.data == null)) return null;
 
   // No shelf fits in this line → graceful empty state message.
   if (!tray) {
