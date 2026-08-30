@@ -435,9 +435,6 @@ export function DesignActions({
 
   return (
     <>
-      <Button variant="outline" size="icon" className="h-9 w-9" title={t("dt_act_save_btn")} onClick={() => setSaveOpen(true)}>
-        <Save className="h-4 w-4" />
-      </Button>
       <Button variant="outline" size="icon" className="h-9 w-9" title={t("dt_act_my_designs_btn")} onClick={() => setLoadOpen(true)}>
         <FolderOpen className="h-4 w-4" />
       </Button>

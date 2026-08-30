@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("mobile Designer toolbar simplification", () => {
-  it("keeps desktop view modes and removes redundant mobile Plan/Elevation/3D/3D+Plan controls", () => {
+  it("keeps the compact desktop view group and removes the old redundant mobile mode group", () => {
     expect(source).toContain('className="hidden lg:flex items-center rounded-md');
     expect(source).not.toContain('className="lg:hidden flex shrink-0 items-center rounded-full');
     expect(source).not.toContain('title="Bird\'s-eye plan view"');
@@ -15,6 +15,9 @@ describe("mobile Designer toolbar simplification", () => {
   it("moves Front and Lock to the top strip and removes duplicate Cart and Custom actions from the bottom strip", () => {
     expect(source).toContain('data-testid="mobile-designer-top-actions"');
     expect(source).toContain('title={viewMode === "elevation" ? "Plan view" : "Front view"}');
+    expect(source.match(/title="3D view"/g)).toHaveLength(1);
+    expect(source).toContain('aria-label="3D view"');
+    expect(source).toContain('onClick={() => setViewMode("threeD")}');
     expect(source).toContain('title={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}');
     expect(source).not.toContain('label="Cart"');
     expect(source).not.toContain('label="Custom"');

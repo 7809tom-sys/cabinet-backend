@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2, Layers3 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -6929,14 +6929,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            <Boxes className="h-3.5 w-3.5" />
 	          </button>
 	          <button
-	            onClick={() => setViewMode("hybrid")}
-	            disabled={!canLoadInteractive3d || interactive3dLoading}
-	            title="Show full 3D cabinetry over the authoritative 2D plan reference"
-	            className={`inline-flex h-6 w-7 items-center justify-center rounded transition-colors disabled:opacity-40 ${viewMode === "hybrid" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-	          >
-	            <Layers3 className="h-3.5 w-3.5" />
-	          </button>
-	          <button
 	            onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
             className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
@@ -6944,15 +6936,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             }`}
           >
             <Columns3 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("corner")}
-            title={t("dt_sh_corner_title")}
-            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
-              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-            }`}
-          >
-            <ScanLine className="h-3.5 w-3.5" />
           </button>
           {island && (
             <button
@@ -7046,17 +7029,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
 	            <Palette className="h-4 w-4" />
 	          </button>
-	          <button
-	            title={viewMode === "elevation" ? "Plan view" : "Front view"}
+		  <button
+		    title={viewMode === "elevation" ? "Plan view" : "Front view"}
 	            aria-label={viewMode === "elevation" ? "Plan view" : "Front view"}
 	            onClick={() => setViewMode((mode) => (mode === "elevation" ? "plan" : "elevation"))}
 	            className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
 	              viewMode === "elevation" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
 	            }`}
-	          >
-	            {viewMode === "elevation" ? <LayoutGrid className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-	          </button>
-	          <button
+		  >
+		    {viewMode === "elevation" ? <LayoutGrid className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+		  </button>
+		  <button
+		    title="3D view"
+		    aria-label="3D view"
+		    disabled={!canLoadInteractive3d || interactive3dLoading}
+		    onClick={() => setViewMode("threeD")}
+		    className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:opacity-40 ${
+		      viewMode === "threeD" ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+		    }`}
+		  >
+		    <Boxes className="h-4 w-4" />
+		  </button>
+		  <button
 	            title={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}
 	            aria-label={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}
 	            onClick={() => {
@@ -7582,10 +7576,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-7 w-7" title={`${t("dt_sh_swing")} (S)`}>
 	            <DoorOpen className="h-3.5 w-3.5" />
 	          </Button>
-	          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-7 w-7 text-destructive" title={t("dt_sh_delete")}>
-	            <Trash2 className="h-3.5 w-3.5" />
-	          </Button>
-	          <div className="h-5 w-px bg-border mx-0.5" />
+		  <div className="h-5 w-px bg-border mx-0.5" />
           {/* Lock Cabs */}
           <Button
             variant="outline"

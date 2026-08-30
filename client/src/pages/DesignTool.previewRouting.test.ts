@@ -8,7 +8,8 @@ describe("DesignTool deterministic 3D preview routing", () => {
   it("routes all preview controls through InteractiveRoom3D rather than the simplified preview modal", () => {
     expect(designToolSource).toContain('onClick={() => setViewMode("threeD")}');
     expect(designToolSource).toContain('setTimeout(() => setViewMode("threeD"), 150)');
-    expect(designToolSource).toContain('onClick={() => setViewMode("hybrid")}');
+    expect(designToolSource).toContain('title="3D view"');
+    expect(designToolSource).not.toContain('onClick={() => setViewMode("hybrid")}');
     expect(designToolSource).toContain("<InteractiveRoom3D");
     expect(designToolSource).not.toContain("<DesignPreviewModal");
     expect(designToolSource).not.toContain("setPreviewModalOpen");

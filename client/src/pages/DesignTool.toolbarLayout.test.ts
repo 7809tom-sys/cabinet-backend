@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
+const designActionsSource = readFileSync(new URL("../components/design/DesignActions.tsx", import.meta.url), "utf8");
 
 describe("designer toolbar layout", () => {
   it("keeps the More-menu portal state hook inside the Design Tool component", () => {
@@ -15,6 +16,21 @@ describe("designer toolbar layout", () => {
   it("keeps one AI consultant control and one synchronized 3D toolbar control", () => {
     expect(source.match(/<ConsultantRoomControl/g)).toHaveLength(1);
     expect(source.match(/title="Show the synchronized 3D designer canvas"/g)).toHaveLength(1);
+  });
+
+  it("removes the highlighted duplicate Hybrid, Corner, Save, and selected-delete desktop controls", () => {
+    expect(source).not.toContain('onClick={() => setViewMode("hybrid")}');
+    expect(source).not.toContain('onClick={() => setViewMode("corner")}');
+    expect(designActionsSource).not.toContain('title={t("dt_act_save_btn")}');
+
+    const desktopActionsStart = source.indexOf("{/* Desktop action cluster */}");
+    const desktopActionsEnd = source.indexOf("{/* Lock Cabs */}", desktopActionsStart);
+    const desktopSelectedActions = source.slice(desktopActionsStart, desktopActionsEnd);
+    expect(desktopSelectedActions).not.toContain("onClick={deleteSelected}");
+
+    expect(source).toContain('title="Save design"');
+    expect(source).toContain("onClick={clearCurrentDesign}");
+    expect(source).toContain("onRemoveCabinet={deleteCabinet}");
   });
 
   it("renders the desktop More menu into the slot beside the distributor selector", () => {

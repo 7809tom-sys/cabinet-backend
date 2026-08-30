@@ -1163,3 +1163,7 @@
 - [x] Attach island sink bases to their sink and selected faucet through the automatic countertop cutout in plan, island elevation, 3D, save/restore, materials, and cart paths
 - [x] Restore all real published selected-line standard wall and corner glass-door choices to discoverable Wall and Corner catalog groups, preserving exact cabinet and glass add-on SKU/pricing identity
 - [x] Add island attributes, all-face placement, back-to-back, countertop, sink/faucet, collision, persistence, cart/materials, responsive, 2D/3D, and glass-catalog regressions before publication
+- [x] Identify the four highlighted duplicate toolbar buttons and the canonical working instance of each function that must remain
+- [x] Remove only the duplicate Designer toolbar renderings without deleting their underlying actions or affecting unrelated controls
+- [x] Verify the remaining canonical controls and PC, tablet, and mobile toolbar layouts, then publish the cleanup
+- [x] Add one dedicated synchronized 3D View button to the mobile upper toolbar, with no second visible mobile 3D control and no change to tablet/desktop behavior
