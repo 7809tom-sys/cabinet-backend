@@ -15,6 +15,7 @@ function priceMap(entries: Record<string, TrimPrice>): Map<string, TrimPrice> {
 const TK: TrimPrice = { cabinetId: 101, masterCode: "TK-8", description: "Toe Kick 8'", unitPrice: 65 };
 const LR: TrimPrice = { cabinetId: 102, masterCode: "LRM-8", description: "Light Rail 8'", unitPrice: 120 };
 const BAM: TrimPrice = { cabinetId: 103, masterCode: "BAM", description: "Batten Molding", unitPrice: 60 };
+const CROWN: TrimPrice = { cabinetId: 9390046, masterCode: "LCM8", description: 'Crown Molding - 96"', unitPrice: 94.44 };
 
 describe("buildTrimCartLines", () => {
   it("prices active trims that have a SKU for the style, scoped to the design styleId", () => {
@@ -32,13 +33,30 @@ describe("buildTrimCartLines", () => {
     expect(tk.name).toBe("Toe Kick 8'");
   });
 
-  it("skips crown entirely (no buyable master code) → stays quote-only", () => {
-    expect(TRIM_MASTER_CODES.crown).toBeNull();
+  it("prices crown through the real selected-line LCM8 catalog product", () => {
+    expect(TRIM_MASTER_CODES.crown).toBe("LCM8");
     const lines = buildTrimCartLines(
       [{ kind: "crown", pieces: 3 }],
-      1,
-      "Any",
-      priceMap({ "TK-8": TK }),
+      330002,
+      "Aura Cream (Ashford)",
+      priceMap({ LCM8: CROWN }),
+    );
+    expect(lines).toEqual([{
+      masterCode: "LCM8",
+      name: 'Crown Molding - 96"',
+      styleId: 330002,
+      styleLabel: "Aura Cream (Ashford)",
+      unitPrice: 94.44,
+      qty: 3,
+    }]);
+  });
+
+  it("leaves crown quote-only when the selected line has no published priced LCM8 SKU", () => {
+    const lines = buildTrimCartLines(
+      [{ kind: "crown", pieces: 3 }],
+      999,
+      "Unpriced Style",
+      priceMap({}),
     );
     expect(lines).toHaveLength(0);
   });
@@ -94,10 +112,10 @@ describe("buildTrimCartLines", () => {
 
 describe("trimHasPrice", () => {
   it("is true only when a positive-price SKU exists for the trim's code", () => {
-    const m = priceMap({ "TK-8": TK });
+    const m = priceMap({ "TK-8": TK, LCM8: CROWN });
     expect(trimHasPrice("toeKick", m)).toBe(true);
     expect(trimHasPrice("lightRail", m)).toBe(false); // no LRM-8 in map
-    expect(trimHasPrice("crown", m)).toBe(false); // no buyable code
+    expect(trimHasPrice("crown", m)).toBe(true);
   });
 
   it("is false when the SKU price is zero", () => {

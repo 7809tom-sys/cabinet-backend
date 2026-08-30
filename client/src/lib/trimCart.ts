@@ -9,20 +9,18 @@
 // This helper resolves each ACTIVE trim to its per-style priced SKU. Because the
 // price lookup is keyed by the design's styleId, the resolved trim inherits the
 // cabinets' finish/color automatically. Trims with no SKU for the selected style
-// (e.g. crown — no Clark And Son crown SKU exists, or a brand-new door style
-// without trim SKUs yet) resolve to null and are left as quote-only lines rather
-// than blocking the cart or inventing a price.
+// resolve to null and are left as quote-only lines rather than blocking the cart
+// or inventing a price.
 
 export type TrimKind = "toeKick" | "lightRail" | "batten" | "crown" | "valance";
 
 // Map each auto-trim to the master code that carries its per-style priced SKU.
-// crown intentionally has NO buyable master code (no crown SKU exists for the
-// supported line), so it always stays quote-only.
+// Ashford carries its standard 96-inch crown as LCM8 in every active finish.
 export const TRIM_MASTER_CODES: Record<TrimKind, string | null> = {
   toeKick: "TK-8",
   lightRail: "LRM-8",
   batten: "BAM",
-  crown: null,
+  crown: "LCM8",
   valance: "VA-48", // Arched valance (only VA-48 exists in catalog; trimmed to fit on site)
 };
 
@@ -61,9 +59,9 @@ export interface ActiveTrim {
  * @param priceByCode lookup: trim master code -> resolved priced SKU (for styleId)
  * @returns priced cart lines (one per priced, active trim with pieces > 0)
  *
- * Trims are skipped when: pieces <= 0, the kind has no buyable master code
- * (crown), or no priced SKU exists for the style (priceByCode miss). Skipped
- * trims are the caller's cue to render a quote-only build-sheet line.
+ * Trims are skipped when: pieces <= 0, the kind has no buyable master code, or
+ * no priced SKU exists for the style (priceByCode miss). Skipped trims are the
+ * caller's cue to render a quote-only build-sheet line.
  */
 export function buildTrimCartLines(
   trims: ActiveTrim[],
@@ -76,7 +74,7 @@ export function buildTrimCartLines(
   for (const t of trims) {
     if (!t || t.pieces <= 0) continue;
     const code = TRIM_MASTER_CODES[t.kind];
-    if (!code) continue; // crown / no buyable code → quote-only
+    if (!code) continue; // no buyable code → quote-only
     const priced = priceByCode.get(code);
     if (!priced || !(priced.unitPrice > 0)) continue; // no SKU for this style → quote-only
     out.push({

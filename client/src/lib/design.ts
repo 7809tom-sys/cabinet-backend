@@ -1211,6 +1211,40 @@ export function wallCabinetSkuDimensions(masterCode: string | null | undefined):
   return null;
 }
 
+export type GlassDoorCabinetLike = {
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+  customProfile?: string | null;
+  glassDoor?: boolean | null;
+  fixedShelfCount?: number | null;
+  adjustableShelfCount?: number | null;
+};
+
+/**
+ * Catalog GD products are glass-door cabinets by definition. Saved layouts may
+ * predate the explicit `glassDoor` flag, so normalized SKU, description,
+ * subcategory, and configured graphic type all remain authoritative signals.
+ */
+export function isGlassDoorCabinet(cabinet: GlassDoorCabinetLike): boolean {
+  if (cabinet.glassDoor === true) return true;
+  const code = (cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const text = `${cabinet.description ?? ""} ${cabinet.subCategory ?? ""} ${cabinet.customProfile ?? ""}`.toLowerCase();
+  return /GD$/.test(code) || /glass[ -]?door/.test(text) || /(?:^|_)glass(?:_|$)/.test(text);
+}
+
+/**
+ * Keep authored shelf fields primary. Some imported GD records describe their
+ * shelves only in catalog prose (for example W2442GD: "3 Adjustable Shelves").
+ */
+export function glassDoorShelfCount(cabinet: GlassDoorCabinetLike): number {
+  const configured = Math.max(0, Math.round(Number(cabinet.fixedShelfCount ?? 0)))
+    + Math.max(0, Math.round(Number(cabinet.adjustableShelfCount ?? 0)));
+  if (configured > 0) return Math.min(8, configured);
+  const described = `${cabinet.description ?? ""}`.match(/(\d+)\s+(?:adjustable\s+|fixed\s+)?shel(?:f|ves)\b/i);
+  return described ? Math.min(8, Math.max(0, Number(described[1]))) : 0;
+}
+
 export function resolvedDesignCabinetDimensions(cabinet: DesignCabinet): CabinetDimensionsIn {
   const sku = cabinet.placement === "wall" ? wallCabinetSkuDimensions(cabinet.masterCode) : null;
   return {

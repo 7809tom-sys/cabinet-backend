@@ -7,7 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -1949,7 +1949,7 @@ export function addCabinet(
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
   const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
-  const glassDoorMaterial = new THREE.MeshPhysicalMaterial({
+	  const glassDoorMaterial = new THREE.MeshPhysicalMaterial({
     color: "#b8d4dc",
     roughness: 0.08,
     metalness: 0.02,
@@ -1957,8 +1957,10 @@ export function addCabinet(
     transparent: true,
     opacity: 0.34,
     depthWrite: false,
-    side: THREE.DoubleSide,
-  });
+	    side: THREE.DoubleSide,
+	  });
+	  const glassInteriorMaterial = new THREE.MeshStandardMaterial({ color: plainStructuralColor, roughness: 0.58, metalness: 0.01 });
+	  structuralFinishMaterials.push(glassInteriorMaterial);
   const shadowRevealMaterial = new THREE.MeshStandardMaterial({ color: "#1c1814", roughness: 0.78, metalness: 0.02, transparent: true, opacity: 0.52 });
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
@@ -2095,15 +2097,15 @@ export function addCabinet(
     frontGroup.add(endPanel);
   }
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
-  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0) => {
-    if (!threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
+	  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0, forceGlassFrame = false) => {
+	    if (!forceGlassFrame && !threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
     const rail = threeDShakerRailThickness(faceWidth, faceHeight);
     if (!rail) return;
     const frameGroup = new THREE.Group();
     const pose = threeDShakerFramePose(x, y, z, rotationY);
     frameGroup.position.set(pose.x, pose.y, pose.z);
     frameGroup.rotation.y = pose.rotationY;
-    frameGroup.userData = { selectedStyleFace: "shaker", physicalRails: true };
+	    frameGroup.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : "shaker", physicalRails: true, ...(forceGlassFrame ? { glassDoorFrame: true, selectedFinishGlassFrame: true } : {}) };
     const pieces = [
       [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
       [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
@@ -2113,7 +2115,7 @@ export function addCabinet(
     for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
       const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
       railMesh.position.set(offsetX, offsetY, 0);
-      railMesh.userData = { selectedStyleFace: "shaker", physicalRail: true };
+	      railMesh.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : "shaker", physicalRail: true, ...(forceGlassFrame ? { glassDoorFrameRail: true, selectedFinishGlassFrame: true } : {}) };
       frameGroup.add(railMesh);
     }
     frontGroup.add(frameGroup);
@@ -2970,25 +2972,48 @@ export function addCabinet(
     addFaceShadow(doorWidth - 0.03, faceHeight, door.position.x, door.position.y);
     addPull(doorWidth - 0.03, faceHeight, door.position.x, door.position.y, false, 0.086, "lower", singleDoorHinge);
   } else {
-  for (let i = 0; i < doorCount; i++) {
-    const doorWidth = (bodyWidth - 0.08) / doorCount;
-    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), faceMaterial);
-    const configuredDoorCenterY = hasConfiguredOpening && sku.openingType === "bottom"
-      ? bodyHeight / 2 - 0.04 - doorHeight / 2
-      : -bodyHeight / 2 + 0.04 + doorHeight / 2;
-    door.position.set(
-      -bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5),
-      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : configuredDoorCenterY,
-      0,
-    );
-    door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
-    frontGroup.add(door);
-    addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
-    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
-    const isRaised = profileKind === "raised";
-    if (profileKind === "shaker") {
-      addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
-    } else if (isRaised) {
+	  const standardDoorCenterY = hasConfiguredOpening && sku.openingType === "bottom"
+	    ? bodyHeight / 2 - 0.04 - doorHeight / 2
+	    : -bodyHeight / 2 + 0.04 + doorHeight / 2;
+	  if (sku.glassDoor && doorCount > 0) {
+	    const interior = new THREE.Mesh(
+	      new THREE.BoxGeometry(Math.max(0.08, bodyWidth - 0.14), Math.max(0.08, doorHeight - 0.08), 0.018),
+	      glassInteriorMaterial,
+	    );
+	    interior.position.set(0, wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : standardDoorCenterY, -0.028);
+	    interior.userData = { glassCabinetInterior: true, selectedFinishInterior: true, visibleThroughGlassDoor: true };
+	    frontGroup.add(interior);
+	    const shelfCount = Math.max(0, Math.min(8, Math.round(sku.adjustableShelfCount ?? 0)));
+	    for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex += 1) {
+	      const shelf = new THREE.Mesh(
+	        new THREE.BoxGeometry(Math.max(0.08, bodyWidth - 0.18), 0.024, 0.04),
+	        glassInteriorMaterial,
+	      );
+	      shelf.position.set(
+	        0,
+	        interior.position.y - doorHeight / 2 + (doorHeight * (shelfIndex + 1)) / (shelfCount + 1),
+	        -0.006,
+	      );
+	      shelf.userData = { glassCabinetShelf: shelfIndex + 1, visibleThroughGlassDoor: true, selectedFinishInterior: true };
+	      frontGroup.add(shelf);
+	    }
+	  }
+	  for (let i = 0; i < doorCount; i++) {
+	    const doorWidth = (bodyWidth - 0.08) / doorCount;
+	    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), sku.glassDoor ? glassDoorMaterial : faceMaterial);
+	    door.position.set(
+	      -bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5),
+	      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : standardDoorCenterY,
+	      0,
+	    );
+	    door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(sku.glassDoor ? { glassCabinetDoor: true, transparentGlassCenter: true } : {}), ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
+	    frontGroup.add(door);
+	    if (!sku.glassDoor) addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
+	    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
+	    const isRaised = profileKind === "raised";
+	    if (sku.glassDoor || profileKind === "shaker") {
+	      addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, 0.036, 0, Boolean(sku.glassDoor));
+	    } else if (isRaised) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
       panel.position.set(door.position.x, door.position.y, 0.045);
       frontGroup.add(panel);
@@ -3956,8 +3981,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
-    adjustableShelfCount: cabinet.adjustableShelfCount ?? null,
-    glassDoor: cabinet.glassDoor ?? false,
+	    adjustableShelfCount: glassDoorShelfCount(cabinet) || cabinet.adjustableShelfCount || null,
+	    glassDoor: isGlassDoorCabinet(cabinet),
     doorOrientation: cabinet.doorOrientation ?? null,
     swing: cabinet.swing ?? null,
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,

@@ -2178,7 +2178,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [crown, toeKick, batten, lightRail, valance, effectiveTrimPieces]);
 
   // Priced trim cart lines (styleId-scoped). Trims without a buyable SKU for the
-  // style (crown, or a style missing that trim) are omitted → quote-only.
+  // selected style are omitted rather than receiving an invented price.
   const trimCartLines = useMemo(
     () => buildTrimCartLines(activeTrims, styleId, activeStyleName ?? "", trimPriceByCode),
     [activeTrims, styleId, activeStyleName, trimPriceByCode]
@@ -9595,19 +9595,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 {/* Auto-filler removed: user places corner fillers manually */}
             {(crown || toeKick || batten || lightRail || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
-                {crown && crownOrder && effectiveTrimPieces.crown > 0 && (
+                {crown && crownOrder && effectiveTrimPieces.crown > 0 && (() => {
+                  const crownCode = TRIM_MASTER_CODES.crown;
+                  const p = crownCode ? trimPriceByCode.get(crownCode) : undefined;
+                  const pcs = effectiveTrimPieces.crown;
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
+                  return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {effectiveTrimPieces.crown} pc{effectiveTrimPieces.crown > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                        {pcs} pc{pcs > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                        {ext != null ? ` · ${p!.masterCode} · $${p!.unitPrice.toFixed(2)} ea × ${pcs}` : ""}
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
-                      <TrimQtyStepper kind="crown" value={effectiveTrimPieces.crown} auto={crownOrder.pieces} override={trimQtyOverride.crown} setOverride={setTrimQtyOverride} />
+                      <TrimQtyStepper kind="crown" value={pcs} auto={crownOrder.pieces} override={trimQtyOverride.crown} setOverride={setTrimQtyOverride} />
                     </div>
-                    <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_quote")}</span>
                   </div>
-                )}
+                  );
+                })()}
                 {toeKick && toeKickOrder && effectiveTrimPieces.toeKick > 0 && (() => {
                   const p = trimPriceByCode.get("TK-8");
                   const pcs = effectiveTrimPieces.toeKick;
@@ -9721,13 +9728,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     </div>
                   );
                 })()}
-                {/* Priced-trim subtotal (toe kick + batten + light rail). Crown /
-                    countertop / sink / hardware are quote-only and excluded. */}
+                {/* Priced-trim subtotal. Any selected-line trim without a buyable
+                    catalog SKU remains quote-only and is excluded. */}
                 {(() => {
+                  const crownCode = TRIM_MASTER_CODES.crown;
+                  const cm = crownCode ? trimPriceByCode.get(crownCode) : undefined;
                   const tk = trimPriceByCode.get("TK-8");
                   const bam = trimPriceByCode.get("BAM");
                   const lrm = trimPriceByCode.get("LRM-8");
                   let sub = 0;
+                  if (crown && effectiveTrimPieces.crown > 0 && cm && cm.unitPrice > 0) sub += cm.unitPrice * effectiveTrimPieces.crown;
                   if (toeKick && effectiveTrimPieces.toeKick > 0 && tk && tk.unitPrice > 0) sub += tk.unitPrice * effectiveTrimPieces.toeKick;
                   if (batten && effectiveTrimPieces.batten > 0 && bam && bam.unitPrice > 0) sub += bam.unitPrice * effectiveTrimPieces.batten;
                   if (lightRail && effectiveTrimPieces.lightRail > 0 && lrm && lrm.unitPrice > 0) sub += lrm.unitPrice * effectiveTrimPieces.lightRail;

@@ -1142,3 +1142,6 @@
 - [x] Apply the same countertop and filler rules to left-hand and right-hand BBC-36, BBC-42, and BBC-48 layouts
 - [x] Preserve zero-overlap cabinet geometry, pull range, SKU/style/distributor/finish/price, save/cart identity, countertop material totals, and unrelated placements
 - [x] Add left/right BBC pull, wall-coverage, 3-inch filler, handle-clearance, countertop, materials, cart, and saved-design regressions before publication
+- [x] Resolve crown molding to a real selected-line catalog SKU and price in Designer cart and Materials & Parts without changing the confirmed crown geometry
+- [x] Render all GD glass-door cabinets with finished single- or double-door frames, transparent glass centers, visible interior shelves, and interiors matching the selected exterior finish in 2D and 3D
+- [x] Add crown pricing identity and universal glass-door single/double/finish/shelf regressions, validate the live paths, and publish only after they pass

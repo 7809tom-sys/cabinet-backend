@@ -6,7 +6,8 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
-  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
+	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
+	  isGlassDoorCabinet, glassDoorShelfCount,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -125,6 +126,12 @@ const ShakerFaceMetricsContext = createContext({
   drawerCount: 1,
 });
 
+const GlassDoorRenderContext = createContext({
+  enabled: false,
+  face: "#f3f1ec",
+  shelfCount: 0,
+});
+
 /** Base end cabinets are end-of-run returns, never room-corner clip paths. */
 export function isBaseEndAngleCabinet(cabinet: CabinetLike, customProfile?: string | null): boolean {
   const drawingType = cabinetDrawingType(cabinet);
@@ -186,16 +193,20 @@ export function resolveElevationFacePresentation(
     ...normalizedCabinet,
     graphicType: customProfile ?? normalizedCabinet.graphicType ?? null,
   });
-  const cabinetType = isAppliance
+	  const cabinetType = isAppliance
     ? null
     : isEndAngle
-      ? configuredDrawingType
-      : cabinetDrawingType(normalizedCabinet);
+	      ? configuredDrawingType
+	      : cabinetDrawingType(normalizedCabinet);
+	  const glassDoorCabinet = isGlassDoorCabinet({
+	    ...normalizedCabinet,
+	    customProfile,
+	  });
   // BA/BEC end returns have a meaningful measured 2D face, so their catalog
   // line drawings remain reference images only. They must not replace the live
   // textured elevation with a floating white thumbnail.
-  const renderMode = resolveCustomCabinetRender(
-    customProfile,
+	  const renderMode = resolveCustomCabinetRender(
+	    glassDoorCabinet ? null : customProfile,
     isEndAngle ? null : genericDrawingUrl,
     isAppliance,
   );
@@ -440,11 +451,13 @@ export function ElevationView({
     // those historic placements to the same contract as a fresh Cabinet Config
     // placement instead of drawing a generic single-door wall cabinet.
     const isLegacyWdcDiagonal = /^WDC[-_]?\d/i.test(p.masterCode ?? "") && cabType === "diagonal-corner";
-    const displayCounts = isWd18CountertopDrawerCabinet(p)
+	    const displayCounts = isWd18CountertopDrawerCabinet(p)
       ? { doors: 1, drawers: 2 }
       : isLegacyWdcDiagonal
-        ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
-        : configuredDisplayCounts;
+	        ? { doors: Math.max(2, configuredDisplayCounts.doors), drawers: 0 }
+	        : configuredDisplayCounts;
+	    const isGlassDoor = isGlassDoorCabinet(p);
+	    const visibleGlassShelfCount = glassDoorShelfCount(p);
     // DEBUG: log O-code cabinets to diagnose oven-tall rendering
     if (p.masterCode && (/^O\d/i.test(p.masterCode) || /^UOC\d/i.test(p.masterCode))) {
       console.log('[EV-OVEN]', p.masterCode, '| category:', p.category, '| subCategory:', p.subCategory, '| placement:', p.placement, '| cabType:', cabType, '| ovenType:', p.ovenType);
@@ -542,8 +555,8 @@ export function ElevationView({
               drawerLayout={p.drawerLayout ?? null}
               masterCode={p.masterCode}
               facePattern={p.facePattern ?? null}
-              shelfCount={(p.fixedShelfCount ?? 0) + (p.adjustableShelfCount ?? 0)}
-              glassDoor={p.glassDoor ?? false}
+	              shelfCount={visibleGlassShelfCount}
+	              glassDoor={isGlassDoor}
               frameInsetPx={cabFrameInset ?? undefined}
             />
           )}
@@ -2269,7 +2282,9 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   const withFace = (children: React.ReactNode) => (
     <div className="absolute inset-0" style={{ background: faceBackground }}>
       <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorHeightIn: inheritedDoorHeightIn, drawerHeightIn: inheritedDrawerHeightIn, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount) }}>
-        {children}
+        <GlassDoorRenderContext.Provider value={{ enabled: Boolean(glassDoor), face, shelfCount: Math.max(0, Math.round(shelfCount ?? 0)) }}>
+          {children}
+        </GlassDoorRenderContext.Provider>
       </ShakerFaceMetricsContext.Provider>
     </div>
   );
@@ -2669,37 +2684,31 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   }
 
   // ─── SPECIALTY TYPE: GLASS DOOR ────────────────────────────────────────
-  // Glass-front cabinets: show the door frame with a lighter/translucent center
-  // panel to indicate glass instead of a solid wood panel.
-  if (cabinetType === "glass-door") {
+	  // Catalog glass-door cabinets use the same measured, selected-finish frame
+	  // renderer as upgraded standard doors. The shared glass context supplies the
+	  // transparent center, matching interior finish, and visible shelf levels.
+	  if (cabinetType === "glass-door") {
     const numDoors = Math.max(1, doorCount);
     const doorWidthPct = 100 / numDoors;
     return withFace(
       <>
         {Array.from({ length: numDoors }).map((_, i) => (
-          <div
-            key={`glass-${i}`}
-            className="absolute top-0 bottom-0"
-            style={{ left: `${doorWidthPct * i}%`, width: `${doorWidthPct}%` }}
-          >
-            {i > 0 && (
-              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
-            )}
-            {/* Outer rail bevel */}
-            <div
-              className="absolute inset-0 rounded-[2px]"
-              style={{ boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 1px rgba(0,0,0,0.20)` }}
-            >
-              {/* Glass panel: lighter, semi-transparent to indicate glass */}
-              <div
-                className="absolute inset-[6px] rounded-[1.5px]"
-                style={{
-                  background: `linear-gradient(180deg, rgba(200,220,240,0.35) 0%, rgba(180,200,220,0.25) 50%, rgba(160,185,210,0.30) 100%)`,
-                  boxShadow: `inset 0 1px 4px rgba(255,255,255,0.40), inset 0 -1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px ${edge}66`,
-                }}
-              />
-            </div>
-          </div>
+	          <div
+	            key={`glass-${i}`}
+	            className="absolute top-0 bottom-0"
+	            style={{ left: `${doorWidthPct * i}%`, width: `${doorWidthPct}%` }}
+	          >
+	            <SingleDoorPanel
+	              kind={kind}
+	              edge={edge}
+	              face={face}
+	              stroke={stroke}
+	              doorSampleUrl={doorSampleUrl}
+	              isWall={isWall}
+	              frameInsetPx={frameInsetPx}
+	              {...doorPanelProps(numDoors, 100)}
+	            />
+	          </div>
         ))}
       </>
     );
@@ -3293,6 +3302,7 @@ function RecessedPanel({ inset, horizontalInset, verticalInset, face, edge, rais
 // door reads as a real 3D door rather than flat outlines.
 export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall, frameInsetPx, faceWidthIn, faceHeightIn }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null; isWall?: boolean; frameInsetPx?: number; faceWidthIn?: number; faceHeightIn?: number }) {
   const inheritedFace = useContext(ShakerFaceMetricsContext);
+	const glassDoor = useContext(GlassDoorRenderContext);
   void stroke;
   // Beveled outer rail applied to the whole door face (shared by framed styles).
   // Strong bevel on the outer rail: bright top-left highlight (light hits the
@@ -3317,6 +3327,53 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
   // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
   const resolvedInset = (fi: number) => elevationFrameInsetPx(kind, frameInsetPx) ?? fi;
   const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn);
+	if (glassDoor.enabled) {
+	  const paneLeft = `${shakerGeometry.horizontalInsetPercent}%`;
+	  const paneTop = `${shakerGeometry.verticalInsetPercent}%`;
+	  const shelves = Math.max(0, Math.min(8, glassDoor.shelfCount));
+	  return (
+	    <div data-glass-door-frame="true" className="absolute inset-0" style={railBevel}>
+	      <div
+	        data-glass-door-pane="true"
+	        className="absolute overflow-hidden"
+	        style={{
+	          left: paneLeft,
+	          right: paneLeft,
+	          top: paneTop,
+	          bottom: paneTop,
+	          background: `linear-gradient(180deg, color-mix(in srgb, ${glassDoor.face} 76%, #000000) 0%, color-mix(in srgb, ${glassDoor.face} 64%, #000000) 100%)`,
+	          border: `1px solid ${edge}88`,
+	          boxShadow: `inset 0 3px 7px rgba(0,0,0,0.28)`,
+	        }}
+	      >
+	        <div data-glass-cabinet-interior="true" className="absolute inset-0" style={{ backgroundColor: glassDoor.face, opacity: 0.88 }} />
+	        {Array.from({ length: shelves }).map((_, index) => (
+	          <div
+	            key={index}
+	            data-glass-cabinet-shelf={index + 1}
+	            className="absolute left-[3%] right-[3%]"
+	            style={{
+	              top: `${((index + 1) / (shelves + 1)) * 100}%`,
+	              height: 3,
+	              background: glassDoor.face,
+	              borderTop: "1px solid rgba(255,255,255,0.52)",
+	              borderBottom: "1px solid rgba(0,0,0,0.32)",
+	              boxShadow: "0 2px 3px rgba(0,0,0,0.20)",
+	            }}
+	          />
+	        ))}
+	        <div
+	          data-transparent-glass="true"
+	          className="absolute inset-0"
+	          style={{
+	            background: "linear-gradient(145deg, rgba(239,250,253,0.38) 0%, rgba(176,211,222,0.13) 47%, rgba(255,255,255,0.22) 48%, rgba(111,151,166,0.12) 100%)",
+	            boxShadow: "inset 0 0 10px rgba(255,255,255,0.22)",
+	          }}
+	        />
+	      </div>
+	    </div>
+	  );
+	}
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlacedWallCabinetSkuDimensions, removeOverlappingPlacements, resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, type DesignCabinet, type PlacedCabinet } from "./design";
+import { glassDoorShelfCount, isGlassDoorCabinet, normalizePlacedWallCabinetSkuDimensions, removeOverlappingPlacements, resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, type DesignCabinet, type PlacedCabinet } from "./design";
 
 function wallCabinet(masterCode: string, dimensions: Partial<Pick<DesignCabinet, "width" | "height" | "depth">> = {}): DesignCabinet {
   return {
@@ -57,5 +57,24 @@ describe("authoritative wall cabinet SKU dimensions", () => {
       placement: "wall", x: 0, y: 0, width: 35.5, nominalWidth: 36, height: 24, nominalHeight: 24, depth: 12, nominalDepth: 12, rotation: 0,
     } as PlacedCabinet;
     expect(normalizePlacedWallCabinetSkuDimensions(custom)).toMatchObject({ width: 35.5, nominalWidth: 36, height: 24, depth: 12 });
+  });
+});
+
+describe("authoritative glass-door cabinet classification", () => {
+  it.each([
+    ["W2442GD", "Wall cabinet"],
+    ["W-24-42GD", "Legacy wall cabinet"],
+    ["W2442", "24 inch Glass Door Wall Cabinet"],
+  ])("recognizes %s / %s without relying on a saved upgrade flag", (masterCode, description) => {
+    expect(isGlassDoorCabinet({ masterCode, description })).toBe(true);
+  });
+
+  it("does not misclassify an ordinary wall cabinet", () => {
+    expect(isGlassDoorCabinet({ masterCode: "W2442", description: "24 inch Double Door Wall Cabinet" })).toBe(false);
+  });
+
+  it("keeps structured shelf counts primary and parses W2442GD's three shelves when fields are missing", () => {
+    expect(glassDoorShelfCount({ description: '24" Double Door Glass Door Wall Cabinet with 3 Adjustable Shelves' })).toBe(3);
+    expect(glassDoorShelfCount({ description: "Glass Door Wall Cabinet with 3 Adjustable Shelves", fixedShelfCount: 1, adjustableShelfCount: 1 })).toBe(2);
   });
 });

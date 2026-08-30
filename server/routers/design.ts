@@ -873,7 +873,7 @@ export const designRouter = router({
       }
       // The trim master codes the designer can auto-add. Kept in sync with the
       // client TRIM_MASTER_CODES map in lib/trimCart.ts.
-      const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48"];
+      const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48", "LCM8"];
       // Trim items may be stored with a specific styleId OR with no styleId
       // (style-agnostic). Accept both: rows that match one of the requested
       // styleIds, or rows where styleId is NULL (applies to any style).
