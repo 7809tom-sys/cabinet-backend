@@ -49,10 +49,32 @@ function dimensionsFor(row: Pick<BuildSheetRow, "widthIn" | "heightIn" | "depthI
   return `${cell(row.widthIn)} W × ${cell(row.heightIn)} H × ${cell(row.depthIn)} D`;
 }
 
-function cabinetSection(row: BuildSheetRow): boolean {
-  if (!(["base", "wall", "tall"] as string[]).includes(row.placement)) return false;
-  if (isApplianceCode(row.code)) return false;
-  return !isCatalogFiller({ masterCode: row.code, description: row.description, category: row.placement, subCategory: row.placement });
+const CABINET_PART_PATTERN = /\bcabinet\b|\bfiller\b|\bpanel\b|\bskin\b|\btrim\b|mold(?:ing)?|mould(?:ing)?|\bcrown\b|light rail|base rail|toe kick|\bscribe\b|\bvalance\b|\bbatten\b|starter strip|roll[ -]?out (?:shelf|tray)|glass door|decorative door/i;
+const NON_CABINET_HARDWARE_PATTERN = /\bhandle\b|\bpull\b|\bknob\b|handles?\s*&\s*hardware|cabinet hardware/i;
+
+export function materialsListSectionFor(item: {
+  code: string;
+  description: string;
+  category?: string | null;
+  placement?: string | null;
+}): MaterialsListSection {
+  const category = item.category?.trim().toLowerCase() ?? "";
+  const placement = item.placement?.trim().toLowerCase() ?? "";
+  const descriptor = `${item.code} ${item.description} ${category}`;
+  if (isApplianceCode(item.code) || category === "appliance" || category === "appliances" || placement === "appliance") return "other";
+  if (NON_CABINET_HARDWARE_PATTERN.test(descriptor)) return "other";
+  if (["base", "wall", "tall", "vanity", "ada"].includes(placement)) return "cabinet";
+  if (isCatalogFiller({ masterCode: item.code, description: item.description, category, subCategory: category })) return "cabinet";
+  return CABINET_PART_PATTERN.test(descriptor) ? "cabinet" : "other";
+}
+
+function cabinetPartCategory(item: { code: string; description: string; category?: string | null }): string {
+  const text = `${item.code} ${item.description} ${item.category ?? ""}`.toLowerCase();
+	  if (isCatalogFiller({ masterCode: item.code, description: item.description, category: item.category ?? null, subCategory: item.category ?? null }) || /\bfiller\b/.test(text)) return "Filler";
+  if (/\bpanel\b|\bskin\b/.test(text)) return "Panel";
+  if (/\btrim\b|mold(?:ing)?|mould(?:ing)?|\bcrown\b|light rail|base rail|toe kick|\bscribe\b|\bvalance\b|\bbatten\b|starter strip/.test(text)) return "Cabinet trim";
+  if (/roll[ -]?out (?:shelf|tray)|glass door|decorative door/.test(text)) return "Cabinet accessory";
+  return "Cabinet";
 }
 
 function alphaLabel(index: number): string {
@@ -89,12 +111,12 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
       ?? (sameCode.length === 1 ? sameCode[0] : null);
     if (exact) exact.consumed = true;
     const unitPrice = safePrice(exact?.line.unitPrice ?? build.unitPrice);
-    const section: MaterialsListSection = cabinetSection(build) ? "cabinet" : "other";
+    const section = materialsListSectionFor({ code: build.code, description: build.description, category: build.placement, placement: build.placement });
     rows.push({
       section,
       code: build.code,
       description: build.description,
-      category: section === "cabinet" ? "Cabinet" : build.placement || "Other",
+      category: section === "cabinet" ? cabinetPartCategory({ code: build.code, description: build.description, category: build.placement }) : build.placement || "Other",
       supplier: exact ? supplierFor(exact.line, names, defaultSupplier) : defaultSupplier,
       styleColor: build.color?.trim() || exact?.line.styleLabel?.trim() || args.defaultStyleName?.trim() || "—",
       dimensions: dimensionsFor(build),
@@ -108,11 +130,12 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
   for (const entry of pricing.filter((value) => !value.consumed && value.line.qty > 0)) {
     const line = entry.line;
     const unitPrice = safePrice(line.unitPrice);
+    const section = materialsListSectionFor({ code: line.masterCode, description: line.name, category: line.category });
     rows.push({
-      section: "other",
+      section,
       code: line.masterCode,
       description: line.name,
-      category: line.category?.trim() || "Parts & materials",
+      category: section === "cabinet" ? cabinetPartCategory({ code: line.masterCode, description: line.name, category: line.category }) : line.category?.trim() || "Parts & materials",
       supplier: supplierFor(line, names, defaultSupplier),
       styleColor: line.styleLabel?.trim() || "—",
       dimensions: "—",
@@ -146,11 +169,12 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
   for (const item of args.supplements ?? []) {
     if (!(item.qty > 0)) continue;
     const unitPrice = safePrice(item.unitPrice);
+    const section = materialsListSectionFor({ code: item.code, description: item.description, category: item.category });
     rows.push({
-      section: "other",
+      section,
       code: item.code,
       description: item.description,
-      category: item.category,
+      category: section === "cabinet" ? cabinetPartCategory(item) : item.category,
       supplier: item.supplier?.trim() || defaultSupplier,
       styleColor: item.styleColor?.trim() || "—",
       dimensions: item.dimensions?.trim() || "—",
@@ -183,7 +207,7 @@ export function materialsListCsv(rows: readonly MaterialsListRow[]): string {
   const lines = [header.map(csvEscape).join(",")];
   for (const row of rows) {
     lines.push([
-      row.label, row.section === "cabinet" ? "Cabinets" : "Other materials", row.code, row.description, row.category,
+      row.label, row.section === "cabinet" ? "Cabinets & cabinet parts" : "Other materials", row.code, row.description, row.category,
       row.supplier, row.styleColor, row.dimensions, row.qty,
       row.unitPrice == null ? "" : row.unitPrice.toFixed(2), row.lineTotal == null ? "" : row.lineTotal.toFixed(2), row.notes,
     ].map(csvEscape).join(","));
@@ -220,5 +244,5 @@ export function materialsListPrintHtml(args: {
     return `<h2>${htmlEscape(heading)}</h2><table><thead><tr><th>No.</th><th>Item code</th><th>Description</th><th>Category</th><th>Distributor</th><th>Color / style</th><th>Dimensions</th><th>Qty</th><th>Unit price</th><th>Line total</th><th>Notes</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${htmlEscape(row.label)}</td><td>${htmlEscape(row.code)}</td><td>${htmlEscape(row.description)}</td><td>${htmlEscape(row.category)}</td><td>${htmlEscape(row.supplier)}</td><td>${htmlEscape(row.styleColor)}</td><td>${htmlEscape(row.dimensions)}</td><td class="number">${row.qty}</td><td class="number">${row.unitPrice == null ? "Pending" : `$${row.unitPrice.toFixed(2)}`}</td><td class="number">${row.lineTotal == null ? "Pending" : `$${row.lineTotal.toFixed(2)}`}</td><td>${htmlEscape(row.notes)}</td></tr>`).join("")}</tbody></table>`;
   };
   const pending = args.rows.filter((row) => row.unitPrice == null).length;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(title)}</title><style>@page{size:letter landscape;margin:.35in}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0}h1{font-size:18px;margin:0 0 4px;color:#1a2744}p{font-size:9px;margin:0 0 12px;color:#5b6472}h2{font-size:12px;margin:12px 0 4px;color:#8a6422}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5px;margin-bottom:10px}th,td{border:1px solid #c8ced8;padding:4px;vertical-align:top;overflow-wrap:anywhere}th{background:#e9edf3;text-align:left;font-size:7px;text-transform:uppercase}.number{text-align:right;white-space:nowrap}.summary{display:flex;justify-content:flex-end;gap:18px;font-size:10px;font-weight:700}.pending{color:#8a6422}@media print{button{display:none}}</style></head><body><h1>${htmlEscape(title)}</h1><p>${htmlEscape(meta)}</p>${table("cabinet", "Numbered Cabinet List")}${table("other", "Other Materials & Parts — Alphabetical")}<div class="summary"><span>Priced total: $${materialsListPricedTotal(args.rows).toFixed(2)}</span><span class="pending">Pending price lines: ${pending}</span></div></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(title)}</title><style>@page{size:letter landscape;margin:.35in}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;margin:0}h1{font-size:18px;margin:0 0 4px;color:#1a2744}p{font-size:9px;margin:0 0 12px;color:#5b6472}h2{font-size:12px;margin:12px 0 4px;color:#8a6422}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5px;margin-bottom:10px}th,td{border:1px solid #c8ced8;padding:4px;vertical-align:top;overflow-wrap:anywhere}th{background:#e9edf3;text-align:left;font-size:7px;text-transform:uppercase}.number{text-align:right;white-space:nowrap}.summary{display:flex;justify-content:flex-end;gap:18px;font-size:10px;font-weight:700}.pending{color:#8a6422}@media print{button{display:none}}</style></head><body><h1>${htmlEscape(title)}</h1><p>${htmlEscape(meta)}</p>${table("cabinet", "Numbered Cabinets & Cabinet Parts")}${table("other", "Other Materials & Parts — Alphabetical")}<div class="summary"><span>Priced total: $${materialsListPricedTotal(args.rows).toFixed(2)}</span><span class="pending">Pending price lines: ${pending}</span></div></body></html>`;
 }

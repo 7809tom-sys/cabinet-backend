@@ -7,7 +7,8 @@ describe("complete Design materials and parts dialog", () => {
     const designToolSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
 
     expect(dialogSource).toContain("Complete Materials & Parts List");
-    expect(dialogSource).toContain("Numbered cabinet list");
+	    expect(dialogSource).toContain("Numbered cabinets & cabinet parts");
+	    expect(dialogSource).toContain("Numbered cabinets, panels, fillers, and cabinet trim first");
     expect(dialogSource).toContain("Other materials & parts — alphabetical");
     expect(dialogSource).toContain("> Print");
     expect(dialogSource).toContain("Export CSV");

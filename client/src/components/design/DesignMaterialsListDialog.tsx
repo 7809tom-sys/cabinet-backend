@@ -98,7 +98,7 @@ export function DesignMaterialsListDialog({
                 <FileSpreadsheet className="h-5 w-5 text-[#a87f33]" /> Complete Materials & Parts List
               </DialogTitle>
               <DialogDescription className="mt-1 text-xs">
-                Numbered cabinets first; all other layout materials and parts alphabetized below. Pending prices stay visibly pending.
+	                Numbered cabinets, panels, fillers, and cabinet trim first; all non-cabinet materials alphabetized below. Pending prices stay visibly pending.
               </DialogDescription>
               <p className="mt-1 text-[11px] font-medium text-slate-600">{roomLabel} · {styleName?.trim() || "Cabinet style not selected"}</p>
             </div>
@@ -126,7 +126,7 @@ export function DesignMaterialsListDialog({
                 </tr>
               </thead>
               <tbody>
-                {renderRows(cabinetRows, "Numbered cabinet list")}
+	                {renderRows(cabinetRows, "Numbered cabinets & cabinet parts")}
                 {renderRows(otherRows, "Other materials & parts — alphabetical")}
               </tbody>
             </table>
@@ -135,7 +135,7 @@ export function DesignMaterialsListDialog({
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-            <span className="text-slate-600">{cabinetRows.length} cabinet rows · {otherRows.length} other rows · <span className="font-semibold text-amber-700">{pendingCount} pending-price rows</span></span>
+	            <span className="text-slate-600">{cabinetRows.length} cabinet & part rows · {otherRows.length} other rows · <span className="font-semibold text-amber-700">{pendingCount} pending-price rows</span></span>
             <span className="text-sm font-bold text-[#1a2744]">Priced total: ${materialsListPricedTotal(rows).toFixed(2)}</span>
           </div>
         </div>

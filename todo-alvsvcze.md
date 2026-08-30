@@ -1055,3 +1055,9 @@
 - [x] Apply the selected depth distance exactly in both inward and outward directions while enforcing room bounds and 0-inch physical overlap
 - [x] Preserve the selected cabinet UID, plan dimensions, SKU, style, distributor, finish, price, saved-design/cart identity, and unrelated placements during depth moves
 - [x] Add PC, tablet, mobile, 30-inch, fraction, collision, boundary, and persistence regressions before publishing the selectable depth distance
+- [x] Reclassify all cabinet-related materials into the Cabinet section: cabinets, panels, fillers, crown, light rail, toe kick, molding, valances, and other cabinet trim
+- [x] Keep countertops, sinks, faucets, handles, appliances, flooring, backsplash, and other non-cabinet materials in the separate materials section
+- [x] Keep the refrigerator itself classified as an Appliance while placing refrigerator panels, bridge cabinets, fillers, and related trim in the Cabinet section
+- [x] Apply the same Cabinet-versus-other grouping and deterministic ordering to the on-screen table, print document, and CSV export
+- [x] Preserve quantities, dimensions, distributor, style/finish, pending-price status, line totals, and overall priced total while regrouping
+- [x] Add complete materials-model, table, print, CSV, and responsive regressions before publishing the grouping correction
