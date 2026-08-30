@@ -505,6 +505,11 @@ export interface PlacedCabinet {
 /** The master fields editable from Designer Edit Config that affect 2D drawing. */
 export type MasterCabinetDrawingRefresh = {
   cabinetId: number;
+  masterCode?: string | null;
+  description?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
   category?: string | null;
   subCategory?: string | null;
   isCornerCabinet?: boolean | null;
@@ -539,8 +544,15 @@ export function refreshPlacedCabinetsFromMasterConfig(
 ): PlacedCabinet[] {
   return placed.map((cabinet) => {
     if (cabinet.cabinetId !== master.cabinetId) return cabinet;
+    const blind = isBlindCorner(master.masterCode ?? cabinet.masterCode, master.description ?? cabinet.description);
+    const blindWidth = blind
+      ? blindCornerNominalWidth({ masterCode: master.masterCode ?? cabinet.masterCode, width: master.width ?? cabinet.width })
+      : null;
     return {
       ...cabinet,
+	      ...(blindWidth != null ? { width: blindWidth, nominalWidth: blindWidth } : {}),
+	      ...(blind && master.depth != null ? { depth: Number(master.depth), nominalDepth: Number(master.depth) } : {}),
+	      ...(blind && master.height != null ? { height: Number(master.height), nominalHeight: Number(master.height) } : {}),
       ...(master.category !== undefined ? { category: master.category } : {}),
       ...(master.subCategory !== undefined ? { subCategory: master.subCategory } : {}),
       ...(master.isCornerCabinet !== undefined ? { isCornerCabinet: master.isCornerCabinet } : {}),
@@ -585,7 +597,10 @@ export function refreshPlacedCabinetsFromMasterRules(
     if (!master) return cabinet;
     const next = refreshPlacedCabinetsFromMasterConfig([cabinet], master)[0]!;
     if (
-      next.category !== cabinet.category ||
+	      next.category !== cabinet.category ||
+	      next.width !== cabinet.width ||
+	      next.depth !== cabinet.depth ||
+	      next.height !== cabinet.height ||
       next.subCategory !== cabinet.subCategory ||
       next.isCornerCabinet !== cabinet.isCornerCabinet ||
       next.cornerType !== cabinet.cornerType ||
@@ -596,7 +611,8 @@ export function refreshPlacedCabinetsFromMasterRules(
       next.genericDrawingUrl !== cabinet.genericDrawingUrl ||
       next.numberOfDoors !== cabinet.numberOfDoors ||
       next.numberOfDrawers !== cabinet.numberOfDrawers ||
-      next.openingType !== cabinet.openingType ||
+	      next.openingType !== cabinet.openingType ||
+	      next.openingWidth !== cabinet.openingWidth ||
       next.doorHeight !== cabinet.doorHeight ||
       next.drawerHeight !== cabinet.drawerHeight ||
       next.doorOrientation !== cabinet.doorOrientation ||
@@ -1198,7 +1214,9 @@ export function wallCabinetSkuDimensions(masterCode: string | null | undefined):
 export function resolvedDesignCabinetDimensions(cabinet: DesignCabinet): CabinetDimensionsIn {
   const sku = cabinet.placement === "wall" ? wallCabinetSkuDimensions(cabinet.masterCode) : null;
   return {
-    width: sku?.width ?? dim(cabinet.width, 24),
+    width: isBlindCorner(cabinet.masterCode, cabinet.description)
+      ? blindCornerNominalWidth(cabinet)
+      : sku?.width ?? dim(cabinet.width, 24),
     height: sku?.height ?? dim(cabinet.height, standardHeight(cabinet.placement)),
     depth: sku?.depth ?? footprintDepth(cabinet),
   };
@@ -1255,10 +1273,13 @@ export function footprintDepth(c: DesignCabinet): number {
 
 export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
   const rot = ((p.rotation % 360) + 360) % 360;
+  const blind = isBlindCorner(p.masterCode, p.description);
+  const width = blind ? blindCornerNominalWidth(p) : p.width;
+  const depth = blind ? (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : p.depth;
   if (rot === 90 || rot === 270) {
-    return { w: p.depth, d: p.width };
+    return { w: depth, d: width };
   }
-  return { w: p.width, d: p.depth };
+  return { w: width, d: depth };
 }
 
 // Rotation-aware RENDER footprint for a placed cabinet. This is what the canvas
@@ -1327,8 +1348,9 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   }
   if (cornerKind === "blind-corner") {
     const stdDepth = p.placement === "wall" ? 12 : 24;
+    const nominalWidth = blindCornerNominalWidth(p);
     const rot = ((p.rotation % 360) + 360) % 360;
-    return rot === 90 || rot === 270 ? { w: stdDepth, d: p.width } : { w: p.width, d: stdDepth };
+    return rot === 90 || rot === 270 ? { w: stdDepth, d: nominalWidth } : { w: nominalWidth, d: stdDepth };
   }
   const sz = rotatedSize(p);
   // Defensive floor: a real cabinet box must never render as an invisible sliver
@@ -3630,6 +3652,24 @@ export function isBlindCorner(masterCode: string, description?: string): boolean
   if (/-BLIND|BLIND/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   return /blind\s*corner/.test(desc);
+}
+
+/**
+ * Blind-corner master codes name their full physical run length. Supplier rows
+ * sometimes store only the reduced box/opening width (BBC-36 was stored as 33),
+ * which made placement, collision, fillers, and 3D disagree with the SKU.
+ */
+export function blindCornerNominalWidth(
+  cabinet: { masterCode?: string | null; description?: string | null; width?: string | number | null; nominalWidth?: string | number | null },
+): number {
+  const code = `${cabinet.masterCode ?? ""}`.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const codedWidth = code.match(/^(?:BBC|WBC|BBL|BBR|WBL|WBR)(\d{2})/)?.[1];
+  const parsedWidth = codedWidth == null ? Number.NaN : Number(codedWidth);
+  if (Number.isFinite(parsedWidth) && parsedWidth >= 12 && parsedWidth <= 96) return parsedWidth;
+  const nominal = Number(cabinet.nominalWidth);
+  if (Number.isFinite(nominal) && nominal > 0) return nominal;
+  const stored = Number(cabinet.width);
+  return Number.isFinite(stored) && stored > 0 ? stored : 24;
 }
 
 export interface FillerLine {

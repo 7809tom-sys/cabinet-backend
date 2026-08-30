@@ -161,6 +161,27 @@ describe("continuous cabinet trim", () => {
 		  expect(root.children.every((rail) => rail.userData.exposedTopEdge === true)).toBe(true);
 		});
 
+		it("includes full-height tall cabinets in the refrigerator-wall footprint union", () => {
+		  const root = new THREE.Group();
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "tall-left", cabinetId: 241, masterCode: "UC2496", description: "Tall utility cabinet", placement: "tall", x: 0, y: 0, width: 24, height: 96, depth: 24, rotation: 0, mountBottom: 0 },
+		    { uid: "fridge-bridge", cabinetId: 242, masterCode: "WR3630", description: "Refrigerator bridge cabinet", placement: "wall", x: 24, y: 0, width: 36, height: 30, depth: 24, rotation: 0, mountBottom: 66 },
+		    { uid: "right-upper", cabinetId: 243, masterCode: "W-30-30", description: "Wall", placement: "wall", x: 60, y: 0, width: 30, height: 30, depth: 12, rotation: 0, mountBottom: 66 },
+		  ] as never[];
+
+		  const segments = threeDCrownPerimeterSegments(cabinets, room);
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+		  const bridgeReturns = segments.filter((segment) => segment.ownerUid === "fridge-bridge" && segment.kind.endsWith("return"));
+
+		  expect(bridgeReturns).toHaveLength(1);
+		  expect(bridgeReturns[0]?.length).toBeCloseTo(12, 6);
+		  expect(Math.min(bridgeReturns[0]!.start.z, bridgeReturns[0]!.end.z)).toBeCloseTo(12, 6);
+		  expect(Math.max(bridgeReturns[0]!.start.z, bridgeReturns[0]!.end.z)).toBeCloseTo(24, 6);
+		  expect(segments.some((segment) => segment.ownerUid === "tall-left" && segment.kind === "front")).toBe(true);
+		  expect(root.children.every((rail) => rail.userData.exposedTopEdge === true)).toBe(true);
+		});
+
 		it("follows the WDC42 pentagonal top with two 12-inch returns and its 17-inch diagonal front", () => {
 	  const segments = diagonalCornerCrownSegments(24, 24);
 	  expect(segments.map((segment) => segment.kind)).toEqual(["right-return", "diagonal-front", "left-return"]);

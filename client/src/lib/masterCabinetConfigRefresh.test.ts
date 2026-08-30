@@ -133,4 +133,57 @@ describe("master Cabinet Config refresh", () => {
       customProfile: "base_end_return",
     });
   });
+
+  it("upgrades a stale saved BBC-36 to its authoritative dimensions and measured blind-corner face", () => {
+    const stale = [{
+      uid: "bbc-stale",
+      cabinetId: 9390015,
+      masterCode: "BBC-36",
+      description: '36" Blind Corner Base Cabinet',
+      placement: "base",
+      x: 96,
+      y: 0,
+      width: 33,
+      nominalWidth: 33,
+      depth: 24,
+      nominalDepth: 24,
+      height: 34.5,
+      nominalHeight: 34.5,
+      rotation: 90,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+    }] as PlacedCabinet[];
+
+    const refreshed = refreshPlacedCabinetsFromMasterRules(stale, [{
+      cabinetId: 9390015,
+      masterCode: "BBC-36",
+      description: '36" Blind Corner Base Cabinet',
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      cornerType: "blind-corner",
+      pullMin: 3,
+      pullMax: 6,
+      openingWidth: 11,
+      numberOfDoors: 1,
+      numberOfDrawers: 1,
+    }]);
+
+    expect(refreshed[0]).toMatchObject({
+      x: 96,
+      y: 0,
+      width: 36,
+      nominalWidth: 36,
+      depth: 24,
+      nominalDepth: 24,
+      height: 34.5,
+      nominalHeight: 34.5,
+      cornerType: "blind-corner",
+      pullMin: 3,
+      pullMax: 6,
+      openingWidth: 11,
+      numberOfDoors: 1,
+      numberOfDrawers: 1,
+    });
+  });
 });

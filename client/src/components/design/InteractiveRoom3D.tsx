@@ -2825,9 +2825,13 @@ export function addCabinet(
       const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
-	  } else if (specialty.kind === "blind-corner") {
-	    const layout = threeDBlindCornerFrontLayout(bodyWidth, sku.swing === "left" ? "left" : "right");
-	    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+		  } else if (specialty.kind === "blind-corner") {
+		    const layout = threeDBlindCornerFrontLayout(
+		      bodyWidth,
+		      sku.swing === "left" ? "left" : "right",
+		      sku.openingWidth,
+		    );
+		    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
 	    const blindPanel = new THREE.Mesh(
 	      new THREE.BoxGeometry(Math.max(0.08, layout.blindWidth - 0.04), faceHeight, 0.038),
 	      trimMaterial,
@@ -2840,22 +2844,42 @@ export function addCabinet(
 	      cabinetFront: true,
 	    };
 	    frontGroup.add(blindPanel);
-	    const door = new THREE.Mesh(
-	      new THREE.BoxGeometry(Math.max(0.08, layout.doorWidth - 0.06), faceHeight, 0.052),
-	      faceMaterial,
-	    );
-	    door.position.set(layout.doorX, 0, 0.008);
+		    const drawerFaceHeight = drawerCount > 0 ? Math.min(faceHeight * 0.24, 6 * INCH) : 0;
+		    const doorFaceHeight = Math.max(0.2, faceHeight - drawerFaceHeight);
+		    const door = new THREE.Mesh(
+		      new THREE.BoxGeometry(Math.max(0.08, layout.doorWidth - 0.06), doorFaceHeight - 0.025, 0.052),
+		      faceMaterial,
+		    );
+		    door.position.set(layout.doorX, -drawerFaceHeight / 2, 0.008);
 	    door.userData = {
 	      specialtyProfile: "blind-corner",
 	      blindCornerDoorSide: layout.doorSide,
 	      blindCornerExposedDoor: true,
 	      cabinetFront: true,
 	      flushPhysicalFace: true,
-	    };
-	    frontGroup.add(door);
-	    addFaceShadow(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y);
-	    addShakerFrame(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y);
-	    addPull(layout.doorWidth - 0.06, faceHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", layout.doorSide);
+		    };
+		    frontGroup.add(door);
+		    addFaceShadow(layout.doorWidth - 0.06, doorFaceHeight - 0.025, door.position.x, door.position.y);
+		    addShakerFrame(layout.doorWidth - 0.06, doorFaceHeight - 0.025, door.position.x, door.position.y);
+		    addPull(layout.doorWidth - 0.06, doorFaceHeight - 0.025, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", layout.doorSide);
+		    if (drawerFaceHeight > 0) {
+		      const drawer = new THREE.Mesh(
+		        new THREE.BoxGeometry(Math.max(0.08, layout.doorWidth - 0.06), drawerFaceHeight - 0.025, 0.052),
+		        faceMaterial,
+		      );
+		      drawer.position.set(layout.doorX, faceHeight / 2 - drawerFaceHeight / 2, 0.008);
+		      drawer.userData = {
+		        specialtyProfile: "blind-corner",
+		        blindCornerExposedDrawer: true,
+		        blindCornerDoorSide: layout.doorSide,
+		        cabinetFront: true,
+		        cabinetDrawerFront: true,
+		      };
+		      frontGroup.add(drawer);
+		      addFaceShadow(layout.doorWidth - 0.06, drawerFaceHeight - 0.025, drawer.position.x, drawer.position.y);
+		      addShakerFrame(layout.doorWidth - 0.06, drawerFaceHeight - 0.025, drawer.position.x, drawer.position.y);
+		      addPull(layout.doorWidth - 0.06, drawerFaceHeight - 0.025, drawer.position.x, drawer.position.y, true, 0.086, placement === "wall" ? "upper" : "lower");
+		    }
 	  } else if (specialty.kind === "farmhouse-sink") {
     // FSB farmhouse bases carry their apron on the positive-Z local face. The
     // cabinet's resolved wall transform keeps that feature facing the room.
@@ -3205,7 +3229,10 @@ export function threeDRoomFacingRotation(
   if (kind === "l-shape" && /^(?:LSB?|ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
 	  // Non-standard corner bodies retain their saved 2D quarter-turn so their
 	  // authored specialty fronts and physical footprints stay on the same walls.
-	  if (kind !== "standard") return fallbackRotation;
+	  // A blind corner is the exception: its carcass is rectangular, so the saved
+	  // plan quarter-turn identifies the run axis but not which side faces the room.
+	  // Resolve its front from the actual wall exactly like a standard cabinet.
+	  if (kind !== "standard" && kind !== "blind-corner") return fallbackRotation;
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
     front: Math.PI,
@@ -3244,8 +3271,11 @@ export function diagonalCornerRoomRotation(cornerTurn: number): number {
   return (360 - normalized) % 360;
 }
 
-export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left" | "right") {
-  const doorWidth = bodyWidth * 0.6;
+export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left" | "right", openingWidthIn?: number | null) {
+	  const requestedOpening = Number(openingWidthIn) * INCH;
+	  const doorWidth = Number.isFinite(requestedOpening) && requestedOpening > 0
+	    ? Math.min(bodyWidth * 0.5, Math.max(bodyWidth * 0.2, requestedOpening))
+	    : bodyWidth / 3;
   const blindWidth = bodyWidth - doorWidth;
   const doorOnRight = doorSide === "right";
   return {
@@ -3467,7 +3497,11 @@ function crownEdgeCoveredByFootprint(edge: ThreeDCrownPerimeterSegment, blocker:
  * cancel one another; a partial overlap leaves only the depth-step wrap.
  */
 export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: RoomData) {
-  const cabinets = placed.filter((cabinet) => cabinet.placement === "wall");
+  // Crown follows the outside perimeter of the complete upper/tall run. A tall
+  // pantry or refrigerator surround is a physical blocker at the same top line;
+  // omitting it from the union left hidden bridge returns running to the wall
+  // and removed the matching exposed segment on the opposite side.
+  const cabinets = placed.filter((cabinet) => cabinet.placement === "wall" || cabinet.placement === "tall");
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
   const footprints = cabinets.map((cabinet) => worldCrownFootprint(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];

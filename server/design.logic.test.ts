@@ -260,23 +260,24 @@ describe("door swing (hinge side)", () => {
 });
 
 describe("blind corner rule", () => {
-  // A blind base corner at x:0..24 (y:0..24). Neighbor along x to its right.
+	  // A BBC-36 occupies x:0..36 (y:0..24). A stale stored width must not
+	  // shorten its physical run or erase the required 3-inch filler clearance.
   const blind = mk({
     uid: "blind",
     placement: "base",
-    masterCode: "BBC-42",
+	    masterCode: "BBC-36",
     description: "Blind Base Corner Cabinet",
-    x: 0, y: 0, width: 24, depth: 24,
+	    x: 0, y: 0, width: 33, depth: 24,
   });
 
   it("flags a neighbor butted right against the blind corner (no 3\" pull)", () => {
-    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 24, y: 0, width: 30, depth: 24 });
+	    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 36, y: 0, width: 30, depth: 24 });
     const bad = blindCornerViolations([blind, neighbor]);
     expect(bad.has("blind")).toBe(true);
   });
 
   it("passes when the neighbor is pulled 3\" off the corner", () => {
-    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 27, y: 0, width: 30, depth: 24 });
+	    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 39, y: 0, width: 30, depth: 24 });
     const bad = blindCornerViolations([blind, neighbor]);
     expect(bad.has("blind")).toBe(false);
   });

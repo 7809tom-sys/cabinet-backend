@@ -1034,6 +1034,12 @@
 - [x] Keep one unbroken exposed crown perimeter from the far-left wall through refrigerator/depth transitions to the far-right cabinet-run end
 - [x] Preserve WDC42 diagonal boundaries, true openings, true run ends, cabinet identity, camera state, materials quantities, save/cart state, and collision rules
 - [x] Add final-mesh regressions matching the owner’s complete left-to-right refrigerator wall and mixed-depth run before publication
+- [ ] Reproduce the live BBC-36 corner placement that faces backward and compare its stored X/Y/rotation/swing/pull against the selected corner
+- [ ] Enforce BBC-36 as a rectangular 36-inch-long by 24-inch-deep by 34.5-inch-high blind-corner base with a 3-to-6-inch pull, never a square or generic two-door box
+- [ ] Render the BBC-36 fixed blind panel and open-side door at the correct proportions and face them into the room: left corner door right, right corner door left
+- [ ] Preserve the required 3-inch blind-side filler, zero-overlap footprint, cabinet SKU/style/distributor/finish/price, save/cart identity, and unrelated placements
+- [ ] Reproduce the owner’s refreshed refrigerator crown screenshot against the combined-footprint perimeter and correct any remaining hidden wall return or missing exposed edge
+- [ ] Add final 2D/3D BBC dimension, all-corner orientation, pull/filler, and complete refrigerator-wall crown regressions before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view
@@ -1118,3 +1124,9 @@
 - [x] Add Clark & Son universal rollout models UNIV-ROT15, UNIV-ROT18, UNIV-ROT21, UNIV-ROT24, UNIV-ROT27, UNIV-ROT30, UNIV-ROT33, and UNIV-ROT36 as the fallback family for eligible cabinets without a proprietary tray
 - [x] Match each cabinet to the largest universal UNIV-ROT size that fits its nominal width, preserving the manufacturer’s listed back-panel and 21-inch side-panel dimensions
 - [x] Locate and use the authoritative Clark & Son universal rollout prices before creating fallback cart lines; never fabricate a price
+- [x] Reproduce the live BBC-36 backward corner placement and trace its stored 33-inch width, room-facing rotation, pull, opening, and final 3D face
+- [x] Correct every BBC-36 master to 36 inches long by 24 inches deep by 34.5 inches high with an 11-inch opening, 3-to-6-inch pull, one drawer, one door, and required filler
+- [x] Normalize stale saved BBC-36 placements to the corrected dimensions while preserving their corner origin, SKU, style, distributor, finish, price, save/cart identity, and unrelated placements
+- [x] Render BBC-36 with a 30-inch carcass plus 4.5-inch toe kick, measured drawer-over-door open side, fixed blind panel, and room-facing rotation at every wall/corner
+- [x] Include full-height tall cabinets and refrigerator surround panels in the combined crown footprint so hidden wall returns cancel without removing exposed outside-perimeter crown
+- [x] Validate BBC-36 dimensions, all-wall orientation, blind-side filler clearance, 2D/3D fronts, saved-plan refresh, build sheets, collision, and complete refrigerator crown meshes

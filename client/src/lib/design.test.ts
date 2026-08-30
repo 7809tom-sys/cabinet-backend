@@ -2492,10 +2492,11 @@ describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
   it("places a base filler just past a blind corner seated at the start corner of the top wall", () => {
     const blind = cab({ masterCode: "BBC-36", placement: "base", x: 0, y: 0, width: 33, depth: 24, rotation: 0 });
     const res = blindCornerAutoFiller(blind, room, uid);
-    expect(res.ambiguous).toBe(false);
-    expect(res.filler).not.toBeNull();
-    // filler sits on the open (run) side, just past the cabinet's far end (x=33)
-    expect(res.filler!.x).toBeCloseTo(33, 1);
+	    expect(res.ambiguous).toBe(false);
+	    expect(res.filler).not.toBeNull();
+	    // The supplier row stores 33, but BBC-36's authoritative physical run is
+	    // 36 inches; the filler begins at that real open-side edge.
+	    expect(res.filler!.x).toBeCloseTo(36, 1);
     expect(res.filler!.y).toBe(0);
     expect(res.filler!.width).toBe(BLIND_CORNER_FILLER_WIDTH_IN);
     expect(res.filler!.placement).toBe("base");
@@ -2503,11 +2504,11 @@ describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
 
   it("places the filler before the cabinet when the blind corner is at the far end of the wall", () => {
     // cabinet's far end is flush with the right end of the top wall (144)
-    const blind = cab({ masterCode: "BBC-36", placement: "base", x: 144 - 33, y: 0, width: 33, depth: 24, rotation: 0 });
-    const res = blindCornerAutoFiller(blind, room, uid);
-    expect(res.ambiguous).toBe(false);
-    // filler sits just before the near end (x = (144-33) - 3)
-    expect(res.filler!.x).toBeCloseTo(144 - 33 - BLIND_CORNER_FILLER_WIDTH_IN, 1);
+	    const blind = cab({ masterCode: "BBC-36", placement: "base", x: 144 - 36, y: 0, width: 33, depth: 24, rotation: 0 });
+	    const res = blindCornerAutoFiller(blind, room, uid);
+	    expect(res.ambiguous).toBe(false);
+	    // filler sits just before the near end of the canonical 36-inch run.
+	    expect(res.filler!.x).toBeCloseTo(144 - 36 - BLIND_CORNER_FILLER_WIDTH_IN, 1);
   });
 
   it("is ambiguous (no filler) when the blind corner is not seated in a corner", () => {
