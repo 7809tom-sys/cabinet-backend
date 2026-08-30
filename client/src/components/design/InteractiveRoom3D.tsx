@@ -7,7 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isRefrigeratorWallCabinet, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -3424,14 +3424,26 @@ function crownEdgeCoveredRange(edge: ThreeDCrownPerimeterSegment, blocker: Three
  */
 export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: RoomData) {
   const cabinets = placed.filter((cabinet) => cabinet.placement === "wall");
+	  const cabinetByUid = new Map(cabinets.map((cabinet) => [cabinet.uid, cabinet]));
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];
   for (const edge of edges) {
     const covered = edges
       .filter((blocker) => blocker.ownerUid !== edge.ownerUid)
       .map((blocker) => crownEdgeCoveredRange(edge, blocker))
-      .filter((range): range is { start: number; end: number } => range != null)
-      .sort((a, b) => a.start - b.start);
+	      .filter((range): range is { start: number; end: number } => range != null)
+	      .sort((a, b) => a.start - b.start);
+	    const owner = cabinetByUid.get(edge.ownerUid);
+	    // A refrigerator bridge is a special enclosure transition. When another
+	    // upper continues the run on either side, that bridge side is covered and
+	    // receives no crown return at all—not even the ordinary exposed depth-step
+	    // wrap used by other 24-inch-deep cabinets. Its front crown remains.
+	    if (
+	      owner
+	      && isRefrigeratorWallCabinet(owner)
+	      && (edge.kind === "left-return" || edge.kind === "right-return")
+	      && covered.length > 0
+	    ) continue;
     const merged: Array<{ start: number; end: number }> = [];
     for (const range of covered) {
       const last = merged[merged.length - 1];

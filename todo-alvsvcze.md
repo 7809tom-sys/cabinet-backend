@@ -1024,6 +1024,10 @@
 - [x] Ensure touching same-depth upper cabinets produce only a continuous front crown rail with no internal returns in the final Three.js scene
 - [x] Keep returns only at true run ends and wrap only around exposed 12-to-24-inch depth transitions, including WDC42 and other deeper cabinets
 - [x] Add final-mesh regressions using the screenshot’s mixed straight, corner, and deep-cabinet run before publication
+- [x] Reproduce the live refrigerator-bridge crown return that incorrectly runs from the bridge’s right side back to the wall where an adjacent upper continues the run
+- [x] Suppress the covered refrigerator-bridge side return while retaining crown on its exposed front edge
+- [x] Preserve valid true run-end returns and exposed depth-step wraps for non-refrigerator deep cabinets
+- [x] Add final-mesh refrigerator-left/right-junction, true-end, and ordinary deep-transition regressions before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view
