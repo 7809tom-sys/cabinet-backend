@@ -965,7 +965,7 @@ describe("interactive 3D room scene helpers", () => {
     })).toBe(true);
   });
 
-  it("orients every cabinet and appliance front toward the usable room side of its wall", () => {
+	  it("orients every cabinet and appliance front toward the usable room side of its wall", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 };
     const placedAt = (wall: "back" | "front" | "left" | "right", appliance = false) => ({
       uid: `${wall}-${appliance ? "appliance" : "cabinet"}`,
@@ -989,24 +989,46 @@ describe("interactive 3D room scene helpers", () => {
       expect(threeDRoomFacingRotation(cabinet, room)).toBeCloseTo(expected[wall], 12);
       expect(existingCabinetTransform(cabinet, room).rotation).toBeCloseTo(expected[wall], 12);
       expect(existingCabinetTransform(appliance, room).rotation).toBeCloseTo(expected[wall], 12);
-    }
-  });
+	    }
+	  });
 
-  it("uses the persisted 2D plan instead of starter suggestions for any saved entity, not only cabinets", () => {
+	  it("honors explicit island-face ownership for outward-facing cabinets on all four island runs", () => {
+	    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const expected = { front: 0, back: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 };
+	    for (const face of ["front", "back", "left", "right"] as const) {
+	      const cabinet = {
+	        uid: `island-${face}`,
+	        cabinetId: 1,
+	        masterCode: "B-24",
+	        description: "Island base cabinet",
+	        placement: "base",
+	        x: 48,
+	        y: 48,
+	        width: 24,
+	        depth: 24,
+	        height: 34.5,
+	        rotation: 0,
+	        islandFace: face,
+	        islandOffset: 0,
+	      } as never;
+	      expect(threeDRoomFacingRotation(cabinet, room)).toBeCloseTo(expected[face], 12);
+	      expect(existingCabinetTransform(cabinet, room).rotation).toBeCloseTo(expected[face], 12);
+	    }
+	  });
+
+	  it("uses the persisted 2D plan instead of starter suggestions for any saved entity, not only cabinets", () => {
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(false);
     expect(hasPersistedTwoDScene({ placed: [], openings: [{ uid: "window" } as never], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(true);
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: { x: 0, y: 0, width: 48, depth: 24 }, furniture: [], ponyWalls: [] })).toBe(true);
   });
 
   it("maps persisted island, pony-wall, and furniture coordinates into the same inch-based 3D positions", () => {
-    expect(islandZoneTransform({ x: 36, y: 48, width: 72, depth: 36 })).toMatchObject({
-      x: 6,
-      z: 5.5,
-      baseWidth: 6,
-      baseDepth: 3,
-      counterWidth: 6.125,
-      counterDepth: 3.125,
-    });
+	    expect(islandZoneTransform({ x: 36, y: 48, width: 72, depth: 36 })).toMatchObject({
+	      x: 6,
+	      z: 5.5,
+	      guideWidth: 6,
+	      guideDepth: 3,
+	    });
     expect(ponyWallTransform({ x: 12, y: 24, width: 48, depth: 6, height: 42 })).toEqual({
       x: 3,
       y: 1.75,

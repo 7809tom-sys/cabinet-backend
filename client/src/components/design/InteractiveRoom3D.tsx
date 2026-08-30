@@ -7,7 +7,8 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { islandCountertopRect } from "@/lib/islandScene";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -53,8 +54,9 @@ type SceneSku = {
   decorativeEnd?: "none" | "left" | "right" | "both";
   fillerPieceGroupId?: string | null;
   fillerTotalWidth?: number | null;
-  fillerPlacementMode?: "left" | "right" | "split" | null;
-  countertopRearExtensionIn?: number | null;
+	  fillerPlacementMode?: "left" | "right" | "split" | null;
+	  countertopRearExtensionIn?: number | null;
+	  islandFace?: PlacedCabinet["islandFace"];
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -116,15 +118,18 @@ export function threeDOrderLineForSelectedCabinet(
 }
 
 export type InteractiveRoomCatalogItem = {
-  id: number;
-  masterCode: string;
+	  id: number;
+	  sourceCabinetId?: number;
+	  masterCode: string;
   description: string | null;
   category: "Cabinet" | "Accessory" | "Appliance";
   catalogGroup?: ThreeDCatalogGroup;
   placement?: string | null;
   width?: number | null;
   height?: number | null;
-  depth?: number | null;
+	  depth?: number | null;
+	  glassDoor?: boolean;
+	  glassDoorAddonCode?: string | null;
 };
 
 export function threeDCatalogDragFitText(item: Pick<InteractiveRoomCatalogItem, "masterCode">, fit: WallGapFitPreview): string {
@@ -353,7 +358,7 @@ interface Props {
   /** Countertop sink fixtures from the current 2D plan. */
   sinks?: SinkFixture[];
   /** Island zone, movable furniture, and half walls from the current 2D plan. */
-  island?: { x: number; y: number; width: number; depth: number } | null;
+	  island?: IslandZone | null;
   furniture?: PlacedFurniture[];
   ponyWalls?: PonyWall[];
   orderSummary?: InteractiveRoomOrderSummary;
@@ -820,16 +825,17 @@ function threeDDoorTextureAverageColor(texture: THREE.Texture | null, fallback: 
 }
 
 export function shouldRenderCountertopOverSceneItem(
-  placementOrItem: string | Pick<PlacedCabinet,
-    "placement" | "masterCode" | "description" | "subCategory" |
-    "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode"
-  >,
+	  placementOrItem: string | Pick<PlacedCabinet,
+	    "placement" | "masterCode" | "description" | "subCategory" |
+	    "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode" | "islandFace"
+	  >,
   masterCode = "",
   description: string | null = null,
 ) {
-  const item = typeof placementOrItem === "string"
-    ? { placement: placementOrItem as PlacedCabinet["placement"], masterCode, description }
-    : placementOrItem;
+	  const item = typeof placementOrItem === "string"
+	    ? { placement: placementOrItem as PlacedCabinet["placement"], masterCode, description, islandFace: null }
+	    : placementOrItem;
+	  if (item.islandFace) return false;
   // Keep 3D counter coverage identical to ElevationView: a counter sits over a
   // genuine counter-bearing base, plus a dishwasher or wine opening. Master
   // code is deliberately considered even on stale placements, so an appliance
@@ -3137,8 +3143,9 @@ export function addCabinet(
     description: sku.description ?? "",
     subCategory: sku.subCategory ?? null,
     fillerPieceGroupId: sku.fillerPieceGroupId ?? null,
-    fillerTotalWidth: sku.fillerTotalWidth ?? null,
-    fillerPlacementMode: sku.fillerPlacementMode ?? null,
+	    fillerTotalWidth: sku.fillerTotalWidth ?? null,
+	    fillerPlacementMode: sku.fillerPlacementMode ?? null,
+	    islandFace: sku.islandFace ?? null,
   })) {
     const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
@@ -3267,11 +3274,20 @@ export function threeDLegacyWallAnchor(
  * cabinet/appliance back remains against the wall.
  */
 export function threeDRoomFacingRotation(
-  cabinet: PlacedCabinet,
-  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
-  fallbackRotation = 0,
+	  cabinet: PlacedCabinet,
+	  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
+	  fallbackRotation = 0,
 ) {
-  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
+	  if (cabinet.islandFace) {
+	    const islandFacing = {
+	      front: 0,
+	      back: Math.PI,
+	      left: -Math.PI / 2,
+	      right: Math.PI / 2,
+	    } as const;
+	    return islandFacing[cabinet.islandFace];
+	  }
+	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
   // L-corner carcasses use a local notch/front convention opposite the clockwise
@@ -3818,11 +3834,8 @@ export function islandZoneTransform(island: { x: number; y: number; width: numbe
   return {
     x: (island.x + island.width / 2) * INCH,
     z: (island.y + island.depth / 2) * INCH,
-    baseWidth: island.width * INCH,
-    baseDepth: island.depth * INCH,
-    baseHeight: STD.BASE_HEIGHT * INCH,
-    counterWidth: (island.width + 1.5) * INCH,
-    counterDepth: (island.depth + 1.5) * INCH,
+    guideWidth: island.width * INCH,
+    guideDepth: island.depth * INCH,
     counterTop: COUNTERTOP_H * INCH,
   };
 }
@@ -3846,22 +3859,34 @@ export function furnitureTransform(furniture: Pick<PlacedFurniture, "x" | "y" | 
   };
 }
 
-function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, counterColor: string) {
+function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, placed: PlacedCabinet[], counterColor: string) {
   const transform = islandZoneTransform(island);
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
-  group.userData = { island: true };
-  const base = new THREE.Mesh(
-    new THREE.BoxGeometry(transform.baseWidth, transform.baseHeight, transform.baseDepth),
-    new THREE.MeshStandardMaterial({ color: "#b7a795", roughness: 0.7 }),
-  );
-  base.position.y = transform.baseHeight / 2;
-  const counter = new THREE.Mesh(
-    new THREE.BoxGeometry(transform.counterWidth, 1.5 * INCH, transform.counterDepth),
-    new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
-  );
-  counter.position.y = transform.counterTop;
-  group.add(base, counter);
+  group.userData = { island: true, islandWorkZone: true };
+  const guideMaterial = new THREE.MeshStandardMaterial({ color: "#d4a75a", roughness: 0.7, transparent: true, opacity: 0.7 });
+  const guideThickness = 0.25 * INCH;
+  const guideHeight = 0.08 * INCH;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(transform.guideWidth, guideHeight, guideThickness), guideMaterial);
+  const front = new THREE.Mesh(new THREE.BoxGeometry(transform.guideWidth, guideHeight, guideThickness), guideMaterial);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(guideThickness, guideHeight, transform.guideDepth), guideMaterial);
+  const right = new THREE.Mesh(new THREE.BoxGeometry(guideThickness, guideHeight, transform.guideDepth), guideMaterial);
+  back.position.set(0, guideHeight / 2, -transform.guideDepth / 2);
+  front.position.set(0, guideHeight / 2, transform.guideDepth / 2);
+  left.position.set(-transform.guideWidth / 2, guideHeight / 2, 0);
+  right.position.set(transform.guideWidth / 2, guideHeight / 2, 0);
+  for (const edge of [back, front, left, right]) edge.userData = { islandGuide: true };
+  group.add(back, front, left, right);
+  const slab = islandCountertopRect(island, placed);
+  if (slab) {
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(slab.width * INCH, 1.5 * INCH, slab.depth * INCH),
+      new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
+    );
+    counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
+    counter.userData = { islandCountertop: true, widthIn: slab.width, depthIn: slab.depth };
+    group.add(counter);
+  }
   root.add(group);
 }
 
@@ -4028,9 +4053,10 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     decorativeEnd: cabinet.decorativeEnd ?? "none",
     fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
     fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
-    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
-    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
-  };
+	    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
+	    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
+	    islandFace: cabinet.islandFace ?? null,
+	  };
 }
 
 export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleUrl: string | null | undefined) {
@@ -4669,7 +4695,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
-    if (island) addIslandZone(catalogRoot, island, materialDefaults.countertop);
+    if (island) addIslandZone(catalogRoot, island, placed, materialDefaults.countertop);
     for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
     for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
     threeScene.add(catalogRoot);

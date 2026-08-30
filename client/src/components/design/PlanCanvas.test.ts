@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, planCornerGeometry, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { PlanCanvas, nearestIslandFaceInRect, planCornerGeometry, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet } from "@/lib/design";
 
 const base = {
@@ -152,4 +152,38 @@ describe("plan placement assistance wiring", () => {
 	    expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, e.shiftKey)");
 	    expect(source).toContain("hold Shift for freehand");
 	  });
+});
+
+describe("island work-zone face selection", () => {
+  it("selects the nearest outward island run on every edge", () => {
+    const rect = { width: 240, height: 160 };
+    expect(nearestIslandFaceInRect({ x: 8, y: 80 }, rect)).toBe("left");
+    expect(nearestIslandFaceInRect({ x: 232, y: 80 }, rect)).toBe("right");
+    expect(nearestIslandFaceInRect({ x: 120, y: 8 }, rect)).toBe("back");
+    expect(nearestIslandFaceInRect({ x: 120, y: 152 }, rect)).toBe("front");
+  });
+
+  it("renders an accessible island selector with right-click and keyboard attributes wiring", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        null,
+        createElement(PlanCanvas, {
+          room: { width: 144, depth: 120, ceilingHeight: 96 },
+          cabinets: [],
+          selectedUid: null,
+          onSelect: () => undefined,
+          onMove: () => undefined,
+          showWallLayer: true,
+          island: { x: 36, y: 36, width: 72, depth: 48, activeFace: "front" },
+          activeIslandFace: "front",
+          onSelectIslandFace: () => undefined,
+          onOpenIslandAttributes: () => undefined,
+        }),
+      ),
+    );
+    expect(markup).toContain('data-testid="island-work-zone"');
+    expect(markup).toContain("active front face");
+    expect(markup).toContain('tabindex="0"');
+  });
 });

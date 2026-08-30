@@ -109,9 +109,11 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
-  type PonyWall, makePonyWall, clampPonyWall,
-	  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
-} from "@/lib/design";
+	  type PonyWall, makePonyWall, clampPonyWall,
+	  type IslandZone, type IslandFace,
+		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
+	} from "@/lib/design";
+import { islandCountertopRect, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -174,6 +176,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
+import { IslandAttributesDialog } from "@/components/design/IslandAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
@@ -578,14 +581,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
-  // Which face of the island to show in Island view (front = near top wall, back = near bottom wall).
-  const [islandFace, setIslandFace] = useState<"front" | "back">("front");
+	  // Active island run for placement and Island elevation.
+	  const [islandFace, setIslandFace] = useState<IslandFace>("front");
+	  const [islandPlacementMode, setIslandPlacementMode] = useState(false);
+	  const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   const [autoDimensions, setAutoDimensions] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
   // cabinets go. Null when disabled.
-  const [island, setIsland] = useState<{ x: number; y: number; width: number; depth: number } | null>(null);
+	  const [island, setIsland] = useState<IslandZone | null>(null);
   // Doors & windows: adjustable wall openings.
   const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [selectedOpeningUid, setSelectedOpeningUid] = useState<string | null>(null);
@@ -1130,7 +1135,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, []);
 
   // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
-  const isCornerWall = useCallback((c: DesignCabinet) => {
+	  const isCornerWall = useCallback((c: DesignCabinet) => {
     // Angled wall cabinets are wall-tab items, never corner-tab items.
     if (isAngledWall(c)) return false;
     // WD-* (tall 48"-60" diagonal corner wall cabinets) are vanity/bathroom
@@ -1143,7 +1148,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       sub.includes("corner") ||
       isCornerCabinet(c.masterCode, c.description || undefined)
     );
-  }, [isAngledWall]);
+	  }, [isAngledWall]);
+	  const isCatalogGlassChoice = useCallback((c: DesignCabinet) => (
+	    c.glassDoor === true
+	    || /(?:PG|GD)(?:\d|$)/i.test(c.masterCode ?? "")
+	    || /glass[- ]?door|glass front/i.test(c.description ?? "")
+	  ), []);
+	  const cornerWallGlassVariants = useMemo<DesignCabinet[]>(() => {
+	    return ((cornerWallCabinets as DesignCabinet[] | undefined) ?? []).flatMap((cabinet) => {
+	      const match = cabinet.masterCode.toUpperCase().match(/^WDC24(30|36|42)$/);
+	      if (!match) return [];
+	      const addOnCode = `PGWDC${match[1]}`;
+	      if (!glassDoorCatalogProduct(addOnCode)) return [];
+	      return [{
+	        ...cabinet,
+	        description: `${cabinet.description} — Glass Door (${addOnCode})`,
+	        glassDoor: true,
+	        glassDoorAddonCode: addOnCode,
+	      }];
+	    });
+	  }, [cornerWallCabinets, glassDoorCatalogProduct]);
 
   // Detect a corner BASE cabinet (blind corner BBC, lazy susan LSB, easy reach
   // ERB/BER, diagonal corner sink CSB, corner base CB) for the dedicated
@@ -1239,17 +1263,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         ? appliancePalette
         : paletteType === "corner"
         ? (() => {
-            const merged = [
-              ...(((paletteCabinets as DesignCabinet[]) ?? []).filter(isCornerBase)),
-              ...(((cornerWallCabinets as DesignCabinet[]) ?? []).filter(isCornerWall)),
-            ];
-            const seen = new Set<number>();
-            return merged.filter((c) => {
-              const id = Number(c.id);
-              if (seen.has(id)) return false;
-              seen.add(id);
-              return true;
-            });
+	            const merged = [
+	              ...(((paletteCabinets as DesignCabinet[]) ?? []).filter(isCornerBase)),
+	              ...(((cornerWallCabinets as DesignCabinet[]) ?? []).filter(isCornerWall)),
+	              ...cornerWallGlassVariants,
+	            ];
+	            const seen = new Set<string>();
+	            return merged.filter((c) => {
+	              const key = `${Number(c.id)}:${c.glassDoorAddonCode ?? "standard"}`;
+	              if (seen.has(key)) return false;
+	              seen.add(key);
+	              return true;
+	            });
           })()
         : ((paletteCabinets as DesignCabinet[]) ?? []);
     const s = normalizePaletteSearch(paletteSearch);
@@ -1271,7 +1296,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return true;
       })
       .filter((c) => matchesPaletteSearch(c, s));
-  }, [paletteCabinets, cornerWallCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
+	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
   const paletteHeightOptions = useMemo(
     () => catalogHeightOptions(filteredPalette, paletteType, isCornerBase),
     [filteredPalette, paletteType, isCornerBase],
@@ -1366,14 +1391,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // The unified Corner tab splits into two fixed sections — Corner Base
     // Cabinets and Corner Wall Cabinets — so every corner type lives under one
     // tab but stays organized by where it mounts.
-    if (paletteType === "corner") {
-      const cornerBases = heightFilteredPalette.filter((c) => isCornerBase(c));
-      const cornerWalls = heightFilteredPalette.filter((c) => !isCornerBase(c));
-      const sections: { label: string; items: DesignCabinet[] }[] = [];
-      if (cornerBases.length > 0) sections.push({ label: t("dt_pl_grp_corner_base"), items: cornerBases });
-      if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
-      return sortGroups(sections);
-    }
+	    if (paletteType === "corner") {
+	      const cornerBases = heightFilteredPalette.filter((c) => isCornerBase(c));
+	      const cornerWalls = heightFilteredPalette.filter((c) => !isCornerBase(c) && !isCatalogGlassChoice(c));
+	      const cornerWallGlass = heightFilteredPalette.filter((c) => !isCornerBase(c) && isCatalogGlassChoice(c));
+	      const sections: { label: string; items: DesignCabinet[] }[] = [];
+	      if (cornerBases.length > 0) sections.push({ label: t("dt_pl_grp_corner_base"), items: cornerBases });
+	      if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
+	      if (cornerWallGlass.length > 0) sections.push({ label: "Glass Door Corner Wall Cabinets", items: cornerWallGlass });
+	      return sortGroups(sections);
+	    }
+	    if (paletteType === "wall") {
+	      const glass = heightFilteredPalette.filter(isCatalogGlassChoice);
+	      const standard = heightFilteredPalette.filter((cabinet) => !isCatalogGlassChoice(cabinet));
+	      const sections: { label: string; items: DesignCabinet[] }[] = [];
+	      if (glass.length > 0) sections.push({ label: "Glass Door Wall Cabinets", items: glass });
+	      const byHeight = new Map<number, DesignCabinet[]>();
+	      for (const cabinet of standard) {
+	        const height = resolvedDesignCabinetDimensions(cabinet).height;
+	        const items = byHeight.get(height) ?? [];
+	        items.push(cabinet);
+	        byHeight.set(height, items);
+	      }
+	      for (const [height, items] of Array.from(byHeight.entries()).sort((a, b) => a[0] - b[0])) {
+	        sections.push({ label: `${formatInches(height)} high`, items });
+	      }
+	      return sortGroups(sections);
+	    }
     // The "Base" tab is organized by base TYPE (not height): standard door
     // bases first, then drawer bases, sink bases, full-height door bases, and
     // specialty bases — each an exclusive collapsible section. All five headings
@@ -2260,20 +2304,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     };
   }), [interactive3dPricingLines]);
 
-  const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
-    const activeCabinets = [
-      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
-      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
-      ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
-    ].filter((item, index, all) => all.findIndex((candidate) => Number(candidate.id) === Number(item.id)) === index);
-    const cabinets = activeCabinets.map((item) => {
-      const dimensions = resolvedDesignCabinetDimensions(item);
-      return {
-        id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
-        catalogGroup: isCornerBase(item) || isCornerWall(item) ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
-        placement: item.placement ?? null, width: dimensions.width, height: dimensions.height, depth: dimensions.depth,
-      };
-    });
+	  const interactive3dCatalogItems = useMemo<InteractiveRoomCatalogItem[]>(() => {
+	    const activeCabinets = [
+	      ...((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+	      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+	      ...((tallCabPool as DesignCabinet[] | undefined) ?? []),
+	      ...cornerWallGlassVariants,
+	    ].filter((item, index, all) => all.findIndex((candidate) => Number(candidate.id) === Number(item.id) && (candidate.glassDoorAddonCode ?? null) === (item.glassDoorAddonCode ?? null)) === index);
+	    const cabinets = activeCabinets.map((item) => {
+	      const dimensions = resolvedDesignCabinetDimensions(item);
+	      const addOnProduct = item.glassDoorAddonCode ? glassDoorCatalogProduct(item.glassDoorAddonCode) : null;
+	      return {
+	        id: item.glassDoor === true && addOnProduct ? -Number(addOnProduct.id) : Number(item.id), sourceCabinetId: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Cabinet" as const,
+	        catalogGroup: isCornerBase(item) || isCornerWall(item) ? "Corner" as const : item.placement === "tall" ? "Tall" as const : item.placement === "wall" ? "Wall" as const : "Base" as const,
+	        placement: item.placement ?? null, width: dimensions.width, height: dimensions.height, depth: dimensions.depth,
+	        glassDoor: item.glassDoor === true,
+	        glassDoorAddonCode: item.glassDoorAddonCode ?? null,
+	      };
+	    });
     const accessories = ((threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? []).map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Accessory" as const, catalogGroup: "Accessories" as const,
       placement: accessoryPlacement(item), width: dim(item.width, 24), height: dim(item.height, standardHeight(accessoryPlacement(item))), depth: isPanelItem(item) ? 0.75 : footprintDepth(item),
@@ -2286,11 +2334,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       placement: item.placement ?? "appliance", width: dim(item.width, 30), height: dim(item.height, 36), depth: footprintDepth(item),
     }));
     return [...cabinets, ...accessories, ...appliances];
-  }, [autoFillCabinets, wallCabPool, tallCabPool, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
+	  }, [autoFillCabinets, wallCabPool, tallCabPool, cornerWallGlassVariants, glassDoorCatalogProduct, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
   const interactive3dCatalogDragItem = useMemo(() => {
     if (!catalogDragPreview) return null;
     const category = paletteType === "accessory" ? "Accessory" : "Cabinet";
-    return interactive3dCatalogItems.find((item) => Number(item.id) === Number(catalogDragPreview.id) && item.category === category) ?? null;
+	    return interactive3dCatalogItems.find((item) => Number(item.sourceCabinetId ?? item.id) === Number(catalogDragPreview.id) && (item.glassDoorAddonCode ?? null) === (catalogDragPreview.glassDoorAddonCode ?? null) && item.category === category) ?? null;
   }, [catalogDragPreview, interactive3dCatalogItems, paletteType]);
 
   const addAllToCart = useCallback(async () => {
@@ -2728,7 +2776,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null) => {
+	    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
       if (isAddingRef.current) return;
@@ -2758,6 +2806,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      let spot: { x: number; y: number; rotation: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
+	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementMode && x == null && y == null ? islandFace : null));
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -2775,7 +2824,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
-	      const rangeHoodPlacement = isRangeHoodPlacement({ masterCode: c.masterCode, description: c.description ?? "", placement: accPlacement })
+	      const rangeHoodPlacement = !requestedIslandFace && isRangeHoodPlacement({ masterCode: c.masterCode, description: c.description ?? "", placement: accPlacement })
 	        ? resolveRangeHoodPlacement(
 	            prev,
 	            room,
@@ -2790,7 +2839,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        toast.error(rangeHoodPlacement.message);
 	        return;
 	      }
-	      if (rangeHoodPlacement?.ok) {
+	      if (requestedIslandFace && island) {
+	        spot = { x: island.x, y: island.y, rotation: 0 };
+	        preserveResolvedPlacement = true;
+	      } else if (rangeHoodPlacement?.ok) {
 	        spot = rangeHoodPlacement.spot;
 	        preserveResolvedPlacement = true;
 	      } else if (selectedSinkSpot) {
@@ -2934,22 +2986,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        openingType: (c as any).openingType ?? null,
         doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
         drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
-        doorOrientation: (c as any).doorOrientation ?? null,
-        layoutSpec: (c as any).layoutSpec ?? null,
-        drawerLayout: (c as any).drawerLayout ?? null,
-        cornerType: c.cornerType ?? null,
-        facePattern: (c as any).facePattern ?? null,
-        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
-        styleId: styleIdRef.current ?? null,
+	        doorOrientation: (c as any).doorOrientation ?? null,
+	        layoutSpec: (c as any).layoutSpec ?? null,
+	        drawerLayout: (c as any).drawerLayout ?? null,
+	        cornerType: c.cornerType ?? null,
+	        facePattern: (c as any).facePattern ?? null,
+	        glassDoor: c.glassDoor === true,
+	        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
+	        styleId: styleIdRef.current ?? null,
         ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
         ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
 	        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
 	        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
 	        ...(rangeHoodPlacement?.ok ? { mountBottom: rangeHoodPlacement.mountBottom } : {}),
 	      };
+	      if (requestedIslandFace && island) {
+	        const islandCandidate = nextIslandFacePlacement(newCab, island, requestedIslandFace, prev);
+	        if (!islandCandidate) {
+	          const message = `${newCab.masterCode} was not added because the ${requestedIslandFace} island face does not have a clear ${formatInches(newCab.width)} opening.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        Object.assign(newCab, islandCandidate);
+	      }
 
-      // Blind corner: auto-position and auto-swing
-      if (isBlindCorner(newCab.masterCode, newCab.description)) {
+	      // Blind corner: auto-position and auto-swing
+	      if (!requestedIslandFace && isBlindCorner(newCab.masterCode, newCab.description)) {
         const wallSide = cabinetWall(newCab, room);
         const horiz = wallSide === "top" || wallSide === "bottom";
         const wallLen = horiz ? room.width : room.depth;
@@ -2975,7 +3038,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
       // Filler auto-snap: find nearest gap and resize/reposition
       let finalCab = newCab;
-      if (/^FILL-/i.test(newCab.masterCode)) {
+	      if (!requestedIslandFace && /^FILL-/i.test(newCab.masterCode)) {
         const allGaps = wallGaps(room, prev, openings, 0.5);
         const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
         const layerGaps = allGaps.filter((g) => g.layer === fillerLayer && g.length <= 6 && g.length > 0);
@@ -3010,7 +3073,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Short cabinets centered over a sink normally begin at the required
       // 70-inch finished-floor bottom. A real window may raise that bottom just enough
       // to clear it; the cabinet must never be ceiling-mounted by default.
-      if (overSinkWindowClearanceBlocked(finalCab, prev, openings, room)) {
+	      if (!requestedIslandFace && overSinkWindowClearanceBlocked(finalCab, prev, openings, room)) {
         const vertical = overSinkWindowClearanceMeasure(finalCab, prev, openings, room);
         const message = vertical
           ? `Cannot place ${finalCab.masterCode} above the ${vertical.openingLabel} on the ${WALL_LABELS[vertical.side]} wall: the opening top is ${formatEighthInches(vertical.openingTop)} and requires ${formatEighthInches(vertical.clearance)} clearance, so the ${formatEighthInches(vertical.cabinetHeight)} cabinet must start at ${formatEighthInches(vertical.requiredBottom)} and reach ${formatEighthInches(vertical.requiredTop)}. The ceiling is ${formatEighthInches(vertical.ceiling)}, leaving it ${formatEighthInches(vertical.shortage)} too tall. Choose a shorter cabinet or raise the ceiling.`
@@ -3019,8 +3082,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(message);
         return;
       }
-      const sinkMountBottom = overSinkWallMountBottom(finalCab, prev, openings, room);
-      const bridgeMountBottom = sinkMountBottom ?? bridgeMountBottomAboveWindow(finalCab, openings, room);
+	      const sinkMountBottom = requestedIslandFace ? null : overSinkWallMountBottom(finalCab, prev, openings, room);
+	      const bridgeMountBottom = requestedIslandFace ? null : sinkMountBottom ?? bridgeMountBottomAboveWindow(finalCab, openings, room);
       if (bridgeMountBottom != null) {
         finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
       }
@@ -3054,12 +3117,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
-	      let normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+	      let normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
-	      finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
-	      normalizedRun = normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+	      if (!requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
       const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
-		      if (hasCollision(finalCab, normalizedPrevious)) {
+	      if (hasCollision(finalCab, normalizedPrevious)) {
+	        if (requestedIslandFace) {
+	          const message = `${finalCab.masterCode} was not added because it would overlap another island or room object.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
 		        if (strictDropTarget || preserveResolvedPlacement) {
 	          rememberFailedWallFit(finalCab, normalizedPrevious);
 	          const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
@@ -3105,7 +3174,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 
 	      let committedRun = normalizedRun;
-	      if (isBlindCorner(finalCab.masterCode, finalCab.description)) {
+	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          finalCab,
 	          room,
@@ -3149,7 +3218,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setSelectedUid(finalCab.uid);
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
-	      if (!isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+	      if (requestedIslandFace && finalCab.placement === "base") setCountertop(true);
+	      if (!requestedIslandFace && !isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
 	        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
 	      }
 
@@ -3173,7 +3243,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, placed, island, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, placed, island, islandFace, islandPlacementMode, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -3236,9 +3306,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const spot = wallPlacementAt(along, width, depth, dropWall, room);
 	      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true, freehand ? undefined : dropTarget.placementUid);
     };
-    if (item.category === "Cabinet") {
-      const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === item.id);
-      if (cabinet) addAtDropTarget(cabinet);
+	    if (item.category === "Cabinet") {
+	      const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === Number(item.sourceCabinetId ?? item.id));
+	      if (cabinet) addAtDropTarget(item.glassDoor ? { ...cabinet, glassDoor: true, glassDoorAddonCode: item.glassDoorAddonCode ?? null, description: item.description ?? cabinet.description } : cabinet);
       else toast.error("That cabinet is no longer available in the active catalog.");
       return;
     }
@@ -4585,32 +4655,91 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (uid) { setSelectedUid(null); setSelectedSinkUid(null); setSelectedOpeningUid(null); }
   }, []);
 
-  // Move the island AND every cabinet sitting on it by the same delta, clamped
-  // so the island stays inside the room. Cabinets move in lockstep so they
-  // never slide off the island.
-  const moveIsland = useCallback((dxIn: number, dyIn: number) => {
-    setIsland((cur) => {
-      if (!cur) return cur;
-      const nx = Math.max(0, Math.min(cur.x + dxIn, room.width - cur.width));
-      const ny = Math.max(0, Math.min(cur.y + dyIn, room.depth - cur.depth));
-      const ddx = nx - cur.x;
-      const ddy = ny - cur.y;
-      if (ddx === 0 && ddy === 0) return cur;
-      const islandRect = cur;
-      setPlaced((prevPlaced) =>
-        prevPlaced.map((p) =>
-          isOnIsland(p, islandRect)
-            ? {
-                ...p,
-                x: Math.max(0, Math.min(p.x + ddx, room.width - rotatedSize(p).w)),
-                y: Math.max(0, Math.min(p.y + ddy, room.depth - rotatedSize(p).d)),
-              }
-            : p
-        )
-      );
-      return { ...cur, x: nx, y: ny };
-    });
-  }, [room]);
+	  const commitIslandScene = useCallback((nextIsland: IslandZone, nextPlaced: PlacedCabinet[]) => {
+	    placedRef.current = nextPlaced;
+	    setPlaced(nextPlaced);
+	    setIsland(nextIsland);
+	    setIslandFace(nextIsland.activeFace ?? "front");
+	    setSinks((current) => normalizeSinkFixturesToBases(current, nextPlaced, room));
+	  }, [room]);
+
+	  const moveIsland = useCallback((dxIn: number, dyIn: number) => {
+	    if (!island) return;
+	    const result = moveIslandScene(island, placedRef.current, room, dxIn, dyIn);
+	    if (!result.ok) { toast.error(result.reason); return; }
+	    commitIslandScene(result.island, result.placed);
+	  }, [commitIslandScene, island, room]);
+
+	  const applyIslandAttributes = useCallback((draft: IslandZone) => {
+	    if (!island) return;
+	    const moved = moveIslandScene(island, placedRef.current, room, draft.x - island.x, draft.y - island.y);
+	    if (!moved.ok) { toast.error(moved.reason); return; }
+	    const resized = resizeIslandScene(moved.island, moved.placed, room, draft.width, draft.depth);
+	    if (!resized.ok) { toast.error(resized.reason); return; }
+	    const nextIsland: IslandZone = {
+	      ...resized.island,
+	      activeFace: draft.activeFace ?? islandFace,
+	      countertopWidth: draft.countertopWidth ?? null,
+	      countertopDepth: draft.countertopDepth ?? null,
+	      countertopOffsetX: draft.countertopOffsetX ?? 0,
+	      countertopOffsetY: draft.countertopOffsetY ?? 0,
+	    };
+	    const slab = islandCountertopRect(nextIsland, resized.placed);
+	    if (slab && (slab.x < 0 || slab.y < 0 || slab.x + slab.width > room.width || slab.y + slab.depth > room.depth)) {
+	      toast.error("The island countertop would extend outside the room.");
+	      return;
+	    }
+	    commitIslandScene(nextIsland, resized.placed);
+	    setIslandPlacementMode(true);
+	    setIslandAttributesOpen(false);
+	  }, [commitIslandScene, island, islandFace, room]);
+
+	  const rotateIsland = useCallback(() => {
+	    if (!island) return;
+	    const result = rotateIslandScene(island, placedRef.current, room);
+	    if (!result.ok) { toast.error(result.reason); return; }
+	    commitIslandScene(result.island, result.placed);
+	  }, [commitIslandScene, island, room]);
+
+	  const removeIslandScene = useCallback(() => {
+	    if (!island) return;
+	    const memberIds = new Set(placedRef.current.filter((item) => isOnIsland(item, island)).map((item) => item.uid));
+	    const nextPlaced = placedRef.current.filter((item) => !memberIds.has(item.uid));
+	    placedRef.current = nextPlaced;
+	    setPlaced(nextPlaced);
+	    setSinks((current) => current.filter((sink) => !sink.cabinetUid || !memberIds.has(sink.cabinetUid)));
+	    setIsland(null);
+	    setIslandPlacementMode(false);
+	    setIslandAttributesOpen(false);
+	    setViewMode("plan");
+	  }, [island]);
+
+	  const openOrCreateIsland = useCallback(() => {
+	    if (island) {
+	      setIslandPlacementMode(true);
+	      setIslandFace(island.activeFace ?? "front");
+	      setIslandAttributesOpen(true);
+	      return;
+	    }
+	    const width = Math.max(24, Math.min(72, room.width - 24));
+	    const depth = Math.max(24, Math.min(48, room.depth - 24));
+	    const next: IslandZone = {
+	      x: Math.max(0, (room.width - width) / 2),
+	      y: Math.max(0, (room.depth - depth) / 2),
+	      width,
+	      depth,
+	      activeFace: "front",
+	      countertopWidth: null,
+	      countertopDepth: null,
+	      countertopOffsetX: 0,
+	      countertopOffsetY: 0,
+	    };
+	    setIsland(next);
+	    setIslandFace("front");
+	    setIslandPlacementMode(true);
+	    setViewMode("plan");
+	    setIslandAttributesOpen(true);
+	  }, [island, room]);
 
   // Apply a new room size and keep every item inside the new walls.
   const applyRoom = useCallback((next: RoomData) => {
@@ -7063,7 +7192,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
                     {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
                   </button>
-                  <button onClick={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+	                  <button onClick={() => { setMoreSheetOpen(false); openOrCreateIsland(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
                     {!!island && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
@@ -7489,21 +7618,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs text-muted-foreground">Room Features</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                checked={!!island}
-                onCheckedChange={() =>
-                  setIsland((cur) =>
-                    cur
-                      ? null
-                      : {
-                          width: Math.min(48, room.width - 24),
-                          depth: Math.min(24, room.depth - 24),
-                          x: Math.max(0, room.width / 2 - 24),
-                          y: Math.max(0, room.depth / 2 - 12),
-                        }
-                  )
-                }
-              >
+	              <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={openOrCreateIsland}>
                 <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_island")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
@@ -8829,7 +8944,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              </div>}
 	            </div>
 	          )}
-          {customPlacementMode && (
+	          {islandPlacementMode && island && !customPlacementMode && (
+	            <div
+	              role="status"
+	              aria-live="polite"
+	              data-testid="island-placement-active-indicator"
+	              className="absolute left-3 right-3 top-3 z-40 flex flex-wrap items-center gap-1.5 rounded-lg border border-[#b98d3e]/45 bg-white/95 px-2.5 py-2 text-xs font-semibold text-[#1a2744] shadow-lg backdrop-blur sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
+	            >
+	              <span className="mr-1 whitespace-nowrap">Adding to island:</span>
+	              {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
+	                <button key={face} type="button" onClick={() => { setIslandFace(face); setIsland((current) => current ? { ...current, activeFace: face } : current); }} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
+	              ))}
+	              <button type="button" onClick={() => setIslandAttributesOpen(true)} className="rounded border border-[#b98d3e] px-2 py-1 text-[#7b5a20]">Edit</button>
+	              <button type="button" onClick={() => setIslandPlacementMode(false)} className="rounded border border-border px-2 py-1 text-muted-foreground">Place on walls</button>
+	            </div>
+	          )}
+	          {customPlacementMode && (
             <div
               role="status"
               aria-live="polite"
@@ -8880,8 +9010,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               measureMode={measureMode}
               autoDimensions={autoDimensions}
               island={island}
-              onIslandChange={setIsland}
+              onIslandChange={applyIslandAttributes}
               onIslandMove={moveIsland}
+              activeIslandFace={islandFace}
+              onSelectIslandFace={(face) => { setIslandFace(face); setIslandPlacementMode(true); setIsland((current) => current ? { ...current, activeFace: face } : current); }}
+              onOpenIslandAttributes={() => setIslandAttributesOpen(true)}
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
               onSelectOpening={selectOpening}
@@ -8963,29 +9096,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           )}
           {viewMode === "island" && island && (
             <div className="relative w-full h-full flex flex-col">
-              {/* Front / Back sub-tab switcher */}
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center rounded-full border border-border bg-white/90 shadow-sm p-0.5">
-                <button
-                  onClick={() => setIslandFace("front")}
-                  className={`px-4 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    islandFace === "front"
-                      ? "bg-[#1a2744] text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Front
-                </button>
-                <button
-                  onClick={() => setIslandFace("back")}
-                  className={`px-4 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    islandFace === "back"
-                      ? "bg-[#1a2744] text-white"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Back
-                </button>
-              </div>
+	              {/* Four independent island cabinet runs. */}
+	              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center rounded-full border border-border bg-white/90 shadow-sm p-0.5">
+	                {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
+	                  <button key={face} onClick={() => { setIslandFace(face); setIslandPlacementMode(true); setIsland((current) => current ? { ...current, activeFace: face } : current); }} className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-colors ${islandFace === face ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"}`}>
+	                    {face}
+	                  </button>
+	                ))}
+	                <button onClick={() => setIslandAttributesOpen(true)} className="px-3 py-1 text-xs font-semibold text-[#a87f33] hover:text-[#1a2744]">Edit</button>
+	              </div>
               <IslandElevationView
                 room={room}
                 cabinets={placed}
@@ -9051,8 +9170,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   measureMode={measureMode}
               autoDimensions={autoDimensions}
                   island={island}
-                  onIslandChange={setIsland}
+                  onIslandChange={applyIslandAttributes}
                   onIslandMove={moveIsland}
+                  activeIslandFace={islandFace}
+                  onSelectIslandFace={(face) => { setIslandFace(face); setIslandPlacementMode(true); setIsland((current) => current ? { ...current, activeFace: face } : current); }}
+                  onOpenIslandAttributes={() => setIslandAttributesOpen(true)}
                   openings={openings}
                   selectedOpeningUid={selectedOpeningUid}
                   onSelectOpening={selectOpening}
@@ -10013,14 +10135,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     const sinkW = Math.min(Math.max(w, 12), 42);
                     const sinkD = sinkW >= 30 ? 20 : 18;
                     const sinkType: SinkType = /farm/i.test(item.name) ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single";
-                    const plan = sinkPlanDimensions(sinkW, sinkD, activeWall);
-                    const x = Math.max(0, Math.min(room.width / 2 - plan.width / 2, room.width - plan.width));
-                    let y: number;
-                    if (activeWall === "bottom") y = room.depth - plan.depth - 1;
-                    else if (activeWall === "top") y = 1;
-                    else y = room.depth / 2 - plan.depth / 2;
-                    const sink: SinkFixture = {
-                      ...makeSink(sinkType, x, y, activeWall, { width: sinkW, depth: sinkD }),
+	                    const owner = sinkBaseDialog ? placed.find((cabinet) => cabinet.uid === sinkBaseDialog.cabinetUid) ?? null : null;
+	                    const attached = owner
+	                      ? makeSinkForCabinet(sinkType, owner, room, { width: sinkW, depth: sinkD })
+	                      : makeSink(sinkType, Math.max(0, room.width / 2 - sinkW / 2), Math.max(0, room.depth / 2 - sinkD / 2), activeWall, { width: sinkW, depth: sinkD });
+	                    const sink: SinkFixture = {
+	                      ...attached,
                       pelicanProductId: item.id,
                       pelicanProductName: item.name,
                       pelicanProductImage: item.imageUrl ?? undefined,
@@ -10214,17 +10334,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         selected={selectedSurfaces}
         onToggle={toggleSurface}
       />
-      <ProDesignerDialog
-        open={proDesignerOpen}
-        onOpenChange={setProDesignerOpen}
-        defaultName={verifiedName}
-        defaultEmail={verifiedEmail}
-        defaultPhone={verifiedPhone}
-        designId={loadDesignId ?? undefined}
-        designName={savedDesign?.name ?? null}
-      />
+	      <ProDesignerDialog
+	        open={proDesignerOpen}
+	        onOpenChange={setProDesignerOpen}
+	        defaultName={verifiedName}
+	        defaultEmail={verifiedEmail}
+	        defaultPhone={verifiedPhone}
+	        designId={loadDesignId ?? undefined}
+	        designName={savedDesign?.name ?? null}
+	      />
+	      <IslandAttributesDialog
+	        open={islandAttributesOpen}
+	        onOpenChange={setIslandAttributesOpen}
+	        island={island}
+	        onApply={applyIslandAttributes}
+	        onRotate={rotateIsland}
+	        onRemove={removeIslandScene}
+	      />
 
-      {/* Right-click per-cabinet attributes editor */}
+	      {/* Right-click per-cabinet attributes editor */}
       <CabinetAttributesDialog
         cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
         open={attrOpen}

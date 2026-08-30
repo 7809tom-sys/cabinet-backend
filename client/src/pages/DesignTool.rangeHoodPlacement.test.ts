@@ -6,7 +6,7 @@ const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8"
 describe("Design Tool range hood placement wiring", () => {
   it("resolves a catalog hood against the actual saved range before ordinary wall-run placement", () => {
     const addStart = source.indexOf("const addCabinet = useCallback");
-    const hoodStart = source.indexOf("const rangeHoodPlacement = isRangeHoodPlacement", addStart);
+	    const hoodStart = source.indexOf("const rangeHoodPlacement = !requestedIslandFace && isRangeHoodPlacement", addStart);
     const runStart = source.indexOf("const followsCabinetRun", hoodStart);
     const addSource = source.slice(addStart, source.indexOf("const addAppliance", addStart));
 

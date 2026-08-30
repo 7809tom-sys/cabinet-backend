@@ -1429,13 +1429,13 @@ describe("countertopArea", () => {
     expect(countertopArea([wall, tall]).runInches).toBe(0);
   });
 
-  it("adds the island footprint", () => {
-    const base = cab({ placement: "base", width: 36, depth: 24 });
-    const m = countertopArea([base], { width: 48, depth: 24 });
-    expect(m.hasIsland).toBe(true);
-    // base 36*25.5=918 + island 48*24=1152 = 2070 /144 = 14.375 -> 14.4
-    expect(m.squareFeet).toBeCloseTo(14.4, 1);
-  });
+	  it("adds one automatic island slab over real island cabinets", () => {
+	    const island = { x: 50, y: 40, width: 48, depth: 24 };
+	    const base = cab({ placement: "base", width: 36, depth: 24, x: 50, y: 40, islandFace: "back", islandOffset: 0 });
+	    const m = countertopArea([base], island);
+	    expect(m.hasIsland).toBe(true);
+	    expect(m.squareFeet).toBeCloseTo(7.4, 1);
+	  });
 
   it("COUNTERTOP_DEPTH_IN is 25.5", () => {
     expect(COUNTERTOP_DEPTH_IN).toBe(25.5);
@@ -1680,12 +1680,12 @@ describe("countertopSurfaces", () => {
     expect(s.width).toBe(24);
   });
 
-  it("adds an island slab matching its footprint", () => {
-    const base = cab({ placement: "base", width: 24 });
-    const surfaces = countertopSurfaces([base], ROOM_12x10, { x: 50, y: 40, width: 48, depth: 24 });
-    const island = surfaces.find((s) => s.kind === "island");
-    expect(island).toMatchObject({ x: 50, y: 40, width: 48, depth: 24 });
-  });
+	  it("adds an automatic island slab over its real cabinet support", () => {
+	    const base = cab({ placement: "base", width: 24, depth: 24, x: 50, y: 40, islandFace: "back", islandOffset: 0 });
+	    const surfaces = countertopSurfaces([base], ROOM_12x10, { x: 50, y: 40, width: 48, depth: 24 });
+	    const island = surfaces.find((s) => s.kind === "island");
+	    expect(island).toMatchObject({ x: 48.5, y: 38.5, width: 27, depth: 27 });
+	  });
 
   it("runs the countertop to the wall over a pulled blind corner (top wall, left corner)", () => {
     // Blind base pulled 6" off the left corner: cabinet starts at x=6, width 36.

@@ -1155,3 +1155,11 @@
 - [x] Reduce the desktop Cabinet Attributes panel height with a compact layout that preserves every existing detail and control while returning vertical space to the Designer canvas
 - [x] Recess and bound WDC glass-cabinet shelves behind the diagonal glass plane so no shelf projects through the door frame or glass
 - [x] Add desktop/tablet/mobile attributes accessibility and exact WDC shelf-to-glass depth/boundary regressions, then publish only after validation passes
+- [x] Replace the solid island placeholder with a selectable non-solid floor work zone that can be moved, resized, rotated, and removed through responsive right-click/tap attributes
+- [x] Add independent front, back, left, and right island runs that accept real selected-line cabinets, fillers, panels, appliances, and compatible cabinet parts left-to-right with zero physical overlap
+- [x] Support opposing 24-inch island cabinets touching back-to-back in a 48-inch work zone, plus usable end cabinets, while every cabinet face remains outward and accessible
+- [x] Keep every island cabinet and part attached through island movement, resize, and quarter-turn rotation, rejecting edits that leave the room or overlap unrelated objects
+- [x] Automatically generate one continuous required island countertop slab from the complete cabinet assembly with standard overhang, plus exact width, depth, and offset controls
+- [x] Attach island sink bases to their sink and selected faucet through the automatic countertop cutout in plan, island elevation, 3D, save/restore, materials, and cart paths
+- [x] Restore all real published selected-line standard wall and corner glass-door choices to discoverable Wall and Corner catalog groups, preserving exact cabinet and glass add-on SKU/pricing identity
+- [x] Add island attributes, all-face placement, back-to-back, countertop, sink/faucet, collision, persistence, cart/materials, responsive, 2D/3D, and glass-catalog regressions before publication

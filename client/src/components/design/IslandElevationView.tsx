@@ -22,8 +22,10 @@ import {
   isOnIsland, placedFootprint, bearsCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
   isRangeOrOven, isStacker, wallCabinetTopLine,
-  DEFAULT_CEILING_HEIGHT,
+	  DEFAULT_CEILING_HEIGHT,
+	  type IslandZone, type IslandFace,
 } from "@/lib/design";
+import { inferredIslandFace, islandCountertopRect, islandFaceLength, islandOffsetForPlaced } from "@/lib/islandScene";
 import {
   type HardwareStyleId,
   hardwareStyle as resolveHardwareStyle,
@@ -286,9 +288,9 @@ export function IslandHardwareOverlay({
 interface Props {
   room: RoomData;
   cabinets: PlacedCabinet[];
-  island: { x: number; y: number; width: number; depth: number };
+	  island: IslandZone;
   /** Which face of the island to show. Defaults to "front" (the side closest to the room top wall). */
-  face?: "front" | "back";
+	  face?: IslandFace;
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   countertopMaterialId?: string | null;
@@ -330,52 +332,37 @@ export function IslandElevationView({
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
 
-  // The island's width is the "wall" span for this elevation.
-  const planSpan = island.width;
+	  // Every island face behaves like a wall run in this elevation.
+	  const planSpan = islandFaceLength(island, face);
   // Use the room ceiling height for the wall box height.
   const WALL_TOTAL_HEIGHT = room.ceilingHeight ?? DEFAULT_CEILING_HEIGHT;
 
-  // Filter cabinets that are on the island.
-  const islandCabinets = cabinets.filter((c) => isOnIsland(c, island));
-
-  // Determine which side of the island each cabinet faces.
-  // "front" = cabinets whose back edge is near the island's top edge (island.y)
-  //           i.e. the cabinet is placed just above the island top edge
-  // "back"  = cabinets whose back edge is near the island's bottom edge (island.y + island.depth)
-  //           i.e. the cabinet is placed just below the island bottom edge
-  // Cabinets fully inside the island zone (island base cabinets) are shown on BOTH faces.
-  const islandMidY = island.y + island.depth / 2;
-  const faceCabinets = islandCabinets.filter((p) => {
-    const fp = placedFootprint(p);
-    const cabCenterY = p.y + fp.d / 2;
-    // Cabinets whose center is in the top half of the island → front face
-    // Cabinets whose center is in the bottom half → back face
-    // Island base cabinets (fully inside) are shown on both faces
-    const isInsideIsland = p.y >= island.y - 1 && p.y + fp.d <= island.y + island.depth + 1;
-    if (isInsideIsland) return true; // show on both faces
-    return face === "front" ? cabCenterY <= islandMidY : cabCenterY > islandMidY;
-  });
+	  const faceCabinets = cabinets.filter((cabinet) => isOnIsland(cabinet, island) && inferredIslandFace(cabinet, island) === face);
 
   // Sort by x position. For back view, mirror left-to-right so the viewer
   // sees the back of the island from outside (left = right when viewed from behind).
-  const sorted = [...faceCabinets].sort((a, b) => {
+	  const reverseFace = face === "back" || face === "right";
+	  const sorted = [...faceCabinets].sort((a, b) => {
     const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
     const byType = (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
     if (byType !== 0) return byType;
     // Back view: reverse x order so it reads naturally from the back
-    return face === "back" ? b.x - a.x : a.x - b.x;
-  });
+	    const aOffset = islandOffsetForPlaced(a, island, face);
+	    const bOffset = islandOffsetForPlaced(b, island, face);
+	    return reverseFace ? bOffset - aOffset : aOffset - bOffset;
+	  });
 
   // posAlong: offset from the island's left edge.
   // For back view, mirror: posAlong = island.right - cabinet.right
-  const posAlong = (p: PlacedCabinet) => {
-    const fp = placedFootprint(p);
-    if (face === "back") {
-      return (island.x + island.width) - (p.x + fp.w);
-    }
-    return p.x - island.x;
-  };
-  const sizeAlong = (p: PlacedCabinet) => placedFootprint(p).w;
+	  const sizeAlong = (p: PlacedCabinet) => {
+	    const footprint = placedFootprint(p);
+	    return face === "front" || face === "back" ? footprint.w : footprint.d;
+	  };
+	  const posAlong = (p: PlacedCabinet) => {
+	    const offset = islandOffsetForPlaced(p, island, face);
+	    return reverseFace ? planSpan - offset - sizeAlong(p) : offset;
+	  };
+	  const explicitIslandTop = islandCountertopRect(island, cabinets);
 
   useEffect(() => {
     const el = ref.current;

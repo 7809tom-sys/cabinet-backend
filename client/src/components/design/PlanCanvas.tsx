@@ -13,8 +13,9 @@ import {
   flooringMaterial,
   type PlanAnnotation,
   wallDimensions, type DimensionSeg,
-  type PonyWall, clampPonyWall,
-} from "@/lib/design";
+	  type PonyWall, clampPonyWall,
+	  type IslandZone, type IslandFace,
+	} from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
@@ -38,6 +39,20 @@ export function planTapeMeasure(a: PlanMeasurePoint, b: PlanMeasurePoint) {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   return { dx, dy, distance: Math.hypot(dx, dy) };
+}
+
+export function nearestIslandFaceInRect(
+  point: { x: number; y: number },
+  rect: { width: number; height: number },
+): IslandFace {
+  const distances: Array<[IslandFace, number]> = [
+    ["left", Math.max(0, point.x)],
+    ["right", Math.max(0, rect.width - point.x)],
+    ["back", Math.max(0, point.y)],
+    ["front", Math.max(0, rect.height - point.y)],
+  ];
+  distances.sort((a, b) => a[1] - b[1]);
+  return distances[0]![0];
 }
 
 export function planCornerGeometry(cabinet: PlacedCabinet) {
@@ -98,13 +113,6 @@ export function planLazySusanTwoFrontPath(cabinet: PlacedCabinet): string | unde
     : undefined;
 }
 
-interface IslandZone {
-  x: number;
-  y: number;
-  width: number;
-  depth: number;
-}
-
 interface Props {
   room: RoomData;
   /** Catalog item currently being dragged over the 2D plan. */
@@ -127,7 +135,10 @@ interface Props {
   onIslandChange?: (zone: IslandZone) => void;
   // Incremental island move (inches). When provided, moving the island also
   // carries the cabinets sitting on it. Resize still uses onIslandChange.
-  onIslandMove?: (dxIn: number, dyIn: number) => void;
+	  onIslandMove?: (dxIn: number, dyIn: number) => void;
+	  activeIslandFace?: IslandFace;
+	  onSelectIslandFace?: (face: IslandFace) => void;
+	  onOpenIslandAttributes?: () => void;
   openings?: WallOpening[];
   selectedOpeningUid?: string | null;
   onSelectOpening?: (uid: string | null) => void;
@@ -226,7 +237,8 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+	  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+	  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
@@ -296,10 +308,23 @@ export function PlanCanvas({
     | null
   >(null);
 
-  const onIslandPointerDown = (e: React.PointerEvent, mode: "move" | "resize") => {
-    if (!island || !onIslandChange || layoutLocked) return;
-    e.stopPropagation();
-    islandDrag.current = { mode, startX: e.clientX, startY: e.clientY, orig: { ...island } };
+	  const onIslandPointerDown = (e: React.PointerEvent, mode: "move" | "resize") => {
+	    if (!island || !onIslandChange || layoutLocked) return;
+	    e.stopPropagation();
+	    const rect = containerRef.current?.getBoundingClientRect();
+	    if (rect) {
+	      const x = (e.clientX - rect.left) / ppiRef.current;
+	      const y = (e.clientY - rect.top) / ppiRef.current;
+	      const distances: Array<[IslandFace, number]> = [
+	        ["back", Math.abs(y - island.y)],
+	        ["front", Math.abs(y - (island.y + island.depth))],
+	        ["left", Math.abs(x - island.x)],
+	        ["right", Math.abs(x - (island.x + island.width))],
+	      ];
+	      distances.sort((a, b) => a[1] - b[1]);
+	      onSelectIslandFace?.(distances[0][0]);
+	    }
+	    islandDrag.current = { mode, startX: e.clientX, startY: e.clientY, orig: { ...island } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -1014,12 +1039,31 @@ export function PlanCanvas({
         })}
 
         {/* Island zone guide — sits beneath cabinets so items placed inside show on top */}
-        {island && (
-          <div
-            onPointerDown={(e) => onIslandPointerDown(e, "move")}
-            onPointerMove={onIslandPointerMove}
-            onPointerUp={onIslandPointerUp}
-            className="absolute z-[1] cursor-move"
+	        {island && (
+	          <div
+	            data-testid="island-work-zone"
+	            role="button"
+	            tabIndex={0}
+	            aria-label={`Island work zone; active ${activeIslandFace} face. Click an edge to select its cabinet run; right-click or double-click to edit.`}
+	            onPointerDown={(e) => onIslandPointerDown(e, "move")}
+	            onPointerMove={onIslandPointerMove}
+	            onPointerUp={onIslandPointerUp}
+	            onClick={(e) => {
+	              const rect = e.currentTarget.getBoundingClientRect();
+	              onSelectIslandFace?.(nearestIslandFaceInRect(
+	                { x: e.clientX - rect.left, y: e.clientY - rect.top },
+	                { width: rect.width, height: rect.height },
+	              ));
+	            }}
+	            onKeyDown={(e) => {
+	              if (e.key === "Enter" || e.key === " ") {
+	                e.preventDefault();
+	                onOpenIslandAttributes?.();
+	              }
+	            }}
+	            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenIslandAttributes?.(); }}
+	            onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenIslandAttributes?.(); }}
+	            className="absolute z-[1] cursor-move"
             style={{
               left: island.x * ppi,
               top: island.y * ppi,
@@ -1029,8 +1073,12 @@ export function PlanCanvas({
               background: "rgba(212,167,90,0.10)",
               borderRadius: 3,
             }}
-            title={t("dt_pc_island_zone")}
-          >
+	            title={t("dt_pc_island_zone")}
+	          >
+	            <div className={`absolute left-0 right-0 top-0 h-1 ${activeIslandFace === "back" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 right-0 bottom-0 h-1 ${activeIslandFace === "front" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeIslandFace === "left" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
+	            <div className={`absolute right-0 top-0 bottom-0 w-1 ${activeIslandFace === "right" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
             <span className="absolute left-1 top-1 text-[9px] font-bold tracking-wide text-[#a87f33] bg-white/70 px-1 rounded pointer-events-none">
               ISLAND {Math.round(island.width)}″×{Math.round(island.depth)}″
             </span>

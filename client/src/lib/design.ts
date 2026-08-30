@@ -309,9 +309,11 @@ export interface DesignCabinet {
   doorOrientation?: "side-by-side" | "stacked" | null;
   layoutSpec?: string | null;
   drawerLayout?: string | null;
-  customProfile?: string | null;
-  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
-  glassDoorAddonCode?: string | null;
+	  customProfile?: string | null;
+	  facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+	  /** Catalog choice represents a glass-front cabinet configuration. */
+	  glassDoor?: boolean | null;
+	  glassDoorAddonCode?: string | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -323,6 +325,7 @@ export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "pa
 
 export type RefrigeratorAssemblyRole = "bridge" | "left-panel" | "right-panel";
 export type RefrigeratorPanelMode = "left" | "right" | "both" | "none";
+export type IslandFace = "front" | "back" | "left" | "right";
 
 export interface PlacedCabinet {
   uid: string;
@@ -384,6 +387,10 @@ export interface PlacedCabinet {
   refrigeratorAssemblyRole?: RefrigeratorAssemblyRole | null;
   /** Requested enclosure-panel mode persisted on the refrigerator appliance. */
   refrigeratorPanelMode?: RefrigeratorPanelMode | null;
+  /** Explicit run on a wall-free island scene; retained through save/restore. */
+  islandFace?: IslandFace | null;
+  /** Left-to-right position in inches along the selected island face. */
+  islandOffset?: number | null;
   // Blind corner cabinets install ACROSS the corner with a manufacturer pull
   // range: the cabinet can be pulled away from the corner between pullMin and
   // pullMax inches (e.g. a 36" blind base that pulls out to 39"). These come
@@ -2407,6 +2414,7 @@ export function isOnIsland(
   p: PlacedCabinet,
   island: { x: number; y: number; width: number; depth: number }
 ): boolean {
+  if (p.islandFace) return true;
   const { w, d } = rotatedSize(p);
   const cx = p.x + w / 2;
   const cy = p.y + d / 2;
@@ -3649,20 +3657,29 @@ export interface CountertopMeasurement {
  */
 export function countertopArea(
   placed: PlacedCabinet[],
-  island?: { width: number; depth: number } | null
+  island?: IslandZone | null
 ): CountertopMeasurement {
-  const runInches = placed
+  const perimeterPlaced = island ? placed.filter((p) => !isOnIsland(p, island)) : placed;
+  const runInches = perimeterPlaced
     .filter((p) => p.placement === "base")
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
   let squareIn = runInches * COUNTERTOP_DEPTH_IN;
-  const hasIsland = !!(island && island.width > 0 && island.depth > 0);
+  const islandSupports = island ? placed.filter((p) => isOnIsland(p, island) && bearsCountertop(p)) : [];
+  const hasIsland = islandSupports.length > 0;
   if (hasIsland && island) {
-    squareIn += island.width * island.depth;
+    const footprints = islandSupports.map((item) => ({ item, footprint: placedFootprint(item) }));
+    const minX = Math.min(...footprints.map(({ item }) => item.x));
+    const minY = Math.min(...footprints.map(({ item }) => item.y));
+    const maxX = Math.max(...footprints.map(({ item, footprint }) => item.x + footprint.w));
+    const maxY = Math.max(...footprints.map(({ item, footprint }) => item.y + footprint.d));
+    const slabWidth = island.countertopWidth ?? maxX - minX + 3;
+    const slabDepth = island.countertopDepth ?? maxY - minY + 3;
+    squareIn += slabWidth * slabDepth;
   }
   // Waterfall panels: each side adds height × depth (the panel is as tall as
   // the countertop height from floor and as deep as the cabinet depth).
   let waterfallSqIn = 0;
-  for (const p of placed) {
+  for (const p of perimeterPlaced) {
     if (p.placement !== "base") continue;
     const sides = (p.waterfallLeft ? 1 : 0) + (p.waterfallRight ? 1 : 0);
     if (sides === 0) continue;
@@ -5065,6 +5082,12 @@ export interface IslandZone {
   y: number;
   width: number;
   depth: number;
+  activeFace?: IslandFace;
+  /** One required continuous slab. Values are initialized from the cabinet assembly. */
+  countertopWidth?: number | null;
+  countertopDepth?: number | null;
+  countertopOffsetX?: number | null;
+  countertopOffsetY?: number | null;
 }
 
 export function clampIslandToRoom(island: IslandZone | null, room: RoomData): IslandZone | null {
@@ -5073,7 +5096,18 @@ export function clampIslandToRoom(island: IslandZone | null, room: RoomData): Is
   const depth = Math.max(12, Math.min(island.depth, room.depth));
   const x = Math.max(0, Math.min(island.x, room.width - width));
   const y = Math.max(0, Math.min(island.y, room.depth - depth));
-  return { x, y, width, depth };
+  const countertopWidth = island.countertopWidth == null ? null : Math.max(1, Math.min(island.countertopWidth, room.width));
+  const countertopDepth = island.countertopDepth == null ? null : Math.max(1, Math.min(island.countertopDepth, room.depth));
+  return {
+    ...island,
+    x,
+    y,
+    width,
+    depth,
+    countertopWidth,
+    countertopDepth,
+    activeFace: island.activeFace ?? "front",
+  };
 }
 
 
@@ -5626,7 +5660,7 @@ export function blindCornerRearCountertopExtensionIn(
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
-  island?: { x: number; y: number; width: number; depth: number } | null
+  island?: IslandZone | null
 ): CountertopSurface[] {
   const out: CountertopSurface[] = [];
   const D = COUNTERTOP_DEPTH_IN;
@@ -5634,6 +5668,7 @@ export function countertopSurfaces(
     // Countertop-bearing bases and confirmed installed filler pieces get a slab.
     // Loose fillers, tall cabinets, appliances, and panels remain excluded.
     if (!bearsCountertop(p)) continue;
+    if (island && isOnIsland(p, island)) continue;
     const side = cabinetWall(p, room);
     const footprint = placedFootprint(p);
     const horizontalWall = side === "top" || side === "bottom";
@@ -5674,14 +5709,20 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
-  if (island && island.width > 0 && island.depth > 0) {
-    out.push({
-      x: island.x,
-      y: island.y,
-      width: island.width,
-      depth: island.depth,
-      kind: "island",
-    });
+  if (island) {
+    const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+    if (supports.length > 0) {
+      const footprints = supports.map((item) => ({ item, footprint: placedFootprint(item) }));
+      const minX = Math.min(...footprints.map(({ item }) => item.x));
+      const minY = Math.min(...footprints.map(({ item }) => item.y));
+      const maxX = Math.max(...footprints.map(({ item, footprint }) => item.x + footprint.w));
+      const maxY = Math.max(...footprints.map(({ item, footprint }) => item.y + footprint.d));
+      const width = island.countertopWidth ?? maxX - minX + 3;
+      const depth = island.countertopDepth ?? maxY - minY + 3;
+      const centerX = (minX + maxX) / 2 + Number(island.countertopOffsetX ?? 0);
+      const centerY = (minY + maxY) / 2 + Number(island.countertopOffsetY ?? 0);
+      out.push({ x: centerX - width / 2, y: centerY - depth / 2, width, depth, kind: "island" });
+    }
   }
   return out;
 }
@@ -5759,12 +5800,14 @@ export function makeSink(
 
 /** Centers a sink fixture within a sink-base footprint and faces it toward the room. */
 export function makeSinkForCabinet(
-  type: SinkType,
-  cabinet: PlacedCabinet,
-  room: RoomData,
-  dimensions?: { width: number; depth: number },
+	  type: SinkType,
+	  cabinet: PlacedCabinet,
+	  room: RoomData,
+	  dimensions?: { width: number; depth: number },
 ): SinkFixture {
-  const side = cabinetWall(cabinet, room);
+	  const side = cabinet.islandFace
+	    ? ({ front: "bottom", back: "top", left: "right", right: "left" } as const)[cabinet.islandFace]
+	    : cabinetWall(cabinet, room);
   const rawWidth = dimensions?.width ?? SINK_PRESETS[type].width;
   const rawDepth = dimensions?.depth ?? SINK_PRESETS[type].depth;
   const plan = sinkPlanDimensions(rawWidth, rawDepth, side);
