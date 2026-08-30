@@ -22,7 +22,7 @@ describe("continuous cabinet trim", () => {
     ])).toHaveLength(2);
   });
 
-	it("keeps touching same-depth cabinet fronts continuous and returns only at the two run ends", () => {
+		it("keeps touching same-depth cabinet fronts continuous and returns only at the two run ends", () => {
 	  const root = new THREE.Group();
 	  const cabinets = [
 	    { uid: "w24", cabinetId: 1, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
@@ -36,10 +36,53 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
 	  expect(root.children).toHaveLength(4);
-	  expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-	});
+		  expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
+		});
 
-	it("wraps the exposed 12-inch step when a 12-inch upper meets a 24-inch-deep cabinet", () => {
+		it("removes internal crown returns across one-eighth-inch legacy offsets in the final Three.js mesh", () => {
+		  const root = new THREE.Group();
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "left", cabinetId: 101, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+		    { uid: "right", cabinetId: 102, masterCode: "W-30-42", description: "Wall", placement: "wall", x: 24.125, y: 0.125, width: 30, height: 42, depth: 12, rotation: 0, mountBottom: 54.125 },
+		  ] as never[];
+
+		  const segments = threeDCrownPerimeterSegments(cabinets, room);
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+
+		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+		  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.5)).toBe(false);
+		  expect(root.children.filter((rail) => rail.userData.crownMoldingReturn)).toHaveLength(2);
+		});
+
+		it.each([
+		  ["back", { x: 0, y: 0, rotation: 0 }, { x: 24.125, y: 0.125, rotation: 0 }],
+		  ["front", { x: 0, y: 84, rotation: 180 }, { x: 24.125, y: 83.875, rotation: 180 }],
+		  ["left", { x: 0, y: 0, rotation: 90 }, { x: 0.125, y: 24.125, rotation: 90 }],
+		  ["right", { x: 108, y: 0, rotation: 270 }, { x: 107.875, y: 24.125, rotation: 270 }],
+		] as const)("keeps only true run-end returns on the %s wall with legacy eighth-inch offsets", (_wall, first, second) => {
+		  const root = new THREE.Group();
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "first", cabinetId: 121, masterCode: "W-24-42", description: "Wall", placement: "wall", ...first, width: 24, height: 42, depth: 12, mountBottom: 54 },
+		    { uid: "second", cabinetId: 122, masterCode: "W-30-42", description: "Wall", placement: "wall", ...second, width: 30, height: 42, depth: 12, mountBottom: 54.125 },
+		  ] as never[];
+
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+		  expect(root.children.filter((rail) => rail.userData.crownMoldingReturn)).toHaveLength(2);
+		});
+
+		it("keeps both crown returns on each side of a true one-inch opening", () => {
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const segments = threeDCrownPerimeterSegments([
+		    { uid: "left", cabinetId: 111, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+		    { uid: "right", cabinetId: 112, masterCode: "W-30-42", description: "Wall", placement: "wall", x: 25, y: 0, width: 30, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+		  ] as never[], room);
+
+		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(4);
+		});
+
+		it("wraps the exposed 12-inch step when a 12-inch upper meets a 24-inch-deep cabinet", () => {
 	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
 	  const segments = threeDCrownPerimeterSegments([
 	    { uid: "w24", cabinetId: 21, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },

@@ -1019,6 +1019,11 @@
 - [x] Correct any rollout price field, tier transformation, stale value, quantity extension, or total that differs across those paths
 - [x] Preserve the owner-supplied source costs, exact UNIV-ROT SKU, selected style/distributor, cabinet identity, and rollout quantity while correcting prices
 - [x] Add all-eight-SKU, all-tier, quantity 1–5, materials, cart, save/restore, and checkout price-lock regressions before publication
+- [x] Reproduce the latest live screenshot where 3D crown still creates short return rails at touching same-depth cabinet seams despite the run-level helper
+- [x] Trace the actual published placed-cabinet transforms into final crown segment cancellation and identify why internal side edges remain exposed
+- [x] Ensure touching same-depth upper cabinets produce only a continuous front crown rail with no internal returns in the final Three.js scene
+- [x] Keep returns only at true run ends and wrap only around exposed 12-to-24-inch depth transitions, including WDC42 and other deeper cabinets
+- [x] Add final-mesh regressions using the screenshot’s mixed straight, corner, and deep-cabinet run before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view

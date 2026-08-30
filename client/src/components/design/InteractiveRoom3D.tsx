@@ -3387,19 +3387,33 @@ function worldCrownEdges(cabinet: PlacedCabinet, room: RoomData): ThreeDCrownPer
 }
 
 function crownEdgeCoveredRange(edge: ThreeDCrownPerimeterSegment, blocker: ThreeDCrownPerimeterSegment) {
-  if (Math.abs(edge.top - blocker.top) > 0.125 || edge.length <= 1e-6 || blocker.length <= 1e-6) return null;
+	  // Placement coordinates are edited and displayed at 1/8-inch precision, but
+	  // older saved layouts can retain small floating-point or legacy snap offsets.
+	  // Treat edges within 1/4 inch as the same physical seam for trim rendering
+	  // only. This never changes cabinet placement or collision geometry; it merely
+	  // prevents a visually butted run from growing a full-depth crown return at
+	  // every cabinet junction.
+	  const seamTolerance = 0.25 + 1e-6;
+	  if (Math.abs(edge.top - blocker.top) > seamTolerance || edge.length <= 1e-6 || blocker.length <= 1e-6) return null;
   const dx = edge.end.x - edge.start.x;
   const dz = edge.end.z - edge.start.z;
   const bdx = blocker.end.x - blocker.start.x;
   const bdz = blocker.end.z - blocker.start.z;
-  const lineTolerance = 0.02;
   const pointCross = dx * (blocker.start.z - edge.start.z) - dz * (blocker.start.x - edge.start.x);
   const directionCross = dx * bdz - dz * bdx;
-  if (Math.abs(pointCross) > lineTolerance * edge.length || Math.abs(directionCross) > lineTolerance * edge.length * blocker.length) return null;
+	  const normalDistance = Math.abs(pointCross) / edge.length;
+	  const parallelSin = Math.abs(directionCross) / (edge.length * blocker.length);
+  if (normalDistance > seamTolerance || parallelSin > 0.02) return null;
   const lenSquared = dx * dx + dz * dz;
   const project = (point: CrownPoint) => ((point.x - edge.start.x) * dx + (point.z - edge.start.z) * dz) / lenSquared;
-  const start = Math.max(0, Math.min(project(blocker.start), project(blocker.end)));
-  const end = Math.min(1, Math.max(project(blocker.start), project(blocker.end)));
+	  const projectionPadding = seamTolerance / edge.length;
+	  const rawStart = Math.min(project(blocker.start), project(blocker.end));
+	  const rawEnd = Math.max(project(blocker.start), project(blocker.end));
+	  // Snap only an endpoint already within seam tolerance of this edge's end.
+	  // Do not expand an interior covered interval: doing so would incorrectly
+	  // shorten the exposed wrap where a 12-inch run meets a 24-inch-deep cabinet.
+	  const start = rawStart <= projectionPadding ? 0 : Math.max(0, rawStart);
+	  const end = rawEnd >= 1 - projectionPadding ? 1 : Math.min(1, rawEnd);
   return end - start > 1e-5 ? { start, end } : null;
 }
 
