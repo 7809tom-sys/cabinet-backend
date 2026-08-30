@@ -774,9 +774,17 @@ export const designRouter = router({
           adjustedListPrice: string | null;
         }>;
       }
-      const conditions = [
-        eq(cabinets.subCategory, "Roll Out Shelf"),
-        eq(cabinets.isActive, true),
+	      const conditions = [
+	        eq(cabinets.category, "Accessory"),
+	        or(like(cabinets.masterCode, "RS%"), like(cabinets.masterCode, "UNIV-ROT%"))!,
+	        or(
+	          eq(cabinets.subCategory, "Roll Out Shelf"),
+	          eq(cabinets.subCategory, "Rollout Shelf"),
+	          eq(cabinets.subCategory, "Roll-out Shelf"),
+	          eq(cabinets.subCategory, "Rollout Tray"),
+	          eq(cabinets.subCategory, "Roll-out Tray"),
+	        )!,
+	        eq(cabinets.isActive, true),
         notInConflict(),
         inArray(distributorSkus.styleId, input.styleIds),
         eq(distributorSkus.isAvailable, true),
@@ -945,9 +953,17 @@ export const designRouter = router({
       const db = await getDb();
       if (!db || !(input.width > 0)) return null;
 
-      const conditions = [
-        eq(cabinets.subCategory, "Roll Out Shelf"),
-        eq(cabinets.isActive, true),
+	      const conditions = [
+	        eq(cabinets.category, "Accessory"),
+	        or(like(cabinets.masterCode, "RS%"), like(cabinets.masterCode, "UNIV-ROT%"))!,
+	        or(
+	          eq(cabinets.subCategory, "Roll Out Shelf"),
+	          eq(cabinets.subCategory, "Rollout Shelf"),
+	          eq(cabinets.subCategory, "Roll-out Shelf"),
+	          eq(cabinets.subCategory, "Rollout Tray"),
+	          eq(cabinets.subCategory, "Roll-out Tray"),
+	        )!,
+	        eq(cabinets.isActive, true),
         notInConflict(),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
@@ -965,6 +981,7 @@ export const designRouter = router({
 	          width: cabinets.width,
 	          platformSku: distributorSkus.platformSku,
 	          listPrice: distributorSkus.listPrice,
+	          yourCost: distributorSkus.yourCost,
 	          wholesalePrice: distributorSkus.wholesalePrice,
 	          contractorPrice: distributorSkus.contractorPrice,
 	          homeownerPrice: distributorSkus.homeownerPrice,
@@ -983,8 +1000,9 @@ export const designRouter = router({
             masterCode: string;
             description: string | null;
             width: number;
-            platformSku: string | null;
+	            platformSku: string | null;
 	            listPrice: string | null;
+	            yourCost: string | null;
 	            wholesalePrice: string | null;
 	            contractorPrice: string | null;
 	            homeownerPrice: string | null;
@@ -1008,8 +1026,15 @@ export const designRouter = router({
           if (a < b) best = cand;
         }
       }
-      return best;
-    }),
+	      if (best == null) return null;
+	      const psRollout = await getPricingSettings();
+	      return {
+	        ...best,
+	        wholesalePrice: sellPriceForTier(best, psRollout, "wholesale")?.toFixed(2) ?? null,
+	        contractorPrice: sellPriceForTier(best, psRollout, "contractor")?.toFixed(2) ?? null,
+	        homeownerPrice: sellPriceForTier(best, psRollout, "homeowner")?.toFixed(2) ?? null,
+	      };
+	    }),
 
   save: publicProcedure
     .input(

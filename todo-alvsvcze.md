@@ -1067,3 +1067,13 @@
 - [x] Persist rollout quantity on the exact placed cabinet and expand it into the cart with matching SKU, quantity, unit price, line total, and overall total
 - [x] Exclude base cabinets under 18 inches, appliances, fillers, panels, and incompatible specialty/open cabinets from rollout selection
 - [x] Add eligibility, 1–5 limit, SKU/price, cart total, save/restore, materials-list, PC, tablet, and mobile regressions before publication
+- [x] Render selected crown molding continuously across all exposed upper-cabinet top edges in each wall-to-wall run, including corners and run ends
+- [x] Merge toe-kick faces across every adjoining floor/base cabinet run with no visible seams or gaps, matching countertop continuity while excluding appliances and true open spaces
+- [x] Remove Plan, Elevation, 3D, and 3D+Plan view-mode buttons from the mobile toolbar without changing desktop/tablet view controls or the active mobile drawing
+- [x] Reproduce the live eligible-cabinet “No matching roll-out shelf fits this cabinet in the selected line” result and identify the missing catalog/style/distributor mapping
+- [x] Ensure every eligible 18-inch-plus base and pantry shows a priced 1–5 rollout selector using a valid same-family tray SKU, with no invented SKU or price
+- [x] Preserve crown/toe-kick material quantities, cabinet geometry, appliance openings, rollout cart totals, save/restore, and PC/tablet/mobile behavior
+- [x] Add continuous crown, continuous toe-kick, mobile-toolbar removal, rollout lookup, pricing, cart, and responsive regressions before publication
+- [x] Add Clark & Son universal rollout models UNIV-ROT15, UNIV-ROT18, UNIV-ROT21, UNIV-ROT24, UNIV-ROT27, UNIV-ROT30, UNIV-ROT33, and UNIV-ROT36 as the fallback family for eligible cabinets without a proprietary tray
+- [x] Match each cabinet to the largest universal UNIV-ROT size that fits its nominal width, preserving the manufacturer’s listed back-panel and 21-inch side-panel dimensions
+- [x] Locate and use the authoritative Clark & Son universal rollout prices before creating fallback cart lines; never fabricate a price

@@ -96,6 +96,26 @@ interface Props {
   flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
 }
 
+export type ElevationTrimRun = { start: number; end: number; level: number; anchorUid: string };
+
+/** Merge only edge-touching cabinet intervals; true openings remain open. */
+export function mergedElevationTrimRuns(
+  intervals: Array<{ start: number; end: number; level: number; uid: string }>,
+  contactToleranceIn = 0.125,
+): ElevationTrimRun[] {
+  const ordered = [...intervals].sort((a, b) => a.level - b.level || a.start - b.start);
+  const runs: ElevationTrimRun[] = [];
+  for (const interval of ordered) {
+    const last = runs.at(-1);
+    if (last && Math.abs(last.level - interval.level) <= contactToleranceIn && interval.start <= last.end + contactToleranceIn) {
+      last.end = Math.max(last.end, interval.end);
+      continue;
+    }
+    runs.push({ start: interval.start, end: interval.end, level: interval.level, anchorUid: interval.uid });
+  }
+  return runs;
+}
+
 const ShakerFaceMetricsContext = createContext({
   widthIn: 24,
   heightIn: 34.5,
@@ -301,6 +321,24 @@ export function ElevationView({
     const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
     return (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
   });
+  const crownRuns = mergedElevationTrimRuns(sorted
+    .filter((p) => p.placement === "wall" && p.mountBottom == null)
+    .map((p) => {
+      const footprint = placedFootprint(p);
+      const start = horizontal ? p.x : p.y;
+      const { bottom, height } = elevationBox(p, room);
+      return { start, end: start + (horizontal ? footprint.w : footprint.d), level: bottom + height, uid: p.uid };
+    }));
+  const toeKickRuns = mergedElevationTrimRuns(sorted
+    .filter((p) => {
+      const { bottom } = elevationBox(p, room);
+      return toeKickHeightForElevation(p.placement, bottom, TOE_KICK_HEIGHT_IN) > 0 && p.cabinetId !== 0;
+    })
+    .map((p) => {
+      const footprint = placedFootprint(p);
+      const start = horizontal ? p.x : p.y;
+      return { start, end: start + (horizontal ? footprint.w : footprint.d), level: 0, uid: p.uid };
+    }));
 
   // Openings on the wall being viewed.
   const viewOpenings = openings.filter((o) => o.side === side);
@@ -1685,20 +1723,19 @@ export function ElevationView({
           );
         })}
 
-        {/* Crown molding: band across the top of each wall cabinet */}
-        {crown && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
-          const { bottom, height } = elevationBox(p, room);
-          const cabF = finishFor ? finishFor(p) : finish;
+        {/* Crown molding: one continuous band per edge-touching upper run. */}
+        {crown && crownRuns.map((run) => {
+          const anchor = sorted.find((p) => p.uid === run.anchorUid)!;
+          const cabF = finishFor ? finishFor(anchor) : finish;
           return (
             <div
-              key={`crown-${p.uid}`}
+              key={`crown-run-${run.anchorUid}-${run.start}`}
+              data-testid="continuous-crown-run"
               className="absolute"
               style={{
-                left: posAlong * ppi - 2,
-                width: sizeAlong * ppi + 4,
-                bottom: (bottom + height) * ppi,
+                left: run.start * ppi - 2,
+                width: (run.end - run.start) * ppi + 4,
+                bottom: run.level * ppi,
                 height: Math.max(3, CROWN_HEIGHT_IN * ppi),
                 background: cabF.face,
                 borderTop: `1.5px solid ${cabF.edge}`,
@@ -1736,22 +1773,17 @@ export function ElevationView({
           );
         })}
 
-        {/* Physical toe kick: recessed strip under every floor-level base/tall cabinet. */}
-        {sorted.filter((p) => {
-          const { bottom } = elevationBox(p, room);
-          return toeKickHeightForElevation(p.placement, bottom, TOE_KICK_HEIGHT_IN) > 0 && p.cabinetId !== 0;
-        }).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
-          const cabF = finishFor ? finishFor(p) : finish;
+        {/* Physical toe kick: one recessed strip per edge-touching floor run. */}
+        {toeKickRuns.map((run) => {
           const toeH = Math.max(3, TOE_KICK_HEIGHT_IN * ppi);
           return (
             <div
-              key={`toe-${p.uid}`}
+              key={`toe-run-${run.anchorUid}-${run.start}`}
+              data-testid="continuous-toe-kick-run"
               className="absolute"
               style={{
-                left: posAlong * ppi + 4,
-                width: sizeAlong * ppi - 8,
+                left: run.start * ppi + 4,
+                width: Math.max(1, (run.end - run.start) * ppi - 8),
                 bottom: 0,
                 height: toeH,
                 // Recessed toe kick: darker than the cabinet face, set back from

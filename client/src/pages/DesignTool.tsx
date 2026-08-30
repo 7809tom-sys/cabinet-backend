@@ -6339,6 +6339,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      className="h-full min-h-0"
 	      scene={resolvedInteractive3dScene}
 	      placed={threeDPlaced}
+	      crown={crown}
 	      catalogDropWall={activeWall}
       roomOverride={room}
       openings={openings}
@@ -6491,39 +6492,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        >
 	          <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
 	        </Button>
-
-        <div className="lg:hidden flex shrink-0 items-center rounded-full border border-border bg-muted/30 p-0.5">
-          <button
-            type="button"
-            onClick={() => setViewMode("plan")}
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            Plan
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("elevation")}
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted"}`}
-          >
-            Elevation
-          </button>
-	          <button
-	            type="button"
-	            onClick={() => setViewMode("threeD")}
-	            disabled={!canLoadInteractive3d || interactive3dLoading}
-	            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
-	          >
-	            3D
-	          </button>
-	          <button
-	            type="button"
-	            onClick={() => setViewMode("hybrid")}
-	            disabled={!canLoadInteractive3d || interactive3dLoading}
-	            className={`rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40 ${viewMode === "hybrid" ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#d4a75a]/25"}`}
-	          >
-	            3D+Plan
-	          </button>
-	        </div>
 
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
@@ -6746,43 +6714,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </button>
 	        {/* Mobile: icon-only compact buttons in top bar */}
         <div className="ml-auto flex items-center gap-1 lg:hidden">
-          {/* View mode buttons */}
-          <button
-            title="Bird's-eye plan view"
-            onClick={() => setViewMode("plan")}
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
-              viewMode === "plan" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            title="Front elevation view"
-            onClick={() => setViewMode("elevation")}
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
-              viewMode === "elevation" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          <button
-            title="Split view (plan + elevation)"
-            onClick={() => setViewMode("split")}
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
-              viewMode === "split" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Columns3 className="h-4 w-4" />
-          </button>
-          <button
-            title="Corner view"
-            onClick={() => setViewMode("corner")}
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
-              viewMode === "corner" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <ScanLine className="h-4 w-4" />
-          </button>
           <button
             title="Doors & Windows"
             onClick={() => {

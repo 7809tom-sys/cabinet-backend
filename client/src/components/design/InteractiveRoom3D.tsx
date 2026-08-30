@@ -344,6 +344,8 @@ interface Props {
   scene: InteractiveRoomScene;
   /** Current 2D design items take precedence over starter-layout suggestions. */
   placed?: PlacedCabinet[];
+  /** Draw crown rails around the exposed tops of upper cabinets. */
+  crown?: boolean;
   roomOverride?: RoomData;
   /** Doors, cased openings, and windows from the current 2D plan. */
   openings?: WallOpening[];
@@ -1772,16 +1774,17 @@ export function addCabinet(
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);
       }
-    } else {
-      const toeKick = new THREE.Mesh(
-        new THREE.BoxGeometry(Math.max(0.12, bodyWidth - 0.08), toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
-        toeKickMaterial,
-      );
+	    } else {
+	      const toeKick = new THREE.Mesh(
+	        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
+	        toeKickMaterial,
+	      );
       // Recess the toe-kick three inches from the cabinet face, matching the
       // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
       toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
-      toeKick.userData = {
-        baseToeKick: true,
+	      toeKick.userData = {
+	        baseToeKick: true,
+	        continuousRunOverlap: true,
         floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
         toeKickRecessIn: 3,
@@ -3307,6 +3310,43 @@ export function existingCabinetTransform(
   return { x, z, rotation, bottom };
 }
 
+/** Adds slightly overlapping crown pieces so touching uppers read as one run. */
+export function addThreeDCrownMolding(
+  root: THREE.Group,
+  placed: PlacedCabinet[],
+  room: RoomData,
+  finishOverrides: Record<string, string> | undefined,
+  fallbackColor: string,
+) {
+  for (const cabinet of placed) {
+    if (cabinet.placement !== "wall") continue;
+    const transform = existingCabinetTransform(cabinet, room);
+    const box = elevationBox(cabinet, room);
+    const width = Math.max(0.125, numberValue(cabinet.width, 24)) * INCH;
+    const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH)) * INCH;
+    const crownHeight = 3 * INCH;
+    const railThickness = 0.075;
+    const material = new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
+    const crownGroup = new THREE.Group();
+    crownGroup.position.set(transform.x * INCH, (box.bottom + box.height + 1.5) * INCH, transform.z * INCH);
+    crownGroup.rotation.y = transform.rotation;
+    crownGroup.userData = { crownMolding: true, continuousCabinetTrim: true, placementUid: cabinet.uid };
+
+    const frontRail = new THREE.Mesh(new THREE.BoxGeometry(width + 0.025, crownHeight, railThickness), material);
+    frontRail.position.z = depth / 2 + railThickness / 2;
+    frontRail.userData = { crownMoldingFront: true, continuousRunOverlap: true };
+    crownGroup.add(frontRail);
+
+    for (const side of [-1, 1] as const) {
+      const returnRail = new THREE.Mesh(new THREE.BoxGeometry(railThickness, crownHeight, depth + railThickness), material);
+      returnRail.position.x = side * (width / 2 + railThickness / 2);
+      returnRail.userData = { crownMoldingReturn: true, exposedTopEdge: true, side: side < 0 ? "left" : "right" };
+      crownGroup.add(returnRail);
+    }
+    root.add(crownGroup);
+  }
+}
+
 /**
  * A hood must share the range center along its wall axis. Older plans can retain
  * a small manual x/y nudge from drag placement; preserving that offset makes the
@@ -3970,7 +4010,7 @@ export function threeDUpperCabinetWallMinimums(placed: PlacedCabinet[], room: Ro
   }, {} as Partial<Record<WallSide, number>>);
 }
 
-export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -4313,9 +4353,10 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState);
-      }
-    } else {
+	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState);
+	      }
+	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
+	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
         addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState);
@@ -4368,7 +4409,7 @@ export function InteractiveRoom3D({ scene, placed = [], roomOverride, openings =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;
