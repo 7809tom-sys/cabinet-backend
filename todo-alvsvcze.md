@@ -1149,3 +1149,6 @@
 - [x] Align the over-refrigerator bridge cabinet directly above the refrigerator using the saved appliance footprint, correct width, depth, and mounting elevation without introducing overlap
 - [x] Render the refrigerator appliance shell, exposed sides, and top in neutral black or gray instead of inheriting the selected cabinet finish while keeping surround panels and bridge cabinet in the cabinet finish
 - [x] Add refrigerator assembly, left/right panel, bridge alignment, shell-finish separation, collision, persistence, 2D/3D, and affiliate Designer regressions before publication
+- [x] Render every WDC glass-door variant with finished diagonal door frames around transparent glass centers, matching the standard single/double glass wall-cabinet contract
+- [x] Keep a filler placed beside a dishwasher in the correct gap while aligning its installed depth and front plane flush with the adjoining base/appliance run instead of projecting outward
+- [x] Add WDC framed-glass and dishwasher-side filler footprint/transform/countertop/cart/collision/2D/3D regressions and publish only after they pass

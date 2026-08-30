@@ -1693,6 +1693,14 @@ export function addCabinet(
   const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
   const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
   const bodyHeight = heightIn * INCH;
+  const isInstalledFillerPiece = Boolean(
+    sku.fillerPieceGroupId &&
+    sku.fillerPlacementMode &&
+    Number.isFinite(Number(sku.fillerTotalWidth)) &&
+    Number(sku.fillerTotalWidth) > 0,
+  );
+  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
+  const installedFillerFrontOffset = isInstalledFillerPiece ? (bodyDepth - installedFillerBoardDepth) / 2 : 0;
   const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
   const countertopCenterY = (bottom + heightIn + 0.75) * INCH;
   const cabinet = new THREE.Group();
@@ -1782,18 +1790,19 @@ export function addCabinet(
       }
 	    } else {
 	      const toeKick = new THREE.Mesh(
-	        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, Math.max(0.12, bodyDepth - 0.25)),
+	        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, isInstalledFillerPiece ? installedFillerBoardDepth : Math.max(0.12, bodyDepth - 0.25)),
 	        toeKickMaterial,
 	      );
       // Recess the toe-kick three inches from the cabinet face, matching the
       // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
-      toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, -0.125);
+	      toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, isInstalledFillerPiece ? installedFillerFrontOffset : -0.125);
 	      toeKick.userData = {
 	        baseToeKick: true,
 	        continuousRunOverlap: true,
         floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
-        toeKickRecessIn: 3,
+	        toeKickRecessIn: isInstalledFillerPiece ? 0 : 3,
+	        ...(isInstalledFillerPiece ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH } : {}),
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
@@ -1889,14 +1898,16 @@ export function addCabinet(
     toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
     toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
     cabinet.add(toeRecess);
-  } else if (!isPlacedHood) {
-    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
-    body.userData = {
+	  } else if (!isPlacedHood) {
+	    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isInstalledFillerPiece ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
+	    if (isInstalledFillerPiece) body.position.z = installedFillerFrontOffset;
+	    body.userData = {
       ...(isRefrigeratorAppliance
         ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
         : { selectedStyleSideSkin: true }),
-      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
-    };
+	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
+	      ...(isInstalledFillerPiece ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
+	    };
     cabinet.add(body);
     bodyMeshes.push(body);
   }
@@ -2653,6 +2664,7 @@ export function addCabinet(
         door.position.y,
         door.position.z + (angledWallFace?.normalZ ?? 1) * 0.034,
         door.rotation.y,
+	      Boolean(sku.glassDoor),
       );
       if (diagonalDoorCount === 1) {
         const pullLength = Math.min(Math.max(0.12, diagonalDoorHeight * 0.28), 0.86);

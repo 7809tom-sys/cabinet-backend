@@ -1268,12 +1268,20 @@ describe("interactive 3D room scene helpers", () => {
 
     expect(measured[0]!.x).toBeCloseTo(24 / 12, 5);
     expect(measured[0]!.z).toBeCloseTo(21 / 12, 5);
-    expect(measured[1]!.x).toBeCloseTo(24 / 12, 5);
-    expect(measured[1]!.z).toBeCloseTo(3 / 12, 5);
+	    expect(measured[1]!.x).toBeCloseTo(0.75 / 12, 5);
+	    expect(measured[1]!.z).toBeCloseTo(3 / 12, 5);
     expect(measured[2]!.x).toBeCloseTo(24 / 12, 5);
     expect(measured[2]!.z).toBeCloseTo(21 / 12, 5);
-    expect(measured[3]!.x).toBeCloseTo(24 / 12, 5);
-    expect(measured[3]!.z).toBeCloseTo(3 / 12, 5);
+	    expect(measured[3]!.x).toBeCloseTo(0.75 / 12, 5);
+	    expect(measured[3]!.z).toBeCloseTo(3 / 12, 5);
+	    for (const filler of [leftFiller, rightFiller]) {
+	      const group = root.children.find((node) => node.userData.placedUid === filler.uid)!;
+	      const body = group.children.find((node) => node.userData.fullDepthReservedForCountertop) as THREE.Mesh;
+	      const bounds = new THREE.Box3().setFromObject(body);
+	      expect(bounds.min.x).toBeCloseTo(96 / 12, 5);
+	      expect(body.userData.installedFillerVisibleDepthIn).toBeCloseTo(0.75, 8);
+	      expect(body.userData.fullDepthReservedForCountertop).toBe(true);
+	    }
     for (const placed of [cabinetWithLeftFiller, leftFiller, cabinetWithRightFiller, rightFiller]) {
       expect(existingCabinetTransform(placed, room).rotation).toBeCloseTo(-Math.PI / 2, 12);
     }
@@ -1619,7 +1627,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(glassDoors[0]?.material).toBeInstanceOf(THREE.MeshPhysicalMaterial);
     expect((glassDoors[0]?.material as THREE.MeshPhysicalMaterial).transparent).toBe(true);
     expect(nodes.filter((node) => node.userData.diagonalGlassShelf)).toHaveLength(3);
-    expect(nodes.filter((node) => node.userData.selectedStyleFace === "shaker")).toHaveLength(5);
+	    expect(nodes.filter((node) => node.userData.selectedStyleFace === "glass-door-frame")).toHaveLength(5);
+	    expect(nodes.filter((node) => node.userData.glassDoorFrameRail)).toHaveLength(4);
   });
 
   it("uses the 17-inch diagonal front created by two 12-inch WDC returns", () => {
