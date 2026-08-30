@@ -1130,3 +1130,9 @@
 - [x] Render BBC-36 with a 30-inch carcass plus 4.5-inch toe kick, measured drawer-over-door open side, fixed blind panel, and room-facing rotation at every wall/corner
 - [x] Include full-height tall cabinets and refrigerator surround panels in the combined crown footprint so hidden wall returns cancel without removing exposed outside-perimeter crown
 - [x] Validate BBC-36 dimensions, all-wall orientation, blind-side filler clearance, 2D/3D fronts, saved-plan refresh, build sheets, collision, and complete refrigerator crown meshes
+- [x] Make the mobile top cart open the same working Designer cart and item count currently used by the bottom toolbar
+- [x] Remove the duplicate mobile bottom cart after the top cart uses the authoritative Designer cart state
+- [x] Prevent the mobile Walls panel from auto-focusing a measurement input or opening the software keyboard before the user deliberately selects a field
+- [x] Audit the mobile Custom action and remove it from the bottom toolbar because custom overlap mode is an advanced desktop action that conflicts with mobile zero-overlap clarity
+- [x] Move the existing Front and Lock actions to the mobile top toolbar without changing their behavior or desktop/tablet placement
+- [x] Add mobile cart-state, wall-panel focus, keyboard, Custom removal, Front/Lock relocation, responsive width, and retained-action regressions before publication

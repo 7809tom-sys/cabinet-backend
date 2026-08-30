@@ -45,6 +45,11 @@ import { trpc } from "@/lib/trpc";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import {
+  preventMobileRoomSheetAutoFocus,
+  publishDesignerMobileCartCount,
+  registerDesignerMobileCartOpener,
+} from "@/lib/designerMobileCartBridge";
+import {
   physicalWallMeasurements,
   roomFromPhysicalMeasurements,
   suggestedRoomMeasurementIndexes,
@@ -466,6 +471,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   useEffect(() => {
     placedRef.current = placed;
   }, [placed]);
+  useEffect(() => {
+    if (!isMobile) return;
+    publishDesignerMobileCartCount(placed.length);
+  }, [isMobile, placed.length]);
+  useEffect(() => {
+    if (!isMobile) return;
+    return registerDesignerMobileCartOpener(() => setMobilePanel("cart"));
+  }, [isMobile]);
   const [smartGapPreview, setSmartGapPreview] = useState<PlacedCabinet[]>([]);
   const [smartGapPreviewPosition, setSmartGapPreviewPosition] = useState<{ current: number; total: number } | null>(null);
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
@@ -6719,7 +6732,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <Download className="h-3.5 w-3.5" />
         </button>
 	        {/* Mobile: icon-only compact buttons in top bar */}
-        <div className="ml-auto flex items-center gap-1 lg:hidden">
+	        <div data-testid="mobile-designer-top-actions" className="ml-auto flex items-center gap-1 lg:hidden">
           <button
             title="Doors & Windows"
             onClick={() => {
@@ -6734,16 +6747,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </button>
           <div className="w-px h-5 bg-border mx-0.5" />
           {/* Style button — icon only */}
-          <button
-            title="Door style"
+	          <button
+	            title="Door style"
             onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
             className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
               mobilePanel === "style" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <Palette className="h-4 w-4" />
-          </button>
-          {/* Save button — icon only */}
+	            <Palette className="h-4 w-4" />
+	          </button>
+	          <button
+	            title={viewMode === "elevation" ? "Plan view" : "Front view"}
+	            aria-label={viewMode === "elevation" ? "Plan view" : "Front view"}
+	            onClick={() => setViewMode((mode) => (mode === "elevation" ? "plan" : "elevation"))}
+	            className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
+	              viewMode === "elevation" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+	            }`}
+	          >
+	            {viewMode === "elevation" ? <LayoutGrid className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+	          </button>
+	          <button
+	            title={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}
+	            aria-label={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}
+	            onClick={() => {
+	              setCabinetsLocked((value) => !value);
+	              toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
+	            }}
+	            className={`inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
+	              cabinetsLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+	            }`}
+	          >
+	            {cabinetsLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+	          </button>
+	          {/* Save button — icon only */}
           <button
             title="Save design"
             disabled={placed.length === 0}
@@ -9893,13 +9929,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               label="Redo"
               onClick={handleRedo}
             />
-            <MobileBarButton
-              icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              label={viewMode === "elevation" ? "Plan" : "Front"}
-              onClick={() => setViewMode((m) => (m === "elevation" ? "plan" : "elevation"))}
-            />
-            <MobileBarButton
-              icon={<RotateCw className="h-5 w-5" />}
+	            <MobileBarButton
+	              icon={<RotateCw className="h-5 w-5" />}
               label="Rotate"
               disabled={!selectedUid || measureMode}
               onClick={rotateSelected}
@@ -9911,41 +9942,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               danger
               onClick={deleteSelected}
             />
-            <MobileBarButton
-              icon={cabinetsLocked ? <Lock className="h-5 w-5" /> : <LockOpen className="h-5 w-5" />}
-              label={cabinetsLocked ? "Locked" : "Lock"}
-              active={cabinetsLocked}
-              onClick={() => {
-                setCabinetsLocked((v) => !v);
-                toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
-              }}
-            />
-            <MobileBarButton
-              icon={<Move className="h-5 w-5" />}
-              label="Custom"
-              active={customPlacementMode}
-              disabled={cabinetsLocked}
-              onClick={() => {
-                setCustomPlacementMode((enabled) => {
-                  const next = !enabled;
-                  toast.success(next ? "Custom placement enabled — collision blocking is off" : "Custom placement disabled — collision blocking is on");
-                  return next;
-                });
-              }}
-            />
-            <MobileBarButton
-              icon={<Share2 className="h-5 w-5" />}
+	            <MobileBarButton
+	              icon={<Share2 className="h-5 w-5" />}
 	              label="Share"
 	              disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
 	              onClick={shareCurrentDesign}
 	            />
-            <MobileBarButton
-              icon={<ShoppingCart className="h-5 w-5" />}
-              label="Cart"
-              badge={placed.length || undefined}
-              onClick={() => setMobilePanel("cart")}
-            />
-          </div>
+	          </div>
         </div>
       )}
       {/* Mobile style / color picker sheet */}
@@ -10482,7 +10485,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       {/* Mobile room size editor sheet */}
       {isMobile && (
         <Sheet open={mobilePanel === "room"} onOpenChange={(o) => setMobilePanel(o ? "room" : null)}>
-          <SheetContent side="bottom" className="rounded-t-2xl p-0" style={{ maxHeight: "min(80vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-2xl p-0"
+            style={{ maxHeight: "min(80vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+            onOpenAutoFocus={preventMobileRoomSheetAutoFocus}
+          >
             <SheetHeader className="border-b px-4 py-3">
               <SheetTitle className="text-sm">Room Size</SheetTitle>
             </SheetHeader>

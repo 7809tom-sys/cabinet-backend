@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { Menu, X, ShoppingCart, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { SiteStringKey } from "@/lib/i18n/site";
 import { ChatTrigger } from "@/components/ChatWidget";
 import { trpc } from "@/lib/trpc";
+import { useIsMobile } from "@/hooks/useMobile";
+import {
+  designerMobileCartCount,
+  requestDesignerMobileCartOpen,
+  subscribeDesignerMobileCartCount,
+} from "@/lib/designerMobileCartBridge";
 import { affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
 
 type NavLink = { key: SiteStringKey; href: string };
@@ -83,6 +89,15 @@ export function TopNav() {
   const { user } = useAuth();
   const { count: cartCount } = useCart();
   const { t } = useLanguage();
+  const isDesignerMobile = useIsMobile(1024) && location.startsWith("/design");
+  const [designCartCount, setDesignCartCount] = useState(designerMobileCartCount);
+
+  useEffect(() => {
+    if (!isDesignerMobile) return;
+    return subscribeDesignerMobileCartCount(setDesignCartCount);
+  }, [isDesignerMobile]);
+
+  const visibleCartCount = isDesignerMobile ? designCartCount : cartCount;
 
   // Check if the current user is a linked affiliate (partner role or has affiliate record)
   const { data: myAffiliateData } = trpc.affiliates.myReferrals.useQuery(undefined, {
@@ -237,16 +252,35 @@ export function TopNav() {
           {/* Language toggle (desktop) */}
           <LangToggle className="hidden sm:flex" />
 
-          <Button variant="ghost" size="icon" asChild className="relative">
-            <Link href="/cart" aria-label={t("nav_cart")}>
+          {isDesignerMobile ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label="Open Designer cart"
+              onClick={() => {
+                if (!requestDesignerMobileCartOpen()) window.location.assign("/cart");
+              }}
+            >
               <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
+              {visibleCartCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-                  {cartCount > 99 ? "99+" : cartCount}
+                  {visibleCartCount > 99 ? "99+" : visibleCartCount}
                 </span>
               )}
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button variant="ghost" size="icon" asChild className="relative">
+              <Link href="/cart" aria-label={t("nav_cart")}>
+                <ShoppingCart className="h-5 w-5" />
+                {visibleCartCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+                    {visibleCartCount > 99 ? "99+" : visibleCartCount}
+                  </span>
+                )}
+              </Link>
+            </Button>
+          )}
 
           {user ? (
             <div className="hidden lg:flex items-center gap-2">

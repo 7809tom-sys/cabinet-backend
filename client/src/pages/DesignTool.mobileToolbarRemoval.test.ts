@@ -11,4 +11,19 @@ describe("mobile Designer toolbar simplification", () => {
     expect(source).not.toContain('title="Front elevation view"');
     expect(source).not.toContain("3D+Plan");
   });
+
+  it("moves Front and Lock to the top strip and removes duplicate Cart and Custom actions from the bottom strip", () => {
+    expect(source).toContain('data-testid="mobile-designer-top-actions"');
+    expect(source).toContain('title={viewMode === "elevation" ? "Plan view" : "Front view"}');
+    expect(source).toContain('title={cabinetsLocked ? "Unlock cabinets" : "Lock cabinets"}');
+    expect(source).not.toContain('label="Cart"');
+    expect(source).not.toContain('label="Custom"');
+    expect(source).not.toContain('label={cabinetsLocked ? "Locked" : "Lock"}');
+  });
+
+  it("publishes the drawing count to the top cart and prevents the Walls sheet from auto-focusing an input", () => {
+    expect(source).toContain("publishDesignerMobileCartCount(placed.length)");
+    expect(source).toContain('registerDesignerMobileCartOpener(() => setMobilePanel("cart"))');
+    expect(source).toContain("onOpenAutoFocus={preventMobileRoomSheetAutoFocus}");
+  });
 });
