@@ -100,28 +100,34 @@ describe("continuous cabinet trim", () => {
 		  expect(segments.some((segment) => segment.ownerUid === "w24" && segment.kind === "right-return")).toBe(false);
 		});
 
-		it("removes the refrigerator bridge right-side return where an adjacent upper continues the run", () => {
+		it("keeps only the exposed right-side depth-step wrap where an adjacent upper joins the refrigerator bridge", () => {
 		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
 		  const segments = threeDCrownPerimeterSegments([
 		    { uid: "fridge-bridge", cabinetId: 201, masterCode: "WR3630", description: "Refrigerator bridge cabinet", placement: "wall", x: 0, y: 0, width: 36, height: 30, depth: 24, rotation: 0, mountBottom: 66 },
 		    { uid: "right-upper", cabinetId: 202, masterCode: "W-24-30", description: "Wall", placement: "wall", x: 36, y: 0, width: 24, height: 30, depth: 12, rotation: 0, mountBottom: 66 },
 		  ] as never[], room);
 
-		  expect(segments.some((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "right-return")).toBe(false);
+		  const exposedWrap = segments.find((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "right-return");
+		  expect(exposedWrap?.length).toBeCloseTo(12, 6);
+		  expect(Math.min(exposedWrap!.start.z, exposedWrap!.end.z)).toBeCloseTo(12, 6);
+		  expect(Math.max(exposedWrap!.start.z, exposedWrap!.end.z)).toBeCloseTo(24, 6);
 		  expect(segments.some((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "front")).toBe(true);
-		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(3);
 		});
 
-		it("removes the refrigerator bridge left-side return where an adjacent upper continues the run", () => {
+		it("keeps only the exposed left-side depth-step wrap where an adjacent upper joins the refrigerator bridge", () => {
 		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
 		  const segments = threeDCrownPerimeterSegments([
 		    { uid: "left-upper", cabinetId: 211, masterCode: "W-24-30", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 30, depth: 12, rotation: 0, mountBottom: 66 },
 		    { uid: "fridge-bridge", cabinetId: 212, masterCode: "WR3630", description: "Refrigerator bridge cabinet", placement: "wall", x: 24, y: 0, width: 36, height: 30, depth: 24, rotation: 0, mountBottom: 66 },
 		  ] as never[], room);
 
-		  expect(segments.some((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "left-return")).toBe(false);
+		  const exposedWrap = segments.find((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "left-return");
+		  expect(exposedWrap?.length).toBeCloseTo(12, 6);
+		  expect(Math.min(exposedWrap!.start.z, exposedWrap!.end.z)).toBeCloseTo(12, 6);
+		  expect(Math.max(exposedWrap!.start.z, exposedWrap!.end.z)).toBeCloseTo(24, 6);
 		  expect(segments.some((segment) => segment.ownerUid === "fridge-bridge" && segment.kind === "front")).toBe(true);
-		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(3);
 		});
 
 		it("keeps a refrigerator bridge return when that side is a true exposed run end", () => {
@@ -131,6 +137,28 @@ describe("continuous cabinet trim", () => {
 		  ] as never[], room);
 
 		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+		});
+
+		it("keeps one unbroken outside crown perimeter across a shallow-deep-shallow refrigerator wall", () => {
+		  const root = new THREE.Group();
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "far-left", cabinetId: 231, masterCode: "W-24-30", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 30, depth: 12, rotation: 0, mountBottom: 66 },
+		    { uid: "fridge-bridge", cabinetId: 232, masterCode: "WR3630", description: "Refrigerator bridge cabinet", placement: "wall", x: 24, y: 0, width: 36, height: 30, depth: 24, rotation: 0, mountBottom: 66 },
+		    { uid: "far-right", cabinetId: 233, masterCode: "W-30-30", description: "Wall", placement: "wall", x: 60, y: 0, width: 30, height: 30, depth: 12, rotation: 0, mountBottom: 66 },
+		  ] as never[];
+
+		  const segments = threeDCrownPerimeterSegments(cabinets, room);
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+		  const returns = segments.filter((segment) => segment.kind.endsWith("return"));
+		  const bridgeReturns = returns.filter((segment) => segment.ownerUid === "fridge-bridge");
+
+		  expect(returns).toHaveLength(4);
+		  expect(bridgeReturns).toHaveLength(2);
+		  expect(bridgeReturns.every((segment) => Math.abs(segment.length - 12) < 1e-6)).toBe(true);
+		  expect(bridgeReturns.every((segment) => Math.min(segment.start.z, segment.end.z) >= 12 - 1e-6)).toBe(true);
+		  expect(root.children.filter((rail) => rail.userData.crownMoldingReturn)).toHaveLength(4);
+		  expect(root.children.every((rail) => rail.userData.exposedTopEdge === true)).toBe(true);
 		});
 
 		it("follows the WDC42 pentagonal top with two 12-inch returns and its 17-inch diagonal front", () => {

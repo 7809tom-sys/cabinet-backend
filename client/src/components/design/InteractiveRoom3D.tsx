@@ -7,7 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isRefrigeratorWallCabinet, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -3386,34 +3386,78 @@ function worldCrownEdges(cabinet: PlacedCabinet, room: RoomData): ThreeDCrownPer
   ));
 }
 
-function crownEdgeCoveredRange(edge: ThreeDCrownPerimeterSegment, blocker: ThreeDCrownPerimeterSegment) {
-	  // Placement coordinates are edited and displayed at 1/8-inch precision, but
-	  // older saved layouts can retain small floating-point or legacy snap offsets.
-	  // Treat edges within 1/4 inch as the same physical seam for trim rendering
-	  // only. This never changes cabinet placement or collision geometry; it merely
-	  // prevents a visually butted run from growing a full-depth crown return at
-	  // every cabinet junction.
-	  const seamTolerance = 0.25 + 1e-6;
-	  if (Math.abs(edge.top - blocker.top) > seamTolerance || edge.length <= 1e-6 || blocker.length <= 1e-6) return null;
+type CrownFootprint = {
+  ownerUid: string;
+  top: number;
+  points: CrownPoint[];
+};
+
+function worldCrownFootprint(cabinet: PlacedCabinet, room: RoomData): CrownFootprint {
+  const width = Math.max(0.125, numberValue(cabinet.width, 24));
+  const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH));
+  const transform = existingCabinetTransform(cabinet, room);
+  const box = elevationBox(cabinet, room);
+  const localPoints = placedCornerGeometryKind(cabinet) === "diagonal"
+    ? diagonalCornerFootprintVertices(width, depth)
+    : [
+        { x: -width / 2, z: -depth / 2 },
+        { x: width / 2, z: -depth / 2 },
+        { x: width / 2, z: depth / 2 },
+        { x: -width / 2, z: depth / 2 },
+      ];
+  const cos = Math.cos(transform.rotation);
+  const sin = Math.sin(transform.rotation);
+  return {
+    ownerUid: cabinet.uid,
+    top: box.bottom + box.height,
+    points: localPoints.map((point) => ({
+      x: transform.x + point.x * cos + point.z * sin,
+      z: transform.z - point.x * sin + point.z * cos,
+    })),
+  };
+}
+
+/**
+ * Clips a crown edge against the occupied side of another upper footprint.
+ * The edge is probed 1/4 inch outward from its owner, which absorbs legacy
+ * one-eighth-inch placement drift without moving either cabinet. Convex polygon
+ * clipping then preserves exact longitudinal boundaries, so a 12-to-24-inch
+ * depth step keeps its full exposed 12-inch wrap.
+ */
+function crownEdgeCoveredByFootprint(edge: ThreeDCrownPerimeterSegment, blocker: CrownFootprint) {
+  const seamTolerance = 0.25 + 1e-6;
+  if (Math.abs(edge.top - blocker.top) > seamTolerance || edge.length <= 1e-6 || blocker.points.length < 3) return null;
   const dx = edge.end.x - edge.start.x;
   const dz = edge.end.z - edge.start.z;
-  const bdx = blocker.end.x - blocker.start.x;
-  const bdz = blocker.end.z - blocker.start.z;
-  const pointCross = dx * (blocker.start.z - edge.start.z) - dz * (blocker.start.x - edge.start.x);
-  const directionCross = dx * bdz - dz * bdx;
-	  const normalDistance = Math.abs(pointCross) / edge.length;
-	  const parallelSin = Math.abs(directionCross) / (edge.length * blocker.length);
-  if (normalDistance > seamTolerance || parallelSin > 0.02) return null;
-  const lenSquared = dx * dx + dz * dz;
-  const project = (point: CrownPoint) => ((point.x - edge.start.x) * dx + (point.z - edge.start.z) * dz) / lenSquared;
-	  const projectionPadding = seamTolerance / edge.length;
-	  const rawStart = Math.min(project(blocker.start), project(blocker.end));
-	  const rawEnd = Math.max(project(blocker.start), project(blocker.end));
-	  // Snap only an endpoint already within seam tolerance of this edge's end.
-	  // Do not expand an interior covered interval: doing so would incorrectly
-	  // shorten the exposed wrap where a 12-inch run meets a 24-inch-deep cabinet.
-	  const start = rawStart <= projectionPadding ? 0 : Math.max(0, rawStart);
-	  const end = rawEnd >= 1 - projectionPadding ? 1 : Math.min(1, rawEnd);
+  const outwardX = dz / edge.length;
+  const outwardZ = -dx / edge.length;
+  const probeStart = {
+    x: edge.start.x + outwardX * seamTolerance,
+    z: edge.start.z + outwardZ * seamTolerance,
+  };
+  let start = 0;
+  let end = 1;
+  for (let index = 0; index < blocker.points.length; index += 1) {
+    const polygonStart = blocker.points[index]!;
+    const polygonEnd = blocker.points[(index + 1) % blocker.points.length]!;
+    const polygonDx = polygonEnd.x - polygonStart.x;
+    const polygonDz = polygonEnd.z - polygonStart.z;
+    const constant = polygonDx * (probeStart.z - polygonStart.z) - polygonDz * (probeStart.x - polygonStart.x);
+    const slope = polygonDx * dz - polygonDz * dx;
+    if (Math.abs(slope) <= 1e-9) {
+      if (constant < -1e-6) return null;
+      continue;
+    }
+    const boundary = -constant / slope;
+    if (slope > 0) start = Math.max(start, boundary);
+    else end = Math.min(end, boundary);
+    if (end - start <= 1e-6) return null;
+  }
+  const endpointTolerance = seamTolerance / edge.length;
+  if (start <= endpointTolerance) start = 0;
+  if (end >= 1 - endpointTolerance) end = 1;
+  start = Math.max(0, start);
+  end = Math.min(1, end);
   return end - start > 1e-5 ? { start, end } : null;
 }
 
@@ -3424,26 +3468,15 @@ function crownEdgeCoveredRange(edge: ThreeDCrownPerimeterSegment, blocker: Three
  */
 export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: RoomData) {
   const cabinets = placed.filter((cabinet) => cabinet.placement === "wall");
-	  const cabinetByUid = new Map(cabinets.map((cabinet) => [cabinet.uid, cabinet]));
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
+  const footprints = cabinets.map((cabinet) => worldCrownFootprint(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];
   for (const edge of edges) {
-    const covered = edges
+	    const covered = footprints
       .filter((blocker) => blocker.ownerUid !== edge.ownerUid)
-      .map((blocker) => crownEdgeCoveredRange(edge, blocker))
+	      .map((blocker) => crownEdgeCoveredByFootprint(edge, blocker))
 	      .filter((range): range is { start: number; end: number } => range != null)
 	      .sort((a, b) => a.start - b.start);
-	    const owner = cabinetByUid.get(edge.ownerUid);
-	    // A refrigerator bridge is a special enclosure transition. When another
-	    // upper continues the run on either side, that bridge side is covered and
-	    // receives no crown return at all—not even the ordinary exposed depth-step
-	    // wrap used by other 24-inch-deep cabinets. Its front crown remains.
-	    if (
-	      owner
-	      && isRefrigeratorWallCabinet(owner)
-	      && (edge.kind === "left-return" || edge.kind === "right-return")
-	      && covered.length > 0
-	    ) continue;
     const merged: Array<{ start: number; end: number }> = [];
     for (const range of covered) {
       const last = merged[merged.length - 1];
