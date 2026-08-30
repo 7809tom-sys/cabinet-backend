@@ -1136,3 +1136,9 @@
 - [x] Audit the mobile Custom action and remove it from the bottom toolbar because custom overlap mode is an advanced desktop action that conflicts with mobile zero-overlap clarity
 - [x] Move the existing Front and Lock actions to the mobile top toolbar without changing their behavior or desktop/tablet placement
 - [x] Add mobile cart-state, wall-panel focus, keyboard, Custom removal, Front/Lock relocation, responsive width, and retained-action regressions before publication
+- [x] Extend countertop coverage from every pulled-forward BBC cabinet back to its supporting wall so a 3-to-6-inch pull never leaves an exposed rear gap
+- [x] Keep the BBC cabinet body and collision footprint at its pulled position while extending only the countertop support/mesh to the wall
+- [x] Enforce a mandatory 3-inch filler between the BBC open side and the next adjoining cabinet so doors, drawers, and handles clear
+- [x] Apply the same countertop and filler rules to left-hand and right-hand BBC-36, BBC-42, and BBC-48 layouts
+- [x] Preserve zero-overlap cabinet geometry, pull range, SKU/style/distributor/finish/price, save/cart identity, countertop material totals, and unrelated placements
+- [x] Add left/right BBC pull, wall-coverage, 3-inch filler, handle-clearance, countertop, materials, cart, and saved-design regressions before publication

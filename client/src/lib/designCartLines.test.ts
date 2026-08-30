@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "./designCartLines";
 import { appendRefrigeratorEnclosurePlacements, fitRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
+import { buildRequiredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
 
 const bec = {
   uid: "bec-one",
@@ -17,6 +18,59 @@ const bec = {
 } as PlacedCabinet;
 
 describe("designer cabinet cart lines", () => {
+	  it("prices a mandatory BBC filler through its real catalog cabinet ID and SKU", () => {
+	    const blind = {
+	      ...bec,
+	      uid: "bbc-cart",
+	      cabinetId: 36,
+	      masterCode: "BBC-36",
+	      description: '36" Blind Corner Base Cabinet',
+	      x: 0,
+	      y: 3,
+	      width: 36,
+	      depth: 24,
+	      height: 34.5,
+	      pullMin: 3,
+	      pullMax: 6,
+	      blindPull: 3,
+	      styleId: 330011,
+	    } as PlacedCabinet;
+	    const required = buildRequiredBlindCornerFiller(blind, { width: 144, depth: 120 }, [{
+	      id: 501,
+	      masterCode: "BF-3",
+	      description: '3" Base Filler',
+	      category: "Accessories & Trim",
+	      subCategory: "Filler",
+	      width: 3,
+	      height: 34.5,
+	      depth: null,
+	      catalogImageUrl: null,
+	    }], () => "bbc-cart-filler", 330011);
+	    expect(required.ok).toBe(true);
+	    if (!required.ok) return;
+	    const pricedCabinetIds: number[] = [];
+	    const lines = buildDesignCabinetCartLines({
+	      placed: [blind, required.filler],
+	      styleId: 330011,
+	      distributorId: 210001,
+	      tier: "homeowner",
+	      styleNameById: new Map([[330011, "Aura Cream"]]),
+	      unitPriceFor: (cabinet) => {
+	        pricedCabinetIds.push(cabinet.cabinetId);
+	        return cabinet.cabinetId === 501 ? 45 : 300;
+	      },
+	    });
+	    expect(pricedCabinetIds).toContain(501);
+	    expect(lines.find((line) => line.masterCode === "BF-3")).toMatchObject({
+	      styleId: 330011,
+	      distributorId: 210001,
+	      unitPrice: 45,
+	      qty: 1,
+	      priceLocked: true,
+	    });
+	    expect(calculateCartSubtotal(lines)).toBe(345);
+	  });
+
   it("preserves the verified BA-24 source unit price and total for BEC-24", () => {
     const verifiedAshfordPrice = 365.95;
     const lines = buildDesignCabinetCartLines({

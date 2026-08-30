@@ -5,8 +5,9 @@ const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8"
 
 describe("Design Tool small-gap filler workflow", () => {
   it("queues a catalog-backed opportunity after successful normal placement", () => {
-    expect(source).toContain("queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid)");
-    expect(source).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
+	    expect(source).toContain("queueSmallGapFillerOpportunity(committedRun, finalCab.uid)");
+	    expect(source).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
+	    expect(source).toContain("!isBlindCorner(finalCab.masterCode, finalCab.description)");
     expect(source).toContain("findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
     const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
     const queueEnd = source.indexOf("// Always-on wall cabinet pool", queueStart);
@@ -20,7 +21,7 @@ describe("Design Tool small-gap filler workflow", () => {
     const placementEnd = source.indexOf("const placedCabinet =", placementStart);
     const placementSource = source.slice(placementStart, placementEnd);
     expect(placementSource).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
-    expect(placementSource).toContain("queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid)");
+	    expect(placementSource).toContain("queueSmallGapFillerOpportunity(committedRun, finalCab.uid)");
   });
 
   it("offers leave-open, split, left, and right outcomes", () => {
@@ -38,6 +39,6 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("smallGapFillerLayout(opportunity, mode)");
     expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
     expect(source).toContain("appendSmallGapFillerPlacement(placed, movedCabinet, pieces)");
-    expect(source).toContain("removePlacedCabinetGroup(prev, selectedUid)");
+	    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid)");
   });
 });

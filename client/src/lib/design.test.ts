@@ -20,7 +20,7 @@ import {
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
-  blindCornerAutoFiller,
+	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
   isStacker, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
@@ -2496,8 +2496,8 @@ describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
 	    expect(res.filler).not.toBeNull();
 	    // The supplier row stores 33, but BBC-36's authoritative physical run is
 	    // 36 inches; the filler begins at that real open-side edge.
-	    expect(res.filler!.x).toBeCloseTo(36, 1);
-    expect(res.filler!.y).toBe(0);
+	    expect(res.filler!.x).toBe(0);
+    expect(res.filler!.y).toBe(24);
     expect(res.filler!.width).toBe(BLIND_CORNER_FILLER_WIDTH_IN);
     expect(res.filler!.placement).toBe("base");
   });
@@ -2508,7 +2508,9 @@ describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
 	    const res = blindCornerAutoFiller(blind, room, uid);
 	    expect(res.ambiguous).toBe(false);
 	    // filler sits just before the near end of the canonical 36-inch run.
-	    expect(res.filler!.x).toBeCloseTo(144 - 36 - BLIND_CORNER_FILLER_WIDTH_IN, 1);
+	    expect(res.filler!.x).toBe(144 - STD.BASE_DEPTH);
+	    expect(res.filler!.y).toBe(24);
+	    expect(res.filler!.rotation).toBe(90);
   });
 
   it("is ambiguous (no filler) when the blind corner is not seated in a corner", () => {

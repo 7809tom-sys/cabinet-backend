@@ -3759,13 +3759,11 @@ export interface BlindAutoFillerResult {
   reason?: string;
 }
 
-// When a blind corner base/wall cabinet is seated in a room corner, the trade
-// rule is: the cabinet projects its full corner return (its real depth) into
-// the corner, and a filler ALWAYS goes on the side OPPOSITE the pull (the open
-// run side) so the adjacent run clears the corner. This computes that filler as
-// a placed item flush against the same wall, butting the blind cabinet's far
-// (run-side) end. If the blind cabinet is not clearly in a corner, we return
-// `ambiguous: true` and place nothing — the design stays in conflict.
+// When a blind corner is seated in a room corner, the mandatory 3-inch filler
+// belongs on the PERPENDICULAR adjoining run at the BBC's exposed front edge.
+// That clearance keeps the next cabinet's door, drawer, and handles from
+// striking the blind-corner front. The filler follows a 3-6 inch perpendicular
+// BBC pull so it continues to butt the cabinet after a depth-position move.
 export function blindCornerAutoFiller(
   blind: PlacedCabinet,
   room: RoomData,
@@ -3776,12 +3774,13 @@ export function blindCornerAutoFiller(
   }
   const wall = cabinetWall(blind, room);
   const horizontal = wall === "top" || wall === "bottom";
-  const { w, d } = rotatedSize(blind);
+  const footprint = placedFootprint(blind);
   const W = BLIND_CORNER_FILLER_WIDTH_IN;
 
-  // Run-axis extent of the blind cabinet along its wall.
+  // Resolve which end of the owning wall is the room corner.
   const runStart = horizontal ? blind.x : blind.y;
-  const runEnd = runStart + (horizontal ? w : d);
+  const runSpan = horizontal ? footprint.w : footprint.d;
+  const runEnd = runStart + runSpan;
   const runMax = horizontal ? room.width : room.depth;
 
   // Which end sits in the room corner? A corner end is within tolerance of 0 or
@@ -3795,43 +3794,52 @@ export function blindCornerAutoFiller(
     return { filler: null, ambiguous: true, reason: "corner-undetermined" };
   }
 
-  // The filler goes on the side OPPOSITE the corner (the open run side).
-  // If the corner is at the start, the open side is the far end (runEnd); the
-  // filler sits just past the cabinet. If the corner is at the end, the filler
-  // sits just before the cabinet's near end (runStart - W).
-  const fillerAlong = atStart ? runEnd : runStart - W;
-  if (fillerAlong < -0.01 || fillerAlong + W > runMax + 0.01) {
+  const adjacentWall: WallSide = horizontal
+    ? (atStart ? "left" : "right")
+    : (atStart ? "top" : "bottom");
+  const rearGap = blindCornerRearCountertopExtensionIn(blind, room);
+  const ownerWallDepth = horizontal ? footprint.d : footprint.w;
+  const frontDistanceFromCorner = rearGap + ownerWallDepth;
+  const adjacentWallLength = adjacentWall === "top" || adjacentWall === "bottom" ? room.width : room.depth;
+  const adjacentCornerAtStart = adjacentWall === "left" || adjacentWall === "right"
+    ? wall === "top"
+    : wall === "left";
+  const fillerAlong = adjacentCornerAtStart
+    ? frontDistanceFromCorner
+    : adjacentWallLength - frontDistanceFromCorner - W;
+  if (fillerAlong < -0.01 || fillerAlong + W > adjacentWallLength + 0.01) {
     return { filler: null, ambiguous: true, reason: "no-room-for-filler" };
   }
 
-  // Build the filler flush against the same wall as the blind cabinet.
+  // Build a confirmed installed filler on the perpendicular adjoining wall.
   const fillerPlacement: Placement = blind.placement === "wall" ? "wall" : "base";
   const fillerDepth = fillerPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
   const fillerHeight = fillerPlacement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
-  let fx: number, fy: number, fw: number, fd: number;
-  if (horizontal) {
-    fx = fillerAlong;
-    fy = wall === "top" ? 0 : Math.max(0, room.depth - fillerDepth);
-    fw = W;
-    fd = fillerDepth;
-  } else {
-    fy = fillerAlong;
-    fx = wall === "left" ? 0 : Math.max(0, room.width - fillerDepth);
-    fw = fillerDepth;
-    fd = W;
-  }
+  const spot = wallPlacementAt(fillerAlong, W, fillerDepth, adjacentWall, room);
+  const fillerGroupId = `blind-filler-${blind.uid}`;
   const filler: PlacedCabinet = {
     uid: makeUidFn(),
     cabinetId: 0,
     masterCode: `FILL-${W}`,
     description: `${W}" Blind Corner Filler (opposite pull)`,
+    category: "Filler",
+    subCategory: "Filler",
     placement: fillerPlacement,
-    x: fx,
-    y: fy,
-    width: fw,
-    depth: fd,
+    x: spot.x,
+    y: spot.y,
+    width: W,
+    nominalWidth: W,
+    depth: fillerDepth,
+    nominalDepth: fillerDepth,
     height: fillerHeight,
-    rotation: horizontal ? 0 : 90,
+    nominalHeight: fillerHeight,
+    rotation: spot.rotation,
+    numberOfDoors: 0,
+    numberOfDrawers: 0,
+    fillerPieceGroupId: fillerGroupId,
+    fillerBillingRole: "primary",
+    fillerTotalWidth: W,
+    fillerPlacementMode: adjacentCornerAtStart ? "left" : "right",
   };
   return { filler, ambiguous: false };
 }
@@ -5400,6 +5408,30 @@ export function bearsCountertop(p: {
   return true;
 }
 
+/**
+ * A BBC may be deliberately moved perpendicular to its owning wall by the
+ * Cabinet Attributes depth control. The cabinet body remains pulled forward,
+ * but the countertop must bridge the exact rear void back to the wall.
+ */
+export function blindCornerRearCountertopExtensionIn(
+  p: PlacedCabinet,
+  room: RoomData,
+): number {
+  if (!isBlindCorner(p.masterCode, p.description) || p.placement !== "base") return 0;
+  const side = cabinetWall(p, room);
+  const footprint = placedFootprint(p);
+  const rawGap = side === "top"
+    ? p.y
+    : side === "bottom"
+      ? room.depth - (p.y + footprint.d)
+      : side === "left"
+        ? p.x
+        : room.width - (p.x + footprint.w);
+  if (!Number.isFinite(rawGap) || rawGap <= COLLISION_EPSILON_IN) return 0;
+  const pullMax = blindPullRange(p)?.max ?? BLIND_CORNER_FILLER_WIDTH_IN * 2;
+  return Math.round(Math.min(Math.max(0, rawGap), pullMax) * 8) / 8;
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -5411,41 +5443,44 @@ export function countertopSurfaces(
     // Countertop-bearing bases and confirmed installed filler pieces get a slab.
     // Loose fillers, tall cabinets, appliances, and panels remain excluded.
     if (!bearsCountertop(p)) continue;
-    const { w } = placedFootprint(p);
     const side = cabinetWall(p, room);
-    // Blind corner bases install pulled away from the corner (by the filler /
-    // pull gap). Even though the cabinet is pulled off the wall, the countertop
-    // still runs ALL THE WAY to the wall to cover the dead corner. We widen the
-    // slab by the pull gap on the side that faces the corner. The gap defaults
-    // to the standard 3" blind-corner filler; if a pull spec exists, use the
-    // extra travel (pullMax - cabinet width) when larger.
+    const footprint = placedFootprint(p);
+    const horizontalWall = side === "top" || side === "bottom";
+    const runSpan = horizontalWall ? footprint.w : footprint.d;
+    const rearExtension = blindCornerRearCountertopExtensionIn(p, room);
+    // A blind corner may also carry an along-run pull from the room corner.
+    // Cover that exact dead-corner distance, rather than blindly adding the
+    // manufacturer's maximum pull when the cabinet already touches the corner.
     let cornerGap = 0;
     if (isBlindCorner(p.masterCode, p.description)) {
-      // The blind portion (pull) is the amount hidden behind the perpendicular
-      // wall. The countertop extends past the cabinet by this amount to cover
-      // the dead corner. Pull range is 3-6", use max (6") for the slab extension.
-      cornerGap = BLIND_CORNER_FILLER_WIDTH_IN;
-      const range = blindPullRange(p);
-      if (range) cornerGap = Math.max(cornerGap, range.max);
+      const runStart = horizontalWall ? p.x : p.y;
+      const runMax = horizontalWall ? room.width : room.depth;
+      const nearStart = runStart <= runMax - (runStart + runSpan);
+      const actualCornerGap = nearStart ? runStart : runMax - (runStart + runSpan);
+      const pullMax = blindPullRange(p)?.max ?? BLIND_CORNER_FILLER_WIDTH_IN * 2;
+      if (actualCornerGap > COLLISION_EPSILON_IN && actualCornerGap <= pullMax + COLLISION_EPSILON_IN) {
+        cornerGap = Math.round(actualCornerGap * 8) / 8;
+      }
     }
     if (side === "top") {
       // Extend toward whichever horizontal end is nearer the corner (the wall).
-      const nearLeft = p.x <= room.width - (p.x + w);
+      const nearLeft = p.x <= room.width - (p.x + runSpan);
       const x = nearLeft ? p.x - cornerGap : p.x;
-      out.push({ x: Math.max(0, x), y: 0, width: w + cornerGap, depth: D, kind: "base" });
+      out.push({ x: Math.max(0, x), y: 0, width: runSpan + cornerGap, depth: D + rearExtension, kind: "base" });
     } else if (side === "bottom") {
-      const nearLeft = p.x <= room.width - (p.x + w);
+      const nearLeft = p.x <= room.width - (p.x + runSpan);
       const x = nearLeft ? p.x - cornerGap : p.x;
-      out.push({ x: Math.max(0, x), y: room.depth - D, width: w + cornerGap, depth: D, kind: "base" });
+      out.push({ x: Math.max(0, x), y: room.depth - D - rearExtension, width: runSpan + cornerGap, depth: D + rearExtension, kind: "base" });
     } else if (side === "left") {
-      // Vertical run: slab is D wide (into room) and w tall along the wall.
-      const nearTop = p.y <= room.depth - (p.y + w);
+      // Vertical run: slab is D wide into the room and uses the rotated
+      // footprint depth as its full along-wall span.
+      const nearTop = p.y <= room.depth - (p.y + runSpan);
       const y = nearTop ? p.y - cornerGap : p.y;
-      out.push({ x: 0, y: Math.max(0, y), width: D, depth: w + cornerGap, kind: "base" });
+      out.push({ x: 0, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     } else {
-      const nearTop = p.y <= room.depth - (p.y + w);
+      const nearTop = p.y <= room.depth - (p.y + runSpan);
       const y = nearTop ? p.y - cornerGap : p.y;
-      out.push({ x: room.width - D, y: Math.max(0, y), width: D, depth: w + cornerGap, kind: "base" });
+      out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
   if (island && island.width > 0 && island.depth > 0) {

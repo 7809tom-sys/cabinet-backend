@@ -2302,6 +2302,45 @@ describe("interactive 3D room scene helpers", () => {
     expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
   });
 
+  it("extends only a pulled BBC countertop three inches rearward until its back edge reaches the wall", () => {
+    const room = { width: 144, depth: 120 };
+    const cabinet = {
+      uid: "pulled-bbc",
+      cabinetId: 36,
+      distributorSkuId: 36,
+      masterCode: "BBC-36",
+      description: '36" Blind Corner Base Cabinet',
+      placement: "base",
+      x: 0,
+      y: 3,
+      width: 36,
+      height: 34.5,
+      depth: 24,
+      rotation: 0,
+      numberOfDoors: 1,
+      numberOfDrawers: 1,
+      swing: "right",
+      openingWidth: 11,
+      pullMin: 3,
+      pullMax: 6,
+    } as PlacedCabinet;
+    const sku = existingCabinetSku(cabinet, room);
+    expect(sku.countertopRearExtensionIn).toBe(3);
+    const transform = existingCabinetTransform(cabinet, room);
+    const root = new THREE.Group();
+    addCabinet(root, sku, null, {}, room.width, room.depth, "#8a9ba8", "#f8f8f6", undefined, transform);
+    let countertop: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.bridgesBlindCornerToWall) countertop = node;
+    });
+    expect(countertop).not.toBeNull();
+    const depthIn = ((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12;
+    const backEdgeIn = countertop!.position.z * 12 - depthIn / 2;
+    expect(depthIn).toBeCloseTo(27.25, 8);
+    expect(backEdgeIn).toBeCloseTo(0, 8);
+    expect(transform.z).toBeCloseTo(15, 8);
+  });
+
   it("mounts a saved range hood directly to the wall without a cabinet-finish backing box", () => {
     const root = new THREE.Group();
     addCabinet(root, {

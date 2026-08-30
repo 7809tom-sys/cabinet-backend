@@ -7,7 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, isBaseEndCornerCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -54,6 +54,7 @@ type SceneSku = {
   fillerPieceGroupId?: string | null;
   fillerTotalWidth?: number | null;
   fillerPlacementMode?: "left" | "right" | "split" | null;
+  countertopRearExtensionIn?: number | null;
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -3147,14 +3148,16 @@ export function addCabinet(
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else {
-      const countertopDepthIn = threeDSceneCountertopDepthIn(sku, bodyDepth / INCH);
+      const rearExtensionIn = Math.max(0, Number(sku.countertopRearExtensionIn) || 0);
+      const countertopDepthIn = threeDSceneCountertopDepthIn(sku, bodyDepth / INCH) + rearExtensionIn;
       const counter = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, countertopDepthIn * INCH), counterMaterial);
       counter.position.copy(cabinet.position);
       counter.rotation.y = rotation;
-      counter.translateZ(COUNTERTOP_FRONT_OVERHANG / 2);
+      counter.translateZ((COUNTERTOP_FRONT_OVERHANG - rearExtensionIn * INCH) / 2);
       counter.position.y = countertopCenterY;
       counter.userData = {
         countertopDepthIn,
+        ...(rearExtensionIn > 0 ? { countertopRearExtensionIn: rearExtensionIn, bridgesBlindCornerToWall: true } : {}),
         ...(sku.fillerPieceGroupId ? { installedFillerCountertop: true } : {}),
       };
       if (specialty.kind === "blind-corner") counter.userData = { ...counter.userData, blindCornerCountertop: true };
@@ -3920,7 +3923,7 @@ export function compactWallCodeDimensions(cabinet: Pick<PlacedCabinet, "masterCo
   return width >= 9 && height >= 9 ? { width, height } : null;
 }
 
-export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
+export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): SceneSku {
   // The shared saved-placement contract owns every corner family. The 3D
   // renderer receives its classification rather than re-inferring the shape.
   const sharedCornerKind = placedCornerGeometryKind(cabinet);
@@ -3977,11 +3980,12 @@ export function existingCabinetSku(cabinet: PlacedCabinet): SceneSku {
     fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
     fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
     fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
+    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
   };
 }
 
 export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleUrl: string | null | undefined) {
-  const mapped = placed.map(existingCabinetSku);
+  const mapped = placed.map((cabinet) => existingCabinetSku(cabinet));
   return {
     cabinetCount: mapped.length,
     doorSampleUrl: doorSampleUrl ?? null,
@@ -4034,7 +4038,7 @@ export function threeDDesignParitySnapshot({
       source,
       footprint: normalizedThreeDFootprint(source),
       transform: existingCabinetTransform(source, room),
-      sku: existingCabinetSku(source),
+      sku: existingCabinetSku(source, room),
       countertopSupported: shouldRenderCountertopOverSceneItem(source),
     })),
     openings: openings.map((source) => ({ source, transform: openingTransform(source, room.width, room.depth) })),
@@ -4594,7 +4598,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     if (renderExistingDesign) {
       for (const cabinet of placed) {
         if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
-        const baseSku = existingCabinetSku(cabinet);
+	        const baseSku = existingCabinetSku(cabinet, room);
         const sku = {
           ...baseSku,
           catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),

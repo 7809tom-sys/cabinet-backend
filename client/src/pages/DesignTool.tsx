@@ -62,6 +62,7 @@ import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
+import { buildRequiredBlindCornerFiller, removePlacedCabinetWithRequiredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MAX_IN,
 	  appendSmallGapFillerPlacement,
@@ -69,8 +70,7 @@ import {
 	  canSplitSmallGapFiller,
   findSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
-  removePlacedCabinetGroup,
-  smallGapFillerOpportunityFromDragPreview,
+	  smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
   type SmallGapFillerOpportunity,
   type SmallGapFillerPlacementMode,
@@ -84,7 +84,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
@@ -3101,17 +3101,56 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);
-        return;
-      }
+	        return;
+	      }
 
-      // ── Now do all state updates and side effects exactly once ──────────
+	      let committedRun = normalizedRun;
+	      if (isBlindCorner(finalCab.masterCode, finalCab.description)) {
+	        const required = buildRequiredBlindCornerFiller(
+	          finalCab,
+	          room,
+	          catalogFillers,
+	          makeUid,
+	          styleIdRef.current ?? null,
+	        );
+	        if (!required.ok && required.reason === "missing-catalog-filler") {
+	          const message = `${finalCab.masterCode} was not added because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance filler is not available in the selected cabinet line.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        if (!required.ok) {
+	          const message = `${finalCab.masterCode} was not added because the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} blind-corner filler could not be placed at this corner.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        const requiredFiller = required.filler;
+	        if (hasCollision(requiredFiller, committedRun)) {
+	          const message = `${finalCab.masterCode} was not added because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler overlaps the adjoining cabinet run. Move that run ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} away from the corner, then add the BBC again.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        const withRequiredFiller = appendCollisionFreePlacements(committedRun, [requiredFiller]).placed;
+	        if (!withRequiredFiller.some((item) => item.uid === requiredFiller.uid)) {
+	          const message = `${finalCab.masterCode} was not added because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler could not be added without physical overlap.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        committedRun = withRequiredFiller;
+	      }
+
+	      // ── Now do all state updates and side effects exactly once ──────────
 	      setPlacementWarning(null);
 	      setFailedWallFit(null);
       justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
-	      setPlaced(() => normalizedRun);
-	      if (!isAccessory && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
-	        queueSmallGapFillerOpportunity(normalizedRun, finalCab.uid);
+	      placedRef.current = committedRun;
+	      setPlaced(() => committedRun);
+	      if (!isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+	        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
 	      }
 
       // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
@@ -3134,7 +3173,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-    [room, activeWall, openings, placed, island, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, placed, island, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -3411,6 +3450,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const height = dimensions.height;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
+	      if (isBlindCorner(c.masterCode, c.description)) {
+	        addCabinet(c, spot.x, spot.y, false, spot.rotation, true);
+	        return;
+	      }
       const newCab: PlacedCabinet = {
         uid: makeUid(),
         cabinetId: c.id,
@@ -3529,9 +3572,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const depth = dimensions.depth;
       const height = dimensions.height;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
-      // Place cabinet at gap start
-      const cabSpot = wallPlacementAt(gap.start, cabWidth, depth, gap.side, room);
-      const newCab: PlacedCabinet = {
+	      // Place cabinet at gap start
+	      const cabSpot = wallPlacementAt(gap.start, cabWidth, depth, gap.side, room);
+	      if (isBlindCorner(c.masterCode, c.description)) {
+	        addCabinet(c, cabSpot.x, cabSpot.y, false, cabSpot.rotation, true);
+	        return;
+	      }
+	      const newCab: PlacedCabinet = {
         uid: makeUid(),
         cabinetId: c.id,
         masterCode: c.masterCode,
@@ -3606,7 +3653,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
     },
-	    [cabinetsLocked, catalogFillers, room, t]
+	    [addCabinet, cabinetsLocked, catalogFillers, room, t]
 	  );
 
   const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode) => {
@@ -4657,12 +4704,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [addCabinet, openings, paletteType, placed, room]
   );
 
-	const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
-    setPlaced((prev) => {
-      const cabinet = prev.find((p) => p.uid === uid);
-      if (!cabinet) return prev;
-      const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
-      const peers = prev.filter((p) => p.uid !== uid);
+		const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
+	    setPlaced((prev) => {
+	      const cabinet = prev.find((p) => p.uid === uid);
+	      if (!cabinet) return prev;
+	      const requiredFillerGroupId = `bbc-required-filler-${uid}`;
+	      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
+	      const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
+	      const peers = workingPrev.filter((p) => p.uid !== uid);
 	      const edgeSnap = customPlacementMode || exactWallDrag ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
 		      const movedCabinet = {
 		        ...snapCabinetSeamOverlap({ ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y }, peers),
@@ -4696,13 +4745,42 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }));
         }
       }
-      return prev.map((p) => (p.uid === uid ? movedCabinet : p));
-    });
-  }, [setSinks, room, island, customPlacementMode]);
+	      let nextPlaced = workingPrev.map((p) => (p.uid === uid ? movedCabinet : p));
+	      if (isBlindCorner(movedCabinet.masterCode, movedCabinet.description)) {
+	        const required = buildRequiredBlindCornerFiller(
+	          movedCabinet,
+	          room,
+	          catalogFillers,
+	          makeUid,
+	          movedCabinet.styleId ?? styleIdRef.current ?? null,
+	        );
+	        if (!required.ok) {
+	          const message = required.reason === "missing-catalog-filler"
+	            ? `${movedCabinet.masterCode} was not moved because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler is unavailable in the selected cabinet line.`
+	            : `${movedCabinet.masterCode} was not moved because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler would not remain aligned to a valid corner.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return prev;
+	        }
+	        if (hasCollision(required.filler, nextPlaced)) {
+	          const message = `${movedCabinet.masterCode} was not moved because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler would overlap the adjoining cabinet run.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return prev;
+	        }
+	        const withRequiredFiller = appendCollisionFreePlacements(nextPlaced, [required.filler]).placed;
+	        if (!withRequiredFiller.some((item) => item.uid === required.filler.uid)) return prev;
+	        nextPlaced = withRequiredFiller;
+	      }
+	      placedRef.current = nextPlaced;
+	      return nextPlaced;
+	    });
+	  }, [catalogFillers, setSinks, room, island, customPlacementMode]);
 
-	  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
-	    moveCabinet(uid, x, y, undefined, true);
-	    const opportunity = smallGapFillerOpportunityFromDragPreview(uid, preview);
+		  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
+		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
+		    moveCabinet(uid, x, y, undefined, true);
+		    const opportunity = movingBlindCorner ? null : smallGapFillerOpportunityFromDragPreview(uid, preview);
 	    setSmallGapFillerPrompt(opportunity);
 	    if (opportunity) setMobilePanel(null);
 	  }, [moveCabinet]);
@@ -4761,7 +4839,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === selectedUid));
-      setPlaced((prev) => removePlacedCabinetGroup(prev, selectedUid));
+	      setPlaced((prev) => removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid));
       setSelectedUid(null);
       return;
     }
@@ -4785,11 +4863,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // nudged off it freely (it does not drag the island with it) so users can
   // re-arrange the island run; we just keep every cabinet clamped inside the
   // room. This is the fix for "can't move a cabinet once it's on the island".
-  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
-    if (!selectedUid) return;
-    setPlaced((prev) => {
-      const moved = prev.map((p) =>
-        p.uid === selectedUid
+	  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
+	    if (!selectedUid) return;
+	    setPlaced((prev) => {
+	      const selected = prev.find((item) => item.uid === selectedUid);
+	      const requiredFillerGroupId = `bbc-required-filler-${selectedUid}`;
+	      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
+	      const moved = workingPrev.map((p) =>
+	        p.uid === selectedUid
           ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
           : p
       );
@@ -4803,9 +4884,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(message);
         return prev;
       }
-	      return candidate ? clamped.map((item) => item.uid === selectedUid ? candidate : item) : clamped;
-    });
-  }, [selectedUid, room, customPlacementMode]);
+	      let nextPlaced = candidate ? clamped.map((item) => item.uid === selectedUid ? candidate : item) : clamped;
+	      if (candidate && selected && isBlindCorner(candidate.masterCode, candidate.description)) {
+	        const required = buildRequiredBlindCornerFiller(
+	          candidate,
+	          room,
+	          catalogFillers,
+	          makeUid,
+	          candidate.styleId ?? styleIdRef.current ?? null,
+	        );
+	        if (!required.ok || hasCollision(required.filler, nextPlaced)) {
+	          const message = `${candidate.masterCode} was not moved because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler would not fit the adjoining cabinet run.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return prev;
+	        }
+	        const withRequiredFiller = appendCollisionFreePlacements(nextPlaced, [required.filler]).placed;
+	        if (!withRequiredFiller.some((item) => item.uid === required.filler.uid)) return prev;
+	        nextPlaced = withRequiredFiller;
+	      }
+	      placedRef.current = nextPlaced;
+	      return nextPlaced;
+	    });
+	  }, [catalogFillers, selectedUid, room, customPlacementMode]);
 
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
@@ -4858,9 +4959,41 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      return { status: "blocked", message };
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
+	    const requiredFillerGroupId = `bbc-required-filler-${uid}`;
+	    const placedWithoutLinkedFiller = prev.filter(
+	      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
+	    );
+	    const peersWithoutLinkedFiller = prev.filter(
+	      (item) => item.uid !== uid && item.fillerPieceGroupId !== requiredFillerGroupId,
+	    );
 	    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
-	      const nextPlaced = commitThreeDCabinetCandidate(prev, uid, candidate);
+	      let nextPlaced = commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
 	      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
+	      if (isBlindCorner(candidate.masterCode, candidate.description)) {
+	        const required = buildRequiredBlindCornerFiller(
+	          candidate,
+	          room,
+	          catalogFillers,
+	          makeUid,
+	          candidate.styleId ?? styleIdRef.current ?? null,
+	        );
+	        if (!required.ok) {
+	          return blocked(required.reason === "missing-catalog-filler"
+	            ? `${candidate.masterCode} cannot move because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler is not available in the selected cabinet line.`
+	            : `${candidate.masterCode} cannot move there because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler no longer aligns with a valid corner.`);
+	        }
+	        const withoutPreviousLinkedFiller = nextPlaced.filter(
+	          (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
+	        );
+	        if (hasCollision(required.filler, withoutPreviousLinkedFiller)) {
+	          return blocked(`${candidate.masterCode} cannot move there because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler would overlap the adjoining cabinet run.`);
+	        }
+	        const withMovedFiller = appendCollisionFreePlacements(withoutPreviousLinkedFiller, [required.filler]).placed;
+	        if (!withMovedFiller.some((item) => item.uid === required.filler.uid)) {
+	          return blocked(`${candidate.masterCode} cannot move there because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler cannot remain at zero overlap.`);
+	        }
+	        nextPlaced = withMovedFiller;
+	      }
 	      placedRef.current = nextPlaced;
 	      setPlaced(nextPlaced);
 	      if (delta && isSinkBaseCabinet(cabinet) && (delta.x !== 0 || delta.y !== 0)) {
@@ -4888,7 +5021,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (nextBottom < 0 || nextBottom + currentElevation.height > ceiling) {
 	        return blocked(`${cabinet.masterCode} cannot move ${direction}; it must remain between the floor and the ${ceiling}\" ceiling.`);
 	      }
-	      const peers = prev.filter((item) => item.uid !== uid);
+	      const peers = peersWithoutLinkedFiller;
 	      const candidate = repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom, mountBottomAdjusted: true }, room, peers, openings);
 	      if (!candidate) {
 	        const failedCandidate = { ...cabinet, mountBottom: nextBottom };
@@ -4908,7 +5041,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      y: Math.round((cabinet.y + delta.y) * 8) / 8,
 	      ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
 	    };
-	    const peers = prev.filter((item) => item.uid !== uid);
+	    const peers = peersWithoutLinkedFiller;
 	    // D-pad movement is an explicit incremental edit. Do not run automatic
 	    // seam attraction here: a one-inch move beside an existing seam would
 	    // otherwise snap back to its starting position and appear nonfunctional.
@@ -4921,7 +5054,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
 	    }
 	    return commit(candidate, delta);
-  }, [customPlacementMode, room]);
+	  }, [catalogFillers, customPlacementMode, room]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -5348,7 +5481,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
     deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === uid));
-    setPlaced((prev) => removePlacedCabinetGroup(prev, uid));
+	    setPlaced((prev) => removePlacedCabinetWithRequiredBlindCornerFiller(prev, uid));
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, [placed, deleteAttachedSinkFixtures]);
 
@@ -5445,15 +5578,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [deleteCabinet]);
 
   // Remove ALL instances in a panel group (the whole line item).
-  const deleteWholeGroup = useCallback((uids: string[]) => {
-    setPlaced((prev) => {
-      const fillerGroups = new Set(
-        prev
-          .filter((item) => uids.includes(item.uid))
+	  const deleteWholeGroup = useCallback((uids: string[]) => {
+	    setPlaced((prev) => {
+	      const withRequiredBlindCornerAssembliesRemoved = uids.reduce(
+	        (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
+	        prev,
+	      );
+	      const fillerGroups = new Set(
+	        withRequiredBlindCornerAssembliesRemoved
+	          .filter((item) => uids.includes(item.uid))
           .map((item) => item.fillerPieceGroupId)
           .filter((groupId): groupId is string => !!groupId),
       );
-      return prev.filter((item) =>
+	      return withRequiredBlindCornerAssembliesRemoved.filter((item) =>
         !uids.includes(item.uid) &&
         (!item.fillerPieceGroupId || !fillerGroups.has(item.fillerPieceGroupId)),
       );
