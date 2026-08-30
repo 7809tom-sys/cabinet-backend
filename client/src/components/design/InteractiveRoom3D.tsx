@@ -2112,7 +2112,18 @@ export function addCabinet(
   // In particular, BEC must not inherit the generic rectangular front-depth
   // offset: that offset creates a separate third face ahead of its clipped
   // 45-degree end plane.
-  frontGroup.position.z = specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
+  // Range-hood meshes already carry their complete catalog depth. Mount them at
+  // the footprint center so their rear plane stays on the wall; placing them on
+  // the decorative face plane adds another half-depth and makes the hood float
+  // forward into the room.
+  frontGroup.position.z = isPlacedHood || specialty.kind === "diagonal-corner" || specialty.kind === "triangle-corner" || specialty.kind === "l-corner" || specialty.kind === "end-return" ? 0 : faceDepth;
+  if (isPlacedHood) {
+    frontGroup.userData = {
+      ...frontGroup.userData,
+      fullDepthWallMountedAppliance: true,
+      rearPlaneUsesSavedWallFootprint: true,
+    };
+  }
   for (const side of threeDDecorativeEndSides(sku.decorativeEnd)) {
     const endPanel = new THREE.Mesh(
       new THREE.BoxGeometry(0.042, Math.max(0.12, bodyHeight - 0.05), Math.max(0.12, bodyDepth - 0.05)),
@@ -2225,6 +2236,16 @@ export function addCabinet(
     const code = sku.masterCode.toUpperCase();
     if (/HOOD/.test(code)) {
       const hood = rangeHoodGeometry(widthIn, heightIn, depthIn);
+      // The tapered canopy intentionally uses 92% of the catalog depth. Anchor
+      // that physical rear edge to the saved footprint rear rather than centering
+      // the smaller canopy inside the envelope, which leaves a visible wall gap.
+      frontGroup.position.z = -(hood.depth - hood.canopyLowerDepth) / 2 - 0.025;
+      frontGroup.userData = {
+        ...frontGroup.userData,
+        fullDepthWallMountedAppliance: true,
+        rearPlaneUsesSavedWallFootprint: true,
+        physicalCanopyRearFlush: true,
+      };
       const canopy = new THREE.Mesh(taperedRangeHoodCanopyGeometry(
         hood.canopyLowerWidth,
         hood.canopyLowerDepth,

@@ -2377,7 +2377,7 @@ describe("interactive 3D room scene helpers", () => {
     addCabinet(root, {
       distributorSkuId: -30, cabinetId: 30, masterCode: "HOOD-30", description: "30 inch Range Hood", placementType: "appliance",
       width: 30, height: 18, depth: 18, numberOfDoors: 0, numberOfDrawers: 0, mountBottom: 66,
-    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 36, z: 12, rotation: 0, bottom: 66 });
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 36, z: 9, rotation: 0, bottom: 66 });
     const hoodRoot = root.children[0]!;
     const canopies: THREE.Object3D[] = [];
     const cabinetBackings: THREE.Object3D[] = [];
@@ -2389,6 +2389,85 @@ describe("interactive 3D room scene helpers", () => {
     expect(hoodRoot.userData.noCabinetBacking).toBe(true);
     expect(canopies).toHaveLength(1);
     expect(cabinetBackings).toHaveLength(0);
+    root.updateMatrixWorld(true);
+    const hoodBounds = new THREE.Box3().setFromObject(hoodRoot);
+    expect(hoodBounds.min.z).toBeCloseTo(0, 8);
+    expect(hoodBounds.max.z).toBeLessThanOrEqual(18 / 12);
+    expect(hoodBounds.max.z).toBeGreaterThan(17 / 12);
+    expect(canopies[0]?.parent?.userData).toMatchObject({
+      fullDepthWallMountedAppliance: true,
+      rearPlaneUsesSavedWallFootprint: true,
+      physicalCanopyRearFlush: true,
+    });
+  });
+
+  it("keeps the saved range-hood rear plane on top, bottom, left, and right walls", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    const common = {
+      cabinetId: 30,
+      masterCode: "HOOD-30",
+      description: "30 inch Range Hood",
+      placement: "appliance" as const,
+      width: 30,
+      depth: 18,
+      height: 18,
+      mountBottom: 66,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const cases = [
+      { hood: { ...common, uid: "top", x: 36, y: 0, rotation: 0 }, wall: "top" as const },
+      { hood: { ...common, uid: "bottom", x: 36, y: 102, rotation: 0 }, wall: "bottom" as const },
+      { hood: { ...common, uid: "left", x: 0, y: 36, rotation: 90 }, wall: "left" as const },
+      { hood: { ...common, uid: "right", x: 126, y: 36, rotation: 90 }, wall: "right" as const },
+    ];
+
+    for (const { hood, wall } of cases) {
+      const transform = existingCabinetTransform(hood, room);
+      if (wall === "top") expect(transform.z - 9).toBeCloseTo(0, 8);
+      if (wall === "bottom") expect(transform.z + 9).toBeCloseTo(room.depth, 8);
+      if (wall === "left") expect(transform.x - 9).toBeCloseTo(0, 8);
+      if (wall === "right") expect(transform.x + 9).toBeCloseTo(room.width, 8);
+      expect(transform.bottom).toBe(66);
+    }
+  });
+
+  it("keeps an automatic hood centered over its matching range on every wall while preserving wall depth", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    const fixtures = [
+      { range: { uid: "range-top", x: 42, y: 0, rotation: 0 }, hood: { uid: "hood-top", x: 18, y: 0, rotation: 0 }, axis: "x" as const },
+      { range: { uid: "range-bottom", x: 42, y: 95, rotation: 0 }, hood: { uid: "hood-bottom", x: 18, y: 102, rotation: 0 }, axis: "x" as const },
+      { range: { uid: "range-left", x: 0, y: 42, rotation: 90 }, hood: { uid: "hood-left", x: 0, y: 18, rotation: 90 }, axis: "z" as const },
+      { range: { uid: "range-right", x: 119, y: 42, rotation: 90 }, hood: { uid: "hood-right", x: 126, y: 18, rotation: 90 }, axis: "z" as const },
+    ];
+
+    for (const fixture of fixtures) {
+      const range = {
+        ...fixture.range,
+        cabinetId: 40,
+        masterCode: "RANGE-30",
+        description: "30 inch Range",
+        placement: "appliance" as const,
+        width: 30,
+        depth: 25,
+        height: 36,
+      };
+      const hood = {
+        ...fixture.hood,
+        cabinetId: 41,
+        masterCode: "HOOD-30",
+        description: "30 inch Range Hood",
+        placement: "appliance" as const,
+        width: 30,
+        depth: 18,
+        height: 18,
+        mountBottom: 66,
+      };
+      const centered = savedRangeHoodTransform(hood, [range, hood], room);
+      const rangeTransform = existingCabinetTransform(range, room);
+      expect(centered[fixture.axis]).toBeCloseTo(rangeTransform[fixture.axis], 8);
+      expect(centered.bottom).toBe(66);
+    }
   });
 
   it("extends the countertop over a saved dishwasher but not over tall or wall scene items", () => {

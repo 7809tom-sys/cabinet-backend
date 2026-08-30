@@ -1167,3 +1167,6 @@
 - [x] Remove only the duplicate Designer toolbar renderings without deleting their underlying actions or affecting unrelated controls
 - [x] Verify the remaining canonical controls and PC, tablet, and mobile toolbar layouts, then publish the cleanup
 - [x] Add one dedicated synchronized 3D View button to the mobile upper toolbar, with no second visible mobile 3D control and no change to tablet/desktop behavior
+- [x] Make every wall-mounted range hood rear mounting plane flush to its selected wall instead of projecting forward into the room
+- [x] Preserve hood centering above its range, saved width/depth/mounting height, catalog identity, and zero-overlap behavior on top, bottom, left, and right walls
+- [x] Add all-wall range-hood rear-plane, range-centering, persistence, collision, elevation, and final 3D regressions, then publish only after validation passes
