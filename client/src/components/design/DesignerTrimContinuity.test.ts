@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { mergedElevationTrimRuns } from "./ElevationView";
-import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments } from "./InteractiveRoom3D";
+import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
 
 describe("continuous cabinet trim", () => {
   it("merges edge-touching crown and toe-kick intervals but preserves true openings", () => {
@@ -22,17 +22,39 @@ describe("continuous cabinet trim", () => {
     ])).toHaveLength(2);
   });
 
-	it("adds crown to every wall cabinet with overlapping front rails and exposed-edge returns", () => {
-    const root = new THREE.Group();
-    addThreeDCrownMolding(root, [
-      { uid: "w24", cabinetId: 1, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
-      { uid: "w30", cabinetId: 2, masterCode: "W-30-42", description: "Wall", placement: "wall", x: 24, y: 0, width: 30, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
-    ], { width: 120, depth: 96, ceilingHeight: 96 }, undefined, "#ffffff");
+	it("keeps touching same-depth cabinet fronts continuous and returns only at the two run ends", () => {
+	  const root = new THREE.Group();
+	  const cabinets = [
+	    { uid: "w24", cabinetId: 1, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+	    { uid: "w30", cabinetId: 2, masterCode: "W-30-42", description: "Wall", placement: "wall", x: 24, y: 0, width: 30, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+	  ] as never[];
+	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+	  const segments = threeDCrownPerimeterSegments(cabinets, room);
+	  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
 
-    expect(root.children).toHaveLength(2);
-    expect(root.children.every((group) => group.userData.crownMolding === true)).toBe(true);
-    expect(root.children.every((group) => group.children.length === 3)).toBe(true);
-	  expect(root.children.flatMap((group) => group.children).filter((mesh) => mesh.userData.crownMoldingFront)).toHaveLength(2);
+	  expect(segments.filter((segment) => segment.kind === "front")).toHaveLength(2);
+	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
+	  expect(root.children).toHaveLength(4);
+	  expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
+	});
+
+	it("wraps the exposed 12-inch step when a 12-inch upper meets a 24-inch-deep cabinet", () => {
+	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+	  const segments = threeDCrownPerimeterSegments([
+	    { uid: "w24", cabinetId: 21, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+	    { uid: "deep24", cabinetId: 22, masterCode: "W-24-42-D24", description: "24-inch deep wall cabinet", placement: "wall", x: 24, y: 0, width: 24, height: 42, depth: 24, rotation: 0, mountBottom: 54 },
+	  ] as never[], room);
+	  const transitionWrap = segments.find((segment) =>
+	    segment.ownerUid === "deep24"
+	    && segment.kind === "left-return"
+	    && Math.abs(segment.center.x - 24) < 0.01,
+	  );
+
+	  expect(transitionWrap?.length).toBeCloseTo(12, 6);
+	  expect(transitionWrap?.start.z).toBeCloseTo(24, 6);
+	  expect(transitionWrap?.end.z).toBeCloseTo(12, 6);
+	  expect(segments.some((segment) => segment.ownerUid === "w24" && segment.kind === "right-return")).toBe(false);
 	});
 
 	it("follows the WDC42 pentagonal top with two 12-inch returns and its 17-inch diagonal front", () => {
@@ -56,17 +78,48 @@ describe("continuous cabinet trim", () => {
 	    { uid: "wdc-bottom-left", cabinetId: 14, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 0, y: 72, width: 24, height: 42, depth: 24, rotation: 270, mountBottom: 54, cornerType: "diagonal" },
 	  ], room, undefined, "#ffffff");
 
-	  expect(root.children).toHaveLength(4);
-	  for (const group of root.children) {
-	    expect(group.children).toHaveLength(3);
-	    expect(group.children.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
-	    expect(group.children.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(1);
-	    const railLengths = group.children.map((rail) => ((rail as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width);
-	    expect(Math.max(...railLengths)).toBeLessThan(2);
+	  expect(root.children).toHaveLength(12);
+	  expect(root.children.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
+	  expect(root.children.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
+	  for (const rail of root.children) {
+	    const railLength = ((rail as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width;
+	    expect(railLength).toBeLessThan(2);
 	  }
 	});
 
-  it("does not shrink the standard 3D toe-kick width at cabinet seams", () => {
+	it("integrates a top-right WDC42 into 12-inch runs on both walls without crown at either hidden cabinet junction", () => {
+	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+	  const segments = threeDCrownPerimeterSegments([
+	    { uid: "top-run", cabinetId: 31, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 72, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
+	    { uid: "wdc-top-right", cabinetId: 32, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 96, y: 0, width: 24, height: 42, depth: 24, rotation: 90, mountBottom: 54, cornerType: "diagonal" },
+	    { uid: "right-run", cabinetId: 33, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 108, y: 24, width: 24, height: 42, depth: 12, rotation: 90, mountBottom: 54 },
+	  ] as never[], room);
+	  const wdcSegments = segments.filter((segment) => segment.ownerUid === "wdc-top-right");
+
+	  expect(wdcSegments.map((segment) => segment.kind)).toEqual(["diagonal-front"]);
+	  expect(wdcSegments[0]?.length).toBeCloseTo(Math.hypot(12, 12), 6);
+	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+	});
+
+	it.each([
+	  ["top-left", { x: 0, y: 0, rotation: 0 }, { x: 24, y: 0, rotation: 0 }, { x: 0, y: 24, rotation: 90 }],
+	  ["top-right", { x: 96, y: 0, rotation: 90 }, { x: 72, y: 0, rotation: 0 }, { x: 108, y: 24, rotation: 90 }],
+	  ["bottom-right", { x: 96, y: 72, rotation: 180 }, { x: 72, y: 84, rotation: 180 }, { x: 108, y: 48, rotation: 90 }],
+	  ["bottom-left", { x: 0, y: 72, rotation: 270 }, { x: 24, y: 84, rotation: 180 }, { x: 0, y: 48, rotation: 90 }],
+	] as const)("keeps only the WDC42 diagonal crown when 12-inch runs join both %s wall legs", (_corner, wdc, horizontal, vertical) => {
+	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+	  const segments = threeDCrownPerimeterSegments([
+	    { uid: "horizontal-run", cabinetId: 41, masterCode: "W-24-42", description: "Wall", placement: "wall", ...horizontal, width: 24, height: 42, depth: 12, mountBottom: 54 },
+	    { uid: "wdc", cabinetId: 42, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", ...wdc, width: 24, height: 42, depth: 24, mountBottom: 54, cornerType: "diagonal" },
+	    { uid: "vertical-run", cabinetId: 43, masterCode: "W-24-42", description: "Wall", placement: "wall", ...vertical, width: 24, height: 42, depth: 12, mountBottom: 54 },
+	  ] as never[], room);
+	  const wdcSegments = segments.filter((segment) => segment.ownerUid === "wdc");
+
+	  expect(wdcSegments.map((segment) => segment.kind)).toEqual(["diagonal-front"]);
+	  expect(wdcSegments[0]?.length).toBeCloseTo(Math.hypot(12, 12), 6);
+	});
+
+	it("does not shrink the standard 3D toe-kick width at cabinet seams", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       placementUid: "b24",

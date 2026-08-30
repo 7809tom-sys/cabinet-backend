@@ -3310,22 +3310,136 @@ export function existingCabinetTransform(
   return { x, z, rotation, bottom };
 }
 
-/** Adds slightly overlapping crown pieces so touching uppers read as one run. */
+type CrownPoint = { x: number; z: number };
+type CrownEdgeKind = "front" | "left-return" | "right-return" | "diagonal-front";
+
+export type ThreeDCrownPerimeterSegment = {
+  ownerUid: string;
+  kind: CrownEdgeKind;
+  start: CrownPoint;
+  end: CrownPoint;
+  top: number;
+  length: number;
+  center: CrownPoint;
+  rotation: number;
+  diagonalCorner: boolean;
+};
+
+function measuredCrownSegment(
+  ownerUid: string,
+  kind: CrownEdgeKind,
+  start: CrownPoint,
+  end: CrownPoint,
+  top: number,
+  diagonalCorner: boolean,
+): ThreeDCrownPerimeterSegment {
+  return {
+    ownerUid,
+    kind,
+    start,
+    end,
+    top,
+    length: Math.hypot(end.x - start.x, end.z - start.z),
+    center: { x: (start.x + end.x) / 2, z: (start.z + end.z) / 2 },
+    rotation: -Math.atan2(end.z - start.z, end.x - start.x),
+    diagonalCorner,
+  };
+}
+
+/** The three exposed local edges of a WDC pentagon: two returns and its diagonal front. */
 export function diagonalCornerCrownSegments(bodyWidth: number, bodyDepth: number) {
   const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
   return [
-    { kind: "right-return" as const, start: vertices[1]!, end: vertices[2]! },
-    { kind: "diagonal-front" as const, start: vertices[2]!, end: vertices[3]! },
-    { kind: "left-return" as const, start: vertices[3]!, end: vertices[4]! },
-  ].map((segment) => ({
-    ...segment,
-    length: Math.hypot(segment.end.x - segment.start.x, segment.end.z - segment.start.z),
-    center: {
-      x: (segment.start.x + segment.end.x) / 2,
-      z: (segment.start.z + segment.end.z) / 2,
-    },
-    rotation: -Math.atan2(segment.end.z - segment.start.z, segment.end.x - segment.start.x),
-  }));
+    measuredCrownSegment("diagonal-corner", "right-return", vertices[1]!, vertices[2]!, 0, true),
+    measuredCrownSegment("diagonal-corner", "diagonal-front", vertices[2]!, vertices[3]!, 0, true),
+    measuredCrownSegment("diagonal-corner", "left-return", vertices[3]!, vertices[4]!, 0, true),
+  ];
+}
+
+function worldCrownEdges(cabinet: PlacedCabinet, room: RoomData): ThreeDCrownPerimeterSegment[] {
+  const width = Math.max(0.125, numberValue(cabinet.width, 24));
+  const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH));
+  const transform = existingCabinetTransform(cabinet, room);
+  const box = elevationBox(cabinet, room);
+  const top = box.bottom + box.height;
+  const diagonalCorner = placedCornerGeometryKind(cabinet) === "diagonal";
+  const localEdges = diagonalCorner
+    ? diagonalCornerCrownSegments(width, depth).map(({ kind, start, end }) => ({ kind, start, end }))
+    : [
+        { kind: "right-return" as const, start: { x: width / 2, z: -depth / 2 }, end: { x: width / 2, z: depth / 2 } },
+        { kind: "front" as const, start: { x: width / 2, z: depth / 2 }, end: { x: -width / 2, z: depth / 2 } },
+        { kind: "left-return" as const, start: { x: -width / 2, z: depth / 2 }, end: { x: -width / 2, z: -depth / 2 } },
+      ];
+  const cos = Math.cos(transform.rotation);
+  const sin = Math.sin(transform.rotation);
+  const toWorld = (point: CrownPoint): CrownPoint => ({
+    x: transform.x + point.x * cos + point.z * sin,
+    z: transform.z - point.x * sin + point.z * cos,
+  });
+  return localEdges.map((edge) => measuredCrownSegment(
+    cabinet.uid,
+    edge.kind,
+    toWorld(edge.start),
+    toWorld(edge.end),
+    top,
+    diagonalCorner,
+  ));
+}
+
+function crownEdgeCoveredRange(edge: ThreeDCrownPerimeterSegment, blocker: ThreeDCrownPerimeterSegment) {
+  if (Math.abs(edge.top - blocker.top) > 0.125 || edge.length <= 1e-6 || blocker.length <= 1e-6) return null;
+  const dx = edge.end.x - edge.start.x;
+  const dz = edge.end.z - edge.start.z;
+  const bdx = blocker.end.x - blocker.start.x;
+  const bdz = blocker.end.z - blocker.start.z;
+  const lineTolerance = 0.02;
+  const pointCross = dx * (blocker.start.z - edge.start.z) - dz * (blocker.start.x - edge.start.x);
+  const directionCross = dx * bdz - dz * bdx;
+  if (Math.abs(pointCross) > lineTolerance * edge.length || Math.abs(directionCross) > lineTolerance * edge.length * blocker.length) return null;
+  const lenSquared = dx * dx + dz * dz;
+  const project = (point: CrownPoint) => ((point.x - edge.start.x) * dx + (point.z - edge.start.z) * dz) / lenSquared;
+  const start = Math.max(0, Math.min(project(blocker.start), project(blocker.end)));
+  const end = Math.min(1, Math.max(project(blocker.start), project(blocker.end)));
+  return end - start > 1e-5 ? { start, end } : null;
+}
+
+/**
+ * Resolves only the exposed top perimeter of complete upper runs. Cabinet backs
+ * are never candidates. Collinear side edges at touching cabinet junctions
+ * cancel one another; a partial overlap leaves only the depth-step wrap.
+ */
+export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: RoomData) {
+  const cabinets = placed.filter((cabinet) => cabinet.placement === "wall");
+  const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
+  const exposed: ThreeDCrownPerimeterSegment[] = [];
+  for (const edge of edges) {
+    const covered = edges
+      .filter((blocker) => blocker.ownerUid !== edge.ownerUid)
+      .map((blocker) => crownEdgeCoveredRange(edge, blocker))
+      .filter((range): range is { start: number; end: number } => range != null)
+      .sort((a, b) => a.start - b.start);
+    const merged: Array<{ start: number; end: number }> = [];
+    for (const range of covered) {
+      const last = merged[merged.length - 1];
+      if (last && range.start <= last.end + 1e-5) last.end = Math.max(last.end, range.end);
+      else merged.push({ ...range });
+    }
+    let cursor = 0;
+    const visibleRanges: Array<{ start: number; end: number }> = [];
+    for (const range of merged) {
+      if (range.start > cursor + 1e-5) visibleRanges.push({ start: cursor, end: range.start });
+      cursor = Math.max(cursor, range.end);
+    }
+    if (cursor < 1 - 1e-5) visibleRanges.push({ start: cursor, end: 1 });
+    const dx = edge.end.x - edge.start.x;
+    const dz = edge.end.z - edge.start.z;
+    for (const range of visibleRanges) {
+      const start = { x: edge.start.x + dx * range.start, z: edge.start.z + dz * range.start };
+      const end = { x: edge.start.x + dx * range.end, z: edge.start.z + dz * range.end };
+      exposed.push(measuredCrownSegment(edge.ownerUid, edge.kind, start, end, edge.top, edge.diagonalCorner));
+    }
+  }
+  return exposed;
 }
 
 export function addThreeDCrownMolding(
@@ -3335,51 +3449,28 @@ export function addThreeDCrownMolding(
   finishOverrides: Record<string, string> | undefined,
   fallbackColor: string,
 ) {
-  for (const cabinet of placed) {
-    if (cabinet.placement !== "wall") continue;
-    const transform = existingCabinetTransform(cabinet, room);
-    const box = elevationBox(cabinet, room);
-    const width = Math.max(0.125, numberValue(cabinet.width, 24)) * INCH;
-    const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH)) * INCH;
+  const cabinetByUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
+  for (const segment of threeDCrownPerimeterSegments(placed, room)) {
+    const cabinet = cabinetByUid.get(segment.ownerUid);
+    if (!cabinet) continue;
     const crownHeight = 3 * INCH;
     const railThickness = 0.075;
     const material = new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
-    const crownGroup = new THREE.Group();
-    crownGroup.position.set(transform.x * INCH, (box.bottom + box.height + 1.5) * INCH, transform.z * INCH);
-    crownGroup.rotation.y = transform.rotation;
-    crownGroup.userData = { crownMolding: true, continuousCabinetTrim: true, placementUid: cabinet.uid };
-
-    if (placedCornerGeometryKind(cabinet) === "diagonal") {
-      for (const segment of diagonalCornerCrownSegments(width, depth)) {
-        const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length + 0.025, crownHeight, railThickness), material);
-        rail.position.set(segment.center.x, 0, segment.center.z);
-        rail.rotation.y = segment.rotation;
-        rail.userData = {
-          crownMoldingFront: segment.kind === "diagonal-front",
-          crownMoldingReturn: segment.kind !== "diagonal-front",
-          diagonalCornerCrown: true,
-          exposedTopEdge: true,
-          segment: segment.kind,
-          continuousRunOverlap: true,
-        };
-        crownGroup.add(rail);
-      }
-      root.add(crownGroup);
-      continue;
-    }
-
-    const frontRail = new THREE.Mesh(new THREE.BoxGeometry(width + 0.025, crownHeight, railThickness), material);
-    frontRail.position.z = depth / 2 + railThickness / 2;
-    frontRail.userData = { crownMoldingFront: true, continuousRunOverlap: true };
-    crownGroup.add(frontRail);
-
-    for (const side of [-1, 1] as const) {
-      const returnRail = new THREE.Mesh(new THREE.BoxGeometry(railThickness, crownHeight, depth + railThickness), material);
-      returnRail.position.x = side * (width / 2 + railThickness / 2);
-      returnRail.userData = { crownMoldingReturn: true, exposedTopEdge: true, side: side < 0 ? "left" : "right" };
-      crownGroup.add(returnRail);
-    }
-    root.add(crownGroup);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownHeight, railThickness), material);
+    rail.position.set(segment.center.x * INCH, (segment.top + 1.5) * INCH, segment.center.z * INCH);
+    rail.rotation.y = segment.rotation;
+    rail.userData = {
+      crownMolding: true,
+      continuousCabinetTrim: true,
+      placementUid: segment.ownerUid,
+      crownMoldingFront: segment.kind === "front" || segment.kind === "diagonal-front",
+      crownMoldingReturn: segment.kind === "left-return" || segment.kind === "right-return",
+      diagonalCornerCrown: segment.diagonalCorner,
+      exposedTopEdge: true,
+      segment: segment.kind,
+      continuousRunOverlap: true,
+    };
+    root.add(rail);
   }
 }
 
