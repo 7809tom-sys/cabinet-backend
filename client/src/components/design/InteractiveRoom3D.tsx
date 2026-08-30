@@ -566,7 +566,7 @@ export function threeDSelectionFromPlaced(uid: string | null | undefined, placed
 
 /** Keeps selected-cabinet details in document flow below the drawing instead of covering the 3D canvas. */
 export function threeDSelectedCabinetDockClass(): string {
-	return "relative mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-[11px] shadow-sm";
+	return "relative mt-1 w-full rounded-md border bg-background px-2 py-1 text-[11px] shadow-sm";
 }
 
 export type ThreeDCabinetHit = {
@@ -2698,17 +2698,21 @@ export function addCabinet(
       }
     }
     if (sku.glassDoor) {
-      const shelfCount = Math.max(0, Math.min(4, Math.round(sku.adjustableShelfCount ?? 0)));
-      for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex += 1) {
-        const shelf = new THREE.Mesh(
-          new THREE.BoxGeometry(Math.max(0.08, diagonalWidth * 0.82), 0.024, Math.max(0.08, bodyDepth * 0.34)),
-          new THREE.MeshStandardMaterial({ color: "#d5c7ad", roughness: 0.62, metalness: 0.01 }),
-        );
-        shelf.position.set(
-          diagonalFaceCenterX - Math.SQRT1_2 * 0.08,
-          -diagonalDoorHeight / 2 + (diagonalDoorHeight * (shelfIndex + 1)) / (shelfCount + 1),
-          diagonalFaceCenterZ - Math.SQRT1_2 * 0.08,
-        );
+	      const shelfCount = Math.max(0, Math.min(4, Math.round(sku.adjustableShelfCount ?? 0)));
+	      const shelfDepth = Math.max(0.08, bodyDepth * 0.28);
+	      const shelfNormalX = angledWallFace?.normalX ?? Math.SQRT1_2;
+	      const shelfNormalZ = angledWallFace?.normalZ ?? Math.SQRT1_2;
+	      const shelfRecess = shelfDepth / 2 + 0.065;
+	      for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex += 1) {
+	        const shelf = new THREE.Mesh(
+	          new THREE.BoxGeometry(Math.max(0.08, diagonalWidth * 0.72), 0.024, shelfDepth),
+	          new THREE.MeshStandardMaterial({ color: "#d5c7ad", roughness: 0.62, metalness: 0.01 }),
+	        );
+	        shelf.position.set(
+	          diagonalFaceCenterX - shelfNormalX * shelfRecess,
+	          -diagonalDoorHeight / 2 + (diagonalDoorHeight * (shelfIndex + 1)) / (shelfCount + 1),
+	          diagonalFaceCenterZ - shelfNormalZ * shelfRecess,
+	        );
         shelf.rotation.y = angledWallFace?.rotation ?? Math.PI / 4;
         shelf.userData = { visibleThroughGlassDoor: true, diagonalGlassShelf: shelfIndex + 1 };
         frontGroup.add(shelf);
@@ -5290,7 +5294,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
 		        return <div data-testid="three-d-cabinet-attributes" className={threeDSelectedCabinetDockClass()}>
 		          <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="absolute right-1.5 top-1 z-10 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground">×</button>
-		          <div className="grid min-w-0 gap-1.5 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto] md:items-start">
+	          <div className="grid min-w-0 gap-1 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto] md:items-center">
 		            <div data-testid="three-d-cabinet-summary" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-1.5">
 		              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
 		              <div className="min-w-0">
@@ -5336,7 +5340,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 		              </label>
 		              {cabinetMoveResult && <p data-testid="three-d-cabinet-move-result" role="status" aria-live="polite" className={`max-w-36 text-[9px] font-semibold leading-tight ${cabinetMoveResult.status === "moved" ? "text-emerald-700" : "text-rose-700"}`}>{cabinetMoveResult.message}</p>}
 		            </div>}
-		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:col-span-3">
+	            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
 		              {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}

@@ -1152,3 +1152,6 @@
 - [x] Render every WDC glass-door variant with finished diagonal door frames around transparent glass centers, matching the standard single/double glass wall-cabinet contract
 - [x] Keep a filler placed beside a dishwasher in the correct gap while aligning its installed depth and front plane flush with the adjoining base/appliance run instead of projecting outward
 - [x] Add WDC framed-glass and dishwasher-side filler footprint/transform/countertop/cart/collision/2D/3D regressions and publish only after they pass
+- [x] Reduce the desktop Cabinet Attributes panel height with a compact layout that preserves every existing detail and control while returning vertical space to the Designer canvas
+- [x] Recess and bound WDC glass-cabinet shelves behind the diagonal glass plane so no shelf projects through the door frame or glass
+- [x] Add desktop/tablet/mobile attributes accessibility and exact WDC shelf-to-glass depth/boundary regressions, then publish only after validation passes

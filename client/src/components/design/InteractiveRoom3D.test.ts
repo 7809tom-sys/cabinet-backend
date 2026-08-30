@@ -357,7 +357,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(className).toContain("mt-1");
     expect(className).toContain("w-full");
 	    expect(className).toContain("px-2");
-	    expect(className).toContain("py-1.5");
+     expect(className).toContain("py-1");
 	    expect(className).toContain("text-[11px]");
     expect(className).not.toContain("p-3");
     expect(className).not.toContain("absolute");
