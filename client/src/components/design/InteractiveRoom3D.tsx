@@ -3311,6 +3311,23 @@ export function existingCabinetTransform(
 }
 
 /** Adds slightly overlapping crown pieces so touching uppers read as one run. */
+export function diagonalCornerCrownSegments(bodyWidth: number, bodyDepth: number) {
+  const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+  return [
+    { kind: "right-return" as const, start: vertices[1]!, end: vertices[2]! },
+    { kind: "diagonal-front" as const, start: vertices[2]!, end: vertices[3]! },
+    { kind: "left-return" as const, start: vertices[3]!, end: vertices[4]! },
+  ].map((segment) => ({
+    ...segment,
+    length: Math.hypot(segment.end.x - segment.start.x, segment.end.z - segment.start.z),
+    center: {
+      x: (segment.start.x + segment.end.x) / 2,
+      z: (segment.start.z + segment.end.z) / 2,
+    },
+    rotation: -Math.atan2(segment.end.z - segment.start.z, segment.end.x - segment.start.x),
+  }));
+}
+
 export function addThreeDCrownMolding(
   root: THREE.Group,
   placed: PlacedCabinet[],
@@ -3331,6 +3348,25 @@ export function addThreeDCrownMolding(
     crownGroup.position.set(transform.x * INCH, (box.bottom + box.height + 1.5) * INCH, transform.z * INCH);
     crownGroup.rotation.y = transform.rotation;
     crownGroup.userData = { crownMolding: true, continuousCabinetTrim: true, placementUid: cabinet.uid };
+
+    if (placedCornerGeometryKind(cabinet) === "diagonal") {
+      for (const segment of diagonalCornerCrownSegments(width, depth)) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length + 0.025, crownHeight, railThickness), material);
+        rail.position.set(segment.center.x, 0, segment.center.z);
+        rail.rotation.y = segment.rotation;
+        rail.userData = {
+          crownMoldingFront: segment.kind === "diagonal-front",
+          crownMoldingReturn: segment.kind !== "diagonal-front",
+          diagonalCornerCrown: true,
+          exposedTopEdge: true,
+          segment: segment.kind,
+          continuousRunOverlap: true,
+        };
+        crownGroup.add(rail);
+      }
+      root.add(crownGroup);
+      continue;
+    }
 
     const frontRail = new THREE.Mesh(new THREE.BoxGeometry(width + 0.025, crownHeight, railThickness), material);
     frontRail.position.z = depth / 2 + railThickness / 2;

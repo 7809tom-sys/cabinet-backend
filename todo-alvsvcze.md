@@ -1000,6 +1000,13 @@
 - [x] Limit universal rollout eligibility to base cabinets B18 through B36 and pantry cabinets 18 through 36 inches wide, excluding narrower and wider cabinets
 - [x] Identify and correct the tRPC route or client-base condition that returned the HTML app shell for an API query instead of JSON
 - [x] Add live-path, mobile-popup, viewport, B18 rollout, tier-price, cart, and JSON-content-type regressions before publication
+- [x] Confirm after a full live refresh that the shared 3D navigation component hides the full panel on mobile and does not require another display override
+- [x] Obtain owner confirmation that only the 0.5-inch launcher displays on mobile and the full controls open from its popup
+- [x] Avoid an unnecessary republish because the already-published mobile navigation correction is now confirmed live
+- [x] Reproduce the screenshot-confirmed WDC42 crown defect where straight-cabinet trim creates a square overlap at the diagonal wall corner
+- [x] Render WDC42 crown along its angled front plus both exposed wall legs without gaps, doubled blocks, or projection beyond the cabinet footprint
+- [x] Preserve ordinary wall-cabinet crown continuity, WDC42 24-inch corner legs, cabinet identity, camera state, save/cart state, and zero-overlap placement
+- [x] Add all-corner WDC42 crown-transform and ordinary-run continuity regressions before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view
