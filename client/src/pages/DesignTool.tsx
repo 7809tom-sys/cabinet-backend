@@ -179,7 +179,7 @@ import { PelicanCountertopPicker, PelicanSinkPicker } from "@/components/design/
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
 import { surfaceRole, formatPrice } from "@/lib/pelican";
-import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
+import { buildRollOutLines, normalizedRollOutTrayQty, rollOutTrayCartItems, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
@@ -1950,23 +1950,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const baseLines = activeBundlePriceLock
       ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
       : designLines;
-    const rolloutCartLines: CartItem[] = [];
-    // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own
-    // RS-* line items, priced + locked to the SAME distributor line as the design.
-    for (const line of rolloutLines) {
-      if (line.unitPrice == null) continue; // skip unpriced (no buyable SKU)
-      const styleLabel = styleNameById.get(line.styleId) ?? "";
-      rolloutCartLines.push({
-          masterCode: line.masterCode,
-          name: line.description ?? line.masterCode,
-          styleId: line.styleId,
-          styleLabel,
-          distributorId: lockedDistributorId ?? null,
-          tier: DESIGN_TIER_TO_SHARED[tier],
-          unitPrice: line.unitPrice,
-          qty: line.qty,
-      });
-    }
+	    // Per-cabinet rollout trays flow into cart/order as their own same-line,
+	    // selected-tier-priced RS-* items; unpriced rows remain non-buyable.
+	    const rolloutCartLines: CartItem[] = rollOutTrayCartItems({
+	      lines: rolloutLines,
+	      styleNameById,
+	      distributorId: lockedDistributorId ?? null,
+	      tier: DESIGN_TIER_TO_SHARED[tier],
+	    });
     return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
   }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
 
@@ -4982,12 +4973,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPlaced((prev) => applyCabinetDoorHardwareToAll(prev, side));
   }, []);
 
-  // Set the number of roll-out shelves added inside a specific base cabinet.
-  // Unlimited quantity (clamped to >= 0); the matching same-line RS shelf is
-  // resolved by the RollOutTrayPicker and flows into the BOM/order as line items.
-  const setRolloutQtyFor = useCallback((uid: string, qty: number) => {
-    setCabAttr(uid, { rolloutQty: Math.max(0, Math.floor(qty)) });
-  }, [setCabAttr]);
+	  // Set 0–5 roll-out trays inside the exact eligible cabinet. The matching
+	  // same-line RS shelf is resolved by the picker and flows into BOM/cart lines.
+	  const setRolloutQtyFor = useCallback((uid: string, qty: number) => {
+	    setCabAttr(uid, { rolloutQty: normalizedRollOutTrayQty(qty) });
+	  }, [setCabAttr]);
 
   // Set per-item discount/surcharge percentage for a specific cabinet.
   // Negative = discount (e.g. -10 means 10% off), positive = surcharge.
@@ -8159,11 +8149,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     </div>
                   </div>
                 )}
-                <RollOutTrayPicker
-                  cabinet={selectedCab}
-                  designStyleId={styleId}
-                  distributorId={lockedDistributorId}
-                  qty={selectedCab.rolloutQty ?? 0}
+	                <RollOutTrayPicker
+	                  cabinet={selectedCab}
+	                  designStyleId={styleId}
+	                  distributorId={lockedDistributorId}
+	                  pricingTier={DESIGN_TIER_TO_SHARED[tier]}
+	                  qty={selectedCab.rolloutQty ?? 0}
                   onSetQty={(q) => setRolloutQtyFor(selectedCab.uid, q)}
                 />
               </div>
@@ -10145,9 +10136,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const side = selected ? resolveCabinetHardwarePosition(selected) : "auto";
           return placed.filter((cabinet) => isCabinetDoorHardwareEligible(cabinet, side)).length;
         })() : 0}
-        designStyleId={styleId}
-        distributorId={lockedDistributorId}
-        onSetRolloutQty={setRolloutQtyFor}
+	        designStyleId={styleId}
+	        distributorId={lockedDistributorId}
+	        pricingTier={DESIGN_TIER_TO_SHARED[tier]}
+	        onSetRolloutQty={setRolloutQtyFor}
         onSetGlassDoor={setGlassDoorFor}
         onSetDecorativeEnd={(uid, treatment) => setCabAttr(uid, { decorativeEnd: treatment })}
         glassDoorAvailable={glassDoorAvailableForAttr}

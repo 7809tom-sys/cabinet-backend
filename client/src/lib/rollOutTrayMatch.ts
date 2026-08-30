@@ -10,12 +10,19 @@
 //     a shelf from one line into a cabinet from another line. The caller MUST
 //     pass only the shelves available for the cabinet's effective door style /
 //     line, so the match is always same-line.
-//   • Customers may add as many shelves to a cabinet as they want (no cap) — the
-//     UI exposes an unlimited quantity stepper; this module only resolves WHICH
-//     shelf, not how many.
-//   • Eligible cabinets: base cabinets that have a door (the shelf rides behind
-//     a swinging door). Wall, tall/pantry, corner, drawer-only, sink-dummy and
-//     filler/panel items are not offered a roll-out here.
+//   • Each eligible cabinet can carry 1–5 rollout trays, with 0 meaning removed.
+//   • Eligible cabinets: bases at least 18" wide with a door, plus pantry/tall
+//     cabinets with doors. Wall cabinets, corners, drawer-only cabinets,
+//     appliance/opening towers, fillers, panels, and trim are excluded.
+
+export const MIN_ROLLOUT_ELIGIBLE_WIDTH_IN = 18;
+export const MAX_ROLLOUT_TRAYS_PER_CABINET = 5;
+
+export function normalizedRollOutTrayQty(value: unknown): number {
+  const qty = Math.floor(Number(value));
+  if (!Number.isFinite(qty) || qty <= 0) return 0;
+  return Math.min(MAX_ROLLOUT_TRAYS_PER_CABINET, qty);
+}
 
 /** Minimal shape of a catalog roll-out shelf row used for matching. */
 export interface TrayOption {
@@ -45,20 +52,21 @@ export interface TrayTarget {
  * offers shelves there too because the end use varies.
  */
 export function isRollOutEligible(c: TrayTarget): boolean {
-  const placement = (c.placement ?? "").toLowerCase();
-  if (placement && placement !== "base") return false;
+	  const placement = (c.placement ?? "").toLowerCase();
+	  if (placement && placement !== "base" && placement !== "tall") return false;
 
   if (c.isCornerCabinet) return false;
 
   const code = (c.masterCode ?? "").toUpperCase();
   const sub = (c.subCategory ?? "").toLowerCase();
   const cat = (c.category ?? "").toLowerCase();
-  const hay = `${sub} ${cat} ${code}`.toLowerCase();
+	  const hay = `${sub} ${cat} ${code}`.toLowerCase();
+	  if (targetWidth(c) + 1e-9 < MIN_ROLLOUT_ELIGIBLE_WIDTH_IN) return false;
 
   // Not a real base box: panels, skins, fillers, trim, accessories, the tray
   // itself, decorative legs, brackets, dummy fronts, etc.
   if (
-    /\bpanel\b|\bskin\b|\bfiller\b|\bscribe\b|trim|molding|moulding|accessory|roll[- ]?out|pull[- ]?out|decorative leg|bracket|dummy front|toe ?kick/.test(
+	    /\bpanel\b|\bskin\b|\bfiller\b|\bscribe\b|trim|molding|moulding|accessory|roll[- ]?out|pull[- ]?out|decorative leg|bracket|dummy front|toe ?kick|\bappliance\b|\boven\b|microwave|refrigerator|\bopen(?:ing)?\b|bookcase/.test(
       hay,
     )
   ) {
@@ -141,6 +149,39 @@ export interface TrayLine {
   unitPrice: number | null;
 }
 
+export interface RollOutTrayCartItem {
+  masterCode: string;
+  name: string;
+  styleId: number;
+  styleLabel: string;
+  distributorId: number | null;
+  tier: import("@shared/pricingTier").PricingTier;
+  unitPrice: number;
+  qty: number;
+}
+
+/** Convert only buyable rollout lines into the exact cart payload. */
+export function rollOutTrayCartItems(args: {
+  lines: readonly TrayLine[];
+  styleNameById: ReadonlyMap<number, string>;
+  distributorId: number | null;
+  tier: import("@shared/pricingTier").PricingTier;
+}): RollOutTrayCartItem[] {
+  return args.lines.flatMap((line) => {
+    if (line.unitPrice == null || !Number.isFinite(line.unitPrice)) return [];
+    return [{
+      masterCode: line.masterCode,
+      name: line.description ?? line.masterCode,
+      styleId: line.styleId,
+      styleLabel: args.styleNameById.get(line.styleId) ?? "",
+      distributorId: args.distributorId,
+      tier: args.tier,
+      unitPrice: line.unitPrice,
+      qty: line.qty,
+    }];
+  });
+}
+
 /**
  * Resolve and aggregate roll-out shelf lines for a whole design.
  *
@@ -153,7 +194,7 @@ export function buildRollOutLines(
 ): TrayLine[] {
   const lines = new Map<string, TrayLine>();
   for (const p of placed) {
-    const qty = Math.floor(Number(p.rolloutQty ?? 0));
+	    const qty = normalizedRollOutTrayQty(p.rolloutQty);
     if (qty <= 0) continue;
     if (!isRollOutEligible(p)) continue;
     const sid = p.effectiveStyleId;

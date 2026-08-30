@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   isRollOutEligible,
+  MAX_ROLLOUT_TRAYS_PER_CABINET,
   matchRollOutTray,
+	  normalizedRollOutTrayQty,
+	  rollOutTrayCartItems,
   targetWidth,
   type TrayOption,
   type TrayTarget,
@@ -49,8 +52,13 @@ describe("isRollOutEligible", () => {
     expect(isRollOutEligible(base({ placement: "wall", subCategory: "Single Door Wall" }))).toBe(false);
   });
 
-  it("rejects tall/pantry cabinets", () => {
-    expect(isRollOutEligible(base({ placement: "tall", subCategory: "Pantry / Utility" }))).toBe(false);
+  it("allows eligible tall/pantry cabinets with doors", () => {
+    expect(isRollOutEligible(base({ placement: "tall", subCategory: "Pantry / Utility", masterCode: "P2496", nominalWidth: 24, width: 24, numberOfDoors: 4 }))).toBe(true);
+  });
+
+  it("rejects appliance/opening towers even when they are tall and have doors", () => {
+    expect(isRollOutEligible(base({ placement: "tall", subCategory: "Oven Cabinet", masterCode: "UOC3396", nominalWidth: 33, width: 33, numberOfDoors: 2 }))).toBe(false);
+    expect(isRollOutEligible(base({ placement: "tall", subCategory: "Open Shelf Tower", masterCode: "OST2496", nominalWidth: 24, width: 24, numberOfDoors: 2 }))).toBe(false);
   });
 
   it("rejects corner cabinets", () => {
@@ -65,6 +73,11 @@ describe("isRollOutEligible", () => {
 
   it("rejects cabinets with no door", () => {
     expect(isRollOutEligible(base({ numberOfDoors: 0 }))).toBe(false);
+  });
+
+  it("rejects base cabinets narrower than 18 inches", () => {
+    expect(isRollOutEligible(base({ masterCode: "B17", nominalWidth: 17, width: 17 }))).toBe(false);
+    expect(isRollOutEligible(base({ masterCode: "B18", nominalWidth: 18, width: 18 }))).toBe(true);
   });
 
   it("rejects fillers and panels", () => {
@@ -107,9 +120,9 @@ describe("matchRollOutTray", () => {
     expect(t?.masterCode).toBe("RS-36");
   });
 
-  it("picks largest shelf that fits when no exact match: B17 -> RS-15", () => {
+  it("returns null below the 18-inch cabinet eligibility threshold even when a smaller shelf exists", () => {
     const t = matchRollOutTray(base({ masterCode: "B17", nominalWidth: 17, width: 17 }), ALL_TRAYS);
-    expect(t?.masterCode).toBe("RS-15");
+    expect(t).toBeNull();
   });
 
   it("picks largest shelf that fits: B23 -> RS-21", () => {
@@ -191,6 +204,23 @@ describe("buildRollOutLines", () => {
     expect(lines[0].unitPrice).toBe(58);
   });
 
+  it("caps each cabinet at five trays before aggregation and preserves the priced SKU", () => {
+    const lines = buildRollOutLines(
+      [placedBase({ rolloutQty: 99 }), placedBase({ rolloutQty: 8, masterCode: "B18b" })],
+      optionsByStyle,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ masterCode: "RS-18", qty: 10, unitPrice: 58 });
+  });
+
+  it("builds a priced rollout line for an eligible pantry", () => {
+    const lines = buildRollOutLines(
+      [placedBase({ placement: "tall", subCategory: "Pantry / Utility", masterCode: "P2496", nominalWidth: 24, width: 24, numberOfDoors: 4, rolloutQty: 5 })],
+      optionsByStyle,
+    );
+    expect(lines[0]).toMatchObject({ masterCode: "RS-24", qty: 5, unitPrice: 64 });
+  });
+
   it("aggregates two same-size same-line cabinets into one line", () => {
     const lines = buildRollOutLines(
       [placedBase({ rolloutQty: 1 }), placedBase({ rolloutQty: 3, masterCode: "B18b" })],
@@ -244,5 +274,45 @@ describe("buildRollOutLines", () => {
       optionsByStyle,
     );
     expect(lines).toEqual([]);
+  });
+});
+
+describe("normalizedRollOutTrayQty", () => {
+  it("supports zero/remove and integer quantities one through five", () => {
+    expect(normalizedRollOutTrayQty(0)).toBe(0);
+    expect(normalizedRollOutTrayQty(1)).toBe(1);
+    expect(normalizedRollOutTrayQty(5)).toBe(MAX_ROLLOUT_TRAYS_PER_CABINET);
+  });
+
+  it("floors decimals and caps all oversized quantities at five", () => {
+    expect(normalizedRollOutTrayQty(3.9)).toBe(3);
+    expect(normalizedRollOutTrayQty(6)).toBe(5);
+    expect(normalizedRollOutTrayQty(999)).toBe(5);
+    expect(normalizedRollOutTrayQty("bad")).toBe(0);
+  });
+});
+
+describe("rollOutTrayCartItems", () => {
+  it("creates the exact priced RS cart payload and excludes unpriced tray rows", () => {
+    const items = rollOutTrayCartItems({
+      lines: [
+        { cabinetId: 4, masterCode: "RS-24", description: "Roll-Out Shelf 24 inch", styleId: 11, width: 24, qty: 5, unitPrice: 64 },
+        { cabinetId: 5, masterCode: "RS-30", description: "Roll-Out Shelf 30 inch", styleId: 11, width: 30, qty: 2, unitPrice: null },
+      ],
+      styleNameById: new Map([[11, "Aura Cream"]]),
+      distributorId: 7,
+      tier: "homeowner",
+    });
+    expect(items).toEqual([{
+      masterCode: "RS-24",
+      name: "Roll-Out Shelf 24 inch",
+      styleId: 11,
+      styleLabel: "Aura Cream",
+      distributorId: 7,
+      tier: "homeowner",
+      unitPrice: 64,
+      qty: 5,
+    }]);
+    expect(items.reduce((total, item) => total + item.unitPrice * item.qty, 0)).toBe(320);
   });
 });

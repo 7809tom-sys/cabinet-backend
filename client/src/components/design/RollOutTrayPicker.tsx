@@ -4,32 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
+import { resolveTierPrice, type PricingTier } from "@shared/pricingTier";
 import { PlacedCabinet, effectiveStyleId, isCornerCabinet } from "@/lib/design";
-import { isRollOutEligible, targetWidth } from "@/lib/rollOutTrayMatch";
+import { isRollOutEligible, MAX_ROLLOUT_TRAYS_PER_CABINET, normalizedRollOutTrayQty, targetWidth } from "@/lib/rollOutTrayMatch";
 
 export interface RollOutTrayPickerProps {
   cabinet: PlacedCabinet;
   /** The design's default door style (per-cabinet override wins via effectiveStyleId). */
   designStyleId: number | null;
-  /** Locked distributor line, when the design has one. */
-  distributorId: number | null;
+	  /** Locked distributor line, when the design has one. */
+	  distributorId: number | null;
+	  /** Active shopper tier; the displayed each-price must match the cart. */
+	  pricingTier: PricingTier;
   /** Current quantity persisted on the cabinet. */
   qty: number;
-  /** Persist a new quantity (>= 0, no upper cap) onto the cabinet. */
+	  /** Persist a new quantity from 0 (remove) through 5 onto the cabinet. */
   onSetQty: (qty: number) => void;
 }
 
 /**
  * Per-cabinet roll-out shelf add-on. Auto-resolves the correct same-line RS
  * shelf sized to this cabinet (largest shelf width <= the cabinet's nominal
- * width) and exposes an unlimited quantity stepper. Renders nothing for
- * cabinets that can't take a roll-out (walls, tall, corners, drawer-only,
- * fillers) or when the locked line carries no shelf that fits.
+ * width) and exposes a 0–5 quantity stepper. Renders nothing for cabinets that
+ * can't take a rollout (walls, narrow bases, corners, drawer-only, appliance
+ * towers, fillers/panels) or when the locked line carries no shelf that fits.
  */
 export function RollOutTrayPicker({
   cabinet,
   designStyleId,
-  distributorId,
+	  distributorId,
+	  pricingTier,
   qty,
   onSetQty,
 }: RollOutTrayPickerProps) {
@@ -57,7 +61,7 @@ export function RollOutTrayPicker({
 
   const tray = trayQuery.data ?? null;
 
-  const safeQty = useMemo(() => (Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 0), [qty]);
+	  const safeQty = useMemo(() => normalizedRollOutTrayQty(qty), [qty]);
 
   // Not an eligible cabinet → render nothing (no section at all).
   if (!eligible || sid == null || width <= 0) return null;
@@ -78,8 +82,7 @@ export function RollOutTrayPicker({
     );
   }
 
-  const each = tray.contractorPrice ?? tray.wholesalePrice ?? tray.listPrice ?? null;
-  const eachNum = each != null ? Number(each) : null;
+	  const eachNum = resolveTierPrice(pricingTier, tray);
 
   return (
     <section className="space-y-2 border-t border-border pt-4">
@@ -118,24 +121,26 @@ export function RollOutTrayPicker({
               <Minus className="h-3.5 w-3.5" />
             </Button>
             <Input
-              type="number"
-              min={0}
+	              type="number"
+	              min={0}
+	              max={MAX_ROLLOUT_TRAYS_PER_CABINET}
               step={1}
               value={safeQty}
               className="h-8 w-14 text-center text-sm"
               aria-label={t("dt_ca_rollout_qty")}
               onChange={(e) => {
                 const v = Math.floor(Number(e.target.value));
-                onSetQty(Number.isFinite(v) && v > 0 ? v : 0);
+	                onSetQty(normalizedRollOutTrayQty(v));
               }}
             />
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 w-8 p-0"
+	              className="h-8 w-8 p-0"
+	              disabled={safeQty >= MAX_ROLLOUT_TRAYS_PER_CABINET}
               aria-label={`${t("dt_ca_rollout_qty")} +`}
-              onClick={() => onSetQty(safeQty + 1)}
+	              onClick={() => onSetQty(normalizedRollOutTrayQty(safeQty + 1))}
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>

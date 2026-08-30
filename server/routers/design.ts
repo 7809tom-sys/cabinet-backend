@@ -957,17 +957,19 @@ export const designRouter = router({
         conditions.push(eq(distributorSkus.distributorId, input.distributorId));
       }
 
-      const rows = await db
-        .select({
-          cabinetId: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          width: cabinets.width,
-          platformSku: distributorSkus.platformSku,
-          listPrice: distributorSkus.listPrice,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          contractorPrice: distributorSkus.contractorPrice,
-        })
+	      const rows = await db
+	        .select({
+	          cabinetId: cabinets.id,
+	          masterCode: cabinets.masterCode,
+	          description: cabinets.description,
+	          width: cabinets.width,
+	          platformSku: distributorSkus.platformSku,
+	          listPrice: distributorSkus.listPrice,
+	          wholesalePrice: distributorSkus.wholesalePrice,
+	          contractorPrice: distributorSkus.contractorPrice,
+	          homeownerPrice: distributorSkus.homeownerPrice,
+	          adjustedListPrice: distributorSkus.adjustedListPrice,
+	        })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions));
@@ -982,10 +984,12 @@ export const designRouter = router({
             description: string | null;
             width: number;
             platformSku: string | null;
-            listPrice: string | null;
-            wholesalePrice: string | null;
-            contractorPrice: string | null;
-          }
+	            listPrice: string | null;
+	            wholesalePrice: string | null;
+	            contractorPrice: string | null;
+	            homeownerPrice: string | null;
+	            adjustedListPrice: string | null;
+	          }
         | null = null;
       for (const r of rows) {
         const w = Number(r.width ?? 0);

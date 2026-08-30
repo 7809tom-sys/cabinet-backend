@@ -63,9 +63,10 @@ function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onA
       onSetHandleSide={onSetHandleSide}
       onApplyHandleSideToAll={onApplyHandleSideToAll}
       hardwareApplyCount={hardwareApplyCount}
-      designStyleId={null}
-      distributorId={null}
-      onSetRolloutQty={vi.fn()}
+	      designStyleId={null}
+	      distributorId={null}
+	      pricingTier="homeowner"
+	      onSetRolloutQty={vi.fn()}
       onSetGlassDoor={vi.fn()}
       onSetDecorativeEnd={vi.fn()}
       glassDoorAvailable={false}
@@ -91,10 +92,10 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 54);
     fireEvent.change(screen.getByLabelText("Cabinet mounting height from floor"), { target: { value: "65" } });
     expect(onSetMountBottom).toHaveBeenCalledWith("w3024", 65);
-    fireEvent.click(screen.getByTitle("Move out one inch toward the wall"));
-    fireEvent.click(screen.getByTitle("Move in one inch into the room"));
-    expect(onMoveInOut).toHaveBeenNthCalledWith(1, "w3024", "out");
-    expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in");
+	    fireEvent.click(screen.getByTitle("Move out 1 inches toward the wall"));
+	    fireEvent.click(screen.getByTitle("Move in 1 inches into the room"));
+	    expect(onMoveInOut).toHaveBeenNthCalledWith(1, "w3024", "out", 1);
+	    expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in", 1);
   });
 
   it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {
@@ -102,7 +103,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
       onOpenChange: vi.fn(), customFee: 0, onSetWidth: vi.fn(), onSetHeight: vi.fn(), onSetDepth: vi.fn(),
       mountBottom: 72, maxMountBottom: 72, onSetMountBottom: vi.fn(), onResetSize: vi.fn(), onSetSwing: vi.fn(),
       onMoveInOut: vi.fn(),
-      onSetNoDoor: vi.fn(), onSetHandleSide: vi.fn(), designStyleId: null, distributorId: null,
+	      onSetNoDoor: vi.fn(), onSetHandleSide: vi.fn(), designStyleId: null, distributorId: null, pricingTier: "homeowner" as const,
       onSetRolloutQty: vi.fn(), onSetGlassDoor: vi.fn(), onSetDecorativeEnd: vi.fn(), glassDoorAvailable: false,
       onAddGlassDoorToCart: vi.fn(), onSetBlindPull: vi.fn(), onSetWaterfall: vi.fn(), onSetCategory: vi.fn(),
       onSetCustomProfile: vi.fn(), onSetOvenType: vi.fn(),

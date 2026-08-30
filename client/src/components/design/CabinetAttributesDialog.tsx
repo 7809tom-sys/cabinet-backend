@@ -50,6 +50,7 @@ import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
 import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
 import { trpc } from "@/lib/trpc";
+import type { PricingTier } from "@shared/pricingTier";
 
 export const MIN_CABINET_DEPTH_MOVE_IN = 0.125;
 export const MAX_CABINET_DEPTH_MOVE_IN = 120;
@@ -215,8 +216,9 @@ export interface CabinetAttributesDialogProps {
   // Per-cabinet roll-out shelf add-on: the design's default door style + locked
   // line let the picker resolve the correct same-line RS shelf, and onSetRolloutQty
   // persists the (unlimited) quantity onto the cabinet.
-  designStyleId: number | null;
-  distributorId: number | null;
+	  designStyleId: number | null;
+	  distributorId: number | null;
+	  pricingTier: PricingTier;
   onSetRolloutQty: (uid: string, qty: number) => void;
   // Glass door upgrade toggle
   onSetGlassDoor: (uid: string, glassDoor: boolean) => void;
@@ -265,7 +267,8 @@ export function CabinetAttributesDialog({
   onApplyHandleSideToAll,
   hardwareApplyCount = 0,
   designStyleId,
-  distributorId,
+	  distributorId,
+	  pricingTier,
   onSetRolloutQty,
   onSetGlassDoor,
   onSetDecorativeEnd,
@@ -945,7 +948,8 @@ export function CabinetAttributesDialog({
           <RollOutTrayPicker
             cabinet={cabinet}
             designStyleId={designStyleId}
-            distributorId={distributorId}
+	          distributorId={distributorId}
+	          pricingTier={pricingTier}
             qty={cabinet.rolloutQty ?? 0}
             onSetQty={(q) => onSetRolloutQty(uid, q)}
           />

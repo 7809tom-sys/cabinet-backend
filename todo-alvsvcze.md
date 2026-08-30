@@ -1061,3 +1061,9 @@
 - [x] Apply the same Cabinet-versus-other grouping and deterministic ordering to the on-screen table, print document, and CSV export
 - [x] Preserve quantities, dimensions, distributor, style/finish, pending-price status, line totals, and overall priced total while regrouping
 - [x] Add complete materials-model, table, print, CSV, and responsive regressions before publishing the grouping correction
+- [x] Show rollout-tray controls in Cabinet Attributes for every eligible base cabinet at least 18 inches wide and every eligible pantry/tall cabinet
+- [x] Limit each selected cabinet to an explicit rollout-tray quantity from 1 through 5, with a clear zero/remove option
+- [x] Resolve the matching rollout-tray SKU and current selected distributor/style price for the cabinet instead of inventing a generic price
+- [x] Persist rollout quantity on the exact placed cabinet and expand it into the cart with matching SKU, quantity, unit price, line total, and overall total
+- [x] Exclude base cabinets under 18 inches, appliances, fillers, panels, and incompatible specialty/open cabinets from rollout selection
+- [x] Add eligibility, 1–5 limit, SKU/price, cart total, save/restore, materials-list, PC, tablet, and mobile regressions before publication
