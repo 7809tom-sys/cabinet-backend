@@ -113,7 +113,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { islandCountertopRect, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { inferredIslandFace, islandCountertopRect, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -2806,7 +2806,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      let spot: { x: number; y: number; rotation: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
-	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementMode && x == null && y == null ? islandFace : null));
+	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementMode ? islandFace : null));
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -4634,14 +4634,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Delete / Rotate controls act on. Without this, tapping a sink left the
   // cabinet selection (selectedUid) untouched and the Delete button — which was
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
-  const selectCabinet = useCallback((uid: string | null) => {
-    setSelectedUid(uid);
-    if (uid) {
-      const cabinet = placed.find((candidate) => candidate.uid === uid);
-      if (cabinet) setActiveWall(cabinetWall(cabinet, room));
-      setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null);
-    }
-  }, [placed, room]);
+	  const selectCabinet = useCallback((uid: string | null) => {
+	    setSelectedUid(uid);
+	    if (uid) {
+	      const cabinet = placed.find((candidate) => candidate.uid === uid);
+	      if (cabinet && island && isOnIsland(cabinet, island)) {
+	        const face = inferredIslandFace(cabinet, island);
+	        setIslandFace(face);
+	        setIslandPlacementMode(true);
+	        setIsland((current) => current ? { ...current, activeFace: face } : current);
+	      } else if (cabinet) {
+	        setActiveWall(cabinetWall(cabinet, room));
+	      }
+	      setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null);
+	    }
+	  }, [island, placed, room]);
   const selectSink = useCallback((uid: string | null) => {
     setSelectedSinkUid(uid);
     if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }

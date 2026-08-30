@@ -53,7 +53,18 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
     .filter((item) => item.islandFace === face)
     .map((item) => ({ start: islandOffsetForPlaced(item, island, face), end: islandOffsetForPlaced(item, island, face) + Math.max(0, Number(item.width) || 0) }))
     .sort((a, b) => a.start - b.start);
-  for (const start of [0, ...occupied.map((span) => span.end)]) {
+  const crossFaceEdges = placed
+    .filter((item) => isOnIsland(item, island))
+    .flatMap((item) => {
+      const footprint = placedFootprint(item);
+      return face === "front" || face === "back"
+        ? [item.x - island.x, item.x + footprint.w - island.x]
+        : [item.y - island.y, item.y + footprint.d - island.y];
+    });
+  const candidateStarts = Array.from(new Set([0, ...occupied.map((span) => span.end), ...crossFaceEdges]
+    .map((value) => Math.max(0, Math.round(value * 8) / 8))))
+    .sort((a, b) => a - b);
+  for (const start of candidateStarts) {
     if (start + runLength > islandFaceLength(island, face) + COLLISION_EPSILON_IN) continue;
     if (occupied.some((span) => start < span.end - COLLISION_EPSILON_IN && start + runLength > span.start + COLLISION_EPSILON_IN)) continue;
     const candidate = islandFacePlacement(cabinet, island, face, start);

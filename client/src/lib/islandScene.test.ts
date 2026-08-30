@@ -52,6 +52,23 @@ describe("island mini-scene geometry", () => {
     expect(hasCollision(front!, [back!])).toBe(false);
   });
 
+	it("snaps opposing front and back runs beside a usable end cabinet and fits one slab to the combined shape", () => {
+	  const leftEnd = nextIslandFacePlacement(cabinet({ uid: "left-end" }), island, "left", []);
+	  const back = nextIslandFacePlacement(cabinet({ uid: "back" }), island, "back", [leftEnd!]);
+	  const front = nextIslandFacePlacement(cabinet({ uid: "front" }), island, "front", [leftEnd!, back!]);
+	  expect(leftEnd).toMatchObject({ x: 36, y: 36, islandFace: "left", islandOffset: 0 });
+	  expect(back).toMatchObject({ x: 60, y: 36, islandFace: "back", islandOffset: 24 });
+	  expect(front).toMatchObject({ x: 36, y: 60, islandFace: "front", islandOffset: 0 });
+	  expect(hasCollision(back!, [leftEnd!])).toBe(false);
+	  expect(hasCollision(front!, [leftEnd!, back!])).toBe(false);
+	  expect(islandCountertopRect(island, [leftEnd!, back!, front!])).toEqual({
+	    x: 36 - ISLAND_COUNTERTOP_OVERHANG_IN,
+	    y: 36 - ISLAND_COUNTERTOP_OVERHANG_IN,
+	    width: 48 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+	    depth: 48 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+	  });
+	});
+
   it("creates one automatic slab over opposing front and back cabinet runs", () => {
     const back = islandFacePlacement(cabinet({ uid: "back" }), island, "back", 0);
     const front = islandFacePlacement(cabinet({ uid: "front" }), island, "front", 0);

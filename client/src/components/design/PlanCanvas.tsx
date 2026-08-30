@@ -1070,7 +1070,7 @@ export function PlanCanvas({
               width: island.width * ppi,
               height: island.depth * ppi,
               border: "2px dashed #d4a75a",
-              background: "rgba(212,167,90,0.10)",
+              background: "transparent",
               borderRadius: 3,
             }}
 	            title={t("dt_pc_island_zone")}

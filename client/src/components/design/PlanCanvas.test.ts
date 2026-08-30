@@ -185,5 +185,9 @@ describe("island work-zone face selection", () => {
     expect(markup).toContain('data-testid="island-work-zone"');
     expect(markup).toContain("active front face");
     expect(markup).toContain('tabindex="0"');
+	  const zoneTag = markup.match(/<div[^>]*data-testid="island-work-zone"[^>]*>/)?.[0];
+	  expect(zoneTag).toBeDefined();
+	  expect(zoneTag).toContain("background:transparent");
+	  expect(zoneTag).not.toContain("rgba(212,167,90,0.10)");
   });
 });

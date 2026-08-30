@@ -1170,3 +1170,11 @@
 - [x] Make every wall-mounted range hood rear mounting plane flush to its selected wall instead of projecting forward into the room
 - [x] Preserve hood centering above its range, saved width/depth/mounting height, catalog identity, and zero-overlap behavior on top, bottom, left, and right walls
 - [x] Add all-wall range-hood rear-plane, range-centering, persistence, collision, elevation, and final 3D regressions, then publish only after validation passes
+- [x] Reproduce the exact live island plan and 3D result shown after refresh, including its real cabinet records, face ownership, work-zone bounds, and generated slab rectangle
+- [x] Make island cabinets snap into one coherent front/back/end assembly while the non-solid work-zone remains an editing guide only and never becomes visible solid geometry
+- [x] Derive the automatic island slab from the actual combined cabinet footprint with standard overhang, preserving explicit custom dimensions only when the user deliberately edits them
+- [x] Add exact reproduced plan/3D, front/back/end snapping, slab-bounds, movement, resize, sink/faucet, persistence, collision, cart, and materials regressions before republishing
+- [x] While Adding to island mode is active, every catalog click or compatible part selection must place directly at the next open position on the selected island face; only Place on walls may return placement to room walls
+- [x] Reproduce the exact live right-wall HOOD-30 saved scene in both plan/top and final 3D using its real wall key, rotated footprint, range relationship, and room dimensions; the owner confirmed the published hood is correct after refresh
+- [x] Correct the right-wall hood physical rear plane and plan footprint so the visible assembly mounts to the wall rather than only passing an unrotated top-wall mesh test; the owner confirmed the published hood is correct after refresh
+- [x] Add exact reproduced right-wall plan/3D bounds, movement, range-centering, persistence, and all-wall rotated-scene regressions before republishing; no additional post-confirmation hood code was retained
