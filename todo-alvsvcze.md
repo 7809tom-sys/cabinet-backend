@@ -1014,6 +1014,11 @@
 - [x] Integrate WDC42 diagonal crown into the adjacent run perimeter without doubled rails, square caps, or gaps at either wall leg
 - [x] Preserve crown material quantities, cabinet identity, 24-inch WDC legs, camera, save/cart state, and ordinary zero-overlap placement
 - [x] Add same-depth junction, true run-end, 12-to-24-inch step, WDC42, all-corner, and final-mesh regressions before publication
+- [x] Reconfirm all eight owner-supplied Clark & Son UNIV-ROT supplier costs against the live catalog rows
+- [x] Trace rollout homeowner, contractor, and wholesale prices through Cabinet Attributes, Materials & Parts, cart, saved design, and checkout
+- [x] Correct any rollout price field, tier transformation, stale value, quantity extension, or total that differs across those paths
+- [x] Preserve the owner-supplied source costs, exact UNIV-ROT SKU, selected style/distributor, cabinet identity, and rollout quantity while correcting prices
+- [x] Add all-eight-SKU, all-tier, quantity 1–5, materials, cart, save/restore, and checkout price-lock regressions before publication
 - [x] Research license-safe realistic sink and faucet references, then improve the Designer’s procedural sink bowl, rim, drain, faucet body, spout, and handle geometry without introducing copyrighted product imagery or local deployment assets
 - [x] Reproduce why W-36-24 still cannot move upward in the user’s actual layout and why it reports a 1-inch overlap with W-21-42, then correct the authoritative movement/collision path without relocating the valid wall opening
 - [x] Make every movement arrow follow the user’s visible screen direction: top moves up, bottom moves down, left moves left, and right moves right in the active 3D camera view

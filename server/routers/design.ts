@@ -16,6 +16,7 @@ import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
+import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import {
@@ -2323,7 +2324,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
   priceForCartItems: publicProcedure
     .input(
       z.object({
-        items: z.array(z.object({ masterCode: z.string(), styleId: z.number() })).max(200),
+        items: z.array(z.object({
+          masterCode: z.string(),
+          styleId: z.number(),
+          distributorId: z.number().nullable().optional(),
+        })).max(200),
       })
     )
     .query(async ({ input, ctx }) => {
@@ -2332,12 +2337,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
 
       const masterCodes = Array.from(new Set(input.items.map((i) => i.masterCode)));
       const styleIds = Array.from(new Set(input.items.map((i) => i.styleId)));
-      const wanted = new Set(input.items.map((i) => `${i.masterCode}:${i.styleId}`));
-
       const rows = await db
         .select({
           masterCode: cabinets.masterCode,
           styleId: distributorSkus.styleId,
+          distributorId: distributorSkus.distributorId,
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
@@ -2351,26 +2355,18 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           and(
             inArray(cabinets.masterCode, masterCodes),
             inArray(distributorSkus.styleId, styleIds),
+            eq(cabinets.isActive, true),
+            notInConflict(),
             eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
           )
         );
 
-      // Best (cheapest contractor) row per (masterCode, styleId).
-      const best = new Map<string, (typeof rows)[number]>();
-      for (const r of rows) {
-        const key = `${r.masterCode}:${r.styleId}`;
-        if (!wanted.has(key)) continue;
-        const cur = best.get(key);
-        if (!cur) { best.set(key, r); continue; }
-        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
-        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
-        if (a < b) best.set(key, r);
-      }
-
       const ps = await getPricingSettings();
-      return Array.from(best.values()).map((r) => ({
+      return selectExactCartPriceRows(input.items, rows, ps).map(({ identity, row: r }) => ({
         masterCode: r.masterCode,
         styleId: Number(r.styleId),
+        distributorId: identity.distributorId ?? null,
         ...visiblePricesForViewer(
           {
             listPrice: r.listPrice,

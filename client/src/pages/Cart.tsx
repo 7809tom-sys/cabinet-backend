@@ -50,9 +50,9 @@ export default function Cart() {
     () =>
       items
         .filter((i) => i.distributorId != null) // cabinets only (not pelican products)
-        .map((i) => ({ masterCode: i.masterCode, styleId: i.styleId })),
+        .map((i) => ({ masterCode: i.masterCode, styleId: i.styleId, distributorId: i.distributorId })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items.map((i) => `${i.masterCode}:${i.styleId}`).join(",")]
+    [items.map((i) => `${i.masterCode}:${i.styleId}:${i.distributorId ?? "_"}`).join(",")]
   );
 
   // Fetch live tier-computed prices for all cart items. This ensures the cart
@@ -63,19 +63,21 @@ export default function Cart() {
     { enabled: cartPairs.length > 0 }
   );
 
-  // Build a map of masterCode:styleId → live unit price at the viewer's tier.
+  // Build a map of exact masterCode:styleId:distributorId cart identity → live
+  // unit price at the viewer's tier. Supplier-locked designs must never refresh
+  // from another distributor that happens to carry the same master/style pair.
   const livePriceMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of livePriceRows ?? []) {
       const price = resolveTierPrice(viewerTier, r);
-      if (price != null) m.set(`${r.masterCode}:${r.styleId}`, price);
+      if (price != null) m.set(`${r.masterCode}:${r.styleId}:${r.distributorId ?? "_"}`, price);
     }
     return m;
   }, [livePriceRows, viewerTier]);
 
   // Get the live price for a cart item, falling back to the stored unitPrice.
   const liveUnitPrice = (item: (typeof items)[number]): number | null => {
-    const live = livePriceMap.get(`${item.masterCode}:${item.styleId}`);
+    const live = livePriceMap.get(`${item.masterCode}:${item.styleId}:${item.distributorId ?? "_"}`);
     const refreshedPrice = resolveAffiliateCartUnitPrice({
       storedUnitPrice: item.unitPrice,
       liveUnitPrice: live,
