@@ -83,7 +83,7 @@ import {
 	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
-  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, isMicrowaveOverRangePair,
+  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, fillerWidthRange,
@@ -3902,7 +3902,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           masterCode: `FRIDGE-${newW}`,
           description: `Refrigerator ${newW}"`,
         };
-        const peers = placed.filter((item) => item.uid !== fridge.uid);
+        const peers = placed.filter((item) => item.uid !== fridge.uid && !refrigeratorAssemblyMemberRole(item, fridge, room));
         if (hasCollision(resizedFridge, peers)) {
           const message = collisionReason(resizedFridge, peers) ?? `The refrigerator cannot be resized because it would cover an existing cabinet.`;
           setPlacementWarning(message);
@@ -3910,8 +3910,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           return;
         }
         configuredFridge = resizedFridge;
-        setPlaced((prev) => prev.map((item) => item.uid === fridge.uid ? resizedFridge : item));
       }
+      configuredFridge = { ...configuredFridge, refrigeratorPanelMode: opts.panels };
       const side = cabinetWall(configuredFridge, room);
       const horizontal = side === "top" || side === "bottom";
       const fp = placedFootprint(configuredFridge);
@@ -4027,6 +4027,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             numberOfDrawers: chosen.numberOfDrawers ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
+            refrigeratorAssemblyId: fridge.uid,
+            refrigeratorAssemblyRole: "bridge",
             // A refrigerator upper must clear the appliance and finish on the
             // same cap line as adjacent tall cabinetry whenever the ceiling
             // allows it. The larger bottom wins, preventing a 24" WR cabinet
@@ -4116,6 +4118,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           mountBottom: 0,
           catalogImageUrl: panelRow.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
+          refrigeratorAssemblyId: fridge.uid,
+          refrigeratorAssemblyRole: leftEdge ? "left-panel" : "right-panel",
         });
       };
       if (opts.panels === "left" || opts.panels === "both") placePanel(true);
@@ -4148,15 +4152,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
 
+      const existingAssemblyUids = new Set(
+        placed
+          .filter((item) => item.uid !== fridge.uid && refrigeratorAssemblyMemberRole(item, fridge, room))
+          .map((item) => item.uid),
+      );
+      const configuredPlaced = placed
+        .filter((item) => !existingAssemblyUids.has(item.uid))
+        .map((item) => item.uid === fridge.uid ? configuredFridge : item);
+      const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
+      const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid);
+      const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room);
+      placedRef.current = committedPreview;
+      setPlaced(() => committedPreview);
       if (toPlace.length > 0) {
-        const configuredPlaced = placed.map((item) => item.uid === fridge.uid ? configuredFridge : item);
-        const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
-        const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid);
-        setPlaced((prev) => {
-          const latestConfigured = prev.map((item) => item.uid === fridge.uid ? configuredFridge : item);
-          const fitted = fitRefrigeratorEnclosurePlacements(latestConfigured, toPlace, fridge.uid, room);
-          return appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid).placed;
-        });
         if (Math.abs(fittedPreview.shiftIn) > 0.01) {
           toast.info(`Refrigerator enclosure shifted ${formatEighthInches(Math.abs(fittedPreview.shiftIn))} along the wall to retain both end panels and preserve the neighboring cabinet.`);
         }
@@ -4704,12 +4713,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [addCabinet, openings, paletteType, placed, room]
   );
 
-		const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
-	    setPlaced((prev) => {
-	      const cabinet = prev.find((p) => p.uid === uid);
-	      if (!cabinet) return prev;
-	      const requiredFillerGroupId = `bbc-required-filler-${uid}`;
-	      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
+			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
+		    setPlaced((prev) => {
+		      const cabinet = prev.find((p) => p.uid === uid);
+		      if (!cabinet) return prev;
+		      const requiredFillerGroupId = `bbc-required-filler-${uid}`;
+		      const refrigeratorMemberUids = new Set(isRefrigerator(cabinet)
+		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
+		        : []);
+		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
 	      const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
 	      const peers = workingPrev.filter((p) => p.uid !== uid);
 	      const edgeSnap = customPlacementMode || exactWallDrag ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
@@ -4745,7 +4757,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }));
         }
       }
-	      let nextPlaced = workingPrev.map((p) => (p.uid === uid ? movedCabinet : p));
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitRefrigeratorAssemblyCandidate(prev, uid, movedCabinet, room) ?? prev
+		        : workingPrev.map((p) => (p.uid === uid ? movedCabinet : p));
 	      if (isBlindCorner(movedCabinet.masterCode, movedCabinet.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          movedCabinet,
@@ -4863,12 +4877,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // nudged off it freely (it does not drag the island with it) so users can
   // re-arrange the island run; we just keep every cabinet clamped inside the
   // room. This is the fix for "can't move a cabinet once it's on the island".
-	  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
+			  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
 	    if (!selectedUid) return;
 	    setPlaced((prev) => {
-	      const selected = prev.find((item) => item.uid === selectedUid);
-	      const requiredFillerGroupId = `bbc-required-filler-${selectedUid}`;
-	      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
+		      const selected = prev.find((item) => item.uid === selectedUid);
+		      if (!selected) return prev;
+		      const requiredFillerGroupId = `bbc-required-filler-${selectedUid}`;
+		      const refrigeratorMemberUids = new Set(isRefrigerator(selected)
+		        ? prev.filter((item) => item.uid !== selectedUid && refrigeratorAssemblyMemberRole(item, selected, room)).map((item) => item.uid)
+		        : []);
+		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
 	      const moved = workingPrev.map((p) =>
 	        p.uid === selectedUid
           ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
@@ -4884,7 +4902,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(message);
         return prev;
       }
-	      let nextPlaced = candidate ? clamped.map((item) => item.uid === selectedUid ? candidate : item) : clamped;
+		      let nextPlaced = candidate
+		        ? isRefrigerator(selected)
+		          ? commitRefrigeratorAssemblyCandidate(prev, selectedUid, candidate, room) ?? prev
+		          : clamped.map((item) => item.uid === selectedUid ? candidate : item)
+		        : clamped;
 	      if (candidate && selected && isBlindCorner(candidate.masterCode, candidate.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          candidate,
@@ -4966,8 +4988,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    const peersWithoutLinkedFiller = prev.filter(
 	      (item) => item.uid !== uid && item.fillerPieceGroupId !== requiredFillerGroupId,
 	    );
-	    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
-	      let nextPlaced = commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
+		    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitRefrigeratorAssemblyCandidate(prev, uid, candidate, room)
+		        : commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
 	      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
 	      if (isBlindCorner(candidate.masterCode, candidate.description)) {
 	        const required = buildRequiredBlindCornerFiller(

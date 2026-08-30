@@ -1145,3 +1145,7 @@
 - [x] Resolve crown molding to a real selected-line catalog SKU and price in Designer cart and Materials & Parts without changing the confirmed crown geometry
 - [x] Render all GD glass-door cabinets with finished single- or double-door frames, transparent glass centers, visible interior shelves, and interiors matching the selected exterior finish in 2D and 3D
 - [x] Add crown pricing identity and universal glass-door single/double/finish/shelf regressions, validate the live paths, and publish only after they pass
+- [x] Restore the missing left refrigerator cabinet panel and keep both surround panels attached to the refrigerator assembly across placement, movement, save, and restore
+- [x] Align the over-refrigerator bridge cabinet directly above the refrigerator using the saved appliance footprint, correct width, depth, and mounting elevation without introducing overlap
+- [x] Render the refrigerator appliance shell, exposed sides, and top in neutral black or gray instead of inheriting the selected cabinet finish while keeping surround panels and bridge cabinet in the cabinet finish
+- [x] Add refrigerator assembly, left/right panel, bridge alignment, shell-finish separation, collision, persistence, 2D/3D, and affiliate Designer regressions before publication

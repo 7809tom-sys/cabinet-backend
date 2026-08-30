@@ -45,7 +45,7 @@ describe("Design Tool mandatory BBC filler transactions", () => {
 	    expect(start).toBeGreaterThan(-1);
 	    expect(end).toBeGreaterThan(start);
 	    const movement = source.slice(start, end);
-	    expect(movement).toContain("const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId)");
+	    expect(movement).toContain("item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid)");
 	    expect(movement).toContain("buildRequiredBlindCornerFiller(");
 	    expect(movement).toContain("appendCollisionFreePlacements(nextPlaced, [required.filler])");
 	    expect(movement).toContain("placedRef.current = nextPlaced");
@@ -58,7 +58,7 @@ describe("Design Tool mandatory BBC filler transactions", () => {
 	    expect(start).toBeGreaterThan(-1);
 	    expect(end).toBeGreaterThan(start);
 	    const movement = source.slice(start, end);
-	    expect(movement).toContain("const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId)");
+	    expect(movement).toContain("item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid)");
 	    expect(movement).toContain("buildRequiredBlindCornerFiller(");
 	    expect(movement).toContain("appendCollisionFreePlacements(nextPlaced, [required.filler])");
 	    expect(movement).toContain("placedRef.current = nextPlaced");

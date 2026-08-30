@@ -42,8 +42,10 @@ describe("universal exact-zero cabinet adjacency routing", () => {
   it("preserves existing cabinets while configuring a refrigerator and its panels", () => {
     const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
     expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
-    expect(refrigeratorPath).toContain("fitRefrigeratorEnclosurePlacements(latestConfigured, toPlace, fridge.uid, room)");
-    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid)");
+    expect(refrigeratorPath).toContain("fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room)");
+    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid)");
+    expect(refrigeratorPath).toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");
+    expect(refrigeratorPath).toContain("placedRef.current = committedPreview");
     expect(refrigeratorPath).toContain("retain both end panels and preserve the neighboring cabinet");
     expect(refrigeratorPath).toContain("formatEighthInches(overlapIn)");
     expect(refrigeratorPath).toContain("The existing cabinet was preserved in its exact position.");

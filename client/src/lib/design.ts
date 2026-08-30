@@ -321,6 +321,9 @@ export type DecorativeEndTreatment = "none" | "left" | "right" | "both";
 /** Horizontal position of the visible pull or knob on a placed cabinet front. */
 export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "paired";
 
+export type RefrigeratorAssemblyRole = "bridge" | "left-panel" | "right-panel";
+export type RefrigeratorPanelMode = "left" | "right" | "both" | "none";
+
 export interface PlacedCabinet {
   uid: string;
   cabinetId: number;
@@ -375,6 +378,12 @@ export interface PlacedCabinet {
   mountBottom?: number | null;
   /** True after a user intentionally changes mountBottom; automatic over-sink cleanup must preserve it. */
   mountBottomAdjusted?: boolean;
+  /** Refrigerator UID that owns this over-fridge cabinet or enclosure panel. */
+  refrigeratorAssemblyId?: string | null;
+  /** Durable role inside a refrigerator enclosure so movement/rebuild cannot orphan a member. */
+  refrigeratorAssemblyRole?: RefrigeratorAssemblyRole | null;
+  /** Requested enclosure-panel mode persisted on the refrigerator appliance. */
+  refrigeratorPanelMode?: RefrigeratorPanelMode | null;
   // Blind corner cabinets install ACROSS the corner with a manufacturer pull
   // range: the cabinet can be pulled away from the corner between pullMin and
   // pullMax inches (e.g. a 36" blind base that pulls out to 39"). These come
@@ -4175,6 +4184,154 @@ export function isRefrigeratorWallCabinet(p: Pick<PlacedCabinet, "masterCode" | 
   return /^WR\d{4}$/.test(code) || /^RW[-\d]/.test(code) || /refrigerator\s*(wall|bridge|cabinet|upper)/.test(description);
 }
 
+export function refrigeratorAssemblyMemberRole(
+  member: PlacedCabinet,
+  refrigerator: PlacedCabinet,
+  room: RoomData,
+): RefrigeratorAssemblyRole | null {
+  if (member.refrigeratorAssemblyId === refrigerator.uid && member.refrigeratorAssemblyRole) {
+    return member.refrigeratorAssemblyRole;
+  }
+  if (cabinetWall(member, room) !== cabinetWall(refrigerator, room)) return null;
+  const side = cabinetWall(refrigerator, room);
+  const horizontal = side === "top" || side === "bottom";
+  const refrigeratorSize = placedFootprint(refrigerator);
+  const memberSize = placedFootprint(member);
+  const refrigeratorStart = horizontal ? refrigerator.x : refrigerator.y;
+  const refrigeratorEnd = refrigeratorStart + (horizontal ? refrigeratorSize.w : refrigeratorSize.d);
+  const memberStart = horizontal ? member.x : member.y;
+  const memberEnd = memberStart + (horizontal ? memberSize.w : memberSize.d);
+  if (isRefrigeratorWallCabinet(member) && footprintsOverlap(member, refrigerator)) return "bridge";
+  if (!isRefrigeratorEndPanel(member)) return null;
+  if (Math.abs(memberEnd - refrigeratorStart) <= 3) return "left-panel";
+  if (Math.abs(memberStart - refrigeratorEnd) <= 3) return "right-panel";
+  return null;
+}
+
+export function refrigeratorAssemblyMembers(
+  placed: PlacedCabinet[],
+  refrigerator: PlacedCabinet,
+  room?: RoomData | null,
+) {
+  const enclosure = room ?? DEFAULT_ROOM;
+  return placed.flatMap((member) => {
+    if (member.uid === refrigerator.uid) return [];
+    const role = refrigeratorAssemblyMemberRole(member, refrigerator, enclosure);
+    return role ? [{ member, role }] : [];
+  });
+}
+
+/** Replaces a moved refrigerator and reconciles its linked bridge and panels as one unit. */
+export function commitRefrigeratorAssemblyCandidate(
+  placed: PlacedCabinet[],
+  refrigeratorUid: string,
+  candidate: PlacedCabinet,
+  room?: RoomData | null,
+): PlacedCabinet[] | null {
+  const source = placed.find((item) => item.uid === refrigeratorUid);
+  if (!source || !isRefrigerator(source)) return null;
+  const members = refrigeratorAssemblyMembers(placed, source, room);
+  const memberUids = new Set(members.map(({ member }) => member.uid));
+  const peers = placed.filter((item) => item.uid !== refrigeratorUid && !memberUids.has(item.uid));
+  return normalizeRefrigeratorBayUppers([...peers, candidate, ...members.map(({ member }) => member)], room);
+}
+
+/**
+ * Keeps a refrigerator, its over-fridge cabinet, and its requested enclosure
+ * panels as one persisted assembly. Legacy members are recognized by physical
+ * adjacency and upgraded with durable ownership metadata. The bridge is centered
+ * over the exact appliance span; panels sit immediately outside each edge; and
+ * the complete assembly shifts together if a neighbor would otherwise hide one.
+ */
+export function reconcileRefrigeratorAssemblies(
+  placed: PlacedCabinet[],
+  room?: RoomData | null,
+): PlacedCabinet[] {
+  const enclosure = room ?? DEFAULT_ROOM;
+  let reconciled = [...placed];
+  for (const refrigeratorUid of reconciled.filter(isRefrigerator).map((item) => item.uid)) {
+    const refrigerator = reconciled.find((item) => item.uid === refrigeratorUid);
+    if (!refrigerator) continue;
+    const side = cabinetWall(refrigerator, enclosure);
+    const horizontal = side === "top" || side === "bottom";
+    const refrigeratorSize = placedFootprint(refrigerator);
+    const refrigeratorStart = horizontal ? refrigerator.x : refrigerator.y;
+    const refrigeratorSpan = horizontal ? refrigeratorSize.w : refrigeratorSize.d;
+    const members = reconciled.flatMap((member) => {
+      if (member.uid === refrigerator.uid) return [];
+      const role = refrigeratorAssemblyMemberRole(member, refrigerator, enclosure);
+      return role ? [{ member, role }] : [];
+    });
+    const bridge = members.find(({ role }) => role === "bridge")?.member;
+    const panels = members.filter(({ role }) => role === "left-panel" || role === "right-panel");
+    const repairLegacyBoth = refrigerator.refrigeratorPanelMode == null && Boolean(bridge) && panels.length === 1;
+    const requestedMode: RefrigeratorPanelMode = repairLegacyBoth
+      ? "both"
+      : refrigerator.refrigeratorPanelMode
+        ?? (panels.length >= 2
+          ? "both"
+          : panels[0]?.role === "left-panel"
+            ? "left"
+            : panels[0]?.role === "right-panel"
+              ? "right"
+              : "none");
+    const desiredRoles = new Set<RefrigeratorAssemblyRole>([
+      ...(bridge ? ["bridge" as const] : []),
+      ...(requestedMode === "left" || requestedMode === "both" ? ["left-panel" as const] : []),
+      ...(requestedMode === "right" || requestedMode === "both" ? ["right-panel" as const] : []),
+    ]);
+    const sourcePanel = panels[0]?.member;
+    const refrigeratorTop = elevationBox(refrigerator, enclosure).bottom + elevationBox(refrigerator, enclosure).height;
+    const bridgeHeight = bridge?.height ?? 24;
+    const surround = refrigeratorSurroundElevation(enclosure, refrigeratorTop, bridgeHeight);
+    const bridgeMountBottom = bridge
+      ? refrigeratorUpperMountBottom(bridge, reconciled, enclosure, refrigeratorTop, bridgeHeight)
+      : surround.mountBottom;
+    const assemblyTop = bridgeMountBottom + bridgeHeight;
+    const assemblyMembers: PlacedCabinet[] = [];
+    for (const role of Array.from(desiredRoles)) {
+      let member = members.find((candidate) => candidate.role === role)?.member;
+      if (!member && sourcePanel && (role === "left-panel" || role === "right-panel")) {
+        member = { ...sourcePanel, uid: `refrigerator-${refrigerator.uid}-${role}` };
+      }
+      if (!member) continue;
+      const memberSize = placedFootprint(member);
+      const memberSpan = horizontal ? memberSize.w : memberSize.d;
+      const memberDepth = horizontal ? memberSize.d : memberSize.w;
+      const along = role === "bridge"
+        ? refrigeratorStart + (refrigeratorSpan - memberSpan) / 2
+        : role === "left-panel"
+          ? refrigeratorStart - memberSpan
+          : refrigeratorStart + refrigeratorSpan;
+      const spot = wallPlacementAt(along, memberSpan, memberDepth, side, enclosure);
+      assemblyMembers.push({
+        ...member,
+        ...spot,
+        refrigeratorAssemblyId: refrigerator.uid,
+        refrigeratorAssemblyRole: role,
+        ...(role === "bridge" ? { mountBottom: bridgeMountBottom } : { mountBottom: 0, height: assemblyTop }),
+      });
+    }
+    const assemblyUids = new Set(members.map(({ member }) => member.uid));
+    const peers = reconciled.filter((item) => item.uid !== refrigerator.uid && !assemblyUids.has(item.uid));
+    const refrigeratorWithMode = refrigerator.refrigeratorPanelMode === requestedMode
+      ? refrigerator
+      : { ...refrigerator, refrigeratorPanelMode: requestedMode };
+    const fitted = fitRefrigeratorEnclosurePlacements(
+      [...peers, refrigeratorWithMode],
+      assemblyMembers,
+      refrigerator.uid,
+      enclosure,
+    );
+    reconciled = appendRefrigeratorEnclosurePlacements(
+      fitted.existing,
+      fitted.additions,
+      refrigerator.uid,
+    ).placed;
+  }
+  return reconciled;
+}
+
 /**
  * The cabinet above a refrigerator starts two inches above the appliance, while
  * both it and the finished side panels terminate on one enclosure cap. Returning
@@ -4294,7 +4451,7 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
       ? cabinet
       : { ...cabinet, height: cap, mountBottom: 0 };
   });
-  return normalizeRefrigeratorPanelSeams(normalized, room);
+  return normalizeRefrigeratorPanelSeams(reconcileRefrigeratorAssemblies(normalized, room), room);
 }
 
 /**

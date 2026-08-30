@@ -3418,6 +3418,38 @@ describe("interactive 3D room scene helpers", () => {
     expect(accidentalToeKicks).toHaveLength(0);
   });
 
+  it("keeps the refrigerator side and top shell neutral gray instead of inheriting the selected cabinet finish", () => {
+    const root = new THREE.Group();
+    const selectedCabinetFinish = "#d2aa56";
+    addCabinet(root, {
+      distributorSkuId: 0,
+      cabinetId: 0,
+      masterCode: "FRIDGE-36",
+      description: 'Refrigerator 36"',
+      placementType: "appliance",
+      width: 36,
+      height: 70,
+      depth: 30,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } as never, "back", {}, 144, 120, selectedCabinetFinish, "#f8f8f6");
+
+    const shells: THREE.Mesh[] = [];
+    const doors: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.refrigeratorNeutralShell) shells.push(node);
+      if (node instanceof THREE.Mesh && node.userData.refrigeratorDoor) doors.push(node);
+    });
+    expect(shells).toHaveLength(1);
+    const shellMaterial = shells[0]!.material as THREE.MeshStandardMaterial;
+    expect(shellMaterial.color.getHexString()).toBe("5f666d");
+    expect(shellMaterial.color.getHexString()).not.toBe(selectedCabinetFinish.slice(1));
+    expect(shellMaterial.metalness).toBeCloseTo(0.58, 6);
+    expect(shells[0]!.userData.neutralApplianceSidesAndTop).toBe(true);
+    expect(doors).toHaveLength(2);
+    expect((doors[0]!.material as THREE.MeshStandardMaterial).color.getHexString()).not.toBe(selectedCabinetFinish.slice(1));
+  });
+
   it("preserves catalog envelopes for refrigerator, range, hood, microwave, dishwasher, and wine appliances", () => {
     const fixtures = [
       { masterCode: "FRIDGE-30", width: 30, height: 84, depth: 24, mountBottom: 0, rotation: 0 },

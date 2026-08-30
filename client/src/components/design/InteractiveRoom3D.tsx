@@ -1642,6 +1642,9 @@ export function addCabinet(
   const isWall = placement === "wall";
   const isTall = placement === "tall";
   const isBaseCabinet = placement === "base";
+  const isPlacedAppliance = placement === "appliance";
+  const isRefrigeratorAppliance = isPlacedAppliance && /FRIDGE/i.test(sku.masterCode);
+  const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const isPlacedHood = placement === "appliance" && /HOOD/i.test(sku.masterCode);
   const isFreestandingRange = placement === "appliance" && !isPlacedHood && (/^RANGE[-_]?\d/i.test(sku.masterCode) || /freestanding\s+range|range\s*\/\s*stove/i.test(sku.description ?? ""));
@@ -1720,8 +1723,10 @@ export function addCabinet(
     : resolvedThreeDSpecialtyProfile(sku);
   const angledWallProfile = isAngledWallProfile(sku);
 
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#c6b9a7", roughness: 0.72 });
-  const structuralFinishMaterials: THREE.MeshStandardMaterial[] = [bodyMaterial];
+  const bodyMaterial = new THREE.MeshStandardMaterial(isRefrigeratorAppliance
+    ? { color: "#5f666d", roughness: 0.3, metalness: 0.58 }
+    : { color: "#c6b9a7", roughness: 0.72 });
+  const structuralFinishMaterials: THREE.MeshStandardMaterial[] = isRefrigeratorAppliance ? [] : [bodyMaterial];
   let applyPlainStructuralFinish: ((finishColor: string) => void) | null = null;
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
@@ -1887,7 +1892,9 @@ export function addCabinet(
   } else if (!isPlacedHood) {
     const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMaterial);
     body.userData = {
-      selectedStyleSideSkin: true,
+      ...(isRefrigeratorAppliance
+        ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
+        : { selectedStyleSideSkin: true }),
       ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
     };
     cabinet.add(body);
@@ -1965,7 +1972,9 @@ export function addCabinet(
   // Side skins inherit the selected finish color but must never project the door
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
   // is reserved for true front meshes above; the carcass gets a flush finish skin.
-  bodyMaterial.userData = { selectedFinishSideSkin: true, usesDoorImage: false };
+  bodyMaterial.userData = isRefrigeratorAppliance
+    ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true, usesDoorImage: false }
+    : { selectedFinishSideSkin: true, usesDoorImage: false };
   // Every decorative standard front must remain on the physical exterior of the
   // carcass. The former 0.015-ft group offset placed the inner face of a 0.045-
   // or 0.052-ft door mesh inside the box. Seat the deepest supported front just
@@ -2177,7 +2186,6 @@ export function addCabinet(
       frontGroup.add(stem);
     }
   };
-  const isPlacedAppliance = placement === "appliance";
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (isRefrigeratorEndPanel) {
@@ -2189,12 +2197,12 @@ export function addCabinet(
     panelFace.userData = { refrigeratorEndPanel: true, architecturalPanel: true, noCabinetHardware: true, selectedFinishFace: true };
     frontGroup.add(panelFace);
   } else if (isPlacedAppliance) {
-    const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
+    const usesCabinetFinishForAppliance = isPanelReadyAppliance && !isRefrigeratorAppliance;
     const applianceMaterial = new THREE.MeshStandardMaterial({
-      color: isPanelReadyAppliance ? faceColor : rangeAppearance?.bodyColor ?? "#c7cbd0",
-      map: isPanelReadyAppliance ? doorTexture : null,
-      roughness: isPanelReadyAppliance ? 0.42 : 0.24,
-      metalness: isPanelReadyAppliance ? 0.04 : 0.62,
+      color: usesCabinetFinishForAppliance ? faceColor : rangeAppearance?.bodyColor ?? "#c7cbd0",
+      map: usesCabinetFinishForAppliance ? doorTexture : null,
+      roughness: usesCabinetFinishForAppliance ? 0.42 : 0.24,
+      metalness: usesCabinetFinishForAppliance ? 0.04 : 0.62,
     });
     const glassMaterial = new THREE.MeshStandardMaterial({ color: "#1f2933", roughness: 0.18, metalness: 0.35 });
     const code = sku.masterCode.toUpperCase();
