@@ -1182,3 +1182,7 @@
 - [x] Make every cabinet or compatible part placed in island mode use island-local elevation rules, sitting at floor level by default while preserving real SKU, dimensions, doors, shelves, finish, and price unless the user explicitly changes elevation
 - [x] Replace outer-room-wall opening/position/remaining measurements for selected island members with measurements along the owning Front, Back, Left, or Right island face
 - [x] Add exact mobile/desktop plan/3D, island-face measurement, movement, save/restore, automatic slab, zero-overlap, cart, and materials regressions before republishing
+- [x] Audit the exact WFR2442 Ashford/Aero Blanc catalog, supplier cost, active tier, and Reeves Way affiliate markup that produced the live $408.87 Designer price
+- [x] Trace WFR2442 pricing through selected-style catalog, affiliate Designer, selected details, Materials & Parts, cart, order, and saved-design refresh without changing unrelated SKUs
+- [x] Correct only the verified authoritative WFR2442 price source or downstream resolver, preserving real cabinet/distributor/style identity and configured affiliate markup
+- [x] Add WFR2442 public/affiliate/Designer/materials/cart/order/persistence price regressions and publish only after every path agrees

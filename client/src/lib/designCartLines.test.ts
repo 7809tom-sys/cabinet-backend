@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "./designCartLines";
 import { appendRefrigeratorEnclosurePlacements, fitRefrigeratorEnclosurePlacements, CUSTOM_SIZE_FEE, type PlacedCabinet } from "@/lib/design";
 import { buildRequiredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
+import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 
 const bec = {
   uid: "bec-one",
@@ -18,6 +19,41 @@ const bec = {
 } as PlacedCabinet;
 
 describe("designer cabinet cart lines", () => {
+	  it("uses W-24-42's verified $265.06 tier price for legacy WFR2442 in both preview and locked cart", () => {
+	    const legacyWfr = {
+	      ...bec,
+	      uid: "legacy-wfr2442",
+	      cabinetId: 9390140,
+	      masterCode: "WFR2442",
+	      description: '24" Double Door Wall Cabinet with 3 Adjustable Shelves',
+	      placement: "wall",
+	      width: 24,
+	      depth: 12,
+	      height: 42,
+	    } as PlacedCabinet;
+	    const identities = activeCatalogPricingIdsByMasterCode([
+	      { id: 9390128, masterCode: "W-24-42" },
+	    ]);
+	    const verifiedTierPrices = new Map([["9390128:330002", 265.06]]);
+	    const unitPriceFor = (cabinet: PlacedCabinet) => verifiedTierPrices.get(
+	      `${currentCatalogPricingCabinetId(cabinet, identities)}:330002`,
+	    ) ?? null;
+	    const common = {
+	      placed: [legacyWfr],
+	      styleId: 330002,
+	      distributorId: 210001,
+	      tier: "homeowner" as const,
+	      styleNameById: new Map([[330002, "Aero Blanc (Preston)"]]),
+	      unitPriceFor,
+	    };
+	    expect(buildDesignPreviewPricingLines(common)).toEqual([
+	      expect.objectContaining({ masterCode: "WFR2442", unitPrice: 265.06, qty: 1, placementUids: ["legacy-wfr2442"] }),
+	    ]);
+	    expect(buildDesignCabinetCartLines(common)).toEqual([
+	      expect.objectContaining({ masterCode: "WFR2442", unitPrice: 265.06, qty: 1, priceLocked: true }),
+	    ]);
+	  });
+
 	  it("prices a mandatory BBC filler through its real catalog cabinet ID and SKU", () => {
 	    const blind = {
 	      ...bec,
