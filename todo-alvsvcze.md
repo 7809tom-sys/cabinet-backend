@@ -1178,3 +1178,7 @@
 - [x] Reproduce the exact live right-wall HOOD-30 saved scene in both plan/top and final 3D using its real wall key, rotated footprint, range relationship, and room dimensions; the owner confirmed the published hood is correct after refresh
 - [x] Correct the right-wall hood physical rear plane and plan footprint so the visible assembly mounts to the wall rather than only passing an unrotated top-wall mesh test; the owner confirmed the published hood is correct after refresh
 - [x] Add exact reproduced right-wall plan/3D bounds, movement, range-centering, persistence, and all-wall rotated-scene regressions before republishing; no additional post-confirmation hood code was retained
+- [x] Reproduce the mobile island scene where WFR2442 retains wall-cabinet mounting elevation and floats above the floor-built island assembly
+- [x] Make every cabinet or compatible part placed in island mode use island-local elevation rules, sitting at floor level by default while preserving real SKU, dimensions, doors, shelves, finish, and price unless the user explicitly changes elevation
+- [x] Replace outer-room-wall opening/position/remaining measurements for selected island members with measurements along the owning Front, Back, Left, or Right island face
+- [x] Add exact mobile/desktop plan/3D, island-face measurement, movement, save/restore, automatic slab, zero-overlap, cart, and materials regressions before republishing

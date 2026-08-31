@@ -10,6 +10,7 @@ import {
   type IslandZone,
   type PlacedCabinet,
   type RoomData,
+  type WallCabinetFitMeasure,
 } from "./design";
 
 export const ISLAND_COUNTERTOP_OVERHANG_IN = 1.5;
@@ -22,10 +23,105 @@ export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, 
   const width = Math.max(0, Number(cabinet.width) || 0);
   const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);
   const along = Math.max(0, Math.min(offset, Math.max(0, islandFaceLength(island, face) - width)));
-  if (face === "front") return { ...cabinet, x: island.x + along, y: island.y + island.depth - depth, rotation: 0, islandFace: face, islandOffset: along };
-  if (face === "back") return { ...cabinet, x: island.x + along, y: island.y, rotation: 180, islandFace: face, islandOffset: along };
-  if (face === "left") return { ...cabinet, x: island.x, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
-  return { ...cabinet, x: island.x + island.width - depth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+  const mountBottom = cabinet.mountBottomAdjusted === true && typeof cabinet.mountBottom === "number" && cabinet.mountBottom >= 0
+    ? cabinet.mountBottom
+    : 0;
+  const local = { ...cabinet, mountBottom };
+  if (face === "front") return { ...local, x: island.x + along, y: island.y + island.depth - depth, rotation: 0, islandFace: face, islandOffset: along };
+  if (face === "back") return { ...local, x: island.x + along, y: island.y, rotation: 180, islandFace: face, islandOffset: along };
+  if (face === "left") return { ...local, x: island.x, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
+  return { ...local, x: island.x + island.width - depth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+}
+
+export function islandFaceFitMeasure(
+  moving: PlacedCabinet,
+  island: IslandZone,
+  placed: PlacedCabinet[],
+): WallCabinetFitMeasure | null {
+  const face = moving.islandFace ?? null;
+  if (!face) return null;
+  const wallLen = islandFaceLength(island, face);
+  const start = Math.max(0, islandOffsetForPlaced(moving, island, face));
+  const requiredSpan = Math.max(0, Number(moving.width) || 0);
+  const end = start + requiredSpan;
+  const peers = placed
+    .filter((item) => item.uid !== moving.uid && item.islandFace === face)
+    .map((item) => ({
+      item,
+      start: Math.max(0, islandOffsetForPlaced(item, island, face)),
+      end: Math.max(0, islandOffsetForPlaced(item, island, face)) + Math.max(0, Number(item.width) || 0),
+    }))
+    .sort((a, b) => a.start - b.start);
+  const segments: Array<{ start: number; end: number; beforeBoundary: string; afterBoundary: string }> = [];
+  let cursor = 0;
+  let beforeBoundary = "island face start";
+  for (const peer of peers) {
+    if (peer.start > cursor + COLLISION_EPSILON_IN) {
+      segments.push({ start: cursor, end: peer.start, beforeBoundary, afterBoundary: peer.item.masterCode });
+    }
+    if (peer.end > cursor) {
+      cursor = peer.end;
+      beforeBoundary = peer.item.masterCode;
+    }
+  }
+  if (cursor < wallLen - COLLISION_EPSILON_IN) {
+    segments.push({ start: cursor, end: wallLen, beforeBoundary, afterBoundary: "island face end" });
+  }
+  if (segments.length === 0) {
+    segments.push({ start: 0, end: wallLen, beforeBoundary: "island face start", afterBoundary: "island face end" });
+  }
+  const distanceTo = (segment: { start: number; end: number }) => {
+    if (end < segment.start) return segment.start - end;
+    if (start > segment.end) return start - segment.end;
+    return 0;
+  };
+  const selected = segments.reduce((best, segment) => distanceTo(segment) < distanceTo(best) ? segment : best, segments[0]);
+  const availableStart = selected.start;
+  const availableEnd = selected.end;
+  const availableSpan = Math.max(0, availableEnd - availableStart);
+  let leftOverlap = 0;
+  let rightOverlap = 0;
+  const center = (start + end) / 2;
+  for (const peer of peers) {
+    const overlap = Math.min(end, peer.end) - Math.max(start, peer.start);
+    if (overlap <= COLLISION_EPSILON_IN) continue;
+    if ((peer.start + peer.end) / 2 <= center) leftOverlap = Math.max(leftOverlap, overlap);
+    else rightOverlap = Math.max(rightOverlap, overlap);
+  }
+  const status = leftOverlap > 0 || rightOverlap > 0
+    ? "overlap"
+    : availableSpan + COLLISION_EPSILON_IN < requiredSpan
+      ? "insufficient"
+      : "fits";
+  const snapStart = availableSpan + COLLISION_EPSILON_IN >= requiredSpan
+    ? Math.max(availableStart, Math.min(start, availableEnd - requiredSpan))
+    : availableStart;
+  const snapEnd = snapStart + requiredSpan;
+  const side = face === "front" ? "bottom" : face === "back" ? "top" : face === "left" ? "left" : "right";
+  return {
+    side,
+    layer: moving.placement,
+    seated: true,
+    requiredSpan,
+    start,
+    end,
+    wallLen,
+    availableStart,
+    availableEnd,
+    availableSpan,
+    before: Math.max(0, start - availableStart),
+    after: Math.max(0, availableEnd - end),
+    leftOverlap,
+    rightOverlap,
+    shortage: Math.max(0, requiredSpan - availableSpan),
+    snapStart,
+    snapEnd,
+    snapBefore: Math.max(0, snapStart - availableStart),
+    snapAfter: Math.max(0, availableEnd - snapEnd),
+    beforeBoundary: selected.beforeBoundary,
+    afterBoundary: selected.afterBoundary,
+    status,
+  };
 }
 
 export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): IslandFace {

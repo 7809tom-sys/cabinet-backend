@@ -19,6 +19,11 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("setIsland((current) => current ? { ...current, activeFace: face } : current)");
 	});
 
+	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {
+	  expect(source).toContain("islandFaceFitMeasure(selectedCab, island, placed)");
+	  expect(source).toContain("island && selectedCab.islandFace");
+	});
+
   it("moves, resizes, rotates, and removes the complete island assembly through authoritative helpers", () => {
     expect(source).toContain("moveIslandScene(island, placedRef.current, room");
     expect(source).toContain("resizeIslandScene(moved.island, moved.placed, room");

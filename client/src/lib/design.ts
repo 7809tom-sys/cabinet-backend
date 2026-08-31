@@ -2679,6 +2679,12 @@ export function elevationBox(
   if (isRefrigeratorEndPanel(p)) {
     return { bottom: 0, height: room?.ceilingHeight ?? 96 };
   }
+  // Island cabinets and compatible parts build from the finished floor rather
+  // than inheriting room-wall hanging defaults. A deliberate elevation edit is
+  // retained through mountBottomAdjusted, including after save and restore.
+  if (p.islandFace && p.mountBottomAdjusted !== true) {
+    return { bottom: 0, height: placedHeight(p) };
+  }
   // The top line the upper run finishes at. On a standard 8ft ceiling this is
   // the historical 84" line; on taller ceilings the run hangs higher so it
   // finishes near the ceiling (see wallCabinetTopLine).

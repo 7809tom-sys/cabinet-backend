@@ -992,7 +992,7 @@ describe("interactive 3D room scene helpers", () => {
 	    }
 	  });
 
-	  it("honors explicit island-face ownership for outward-facing cabinets on all four island runs", () => {
+		  it("honors explicit island-face ownership for outward-facing cabinets on all four island runs", () => {
 	    const room = { width: 144, depth: 120, ceilingHeight: 96 };
 	    const expected = { front: 0, back: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 };
 	    for (const face of ["front", "back", "left", "right"] as const) {
@@ -1012,9 +1012,30 @@ describe("interactive 3D room scene helpers", () => {
 	        islandOffset: 0,
 	      } as never;
 	      expect(threeDRoomFacingRotation(cabinet, room)).toBeCloseTo(expected[face], 12);
-	      expect(existingCabinetTransform(cabinet, room).rotation).toBeCloseTo(expected[face], 12);
-	    }
-	  });
+		      expect(existingCabinetTransform(cabinet, room).rotation).toBeCloseTo(expected[face], 12);
+		    }
+		  });
+
+		  it("renders a WFR2442 selected for an island at finished-floor elevation instead of the wall-cabinet mount line", () => {
+		    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+		    const islandWallCabinet = {
+		      uid: "mobile-island-wfr2442",
+		      cabinetId: 2442,
+		      masterCode: "WFR2442",
+		      description: "24 inch double door wall cabinet with shelves",
+		      placement: "wall",
+		      x: 48,
+		      y: 72,
+		      width: 24,
+		      depth: 12,
+		      height: 42,
+		      rotation: 0,
+		      mountBottom: 54,
+		      islandFace: "front",
+		      islandOffset: 0,
+		    } as never;
+		    expect(existingCabinetTransform(islandWallCabinet, room)).toMatchObject({ bottom: 0, rotation: 0 });
+		  });
 
 	  it("uses the persisted 2D plan instead of starter suggestions for any saved entity, not only cabinets", () => {
     expect(hasPersistedTwoDScene({ placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] })).toBe(false);

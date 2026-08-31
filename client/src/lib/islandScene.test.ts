@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { hasCollision, makeSinkForCabinet, type IslandZone, type PlacedCabinet, type RoomData } from "./design";
+import { elevationBox, hasCollision, makeSinkForCabinet, type IslandZone, type PlacedCabinet, type RoomData } from "./design";
 import {
   ISLAND_COUNTERTOP_OVERHANG_IN,
   islandCountertopRect,
+  islandFaceFitMeasure,
   islandFacePlacement,
   moveIslandScene,
   nextIslandFacePlacement,
@@ -35,6 +36,39 @@ describe("island mini-scene geometry", () => {
     ["right", { x: 84, y: 36, rotation: 270 }],
   ] as const)("places the cabinet on the %s face with its door facing outward", (face, expected) => {
     expect(islandFacePlacement(cabinet(), island, face, 0)).toMatchObject({ ...expected, islandFace: face, islandOffset: 0 });
+  });
+
+  it("places a wall catalog cabinet at island floor level while preserving an explicit later elevation edit", () => {
+    const wallCabinet = cabinet({ uid: "wfr2442", masterCode: "WFR2442", placement: "wall", depth: 12, height: 42, mountBottom: 54 });
+    const floorPlaced = islandFacePlacement(wallCabinet, island, "front", 0);
+    expect(floorPlaced).toMatchObject({ islandFace: "front", islandOffset: 0, mountBottom: 0 });
+    expect(elevationBox(floorPlaced, room)).toEqual({ bottom: 0, height: 42 });
+
+    const raised = islandFacePlacement({ ...floorPlaced, mountBottom: 6, mountBottomAdjusted: true }, island, "front", 0);
+    expect(raised.mountBottom).toBe(6);
+    expect(elevationBox(raised, room)).toEqual({ bottom: 6, height: 42 });
+  });
+
+  it("measures a selected island member along its owning face instead of the outer 144-inch room wall", () => {
+    const first = islandFacePlacement(cabinet({ uid: "first" }), island, "front", 0);
+    const selected = islandFacePlacement(cabinet({ uid: "selected" }), island, "front", 24);
+    const measurement = islandFaceFitMeasure(selected, island, [first, selected]);
+    expect(measurement).toMatchObject({
+      seated: true,
+      requiredSpan: 24,
+      start: 24,
+      end: 48,
+      wallLen: 72,
+      availableStart: 24,
+      availableEnd: 72,
+      availableSpan: 48,
+      beforeBoundary: "B-24",
+      afterBoundary: "island face end",
+      snapBefore: 0,
+      snapAfter: 24,
+      status: "fits",
+    });
+    expect(measurement?.wallLen).not.toBe(room.width);
   });
 
   it("adds same-face cabinets left-to-right with edge contact and zero overlap", () => {

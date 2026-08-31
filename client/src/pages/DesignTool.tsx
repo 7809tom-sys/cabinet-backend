@@ -113,7 +113,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { inferredIslandFace, islandCountertopRect, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { inferredIslandFace, islandCountertopRect, islandFaceFitMeasure, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -6319,11 +6319,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const selectedCab = placed.find((p) => p.uid === selectedUid);
   const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
   const selectedCabWallFit = useMemo(
-    () => selectedCab && (selectedCab.placement === "base" || selectedCab.placement === "wall")
-      ? wallCabinetFitMeasure(selectedCab, room, placed, openings)
-      : null,
-    [openings, placed, room, selectedCab],
-  );
+	    () => selectedCab && (selectedCab.placement === "base" || selectedCab.placement === "wall")
+	      ? island && selectedCab.islandFace
+	        ? islandFaceFitMeasure(selectedCab, island, placed)
+	        : wallCabinetFitMeasure(selectedCab, room, placed, openings)
+	      : null,
+	    [island, openings, placed, room, selectedCab],
+	  );
   const selectedCabWallFitText = threeDWallFitGuideText(selectedCabWallFit);
 
   // Mobile cabinet-edit bottom sheet: auto-opens when a cabinet is selected on

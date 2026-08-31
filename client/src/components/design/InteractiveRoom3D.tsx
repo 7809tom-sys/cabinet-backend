@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
-import { islandCountertopRect } from "@/lib/islandScene";
+import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
 import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -3404,8 +3404,10 @@ export function existingCabinetTransform(
   const rotation = threeDRoomFacingRotation(cabinet, room, savedRotationRadians);
   const sharedElevation = elevationBox(cabinet, room);
   const explicitMountBottom = cabinet.mountBottom == null ? null : numberValue(cabinet.mountBottom, 0);
-  const bottom = cabinet.placement === "wall" || cabinet.placement === "appliance" || explicitMountBottom != null
-    ? explicitMountBottom ?? sharedElevation.bottom
+  const bottom = cabinet.islandFace && cabinet.mountBottomAdjusted !== true
+    ? sharedElevation.bottom
+    : cabinet.placement === "wall" || cabinet.placement === "appliance" || explicitMountBottom != null
+      ? explicitMountBottom ?? sharedElevation.bottom
     : cabinet.placement === "baseTop"
       ? STD.BASE_HEIGHT - numberValue(cabinet.height, 6)
       : cabinet.placement === "underCabinet"
@@ -5334,9 +5336,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
 	        const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
 	        const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
-	        const wallFit = selectedPlacedCabinet && roomOverride && selectedWall
-	          ? wallCabinetFitMeasure(selectedPlacedCabinet, roomOverride, placed, openings, selectedWall)
-	          : null;
+		        const wallFit = selectedPlacedCabinet && island && selectedPlacedCabinet.islandFace
+		          ? islandFaceFitMeasure(selectedPlacedCabinet, island, placed)
+		          : selectedPlacedCabinet && roomOverride && selectedWall
+		            ? wallCabinetFitMeasure(selectedPlacedCabinet, roomOverride, placed, openings, selectedWall)
+		            : null;
 	        const wallFitText = threeDWallFitGuideText(wallFit);
 	        const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
 		        return <div data-testid="three-d-cabinet-attributes" className={threeDSelectedCabinetDockClass()}>
