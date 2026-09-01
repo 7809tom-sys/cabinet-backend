@@ -1186,3 +1186,7 @@
 - [x] Trace WFR2442 pricing through selected-style catalog, affiliate Designer, selected details, Materials & Parts, cart, order, and saved-design refresh without changing unrelated SKUs
 - [x] Correct only the verified authoritative WFR2442 price source or downstream resolver, preserving real cabinet/distributor/style identity and configured affiliate markup
 - [x] Add WFR2442 public/affiliate/Designer/materials/cart/order/persistence price regressions and publish only after every path agrees
+- [x] Reproduce the remaining live price shown after version 56dbfff0 on the exact affiliate production route and identify the selected cabinet ID, code, style, tier, and UI price surface
+- [x] Trace affiliate route context and saved-design price refresh through selected details, Materials & Parts, cart, and checkout to find the resolver still bypassing canonical pricing
+- [x] Correct only the verified remaining identity, tier, affiliate-markup, or stale-price path without changing unrelated catalog rows
+- [x] Add exact production-scenario regressions and publish only after the repeated live price display agrees across every commerce surface

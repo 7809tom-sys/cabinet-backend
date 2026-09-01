@@ -4,7 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -17,6 +17,7 @@ import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pric
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
+import { canonicalizeDesignPriceItems, normalizedDesignPriceCode } from "../lib/designPriceAliases";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import {
@@ -45,6 +46,21 @@ async function resolveAffiliateDesignOwner(
     .limit(1);
   if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate storefront not found." });
   return rows[0];
+}
+
+async function resolveDesignPriceAliases<T extends { masterCode: string }>(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  items: readonly T[],
+): Promise<Array<T & { requestedMasterCode: string }>> {
+  const normalizedCodes = Array.from(new Set(items.map((item) => normalizedDesignPriceCode(item.masterCode)).filter(Boolean)));
+  if (normalizedCodes.length === 0) return canonicalizeDesignPriceItems(items, []);
+  const aliasCanon = sql<string>`UPPER(REPLACE(REPLACE(REPLACE(${cabinetAliases.alias}, '-', ''), ' ', ''), '_', ''))`;
+  const aliases = await db
+    .select({ alias: cabinetAliases.alias, canonicalMasterCode: cabinets.masterCode })
+    .from(cabinetAliases)
+    .innerJoin(cabinets, eq(cabinets.id, cabinetAliases.cabinetId))
+    .where(and(inArray(aliasCanon, normalizedCodes), eq(cabinets.isActive, true), notInConflict()));
+  return canonicalizeDesignPriceItems(items, aliases);
 }
 
 type DesignContext = {
@@ -2259,8 +2275,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         throw new TRPCError({ code: "FORBIDDEN", message: "Affiliate pricing is available only to the owner of this storefront." });
       }
 
-      const masterCodes = Array.from(new Set(input.items.map((item) => item.masterCode)));
-      const styleIds = Array.from(new Set(input.items.map((item) => item.styleId)));
+      const canonicalItems = await resolveDesignPriceAliases(db, input.items);
+      const masterCodes = Array.from(new Set(canonicalItems.map((item) => item.masterCode)));
+      const styleIds = Array.from(new Set(canonicalItems.map((item) => item.styleId)));
       const rows = await db
         .select({
           masterCode: cabinets.masterCode,
@@ -2290,7 +2307,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
 
       const pricing = await getPricingSettings();
       const affiliateFees = await getPlatformPricingSettings();
-      const items = input.items.map((item) => {
+      const items = canonicalItems.map((item) => {
         const row = best.get(`${item.masterCode}:${item.styleId}`);
         const customerUnitPrice = row ? sellPriceForTier(row, pricing, "homeowner") : null;
         const rawCost = row?.yourCost == null ? null : Number(row.yourCost);
@@ -2298,7 +2315,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           ? priceLadder(Math.round(rawCost * 100), affiliateFees).affiliateCents / 100
           : null;
         return {
-          masterCode: item.masterCode,
+          masterCode: item.requestedMasterCode,
           styleId: item.styleId,
           quantity: item.quantity,
           customerUnitPrice,
@@ -2335,8 +2352,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const db = await getDb();
       if (!db || input.items.length === 0) return [];
 
-      const masterCodes = Array.from(new Set(input.items.map((i) => i.masterCode)));
-      const styleIds = Array.from(new Set(input.items.map((i) => i.styleId)));
+      const canonicalItems = await resolveDesignPriceAliases(db, input.items);
+      const masterCodes = Array.from(new Set(canonicalItems.map((i) => i.masterCode)));
+      const styleIds = Array.from(new Set(canonicalItems.map((i) => i.styleId)));
       const rows = await db
         .select({
           masterCode: cabinets.masterCode,
@@ -2363,21 +2381,26 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         );
 
       const ps = await getPricingSettings();
-      return selectExactCartPriceRows(input.items, rows, ps).map(({ identity, row: r }) => ({
-        masterCode: r.masterCode,
-        styleId: Number(r.styleId),
-        distributorId: identity.distributorId ?? null,
-        ...visiblePricesForViewer(
-          {
-            listPrice: r.listPrice,
-            adjustedListPrice: r.adjustedListPrice,
-            wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
-            contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
-            homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
-          },
-          resolveStorefrontTier(ctx.user),
-          ctx.user?.role === "admin",
-        ),
-      }));
+      return canonicalItems.flatMap((item) => {
+        const selected = selectExactCartPriceRows([item], rows, ps)[0];
+        if (!selected) return [];
+        const r = selected.row;
+        return [{
+          masterCode: item.requestedMasterCode,
+          styleId: Number(r.styleId),
+          distributorId: item.distributorId ?? null,
+          ...visiblePricesForViewer(
+            {
+              listPrice: r.listPrice,
+              adjustedListPrice: r.adjustedListPrice,
+              wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
+              contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
+              homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+            },
+            resolveStorefrontTier(ctx.user),
+            ctx.user?.role === "admin",
+          ),
+        }];
+      });
     }),
 });
