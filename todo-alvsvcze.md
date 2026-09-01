@@ -1190,4 +1190,4 @@
 - [x] Trace affiliate route context and saved-design price refresh through selected details, Materials & Parts, cart, and checkout to find the resolver still bypassing canonical pricing
 - [x] Correct only the verified remaining identity, tier, affiliate-markup, or stale-price path without changing unrelated catalog rows
 - [x] Add exact production-scenario regressions and publish only after the repeated live price display agrees across every commerce surface
-- [ ] Make the verified WFR2442-to-W-24-42 compatibility mapping available even when the production cabinet_aliases row has not propagated, then reverify the public live pricing endpoint
+- [x] Make the verified WFR2442-to-W-24-42 compatibility mapping available even when the production cabinet_aliases row has not propagated, then reverify the public live pricing endpoint
