@@ -2954,13 +2954,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               description: c.description,
               placement: accPlacement,
             }),
-          );
-          if (!nextSpot) {
-            const runName = accPlacement === "wall" ? "wall-cabinet" : "base-cabinet";
-            const message = `${c.masterCode} was not added because there is no ${width}\" opening after the current ${runName} run on the selected ${WALL_LABELS[activeWall]} wall. The existing layout was not changed.`;
-            setPlacementWarning(message);
-            toast.error(message);
-            return;
+	          );
+	          if (!nextSpot) {
+	            const runName = accPlacement === "wall" ? "wall-cabinet" : "base-cabinet";
+	            const currentUpperHeight = prev
+	              .filter((item) => item.placement === "wall" && cabinetWall(item, room) === activeWall)
+	              .reduce((largest, item) => Math.max(largest, placedHeight(item)), 0);
+	            const matchingUpper = accPlacement === "base"
+	              ? wallCabPoolRef.current
+	                  .filter((candidate) => candidate.placement === "wall" && Math.abs(Number(candidate.width) - width) < 0.01 && !isCornerCabinet(candidate.masterCode, candidate.description))
+	                  .sort((left, right) => Math.abs(Number(left.height) - (currentUpperHeight || 42)) - Math.abs(Number(right.height) - (currentUpperHeight || 42)))[0]
+	              : null;
+	            const categoryHint = accPlacement === "base"
+	              ? matchingUpper
+	                ? ` ${c.masterCode} is a base cabinet. To add the ${formatInches(width)} upper, open the Wall tab and choose ${matchingUpper.masterCode}.`
+	                : ` ${c.masterCode} is a base cabinet. To add an upper cabinet, open the Wall tab and choose a W cabinet.`
+	              : "";
+	            const message = `${c.masterCode} was not added because there is no ${width}\" opening after the current ${runName} run on the selected ${WALL_LABELS[activeWall]} wall. The existing layout was not changed.${categoryHint}`;
+	            setPlacementWarning(message);
+	            toast.error(message);
+	            return;
           }
           spot = nextSpot;
           preserveResolvedPlacement = true;

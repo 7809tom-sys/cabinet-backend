@@ -1212,3 +1212,8 @@
 - [x] Make filler right-click open dedicated filler attributes with size, left/right/split placement, and whole-group removal controls on desktop, tablet, and mobile
 - [x] Reproduce WDC2442 corner placement on the hood and reserve wall-mounted hood space across normal, corner, drag/drop, snap, and placeable cabinet-part flows
 - [x] Validate standard wall back-fill, true corner placement, range-plus-hood coexistence, filler pricing/persistence, island behavior, zero overlap, 2D/3D, and responsive controls before publishing
+- [x] Reproduce why the reported W-1242 add attempt is messaged as B-12 and verify which catalog item the palette actually dispatched
+- [x] Preserve exact selected catalog identity so active W-1242 remains a wall cabinet and B-12 remains a separate floor-level base cabinet
+- [x] Prove W-1242 can use the correct available upper-wall opening without using the hood footprint or overlapping existing cabinets
+- [x] Make a failed B-12 placement explicitly say that B-12 is a base cabinet and direct users seeking the 12-inch upper to the Wall tab and W-1242, without silently substituting products
+- [x] Validate W-1242, B-12, wall/base category switching, hood blocking, wall back-fill, zero overlap, saved design behavior, and desktop/mobile controls before publishing

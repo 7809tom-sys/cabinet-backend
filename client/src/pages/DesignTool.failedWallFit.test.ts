@@ -34,4 +34,11 @@ describe("Design Tool failed wall-fit guidance", () => {
     expect(source).toContain("failedWallFit.measurement.availableEnd");
     expect(source).toContain('failedWallFit.blockers.join(", ")');
   });
+
+  it("identifies an accidentally selected base cabinet and directs the user to the real matching upper without substituting products", () => {
+    expect(source).toContain('const matchingUpper = accPlacement === "base"');
+    expect(source).toContain('wallCabPoolRef.current');
+    expect(source).toContain('${c.masterCode} is a base cabinet. To add the ${formatInches(width)} upper, open the Wall tab and choose ${matchingUpper.masterCode}.');
+    expect(source).toContain('The existing layout was not changed.${categoryHint}');
+  });
 });

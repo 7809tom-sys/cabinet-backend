@@ -1812,6 +1812,18 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       .toEqual({ x: 78, y: 0, rotation: 0 });
   });
 
+  it("keeps B-12 on the base layer while W-1242 back-fills the clear upper opening after the hood", () => {
+    const leftUpper = cab({ uid: "left-upper", masterCode: "W-4842", placement: "wall", x: 0, y: 0, width: 48, depth: 12, height: 42, mountBottom: 54 });
+    const hood = cab({ uid: "hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 18, height: 18, mountBottom: 66 });
+    const corner = cab({ uid: "right-corner", masterCode: "WDC2442", description: "24 inch Diagonal Corner Wall Cabinet", placement: "wall", x: 120, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 });
+    const w1242Spot = paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, hood, corner], [], 12, 12, "wall", true);
+    expect(w1242Spot).toEqual({ x: 78, y: 0, rotation: 0 });
+    expect(hasCollision(cab({ uid: "w1242", masterCode: "W-1242", placement: "wall", ...w1242Spot!, width: 12, depth: 12, height: 42, mountBottom: 54 }), [leftUpper, hood, corner])).toBe(false);
+
+    const fullBaseRun = [cab({ uid: "full-base", masterCode: "B-144", placement: "base", x: 0, y: 0, width: 144, depth: 24, height: 34.5 })];
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullBaseRun, [], 12, 24, "base")).toBeNull();
+  });
+
   it("treats a wall-mounted hood as occupied upper-wall space even without a special reserve flag", () => {
     const hood = cab({ uid: "universal-wall-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 18, height: 18, mountBottom: 66 });
     expect(freeSegmentsOnWall("top", ROOM_12x10, [hood], [], 0, 0, "wall")).toEqual([
