@@ -155,7 +155,7 @@ import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
-import { catalogHeightOptions, filterCatalogByHeight, type HeightFilterPaletteType } from "./designToolCatalogHeights";
+import { catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -1414,7 +1414,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        byHeight.set(height, items);
 	      }
 	      for (const [height, items] of Array.from(byHeight.entries()).sort((a, b) => a[0] - b[0])) {
-	        sections.push({ label: `${formatInches(height)} high`, items });
+	        sections.push({ label: t("dt_pl_grp_high", { h: formatCatalogInchValue(height) }), items });
 	      }
 	      return sortGroups(sections);
 	    }
@@ -1461,16 +1461,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (arr) arr.push(c);
       else groups.set(h, [c]);
     }
-    // Render a height as a clean label: whole inches stay plain (e.g. 42"),
-    // common half-inch cabinet heights use a ½ glyph (e.g. 34½").
-    const fmtHeight = (h: number) => {
-      const whole = Math.floor(h);
-      const frac = h - whole;
-      if (Math.abs(frac - 0.5) < 0.01) return `${whole}½`;
-      if (frac < 0.01) return `${whole}`;
-      return h.toFixed(2).replace(/\.?0+$/, "");
-    };
-    // Tallest first; unknown height (0) sinks to the bottom.
+	    // Tallest first; unknown height (0) sinks to the bottom.
     return sortGroups(Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
       .map(([height, items]) => ({
@@ -1478,9 +1469,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // height should still read as the base height (never a stray "Other"
         // group). Only non-base tabs fall back to "Other".
         label: height
-          ? t("dt_pl_grp_high", { h: fmtHeight(height) })
-          : isBaseFamilyTab
-          ? t("dt_pl_grp_high", { h: fmtHeight(BASE_STD_HEIGHT) })
+	          ? t("dt_pl_grp_high", { h: formatCatalogInchValue(height) })
+	          : isBaseFamilyTab
+	          ? t("dt_pl_grp_high", { h: formatCatalogInchValue(BASE_STD_HEIGHT) })
           : t("dt_pl_grp_other"),
         items,
       })));
@@ -8853,11 +8844,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                             paletteType === "vanity" ||
                             (paletteType === "corner" && isCornerBase(c));
                           const dimensions = resolvedDesignCabinetDimensions(c);
-                          const hVal = isBaseBox ? "34.5" : dimensions.height > 0 ? String(dimensions.height) : "—";
-                          const showH = isBaseBox || dimensions.height > 0;
-                          return (
-                            <div className="text-[10px] text-muted-foreground">{dimensions.width}"W × {hVal}{showH ? "\"H" : ""}</div>
-                          );
+	                          const widthVal = formatCatalogInchValue(dimensions.width);
+	                          const hVal = isBaseBox ? formatCatalogInchValue(34.5) : dimensions.height > 0 ? formatCatalogInchValue(dimensions.height) : "—";
+	                          const showH = isBaseBox || dimensions.height > 0;
+	                          return (
+	                            <div className="text-[10px] text-muted-foreground">{widthVal}"W × {hVal}{showH ? "\"H" : ""}</div>
+	                          );
                         })()}
                       </div>
                       {paletteFinishSwatch && (

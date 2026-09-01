@@ -41,4 +41,19 @@ describe("DesignTool cabinet catalog organization", () => {
     expect(source).toContain("const open = searching || selectedPaletteHeight != null || !collapsedGroups.has(groupKey)");
     expect(source).toContain("for (const c of heightFilteredPalette) buckets[baseSubGroup(c)].push(c)");
   });
+
+  it("keeps cabinet selection height groups and item dimensions in inches", () => {
+    const groupingStart = source.indexOf('if (paletteType === "wall")');
+    const groupingEnd = source.indexOf('// The "Base" tab is organized by base TYPE', groupingStart);
+    const groupingBlock = source.slice(groupingStart, groupingEnd);
+    expect(groupingBlock).toContain('t("dt_pl_grp_high", { h: formatCatalogInchValue(height) })');
+    expect(groupingBlock).not.toContain("formatInches(height)");
+
+    const itemStart = source.indexOf("const isBaseBox =");
+    const itemEnd = source.indexOf("paletteFinishSwatch", itemStart);
+    const itemBlock = source.slice(itemStart, itemEnd);
+    expect(itemBlock).toContain("const widthVal = formatCatalogInchValue(dimensions.width)");
+    expect(itemBlock).toContain("formatCatalogInchValue(dimensions.height)");
+    expect(itemBlock).toContain('{widthVal}"W × {hVal}');
+  });
 });

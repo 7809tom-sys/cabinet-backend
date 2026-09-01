@@ -1194,3 +1194,6 @@
 - [x] Reproduce why placing the reported B-27 base cabinet leaves a small gap without opening the filler prompt, using the actual remaining-space calculation and placement path
 - [x] Restore the filler prompt for eligible residual base-cabinet gaps of 3 inches or less, preserving left/right/split options, zero overlap, real filler SKU pricing, and countertop continuity
 - [x] Add regression coverage for catalog click, drag/drop, snapped placement, non-eligible gaps, island/BBC exclusions, mobile/desktop behavior, and publish only after live validation
+- [x] Locate every feet-plus-inches formatter used by the Designer cabinet selection list, including height groups and cabinet dimension subtitles
+- [x] Restore inch-only labels for every cabinet selection category so 30-inch dimensions display as 30\" rather than 2' 6\", without changing saved or rendered geometry
+- [x] Add desktop/mobile regressions for whole-inch and fractional-inch cabinet dimensions and publish only after live validation

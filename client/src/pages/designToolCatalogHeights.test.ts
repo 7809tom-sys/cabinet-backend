@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesignCabinet } from "@/lib/design";
-import { catalogHeightOptions, filterCatalogByHeight, formatCatalogHeight } from "./designToolCatalogHeights";
+import { catalogHeightOptions, filterCatalogByHeight, formatCatalogHeight, formatCatalogInchValue } from "./designToolCatalogHeights";
 
 const cabinet = (masterCode: string, height: number, category = "Wall") => ({
   id: masterCode.length,
@@ -55,5 +55,15 @@ describe("compact designer catalog height selector", () => {
     expect(formatCatalogHeight(42)).toBe('42"');
     expect(formatCatalogHeight(34.5)).toBe('34½"');
     expect(formatCatalogHeight(17.25)).toBe('17.25"');
+  });
+
+  it("keeps every cabinet selection dimension in inches rather than converting values over twelve inches to feet", () => {
+    expect(formatCatalogInchValue(9)).toBe("9");
+    expect(formatCatalogInchValue(18)).toBe("18");
+    expect(formatCatalogInchValue(30)).toBe("30");
+    expect(formatCatalogInchValue(36)).toBe("36");
+    expect(formatCatalogInchValue(42)).toBe("42");
+    expect(formatCatalogInchValue(96)).toBe("96");
+    expect(formatCatalogInchValue(34.5)).toBe("34½");
   });
 });

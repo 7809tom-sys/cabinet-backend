@@ -23,12 +23,16 @@ export interface CatalogHeightOption {
 const BASE_BOX_HEIGHT = 34.5;
 const FILTERABLE_TYPES = new Set<HeightFilterPaletteType>(["base", "vanity", "corner", "wall", "wallht", "tall"]);
 
+export function formatCatalogInchValue(dimension: number) {
+  const whole = Math.floor(dimension);
+  const fraction = dimension - whole;
+  if (Math.abs(fraction - 0.5) < 0.01) return `${whole}½`;
+  if (fraction < 0.01) return `${whole}`;
+  return dimension.toFixed(2).replace(/\.?0+$/, "");
+}
+
 export function formatCatalogHeight(height: number) {
-  const whole = Math.floor(height);
-  const fraction = height - whole;
-  if (Math.abs(fraction - 0.5) < 0.01) return `${whole}½\"`;
-  if (fraction < 0.01) return `${whole}\"`;
-  return `${height.toFixed(2).replace(/\.?0+$/, "")}\"`;
+  return `${formatCatalogInchValue(height)}\"`;
 }
 
 export function catalogHeightForCabinet(
