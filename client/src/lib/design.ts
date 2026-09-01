@@ -278,6 +278,8 @@ export function applianceElevationPresentation(masterCode: string | null | undef
 export interface DesignCabinet {
   id: number;
   masterCode: string;
+  /** Palette-only label for a composed catalog choice; never persisted or priced as a SKU. */
+  displayMasterCode?: string | null;
   description: string;
   category: string | null;
   subCategory: string | null;
@@ -413,6 +415,8 @@ export interface PlacedCabinet {
   fillerTotalWidth?: number | null;
   /** Installation choice retained in saved designs for build-sheet clarity. */
   fillerPlacementMode?: "left" | "right" | "split" | null;
+  /** Cabinet whose measured opening owns this editable filler group. */
+  fillerForCabinetUid?: string | null;
   // Original catalog width (inches) captured when the cabinet was placed. The
   // live `width` is what the customer sees/edits; when it differs from
   // nominalWidth the cabinet is a CUSTOM size and is flagged on the build sheet
@@ -4838,7 +4842,7 @@ export function freeSegmentsOnWall(
     // A refrigerator occupies the standard upper-cabinet elevation band. Normal
     // wall-run sequencing must reserve that span, while a dedicated refrigerator
     // wall cabinet may deliberately share it above the appliance.
-    if (layer === "wall") return pl === "wall" || (reserveUpperZone && isRefrigerator(item));
+    if (layer === "wall") return pl === "wall" || (reserveUpperZone && (isRefrigerator(item) || isRangeHoodPlacement(item)));
     // base/appliance share the floor layer
     return pl === "base" || pl === "appliance";
   };

@@ -1805,6 +1805,13 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       .toEqual({ x: 30, y: 0, rotation: 0 });
   });
 
+  it("places W-24-42 immediately to the right of a wall-mounted range hood with zero overlap", () => {
+    const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 48, depth: 12, height: 42 });
+    const hood = cab({ uid: "wall-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 20, height: 18, mountBottom: 66 });
+    expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, hood], [], 24, 12, "wall", true))
+      .toEqual({ x: 78, y: 0, rotation: 0 });
+  });
+
   it("places a normal W-30-42 in the first valid upper opening to the right of a full-height refrigerator", () => {
     const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
     const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });

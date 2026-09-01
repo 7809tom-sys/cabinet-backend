@@ -6,11 +6,14 @@ import {
   isFillerItem,
   wallCabinetFitMeasure,
   type CabinetWallDragPreview,
+  type IslandFace,
+  type IslandZone,
   type PlacedCabinet,
   type RoomData,
   type WallOpening,
   type WallSide,
 } from "@/lib/design";
+import { islandFaceFitMeasure, islandOffsetForPlaced } from "@/lib/islandScene";
 
 const EDGE_EPSILON_IN = 0.001;
 export const SMALL_GAP_FILLER_MAX_IN = 3;
@@ -27,6 +30,10 @@ export type SmallGapFillerOpportunity = {
   openingStart: number;
   openingLength: number;
   remaining: number;
+  /** Island-local run ownership; absent for room-wall filler opportunities. */
+  islandFace?: IslandFace;
+  /** Existing purchased filler group replaced when an installed filler is edited. */
+  replacingFillerGroupId?: string;
 };
 
 export type SmallGapFillerLayout = {
@@ -124,6 +131,33 @@ export function findSmallGapFillerOpportunity(
   };
 }
 
+/** Uses the selected island face's own run length and neighbors, never a room wall. */
+export function findIslandSmallGapFillerOpportunity(
+  island: IslandZone,
+  placed: readonly PlacedCabinet[],
+  cabinetUid: string,
+): SmallGapFillerOpportunity | null {
+  const cabinet = placed.find((item) => item.uid === cabinetUid);
+  const face = cabinet?.islandFace ?? null;
+  if (!cabinet || !face || isFillerItem(cabinet) || !["base", "wall", "tall"].includes(cabinet.placement)) return null;
+  const measurement = islandFaceFitMeasure(cabinet, island, [...placed]);
+  if (!measurement || measurement.status !== "fits") return null;
+  const remaining = measurement.before + measurement.after;
+  if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  const roundedRemaining = Math.round(remaining * 1000) / 1000;
+  return {
+    cabinetUid,
+    wall: measurement.side,
+    layer: cabinet.placement === "wall" ? "wall" : "base",
+    cabinetStart: islandOffsetForPlaced(cabinet, island, face),
+    cabinetSpan: measurement.requiredSpan,
+    openingStart: measurement.availableStart,
+    openingLength: measurement.availableSpan,
+    remaining: roundedRemaining,
+    islandFace: face,
+  };
+}
+
 /**
  * A right-drag preview already identifies the exact bounded free segment and the
  * accepted zero-overlap object position. Convert that measured result directly
@@ -196,4 +230,44 @@ export function removePlacedCabinetGroup(placed: readonly PlacedCabinet[], uid: 
   const target = placed.find((item) => item.uid === uid);
   if (!target?.fillerPieceGroupId) return placed.filter((item) => item.uid !== uid);
   return placed.filter((item) => item.fillerPieceGroupId !== target.fillerPieceGroupId);
+}
+
+/**
+ * Reconstructs the owning cabinet's measured opening after temporarily removing
+ * an installed filler group. New groups carry an explicit owner UID; legacy
+ * saved groups fall back to the unique adjacent cabinet whose restored
+ * remainder equals the purchased filler's total installed width.
+ */
+export function installedSmallGapFillerEditOpportunity(
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  openings: readonly WallOpening[],
+  fillerUid: string,
+  island?: IslandZone | null,
+): SmallGapFillerOpportunity | null {
+  const selected = placed.find((item) => item.uid === fillerUid);
+  const groupId = selected?.fillerPieceGroupId ?? null;
+  if (!selected || !groupId || !isFillerItem(selected)) return null;
+  if (groupId.startsWith("bbc-required-filler-")) return null;
+  const group = placed.filter((item) => item.fillerPieceGroupId === groupId);
+  const withoutGroup = placed.filter((item) => item.fillerPieceGroupId !== groupId);
+  const explicitOwnerUid = group.find((item) => item.fillerForCabinetUid)?.fillerForCabinetUid ?? null;
+  const totalWidth = Math.max(
+    0,
+    Number(selected.fillerTotalWidth) || group.reduce((total, item) => total + Math.max(0, Number(item.width) || 0), 0),
+  );
+  const candidateUids = explicitOwnerUid
+    ? [explicitOwnerUid]
+    : withoutGroup
+      .filter((item) => !isFillerItem(item) && ["base", "wall", "tall"].includes(item.placement))
+      .map((item) => item.uid);
+  const matches = candidateUids.flatMap((cabinetUid) => {
+    const owner = withoutGroup.find((item) => item.uid === cabinetUid);
+    const opportunity = owner?.islandFace && island
+      ? findIslandSmallGapFillerOpportunity(island, withoutGroup, cabinetUid)
+      : findSmallGapFillerOpportunity(room, withoutGroup, openings, cabinetUid);
+    return opportunity && Math.abs(opportunity.remaining - totalWidth) <= 0.01 ? [opportunity] : [];
+  });
+  if (matches.length !== 1) return null;
+  return { ...matches[0], replacingFillerGroupId: groupId };
 }

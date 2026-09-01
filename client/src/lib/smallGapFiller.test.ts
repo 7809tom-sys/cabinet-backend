@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, type PlacedCabinet } from "@/lib/design";
+import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, type IslandFace, type IslandZone, type PlacedCabinet } from "@/lib/design";
+import { islandFacePlacement } from "@/lib/islandScene";
 import {
   appendSmallGapFillerPlacement,
   automaticSmallGapFillerMode,
   findSmallGapFillerOpportunity,
+  findIslandSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
+  installedSmallGapFillerEditOpportunity,
   removePlacedCabinetGroup,
   smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
@@ -298,6 +301,70 @@ describe("small-gap filler placement", () => {
       { ...cabinet, uid: "fill-right", masterCode: "BF3", fillerPieceGroupId: "fill-group", fillerBillingRole: "secondary" },
     ];
     expect(removePlacedCabinetGroup(pieces, "fill-right").map((item) => item.uid)).toEqual([cabinet.uid]);
+  });
+
+  it("reopens an installed split filler as one editable purchased group", () => {
+    const room = { ...DEFAULT_ROOM, width: 21 };
+    const pieces: PlacedCabinet[] = [
+      { ...cabinet, x: 1.5 },
+      { ...cabinet, uid: "fill-left", masterCode: "BF3", description: "3 inch Base Filler", subCategory: "Filler", x: 0, width: 1.5, fillerPieceGroupId: "fill-group", fillerBillingRole: "primary", fillerTotalWidth: 3, fillerPlacementMode: "split", fillerForCabinetUid: cabinet.uid },
+      { ...cabinet, uid: "fill-right", masterCode: "BF3", description: "3 inch Base Filler", subCategory: "Filler", x: 19.5, width: 1.5, fillerPieceGroupId: "fill-group", fillerBillingRole: "secondary", fillerTotalWidth: 3, fillerPlacementMode: "split", fillerForCabinetUid: cabinet.uid },
+    ];
+    expect(installedSmallGapFillerEditOpportunity(room, pieces, [], "fill-right")).toMatchObject({
+      cabinetUid: cabinet.uid,
+      openingStart: 0,
+      openingLength: 21,
+      remaining: 3,
+      replacingFillerGroupId: "fill-group",
+    });
+  });
+
+  it("reconstructs a legacy one-sided filler owner and refuses required BBC filler editing", () => {
+    const room = { ...DEFAULT_ROOM, width: 21 };
+    const legacy: PlacedCabinet[] = [
+      cabinet,
+      { ...cabinet, uid: "legacy-fill", masterCode: "BF3", description: "3 inch Base Filler", subCategory: "Filler", x: 18, width: 3, fillerPieceGroupId: "legacy-group", fillerBillingRole: "primary", fillerTotalWidth: 3, fillerPlacementMode: "right" },
+    ];
+    expect(installedSmallGapFillerEditOpportunity(room, legacy, [], "legacy-fill")).toMatchObject({ cabinetUid: cabinet.uid, replacingFillerGroupId: "legacy-group" });
+    const required = [{ ...legacy[1], fillerPieceGroupId: `bbc-required-filler-${cabinet.uid}` }];
+    expect(installedSmallGapFillerEditOpportunity(room, required, [], "legacy-fill")).toBeNull();
+  });
+
+  it.each(["front", "back", "left", "right"] as const)("measures a 2½-inch manual filler opening on the island %s face", (face: IslandFace) => {
+    const island: IslandZone = { x: 36, y: 30, width: 72, depth: 48, activeFace: face };
+    const faceLength = face === "front" || face === "back" ? island.width : island.depth;
+    const islandCabinet = islandFacePlacement({ ...cabinet, uid: `island-${face}`, width: faceLength - 2.5 }, island, face, 0);
+    expect(findIslandSmallGapFillerOpportunity(island, [islandCabinet], islandCabinet.uid)).toMatchObject({
+      cabinetUid: islandCabinet.uid,
+      islandFace: face,
+      openingStart: 0,
+      openingLength: faceLength,
+      remaining: 2.5,
+    });
+  });
+
+  it("reopens an installed island filler against its explicit owning cabinet", () => {
+    const island: IslandZone = { x: 36, y: 30, width: 48, depth: 48, activeFace: "front" };
+    const owner = islandFacePlacement({ ...cabinet, uid: "island-owner", width: 45 }, island, "front", 0);
+    const filler = islandFacePlacement({
+      ...cabinet,
+      uid: "island-filler",
+      masterCode: "BF3",
+      description: "3 inch Base Filler",
+      subCategory: "Filler",
+      width: 3,
+      fillerPieceGroupId: "island-fill-group",
+      fillerBillingRole: "primary",
+      fillerTotalWidth: 3,
+      fillerPlacementMode: "right",
+      fillerForCabinetUid: owner.uid,
+    }, island, "front", 45);
+    expect(installedSmallGapFillerEditOpportunity(DEFAULT_ROOM, [owner, filler], [], filler.uid, island)).toMatchObject({
+      cabinetUid: owner.uid,
+      islandFace: "front",
+      remaining: 3,
+      replacingFillerGroupId: "island-fill-group",
+    });
   });
 
   it("preserves the refrigerator, its upper cabinet, panels, and every unrelated placement when filler pieces are added", () => {

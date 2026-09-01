@@ -40,14 +40,19 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("findSmallGapFillerOpportunity(room, placed, openings, cabinetUid)");
     expect(source).toContain("catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)");
     expect(source).toContain("setSmallGapFillerPrompt(opportunity)");
+    expect(source).toContain("installedSmallGapFillerEditOpportunity(room, placed, openings, cabinetUid, island)");
+    expect(source).toContain("findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)");
+    expect(source).toContain("islandFacePlacement(cabinet, island, opportunity.islandFace, layout.cabinetStart)");
     expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
     expect(source.match(/onRequestFiller=\{requestSmallGapFiller\}/g)).toHaveLength(2);
   });
 
-  it("preserves exact placement and one purchased filler identity", () => {
+	  it("preserves exact placement and one purchased filler identity", () => {
     expect(source).toContain("smallGapFillerLayout(opportunity, mode)");
     expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
-    expect(source).toContain("appendSmallGapFillerPlacement(placed, movedCabinet, pieces)");
-	    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid)");
-  });
+	    expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
+	    expect(source).toContain("fillerForCabinetUid: cabinet.uid");
+	    expect(source).toContain("opportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");
+		    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid)");
+	  });
 });

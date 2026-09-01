@@ -11,9 +11,14 @@ describe("InteractiveRoom3D manual filler action", () => {
     expect(source).toContain("Add filler</button>");
   });
 
-  it("keeps the manual action off fitted filler pieces and island members", () => {
-    expect(source).toContain("!selectedPlacedCabinet.islandFace");
-    expect(source).toContain("!fittedFillerWidthText");
-    expect(source).toContain('["base", "wall", "tall"].includes(selectedPlacedCabinet.placement)');
-  });
+	  it("offers the manual action for eligible wall and island cabinets but not fitted filler pieces", () => {
+	    expect(source).not.toContain("!selectedPlacedCabinet.islandFace &&");
+	    expect(source).toContain("!fittedFillerWidthText");
+	    expect(source).toContain('["base", "wall", "tall"].includes(selectedPlacedCabinet.placement)');
+	  });
+
+	  it("shows clear edit and removal controls after a filler has been installed", () => {
+	    expect(source).toContain('data-testid="three-d-edit-filler"');
+	    expect(source).toContain('fittedFillerWidthText ? "Remove filler" : "Remove"');
+	  });
 });

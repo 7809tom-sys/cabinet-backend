@@ -410,7 +410,7 @@ interface Props {
   onSelectCabinet?: (uid: string) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
   onOpenCabinetEditor?: (uid: string) => void;
-  /** Opens the host Designer's measured, catalog-backed filler choices for the selected cabinet. */
+  /** Opens the host Designer's measured, catalog-backed add or edit filler choices. */
   onRequestFiller?: (uid: string) => void;
   /** Uses the same 90-degree cabinet rotation action as the 2D planner. */
   onRotateCabinet?: (uid: string) => void;
@@ -5396,9 +5396,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
-		              {onRequestFiller && selectedPlacedCabinet && !selectedPlacedCabinet.islandFace && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
+			              {onRequestFiller && selectedPlacedCabinet && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
+			              {onRequestFiller && selectedPlacedCabinet && fittedFillerWidthText && <button type="button" data-testid="three-d-edit-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">Edit filler</button>}
 		              {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
-		              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { preserveCurrentCameraView(); onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />Remove</button>}
+			              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { preserveCurrentCameraView(); onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />{fittedFillerWidthText ? "Remove filler" : "Remove"}</button>}
 		            </div>}
 		          </div>
 		        </div>;

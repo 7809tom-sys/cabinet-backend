@@ -21,13 +21,14 @@ export function normalizePaletteSearch(raw: string): string {
 // the description, AND the numeric width/height in inches, so typing "24" finds
 // every 24"-wide cabinet even when the code doesn't literally contain "24".
 export function matchesPaletteSearch(
-  c: { masterCode: string; description: string; width?: string | null; height?: string | null },
+  c: { masterCode: string; displayMasterCode?: string | null; description: string; width?: string | null; height?: string | null },
   q: string,
 ): boolean {
   if (!q) return true;
   const code = c.masterCode.toLowerCase();
+  const displayCode = c.displayMasterCode?.toLowerCase() ?? "";
   const desc = c.description.toLowerCase();
-  if (code.includes(q) || desc.includes(q)) return true;
+  if (code.includes(q) || displayCode.includes(q) || desc.includes(q)) return true;
   // Width / height token match (whole-number inch search).
   const w = c.width != null ? parseFloat(c.width) : NaN;
   const h = c.height != null ? parseFloat(c.height) : NaN;

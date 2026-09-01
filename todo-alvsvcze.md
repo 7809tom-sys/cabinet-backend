@@ -1201,3 +1201,9 @@
 - [x] Suppress automatic filler prompts for true exact-fit openings while retaining prompts only for genuine 1/2-to-3-inch residual gaps
 - [x] Add a manual Add Filler control for the selected eligible cabinet that opens the existing Auto-fill, split, left, right, and leave-open choices with real catalog filler pricing
 - [x] Validate refrigerator panels, wall/base/tall cabinets, exact-fit and genuine-gap cases, zero overlap, countertop/crown behavior, and desktop/mobile controls before publishing
+- [x] Reproduce why catalog-added W-24-42 overlaps the wall-mounted range hood instead of advancing to the next clear zero-overlap wall position
+- [x] Fix wall-cabinet sequencing so hoods reserve their physical wall span and W-24-42 lands immediately to the hood's right when space permits
+- [x] Verify the active selected-style catalog and restore WDC2442GD as a real WDC2442 plus the authoritative glass-door add-on, without inventing a SKU or price
+- [x] Add Edit and Remove controls for installed fillers, preserving grouped split-filler billing, exact placement, selected style, and cart identity
+- [x] Extend manual Add Filler to selected island cabinets using island-face measurements, real selected-line fillers, zero overlap, and the automatic island slab
+- [x] Validate wall/hood sequencing, WDC glass choices, filler edit/removal, island fillers, pricing, cart, persistence, 2D/3D, and desktop/mobile behavior before publishing

@@ -31,11 +31,11 @@ describe("DesignTool island scene and glass catalog wiring", () => {
     expect(source).toContain("normalizeSinkFixturesToBases(current, nextPlaced, room)");
   });
 
-  it("exposes real PG wall cabinets and base-plus-PGWDC corner glass choices without inventing combined SKUs", () => {
+	  it("exposes real PG wall cabinets and base-plus-PGWDC corner glass choices without inventing combined SKUs", () => {
     expect(source).toContain('label: "Glass Door Wall Cabinets"');
     expect(source).toContain('label: "Glass Door Corner Wall Cabinets"');
-    expect(source).toContain("const addOnCode = `PGWDC${match[1]}`");
-    expect(source).toContain("glassDoorCatalogProduct(addOnCode)");
-    expect(source).toContain("sourceCabinetId: Number(item.id)");
-  });
+	    expect(source).toContain("buildGlassCornerCatalogChoices(");
+	    expect(source).toContain("c.displayMasterCode ?? c.masterCode");
+	    expect(source).toContain("sourceCabinetId: Number(item.id)");
+	  });
 });
