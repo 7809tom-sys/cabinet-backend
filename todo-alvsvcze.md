@@ -1191,3 +1191,6 @@
 - [x] Correct only the verified remaining identity, tier, affiliate-markup, or stale-price path without changing unrelated catalog rows
 - [x] Add exact production-scenario regressions and publish only after the repeated live price display agrees across every commerce surface
 - [x] Make the verified WFR2442-to-W-24-42 compatibility mapping available even when the production cabinet_aliases row has not propagated, then reverify the public live pricing endpoint
+- [x] Reproduce why placing the reported B-27 base cabinet leaves a small gap without opening the filler prompt, using the actual remaining-space calculation and placement path
+- [x] Restore the filler prompt for eligible residual base-cabinet gaps of 3 inches or less, preserving left/right/split options, zero overlap, real filler SKU pricing, and countertop continuity
+- [x] Add regression coverage for catalog click, drag/drop, snapped placement, non-eligible gaps, island/BBC exclusions, mobile/desktop behavior, and publish only after live validation

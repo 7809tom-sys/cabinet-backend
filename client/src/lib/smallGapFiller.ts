@@ -4,7 +4,7 @@ import {
   appendCollisionFreePlacements,
   cabinetWall,
   isFillerItem,
-  wallSpanMeasure,
+  wallCabinetFitMeasure,
   type CabinetWallDragPreview,
   type PlacedCabinet,
   type RoomData,
@@ -94,16 +94,16 @@ export function findSmallGapFillerOpportunity(
   if (!cabinet || isFillerItem(cabinet) || !["base", "wall", "tall"].includes(cabinet.placement)) return null;
 
   const wall = cabinetWall(cabinet, room);
-  // Use the same nearest-neighbor measurement that powers the live 3D details
-  // panel. This recognizes corner-cabinet boundaries such as B-15 to LS3612,
-  // where generic free-segment classification can assign the corner footprint
-  // to its adjoining wall instead of the selected cabinet's run.
-  const measurement = wallSpanMeasure(cabinet, room, [...placed], wall);
+  // Use the same free-segment measurement that powers the selected-cabinet
+  // details panel. Unlike same-placement nearest-neighbor measurement, this
+  // recognizes base/tall/appliance boundaries in one floor run as well as true
+  // corner footprints, so the filler prompt agrees with the displayed remainder.
+  const measurement = wallCabinetFitMeasure(cabinet, room, [...placed], [...openings], wall);
   const cabinetStart = measurement.start;
   const cabinetSpan = measurement.end - measurement.start;
   const cabinetEnd = cabinetStart + cabinetSpan;
   const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
-  const leadingStart = cabinetStart - measurement.before;
+  const leadingStart = measurement.availableStart;
   const remaining = measurement.before + measurement.after;
   // A small clearance on one side is not a filler opportunity when the other
   // side still has room for more cabinets. The entire measured opening must be

@@ -146,6 +146,57 @@ describe("small-gap filler placement", () => {
     });
   });
 
+  it("detects the reported two-and-a-quarter-inch remainder beside a B-27 when the next run boundary is a tall cabinet", () => {
+    const leftBase: PlacedCabinet = { ...cabinet, uid: "left-base", masterCode: "B-24", width: 24, x: 102.25 };
+    const b27: PlacedCabinet = { ...cabinet, uid: "reported-b27", masterCode: "B-27", width: 27, x: 126.25 };
+    const rightTall: PlacedCabinet = {
+      ...cabinet,
+      uid: "right-tall",
+      masterCode: "T-2496",
+      description: "Tall pantry cabinet",
+      placement: "tall",
+      width: 24,
+      x: 155.5,
+      height: 96,
+    };
+
+    expect(findSmallGapFillerOpportunity(
+      { ...DEFAULT_ROOM, width: 204 },
+      [leftBase, b27, rightTall],
+      [],
+      b27.uid,
+    )).toMatchObject({
+      cabinetUid: b27.uid,
+      cabinetStart: 126.25,
+      cabinetSpan: 27,
+      openingStart: 126.25,
+      openingLength: 29.25,
+      remaining: 2.25,
+    });
+  });
+
+  it("detects the same B-27 remainder when a floor appliance forms the next run boundary", () => {
+    const leftBase: PlacedCabinet = { ...cabinet, uid: "appliance-left-base", masterCode: "B-24", width: 24, x: 102.25 };
+    const b27: PlacedCabinet = { ...cabinet, uid: "appliance-b27", masterCode: "B-27", width: 27, x: 126.25 };
+    const range: PlacedCabinet = {
+      ...cabinet,
+      uid: "right-range",
+      masterCode: "RANGE-30",
+      description: "30 inch range",
+      placement: "appliance",
+      width: 30,
+      x: 155.5,
+      height: 36,
+    };
+
+    expect(findSmallGapFillerOpportunity(
+      { ...DEFAULT_ROOM, width: 204 },
+      [leftBase, b27, range],
+      [],
+      b27.uid,
+    )).toMatchObject({ openingStart: 126.25, openingLength: 29.25, remaining: 2.25 });
+  });
+
   it("does not prompt for W2442 when a three-quarter-inch clearance exists on one side but 59½ inches remains on the other", () => {
     const previousUpper: PlacedCabinet = {
       ...cabinet,
