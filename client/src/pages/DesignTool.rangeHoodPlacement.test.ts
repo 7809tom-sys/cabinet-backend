@@ -26,4 +26,13 @@ describe("Design Tool range hood placement wiring", () => {
     expect(shortcutSource).toContain("addCabinet(hood, range?.x, range?.y)");
     expect(shortcutSource).not.toContain("Range hood added to the 2D plan above the saved range");
   });
+
+  it("routes WDC and other true corner catalog items to the next clear room corner instead of the straight wall run", () => {
+    const addStart = source.indexOf("const addCabinet = useCallback");
+    const addSource = source.slice(addStart, source.indexOf("const addAppliance", addStart));
+    expect(addSource).toContain("const requiresRoomCorner");
+    expect(addSource).toContain("isCornerCabinet(c.masterCode, c.description)");
+    expect(addSource).toContain("nextAvailableRoomCornerPlacement({");
+    expect(addSource).toContain("The hood and every existing cabinet or part remain protected from overlap.");
+  });
 });

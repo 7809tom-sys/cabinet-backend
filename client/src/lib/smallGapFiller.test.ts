@@ -250,6 +250,29 @@ describe("small-gap filler placement", () => {
     expect(findSmallGapFillerOpportunity(room, placed, [], w3642.uid)).toBeNull();
   });
 
+  it("does not offer an automatic filler for the reported quarter-inch W-36-42 remainder", () => {
+    const w3642: PlacedCabinet = {
+      ...cabinet,
+      uid: "reported-quarter-inch-w3642",
+      masterCode: "W-36-42",
+      description: "36 inch Double Door Wall Cabinet",
+      placement: "wall",
+      x: 0,
+      width: 36,
+      depth: 12,
+      height: 42,
+      mountBottom: 54,
+    };
+    const room = { ...DEFAULT_ROOM, width: 36.25 };
+    expect(wallCabinetFitMeasure(w3642, room, [w3642], [], "top")).toMatchObject({
+      availableSpan: 36.25,
+      requiredSpan: 36,
+      before: 0,
+      after: 0.25,
+    });
+    expect(findSmallGapFillerOpportunity(room, [w3642], [], w3642.uid)).toBeNull();
+  });
+
   it("does not prompt for W2442 when a three-quarter-inch clearance exists on one side but 59½ inches remains on the other", () => {
     const previousUpper: PlacedCabinet = {
       ...cabinet,

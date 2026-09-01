@@ -2523,21 +2523,20 @@ export function isSinkAppliance(c: {
   return /\bsink\b/.test((c.description ?? "").toLowerCase());
 }
 
-// An over-range microwave (MW-*) or range hood (HOOD-*) that hangs above the
-// counter in the upper zone. A short "bridge" wall cabinet is intentionally
-// mounted directly above one of these, so that pairing must never be flagged.
+// An over-range microwave (MW-*) hangs above the counter in the upper zone. A
+// short bridge may intentionally sit above that microwave. A wall-mounted hood
+// is different: its complete plan/elevation span remains reserved and must not
+// be shared by a cabinet or cabinet part.
 export function isOverRangeAppliance(p: {
   masterCode?: string | null;
   placement?: Placement;
 }): boolean {
   if (p.placement !== "appliance") return false;
-  return /^(MW|HOOD)-/.test((p.masterCode || "").toUpperCase());
+  return /^MW-/.test((p.masterCode || "").toUpperCase());
 }
 
-// True when `a` and `b` form the intended "bridge cabinet over an over-range
-// microwave/hood" pairing: one is a wall cabinet, the other is an over-range
-// appliance. The bridge cabinet top-aligns with the neighboring uppers (handled
-// in verticalBounds) and the two must not raise a collision alarm.
+// True when `a` and `b` form the intended bridge-over-microwave pairing. Range
+// hoods are deliberately excluded because their complete wall span is occupied.
 export function isBridgeOverRange(a: PlacedCabinet, b: PlacedCabinet): boolean {
   const wallBridge = (x: PlacedCabinet) => x.placement === "wall";
   return (
@@ -4842,7 +4841,7 @@ export function freeSegmentsOnWall(
     // A refrigerator occupies the standard upper-cabinet elevation band. Normal
     // wall-run sequencing must reserve that span, while a dedicated refrigerator
     // wall cabinet may deliberately share it above the appliance.
-    if (layer === "wall") return pl === "wall" || (reserveUpperZone && (isRefrigerator(item) || isRangeHoodPlacement(item)));
+    if (layer === "wall") return pl === "wall" || isRangeHoodPlacement(item) || (reserveUpperZone && isRefrigerator(item));
     // base/appliance share the floor layer
     return pl === "base" || pl === "appliance";
   };
@@ -4950,6 +4949,40 @@ export function paletteActiveWallPlacement(
   // the first segment that can contain the requested cabinet is authoritative.
   const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
   if (segment) return wallPlacementAt(segment.start, width, depth, side, room);
+  return null;
+}
+
+/**
+ * Catalog-added true corner cabinets belong at a real room corner, not at the
+ * first open point in a straight wall run. Starting from the active wall, test
+ * all four corners in clockwise room order and return the first exact physical
+ * footprint that has zero overlap with every existing item (including hoods).
+ */
+export function nextAvailableRoomCornerPlacement(
+  moving: PlacedCabinet,
+  activeWall: WallSide,
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+): { x: number; y: number; rotation: number } | null {
+  const footprint = placedFootprint(moving);
+  const corners = [
+    { x: 0, y: 0 },
+    { x: Math.max(0, room.width - footprint.w), y: 0 },
+    { x: Math.max(0, room.width - footprint.w), y: Math.max(0, room.depth - footprint.d) },
+    { x: 0, y: Math.max(0, room.depth - footprint.d) },
+  ];
+  const orderByWall: Record<WallSide, number[]> = {
+    top: [0, 1, 2, 3],
+    right: [1, 2, 3, 0],
+    bottom: [3, 2, 1, 0],
+    left: [0, 3, 2, 1],
+  };
+  for (const index of orderByWall[activeWall]) {
+    const corner = corners[index];
+    const unrotated = { ...moving, ...corner };
+    const candidate = { ...unrotated, rotation: cornerRotationForPlaced(unrotated, room) };
+    if (!hasCollision(candidate, [...placed])) return { x: candidate.x, y: candidate.y, rotation: candidate.rotation };
+  }
   return null;
 }
 

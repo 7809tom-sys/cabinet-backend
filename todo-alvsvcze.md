@@ -1207,3 +1207,8 @@
 - [x] Add Edit and Remove controls for installed fillers, preserving grouped split-filler billing, exact placement, selected style, and cart identity
 - [x] Extend manual Add Filler to selected island cabinets using island-face measurements, real selected-line fillers, zero overlap, and the automatic island slab
 - [x] Validate wall/hood sequencing, WDC glass choices, filler edit/removal, island fillers, pricing, cart, persistence, 2D/3D, and desktop/mobile behavior before publishing
+- [x] Reproduce why W-36-42 reports a 1/4-inch remainder in the details panel while the automatic filler dialog incorrectly offers a 1-inch filler
+- [x] Make automatic filler eligibility and the dialog use the same 1/8-inch rounded remainder, with no prompt below the 1/2-inch installable minimum
+- [x] Make filler right-click open dedicated filler attributes with size, left/right/split placement, and whole-group removal controls on desktop, tablet, and mobile
+- [x] Reproduce WDC2442 corner placement on the hood and reserve wall-mounted hood space across normal, corner, drag/drop, snap, and placeable cabinet-part flows
+- [x] Validate standard wall back-fill, true corner placement, range-plus-hood coexistence, filler pricing/persistence, island behavior, zero overlap, 2D/3D, and responsive controls before publishing

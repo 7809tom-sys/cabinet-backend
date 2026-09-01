@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -1810,6 +1810,33 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const hood = cab({ uid: "wall-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 20, height: 18, mountBottom: 66 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, hood], [], 24, 12, "wall", true))
       .toEqual({ x: 78, y: 0, rotation: 0 });
+  });
+
+  it("treats a wall-mounted hood as occupied upper-wall space even without a special reserve flag", () => {
+    const hood = cab({ uid: "universal-wall-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 18, height: 18, mountBottom: 66 });
+    expect(freeSegmentsOnWall("top", ROOM_12x10, [hood], [], 0, 0, "wall")).toEqual([
+      { start: 0, length: 48 },
+      { start: 78, length: 66 },
+    ]);
+    const wdc = cab({ uid: "wdc2442-on-hood", masterCode: "WDC2442", description: "24 inch Diagonal Corner Wall Cabinet", placement: "wall", x: 48, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 });
+    expect(hasCollision(wdc, [hood])).toBe(true);
+  });
+
+  it("places WDC2442 at the next clear room corner instead of on a hood", () => {
+    const hood = cab({ uid: "corner-blocking-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 0, y: 0, width: 30, depth: 18, height: 18, mountBottom: 66 });
+    const wdc = cab({ uid: "new-wdc2442", masterCode: "WDC2442", description: "24 inch Diagonal Corner Wall Cabinet", placement: "wall", x: 0, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 });
+    expect(nextAvailableRoomCornerPlacement(wdc, "top", ROOM_12x10, [hood])).toMatchObject({ x: 120, y: 0 });
+  });
+
+  it("reports no WDC corner when every physical room corner is already occupied", () => {
+    const wdc = cab({ uid: "blocked-wdc2442", masterCode: "WDC2442", description: "24 inch Diagonal Corner Wall Cabinet", placement: "wall", x: 0, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 });
+    const occupied = [
+      cab({ uid: "top-left", placement: "wall", x: 0, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 }),
+      cab({ uid: "top-right", placement: "wall", x: 120, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 }),
+      cab({ uid: "bottom-right", placement: "wall", x: 120, y: 96, width: 24, depth: 24, height: 42, mountBottom: 54 }),
+      cab({ uid: "bottom-left", placement: "wall", x: 0, y: 96, width: 24, depth: 24, height: 42, mountBottom: 54 }),
+    ];
+    expect(nextAvailableRoomCornerPlacement(wdc, "top", ROOM_12x10, occupied)).toBeNull();
   });
 
   it("places a normal W-30-42 in the first valid upper opening to the right of a full-height refrigerator", () => {

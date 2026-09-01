@@ -64,6 +64,7 @@ import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } f
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildRequiredBlindCornerFiller, removePlacedCabinetWithRequiredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
 import {
+  SMALL_GAP_FILLER_MIN_IN,
   SMALL_GAP_FILLER_MAX_IN,
 	  appendSmallGapFillerPlacement,
   automaticSmallGapFillerMode,
@@ -72,6 +73,8 @@ import {
   findSmallGapFillerOpportunity,
   installedSmallGapFillerEditOpportunity,
   installedFillerVerticalSpec,
+  installableSmallGapRemainder,
+	  removePlacedCabinetGroup,
 	  smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
   type SmallGapFillerOpportunity,
@@ -83,11 +86,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
 	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
-	  dim, footprintDepth, makeUid, STD, FILLER_MIN_WIDTH_IN, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
+	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -179,6 +182,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
+import { FillerAttributesDialog } from "@/components/design/FillerAttributesDialog";
 import { IslandAttributesDialog } from "@/components/design/IslandAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
@@ -1071,8 +1075,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Queue the measured opening immediately. The accessory catalog query can
     // finish after placement; smallGapFillerDefinition will resolve as soon as
     // the active style's filler arrives instead of silently losing the prompt.
-    if (!opportunity) return;
     setSmallGapFillerPrompt(opportunity);
+    if (!opportunity) return;
     setMobilePanel(null);
   }, [openings, room]);
 
@@ -1117,7 +1121,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const remaining = fit.before + fit.after;
-      if (fit.status === "fits" && remaining < FILLER_MIN_WIDTH_IN) {
+      if (fit.status === "fits" && remaining < SMALL_GAP_FILLER_MIN_IN) {
         toast.info(`${cabinet.masterCode} fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.`);
       } else if (remaining > SMALL_GAP_FILLER_MAX_IN) {
         toast.info(`The measured opening has ${formatEighthInches(remaining)} remaining. Add another cabinet or use the gap tools before fitting a filler.`);
@@ -2900,14 +2904,43 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         preserveResolvedPlacement = true;
       } else if (x != null && y != null) {
         spot = { x, y, rotation };
-      } else {
-        const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
+	      } else {
+	        const requiresRoomCorner = !isAccessory
+	          && !isBlindCorner(c.masterCode, c.description)
+	          && isCornerCabinet(c.masterCode, c.description)
+	          && (accPlacement === "base" || accPlacement === "wall");
+	        const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
           accPlacement === "base" ||
           accPlacement === "wall" ||
           accPlacement === "tall" ||
           accPlacement === "appliance"
         );
-        if (followsCabinetRun) {
+	        if (requiresRoomCorner) {
+	          const cornerSpot = nextAvailableRoomCornerPlacement({
+	            uid: `corner-preview-${c.id}`,
+	            cabinetId: c.id,
+	            masterCode: c.masterCode,
+	            description: c.description,
+	            placement: accPlacement,
+	            x: 0,
+	            y: 0,
+	            width,
+	            depth,
+	            height,
+	            rotation: 0,
+	            numberOfDoors: c.numberOfDoors,
+	            numberOfDrawers: c.numberOfDrawers,
+	            cornerType: c.cornerType ?? null,
+	          }, activeWall, room, prev);
+	          if (!cornerSpot) {
+	            const message = `${c.masterCode} was not added because no room corner has a clear ${formatInches(width)} × ${formatInches(depth)} footprint. The hood and every existing cabinet or part remain protected from overlap.`;
+	            setPlacementWarning(message);
+	            toast.error(message);
+	            return;
+	          }
+	          spot = cornerSpot;
+	          preserveResolvedPlacement = true;
+	        } else if (followsCabinetRun) {
           const nextSpot = paletteActiveWallPlacement(
             activeWall,
             room,
@@ -3261,10 +3294,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setSelectedUid(finalCab.uid);
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
-	      if (requestedIslandFace && finalCab.placement === "base") setCountertop(true);
-	      if (!requestedIslandFace && !isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
-	        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
-	      }
+		      if (requestedIslandFace && finalCab.placement === "base") setCountertop(true);
+		      if (!requestedIslandFace && !isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
+		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
+		      } else setSmallGapFillerPrompt(null);
 
       // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
       // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
@@ -3601,10 +3634,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       };
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
-      const remaining = Math.round((gap.length - width) * 1000) / 1000;
+      const remaining = installableSmallGapRemainder(gap.length - width);
       if (
-        remaining > 0 &&
-        remaining <= SMALL_GAP_FILLER_MAX_IN &&
+        remaining != null &&
         catalogFillerForGap(catalogFillers, remaining, placement)
       ) {
         setSmallGapFillerPrompt({
@@ -3617,7 +3649,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           openingLength: gap.length,
           remaining,
         });
-      }
+      } else setSmallGapFillerPrompt(null);
       toast.success(t("dt_gap_placed_toast", { code: c.masterCode, len: formatInches(gap.length) }));
     },
     [cabinetsLocked, catalogFillers, room, t]
@@ -3680,8 +3712,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
       const dimensions = resolvedDesignCabinetDimensions(c);
       const cabWidth = dimensions.width;
-      const fillerW = Math.round((gap.length - cabWidth) * 10) / 10;
-      if (fillerW <= 0 || fillerW > 6) return;
+      const rawFillerW = gap.length - cabWidth;
+      const promptedFillerW = installableSmallGapRemainder(rawFillerW);
+      const fillerW = rawFillerW > SMALL_GAP_FILLER_MAX_IN ? Math.round(rawFillerW * 8) / 8 : promptedFillerW;
+      if (fillerW == null || fillerW <= 0 || fillerW > 6) {
+        setSmallGapFillerPrompt(null);
+        return;
+      }
       const depth = dimensions.depth;
       const height = dimensions.height;
       const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
@@ -3725,7 +3762,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(`No sellable catalog filler can cover this ${formatInches(fillerW)} gap for the selected line.`);
         return;
       }
-      if (fillerW <= SMALL_GAP_FILLER_MAX_IN) {
+      if (promptedFillerW != null) {
         setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
         setSelectedUid(newCab.uid);
         setSmallGapFillerPrompt({
@@ -3769,9 +3806,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    [addCabinet, cabinetsLocked, catalogFillers, room, t]
 	  );
 
-  const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode) => {
-    const opportunity = smallGapFillerPrompt;
-    const fillerDef = smallGapFillerDefinition;
+	const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode, overrideOpportunity?: SmallGapFillerOpportunity) => {
+	  const opportunity = overrideOpportunity ?? smallGapFillerPrompt;
+	  const fillerDef = overrideOpportunity
+	    ? catalogFillerForGap(catalogFillers, overrideOpportunity.remaining, overrideOpportunity.layer)
+	    : smallGapFillerDefinition;
     if (!opportunity || !fillerDef) {
       toast.error("The selected catalog filler is no longer available for this opening.");
       setSmallGapFillerPrompt(null);
@@ -3867,7 +3906,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setSelectedUid(movedCabinet.uid);
     setSmallGapFillerPrompt(null);
     toast.success(`${fillerDef.masterCode} added as one catalog filler with ${formatInches(opportunity.remaining)} installed ${mode === "split" ? "equally left and right" : `on the ${mode}`}.`);
-  }, [cabinetsLocked, island, placed, room, setSinks, smallGapFillerDefinition, smallGapFillerPrompt, t]);
+	}, [cabinetsLocked, catalogFillers, island, placed, room, setSinks, smallGapFillerDefinition, smallGapFillerPrompt, t]);
 
 		  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
 	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
@@ -5304,14 +5343,81 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // so the existing selected-based size/swing handlers operate on it.
   const [attrUid, setAttrUid] = useState<string | null>(null);
   const [attrOpen, setAttrOpen] = useState(false);
+  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
+  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
+  const openFillerAttributes = useCallback((uid: string) => {
+    const filler = placed.find((item) => item.uid === uid);
+    if (!filler || !isFillerItem(filler)) return false;
+    setSelectedUid(uid);
+    setFillerAttrUid(uid);
+    setFillerAttrOpen(true);
+    setAttrOpen(false);
+    setCabEditSheetOpen(false);
+    return true;
+  }, [placed]);
   const openAttributes = useCallback((uid: string) => {
+    if (openFillerAttributes(uid)) return;
     setSelectedUid(uid);
     setAttrUid(uid);
     setAttrOpen(true);
     // On mobile the editor lives in a bottom sheet (selection no longer auto-opens
     // it), so opening attributes must also open that sheet.
     setCabEditSheetOpen(true);
+  }, [openFillerAttributes]);
+  const requestFillerAction = useCallback((uid: string) => {
+    if (!openFillerAttributes(uid)) requestSmallGapFiller(uid);
+  }, [openFillerAttributes, requestSmallGapFiller]);
+  const fillerAttrCabinet = fillerAttrUid ? placed.find((item) => item.uid === fillerAttrUid) ?? null : null;
+  const fillerAttrOpportunity = useMemo(() => (
+    fillerAttrUid ? installedSmallGapFillerEditOpportunity(room, placed, openings, fillerAttrUid, island) : null
+  ), [fillerAttrUid, island, openings, placed, room]);
+  const applyFillerAttributes = useCallback((mode: SmallGapFillerPlacementMode, sizeIn: number) => {
+    if (!fillerAttrUid) return;
+    const opportunity = installedSmallGapFillerEditOpportunity(room, placed, openings, fillerAttrUid, island);
+    if (!opportunity) {
+      toast.error("This filler is no longer linked to one editable cabinet opening.");
+      return;
+    }
+    const size = Math.round(sizeIn * 8) / 8;
+    if (size < 0.125 || size > opportunity.remaining + 0.001) {
+      toast.error(`Choose a filler size from 1/8\" through ${formatEighthInches(opportunity.remaining)}.`);
+      return;
+    }
+    applySmallGapFiller(mode, { ...opportunity, remaining: size });
+    setFillerAttrOpen(false);
+  }, [applySmallGapFiller, fillerAttrUid, island, openings, placed, room]);
+  const resizeStandaloneFiller = useCallback((uid: string, sizeIn: number) => {
+    const size = Math.round(sizeIn * 8) / 8;
+    setPlaced((current) => {
+      const filler = current.find((item) => item.uid === uid);
+      if (!filler || !isFillerItem(filler)) return current;
+      const range = fillerWidthRange(filler);
+      const max = range?.max ?? Math.max(Number(filler.nominalWidth) || 0, Number(filler.width) || 0);
+      if (size < 0.125 || size > max + 0.001) return current;
+      const candidate = { ...filler, width: size, fillerTotalWidth: size };
+      if (hasCollision(candidate, current.filter((item) => item.uid !== uid))) {
+        toast.error("The resized filler would overlap another item. Choose a smaller size.");
+        return current;
+      }
+      const next = current.map((item) => item.uid === uid ? candidate : item);
+      placedRef.current = next;
+      return next;
+    });
   }, []);
+  const removeFillerFromAttributes = useCallback((uid: string) => {
+    const filler = placed.find((item) => item.uid === uid);
+    if (filler?.fillerPieceGroupId?.startsWith("bbc-required-filler-")) {
+      toast.info("This filler is required by its blind-corner cabinet and cannot be removed separately.");
+      return;
+    }
+    setPlaced((current) => {
+      const next = removePlacedCabinetGroup(current, uid);
+      placedRef.current = next;
+      return next;
+    });
+    setSelectedUid((selected) => selected === uid ? null : selected);
+    setFillerAttrOpen(false);
+  }, [placed]);
 
   // Set the door swing to an exact side for a specific cabinet.
   const setSwingFor = useCallback((uid: string, swing: "left" | "right" | "double") => {
@@ -6729,7 +6835,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       selectedCabinetUid={selectedUid}
       onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
-	      onRequestFiller={requestSmallGapFiller}
+	      onRequestFiller={requestFillerAction}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
       showWallLayer={showWallLayer}
@@ -10401,16 +10507,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        designId={loadDesignId ?? undefined}
 	        designName={savedDesign?.name ?? null}
 	      />
-	      <IslandAttributesDialog
-	        open={islandAttributesOpen}
+		      <IslandAttributesDialog
+		        open={islandAttributesOpen}
 	        onOpenChange={setIslandAttributesOpen}
 	        island={island}
 	        onApply={applyIslandAttributes}
 	        onRotate={rotateIsland}
-	        onRemove={removeIslandScene}
-	      />
+		        onRemove={removeIslandScene}
+		      />
+		      <FillerAttributesDialog
+		        filler={fillerAttrCabinet}
+		        open={fillerAttrOpen}
+		        onOpenChange={(open) => {
+		          setFillerAttrOpen(open);
+		          if (!open) setFillerAttrUid(null);
+		        }}
+		        measuredOpening={fillerAttrOpportunity?.remaining ?? null}
+		        onApply={applyFillerAttributes}
+		        onResizeStandalone={resizeStandaloneFiller}
+		        onRemove={removeFillerFromAttributes}
+		      />
 
-	      {/* Right-click per-cabinet attributes editor */}
+		      {/* Right-click per-cabinet attributes editor */}
       <CabinetAttributesDialog
         cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
         open={attrOpen}
@@ -11063,7 +11181,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onAddCatalogItem={addFromInteractive3d}
                 onAddRangeHood={addRangeHoodFromInteractive3d}
                 onOpenCabinetEditor={openAttributes}
-	                onRequestFiller={requestSmallGapFiller}
+	                onRequestFiller={requestFillerAction}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 onSyncCart={syncThreeDOrderWithCart}
                 initialPresentation={interactive3dPresentation ?? undefined}

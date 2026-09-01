@@ -1,5 +1,4 @@
 import {
-  FILLER_MIN_WIDTH_IN,
   STD,
   appendCollisionFreePlacements,
   cabinetWall,
@@ -16,6 +15,7 @@ import {
 import { islandFaceFitMeasure, islandOffsetForPlaced } from "@/lib/islandScene";
 
 const EDGE_EPSILON_IN = 0.001;
+export const SMALL_GAP_FILLER_MIN_IN = 0.5;
 export const SMALL_GAP_FILLER_MAX_IN = 3;
 export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.5;
 
@@ -83,6 +83,13 @@ function near(left: number, right: number) {
   return Math.abs(left - right) <= EDGE_EPSILON_IN;
 }
 
+/** Gap prompts use installable 1/8-inch measurements and never sub-1/2-inch shims. */
+export function installableSmallGapRemainder(value: number): number | null {
+  if (!Number.isFinite(value) || value < SMALL_GAP_FILLER_MIN_IN - EDGE_EPSILON_IN || value > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  const rounded = Math.round(value * 8) / 8;
+  return rounded >= SMALL_GAP_FILLER_MIN_IN && rounded <= SMALL_GAP_FILLER_MAX_IN ? rounded : null;
+}
+
 function gapCrossesWallOpening(openings: readonly WallOpening[], wall: WallSide, start: number, length: number) {
   const end = start + length;
   return openings.some((opening) => opening.side === wall
@@ -111,14 +118,13 @@ export function findSmallGapFillerOpportunity(
   const cabinetEnd = cabinetStart + cabinetSpan;
   const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
   const leadingStart = measurement.availableStart;
-  const remaining = measurement.before + measurement.after;
+  const remaining = installableSmallGapRemainder(measurement.before + measurement.after);
   // A small clearance on one side is not a filler opportunity when the other
   // side still has room for more cabinets. The entire measured opening must be
   // nearly consumed by this cabinet before the filler choices are offered.
-  if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  if (remaining == null) return null;
   if (gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)) return null;
   if (gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)) return null;
-  const roundedRemaining = Math.round(remaining * 1000) / 1000;
   return {
     cabinetUid,
     wall,
@@ -126,8 +132,8 @@ export function findSmallGapFillerOpportunity(
     cabinetStart,
     cabinetSpan,
     openingStart: leadingStart,
-    openingLength: cabinetSpan + roundedRemaining,
-    remaining: roundedRemaining,
+    openingLength: cabinetSpan + remaining,
+    remaining,
   };
 }
 
@@ -142,9 +148,8 @@ export function findIslandSmallGapFillerOpportunity(
   if (!cabinet || !face || isFillerItem(cabinet) || !["base", "wall", "tall"].includes(cabinet.placement)) return null;
   const measurement = islandFaceFitMeasure(cabinet, island, [...placed]);
   if (!measurement || measurement.status !== "fits") return null;
-  const remaining = measurement.before + measurement.after;
-  if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
-  const roundedRemaining = Math.round(remaining * 1000) / 1000;
+  const remaining = installableSmallGapRemainder(measurement.before + measurement.after);
+  if (remaining == null) return null;
   return {
     cabinetUid,
     wall: measurement.side,
@@ -153,7 +158,7 @@ export function findIslandSmallGapFillerOpportunity(
     cabinetSpan: measurement.requiredSpan,
     openingStart: measurement.availableStart,
     openingLength: measurement.availableSpan,
-    remaining: roundedRemaining,
+    remaining,
     islandFace: face,
   };
 }
@@ -169,9 +174,8 @@ export function smallGapFillerOpportunityFromDragPreview(
   preview: CabinetWallDragPreview,
 ): SmallGapFillerOpportunity | null {
   if (!preview.candidate || preview.fit.status !== "valid") return null;
-  const remaining = preview.fit.before + preview.fit.after;
-  if (remaining < FILLER_MIN_WIDTH_IN - EDGE_EPSILON_IN || remaining > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
-  const roundedRemaining = Math.round(remaining * 1000) / 1000;
+  const remaining = installableSmallGapRemainder(preview.fit.before + preview.fit.after);
+  if (remaining == null) return null;
   return {
     cabinetUid,
     wall: preview.wall,
@@ -180,7 +184,7 @@ export function smallGapFillerOpportunityFromDragPreview(
     cabinetSpan: preview.fit.requiredSpan,
     openingStart: preview.fit.gap.start,
     openingLength: preview.fit.gap.length,
-    remaining: roundedRemaining,
+    remaining,
   };
 }
 
