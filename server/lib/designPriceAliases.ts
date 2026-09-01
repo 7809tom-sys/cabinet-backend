@@ -3,6 +3,10 @@ export type DesignPriceAlias = {
   canonicalMasterCode: string;
 };
 
+export const verifiedLegacyDesignPriceAliases: readonly DesignPriceAlias[] = [
+  { alias: "WFR2442", canonicalMasterCode: "W-24-42" },
+];
+
 export function normalizedDesignPriceCode(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }

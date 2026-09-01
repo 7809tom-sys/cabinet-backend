@@ -17,7 +17,7 @@ import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pric
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
-import { canonicalizeDesignPriceItems, normalizedDesignPriceCode } from "../lib/designPriceAliases";
+import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import {
@@ -60,7 +60,7 @@ async function resolveDesignPriceAliases<T extends { masterCode: string }>(
     .from(cabinetAliases)
     .innerJoin(cabinets, eq(cabinets.id, cabinetAliases.cabinetId))
     .where(and(inArray(aliasCanon, normalizedCodes), eq(cabinets.isActive, true), notInConflict()));
-  return canonicalizeDesignPriceItems(items, aliases);
+  return canonicalizeDesignPriceItems(items, [...verifiedLegacyDesignPriceAliases, ...aliases]);
 }
 
 type DesignContext = {

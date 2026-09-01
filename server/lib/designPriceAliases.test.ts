@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalizeDesignPriceItems, normalizedDesignPriceCode } from "./designPriceAliases";
+import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "./designPriceAliases";
 
 describe("design price aliases", () => {
   it("normalizes punctuation and case for legacy display codes", () => {
@@ -16,6 +16,13 @@ describe("design price aliases", () => {
       styleId: 330002,
       distributorId: 210001,
     }]);
+  });
+
+  it("keeps the verified WFR2442 compatibility mapping available when the database alias is absent", () => {
+    expect(canonicalizeDesignPriceItems(
+      [{ masterCode: "WFR2442", styleId: 330002, distributorId: 210001 }],
+      verifiedLegacyDesignPriceAliases,
+    )[0]).toMatchObject({ masterCode: "W-24-42", requestedMasterCode: "WFR2442" });
   });
 
   it("leaves exact catalog codes unchanged when no authoritative alias exists", () => {
