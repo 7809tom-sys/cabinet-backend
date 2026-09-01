@@ -5398,7 +5398,10 @@ export function wallCabinetFitMeasure(
     0,
     moving.placement === "wall" ? openingClearance : 0,
     moving.placement,
-    false,
+    // A normal wall cabinet beside a refrigerator must measure against the
+    // refrigerator's true edge, not an inset over-fridge bridge. Dedicated
+    // refrigerator bridge cabinets remain allowed to share the appliance span.
+    moving.placement === "wall" && !isRefrigeratorWallCabinet(moving),
     moving,
   );
   const distanceToSegment = (segment: WallSegment) => {

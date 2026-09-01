@@ -81,7 +81,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
 	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
-  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
+	  dim, footprintDepth, makeUid, STD, FILLER_MIN_WIDTH_IN, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
@@ -1072,6 +1072,44 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setSmallGapFillerPrompt(opportunity);
     setMobilePanel(null);
   }, [openings, room]);
+
+  const requestSmallGapFiller = useCallback((cabinetUid: string) => {
+    if (cabinetsLocked) {
+      toast.info(t("dt_gap_locked"));
+      return;
+    }
+    const cabinet = placed.find((item) => item.uid === cabinetUid);
+    if (!cabinet) return;
+    if (island && isOnIsland(cabinet, island)) {
+      toast.info("Island fillers are placed directly on the selected island face.");
+      return;
+    }
+    if (isBlindCorner(cabinet.masterCode, cabinet.description)) {
+      toast.info("Blind-corner cabinets use their required 3-inch catalog filler automatically.");
+      return;
+    }
+    const opportunity = findSmallGapFillerOpportunity(room, placed, openings, cabinetUid);
+    if (!opportunity) {
+      const wall = cabinetWall(cabinet, room);
+      const fit = wallCabinetFitMeasure(cabinet, room, placed, openings, wall);
+      const remaining = fit.before + fit.after;
+      if (fit.status === "fits" && remaining < FILLER_MIN_WIDTH_IN) {
+        toast.info(`${cabinet.masterCode} fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.`);
+      } else if (remaining > SMALL_GAP_FILLER_MAX_IN) {
+        toast.info(`The measured opening has ${formatEighthInches(remaining)} remaining. Add another cabinet or use the gap tools before fitting a filler.`);
+      } else {
+        toast.info("No eligible ½-inch to 3-inch filler opening was found beside this cabinet.");
+      }
+      return;
+    }
+    const filler = catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer);
+    if (!filler) {
+      toast.error(`No sellable catalog filler can cover this ${formatEighthInches(opportunity.remaining)} opening in the selected cabinet line.`);
+      return;
+    }
+    setSmallGapFillerPrompt(opportunity);
+    setMobilePanel(null);
+  }, [cabinetsLocked, catalogFillers, island, openings, placed, room, t]);
 
   // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
   // suggestion that fires after placing a base cabinet. Kept as a ref so the
@@ -6664,6 +6702,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       selectedCabinetUid={selectedUid}
       onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
+	      onRequestFiller={requestSmallGapFiller}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
       showWallLayer={showWallLayer}
@@ -10997,6 +11036,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onAddCatalogItem={addFromInteractive3d}
                 onAddRangeHood={addRangeHoodFromInteractive3d}
                 onOpenCabinetEditor={openAttributes}
+	                onRequestFiller={requestSmallGapFiller}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 onSyncCart={syncThreeDOrderWithCart}
                 initialPresentation={interactive3dPresentation ?? undefined}

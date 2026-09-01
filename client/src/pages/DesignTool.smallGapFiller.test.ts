@@ -10,7 +10,7 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source).toContain("!isBlindCorner(finalCab.masterCode, finalCab.description)");
     expect(source).toContain("findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
     const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
-    const queueEnd = source.indexOf("// Always-on wall cabinet pool", queueStart);
+    const queueEnd = source.indexOf("}, [openings, room]);", queueStart) + "}, [openings, room]);".length;
     const queueSource = source.slice(queueStart, queueEnd);
     expect(queueSource).toContain("setSmallGapFillerPrompt(opportunity)");
     expect(queueSource).not.toContain("catalogFillerForGap");
@@ -33,6 +33,15 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("All on left");
     expect(source).toContain("All on right");
     expect(source).toContain("Leave space open");
+  });
+
+  it("opens the same catalog-backed filler dialog from a manual selected-cabinet action", () => {
+    expect(source).toContain("const requestSmallGapFiller = useCallback");
+    expect(source).toContain("findSmallGapFillerOpportunity(room, placed, openings, cabinetUid)");
+    expect(source).toContain("catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)");
+    expect(source).toContain("setSmallGapFillerPrompt(opportunity)");
+    expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
+    expect(source.match(/onRequestFiller=\{requestSmallGapFiller\}/g)).toHaveLength(2);
   });
 
   it("preserves exact placement and one purchased filler identity", () => {

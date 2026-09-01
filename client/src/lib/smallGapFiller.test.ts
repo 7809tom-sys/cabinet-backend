@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, cabinetWallDragPreview, type PlacedCabinet } from "@/lib/design";
+import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, type PlacedCabinet } from "@/lib/design";
 import {
   appendSmallGapFillerPlacement,
   automaticSmallGapFillerMode,
@@ -195,6 +195,56 @@ describe("small-gap filler placement", () => {
       [],
       b27.uid,
     )).toMatchObject({ openingStart: 126.25, openingLength: 29.25, remaining: 2.25 });
+  });
+
+  it("does not prompt for an exact-fit W-36-42 beside a refrigerator when its 36-inch bridge is inset one inch", () => {
+    const w3642: PlacedCabinet = {
+      ...cabinet,
+      uid: "w3642",
+      masterCode: "W-36-42",
+      description: "36 inch Double Door Wall Cabinet",
+      placement: "wall",
+      x: 0,
+      width: 36,
+      depth: 12,
+      height: 42,
+      mountBottom: 54,
+    };
+    const refrigerator: PlacedCabinet = {
+      ...cabinet,
+      uid: "refrigerator",
+      masterCode: "FRIDGE-36",
+      description: "36 inch Refrigerator",
+      placement: "appliance",
+      x: 36,
+      width: 36,
+      depth: 30,
+      height: 70,
+    };
+    const refrigeratorBridge: PlacedCabinet = {
+      ...w3642,
+      uid: "refrigerator-bridge",
+      masterCode: "WFR3642",
+      description: "36 inch Refrigerator Wall Cabinet",
+      x: 37,
+      width: 36,
+      height: 24,
+      mountBottom: 72,
+      refrigeratorAssemblyId: refrigerator.uid,
+      refrigeratorAssemblyRole: "bridge",
+    };
+
+    const room = { ...DEFAULT_ROOM, width: 144 };
+    const placed = [w3642, refrigerator, refrigeratorBridge];
+    expect(wallCabinetFitMeasure(w3642, room, placed, [], "top")).toMatchObject({
+      availableStart: 0,
+      availableEnd: 36,
+      availableSpan: 36,
+      before: 0,
+      after: 0,
+      afterBoundary: "FRIDGE-36",
+    });
+    expect(findSmallGapFillerOpportunity(room, placed, [], w3642.uid)).toBeNull();
   });
 
   it("does not prompt for W2442 when a three-quarter-inch clearance exists on one side but 59½ inches remains on the other", () => {

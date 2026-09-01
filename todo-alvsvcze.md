@@ -1197,3 +1197,7 @@
 - [x] Locate every feet-plus-inches formatter used by the Designer cabinet selection list, including height groups and cabinet dimension subtitles
 - [x] Restore inch-only labels for every cabinet selection category so 30-inch dimensions display as 30\" rather than 2' 6\", without changing saved or rendered geometry
 - [x] Add desktop/mobile regressions for whole-inch and fractional-inch cabinet dimensions and publish only after live validation
+- [x] Reproduce why W-36-42 beside the refrigerator is measured with a false 1-inch remainder even though the intended opening and cabinet are both 36 inches
+- [x] Suppress automatic filler prompts for true exact-fit openings while retaining prompts only for genuine 1/2-to-3-inch residual gaps
+- [x] Add a manual Add Filler control for the selected eligible cabinet that opens the existing Auto-fill, split, left, right, and leave-open choices with real catalog filler pricing
+- [x] Validate refrigerator panels, wall/base/tall cabinets, exact-fit and genuine-gap cases, zero overlap, countertop/crown behavior, and desktop/mobile controls before publishing
