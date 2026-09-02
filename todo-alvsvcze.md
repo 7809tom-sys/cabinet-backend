@@ -1360,3 +1360,4 @@
 
 - [ ] Research real backsplash installation and product-pattern construction, then implement interlocking pattern modules with 1/16-inch grout joints instead of repeated complete-square images
 - [x] Render the owner-selected Desert Clay 11.81-inch glass-and-stainless mosaic as a continuous interlocking internal-tile field with 1/16-inch joints and no visible square-sheet boundary
+- [x] Extend backsplash by default above every base cabinet and base appliance run, including dishwasher spans, unless the owner explicitly deletes or excludes that section

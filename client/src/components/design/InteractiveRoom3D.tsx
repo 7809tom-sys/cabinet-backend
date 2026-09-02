@@ -4827,6 +4827,21 @@ export type ThreeDBacksplashSegment = {
 export type BacksplashHeightMode = "standard" | "full-height";
 export const THREE_D_BACKSPLASH_TILE_SIZE_IN = 12;
 
+/**
+ * Backsplash follows the physical counter run, not a limited catalog subset.
+ * Every ground-level base component under the countertop—including a filler or
+ * panel—and every under-counter appliance such as a dishwasher carries the
+ * adjoining wall backsplash. Tall appliances, wall-mounted hoods, and raised
+ * appliances remain excluded.
+ */
+export function threeDSupportsBacksplash(cabinet: PlacedCabinet, room: RoomData) {
+  const elevation = elevationBox(cabinet, room);
+  const isAtCounterLevel = elevation.bottom <= 0.5 && elevation.bottom + elevation.height <= COUNTERTOP_TOP + 4;
+  if (!isAtCounterLevel || isRangeHoodPlacement(cabinet)) return false;
+  if (cabinet.placement === "base") return true;
+  return cabinet.placement === "appliance";
+}
+
 export function threeDBacksplashTileTextureTransform(segment: ThreeDBacksplashSegment, moduleIn = THREE_D_BACKSPLASH_TILE_SIZE_IN) {
   const safeModuleIn = Math.max(0.125, moduleIn);
   return {
@@ -4891,15 +4906,9 @@ export function threeDBacksplashSegments(
   const segments: ThreeDBacksplashSegment[] = [];
   for (const side of sides) {
     const wallItems = placed.filter((cabinet) => !cabinet.islandFace && cabinetWall(cabinet, room) === side);
-    const supportIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
-      if (bearsCountertop(cabinet)) return [threeDWallRunSpan(cabinet, side)];
-      if (cabinet.placement !== "appliance" || isRangeHoodPlacement(cabinet)) return [];
-      if (isRangeOrOven(cabinet.masterCode, cabinet.description)) return [threeDWallRunSpan(cabinet, side)];
-      const box = elevationBox(cabinet, room);
-      return box.bottom <= 0.5 && box.bottom + box.height <= countertopTop + 1.5
-        ? [threeDWallRunSpan(cabinet, side)]
-        : [];
-    }));
+    const supportIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) =>
+      threeDSupportsBacksplash(cabinet, room) ? [threeDWallRunSpan(cabinet, side)] : [],
+    ));
     const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
       if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
       return isRangeOrOven(cabinet.masterCode, cabinet.description) ? [threeDWallRunSpan(cabinet, side)] : [];
