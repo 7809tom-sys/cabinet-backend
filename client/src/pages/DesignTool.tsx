@@ -62,7 +62,7 @@ import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
-import { buildRequiredBlindCornerFiller, removePlacedCabinetWithRequiredBlindCornerFiller } from "@/lib/blindCornerRequiredFiller";
+import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MIN_IN,
   SMALL_GAP_FILLER_MAX_IN,
@@ -1091,7 +1091,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (isFillerItem(cabinet)) {
       const editOpportunity = installedSmallGapFillerEditOpportunity(room, placed, openings, cabinetUid, island);
       if (!editOpportunity) {
-        toast.info(cabinet.fillerPieceGroupId?.startsWith("bbc-required-filler-")
+        toast.info(isRequiredBlindCornerFillerGroupId(cabinet.fillerPieceGroupId)
           ? "This filler is required by its blind-corner cabinet and cannot be changed separately."
           : "This saved filler is not linked to one unambiguous cabinet opening. Remove it and add a new measured filler instead.");
         return;
@@ -4962,7 +4962,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    setPlaced((prev) => {
 		      const cabinet = prev.find((p) => p.uid === uid);
 		      if (!cabinet) return prev;
-		      const requiredFillerGroupId = `bbc-required-filler-${uid}`;
+		      const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 		      const refrigeratorMemberUids = new Set(isRefrigerator(cabinet)
 		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
 		        : []);
@@ -5127,7 +5127,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    setPlaced((prev) => {
 		      const selected = prev.find((item) => item.uid === selectedUid);
 		      if (!selected) return prev;
-		      const requiredFillerGroupId = `bbc-required-filler-${selectedUid}`;
+		      const requiredFillerGroupId = requiredBlindCornerFillerGroupId(selected);
 		      const refrigeratorMemberUids = new Set(isRefrigerator(selected)
 		        ? prev.filter((item) => item.uid !== selectedUid && refrigeratorAssemblyMemberRole(item, selected, room)).map((item) => item.uid)
 		        : []);
@@ -5226,7 +5226,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      return { status: "blocked", message };
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
-	    const requiredFillerGroupId = `bbc-required-filler-${uid}`;
+	    const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 	    const placedWithoutLinkedFiller = prev.filter(
 	      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
 	    );
@@ -5432,7 +5432,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, []);
   const removeFillerFromAttributes = useCallback((uid: string) => {
     const filler = placed.find((item) => item.uid === uid);
-    if (filler?.fillerPieceGroupId?.startsWith("bbc-required-filler-")) {
+    if (isRequiredBlindCornerFillerGroupId(filler?.fillerPieceGroupId)) {
       toast.info("This filler is required by its blind-corner cabinet and cannot be removed separately.");
       return;
     }

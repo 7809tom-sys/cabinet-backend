@@ -417,6 +417,12 @@ export interface PlacedCabinet {
   fillerPlacementMode?: "left" | "right" | "split" | null;
   /** Cabinet whose measured opening owns this editable filler group. */
   fillerForCabinetUid?: string | null;
+  /**
+   * A WBC's required F342 is integrated into the cabinet face rather than being
+   * a second cabinet footprint. The priced line remains persisted for the cart,
+   * materials list, and grouped removal, while the owning WBC renders the strip.
+   */
+  integratedWallBlindFiller?: boolean | null;
   // Original catalog width (inches) captured when the cabinet was placed. The
   // live `width` is what the customer sees/edits; when it differs from
   // nominalWidth the cabinet is a CUSTOM size and is flagged on the build sheet
@@ -1376,6 +1382,11 @@ export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometry
 }
 
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
+  // A required WBC face filler is a commerce/build-sheet attachment to its owner,
+  // not a second physical cabinet. Its visible 3-inch strip is rendered on the
+  // WBC face, so it must reserve zero additional plan area and cannot overlap or
+  // displace an adjoining cabinet run.
+  if (p.integratedWallBlindFiller) return { w: 0, d: 0 };
   const cornerKind = placedCornerGeometryKind(p);
   // BEC-24 is a square 24x24 end-return box with a distinct two-face graphic.
   // Its footprint must remain stable through rotation, snapping, and collision
@@ -1860,12 +1871,63 @@ export function appendCollisionFreePlacements(
 }
 
 /**
+ * Upgrades required fillers that older builds attached to WBC cabinets through
+ * the BBC perpendicular-run path. The real catalog line and pricing identity
+ * remain untouched, but its saved geometry becomes a zero-volume face attachment
+ * owned by the WBC; the WBC renderer draws the three-inch strip left of the door.
+ */
+export function normalizeWallBlindCornerRequiredFillers(placements: PlacedCabinet[]): PlacedCabinet[] {
+  const byUid = new Map(placements.map((item) => [item.uid, item]));
+  let changed = false;
+  const next = placements.map((item) => {
+    const groupId = item.fillerPieceGroupId ?? "";
+    const ownerUid = item.fillerForCabinetUid
+      ?? groupId.match(/^(?:bbc|wbc)-required-filler-(.+)$/)?.[1]
+      ?? null;
+    if (!ownerUid) return item;
+    const owner = byUid.get(ownerUid);
+    const ownerCode = String(owner?.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const ownerDescription = String(owner?.description ?? "").toLowerCase();
+    const ownerIsWbc = /^WBC\d/.test(ownerCode) || /(?:wall.*blind corner|blind corner.*wall)/.test(ownerDescription);
+    if (!owner || !ownerIsWbc) return item;
+    const nextGroupId = `wbc-required-filler-${owner.uid}`;
+    const alreadyNormalized = item.integratedWallBlindFiller === true
+      && groupId === nextGroupId
+      && item.fillerForCabinetUid === owner.uid
+      && item.placement === "wall"
+      && item.x === owner.x
+      && item.y === owner.y
+      && item.rotation === owner.rotation
+      && item.depth === 0
+      && item.fillerPlacementMode === "left";
+    if (alreadyNormalized) return item;
+    changed = true;
+    return {
+      ...item,
+      description: `${item.description.replace(/\s+—\s+(?:required BBC clearance|integrated left of WBC door)$/i, "")} — integrated left of WBC door`,
+      placement: "wall" as const,
+      x: owner.x,
+      y: owner.y,
+      rotation: owner.rotation,
+      depth: 0,
+      height: owner.height ?? item.height ?? STD.WALL_HEIGHT,
+      mountBottom: owner.mountBottom ?? item.mountBottom ?? null,
+      fillerPieceGroupId: nextGroupId,
+      fillerPlacementMode: "left" as const,
+      fillerForCabinetUid: owner.uid,
+      integratedWallBlindFiller: true,
+    };
+  });
+  return changed ? next : placements;
+}
+
+/**
  * Repairs legacy/imported layouts before they render while preserving saved
  * order. Earlier accepted cabinets remain authoritative; a later overlapping
  * refrigerator or other item is rejected instead of replacing its neighbor.
  */
 export function removeOverlappingPlacements(placements: PlacedCabinet[]): CollisionResolution {
-  const normalizedPlacements = placements.map(normalizePlacedWallCabinetSkuDimensions);
+  const normalizedPlacements = normalizeWallBlindCornerRequiredFillers(placements).map(normalizePlacedWallCabinetSkuDimensions);
   const resolution: CollisionResolution = { placed: [], rejected: [] };
   for (const candidate of normalizedPlacements) {
     if (isRefrigeratorEndPanel(candidate) && refrigeratorEndPanelConflictDetail(candidate, resolution.placed)) {

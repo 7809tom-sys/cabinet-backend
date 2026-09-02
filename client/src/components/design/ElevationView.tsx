@@ -2724,12 +2724,15 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
     // blindOnLeft defaults to true (blind on left, door on right).
     // When false, the corner is on the right so we flip: door on left, blind on right.
     const bLeft = blindOnLeft !== false;
+    const integratedWbcFiller = isWallBlindCornerCabinet({ masterCode, description: null });
+    const integratedFillerPct = integratedWbcFiller ? Math.min(35, (3 / Math.max(3, faceWidth)) * 100) : 0;
+    const blindPct = Math.max(0, 100 - visiblePct - integratedFillerPct);
     return withFace(
       <>
         {/* Blind (hidden) portion: subtle hatched/darker area */}
         <div
           className="absolute top-0 bottom-0"
-          style={bLeft ? { left: 0, width: `${100 - visiblePct}%` } : { right: 0, width: `${100 - visiblePct}%` }}
+          style={bLeft ? { left: 0, width: `${integratedWbcFiller ? blindPct : 100 - visiblePct}%` } : { right: 0, width: `${100 - visiblePct}%` }}
         >
           <div
             className="absolute inset-[2px] rounded-[1px]"
@@ -2739,6 +2742,19 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
             }}
           />
         </div>
+        {integratedWbcFiller && bLeft && (
+          <div
+            data-wbc-integrated-filler="left-of-door"
+            className="absolute top-0 bottom-0"
+            style={{
+              left: `${blindPct}%`,
+              width: `${integratedFillerPct}%`,
+              background: face,
+              borderLeft: `1px solid ${stroke}`,
+              borderRight: `2px solid ${stroke}`,
+            }}
+          />
+        )}
         {/* Visible door portion */}
         <div
           className="absolute top-0 bottom-0"

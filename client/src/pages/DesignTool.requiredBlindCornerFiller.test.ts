@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
-describe("Design Tool mandatory BBC filler transactions", () => {
+describe("Design Tool mandatory blind-corner filler transactions", () => {
   it("commits a new blind-corner cabinet and its real catalog filler as one collision-checked state update", () => {
     const start = source.indexOf("const addCabinet = useCallback");
 	    const end = source.indexOf("const addManualFiller", start);
@@ -29,7 +29,7 @@ describe("Design Tool mandatory BBC filler transactions", () => {
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const movement = source.slice(start, end);
-    expect(movement).toContain("const requiredFillerGroupId = `bbc-required-filler-${uid}`");
+    expect(movement).toContain("const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet)");
     expect(movement).toContain("const placedWithoutLinkedFiller = prev.filter");
     expect(movement).toContain("commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate)");
     expect(movement).toContain("buildRequiredBlindCornerFiller(");
@@ -45,6 +45,7 @@ describe("Design Tool mandatory BBC filler transactions", () => {
 	    expect(start).toBeGreaterThan(-1);
 	    expect(end).toBeGreaterThan(start);
 	    const movement = source.slice(start, end);
+	    expect(movement).toContain("requiredBlindCornerFillerGroupId(cabinet)");
 	    expect(movement).toContain("item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid)");
 	    expect(movement).toContain("buildRequiredBlindCornerFiller(");
 	    expect(movement).toContain("appendCollisionFreePlacements(nextPlaced, [required.filler])");
@@ -58,6 +59,7 @@ describe("Design Tool mandatory BBC filler transactions", () => {
 	    expect(start).toBeGreaterThan(-1);
 	    expect(end).toBeGreaterThan(start);
 	    const movement = source.slice(start, end);
+	    expect(movement).toContain("requiredBlindCornerFillerGroupId(selected)");
 	    expect(movement).toContain("item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid)");
 	    expect(movement).toContain("buildRequiredBlindCornerFiller(");
 	    expect(movement).toContain("appendCollisionFreePlacements(nextPlaced, [required.filler])");

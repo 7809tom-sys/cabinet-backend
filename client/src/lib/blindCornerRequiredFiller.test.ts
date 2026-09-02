@@ -5,11 +5,12 @@ import {
   blindCornerRearCountertopExtensionIn,
   countertopSurfaces,
   hasCollision,
+  normalizeWallBlindCornerRequiredFillers,
   placedFootprint,
   type PlacedCabinet,
   type RoomData,
 } from "./design";
-import { buildRequiredBlindCornerFiller, removePlacedCabinetWithRequiredBlindCornerFiller } from "./blindCornerRequiredFiller";
+import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "./blindCornerRequiredFiller";
 
 const room: RoomData = { width: 144, depth: 120 };
 const fillerCatalog = [{
@@ -23,6 +24,24 @@ const fillerCatalog = [{
   depth: null,
   catalogImageUrl: null,
 }];
+const wallFillerCatalog = [{
+  id: 342,
+  masterCode: "F342",
+  description: '3" × 42" Wall Filler',
+  category: "Accessories & Trim",
+  subCategory: "Filler",
+  width: 3,
+  height: 42,
+  depth: 0.75,
+  catalogImageUrl: null,
+}];
+const thirtyInchWallFiller = {
+  ...wallFillerCatalog[0],
+  id: 330,
+  masterCode: "F330",
+  description: '3" × 30" Wall Filler',
+  height: 30,
+};
 
 function bbc(patch: Partial<PlacedCabinet> = {}): PlacedCabinet {
   return {
@@ -43,6 +62,27 @@ function bbc(patch: Partial<PlacedCabinet> = {}): PlacedCabinet {
     pullMin: 3,
     pullMax: 6,
     blindPull: 3,
+    ...patch,
+  };
+}
+
+function wbc(patch: Partial<PlacedCabinet> = {}): PlacedCabinet {
+  return {
+    uid: "wbc",
+    cabinetId: 2742,
+    masterCode: "WBC-27-42",
+    description: '27" Blind Corner Wall Cabinet',
+    placement: "wall",
+    x: 0,
+    y: 0,
+    width: 27,
+    height: 42,
+    depth: 12,
+    mountBottom: 54,
+    rotation: 0,
+    numberOfDoors: 1,
+    numberOfDrawers: 0,
+    swing: "right",
     ...patch,
   };
 }
@@ -152,6 +192,90 @@ describe("mandatory BBC filler", () => {
 	      depth: 24,
 	    });
 	  });
+});
+
+describe("mandatory WBC integrated face filler", () => {
+	  it("selects the height-matched real F342 instead of a 30-inch filler for WBC-27-42", () => {
+	    const cabinet = wbc();
+	    const result = buildRequiredBlindCornerFiller(cabinet, room, [thirtyInchWallFiller, ...wallFillerCatalog], () => "height-match", 330002);
+	    expect(result.ok).toBe(true);
+	    if (!result.ok) return;
+	    expect(result.filler).toMatchObject({ cabinetId: 342, masterCode: "F342", height: 42, nominalHeight: 42 });
+	  });
+
+  it.each([
+    ["top", wbc({ x: 0, y: 0, rotation: 0 })],
+    ["right", wbc({ x: 132, y: 0, rotation: 90 })],
+    ["bottom", wbc({ x: 117, y: 108, rotation: 0 })],
+    ["left", wbc({ x: 0, y: 93, rotation: 90 })],
+  ] as const)("keeps real F342 attached to the %s-wall WBC face with no second physical footprint", (_wall, cabinet) => {
+    const result = buildRequiredBlindCornerFiller(cabinet, room, wallFillerCatalog, () => `${cabinet.uid}-f342`, 330002);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.filler).toMatchObject({
+      uid: `${cabinet.uid}-f342`,
+      cabinetId: 342,
+      masterCode: "F342",
+      placement: "wall",
+      x: cabinet.x,
+      y: cabinet.y,
+      rotation: cabinet.rotation,
+      width: 3,
+      depth: 0,
+      height: 42,
+      mountBottom: 54,
+      styleId: 330002,
+      fillerPieceGroupId: `wbc-required-filler-${cabinet.uid}`,
+      fillerPlacementMode: "left",
+      fillerForCabinetUid: cabinet.uid,
+      fillerBillingRole: "primary",
+      integratedWallBlindFiller: true,
+    });
+    expect(placedFootprint(result.filler)).toEqual({ w: 0, d: 0 });
+    expect(hasCollision(result.filler, [cabinet])).toBe(false);
+    expect(requiredBlindCornerFillerGroupId(cabinet)).toBe(`wbc-required-filler-${cabinet.uid}`);
+    expect(isRequiredBlindCornerFillerGroupId(result.filler.fillerPieceGroupId)).toBe(true);
+  });
+
+  it("upgrades the owner-reported saved BBC-style WBC filler into an integrated left-of-door attachment on restore", () => {
+    const cabinet = wbc({ uid: "saved-wbc", x: 132, y: 24, rotation: 90 });
+    const legacyFiller: PlacedCabinet = {
+      uid: "legacy-f342",
+      cabinetId: 342,
+      masterCode: "F342",
+      description: '3" Wall Filler — required BBC clearance',
+      placement: "wall",
+      x: 120,
+      y: 51,
+      width: 3,
+      depth: 12,
+      height: 42,
+      mountBottom: 54,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      fillerPieceGroupId: "bbc-required-filler-saved-wbc",
+      fillerBillingRole: "primary",
+      fillerTotalWidth: 3,
+      fillerPlacementMode: "right",
+    };
+    const restored = normalizeWallBlindCornerRequiredFillers([cabinet, legacyFiller]);
+    expect(restored[0]).toBe(cabinet);
+    expect(restored[1]).toMatchObject({
+      cabinetId: 342,
+      masterCode: "F342",
+      x: cabinet.x,
+      y: cabinet.y,
+      rotation: cabinet.rotation,
+      depth: 0,
+      fillerPieceGroupId: "wbc-required-filler-saved-wbc",
+      fillerPlacementMode: "left",
+      fillerForCabinetUid: cabinet.uid,
+      integratedWallBlindFiller: true,
+    });
+    expect(removePlacedCabinetWithRequiredBlindCornerFiller(restored, cabinet.uid)).toEqual([]);
+    expect(removePlacedCabinetWithRequiredBlindCornerFiller(restored, legacyFiller.uid)).toEqual([]);
+  });
 });
 
 describe("pulled BBC countertop wall coverage", () => {

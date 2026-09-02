@@ -277,6 +277,56 @@ describe("interactive 3D room scene helpers", () => {
     expect(crown.userData).toMatchObject({ selectedFinishStructuralSurface: true, sharesOwnerCabinetFinishMaterial: true });
   });
 
+  it("renders WBC-27-42's real three-inch face filler immediately left of its visible door and never renders its billing attachment twice", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 } as never;
+    const cabinet = {
+      uid: "wbc-27-42-right", cabinetId: 2742, masterCode: "WBC-27-42", description: '27" Blind Corner Wall Cabinet',
+      placement: "wall", x: 132, y: 18, width: 27, depth: 12, height: 42, mountBottom: 54, rotation: 90,
+      numberOfDoors: 1, numberOfDrawers: 0, swing: "right", openingWidth: 12,
+    } as never;
+    const billingFiller = {
+      uid: "wbc-f342", cabinetId: 342, masterCode: "F342", description: '3" × 42" Wall Filler — integrated left of WBC door',
+      placement: "wall", x: 132, y: 18, width: 3, depth: 0, height: 42, mountBottom: 54, rotation: 90,
+      numberOfDoors: 0, numberOfDrawers: 0, fillerPieceGroupId: "wbc-required-filler-wbc-27-42-right",
+      fillerBillingRole: "primary", fillerTotalWidth: 3, fillerPlacementMode: "left", fillerForCabinetUid: "wbc-27-42-right",
+      integratedWallBlindFiller: true,
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#3f4d3f", "#f8f8f6", undefined, existingCabinetTransform(cabinet, room));
+    let filler: THREE.Object3D | undefined;
+    let door: THREE.Object3D | undefined;
+    root.traverse((node) => {
+      if (node.userData.wallBlindCornerIntegratedFiller) filler = node;
+      if (node.userData.blindCornerExposedDoor) door = node;
+    });
+    expect(filler).toBeDefined();
+    expect(door).toBeDefined();
+    expect(filler!.position.x).toBeLessThan(door!.position.x);
+    expect((filler as THREE.Mesh).geometry).toBeInstanceOf(THREE.BoxGeometry);
+    expect(((filler as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width).toBeCloseTo(3 / 12 - 0.015, 6);
+    expect(filler!.userData).toMatchObject({ immediatelyLeftOfDoor: true, integratedCatalogFillerWidthIn: 3, selectedFinishStructuralSurface: true });
+    expect(shouldRenderSavedSceneCabinet(billingFiller, [cabinet, billingFiller])).toBe(false);
+  });
+
+  it("covers both exposed WDC returns with the selected finish so the right side cannot remain gray", () => {
+    const wdc = {
+      uid: "wdc-24-42", cabinetId: 2442, masterCode: "WDC2442", description: '24" Wall Diagonal Corner Cabinet',
+      placement: "wall", x: 0, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal",
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(wdc), null, {}, 144, 120, "#3f4d3f", "#f8f8f6", undefined, existingCabinetTransform(wdc, { width: 144, depth: 120, ceilingHeight: 96 } as never));
+    const returns: THREE.Mesh[] = [];
+    root.traverse((node) => { if (node.userData.diagonalCornerFinishedReturn) returns.push(node as THREE.Mesh); });
+    expect(returns).toHaveLength(2);
+    expect(returns.map((node) => node.userData.diagonalCornerFinishedReturn).sort()).toEqual(["left", "right"]);
+    for (const side of returns) {
+      expect(side.material).toBeInstanceOf(THREE.MeshBasicMaterial);
+      expect((side.material as THREE.MeshBasicMaterial).color.getHexString()).toBe("3f4d3f");
+      expect(side.userData).toMatchObject({ selectedFinishSideSkin: true, selectedFinishStructuralSurface: true });
+    }
+  });
+
   it("uses a shallow six-inch drawer by default for every standard base cabinet with drawers and doors", () => {
     expect(threeDDrawerZoneHeight({ availableHeight: 2.8, drawerCount: 1, doorCount: 2, hasConfiguredOpening: false, placement: "base" })).toBeCloseTo(0.5);
     expect(threeDDrawerZoneHeight({ availableHeight: 2.8, drawerCount: 1, doorCount: 2, configuredDrawerHeight: 0.75, hasConfiguredOpening: false, placement: "base" })).toBeCloseTo(0.75);
@@ -2842,10 +2892,11 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.diagonalDoor) doors.push(node);
       if (node.userData.cabinetFront && !node.userData.diagonalDoor) genericFrontPanels.push(node);
       if (
-        node instanceof THREE.Mesh &&
-        !node.userData.diagonalCornerWedge &&
-        !node.userData.diagonalDoor &&
-        !node.userData.physicalRail
+	        node instanceof THREE.Mesh &&
+	        !node.userData.diagonalCornerWedge &&
+	        !node.userData.diagonalDoor &&
+	        !node.userData.diagonalCornerFinishedReturn &&
+	        !node.userData.physicalRail
       ) {
         unexpectedMeshes.push(node);
       }

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatEighthInches, type PlacedCabinet } from "@/lib/design";
+import { isRequiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import type { SmallGapFillerPlacementMode } from "@/lib/smallGapFiller";
 
 export type FillerAttributesDialogProps = {
@@ -37,7 +38,7 @@ export function FillerAttributesDialog({
   useEffect(() => setSizeText(String(currentSize)), [currentSize, filler?.uid, open]);
 
   if (!filler) return null;
-  const requiredBlindCorner = filler.fillerPieceGroupId?.startsWith("bbc-required-filler-") === true;
+  const requiredBlindCorner = isRequiredBlindCornerFillerGroupId(filler.fillerPieceGroupId);
   const linkedOpening = measuredOpening != null && measuredOpening >= MIN_FILLER_IN;
   const maxSize = linkedOpening
     ? measuredOpening

@@ -42,8 +42,8 @@ describe("FillerAttributesDialog", () => {
     expect(onRemove).toHaveBeenCalledWith(filler.uid);
   });
 
-  it("protects a required blind-corner filler from separate resizing and removal", () => {
-    render(<FillerAttributesDialog filler={{ ...filler, fillerPieceGroupId: "bbc-required-filler-bbc-1" }} open onOpenChange={vi.fn()} measuredOpening={3} onApply={vi.fn()} onResizeStandalone={vi.fn()} onRemove={vi.fn()} />);
+  it.each(["bbc-required-filler-bbc-1", "wbc-required-filler-wbc-1"])("protects required blind-corner filler group %s from separate resizing and removal", (fillerPieceGroupId) => {
+    render(<FillerAttributesDialog filler={{ ...filler, fillerPieceGroupId }} open onOpenChange={vi.fn()} measuredOpening={3} onApply={vi.fn()} onResizeStandalone={vi.fn()} onRemove={vi.fn()} />);
     expect((screen.getByRole("button", { name: "Remove filler" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText("Filler size in inches") as HTMLInputElement).disabled).toBe(true);
   });

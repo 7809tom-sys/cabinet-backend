@@ -7,7 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Downloa
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -1841,6 +1841,7 @@ export function addCabinet(
     ? { color: "#5f666d", roughness: 0.3, metalness: 0.58 }
     : { color: "#c6b9a7", roughness: 0.72 });
   const structuralFinishMaterials: THREE.MeshStandardMaterial[] = isRefrigeratorAppliance ? [] : [bodyMaterial];
+  const flatExposedFinishMaterials: THREE.MeshBasicMaterial[] = [];
   let applyPlainStructuralFinish: ((finishColor: string, sampleTexture?: THREE.Texture | null) => void) | null = null;
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
@@ -1965,6 +1966,24 @@ export function addCabinet(
       : { specialtyProfile: "diagonal-corner", diagonalCornerWedge: true, selectedStyleSideSkin: true };
     cabinet.add(wedge);
     bodyMeshes.push(wedge);
+    if (!angledWallProfile) {
+      // The extruded pentagon's two short return faces inherit directional light
+      // differently from its door planes, which made one WDC side look gray or
+      // like a different finish. Add flush finish skins on only those two exposed
+      // returns and update them from the same selected finish/door-sample crop.
+      const rightReturnMaterial = new THREE.MeshBasicMaterial({ color });
+      const leftReturnMaterial = new THREE.MeshBasicMaterial({ color });
+      flatExposedFinishMaterials.push(rightReturnMaterial, leftReturnMaterial);
+      const rightReturn = new THREE.Mesh(new THREE.PlaneGeometry(bodyDepth / 2, bodyHeight), rightReturnMaterial);
+      rightReturn.position.set(bodyWidth / 2 + 0.006, 0, -bodyDepth / 4);
+      rightReturn.rotation.y = Math.PI / 2;
+      rightReturn.userData = { diagonalCornerFinishedReturn: "right", selectedFinishSideSkin: true, selectedFinishStructuralSurface: true };
+      cabinet.add(rightReturn);
+      const leftReturn = new THREE.Mesh(new THREE.PlaneGeometry(bodyWidth / 2, bodyHeight), leftReturnMaterial);
+      leftReturn.position.set(-bodyWidth / 4, 0, bodyDepth / 2 + 0.006);
+      leftReturn.userData = { diagonalCornerFinishedReturn: "left", selectedFinishSideSkin: true, selectedFinishStructuralSurface: true };
+      cabinet.add(leftReturn);
+    }
   } else if (specialty.kind === "triangle-corner") {
     const wedge = new THREE.Mesh(triangleCornerWedgeGeometry(bodyWidth, bodyDepth, bodyHeight), bodyMaterial);
     wedge.userData = { specialtyProfile: "triangle-corner", triangleCornerWedge: true, selectedStyleSideSkin: true };
@@ -2057,6 +2076,17 @@ export function addCabinet(
   let structuralSampleTexture: THREE.Texture | null = null;
   const applyStructuralFinish = (finishColor: string, sampleTexture: THREE.Texture | null = null) => {
     const applied = applyThreeDStructuralFinishMaterials(structuralFinishMaterials, finishColor, sampleTexture);
+    for (const material of flatExposedFinishMaterials) {
+      material.color.set(applied.texture ? "#ffffff" : finishColor);
+      material.map = applied.texture;
+      material.needsUpdate = true;
+      material.userData = {
+        ...material.userData,
+        selectedFinishStructuralSurface: true,
+        usesDoorSample: Boolean(applied.texture),
+        usesDoorImage: Boolean(applied.texture),
+      };
+    }
     plainStructuralColor = applied.color;
     structuralSampleTexture = applied.texture;
   };
@@ -2976,25 +3006,46 @@ export function addCabinet(
       const frameNormalZ = Math.cos(door.rotation.y) * 0.031;
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
-		  } else if (specialty.kind === "blind-corner") {
-			    const layout = threeDBlindCornerFrontLayout(
-			      bodyWidth,
-			      isWallBlindCornerCabinet(sku) ? "right" : sku.swing === "left" ? "left" : "right",
-			      sku.openingWidth,
+			  } else if (specialty.kind === "blind-corner") {
+				    const wallBlind = isWallBlindCornerCabinet(sku);
+				    const layout = threeDBlindCornerFrontLayout(
+				      bodyWidth,
+				      wallBlind ? "right" : sku.swing === "left" ? "left" : "right",
+				      sku.openingWidth,
+			    );
+			    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
+			    const integratedFillerWidth = wallBlind
+			      ? Math.min(BLIND_CORNER_FILLER_WIDTH_IN * INCH, Math.max(0, layout.blindWidth - 0.08))
+			      : 0;
+			    const visibleBlindWidth = Math.max(0.08, layout.blindWidth - integratedFillerWidth);
+		    const blindPanel = new THREE.Mesh(
+		      new THREE.BoxGeometry(Math.max(0.08, visibleBlindWidth - 0.04), faceHeight, 0.038),
+		      trimMaterial,
 		    );
-		    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
-	    const blindPanel = new THREE.Mesh(
-	      new THREE.BoxGeometry(Math.max(0.08, layout.blindWidth - 0.04), faceHeight, 0.038),
-	      trimMaterial,
-	    );
-	    blindPanel.position.set(layout.blindX, 0, 0);
+		    blindPanel.position.set(layout.blindX - integratedFillerWidth / 2, 0, 0);
 	    blindPanel.userData = {
 	      specialtyProfile: "blind-corner",
 	      blindCornerBlindSide: layout.blindSide,
 	      blindCornerFixedPanel: true,
 	      cabinetFront: true,
-	    };
-	    frontGroup.add(blindPanel);
+		    };
+		    frontGroup.add(blindPanel);
+			    if (integratedFillerWidth > 0) {
+			      const filler = new THREE.Mesh(
+			        new THREE.BoxGeometry(integratedFillerWidth - 0.015, faceHeight, 0.046),
+			        bodyMaterial,
+			      );
+			      filler.position.set(layout.doorX - layout.doorWidth / 2 - integratedFillerWidth / 2, 0, 0.012);
+			      filler.userData = {
+			        specialtyProfile: "blind-corner",
+			        wallBlindCornerIntegratedFiller: true,
+			        integratedCatalogFillerWidthIn: BLIND_CORNER_FILLER_WIDTH_IN,
+			        immediatelyLeftOfDoor: true,
+			        selectedFinishStructuralSurface: true,
+			        cabinetFront: true,
+			      };
+			      frontGroup.add(filler);
+			    }
 		    const drawerFaceHeight = drawerCount > 0 ? Math.min(faceHeight * 0.24, 6 * INCH) : 0;
 		    const doorFaceHeight = Math.max(0.2, faceHeight - drawerFaceHeight);
 		    const door = new THREE.Mesh(
@@ -3817,6 +3868,7 @@ export function threeDWallDragGhostBox(candidate: PlacedCabinet, room: RoomData)
  * display the explicit hood above the cooktop instead of drawing both appliances
  * into the same 2D coordinate. */
 export function shouldRenderSavedSceneCabinet(cabinet: PlacedCabinet, placed: PlacedCabinet[]) {
+	if (cabinet.integratedWallBlindFiller) return false;
   if (!/^MW[-_]?/i.test(cabinet.masterCode ?? "")) return true;
   const microwaveRotation = ((Number(cabinet.rotation) % 360) + 360) % 360;
   const matchingRange = placed.some((item) => /^RANGE[-_]?/i.test(item.masterCode ?? "")

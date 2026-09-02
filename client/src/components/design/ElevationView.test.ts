@@ -486,6 +486,29 @@ describe("configured corner elevation rendering", () => {
     expect(blind).not.toContain("linear-gradient(225deg");
     expect(lazySusan).not.toContain("linear-gradient(225deg");
   });
+
+  it("renders WBC-27-42's three-inch integrated filler immediately left of its visible door", () => {
+    const wbc = renderToStaticMarkup(
+      createElement(DoorFront, {
+        ...common,
+        cabinetType: "blind-corner",
+        doors: 1,
+        blindOnLeft: true,
+        cabinetWidthIn: 27,
+        cabinetHeightIn: 42,
+        masterCode: "WBC-27-42",
+      }),
+    );
+    expect(wbc).toContain('data-wbc-integrated-filler="left-of-door"');
+    expect(wbc).toContain("width:11.11111111111111%");
+    expect(wbc).toContain("left:40%;width:60%");
+    expect(wbc.indexOf('data-wbc-integrated-filler="left-of-door"')).toBeLessThan(wbc.indexOf("left:40%;width:60%"));
+
+    const bbc = renderToStaticMarkup(
+      createElement(DoorFront, { ...common, cabinetType: "blind-corner", doors: 1, blindOnLeft: true, masterCode: "BBC-36" }),
+    );
+    expect(bbc).not.toContain("data-wbc-integrated-filler");
+  });
 });
 
 describe("non-standard Cabinet Config drawing contract", () => {

@@ -6,9 +6,11 @@ import {
   type PlacedCabinet,
   type RoomData,
 } from "./design";
+import { isWallBlindCornerCabinet } from "./cabinetGraphics";
 import {
   catalogFillerForGap,
   fittedCatalogFillerDescription,
+  isCatalogFiller,
   type CatalogFillerCandidate,
 } from "./catalogFiller";
 import { installedFillerVerticalSpec, removePlacedCabinetGroup } from "./smallGapFiller";
@@ -20,6 +22,33 @@ export type RequiredBlindCornerFillerResult =
 function finite(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function requiredBlindCornerFillerGroupId(
+  blind: Pick<PlacedCabinet, "uid" | "masterCode" | "description">,
+) {
+  return `${isWallBlindCornerCabinet(blind) ? "wbc" : "bbc"}-required-filler-${blind.uid}`;
+}
+
+export function isRequiredBlindCornerFillerGroupId(groupId: string | null | undefined) {
+  return /^(?:bbc|wbc)-required-filler-/.test(groupId ?? "");
+}
+
+function wallBlindCornerCatalogFiller(
+  candidates: readonly CatalogFillerCandidate[],
+  cabinetHeight: number,
+) {
+  return candidates
+    .filter(isCatalogFiller)
+    .filter((candidate) => finite(candidate.width, 0) + 0.001 >= BLIND_CORNER_FILLER_WIDTH_IN)
+    .sort((left, right) => {
+      const widthDelta = finite(left.width, 0) - finite(right.width, 0);
+      if (Math.abs(widthDelta) > 0.001) return widthDelta;
+      const heightDelta = Math.abs(finite(left.height, cabinetHeight) - cabinetHeight)
+        - Math.abs(finite(right.height, cabinetHeight) - cabinetHeight);
+      if (Math.abs(heightDelta) > 0.001) return heightDelta;
+      return left.masterCode.localeCompare(right.masterCode);
+    })[0] ?? null;
 }
 
 /**
@@ -38,8 +67,48 @@ export function buildRequiredBlindCornerFiller(
   if (!isBlindCorner(blind.masterCode, blind.description)) {
     return { ok: false, reason: "not-blind" };
   }
-  const catalog = catalogFillerForGap(candidates, BLIND_CORNER_FILLER_WIDTH_IN, "base");
+  const wallBlind = isWallBlindCornerCabinet(blind);
+  const placement = wallBlind ? "wall" : "base";
+  const catalog = wallBlind
+    ? wallBlindCornerCatalogFiller(candidates, finite(blind.height, STD.WALL_HEIGHT))
+    : catalogFillerForGap(candidates, BLIND_CORNER_FILLER_WIDTH_IN, placement);
   if (!catalog) return { ok: false, reason: "missing-catalog-filler" };
+  if (wallBlind) {
+    const catalogWidth = finite(catalog.width, BLIND_CORNER_FILLER_WIDTH_IN);
+    const height = installedFillerVerticalSpec("wall", finite(catalog.height, blind.height ?? STD.WALL_HEIGHT)).storedHeight;
+    return {
+      ok: true,
+      filler: {
+        uid: makeUid(),
+        cabinetId: catalog.id,
+        masterCode: catalog.masterCode,
+        description: `${fittedCatalogFillerDescription(catalog, BLIND_CORNER_FILLER_WIDTH_IN)} — integrated left of WBC door`,
+        category: catalog.category ?? "Filler",
+        subCategory: catalog.subCategory ?? "Filler",
+        placement: "wall",
+        x: blind.x,
+        y: blind.y,
+        width: BLIND_CORNER_FILLER_WIDTH_IN,
+        nominalWidth: catalogWidth,
+        depth: 0,
+        nominalDepth: finite(catalog.depth, STD.WALL_DEPTH),
+        height,
+        nominalHeight: height,
+        mountBottom: blind.mountBottom ?? null,
+        rotation: blind.rotation,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+        catalogImageUrl: catalog.catalogImageUrl ?? null,
+        styleId,
+        fillerPieceGroupId: requiredBlindCornerFillerGroupId(blind),
+        fillerBillingRole: "primary",
+        fillerTotalWidth: BLIND_CORNER_FILLER_WIDTH_IN,
+        fillerPlacementMode: "left",
+        fillerForCabinetUid: blind.uid,
+        integratedWallBlindFiller: true,
+      },
+    };
+  }
   const layout = blindCornerAutoFiller(blind, room, makeUid);
   if (!layout.filler) return { ok: false, reason: "invalid-corner" };
 
@@ -69,7 +138,7 @@ export function buildRequiredBlindCornerFiller(
       numberOfDrawers: 0,
       catalogImageUrl: catalog.catalogImageUrl ?? null,
       styleId,
-      fillerPieceGroupId: `bbc-required-filler-${blind.uid}`,
+      fillerPieceGroupId: requiredBlindCornerFillerGroupId(blind),
 	      fillerPlacementMode: layout.filler.fillerPlacementMode ?? "right",
       fillerTotalWidth: BLIND_CORNER_FILLER_WIDTH_IN,
     },
@@ -87,14 +156,14 @@ export function removePlacedCabinetWithRequiredBlindCornerFiller(
 ): PlacedCabinet[] {
   const selected = placed.find((item) => item.uid === uid);
   if (!selected) return placed;
-  const directGroupId = `bbc-required-filler-${uid}`;
-  const selectedRequiredGroupId = selected.fillerPieceGroupId?.startsWith("bbc-required-filler-")
+  const directGroupId = requiredBlindCornerFillerGroupId(selected);
+  const selectedRequiredGroupId = isRequiredBlindCornerFillerGroupId(selected.fillerPieceGroupId)
     ? selected.fillerPieceGroupId
     : null;
   const groupId = isBlindCorner(selected.masterCode, selected.description)
     ? directGroupId
     : selectedRequiredGroupId;
   if (!groupId) return removePlacedCabinetGroup(placed, uid);
-  const blindUid = groupId.slice("bbc-required-filler-".length);
+  const blindUid = groupId.replace(/^(?:bbc|wbc)-required-filler-/, "");
   return placed.filter((item) => item.uid !== blindUid && item.fillerPieceGroupId !== groupId);
 }

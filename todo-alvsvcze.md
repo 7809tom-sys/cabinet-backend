@@ -1246,3 +1246,12 @@
 - [x] Make a stationary tap on an exposed 3D window open Window Attributes on mobile and tablet while swipe/orbit gestures continue to move the camera
 - [x] Preserve desktop window right-click, cabinet frontmost selection, exact movement increments, wall/ceiling bounds, clearance conflicts, and save/reload behavior
 - [x] Add direct touch-event regressions and verify the responsive popup on mobile before publishing with the pending WBC filler-side correction
+- [x] Reproduce the owner-confirmed live WBC-27-42 result where F342 still appears on the wrong side after version 03a2690a
+- [x] Confirm the reported WBC was active unsaved state and trace its live wall, rotation, corner origin, visible door side, and required-filler transaction instead of inferring the side from wall name alone
+- [x] Correct automatic and restored WBC F342 placement so it occupies the integrated blind-side face and appears left of the visible door in the reported 3D orientation
+- [x] Preserve real F342 SKU/pricing, one-item billing, exact zero additional footprint, clearance, grouped edit/removal protection, cart/materials, and saved-design identity
+- [x] Add saved-restore and all-wall 2D/3D regressions, validate the live route, and republish only after the reproduced orientation passes
+- [x] Reproduce the owner-confirmed WDC right-side panel using a different finish from the selected Aero Sage/Preston doors in the live affiliate 3D layout
+- [x] Trace the exact WDC right-side skin mesh, material assignment, selected per-cabinet finish, and asynchronous texture/fallback path
+- [x] Make all exposed WDC side skins use the same selected cabinet finish as the WDC doors while preserving the diagonal corner body and interior materials
+- [x] Add final-mesh material regressions and validate WDC finish parity, SKU/pricing, save/restore, and main/affiliate responsive 3D behavior before republishing
