@@ -8,7 +8,7 @@ import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./Inter
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetSelectionPriority, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
@@ -928,6 +928,33 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
+  it("prioritizes a visible ERB36 operating door over an adjacent cabinet skin when resolving right-click selection", () => {
+    const adjacent = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    applyThreeDPlacementIdentity(adjacent, {
+      uid: "placed-b24-left",
+      masterCode: "B-24",
+      description: "24 inch base cabinet",
+      distributorSkuId: 924,
+    });
+    const erbRoot = new THREE.Group();
+    erbRoot.userData = {
+      placedUid: "placed-erb36",
+      masterCode: "ERB-36",
+      label: "Easy Reach Corner Base",
+      distributorSkuId: 936,
+    };
+    const erbDoor = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.05));
+    erbDoor.userData = { lCornerDoor: "side-leg", cabinetFront: true };
+    erbRoot.add(erbDoor);
+
+    expect(threeDCabinetSelectionPriority(adjacent)).toBe(0);
+    expect(threeDCabinetSelectionPriority(erbDoor)).toBe(30);
+    expect(threeDCabinetHitFromIntersections([
+      { object: adjacent },
+      { object: erbDoor },
+    ])).toMatchObject({ uid: "placed-erb36", masterCode: "ERB-36" });
+  });
+
   it("projects an explicit catalog drop onto the active Right wall instead of the floor", () => {
     const plane = threeDCatalogDropPlane("right", { width: 120, depth: 96 });
     const ray = new THREE.Ray(new THREE.Vector3(0, 4, 4), new THREE.Vector3(1, 0, 0));
@@ -1740,6 +1767,52 @@ describe("interactive 3D room scene helpers", () => {
       placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
     } as never;
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
+  it("builds ERB36 toe kicks only as two recessed exposed-face strips rather than deep leg blocks", () => {
+    const root = new THREE.Group();
+    const erb = {
+      uid: "erb36-kick", cabinetId: 36, masterCode: "ERB-36", description: "Easy Reach Corner Base",
+      placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    addCabinet(root, existingCabinetSku(erb), null, {}, 120, 120, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(erb, { width: 120, depth: 120, ceilingHeight: 96 } as never));
+    const kicks: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.lCornerToeKick) kicks.push(node); });
+
+    expect(kicks).toHaveLength(2);
+    expect(kicks.map((node) => node.userData.lCornerToeKickSide).sort()).toEqual(["back-leg", "side-leg"]);
+    for (const kick of kicks) {
+      expect(kick.userData.lCornerExposedFaceToeKick).toBe(true);
+      expect(kick.userData.toeKickRecessIn).toBe(3);
+      expect(kick.userData.toeKickHeightIn).toBe(4.5);
+    }
+  });
+
+  it("keeps an installed filler kick recessed and makes the dishwasher its own only floor-support mesh", () => {
+    const root = new THREE.Group();
+    const filler = {
+      uid: "filler-beside-dw", cabinetId: 342, masterCode: "F342", description: "Filler cut to 3 inches",
+      placement: "base", x: 24, y: 0, width: 3, depth: 24, height: 34.5, rotation: 0,
+      fillerPieceGroupId: "dw-gap", fillerTotalWidth: 3, fillerPlacementMode: "right", numberOfDoors: 0, numberOfDrawers: 0,
+    } as never;
+    const dishwasher = {
+      uid: "dw-24", cabinetId: 24, masterCode: "DW-24", description: "24 inch dishwasher",
+      placement: "appliance", x: 27, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 0, numberOfDrawers: 0,
+    } as never;
+    const room = { width: 120, depth: 96, ceilingHeight: 96 } as never;
+    addCabinet(root, existingCabinetSku(filler), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(filler, room));
+    addCabinet(root, existingCabinetSku(dishwasher), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(dishwasher, room));
+    const fillerKick: THREE.Object3D[] = [];
+    const dishwasherKicks: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.installedFillerToeKickRecessed) fillerKick.push(node);
+      if (node.userData.dishwasherToeKick) dishwasherKicks.push(node);
+    });
+
+    expect(fillerKick).toHaveLength(1);
+    expect(fillerKick[0]?.userData.toeKickRecessIn).toBe(3);
+    expect(dishwasherKicks).toHaveLength(1);
+    expect(dishwasherKicks[0]?.userData.floorApplianceSupport).toBe(true);
   });
 
 	  it("keeps left and right LSB36 lazy Susan fronts on their room-facing corner legs", () => {

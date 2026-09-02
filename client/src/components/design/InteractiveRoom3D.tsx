@@ -1502,15 +1502,37 @@ export function threeDCabinetHitFromObject(object: THREE.Object3D): ThreeDCabine
   return masterCode ? { uid, masterCode, description, distributorSkuId } : null;
 }
 
+/**
+ * A visible operating door is the clearest selection target. In particular, an
+ * ERB/BER L-corner has two narrow room-facing door planes that can sit beside
+ * full-depth cabinet skins and countertops in a perspective view. Favor that
+ * actual face only when the ray reaches it; otherwise retain nearest-hit order.
+ */
+export function threeDCabinetSelectionPriority(object: THREE.Object3D): number {
+  let node: THREE.Object3D | null = object;
+  let priority = 0;
+  while (node) {
+    if (node.userData?.lCornerDoor) return 30;
+    if (node.userData?.cabinetFront || node.userData?.cabinetDrawerFront) priority = Math.max(priority, 20);
+    node = node.parent;
+  }
+  return priority;
+}
+
 /** Select the first actual placed-cabinet hit, skipping room/countertop decoration with no placement identity. */
 export function threeDCabinetHitFromIntersections(
   intersections: Array<Pick<THREE.Intersection, "object">>,
 ): ThreeDCabinetHit | null {
-  for (const intersection of intersections) {
-    const hit = threeDCabinetHitFromObject(intersection.object);
-    if (hit?.uid) return hit;
-  }
-  return null;
+  const candidates = intersections
+    .map((intersection, index) => ({
+      hit: threeDCabinetHitFromObject(intersection.object),
+      priority: threeDCabinetSelectionPriority(intersection.object),
+      index,
+    }))
+    .filter((candidate): candidate is { hit: ThreeDCabinetHit; priority: number; index: number } => Boolean(candidate.hit?.uid));
+  if (candidates.length === 0) return null;
+  candidates.sort((left, right) => right.priority - left.priority || left.index - right.index);
+  return candidates[0]!.hit;
 }
 
 export type ThreeDOpeningHit = {
@@ -2750,16 +2772,44 @@ export function addCabinet(
     structuralFinishMaterials.push(toeKickMaterial);
     const lCornerKind = specialty.kind === "corner-drawer" || specialty.kind === "l-corner";
     if (lCornerKind) {
-      // L-corner toe kicks follow the same two-leg carcass geometry so the
-      // recessed kick is continuous around the corner rather than a square box.
+      // ERB/BER/LSB and corner-drawer bases have two exposed room-facing legs.
+      // Build only two thin strips immediately behind those faces, not deep
+      // carcass-leg blocks that extend into the corner or dishwasher opening.
       const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio);
-      for (const part of [lShape.backLeg, lShape.sideLeg]) {
-        const legKick = new THREE.Mesh(
-          new THREE.BoxGeometry(Math.max(0.12, part.width - 0.06), toeKickHeight, Math.max(0.12, part.depth - 0.12)),
-          toeKickMaterial,
-        );
-        legKick.position.set(part.x, -bodyHeight / 2 - toeKickHeight / 2, part.z - 0.06);
-        legKick.userData = { baseToeKick: true, lCornerToeKick: true, toeKickHeightIn: THREE_D_TOE_KICK };
+      const exposedBackWidth = Math.max(0.12, bodyWidth - lShape.sideLeg.width - 0.06);
+      const exposedBackX = bodyWidth / 2 - exposedBackWidth / 2;
+      const exposedBackZ = lShape.backLeg.z + lShape.backLeg.depth / 2 + 0.03;
+      const exposedSideLength = Math.max(0.12, lShape.sideLeg.depth - 0.06);
+      const exposedSideX = lShape.sideLeg.x + lShape.sideLeg.width / 2 + 0.03;
+      const exposedSideZ = lShape.sideLeg.z;
+      const toeKickRecess = 3 * INCH;
+      const toeKickThickness = 0.08;
+      const exposedKicks = [
+        {
+          side: "back-leg" as const,
+          geometry: new THREE.BoxGeometry(exposedBackWidth, toeKickHeight, toeKickThickness),
+          x: exposedBackX,
+          z: exposedBackZ - toeKickRecess - toeKickThickness / 2,
+        },
+        {
+          side: "side-leg" as const,
+          geometry: new THREE.BoxGeometry(toeKickThickness, toeKickHeight, exposedSideLength),
+          x: exposedSideX - toeKickRecess - toeKickThickness / 2,
+          z: exposedSideZ,
+        },
+      ];
+      for (const exposedKick of exposedKicks) {
+        const legKick = new THREE.Mesh(exposedKick.geometry, toeKickMaterial);
+        legKick.position.set(exposedKick.x, -bodyHeight / 2 - toeKickHeight / 2, exposedKick.z);
+        legKick.userData = {
+          baseToeKick: true,
+          lCornerToeKick: true,
+          floorStandingToeKick: true,
+          lCornerExposedFaceToeKick: true,
+          lCornerToeKickSide: exposedKick.side,
+          toeKickHeightIn: THREE_D_TOE_KICK,
+          toeKickRecessIn: 3,
+        };
         cabinet.add(legKick);
         bodyMeshes.push(legKick);
       }
@@ -2802,14 +2852,18 @@ export function addCabinet(
 	      );
       // Recess the toe-kick three inches from the cabinet face, matching the
       // shared 2D base-cabinet convention rather than drawing a floor-to-front box.
-	      toeKick.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, isInstalledFillerPiece ? installedFillerFrontOffset : -0.125);
+	      toeKick.position.set(
+	        0,
+	        -bodyHeight / 2 - toeKickHeight / 2,
+	        isInstalledFillerPiece ? installedFillerFrontOffset - 3 * INCH : -0.125,
+	      );
 	      toeKick.userData = {
 	        baseToeKick: true,
 	        continuousRunOverlap: true,
         floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
-	        toeKickRecessIn: isInstalledFillerPiece ? 0 : 3,
-	        ...(isInstalledFillerPiece ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH } : {}),
+	        toeKickRecessIn: 3,
+	        ...(isInstalledFillerPiece ? { installedFillerToeKickRecessed: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH } : {}),
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);

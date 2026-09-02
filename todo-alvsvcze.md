@@ -1401,4 +1401,8 @@
 - [x] Remove visible noise and low-resolution enlargement artifacts from the exact-scene path-tracing candidate before owner re-evaluation
 - [ ] Raise exact-scene cabinet, countertop, backsplash, flooring, appliance, and lighting realism toward the owner-supplied Gemini benchmark without allowing geometry, product, camera, or material substitution
 - [x] Preserve existing PBR maps and add a deterministic clone-only daylight and interior-light rig to the HD exact-scene production test
+- [x] Restore toe-kick continuity beneath the reported ERB36 corner cabinet and adjoining filler without extending toe kick into the dishwasher opening
+- [x] Make the reported ERB36 corner cabinet directly selectable in 3D instead of allowing adjacent cabinet meshes to win the pointer target
+- [x] Remove the small cabinet-finish toe-kick fragments visible under and beside the dishwasher while preserving all actual base-cabinet toe kicks
+- [ ] Obtain owner live verification that ERB36/filler toe kicks, dishwasher boundaries, and ERB36 right-click targeting match the reported scene
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark
