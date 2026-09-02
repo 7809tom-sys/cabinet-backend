@@ -2283,7 +2283,7 @@ function threeDPlanRectsShareEdge(first: ThreeDPlanRect, second: ThreeDPlanRect,
   return (touchesVertically && yOverlap > toleranceIn) || (touchesHorizontally && xOverlap > toleranceIn);
 }
 
-/** A fitted filler cannot add a cabinet toe kick into a dishwasher opening. */
+/** A base filler cannot add a cabinet toe kick into a dishwasher opening. */
 export function threeDFittedFillerToeKickSuppressionUids(placed: PlacedCabinet[]): Set<string> {
   const dishwashers = placed.filter((cabinet) => (
     cabinet.placement === "appliance"
@@ -2291,9 +2291,11 @@ export function threeDFittedFillerToeKickSuppressionUids(placed: PlacedCabinet[]
   ));
   const suppressed = new Set<string>();
   for (const filler of placed) {
-    const isFittedBaseFiller = filler.placement === "base"
-      && Boolean(filler.fillerPieceGroupId && filler.fillerPlacementMode && Number(filler.fillerTotalWidth) > 0);
-    if (!isFittedBaseFiller) continue;
+    const isBaseFiller = filler.placement === "base" && (
+      Boolean(filler.fillerPieceGroupId && filler.fillerPlacementMode && Number(filler.fillerTotalWidth) > 0)
+      || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${filler.masterCode ?? ""} ${filler.description ?? ""}`)
+    );
+    if (!isBaseFiller) continue;
     if (dishwashers.some((dishwasher) => threeDPlanRectsShareEdge(threeDPlanRect(filler), threeDPlanRect(dishwasher)))) {
       suppressed.add(filler.uid);
     }
@@ -2787,7 +2789,11 @@ export function addCabinet(
     Number.isFinite(Number(sku.fillerTotalWidth)) &&
     Number(sku.fillerTotalWidth) > 0,
   );
-  const suppressInstalledFillerToeKick = isInstalledFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
+  const isBaseFillerPiece = isBaseCabinet && (
+    isInstalledFillerPiece
+    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
+  );
+  const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
   const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isInstalledFillerPiece ? (bodyDepth - installedFillerBoardDepth) / 2 : 0;
   const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;

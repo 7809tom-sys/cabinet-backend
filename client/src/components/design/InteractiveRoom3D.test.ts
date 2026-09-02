@@ -1850,6 +1850,15 @@ describe("interactive 3D room scene helpers", () => {
     const room = { width: 120, depth: 96, ceilingHeight: 96 } as never;
     const suppressions = threeDFittedFillerToeKickSuppressionUids([filler, dishwasher]);
     expect(suppressions.has(filler.uid)).toBe(true);
+    const manualFiller = {
+      ...filler,
+      uid: "manual-filler-beside-dw",
+      masterCode: "F3",
+      fillerPieceGroupId: null,
+      fillerTotalWidth: null,
+      fillerPlacementMode: null,
+    } as never;
+    expect(threeDFittedFillerToeKickSuppressionUids([manualFiller, dishwasher]).has(manualFiller.uid)).toBe(true);
     addCabinet(root, existingCabinetSku(filler), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(filler, room), undefined, undefined, { suppressFittedFillerToeKick: suppressions.has(filler.uid) });
     addCabinet(root, existingCabinetSku(dishwasher), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(dishwasher, room));
     const fillerKick: THREE.Object3D[] = [];
