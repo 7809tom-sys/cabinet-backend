@@ -69,6 +69,7 @@ export const preferredProductsRouter = router({
             subCategory: product.subCategory,
             size: product.size,
             imageUrl: product.imageUrl,
+            materialImageUrl: product.materialImageUrl,
             sellPrice: preferredSellPrice(product, markupBpsByCategory),
             coverageSqFt: product.coverageSqFt == null ? null : Number(product.coverageSqFt),
           }];

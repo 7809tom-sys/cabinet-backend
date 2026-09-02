@@ -360,4 +360,24 @@ export const pelicanRouter = router({
         .where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
     }),
+  /**
+   * Catalog images are displayed to shoppers. This separate URL is an
+   * administrator-approved, repeatable material swatch for the 3D Designer.
+   */
+  setMaterialImage: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        materialImageUrl: z.string().url().max(512).nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      await db
+        .update(pelicanProducts)
+        .set({ materialImageUrl: input.materialImageUrl?.trim() || null })
+        .where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
+    }),
 });

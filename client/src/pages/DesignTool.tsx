@@ -6875,7 +6875,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   const threeDSurfaceTextureUrls = useMemo(() => {
     const imageForRole = (role: "countertop" | "flooring" | "backsplash") =>
-      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.imageUrl ?? null;
+      // Catalog product cards can be staged-room or retail photographs. The
+      // final 3D scene accepts only an explicitly approved, repeatable swatch;
+      // named curated assets are resolved separately by the 3D renderer.
+      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.materialImageUrl ?? null;
     return {
       countertop: imageForRole("countertop"),
       flooring: imageForRole("flooring"),

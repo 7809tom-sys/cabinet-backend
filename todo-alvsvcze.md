@@ -1325,3 +1325,9 @@
 - [x] Offer 2½-inch and 3-inch countertop rear-upstand choices; start wall tile above the selected upstand and cut the remaining top course precisely
 - [x] Continue the same connected tile field from counter/range height to the underside of the range hood, with no gaps or detached tiles
 - [x] Preserve the selected backsplash product, cabinet/appliance/opening boundaries, standard/full-height option, exact plan, camera, pricing, and persistence
+- [x] Reproduce the live floor result that repeats staged room/product imagery instead of the selected product’s usable board material
+- [x] Reproduce the live backsplash result that repeats product-thumbnail framing instead of a clean continuous 12-inch tile field
+- [x] Trace selected product-image roles and reject staged rooms, catalog cards, labels, supports, and white product backgrounds before material projection
+- [x] Extract or require a validated material-only swatch for each flooring and backsplash product, with an honest neutral fallback when no usable source exists
+- [x] Render flooring as true staggered boards and backsplash as connected 12-inch tile courses only from validated material regions
+- [x] Add regressions that reject repeated room/product-thumbnail artifacts while preserving exact plan, selected products, pricing, mobile behavior, and saved designs

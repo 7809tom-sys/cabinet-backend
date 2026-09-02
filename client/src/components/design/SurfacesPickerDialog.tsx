@@ -29,6 +29,8 @@ export type SelectedSurface = {
   subCategory?: string | null;
   size?: string | null;
   imageUrl?: string | null;
+  /** Optional approved material-only image for the 3D scene. */
+  materialImageUrl?: string | null;
   sellPrice: number | null;
   /** Sq ft per box/carton — when set, BOM auto-calculates box qty from area + overage. */
   coverageSqFt?: number | null;
@@ -103,6 +105,7 @@ export function SurfacesPickerDialog({
     subCategory: product.subCategory,
     size: product.size,
     imageUrl: product.imageUrl,
+    materialImageUrl: product.materialImageUrl,
     sellPrice: product.sellPrice,
     coverageSqFt: product.coverageSqFt ?? null,
   })), [preferredProducts]);
@@ -210,6 +213,7 @@ export function SurfacesPickerDialog({
                     subCategory: p.subCategory,
                     size: p.size,
                     imageUrl: p.imageUrl,
+                    materialImageUrl: p.materialImageUrl,
                     sellPrice: p.sellPrice,
                     coverageSqFt: p.coverageSqFt ?? null,
                   };

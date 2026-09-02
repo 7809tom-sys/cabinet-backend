@@ -15,6 +15,8 @@ export type PreferredProduct = {
   subCategory?: string | null;
   size?: string | null;
   imageUrl?: string | null;
+  /** Approved repeatable swatch for the 3D Designer; catalog imagery remains display-only. */
+  materialImageUrl?: string | null;
   sellPrice: number | null;
   coverageSqFt?: number | null;
 };

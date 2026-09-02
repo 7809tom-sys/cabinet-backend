@@ -75,6 +75,13 @@ export default function PelicanCatalogAdmin() {
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const setMaterialImage = trpc.pelican.setMaterialImage.useMutation({
+    onSuccess: () => {
+      void utils.pelican.adminList.invalidate();
+      toast.success("3D material swatch updated.");
+    },
+    onError: (e) => toast.error(e.message || "The material swatch could not be updated."),
+  });
 
   const items = data?.items ?? [];
 
@@ -147,6 +154,7 @@ export default function PelicanCatalogAdmin() {
                   <TableHead className="text-center">Designer</TableHead>
                   <TableHead className="text-center">Featured</TableHead>
                   <TableHead className="text-right">Sq ft/Box</TableHead>
+                  <TableHead className="min-w-[220px]">3D Material Swatch</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -226,6 +234,20 @@ export default function PelicanCatalogAdmin() {
                           const num = val ? parseFloat(val) : null;
                           if (num !== (it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : null)) {
                             setCoverage.mutate({ id: it.id, coverageSqFt: num && num > 0 ? num : null });
+                          }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        className="h-8 min-w-[210px] text-xs"
+                        type="url"
+                        defaultValue={it.materialImageUrl ?? ""}
+                        placeholder="Approved repeatable material image URL"
+                        onBlur={(event) => {
+                          const nextValue = event.target.value.trim() || null;
+                          if (nextValue !== (it.materialImageUrl ?? null)) {
+                            setMaterialImage.mutate({ id: it.id, materialImageUrl: nextValue });
                           }
                         }}
                       />

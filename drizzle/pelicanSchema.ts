@@ -28,6 +28,9 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   isPopular: boolean("isPopular").default(false).notNull(),
   popularRank: int("popularRank").default(0).notNull(),
   imageUrl: varchar("imageUrl", { length: 512 }),
+  // Catalog imagery can be a retail thumbnail or a staged room. Only this
+  // separately approved material-only source may be mapped onto 3D surfaces.
+  materialImageUrl: varchar("materialImageUrl", { length: 512 }),
   showInDesigner: boolean("showInDesigner").default(true).notNull(),
   showInCatalog: boolean("showInCatalog").default(true).notNull(),
   isActive: boolean("isActive").default(true).notNull(),

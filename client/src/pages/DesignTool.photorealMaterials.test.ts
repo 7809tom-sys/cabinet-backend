@@ -13,8 +13,9 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("{paletteFinishSwatch ? (");
   });
 
-  it("passes exact selected website surface images into material-only renderer props", () => {
-    expect(designToolSource).toContain("selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.imageUrl ?? null");
+  it("passes only exact approved material swatches into material-only renderer props", () => {
+    expect(designToolSource).toContain("selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.materialImageUrl ?? null");
+    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
     expect(designToolSource).toContain("catalogFlooringCategory={threeDFlooringProductMetadata?.category}");
