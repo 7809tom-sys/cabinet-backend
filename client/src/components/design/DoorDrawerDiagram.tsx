@@ -16,7 +16,7 @@
  */
 
 import React from "react";
-import { cabinetDrawingType, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
+import { cabinetDrawingType, isEqualHeightTwoDrawerBase, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import type { CabinetLike } from "@/lib/cabinetGraphics";
 
 // ─── Palette ────────────────────────────────────────────────────────────────
@@ -919,8 +919,11 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       doorIdx += doorsInThisRow;
     }
   } else if (effectiveDrawers > 0 && effectiveDoors === 0) {
-    // All-drawer base: use drawerLayout rows if available
-    const drawerRows = parseDrawerLayout(cabinet.drawerLayout, effectiveDrawers);
+    // 2-DB products always have two equal fronts. Legacy or supplier-authored
+    // drawerLayout rows must not turn them into a short top and tall bottom.
+    const drawerRows = isEqualHeightTwoDrawerBase(cabinet, effectiveDrawers)
+      ? []
+      : parseDrawerLayout(cabinet.drawerLayout, effectiveDrawers);
 
     if (drawerRows.length > 0) {
       renderDrawerRows(drawerRows, zones, rails, PAD, PAD, iW, iH);

@@ -190,11 +190,13 @@ function DrawerBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">
   const innerH = h - inset * 2;
   const dh = (innerH - (n - 1) * gap) / n;
   return (
-    <g>
+    <g data-cabinet-drawing="drawer-base">
       <Box x={x} y={y} w={w} h={h} fill={fill} />
       {Array.from({ length: n }).map((_, i) => (
         <g key={i}>
           <rect
+            data-drawer-front="true"
+            data-drawer-front-height={dh}
             x={x + inset}
             y={y + inset + i * (dh + gap)}
             width={innerW}

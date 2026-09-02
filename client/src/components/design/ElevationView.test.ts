@@ -6,6 +6,26 @@ import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, refrigeratorEndPanelRenderStyle, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
 describe("measured base and range elevations", () => {
+  it("renders 2-DB30 as two equal 50/50 drawer fronts across the elevation face", () => {
+    const markup = renderToStaticMarkup(createElement(DoorFront, {
+      kind: "shaker",
+      edge: "#1a2744",
+      face: "#d8d4c8",
+      cabinetType: "drawer-base",
+      cabinetWidthIn: 30,
+      cabinetHeightIn: 30,
+      doors: 0,
+      drawers: 2,
+      masterCode: "2-DB30",
+      drawerHeight: 14.5,
+      drawerLayout: JSON.stringify([{ count: 1, height: 6 }, { count: 1, height: 23 }]),
+    }));
+
+    expect(markup.match(/height:50%/g)).toHaveLength(2);
+    expect(markup).toContain("top:0%;height:50%");
+    expect(markup).toContain("top:50%;height:50%");
+  });
+
   it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
     const markup = renderToStaticMarkup(
       createElement(LanguageProvider, null, createElement(ElevationView, {

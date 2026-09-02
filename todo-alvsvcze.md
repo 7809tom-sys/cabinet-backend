@@ -1217,3 +1217,7 @@
 - [x] Prove W-1242 can use the correct available upper-wall opening without using the hood footprint or overlapping existing cabinets
 - [x] Make a failed B-12 placement explicitly say that B-12 is a base cabinet and direct users seeking the 12-inch upper to the Wall tab and W-1242, without silently substituting products
 - [x] Validate W-1242, B-12, wall/base category switching, hood blocking, wall back-fill, zero overlap, saved design behavior, and desktop/mobile controls before publishing
+- [x] Reproduce why active 2-DB30 renders a short upper drawer and taller lower drawer despite being a two-drawer base cabinet
+- [x] Define one authoritative 2-DB family rule that produces exactly two equal-height drawer fronts for every available width
+- [x] Apply the equal two-drawer rule consistently to plan/elevation, final 3D meshes, cabinet thumbnails, and selected-cabinet details without changing physical dimensions
+- [x] Validate drawer hardware centering, catalog identity, selected style, price/cart lines, saved-design refresh, 2D/3D parity, and desktop/mobile behavior before publishing

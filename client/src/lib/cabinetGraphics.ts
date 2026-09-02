@@ -103,6 +103,16 @@ function lc(v: string | null | undefined): string {
   return (v ?? "").toLowerCase();
 }
 
+/** The 2-DB family always has exactly two equal-height drawer fronts. */
+export function isEqualHeightTwoDrawerBase(
+  cabinet: Pick<CabinetLike, "masterCode" | "numberOfDrawers">,
+  fallbackCount = 0,
+): boolean {
+  const code = String(cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const drawerCount = Math.max(0, Number(cabinet.numberOfDrawers) || fallbackCount);
+  return /^2DB\d/.test(code) && drawerCount === 2;
+}
+
 const WORD_NUM: Record<string, number> = {
   single: 1, one: 1, two: 2, double: 2, three: 3, triple: 3,
   four: 4, five: 5, six: 6,

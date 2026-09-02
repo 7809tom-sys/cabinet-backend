@@ -2014,6 +2014,60 @@ describe("interactive 3D room scene helpers", () => {
     expect(isEqualHeightTwoDrawerBase({ ...sku, masterCode: "3-DB24", numberOfDrawers: 3 }, 3)).toBe(false);
   });
 
+  it("gives active-catalog 2-DB30 two equal drawers across the full usable face despite drawerHeight 14½ inches", () => {
+    const usableHeight = (34.5 - 4.5) / 12 - 0.08;
+    const sku = {
+      masterCode: "2-DB30",
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      drawerHeight: 14.5,
+      drawerLayout: null,
+    };
+    const drawerZone = threeDDrawerZoneHeight({
+      availableHeight: usableHeight,
+      drawerCount: 2,
+      doorCount: 0,
+      configuredDrawerHeight: sku.drawerHeight / 12,
+      hasConfiguredOpening: false,
+      placement: "base",
+      masterCode: sku.masterCode,
+    });
+    expect(drawerZone).toBeCloseTo(29 / 12, 12);
+    expect(usableHeight - drawerZone).toBeLessThan(0.01);
+    expect(resolvedThreeDDrawerRows(sku, drawerZone, 2, true)).toEqual([
+      { count: 1, height: drawerZone / 2 },
+      { count: 1, height: drawerZone / 2 },
+    ]);
+
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -930,
+      cabinetId: 9360022,
+      masterCode: "2-DB30",
+      description: '30" 2 Drawer Base Cabinet',
+      placementType: "base",
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 2,
+      drawerHeight: 14.5,
+      drawerLayout: null,
+    }, null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null });
+    const drawers: THREE.Mesh[] = [];
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.cabinetDrawerFront) drawers.push(node);
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "drawer") pulls.push(node);
+    });
+    expect(drawers).toHaveLength(2);
+    const meshHeights = drawers.map((drawer) => (drawer.geometry as THREE.BoxGeometry).parameters.height);
+    expect(meshHeights[0]).toBeCloseTo(14.5 / 12 - 0.025, 12);
+    expect(meshHeights[1]).toBeCloseTo(meshHeights[0]!, 12);
+    expect(pulls).toHaveLength(2);
+    expect(pulls.every((pull) => pull.position.x === 0 && pull.userData.hardwarePosition === "center")).toBe(true);
+  });
+
   it("uses the existing single-oven 2D drawer contract despite stale saved drawer rows", () => {
     const layout = resolvedThreeDOvenLayout({
       height: 84, numberOfDoors: 2, numberOfDrawers: 3, doorHeight: 18,

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
-import { resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
+import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -987,11 +987,7 @@ export function isEqualHeightTwoDrawerBase(
   sku: Pick<SceneSku, "drawerLayout"> & Partial<Pick<SceneSku, "masterCode" | "numberOfDoors" | "numberOfDrawers">>,
   fallbackCount: number,
 ) {
-  const code = String(sku.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const drawerCount = Math.max(0, Number(sku.numberOfDrawers) || fallbackCount);
-  // The 2-DB code is authoritative. Some supplier or legacy rows incorrectly
-  // carry a positive door count even though the product is a two-drawer base.
-  return /^2DB\d/.test(code) && drawerCount === 2;
+  return isEqualHeightTwoDrawerBaseFamily(sku, fallbackCount);
 }
 
 export function resolvedThreeDDrawerRows(
@@ -1033,8 +1029,14 @@ export function threeDDrawerZoneHeight(input: {
   configuredDrawerHeight?: number | null;
   hasConfiguredOpening: boolean;
   placement: string;
+  masterCode?: string | null;
 }) {
   if (!input.drawerCount) return 0;
+  if (isEqualHeightTwoDrawerBase({ masterCode: input.masterCode ?? undefined, numberOfDrawers: input.drawerCount }, input.drawerCount)) {
+    return input.configuredDrawerHeight && input.configuredDrawerHeight > 0
+      ? Math.min(input.availableHeight, input.configuredDrawerHeight * input.drawerCount)
+      : input.availableHeight;
+  }
   if (input.configuredDrawerHeight && input.configuredDrawerHeight > 0) {
     return Math.min(input.availableHeight, input.configuredDrawerHeight);
   }
@@ -2088,13 +2090,14 @@ export function addCabinet(
   const drawerHeight = wd18Layout
     ? wd18Layout.drawerHeights.reduce((sum, heightIn) => sum + heightIn, 0) * INCH
     : threeDDrawerZoneHeight({
-    availableHeight: usableHeight,
-    drawerCount,
-    doorCount,
-    configuredDrawerHeight,
-    hasConfiguredOpening,
-    placement,
-  });
+      availableHeight: usableHeight,
+      drawerCount,
+      doorCount,
+      configuredDrawerHeight,
+      hasConfiguredOpening,
+      placement,
+      masterCode: sku.masterCode,
+    });
   const configuredDoorHeight = sku.doorHeight != null ? numberValue(sku.doorHeight, 0) * INCH : 0;
   const doorHeight = Math.max(0.2, wd18Layout ? wd18Layout.doorHeight * INCH : configuredDoorHeight || usableHeight - drawerHeight);
   const frontGroup = new THREE.Group();

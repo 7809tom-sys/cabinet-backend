@@ -7,10 +7,25 @@ import {
   cabinetTypeLabel,
   resolveConfiguredFaceCounts,
   resolveDoorDrawerCounts,
+  isEqualHeightTwoDrawerBase,
   standardDoorCountForFaceWidth,
   baseSubGroup,
   type CabinetLike,
 } from "./cabinetGraphics";
+
+describe("two-drawer base family", () => {
+  it.each(["2-DB18", "2-DB21", "2-DB24", "2-DB27", "2-DB30", "2-DB33", "2-DB36"])(
+    "keeps %s as exactly two equal-height drawer fronts",
+    (masterCode) => {
+      expect(isEqualHeightTwoDrawerBase({ masterCode, numberOfDrawers: 2 })).toBe(true);
+    },
+  );
+
+  it("does not change standard three-drawer or door-and-drawer bases", () => {
+    expect(isEqualHeightTwoDrawerBase({ masterCode: "3-DB30", numberOfDrawers: 3 })).toBe(false);
+    expect(isEqualHeightTwoDrawerBase({ masterCode: "B-30", numberOfDrawers: 1 })).toBe(false);
+  });
+});
 
 describe("cabinetDrawingType", () => {
   it("keeps explicit Cabinet Config zeroes instead of restoring generic door or drawer faces", () => {
