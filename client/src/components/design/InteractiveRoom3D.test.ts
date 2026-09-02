@@ -56,6 +56,16 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(lights.every((light) => light.userData.productionRenderLight && light.userData.cloneOnly)).toBe(true);
 		  });
 
+		  it("uses the licensed neutral HDRI only for the cloned production scene's deterministic light and reflection environment", () => {
+		    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+		    expect(source).toContain('import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";');
+		    expect(source).toContain('export const THREE_D_PRODUCTION_HDRI_URL = "/manus-storage/photo_studio_01_1k_5f7e3d4e.hdr";');
+		    expect(source).toContain('await new RGBELoader().loadAsync(THREE_D_PRODUCTION_HDRI_URL)');
+		    expect(source).toContain("productionEnvironment.mapping = THREE.EquirectangularReflectionMapping");
+		    expect(source).toContain("pathTraceScene.environment = productionEnvironment");
+		    expect(source).not.toContain("pathTraceScene.background = productionEnvironment");
+		  });
+
 		  it("resolves the exact selected Aveline and Calacatta products to curated manufacturer-derived material fields", () => {
 		    const floor = threeDProductMaterialSource("flooring", "Aveline 20mil Vinyl Flooring", "/manus-storage/pelican/73_ca633206.png");
 		    expect(floor).toMatchObject({

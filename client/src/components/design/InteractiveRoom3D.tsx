@@ -4,8 +4,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
-import { DenoiseMaterial, GradientEquirectTexture, WebGLPathTracer } from "three-gpu-pathtracer";
+import { DenoiseMaterial, WebGLPathTracer } from "three-gpu-pathtracer";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,6 +28,13 @@ export const THREE_D_PATH_TRACE_PREVIEW = {
   bounces: 5,
   denoise: { sigma: 2.1, kSigma: 1, threshold: 0.055 },
 } as const;
+
+/**
+ * CC0 Poly Haven Photo Studio 01 (1K HDR) used only as an invisible lighting and
+ * reflection environment for the cloned production-render scene. It never becomes
+ * kitchen geometry, a room backdrop, or a substitute for the selected room scene.
+ */
+export const THREE_D_PRODUCTION_HDRI_URL = "/manus-storage/photo_studio_01_1k_5f7e3d4e.hdr";
 
 function pathTraceCompatibleMaterial(material: THREE.Material) {
   const source = material as THREE.MeshPhysicalMaterial;
@@ -6552,7 +6560,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     }
     let renderer: THREE.WebGLRenderer | null = null;
     let pathTracer: WebGLPathTracer | null = null;
-    let productionEnvironment: GradientEquirectTexture | null = null;
+    let productionEnvironment: THREE.Texture | null = null;
     let denoiseMaterial: DenoiseMaterial | null = null;
     let denoiseQuad: FullScreenQuad | null = null;
     const convertedMaterials: THREE.Material[] = [];
@@ -6580,11 +6588,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       const pathTraceCamera = sourceCamera.clone();
       pathTraceCamera.aspect = THREE_D_PATH_TRACE_PREVIEW.width / THREE_D_PATH_TRACE_PREVIEW.height;
       pathTraceCamera.updateProjectionMatrix();
-      productionEnvironment = new GradientEquirectTexture(256);
-      productionEnvironment.topColor.set("#fff7e8");
-      productionEnvironment.bottomColor.set("#607080");
-      productionEnvironment.exponent = 1.65;
-      productionEnvironment.update();
+      productionEnvironment = await new RGBELoader().loadAsync(THREE_D_PRODUCTION_HDRI_URL);
+      productionEnvironment.mapping = THREE.EquirectangularReflectionMapping;
       pathTraceScene.environment = productionEnvironment;
       pathTraceScene.background = new THREE.Color("#f7f4ee");
       addThreeDProductionLightRig(

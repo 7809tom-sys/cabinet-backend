@@ -44,6 +44,8 @@ The `three-gpu-pathtracer` project is an MIT-licensed Three.js path tracer with 
 
 Three.js `GLTFExporter` can export a scene with meshes, materials, textures, lights, and cameras into glTF/GLB. That makes a frozen export manifest practical for a server-side renderer, although exporter support alone does not create a quality render.[2] Blender documents background command-line Cycles rendering, which supports a deterministic, non-interactive server job after an exact scene export has been generated.[3]
 
+The current Three.js exporter documentation also confirms the direct `parseAsync(scene, options)` path and support for binary GLB output and physical-material extensions including clearcoat, IOR, transmission, and texture transforms.[4] This confirms that a future job can receive the same frozen CabinetDealz meshes, camera, materials, textures, and deterministic lights rather than an AI-reinterpreted screenshot. It does not remove the requirement for production-grade authored material maps or GPU render infrastructure.
+
 ## Sources reviewed
 
 - D5 Render kitchen workflow: imports a design model, maps materials, controls lighting, and uses ray tracing; it is not presented as a drop-in web API.
@@ -65,3 +67,4 @@ Three.js `GLTFExporter` can export a scene with meshes, materials, textures, lig
 1. [three-gpu-pathtracer — project README](https://github.com/gkjohnson/three-gpu-pathtracer)
 2. [Three.js GLTFExporter documentation](https://threejs.org/docs/pages/GLTFExporter.html)
 3. [Blender Manual — Rendering From the Command Line](https://docs.blender.org/manual/en/latest/advanced/command_line/render.html)
+4. [Three.js GLTFExporter API](https://threejs.org/docs/pages/GLTFExporter.html)
