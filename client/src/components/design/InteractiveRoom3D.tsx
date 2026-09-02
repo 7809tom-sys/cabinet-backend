@@ -702,6 +702,28 @@ function threeDRepresentativeSurfaceTexture(role: ThreeDProductSurfaceRole, sour
 			}
 			context.stroke();
 		}
+	} else if (role === "flooring" && source.flooringPatternKind === "tile") {
+		// The standard flooring texture transform represents a 24-inch field.
+		// Draw four 12-inch cells in that field so selected tile keeps its real
+		// construction rhythm without turning into a plank or a blank color.
+		canvas.width = 240;
+		canvas.height = 240;
+		context.fillStyle = `hsl(${24 + (seed % 28)} ${8 + (seed % 11)}% ${69 + (tone % 17)}%)`;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		context.strokeStyle = "rgba(83,78,71,0.5)";
+		context.lineWidth = 4;
+		context.beginPath();
+		context.moveTo(canvas.width / 2, 0);
+		context.lineTo(canvas.width / 2, canvas.height);
+		context.moveTo(0, canvas.height / 2);
+		context.lineTo(canvas.width, canvas.height / 2);
+		context.stroke();
+		context.strokeStyle = "rgba(255,255,255,0.18)";
+		context.lineWidth = 1.2;
+		context.strokeRect(2, 2, canvas.width / 2 - 4, canvas.height / 2 - 4);
+		context.strokeRect(canvas.width / 2 + 2, 2, canvas.width / 2 - 4, canvas.height / 2 - 4);
+		context.strokeRect(2, canvas.height / 2 + 2, canvas.width / 2 - 4, canvas.height / 2 - 4);
+		context.strokeRect(canvas.width / 2 + 2, canvas.height / 2 + 2, canvas.width / 2 - 4, canvas.height / 2 - 4);
 	} else if (role === "backsplash") {
 		canvas.width = 240;
 		canvas.height = 240;

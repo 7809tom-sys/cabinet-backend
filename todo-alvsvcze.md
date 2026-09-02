@@ -1338,3 +1338,4 @@
 - [x] Clearly identify in the Surfaces picker when a selected flooring, countertop, or backsplash product has no approved material-only 3D swatch and will use the neutral PBR fallback rather than its catalog photograph
 - [x] Reproduce and restore the owner’s previously saved flooring, countertop, and backsplash selections when opening the authenticated Kitchen Designer, without treating a missing approved 3D swatch as a missing selected product
 - [x] Fix the confirmed runtime regression where newly selected or reopened flooring, countertop, and backsplash products still do not visibly apply anywhere in the Designer despite the picker action
+- [x] Render swatch-pending tile flooring as a clean construction tile field rather than a generic continuous floor color, while preserving separate plank and sheet behavior

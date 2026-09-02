@@ -146,6 +146,10 @@ describe("interactive 3D room scene helpers", () => {
 				url: "", key: "representative-flooring", curated: false, proceduralFallback: true,
 				flooringPatternKind: "plank", plankWidthIn: 7, plankLengthIn: 48,
 			});
+			const tileFloor = threeDProductMaterialSource("flooring", "Selected Porcelain Tile", null, {
+				category: "Flooring", subCategory: "Tile", size: '12" x 24"',
+			});
+			expect(tileFloor).toMatchObject({ key: "representative-flooring", proceduralFallback: true, flooringPatternKind: "tile" });
 			const counter = threeDProductMaterialSource("countertop", "Selected Quartz", null);
 			expect(counter).toMatchObject({ key: "representative-countertop", proceduralFallback: true, physicalWidthIn: 138, physicalDepthIn: 79 });
 			const backsplash = threeDProductMaterialSource("backsplash", "Selected Tile", null);
