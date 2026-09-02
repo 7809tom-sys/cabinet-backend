@@ -120,6 +120,24 @@ export type CustomerPreferredProduct = typeof customerPreferredProducts.$inferSe
 export type InsertCustomerPreferredProduct = typeof customerPreferredProducts.$inferInsert;
 
 // ─── Final photo-quality Designer renders ────────────────────────────────────
+export type PhotoRenderMaterialProvenance = {
+  role: "cabinet" | "countertop" | "flooring" | "backsplash";
+  productId: number | null;
+  name: string | null;
+  materialImageUrl: string | null;
+};
+
+export type PhotoRenderProvenance = {
+  contractVersion: "exact-plan-v1";
+  designId: number;
+  designRevision: string | null;
+  geometryLock: string;
+  camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
+  materials: PhotoRenderMaterialProvenance[];
+  sourceImageHash: string;
+  generationMethod: "manual-final-review-image-service";
+};
+
 // A render is created only by an explicit final-review confirmation. The combined
 // plan, presentation, selected products, and camera signature makes a prior image
 // reusable while any relevant design change requires a deliberate new request.
@@ -130,6 +148,12 @@ export const designPhotoRenders = mysqlTable(
     userId: int("userId").notNull(),
     sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
     imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
+    /** Immutable input audit record for renders created after exact-plan-v1. */
+    provenance: json("provenance").$type<PhotoRenderProvenance | null>(),
+    sourceImageHash: varchar("sourceImageHash", { length: 64 }),
+    promptFingerprint: varchar("promptFingerprint", { length: 64 }),
+    generationMethod: varchar("generationMethod", { length: 96 }),
+    confirmedAt: timestamp("confirmedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

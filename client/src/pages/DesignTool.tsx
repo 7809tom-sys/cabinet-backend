@@ -6896,6 +6896,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     };
   }, [selectedSurfaces]);
 
+  const threeDSurfaceProductIds = useMemo(() => {
+    const idForRole = (role: "countertop" | "flooring" | "backsplash") =>
+      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.id ?? null;
+    return {
+      countertop: idForRole("countertop"),
+      flooring: idForRole("flooring"),
+      backsplash: idForRole("backsplash"),
+    };
+  }, [selectedSurfaces]);
+
   const threeDFlooringProductMetadata = useMemo(() => {
     const flooring = selectedSurfaces.find((surface) => surfaceRole(surface) === "flooring") ?? null;
     return flooring ? {
@@ -6950,12 +6960,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
 	      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
 	      catalogFinishName={activeStyleName}
+	      catalogFinishProductId={styleId ?? null}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+	      catalogCountertopProductId={threeDSurfaceProductIds.countertop}
 	      catalogFlooringName={threeDSurfaceProductNames.flooring}
+	      catalogFlooringProductId={threeDSurfaceProductIds.flooring}
 	      catalogFlooringCategory={threeDFlooringProductMetadata?.category}
 	      catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	      catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
+	      catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}
+	      savedDesignId={activeSavedDesignId ?? loadDesignId ?? null}
+	      savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	      backsplashHeightMode={backsplashHeightMode}
 	      countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
@@ -11334,12 +11350,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  doorPanelType: activeStyle.doorPanelType ?? null,
 	                } : null}
 	                catalogFinishName={activeStyleName}
+	                catalogFinishProductId={styleId ?? null}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+	                catalogCountertopProductId={threeDSurfaceProductIds.countertop}
 	                catalogFlooringName={threeDSurfaceProductNames.flooring}
+	                catalogFlooringProductId={threeDSurfaceProductIds.flooring}
 	                catalogFlooringCategory={threeDFlooringProductMetadata?.category}
 	                catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	                catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	                catalogBacksplashName={threeDSurfaceProductNames.backsplash}
+	                catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}
+	                savedDesignId={activeSavedDesignId ?? loadDesignId ?? null}
+	                savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	                backsplashHeightMode={backsplashHeightMode}
 	                countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}

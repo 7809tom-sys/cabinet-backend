@@ -6,7 +6,9 @@ if (!connectionString) {
 }
 
 export default defineConfig({
-  schema: "./drizzle/schema.ts",
+  // Keep all application table definitions visible to Drizzle. Pelican's
+  // catalog lives separately because it is imported by the catalog pipeline.
+  schema: ["./drizzle/schema.ts", "./drizzle/pelicanSchema.ts"],
   out: "./drizzle",
   dialect: "mysql",
   dbCredentials: {

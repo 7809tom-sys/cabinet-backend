@@ -396,12 +396,20 @@ interface Props {
   catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null;
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
+  /** Exact selected catalog identities retained with a final render for audit. */
+  catalogFinishProductId?: number | null;
   catalogCountertopName?: string | null;
+  catalogCountertopProductId?: number | null;
   catalogFlooringName?: string | null;
+  catalogFlooringProductId?: number | null;
   catalogFlooringCategory?: string | null;
   catalogFlooringSubCategory?: string | null;
   catalogFlooringSize?: string | null;
   catalogBacksplashName?: string | null;
+  catalogBacksplashProductId?: number | null;
+  /** Saved-design identity anchors a manual final render to an auditable record. */
+  savedDesignId?: number | null;
+  savedDesignRevision?: string | null;
   /** Standard stops at the upper cabinet; full-height continues to the ceiling on the same supported run. */
   backsplashHeightMode?: BacksplashHeightMode;
   /** Optional physical countertop rear upstand; wall tile begins above this strip. */
@@ -5317,7 +5325,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogFlooringName, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -5356,6 +5364,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [photoRenderOpen, setPhotoRenderOpen] = useState(false);
   const [photoRenderUrl, setPhotoRenderUrl] = useState<string | null>(null);
   const [photoRenderReferenceUrl, setPhotoRenderReferenceUrl] = useState<string | null>(null);
+  const [photoRenderDraft, setPhotoRenderDraft] = useState<{
+    sceneSignature: string;
+    sceneImageDataUrl: string;
+    provenance: {
+      contractVersion: "exact-plan-v1";
+      designId: number;
+      designRevision: string | null;
+      geometryLock: string;
+      camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
+      materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
+      sourceImageHash: string;
+      generationMethod: "manual-final-review-image-service";
+    };
+  } | null>(null);
   const { user } = useAuth();
   const photoRenderMutation = trpc.designPhotoRenders.create.useMutation();
   useEffect(() => {
@@ -6420,7 +6442,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     await shareConfiguration(cameraView);
   };
 
-  const openPhotoRenderDialog = () => {
+  const openPhotoRenderDialog = async () => {
     if (!user) {
       toast.error("Sign in to create a photo-quality render for your saved design.");
       return;
@@ -6429,11 +6451,80 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Finish the current placement preview before creating a final photo-quality render.");
       return;
     }
+    if (!savedDesignId) {
+      toast.error("Save this design before creating a photo-quality render so the final image remains tied to its exact plan.");
+      return;
+    }
     const reference = capturePhotoRenderReference();
     if (!reference) {
       toast.error("The 3D view is still loading. Please try the photo render again in a moment.");
       return;
     }
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) {
+      toast.error("The 3D view is still loading. Please try the photo render again in a moment.");
+      return;
+    }
+    const geometryLock = threeDExactPlanGeometryLock({
+      roomOverride,
+      placed,
+      openings,
+      sinks,
+      island,
+      furniture,
+      ponyWalls,
+      catalogDoorSampleUrl,
+      catalogFinishOverride,
+      catalogFinishName,
+      catalogCountertopName,
+      catalogCountertopColor,
+      initialPresentation,
+    });
+    const cameraSnapshot = {
+      position: camera.position.toArray().map((value) => Number(value.toFixed(4))) as [number, number, number],
+      target: controls.target.toArray().map((value) => Number(value.toFixed(4))) as [number, number, number],
+      zoom: Number(camera.zoom.toFixed(4)),
+    };
+    const approvedMaterialUrl = (value: string | null | undefined) => {
+      if (!value) return null;
+      try {
+        return new URL(value, window.location.origin).toString();
+      } catch {
+        return null;
+      }
+    };
+    const materials = [
+      { role: "cabinet" as const, productId: catalogFinishProductId ?? null, name: catalogFinishName ?? null, materialImageUrl: approvedMaterialUrl(catalogDoorSampleUrl) },
+      { role: "countertop" as const, productId: catalogCountertopProductId ?? null, name: catalogCountertopName ?? null, materialImageUrl: approvedMaterialUrl(catalogCountertopImageUrl) },
+      { role: "flooring" as const, productId: catalogFlooringProductId ?? null, name: catalogFlooringName ?? null, materialImageUrl: approvedMaterialUrl(catalogFlooringImageUrl) },
+      { role: "backsplash" as const, productId: catalogBacksplashProductId ?? null, name: catalogBacksplashName ?? null, materialImageUrl: approvedMaterialUrl(catalogBacksplashImageUrl) },
+    ];
+    const hash = async (value: string) => {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+      return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    };
+    const sourceImageHash = await hash(reference);
+    const provenance = {
+      contractVersion: "exact-plan-v1" as const,
+      designId: savedDesignId,
+      designRevision: savedDesignRevision ?? null,
+      geometryLock,
+      camera: cameraSnapshot,
+      materials,
+      sourceImageHash,
+      generationMethod: "manual-final-review-image-service" as const,
+    };
+    const sceneSignature = await hash(JSON.stringify({
+      designId: provenance.designId,
+      designRevision: provenance.designRevision,
+      geometryLock: provenance.geometryLock,
+      camera: provenance.camera,
+      materials: provenance.materials,
+      backsplashHeightMode,
+      countertopBacksplashHeightIn,
+    }));
+    setPhotoRenderDraft({ sceneSignature, sceneImageDataUrl: reference, provenance });
     setPhotoRenderReferenceUrl(reference);
     setPhotoRenderOpen(true);
   };
@@ -6447,59 +6538,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Finish the current placement preview before creating a final photo-quality render.");
       return;
     }
-    const sceneImageDataUrl = photoRenderReferenceUrl ?? capturePhotoRenderReference();
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    if (!sceneImageDataUrl || !camera || !controls) {
-      toast.error("The 3D view is still loading. Please try the photo render again in a moment.");
+    if (!photoRenderDraft) {
+      toast.error("Review the locked 3D reference before confirming the final image.");
       return;
     }
     try {
-      const geometryLock = threeDExactPlanGeometryLock({
-        roomOverride,
-        placed,
-        openings,
-        sinks,
-        island,
-        furniture,
-        ponyWalls,
-        catalogDoorSampleUrl,
-        catalogFinishOverride,
-        catalogFinishName,
-        catalogCountertopName,
-        catalogCountertopColor,
-        initialPresentation,
-      });
-      const signatureSource = JSON.stringify({
-        geometryLock,
-        camera: {
-          position: camera.position.toArray().map((value) => Number(value.toFixed(4))),
-          target: controls.target.toArray().map((value) => Number(value.toFixed(4))),
-          zoom: Number(camera.zoom.toFixed(4)),
-        },
-        materials: {
-          cabinet: catalogFinishName ?? null,
-          countertop: catalogCountertopName ?? null,
-          flooring: catalogFlooringName ?? null,
-          backsplash: catalogBacksplashName ?? null,
-          backsplashHeightMode,
-          countertopBacksplashHeightIn,
-        },
-      });
-      const bytes = new TextEncoder().encode(signatureSource);
-      const digest = await crypto.subtle.digest("SHA-256", bytes);
-      const sceneSignature = Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
-      const materialImageUrls = Array.from(new Set([
-        catalogDoorSampleUrl,
-        catalogCountertopImageUrl,
-        catalogFlooringImageUrl,
-        catalogBacksplashImageUrl,
-      ].filter((value): value is string => Boolean(value)))).slice(0, 4);
       const result = await photoRenderMutation.mutateAsync({
-        sceneSignature,
-        sceneImageDataUrl,
-        materialImageUrls,
-        summary: `${placed.length} exact placed items. Cabinet finish: ${catalogFinishName ?? "selected catalog finish"}. Countertop: ${catalogCountertopName ?? "none"}. Flooring: ${catalogFlooringName ?? "none"}. Backsplash: ${catalogBacksplashName ?? "none"}, ${backsplashHeightMode} coverage, ${countertopBacksplashHeightIn || 0}-inch countertop upstand.`,
+        sceneSignature: photoRenderDraft.sceneSignature,
+        sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl,
+        provenance: photoRenderDraft.provenance,
         confirmation: true,
       });
       setPhotoRenderUrl(result.imageUrl);
@@ -6689,7 +6736,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           {workspacePanel === "output" && <>
             <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>
             {orderSummary && <div className="mt-4 flex items-center justify-between rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><div><p className="text-sm font-semibold text-[#4b3a20]">Current design</p><p className="text-xs text-[#6e5d42]">{orderSummary.itemCount} items · {orderSummary.pricedLineCount} priced lines</p></div><p className="text-lg font-semibold text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>}
-	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => user ? setPhotoRenderOpen(true) : toast.error("Sign in to create a photo-quality render.")} disabled={!renderExistingDesign || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo render</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
+	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void openPhotoRenderDialog()} disabled={!renderExistingDesign || !savedDesignId || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo render</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
           </>}
         </SheetContent>
       </Sheet>
@@ -6703,18 +6750,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           <div className="mt-4 flex items-center justify-between rounded-lg bg-muted p-3"><span className="font-semibold">Catalog-priced subtotal</span><span className="text-lg font-semibold">${orderSummary?.subtotal.toFixed(2) ?? "0.00"}</span></div>
         </SheetContent>
       </Sheet>
-      <Dialog open={photoRenderOpen} onOpenChange={setPhotoRenderOpen}>
+	      <Dialog open={photoRenderOpen} onOpenChange={(open) => { setPhotoRenderOpen(open); if (!open) { setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create photo-quality render</DialogTitle>
-            <DialogDescription>This manual final-review request uses the current locked 3D camera view and the selected cabinet, countertop, flooring, and backsplash references.</DialogDescription>
+	          <DialogHeader>
+	            <DialogTitle>Create photo-quality render</DialogTitle>
+	            <DialogDescription>This manual final-review request uses the locked 3D camera view and approved selected cabinet, countertop, flooring, and backsplash references. A new image is approximately $0.01.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
             <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
-            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, and camera framing are locked. A completed image is reused until this plan, its selected materials, or its camera changes.</p>
-          </div>
+	            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, and camera framing are locked. A completed image is reused until this plan, its selected materials, or its camera changes. If this request fails, retrying uses the same displayed locked reference.</p>
+	          </div>
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-36 w-full rounded-md border object-contain" /></div>}
-          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create final image</Button></div>
+	          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Confirm ~$0.01 final image</Button></div>
         </DialogContent>
       </Dialog>
       <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) setPhotoRenderUrl(null); }}>

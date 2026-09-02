@@ -1314,8 +1314,10 @@
 - [x] Offer AI only as an explicitly confirmed final stage with strict exact-plan, camera, product, and material-reference constraints
 - [ ] Reject or clearly flag any AI result that changes the designed layout, cabinet count, openings, appliances, island, or selected products
 - [ ] Add responsive progress, cancel, retry, before/after preview, download, and cached-result states for desktop and mobile
-- [ ] Preserve render provenance: saved design ID/revision, camera, product IDs, material selections, and generation method
-- [ ] Add exact-plan render-input, geometry-lock, cost-confirmation, failure, caching, download, and mobile regressions
+- [x] Preserve render provenance: saved design ID/revision, camera, product IDs, material selections, and generation method
+- [x] Add exact-plan render-input, geometry-lock, cost-confirmation, failure, caching, download, and mobile regressions
+- [x] Capture immutable, reviewable final-render provenance including the exact 2D geometry lock, camera, selected material product identities, approved material references, source-image hash, prompt fingerprint, method, and confirmation timestamp
+- [x] Make every Photo render entry point capture and preview the same locked high-resolution scene reference before the explicit cost confirmation; retain that reference for a failure retry rather than recapturing a potentially changed scene
 - [x] Never generate an AI image automatically while the customer is editing; require an explicit final-review button click
 - [x] Enable photo rendering only when the design passes readiness checks and require an explicit confirmation before each uncached generation
 - [x] Reuse a cached photo at no new generation when the saved design revision, camera, and selected products are unchanged

@@ -4308,7 +4308,7 @@ describe("interactive 3D room scene helpers", () => {
 });
 
 describe("final photo-quality render controls", () => {
-  it("requires an explicit confirmation and sends only the locked current Designer view", () => {
+  it("requires a reviewed immutable reference, one-cent confirmation, and same-reference retry", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="three-d-photo-render"');
     expect(source).toContain("Create photo-quality render");
@@ -4316,9 +4316,18 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain("const capturePhotoRenderReference = (): string | null");
     expect(source).toContain("renderer.setSize(1280, 720, false)");
     expect(source).toContain('renderer.domElement.toDataURL("image/jpeg", 0.9)');
-    expect(source).toContain("const sceneImageDataUrl = photoRenderReferenceUrl ?? capturePhotoRenderReference()");
+    expect(source).toContain("const [photoRenderDraft, setPhotoRenderDraft]");
+    expect(source).toContain("sourceImageHash");
+    expect(source).toContain('generationMethod: "manual-final-review-image-service"');
+    expect(source).toContain("const approvedMaterialUrl = (value: string | null | undefined) =>");
+    expect(source).toContain("new URL(value, window.location.origin).toString()");
+    expect(source).toContain("sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl");
+    expect(source).toContain("provenance: photoRenderDraft.provenance");
+    expect(source).toContain("if (!photoRenderDraft)");
     expect(source).toContain("Finish the current placement preview before creating a final photo-quality render.");
+    expect(source).toContain("Save this design before creating a photo-quality render");
     expect(source).toContain("confirmation: true");
+    expect(source).toContain("Confirm ~$0.01 final image");
     expect(source).toContain("Your kitchen plan will not be redesigned.");
     expect(source).toContain("onPhotoRender={openPhotoRenderDialog}");
     expect(source).toContain("Locked Designer view to render");
