@@ -4329,6 +4329,14 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain("confirmation: true");
     expect(source).toContain("Confirm ~$0.01 final image");
     expect(source).toContain("Your kitchen plan will not be redesigned.");
+    expect(source).toContain("Creating your final image from this locked reference.");
+    expect(source).toContain("Retry same locked view");
+    expect(source).toContain("cannot be cancelled after confirmation");
+    expect(source).toContain("Reused from the same saved plan, materials, and camera reference");
+    expect(source).toContain("Locked Designer reference");
+    expect(source).toContain("AI photo interpretation");
+    expect(source).toContain("The locked 2D/3D Designer plan, selected products, and pricing remain authoritative.");
+    expect(source).toContain("discard the photo and use the locked Designer reference instead");
     expect(source).toContain("onPhotoRender={openPhotoRenderDialog}");
     expect(source).toContain("Locked Designer view to render");
   });

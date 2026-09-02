@@ -1312,8 +1312,10 @@
 - [x] Add a “Create Photo-Quality Render” button that uses the current saved Designer scene and camera without moving, adding, deleting, or resizing anything
 - [x] Capture a deterministic high-resolution reference from exact cabinet, opening, appliance, surface, fixture, room geometry, and the unchanged current camera before generating a photo render
 - [x] Offer AI only as an explicitly confirmed final stage with strict exact-plan, camera, product, and material-reference constraints
-- [ ] Reject or clearly flag any AI result that changes the designed layout, cabinet count, openings, appliances, island, or selected products
-- [ ] Add responsive progress, cancel, retry, before/after preview, download, and cached-result states for desktop and mobile
+- [x] Reject or clearly flag any AI result that changes the designed layout, cabinet count, openings, appliances, island, or selected products
+- [x] Add responsive progress, cancel, retry, before/after preview, download, and cached-result states for desktop and mobile
+- [x] Present the generated image beside the immutable locked 3D reference and require an explicit customer review warning that the deterministic plan remains authoritative if any visual difference appears
+- [x] Surface pending, retry, reused-cache, download, safe-dismissal, and mobile-friendly result states without falsely claiming the already-dispatched image request can be cancelled
 - [x] Preserve render provenance: saved design ID/revision, camera, product IDs, material selections, and generation method
 - [x] Add exact-plan render-input, geometry-lock, cost-confirmation, failure, caching, download, and mobile regressions
 - [x] Capture immutable, reviewable final-render provenance including the exact 2D geometry lock, camera, selected material product identities, approved material references, source-image hash, prompt fingerprint, method, and confirmation timestamp

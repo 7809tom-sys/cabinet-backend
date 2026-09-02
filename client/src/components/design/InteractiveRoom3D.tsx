@@ -5364,6 +5364,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [photoRenderOpen, setPhotoRenderOpen] = useState(false);
   const [photoRenderUrl, setPhotoRenderUrl] = useState<string | null>(null);
   const [photoRenderReferenceUrl, setPhotoRenderReferenceUrl] = useState<string | null>(null);
+  const [photoRenderReused, setPhotoRenderReused] = useState(false);
+  const [photoRenderError, setPhotoRenderError] = useState<string | null>(null);
   const [photoRenderDraft, setPhotoRenderDraft] = useState<{
     sceneSignature: string;
     sceneImageDataUrl: string;
@@ -6526,6 +6528,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     }));
     setPhotoRenderDraft({ sceneSignature, sceneImageDataUrl: reference, provenance });
     setPhotoRenderReferenceUrl(reference);
+    setPhotoRenderError(null);
     setPhotoRenderOpen(true);
   };
 
@@ -6542,6 +6545,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Review the locked 3D reference before confirming the final image.");
       return;
     }
+    setPhotoRenderError(null);
     try {
       const result = await photoRenderMutation.mutateAsync({
         sceneSignature: photoRenderDraft.sceneSignature,
@@ -6550,10 +6554,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         confirmation: true,
       });
       setPhotoRenderUrl(result.imageUrl);
+      setPhotoRenderReused(result.reused);
       setPhotoRenderOpen(false);
       toast.success(result.reused ? "Your saved photo-quality render is ready." : "Photo-quality render created.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The photo render could not be created. Please try again.");
+      const message = error instanceof Error ? error.message : "The photo render could not be created. Please try again.";
+      setPhotoRenderError(message);
+      toast.error(message);
     }
   };
 
@@ -6750,23 +6757,32 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           <div className="mt-4 flex items-center justify-between rounded-lg bg-muted p-3"><span className="font-semibold">Catalog-priced subtotal</span><span className="text-lg font-semibold">${orderSummary?.subtotal.toFixed(2) ?? "0.00"}</span></div>
         </SheetContent>
       </Sheet>
-	      <Dialog open={photoRenderOpen} onOpenChange={(open) => { setPhotoRenderOpen(open); if (!open) { setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>
+	      <Dialog open={photoRenderOpen} onOpenChange={(open) => {
+	        if (!open && photoRenderMutation.isPending) {
+	          toast.message("Your final image request is already in progress. It cannot be cancelled after confirmation, but your locked plan remains unchanged.");
+	          return;
+	        }
+	        setPhotoRenderOpen(open);
+	        if (!open) { setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); setPhotoRenderError(null); }
+	      }}>
         <DialogContent className="max-w-md">
 	          <DialogHeader>
 	            <DialogTitle>Create photo-quality render</DialogTitle>
 	            <DialogDescription>This manual final-review request uses the locked 3D camera view and approved selected cabinet, countertop, flooring, and backsplash references. A new image is approximately $0.01.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
-            <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
+	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
+	            <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
 	            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, and camera framing are locked. A completed image is reused until this plan, its selected materials, or its camera changes. If this request fails, retrying uses the same displayed locked reference.</p>
 	          </div>
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-36 w-full rounded-md border object-contain" /></div>}
-	          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Confirm ~$0.01 final image</Button></div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) setPhotoRenderUrl(null); }}>
-        <DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>Photo-quality render</DialogTitle><DialogDescription>Created from the current exact Designer plan and camera view.</DialogDescription></DialogHeader>{photoRenderUrl && <><img src={photoRenderUrl} alt="Photo-quality rendering of the current exact Cabinet Dealz kitchen plan" className="max-h-[65dvh] w-full object-contain" /><div className="flex justify-end"><a href={photoRenderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open or download</a></div></>}</DialogContent>
-      </Dialog>
+	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Creating your final image from this locked reference. The request cannot be cancelled after confirmation; your editable Designer plan is unchanged.</div>}
+	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}
+	          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Confirm ~$0.01 final image</Button></div>
+	        </DialogContent>
+	      </Dialog>
+	      <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) { setPhotoRenderUrl(null); setPhotoRenderReused(false); setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>
+	        <DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>Photo-quality render</DialogTitle><DialogDescription>{photoRenderReused ? "Reused from the same saved plan, materials, and camera reference—no new image generation was requested." : "Created from the current exact Designer plan and camera view."}</DialogDescription></DialogHeader>{photoRenderUrl && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption>{photoRenderReferenceUrl ? <img src={photoRenderReferenceUrl} alt="Locked 3D Designer reference for photo render review" className="max-h-[55dvh] w-full rounded-md border object-contain" /> : <div className="flex h-48 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">The original locked reference is not available in this session.</div>}</figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">AI photo interpretation</figcaption><img src={photoRenderUrl} alt="Photo-quality rendering of the current exact Cabinet Dealz kitchen plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950"><strong>Review before sharing or ordering.</strong> The locked 2D/3D Designer plan, selected products, and pricing remain authoritative. If the AI image visibly adds, removes, moves, resizes, hides, or substitutes any cabinet, filler, opening, appliance, island, countertop, or selected product, discard the photo and use the locked Designer reference instead.</div><div className="flex justify-end"><a href={photoRenderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open or download</a></div></>}</DialogContent>
+	      </Dialog>
     </section>
   );
 }
