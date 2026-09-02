@@ -6867,6 +6867,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     };
   }, [selectedSurfaces]);
 
+  const threeDFlooringProductMetadata = useMemo(() => {
+    const flooring = selectedSurfaces.find((surface) => surfaceRole(surface) === "flooring") ?? null;
+    return flooring ? {
+      category: flooring.category,
+      subCategory: flooring.subCategory ?? null,
+      size: flooring.size ?? null,
+    } : null;
+  }, [selectedSurfaces]);
+
   const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
@@ -6912,9 +6921,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
 	      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
 	      catalogFinishName={activeStyleName}
-      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
-      catalogFlooringName={threeDSurfaceProductNames.flooring}
-      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
+	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+	      catalogFlooringName={threeDSurfaceProductNames.flooring}
+	      catalogFlooringCategory={threeDFlooringProductMetadata?.category}
+	      catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
+	      catalogFlooringSize={threeDFlooringProductMetadata?.size}
+	      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
       catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
       catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
       catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
@@ -11283,6 +11295,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogFinishName={activeStyleName}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	                catalogFlooringName={threeDSurfaceProductNames.flooring}
+	                catalogFlooringCategory={threeDFlooringProductMetadata?.category}
+	                catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
+	                catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	                catalogBacksplashName={threeDSurfaceProductNames.backsplash}
 	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
 	                catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}

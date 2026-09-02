@@ -17,12 +17,17 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.imageUrl ?? null");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
+    expect(designToolSource).toContain("catalogFlooringCategory={threeDFlooringProductMetadata?.category}");
+    expect(designToolSource).toContain("catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}");
+    expect(designToolSource).toContain("catalogFlooringSize={threeDFlooringProductMetadata?.size}");
     expect(designToolSource).toContain("catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}");
     expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(mappedCountertopTexture)');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorTexture)');
     expect(rendererSource).toContain('curatedSurfaceKey: source.key');
     expect(rendererSource).toContain('worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped)');
+    expect(rendererSource).toContain('source.flooringPatternKind === "plank"');
+    expect(rendererSource).toContain("normalizedThreeDPlankImage(");
     expect(rendererSource).toContain("threeDBacksplashSegments(placed, openings, backsplashRoom)");
     expect(rendererSource).toContain("addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture)");
     expect(rendererSource).toContain('backsplashRenderedOnMeasuredSurfaces: backsplashSegments.length');

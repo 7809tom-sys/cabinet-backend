@@ -15,7 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDCountertopSlabTextureTransform, threeDPhysicalSurfaceProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
@@ -49,18 +49,22 @@ describe("interactive 3D room scene helpers", () => {
 
 		  it("resolves the exact selected Aveline and Calacatta products to curated manufacturer-derived material fields", () => {
 		    const floor = threeDProductMaterialSource("flooring", "Aveline 20mil Vinyl Flooring", "/manus-storage/pelican/73_ca633206.png");
-		    expect(floor).toEqual({
-		      url: "/manus-storage/aveline_20mil_7x48_staggered_floor_c581f3a5.webp",
+		    expect(floor).toMatchObject({
+		      url: "/manus-storage/aveline_20mil_7x48_staggered_floor_2675d409.webp",
 		      key: "aveline-20mil-7x48",
 		      curated: true,
 		      physicalWidthIn: 192,
-		      physicalDepthIn: 56,
+		      physicalDepthIn: 84,
 		      sourceProductName: "Aveline 20mil Vinyl Flooring",
+		      flooringPatternKind: "plank",
+		      plankWidthIn: 7,
+		      plankLengthIn: 48,
 		    });
+		    expect(floor?.staggerOffsetsIn).toEqual([0, 16, 32, 8, 24, 40, 12, 28, 44, 4, 20, 36]);
 		    expect(threeDProductSurfaceTextureTransform("flooring", floor!, 144, 120)).toEqual({
 		      wrap: "repeat",
 		      repeatX: 0.75,
-		      repeatY: 120 / 56,
+		      repeatY: 120 / 84,
 		      offsetX: 0,
 		      offsetY: 0,
 		      rotation: 0,
@@ -83,6 +87,55 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(second.offsetX).toBeCloseTo(first.offsetX + first.repeatX);
 		    expect(first.repeatY).toBeCloseTo(25.5 / 79);
 		    expect(first.rotation).toBe(0);
+		  });
+
+		  it("classifies flooring by authoritative product identity and applies stagger rules only to plank products", () => {
+		    expect(threeDFlooringPatternProfile({ name: "Aveline Luxury Vinyl Plank", category: "Flooring", subCategory: "Vinyl Plank", size: '7" x 48"' })).toMatchObject({
+		      kind: "plank",
+		      plankWidthIn: 7,
+		      plankLengthIn: 48,
+		    });
+		    expect(threeDFlooringPatternProfile({ name: "Calacatta Porcelain Tile", category: "Flooring", subCategory: "Tile", size: '12" x 24"' })).toEqual({
+		      kind: "tile",
+		      plankWidthIn: null,
+		      plankLengthIn: null,
+		      staggerOffsetsIn: null,
+		    });
+		    expect(threeDFlooringPatternProfile({ name: "Sheet Vinyl", category: "Flooring", subCategory: "Sheet", size: null }).kind).toBe("sheet");
+		    expect(threeDFlooringPatternProfile({ name: "Natural Oak", category: "Flooring", subCategory: "Planks & Flooring", size: '8" x 48"' }).kind).toBe("plank");
+		  });
+
+		  it("uses twelve visibly staggered plank rows with no aligned neighboring end joints", () => {
+		    const atlas = threeDPlankAtlasProfile(7, 48);
+		    expect(atlas).toMatchObject({ rows: 12, columns: 4, physicalWidthIn: 192, physicalDepthIn: 84 });
+		    expect(new Set(atlas.staggerOffsetsIn).size).toBe(12);
+		    for (let index = 0; index < atlas.staggerOffsetsIn.length; index++) {
+		      const current = atlas.staggerOffsetsIn[index];
+		      const next = atlas.staggerOffsetsIn[(index + 1) % atlas.staggerOffsetsIn.length];
+		      const direct = Math.abs(next - current);
+		      const nearestJointDistance = Math.min(direct, atlas.plankLengthIn - direct);
+		      expect(nearestJointDistance).toBeGreaterThanOrEqual(8);
+		    }
+		  });
+
+		  it("generates a physical stagger atlas for any plank product while retaining non-plank mapping", () => {
+		    const plank = threeDProductMaterialSource("flooring", "Coastal Oak LVP", "/oak.jpg", { category: "Flooring", subCategory: "Luxury Vinyl Plank", size: '9" x 60"' });
+		    expect(plank).toMatchObject({ flooringPatternKind: "plank", plankWidthIn: 9, plankLengthIn: 60 });
+		    expect(threeDProductSurfaceTextureTransform("flooring", plank!, 120, 96)).toMatchObject({
+		      wrap: "repeat",
+		      repeatX: 0.5,
+		      repeatY: 96 / 108,
+		      rotation: 0,
+		    });
+		    const tile = threeDProductMaterialSource("flooring", "Carrara Porcelain Tile", "/tile.jpg", { category: "Flooring", subCategory: "Tile", size: '12" x 24"' });
+		    expect(tile?.flooringPatternKind).toBe("tile");
+		    expect(threeDProductSurfaceTextureTransform("flooring", tile!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
+		    const sheet = threeDProductMaterialSource("flooring", "Commercial Sheet Vinyl", "/sheet.jpg", { category: "Flooring", subCategory: "Sheet", size: null });
+		    expect(sheet).toMatchObject({ flooringPatternKind: "sheet", plankWidthIn: null, plankLengthIn: null, staggerOffsetsIn: null });
+		    expect(threeDProductSurfaceTextureTransform("flooring", sheet!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
+		    const unknown = threeDProductMaterialSource("flooring", "Custom Floor Finish", "/custom.jpg", { category: "Flooring", subCategory: null, size: null });
+		    expect(unknown).toMatchObject({ flooringPatternKind: "unknown", plankWidthIn: null, plankLengthIn: null, staggerOffsetsIn: null });
+		    expect(threeDProductSurfaceTextureTransform("flooring", unknown!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
 		  });
 
 		  it("normalizes flooring UVs without moving a single room-plan vertex", () => {

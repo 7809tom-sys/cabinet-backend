@@ -1281,3 +1281,11 @@
 - [x] Replace the failed countertop crop with continuous slab-scale mapping derived from the actual selected countertop sample across connected countertop runs and island slabs
 - [x] Rebuild cabinet finish mapping from the authoritative door/room-scene references so it visibly improves without printing a door photograph onto every panel
 - [x] Validate exact product appearance, physical texture scale, no obvious repetition, scene geometry lock, camera, mobile performance, pricing/cart, and save/restore before republishing
+- [x] Reproduce why the live Aveline 7-by-48 floor still reads as aligned cross-seams instead of staggered plank rows
+- [x] Make adjacent plank rows use clearly different 48-inch end-joint offsets with no continuous cross-room seam
+- [x] Preserve the exact Aveline product, physical plank size, room geometry, camera, mobile performance, pricing/cart, and saved-design behavior
+- [x] Add exact live-condition stagger-pattern regressions and republish only after visual validation
+- [x] Classify selected flooring as plank, tile, sheet, or unknown from authoritative product metadata and naming
+- [x] Enforce a universal plank-floor rule: physical board width and length, staggered neighboring rows, separated end joints, and no continuous cross-room seam
+- [x] Keep tile and sheet flooring on type-appropriate mapping rules instead of forcing a plank pattern
+- [x] Validate the universal rule across Aveline and representative non-plank products without altering scene geometry, pricing, cart, or saved designs
