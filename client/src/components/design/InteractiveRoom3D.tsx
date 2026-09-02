@@ -395,6 +395,8 @@ interface Props {
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   catalogCountertopName?: string | null;
+  catalogFlooringName?: string | null;
+  catalogBacksplashName?: string | null;
   /** Exact selected 2D countertop fill used when no presentation-only override exists. */
   catalogCountertopColor?: string | null;
   /** Exact selected website product images used only as material maps. */
@@ -508,6 +510,120 @@ export function threeDSurfaceImageCrop(role: "countertop" | "flooring" | "backsp
   if (role === "countertop") return { x: 0.28, y: 0.3, width: 0.44, height: 0.4 };
   if (role === "flooring") return { x: 0.035, y: 0.035, width: 0.93, height: 0.93 };
   return { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
+}
+
+export type ThreeDProductSurfaceRole = "countertop" | "flooring" | "backsplash";
+
+export type ThreeDProductMaterialSource = {
+  url: string;
+  key: string | null;
+  curated: boolean;
+  physicalWidthIn: number | null;
+  physicalDepthIn: number | null;
+  sourceProductName: string | null;
+};
+
+const THREE_D_AVELINE_20MIL_FLOOR_URL = "/manus-storage/aveline_20mil_7x48_staggered_floor_c581f3a5.webp";
+const THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL = "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp";
+
+/**
+ * Exact selected products may provide retail thumbnails that are unsuitable as
+ * tileable maps. These two curated assets are deterministic crops/assemblies of
+ * the manufacturers' own source photography at documented physical scale.
+ */
+export function threeDProductMaterialSource(
+  role: ThreeDProductSurfaceRole,
+  productName: string | null | undefined,
+  originalUrl: string | null | undefined,
+): ThreeDProductMaterialSource | null {
+  const normalizedName = (productName ?? "").trim().toLowerCase();
+  if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
+    return {
+      url: THREE_D_AVELINE_20MIL_FLOOR_URL,
+      key: "aveline-20mil-7x48",
+      curated: true,
+      physicalWidthIn: 192,
+      physicalDepthIn: 56,
+      sourceProductName: productName ?? null,
+    };
+  }
+  if (role === "countertop" && normalizedName === "calacatta oro 3cm super jumbo") {
+    return {
+      url: THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL,
+      key: "calacatta-oro-138x79",
+      curated: true,
+      physicalWidthIn: 138,
+      physicalDepthIn: 79,
+      sourceProductName: productName ?? null,
+    };
+  }
+  if (!originalUrl) return null;
+  return {
+    url: originalUrl,
+    key: null,
+    curated: false,
+    physicalWidthIn: null,
+    physicalDepthIn: null,
+    sourceProductName: productName ?? null,
+  };
+}
+
+export function threeDProductSurfaceTextureTransform(
+  role: ThreeDProductSurfaceRole,
+  source: ThreeDProductMaterialSource,
+  widthIn: number,
+  depthIn: number,
+) {
+  if (source.curated && source.physicalWidthIn && source.physicalDepthIn) {
+    const rotateForLongRoom = role === "flooring" && depthIn > widthIn;
+    return {
+      wrap: "repeat" as const,
+      repeatX: Math.max(0.01, (rotateForLongRoom ? depthIn : widthIn) / source.physicalWidthIn),
+      repeatY: Math.max(0.01, (rotateForLongRoom ? widthIn : depthIn) / source.physicalDepthIn),
+      offsetX: 0,
+      offsetY: 0,
+      rotation: rotateForLongRoom ? Math.PI / 2 : 0,
+    };
+  }
+  return { ...threeDSurfaceTextureTransform(role, widthIn, depthIn), rotation: 0 };
+}
+
+export function threeDCountertopSlabTextureTransform(input: {
+  centerXIn: number;
+  centerZIn: number;
+  localWidthIn: number;
+  localDepthIn: number;
+  rotation: number;
+  slabWidthIn?: number;
+  slabDepthIn?: number;
+}) {
+  const slabWidthIn = input.slabWidthIn ?? 138;
+  const slabDepthIn = input.slabDepthIn ?? 79;
+  return {
+    repeatX: Math.max(0.01, input.localWidthIn / slabWidthIn),
+    repeatY: Math.max(0.01, input.localDepthIn / slabDepthIn),
+    offsetX: ((input.centerXIn - input.localWidthIn / 2) / slabWidthIn) % 1,
+    offsetY: ((input.centerZIn - input.localDepthIn / 2) / slabDepthIn) % 1,
+    rotation: input.rotation === 0 ? 0 : -input.rotation,
+  };
+}
+
+function threeDTextureForCountertopMesh(
+  source: THREE.Texture | null,
+  input: Parameters<typeof threeDCountertopSlabTextureTransform>[0],
+) {
+  if (!source || source.userData?.curatedSurfaceKey !== "calacatta-oro-138x79") return source;
+  const texture = source.clone();
+  const transform = threeDCountertopSlabTextureTransform(input);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(transform.repeatX, transform.repeatY);
+  texture.offset.set(transform.offsetX, transform.offsetY);
+  texture.center.set(0.5, 0.5);
+  texture.rotation = transform.rotation;
+  texture.needsUpdate = true;
+  texture.userData = { ...source.userData, worldSlabMapped: true };
+  return texture;
 }
 
 function normalizedThreeDSurfaceImage(
@@ -1006,10 +1122,11 @@ export function threeDStructuralFinish(color: string, hasProvidedDoorSample: boo
  */
 export function threeDStructuralSampleTexture(texture: THREE.Texture) {
   const structural = texture.clone();
-  structural.wrapS = THREE.ClampToEdgeWrapping;
-  structural.wrapT = THREE.ClampToEdgeWrapping;
-  structural.repeat.set(0.42, 0.42);
-  structural.offset.set(0.29, 0.29);
+  const curatedCabinetGrain = texture.userData?.curatedCabinetFinish === true;
+  structural.wrapS = curatedCabinetGrain ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  structural.wrapT = curatedCabinetGrain ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  structural.repeat.set(curatedCabinetGrain ? 1 : 0.42, curatedCabinetGrain ? 1 : 0.42);
+  structural.offset.set(curatedCabinetGrain ? 0 : 0.29, curatedCabinetGrain ? 0 : 0.29);
   structural.needsUpdate = true;
   return structural;
 }
@@ -2202,8 +2319,9 @@ export function addCabinet(
       material.needsUpdate = true;
     }
   };
-  const useDoorTexture = threeDUsesDoorSampleTexture(doorSampleUrl);
-  const doorTexture = useDoorTexture && doorSampleUrl
+	  const useDoorTexture = threeDUsesDoorSampleTexture(doorSampleUrl);
+	  const usesCuratedCabinetGrain = /rustic_hickory_vertical_grain/i.test(doorSampleUrl ?? "");
+	  const doorTexture = useDoorTexture && doorSampleUrl
     ? new THREE.TextureLoader().load(doorSampleUrl, (loadedTexture) => {
       applyPlainStructuralFinish?.(color, loadedTexture);
       onDoorTextureState?.("loaded");
@@ -2214,16 +2332,21 @@ export function addCabinet(
     })
     : null;
   if (doorTexture) onDoorTextureState?.("loading");
-  if (doorTexture) {
-    doorTexture.colorSpace = THREE.SRGBColorSpace;
-    doorTexture.wrapS = THREE.ClampToEdgeWrapping;
-    doorTexture.wrapT = THREE.ClampToEdgeWrapping;
-    // A door-sample photo often includes rails, stiles, and studio background.
-    // The renderer already builds the saved door profile physically, so use only
-    // the uninterrupted center finish grain as its material map.
-    doorTexture.repeat.set(0.42, 0.42);
-    doorTexture.offset.set(0.29, 0.29);
-  }
+	  if (doorTexture) {
+	    doorTexture.colorSpace = THREE.SRGBColorSpace;
+	    doorTexture.wrapS = usesCuratedCabinetGrain ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+	    doorTexture.wrapT = usesCuratedCabinetGrain ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+	    // A door-sample photo often includes rails, stiles, and studio background.
+	    // The renderer already builds the saved door profile physically, so use only
+	    // the uninterrupted center finish grain as its material map.
+	    doorTexture.repeat.set(usesCuratedCabinetGrain ? 1 : 0.42, usesCuratedCabinetGrain ? 1 : 0.42);
+	    doorTexture.offset.set(usesCuratedCabinetGrain ? 0 : 0.29, usesCuratedCabinetGrain ? 0 : 0.29);
+	    doorTexture.userData = {
+	      ...doorTexture.userData,
+	      curatedCabinetFinish: usesCuratedCabinetGrain,
+	      materialOnlyNoDoorGeometry: true,
+	    };
+	  }
   // The active catalog sample is applied to actual door and drawer panels. The
   // physical rails and stiles stay slightly darker and untextured so the chosen
   // Shaker or raised profile remains visibly constructed instead of flat.
@@ -3478,18 +3601,28 @@ export function addCabinet(
 	    fillerTotalWidth: sku.fillerTotalWidth ?? null,
 	    fillerPlacementMode: sku.fillerPlacementMode ?? null,
 	    islandFace: sku.islandFace ?? null,
-  })) {
-	    const countertopTexture = surfaceTextures?.countertop ?? null;
-	    const counterMaterial = new THREE.MeshPhysicalMaterial({
-	      color: countertopTexture ? "#ffffff" : counterColor,
-	      map: countertopTexture,
-	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
-	    });
-	    counterMaterial.userData = {
-	      selectedSurfaceRole: "countertop",
-	      usesAuthoritativeProductImage: Boolean(countertopTexture),
-	      materialOnlyNoGeometryChange: true,
-	    };
+	  })) {
+		    const countertopTexture = surfaceTextures?.countertop ?? null;
+		    const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture, {
+		      centerXIn: x,
+		      centerZIn: z,
+		      localWidthIn: bodyWidth / INCH,
+		      localDepthIn: bodyDepth / INCH,
+		      rotation,
+		      slabWidthIn: Number(countertopTexture?.userData?.physicalWidthIn) || 138,
+		      slabDepthIn: Number(countertopTexture?.userData?.physicalDepthIn) || 79,
+		    });
+		    const counterMaterial = new THREE.MeshPhysicalMaterial({
+		      color: mappedCountertopTexture ? "#ffffff" : counterColor,
+		      map: mappedCountertopTexture,
+		      ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedCountertopTexture)),
+		    });
+		    counterMaterial.userData = {
+		      selectedSurfaceRole: "countertop",
+		      usesAuthoritativeProductImage: Boolean(mappedCountertopTexture),
+		      worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped),
+		      materialOnlyNoGeometryChange: true,
+		    };
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counterGroup = new THREE.Group();
       counterGroup.position.set(cabinet.position.x, countertopCenterY, cabinet.position.z);
@@ -4244,14 +4377,24 @@ function addIslandZone(
   group.add(back, front, left, right);
   const slab = islandCountertopRect(island, placed);
   if (slab) {
+    const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
+      centerXIn: slab.x + slab.width / 2,
+      centerZIn: slab.y + slab.depth / 2,
+      localWidthIn: slab.width,
+      localDepthIn: slab.depth,
+      rotation: 0,
+      slabWidthIn: Number(countertopTexture?.userData?.physicalWidthIn) || 138,
+      slabDepthIn: Number(countertopTexture?.userData?.physicalDepthIn) || 79,
+    });
     const counterMaterial = new THREE.MeshPhysicalMaterial({
-      color: countertopTexture ? "#ffffff" : counterColor,
-      map: countertopTexture ?? null,
-      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
+      color: mappedCountertopTexture ? "#ffffff" : counterColor,
+      map: mappedCountertopTexture ?? null,
+      ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedCountertopTexture)),
     });
     counterMaterial.userData = {
       selectedSurfaceRole: "countertop",
-      usesAuthoritativeProductImage: Boolean(countertopTexture),
+      usesAuthoritativeProductImage: Boolean(mappedCountertopTexture),
+      worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped),
       materialOnlyNoGeometryChange: true,
     };
     const counter = new THREE.Mesh(
@@ -4884,7 +5027,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogFlooringName, catalogBacksplashName, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -5153,19 +5296,21 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
 	    const textureLoader = new THREE.TextureLoader();
 	    const loadSurfaceTexture = (
-	      url: string | null | undefined,
+	      source: ThreeDProductMaterialSource | null,
 	      role: "countertop" | "flooring" | "backsplash",
 	      widthIn: number,
 	      depthIn: number,
 	    ) => {
-	      if (!url) return null;
-	      const texture = textureLoader.load(url, (loadedTexture) => {
-	        (loadedTexture as THREE.Texture<HTMLImageElement | HTMLCanvasElement>).image = normalizedThreeDSurfaceImage(
-	          loadedTexture.image,
-	          role,
-	          renderQuality.tier === "mobile" ? 768 : 1280,
-	        );
-	        if (role !== "flooring") {
+	      if (!source) return null;
+	      const texture = textureLoader.load(source.url, (loadedTexture) => {
+	        if (!source.curated) {
+	          (loadedTexture as THREE.Texture<HTMLImageElement | HTMLCanvasElement>).image = normalizedThreeDSurfaceImage(
+	            loadedTexture.image,
+	            role,
+	            renderQuality.tier === "mobile" ? 768 : 1280,
+	          );
+	        }
+	        if (role !== "flooring" && !source.curated) {
 	          loadedTexture.repeat.set(1, 1);
 	          loadedTexture.offset.set(0, 0);
 	        }
@@ -5173,21 +5318,31 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      });
 	      texture.colorSpace = THREE.SRGBColorSpace;
 	      texture.anisotropy = Math.min(renderQuality.maxAnisotropy, renderer.capabilities.getMaxAnisotropy());
-	      const transform = threeDSurfaceTextureTransform(role, widthIn, depthIn);
+	      const transform = threeDProductSurfaceTextureTransform(role, source, widthIn, depthIn);
 	      texture.wrapS = transform.wrap === "repeat" ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
 	      texture.wrapT = transform.wrap === "repeat" ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
 	      texture.repeat.set(transform.repeatX, transform.repeatY);
 	      texture.offset.set(transform.offsetX, transform.offsetY);
+	      texture.center.set(0.5, 0.5);
+	      texture.rotation = transform.rotation;
 	      texture.userData = {
 	        selectedSurfaceRole: role,
 	        authoritativeWebsiteProductImage: true,
+	        curatedSurfaceKey: source.key,
+	        curatedFromManufacturerSource: source.curated,
+	        sourceProductName: source.sourceProductName,
+	        physicalWidthIn: source.physicalWidthIn,
+	        physicalDepthIn: source.physicalDepthIn,
 	        materialOnlyNoGeometryChange: true,
 	      };
 	      return texture;
 	    };
-	    const floorTexture = loadSurfaceTexture(catalogFlooringImageUrl, "flooring", room.width, room.depth);
-	    const countertopTexture = loadSurfaceTexture(catalogCountertopImageUrl, "countertop", room.width, room.depth);
-	    const backsplashTexture = loadSurfaceTexture(catalogBacksplashImageUrl, "backsplash", room.width, 18);
+	    const floorSource = threeDProductMaterialSource("flooring", catalogFlooringName, catalogFlooringImageUrl);
+	    const countertopSource = threeDProductMaterialSource("countertop", catalogCountertopName, catalogCountertopImageUrl);
+	    const backsplashSource = threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl);
+	    const floorTexture = loadSurfaceTexture(floorSource, "flooring", room.width, room.depth);
+	    const countertopTexture = loadSurfaceTexture(countertopSource, "countertop", room.width, room.depth);
+	    const backsplashTexture = loadSurfaceTexture(backsplashSource, "backsplash", room.width, 18);
 	    const backsplashRoom = roomOverride ?? ({
 	      width: room.width,
 	      depth: room.depth,
@@ -5387,7 +5542,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogFlooringName, catalogBacksplashName, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

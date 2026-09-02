@@ -5,10 +5,12 @@ const designToolSource = readFileSync(new URL("./DesignTool.tsx", import.meta.ur
 const rendererSource = readFileSync(new URL("../components/design/InteractiveRoom3D.tsx", import.meta.url), "utf8");
 
 describe("Designer programmed photoreal material wiring", () => {
-  it("uses the Administration door sample first and the door-front thumbnail only as its material fallback", () => {
+  it("uses Administration imagery as the cabinet source and the verified Rustic Hickory center grain as a material-only map", () => {
     expect(designToolSource).toContain("return s?.doorSampleImageUrl ?? s?.thumbnailImageUrl ?? null;");
     expect(designToolSource).toContain("const materialReference = s.doorSampleImageUrl ?? s.thumbnailImageUrl ?? null;");
-    expect(designToolSource).toContain("catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}");
+    expect(designToolSource).toContain('return "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp";');
+    expect(designToolSource).toContain("catalogDoorSampleUrl={active3DDoorSampleUrl}");
+    expect(designToolSource).toContain("{paletteFinishSwatch ? (");
   });
 
   it("passes exact selected website surface images into material-only renderer props", () => {
@@ -17,8 +19,10 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
     expect(designToolSource).toContain("catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}");
     expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');
-    expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(countertopTexture)');
+    expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(mappedCountertopTexture)');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorTexture)');
+    expect(rendererSource).toContain('curatedSurfaceKey: source.key');
+    expect(rendererSource).toContain('worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped)');
     expect(rendererSource).toContain("threeDBacksplashSegments(placed, openings, backsplashRoom)");
     expect(rendererSource).toContain("addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture)");
     expect(rendererSource).toContain('backsplashRenderedOnMeasuredSurfaces: backsplashSegments.length');

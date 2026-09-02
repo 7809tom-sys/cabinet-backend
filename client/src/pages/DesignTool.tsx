@@ -1786,8 +1786,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
   }, [doorStyles, styleId]);
   const active3DDoorSampleUrl = useMemo(() => {
-    const s = doorStyles?.find((d) => d.id === styleId) as { doorSampleImageUrl?: string | null; thumbnailImageUrl?: string | null } | undefined;
-    return s?.doorSampleImageUrl ?? s?.thumbnailImageUrl ?? null;
+	    const s = doorStyles?.find((d) => d.id === styleId) as { ourName?: string | null; aliasName?: string | null; doorSampleImageUrl?: string | null; thumbnailImageUrl?: string | null } | undefined;
+	    if (/rustic hickory|forest rust/i.test(`${s?.ourName ?? ""} ${s?.aliasName ?? ""}`)) {
+	      return "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp";
+	    }
+	    return s?.doorSampleImageUrl ?? s?.thumbnailImageUrl ?? null;
   }, [doorStyles, styleId]);
   const active3DRoomSceneReferenceUrl = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { roomSceneImageUrl?: string | null } | undefined;
@@ -6821,13 +6824,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
 
   const threeDCabinetDoorSamples = useMemo(
-    () => Object.fromEntries(placed.flatMap((cabinet) => {
-      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
-      const sampleUrl = assignedStyleId != null ? doorSampleById.get(assignedStyleId) : null;
-      return sampleUrl ? [[cabinet.uid, sampleUrl]] : [];
-    })),
-    [placed, styleId, doorSampleById],
-  );
+	    () => Object.fromEntries(placed.flatMap((cabinet) => {
+	      const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+	      const assignedStyle = assignedStyleId != null ? doorStyles?.find((style) => style.id === assignedStyleId) : null;
+	      const styleLabel = `${assignedStyle?.ourName ?? ""} ${assignedStyle?.aliasName ?? ""}`;
+	      const sampleUrl = /rustic hickory|forest rust/i.test(styleLabel)
+	        ? "/manus-storage/rustic_hickory_vertical_grain_32d9e28a.webp"
+	        : assignedStyleId != null ? doorSampleById.get(assignedStyleId) : null;
+	      return sampleUrl ? [[cabinet.uid, sampleUrl]] : [];
+	    })),
+	    [placed, styleId, doorSampleById, doorStyles],
+	  );
 
   const threeDCabinetFrontVisuals = useMemo(() => {
     const liveVisualByCabinetId = new Map<number, string>();
@@ -6847,6 +6854,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       countertop: imageForRole("countertop"),
       flooring: imageForRole("flooring"),
       backsplash: imageForRole("backsplash"),
+    };
+  }, [selectedSurfaces]);
+
+  const threeDSurfaceProductNames = useMemo(() => {
+    const nameForRole = (role: "countertop" | "flooring" | "backsplash") =>
+      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.name ?? null;
+    return {
+      countertop: nameForRole("countertop"),
+      flooring: nameForRole("flooring"),
+      backsplash: nameForRole("backsplash"),
     };
   }, [selectedSurfaces]);
 
@@ -6889,13 +6906,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       catalogFinishOverride={activeFinish.face}
       cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
-      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
-      cabinetFrontVisuals={threeDCabinetFrontVisuals}
-      catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
-      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
-      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
-      catalogFinishName={activeStyleName}
-      catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+	      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
+	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
+	      catalogDoorSampleUrl={active3DDoorSampleUrl}
+	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
+	      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
+	      catalogFinishName={activeStyleName}
+      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+      catalogFlooringName={threeDSurfaceProductNames.flooring}
+      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
       catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
       catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
       catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
@@ -11229,6 +11248,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		              <InteractiveRoom3D
 		                scene={resolvedInteractive3dScene}
 		                placed={threeDPlaced}
+		                crown={crown}
 		                catalogDropWall={activeWall}
 		                catalogDragItem={interactive3dCatalogDragItem}
                 roomOverride={room}
@@ -11248,16 +11268,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                onRequestFiller={requestFillerAction}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 onSyncCart={syncThreeDOrderWithCart}
-                initialPresentation={interactive3dPresentation ?? undefined}
-                catalogFinishOverride={activeFinish.face}
-                catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+		                initialPresentation={interactive3dPresentation ?? undefined}
+		                catalogFinishOverride={activeFinish.face}
+		                cabinetFinishOverrides={threeDCabinetFinishOverrides}
+		                cabinetDoorProfiles={threeDCabinetDoorProfiles}
+		                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
+		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
+		                catalogDoorSampleUrl={active3DDoorSampleUrl}
+		                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
                 catalogDoorProfile={activeStyle ? {
                   doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
                   doorPanelType: activeStyle.doorPanelType ?? null,
                 } : null}
                 catalogFinishName={activeStyleName}
-                catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
-                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
+	                catalogFlooringName={threeDSurfaceProductNames.flooring}
+	                catalogBacksplashName={threeDSurfaceProductNames.backsplash}
+	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+	                catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
+	                catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
+	                catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}
                 onPresentationChange={setInteractive3dPresentation}
                 onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
                 onRoomWallHeightsChange={(heights) => setRoom((current) => ({

@@ -1274,3 +1274,10 @@
 - [x] Make the selected countertop and flooring product images visibly render with correct crop, scale, orientation, and color instead of fallback materials
 - [x] Build measured 3D backsplash surfaces from the selected backsplash product that stop at cabinets, windows, doors, appliances, wall ends, and ceiling constraints
 - [x] Preserve the exact plan, camera, product identities, pricing/cart lines, and selected-surface persistence while correcting all three visible materials
+- [x] Research authoritative 3D flooring layout standards for realistic plank width, length, running direction, staggered joints, repeat avoidance, and physical-scale UV mapping
+- [x] Research authoritative stone-slab and tile visualization standards for continuous countertop veining, slab-scale UVs, backsplash module scale, roughness, and color management
+- [x] Inspect the exact selected flooring, countertop, and backsplash source records/images plus the active Administration door and room-scene assets from the reported design
+- [x] Replace the failed square floor tiling with a deterministic staggered plank material derived from the actual selected flooring sample and room dimensions
+- [x] Replace the failed countertop crop with continuous slab-scale mapping derived from the actual selected countertop sample across connected countertop runs and island slabs
+- [x] Rebuild cabinet finish mapping from the authoritative door/room-scene references so it visibly improves without printing a door photograph onto every panel
+- [x] Validate exact product appearance, physical texture scale, no obvious repetition, scene geometry lock, camera, mobile performance, pricing/cart, and save/restore before republishing

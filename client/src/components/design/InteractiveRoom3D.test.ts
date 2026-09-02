@@ -15,7 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDPhysicalSurfaceProfile, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDCountertopSlabTextureTransform, threeDPhysicalSurfaceProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
@@ -42,12 +42,50 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(threeDPhysicalSurfaceProfile("metal")).toMatchObject({ metalness: 0.82, envMapIntensity: 1.12 });
 	    expect(threeDSurfaceTextureTransform("flooring", 144, 120)).toEqual({ wrap: "repeat", repeatX: 6, repeatY: 5, offsetX: 0, offsetY: 0 });
 	    expect(threeDSurfaceTextureTransform("countertop", 144, 25.5)).toEqual({ wrap: "clamp", repeatX: 0.62, repeatY: 0.52, offsetX: 0.19, offsetY: 0.24 });
-	    expect(threeDSurfaceImageCrop("countertop")).toEqual({ x: 0.28, y: 0.3, width: 0.44, height: 0.4 });
-	    expect(threeDSurfaceImageCrop("flooring")).toEqual({ x: 0.035, y: 0.035, width: 0.93, height: 0.93 });
-	    expect(threeDSurfaceImageCrop("backsplash")).toEqual({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 });
-	  });
+		    expect(threeDSurfaceImageCrop("countertop")).toEqual({ x: 0.28, y: 0.3, width: 0.44, height: 0.4 });
+		    expect(threeDSurfaceImageCrop("flooring")).toEqual({ x: 0.035, y: 0.035, width: 0.93, height: 0.93 });
+		    expect(threeDSurfaceImageCrop("backsplash")).toEqual({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 });
+		  });
 
-	  it("normalizes flooring UVs without moving a single room-plan vertex", () => {
+		  it("resolves the exact selected Aveline and Calacatta products to curated manufacturer-derived material fields", () => {
+		    const floor = threeDProductMaterialSource("flooring", "Aveline 20mil Vinyl Flooring", "/manus-storage/pelican/73_ca633206.png");
+		    expect(floor).toEqual({
+		      url: "/manus-storage/aveline_20mil_7x48_staggered_floor_c581f3a5.webp",
+		      key: "aveline-20mil-7x48",
+		      curated: true,
+		      physicalWidthIn: 192,
+		      physicalDepthIn: 56,
+		      sourceProductName: "Aveline 20mil Vinyl Flooring",
+		    });
+		    expect(threeDProductSurfaceTextureTransform("flooring", floor!, 144, 120)).toEqual({
+		      wrap: "repeat",
+		      repeatX: 0.75,
+		      repeatY: 120 / 56,
+		      offsetX: 0,
+		      offsetY: 0,
+		      rotation: 0,
+		    });
+		    const slab = threeDProductMaterialSource("countertop", "Calacatta Oro 3cm Super Jumbo", "/manus-storage/pelican/8_acb59792.png");
+		    expect(slab).toMatchObject({
+		      url: "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp",
+		      key: "calacatta-oro-138x79",
+		      curated: true,
+		      physicalWidthIn: 138,
+		      physicalDepthIn: 79,
+		    });
+		  });
+
+		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
+		    const first = threeDCountertopSlabTextureTransform({ centerXIn: 12, centerZIn: 12.75, localWidthIn: 24, localDepthIn: 25.5, rotation: 0 });
+		    const second = threeDCountertopSlabTextureTransform({ centerXIn: 36, centerZIn: 12.75, localWidthIn: 24, localDepthIn: 25.5, rotation: 0 });
+		    expect(first.repeatX).toBeCloseTo(24 / 138);
+		    expect(first.offsetX).toBeCloseTo(0);
+		    expect(second.offsetX).toBeCloseTo(first.offsetX + first.repeatX);
+		    expect(first.repeatY).toBeCloseTo(25.5 / 79);
+		    expect(first.rotation).toBe(0);
+		  });
+
+		  it("normalizes flooring UVs without moving a single room-plan vertex", () => {
 	    const shape = new THREE.Shape([
 	      new THREE.Vector2(0, 0), new THREE.Vector2(12, 0), new THREE.Vector2(12, 10), new THREE.Vector2(0, 10),
 	    ]);
@@ -329,10 +367,21 @@ describe("interactive 3D room scene helpers", () => {
     expect(side.color.getHexString()).toBe("ffffff");
     expect(toeKick.color.getHexString()).toBe("ffffff");
     expect(side.userData).toMatchObject({ selectedFinishSideSkin: true, selectedFinishStructuralSurface: true, usesDoorSample: true, usesDoorImage: true });
-    expect(toeKick.userData).toMatchObject({ baseToeKick: true, selectedFinishStructuralSurface: true, usesDoorSample: true, usesDoorImage: true });
-  });
+	    expect(toeKick.userData).toMatchObject({ baseToeKick: true, selectedFinishStructuralSurface: true, usesDoorSample: true, usesDoorImage: true });
+	  });
 
-  it("shares the owning cabinet's selected structural finish material with its crown molding", () => {
+	  it("keeps a curated Rustic Hickory center-grain asset intact instead of cropping or stretching it like a complete door photograph", () => {
+	    const selectedGrain = new THREE.Texture();
+	    selectedGrain.userData = { curatedCabinetFinish: true };
+	    const structuralGrain = threeDStructuralSampleTexture(selectedGrain);
+	    expect(structuralGrain).not.toBe(selectedGrain);
+	    expect(structuralGrain.wrapS).toBe(THREE.RepeatWrapping);
+	    expect(structuralGrain.wrapT).toBe(THREE.RepeatWrapping);
+	    expect(structuralGrain.repeat.toArray()).toEqual([1, 1]);
+	    expect(structuralGrain.offset.toArray()).toEqual([0, 0]);
+	  });
+
+	  it("shares the owning cabinet's selected structural finish material with its crown molding", () => {
     const root = new THREE.Group();
     const cabinet = new THREE.Group();
     cabinet.userData = { placedUid: "wall-24" };
