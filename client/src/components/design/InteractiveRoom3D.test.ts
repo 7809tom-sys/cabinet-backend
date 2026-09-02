@@ -4459,6 +4459,12 @@ describe("final photo-quality render controls", () => {
 	    expect(source).toContain("Locked Designer view to render");
 	    expect(source).toContain('data-testid="photo-quality-selected-visual-references"');
 	    expect(source).toContain('data-testid="photo-quality-door-reference-status"');
+	    expect(source).toContain('data-testid="photo-quality-mobile-scroll-dialog"');
+	    expect(source).toContain('data-testid="photo-quality-mobile-scroll-content"');
+	    expect(source).toContain('data-testid="photo-quality-mobile-action-footer"');
+	    expect(source).toContain("max-h-[calc(100dvh-1rem)]");
+	    expect(source).toContain("overflow-y-auto overscroll-contain");
+	    expect(source).toContain("safe-area-inset-bottom");
 	    expect(source).toContain("The room scene is never inserted into or substituted for your locked kitchen.");
 	    expect(source).toContain("if (!photoRenderDoorReference.ready)");
 	  });

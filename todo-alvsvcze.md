@@ -1389,3 +1389,4 @@
 - [x] Align client and server deterministic render source hashes over the same captured JPEG bytes before administrator evaluation
 - [x] Reproduce and repair the live deterministic JPEG source-hash rejection reported during administrator testing
 - [x] Trace and correct any missing selected door-sample or approved room-scene reference handoff in the 3D and deterministic final-render paths without changing the locked kitchen plan or camera
+- [x] Make the mobile high-resolution exact-render dialog scroll within the visible viewport and keep its confirmation controls reachable
