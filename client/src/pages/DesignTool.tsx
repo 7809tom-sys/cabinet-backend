@@ -2887,8 +2887,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // effects (dialogs, toasts, sink auto-place) exactly once afterward.
       // setPlaced updaters can be called multiple times by React in concurrent
       // mode — any side effects inside them fire twice, causing double placement.
-      // We snapshot `placed` via closure (stable within this callback invocation).
-      const prev = placed;
+      // The palette can be tapped again before React has recreated this callback.
+      // Read the committed ref so every island addition sees the preceding cabinet
+      // and extends the same face flush rather than rebuilding from a stale run.
+      const prev = placedRef.current;
 
       // Explicit drag-and-drop coordinates win. A normal catalog selection uses
       // the active wall's deterministic left-to-right sequence: floor cabinets
@@ -3375,7 +3377,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, placed, island, islandFace, islandPlacementMode, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+    [room, activeWall, openings, island, islandFace, islandPlacementMode, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same

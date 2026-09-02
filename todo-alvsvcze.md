@@ -1418,6 +1418,6 @@
 - [x] Add rule-based island depth guidance for 24-inch base and 12-inch wall-cabinet back runs, including 48-inch and 60-inch island depths
 - [x] Add a seating-side countertop overhang choice that updates the island slab without changing selected cabinets or the island footprint
 - [ ] Obtain owner live verification that Island mode keeps selected cabinets and parts within the intended island face and that Wall mode resumes outer-wall placement
-- [ ] Make consecutive B24 and other island-face cabinet additions snap flush into one continuous island run with no placement gap
-- [ ] Derive each island countertop slab from the actual joined cabinet support footprint so it cannot bridge an unoccupied gap
+- [x] Make consecutive B24 and other island-face cabinet additions snap flush into one continuous island run with no placement gap
+- [x] Derive each automatic island countertop slab from contiguous cabinet support groups so it cannot bridge an unoccupied gap
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark

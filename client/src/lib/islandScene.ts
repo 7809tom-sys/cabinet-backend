@@ -149,8 +149,11 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
     .filter((item) => item.islandFace === face)
     .map((item) => ({ start: islandOffsetForPlaced(item, island, face), end: islandOffsetForPlaced(item, island, face) + Math.max(0, Number(item.width) || 0) }))
     .sort((a, b) => a.start - b.start);
+  // Same-face end points keep a run flush. Perpendicular members also expose
+  // their physical edge for legitimate L-shaped/end-cap configurations; they
+  // are not allowed to displace an already available same-face end position.
   const crossFaceEdges = placed
-    .filter((item) => isOnIsland(item, island))
+    .filter((item) => item.islandFace !== face && isOnIsland(item, island))
     .flatMap((item) => {
       const footprint = placedFootprint(item);
       return face === "front" || face === "back"
@@ -255,21 +258,82 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
 }
 
-export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]): { x: number; y: number; width: number; depth: number } | null {
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+export type IslandCountertopRect = { x: number; y: number; width: number; depth: number };
+
+function islandCountertopSupportBounds(supports: PlacedCabinet[]): IslandCountertopRect | null {
   if (supports.length === 0) return null;
   const footprints = supports.map((item) => ({ item, footprint: placedFootprint(item) }));
   const minX = Math.min(...footprints.map(({ item }) => item.x));
   const minY = Math.min(...footprints.map(({ item }) => item.y));
   const maxX = Math.max(...footprints.map(({ item, footprint }) => item.x + footprint.w));
   const maxY = Math.max(...footprints.map(({ item, footprint }) => item.y + footprint.d));
-  const autoWidth = maxX - minX + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
-  const autoDepth = maxY - minY + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
-	  const width = island.countertopWidth ?? autoWidth;
-	  const depth = island.countertopDepth ?? autoDepth;
-	  const supportCenterX = (minX + maxX) / 2;
-	  const supportCenterY = (minY + maxY) / 2;
-	  const centerX = (island.countertopWidthAnchoredToZone ? island.x + island.width / 2 : supportCenterX) + Number(island.countertopOffsetX ?? 0);
-	  const centerY = (island.countertopDepthAnchoredToZone ? island.y + island.depth / 2 : supportCenterY) + Number(island.countertopOffsetY ?? 0);
-	  return { x: centerX - width / 2, y: centerY - depth / 2, width, depth };
+  return { x: minX, y: minY, width: maxX - minX, depth: maxY - minY };
+}
+
+function countertopSupportsConnect(first: PlacedCabinet, second: PlacedCabinet): boolean {
+  const a = placedFootprint(first);
+  const b = placedFootprint(second);
+  const gapX = Math.max(first.x - (second.x + b.w), second.x - (first.x + a.w), 0);
+  const gapY = Math.max(first.y - (second.y + b.d), second.y - (first.y + a.d), 0);
+  return gapX <= COLLISION_EPSILON_IN && gapY <= COLLISION_EPSILON_IN;
+}
+
+/**
+ * Automatic island slabs follow connected cabinet support groups. This prevents
+ * an empty plan-space gap from being hidden by one unsupported counter bridge.
+ * A user-entered custom slab remains one intentional physical slab.
+ */
+export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
+  const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+  const allBounds = islandCountertopSupportBounds(supports);
+  if (!allBounds) return [];
+  const hasIntentionalSlab = island.countertopWidth != null || island.countertopDepth != null;
+  if (hasIntentionalSlab) {
+    const autoWidth = allBounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
+    const autoDepth = allBounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
+    const width = island.countertopWidth ?? autoWidth;
+    const depth = island.countertopDepth ?? autoDepth;
+    const supportCenterX = allBounds.x + allBounds.width / 2;
+    const supportCenterY = allBounds.y + allBounds.depth / 2;
+    const centerX = (island.countertopWidthAnchoredToZone ? island.x + island.width / 2 : supportCenterX) + Number(island.countertopOffsetX ?? 0);
+    const centerY = (island.countertopDepthAnchoredToZone ? island.y + island.depth / 2 : supportCenterY) + Number(island.countertopOffsetY ?? 0);
+    return [{ x: centerX - width / 2, y: centerY - depth / 2, width, depth }];
+  }
+  const groups: PlacedCabinet[][] = [];
+  const remaining = [...supports];
+  while (remaining.length > 0) {
+    const group = [remaining.shift()!];
+    for (let index = 0; index < group.length; index++) {
+      for (let candidate = remaining.length - 1; candidate >= 0; candidate--) {
+        if (countertopSupportsConnect(group[index], remaining[candidate])) {
+          group.push(remaining[candidate]);
+          remaining.splice(candidate, 1);
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups.flatMap((group) => {
+    const bounds = islandCountertopSupportBounds(group);
+    return bounds ? [{
+      x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
+      y: bounds.y - ISLAND_COUNTERTOP_OVERHANG_IN,
+      width: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+      depth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    }] : [];
+  });
+}
+
+/** Legacy single-slab measurement used by the 2D island attribute interface. */
+export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect | null {
+  const slabs = islandCountertopRects(island, placed);
+  if (slabs.length === 1) return slabs[0];
+  const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+  const bounds = islandCountertopSupportBounds(supports);
+  return bounds ? {
+    x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
+    y: bounds.y - ISLAND_COUNTERTOP_OVERHANG_IN,
+    width: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    depth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+  } : null;
 }

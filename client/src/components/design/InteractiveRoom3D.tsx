@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
-import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
+import { islandCountertopRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -5137,8 +5137,8 @@ function addIslandZone(
   right.position.set(transform.guideWidth / 2, guideHeight / 2, 0);
   for (const edge of [back, front, left, right]) edge.userData = { islandGuide: true };
   group.add(back, front, left, right);
-  const slab = islandCountertopRect(island, placed);
-  if (slab) {
+  const slabs = islandCountertopRects(island, placed);
+  slabs.forEach((slab, slabIndex) => {
     const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
       centerXIn: slab.x + slab.width / 2,
       centerZIn: slab.y + slab.depth / 2,
@@ -5164,9 +5164,9 @@ function addIslandZone(
       counterMaterial,
     );
     counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
-    counter.userData = { islandCountertop: true, widthIn: slab.width, depthIn: slab.depth };
+    counter.userData = { islandCountertop: true, islandCountertopSegment: slabIndex + 1, widthIn: slab.width, depthIn: slab.depth };
     group.add(counter);
-  }
+  });
   root.add(group);
 }
 

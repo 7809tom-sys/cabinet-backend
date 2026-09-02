@@ -3,6 +3,7 @@ import { elevationBox, hasCollision, makeSinkForCabinet, type IslandZone, type P
 import {
   ISLAND_COUNTERTOP_OVERHANG_IN,
   islandCountertopRect,
+  islandCountertopRects,
   islandFaceFitMeasure,
   islandFacePlacement,
   moveIslandScene,
@@ -77,6 +78,14 @@ describe("island mini-scene geometry", () => {
     expect(first).toMatchObject({ x: 36, islandOffset: 0 });
     expect(second).toMatchObject({ x: 60, islandOffset: 24 });
     expect(hasCollision(second!, [first!])).toBe(false);
+  });
+
+  it("keeps a sequential face run flush even when another face has members", () => {
+    const rightSide = nextIslandFacePlacement(cabinet({ uid: "right-side" }), island, "right", []);
+    const first = nextIslandFacePlacement(cabinet({ uid: "front-a" }), island, "front", [rightSide!]);
+    const second = nextIslandFacePlacement(cabinet({ uid: "front-b" }), island, "front", [rightSide!, first!]);
+    expect(first).toMatchObject({ islandFace: "front", islandOffset: 0 });
+    expect(second).toMatchObject({ islandFace: "front", islandOffset: 24 });
   });
 
   it("supports 24-inch front and back cabinets touching back-to-back in a 48-inch zone", () => {
@@ -158,6 +167,15 @@ describe("island mini-scene geometry", () => {
       width: 48 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
       depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
     });
+  });
+
+  it("does not let an automatic countertop bridge an unoccupied island gap", () => {
+    const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
+    const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 48);
+    expect(islandCountertopRects(island, [left, right])).toEqual([
+      { x: island.x - ISLAND_COUNTERTOP_OVERHANG_IN, y: island.y + island.depth - 24 - ISLAND_COUNTERTOP_OVERHANG_IN, width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2, depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2 },
+      { x: island.x + 48 - ISLAND_COUNTERTOP_OVERHANG_IN, y: island.y + island.depth - 24 - ISLAND_COUNTERTOP_OVERHANG_IN, width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2, depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2 },
+    ]);
   });
 
 	  it("keeps exact custom slab dimensions and offsets while cabinet geometry stays authoritative", () => {
