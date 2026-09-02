@@ -596,6 +596,7 @@ const THREE_D_CARRARA_SUBWAY_MOSAIC_URL = "/manus-storage/carrara_subway_11_97x1
 const THREE_D_CLOUDLINE_MARBLE_MOSAIC_URL = "/manus-storage/cloudline_marble_11_81x11_81_staggered_mosaic_32c5408e.webp";
 const THREE_D_CONCORD_SQUARE_MOSAIC_URL = "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp";
 const THREE_D_GLACIER_SHIFT_HERRINGBONE_URL = "/manus-storage/glacier_shift_12_05x12_05_recycled_glass_herringbone_3f2c6eb9.webp";
+const THREE_D_GOLDEN_TRACE_MOSAIC_URL = "/manus-storage/golden_trace_11_81x11_81_marble_aluminum_mosaic_8ce14587.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -826,6 +827,24 @@ export function threeDProductMaterialSource(
 			staggerOffsetsIn: null,
 			backsplashPatternKind: "interlocking-mosaic",
 			backsplashModuleIn: 12.05,
+			backsplashGroutJointIn: 1 / 16,
+		};
+	}
+	if (role === "backsplash" && normalizedName === "golden trace") {
+		return {
+			url: THREE_D_GOLDEN_TRACE_MOSAIC_URL,
+			key: "golden-trace-11.81in-marble-aluminum-mosaic",
+			curated: true,
+			proceduralFallback: false,
+			physicalWidthIn: 11.81,
+			physicalDepthIn: 11.81,
+			sourceProductName: productName ?? null,
+			flooringPatternKind: null,
+			plankWidthIn: null,
+			plankLengthIn: null,
+			staggerOffsetsIn: null,
+			backsplashPatternKind: "interlocking-mosaic",
+			backsplashModuleIn: 11.81,
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}

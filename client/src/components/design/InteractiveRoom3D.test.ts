@@ -144,6 +144,11 @@ describe("interactive 3D room scene helpers", () => {
 						curated: true, proceduralFallback: false, physicalWidthIn: 12.05, physicalDepthIn: 12.05,
 						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 12.05, backsplashGroutJointIn: 1 / 16,
 					});
+				expect(threeDProductMaterialSource("backsplash", "Golden Trace", "/manus-storage/pelican/244_approved.png")).toMatchObject({
+						url: "/manus-storage/golden_trace_11_81x11_81_marble_aluminum_mosaic_8ce14587.webp", key: "golden-trace-11.81in-marble-aluminum-mosaic",
+						curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
+						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
+					});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
