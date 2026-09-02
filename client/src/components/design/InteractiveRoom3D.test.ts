@@ -15,7 +15,8 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, threeDPhysicalSurfaceProfile, threeDRenderQualityProfile, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDPhysicalSurfaceProfile, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -36,11 +37,14 @@ describe("interactive 3D room scene helpers", () => {
 	  });
 
 	  it("defines physically based cabinet and selected-surface profiles independently from plan geometry", () => {
-	    expect(threeDPhysicalSurfaceProfile("cabinet", true)).toMatchObject({ roughness: 0.38, metalness: 0, clearcoat: 0.1 });
-	    expect(threeDPhysicalSurfaceProfile("countertop", true)).toMatchObject({ roughness: 0.24, clearcoat: 0.4 });
+	    expect(threeDPhysicalSurfaceProfile("cabinet", true)).toMatchObject({ roughness: 0.44, metalness: 0, clearcoat: 0.06 });
+	    expect(threeDPhysicalSurfaceProfile("countertop", true)).toMatchObject({ roughness: 0.32, clearcoat: 0.24 });
 	    expect(threeDPhysicalSurfaceProfile("metal")).toMatchObject({ metalness: 0.82, envMapIntensity: 1.12 });
-	    expect(threeDSurfaceTextureTransform("flooring", 144, 120)).toEqual({ wrap: "repeat", repeatX: 3, repeatY: 2.5, offsetX: 0, offsetY: 0 });
+	    expect(threeDSurfaceTextureTransform("flooring", 144, 120)).toEqual({ wrap: "repeat", repeatX: 6, repeatY: 5, offsetX: 0, offsetY: 0 });
 	    expect(threeDSurfaceTextureTransform("countertop", 144, 25.5)).toEqual({ wrap: "clamp", repeatX: 0.62, repeatY: 0.52, offsetX: 0.19, offsetY: 0.24 });
+	    expect(threeDSurfaceImageCrop("countertop")).toEqual({ x: 0.28, y: 0.3, width: 0.44, height: 0.4 });
+	    expect(threeDSurfaceImageCrop("flooring")).toEqual({ x: 0.035, y: 0.035, width: 0.93, height: 0.93 });
+	    expect(threeDSurfaceImageCrop("backsplash")).toEqual({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 });
 	  });
 
 	  it("normalizes flooring UVs without moving a single room-plan vertex", () => {
@@ -58,6 +62,42 @@ describe("interactive 3D room scene helpers", () => {
 	      expect(uv.getY(index)).toBeGreaterThanOrEqual(0);
 	      expect(uv.getY(index)).toBeLessThanOrEqual(1);
 	    }
+	  });
+
+	  it("covers the full standard backsplash zone on every room wall and keeps transforms on the owning wall", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const segments = threeDBacksplashSegments([], [], room);
+	    expect(segments).toEqual(expect.arrayContaining([
+	      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+	      { side: "bottom", start: 0, end: 120, bottom: 36, top: 54 },
+	      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
+	      { side: "right", start: 0, end: 96, bottom: 36, top: 54 },
+	    ]));
+	    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "right")!, room)).toMatchObject({ x: 119.93, z: 48, rotation: -Math.PI / 2 });
+	  });
+
+	  it("clips the selected backsplash around a saved window without changing the opening or wall", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 40 } as WallOpening;
+	    const openingBefore = JSON.stringify(windowOpening);
+	    const segments = threeDBacksplashSegments([], [windowOpening], room).filter((segment) => segment.side === "top");
+	    expect(JSON.stringify(windowOpening)).toBe(openingBefore);
+	    expect(segments).toEqual(expect.arrayContaining([
+	      { side: "top", start: 0, end: 30, bottom: 36, top: 54 },
+	      { side: "top", start: 30, end: 60, bottom: 36, top: 40 },
+	      { side: "top", start: 60, end: 120, bottom: 36, top: 54 },
+	    ]));
+	    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 40)).toBe(false);
+	  });
+
+	  it("extends backsplash above a saved range only when an upper cabinet does not occupy that exact span", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const range = { uid: "range-1", masterCode: "RANGE-30", description: "Freestanding range", placement: "appliance", x: 45, y: 0, width: 30, depth: 24, height: 36, rotation: 0, islandFace: null } as PlacedCabinet;
+	    const openSegments = threeDBacksplashSegments([range], [], room);
+	    expect(openSegments).toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 84 });
+	    const wallCabinet = { uid: "wall-1", masterCode: "W-3030", description: "Wall cabinet", placement: "wall", x: 45, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54, islandFace: null } as PlacedCabinet;
+	    const blockedSegments = threeDBacksplashSegments([range, wallCabinet], [], room);
+	    expect(blockedSegments).not.toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 84 });
 	  });
 
   it("keeps an explicitly empty designer room authoritative after Clear Design instead of rendering catalog suggestions", () => {
@@ -359,7 +399,7 @@ describe("interactive 3D room scene helpers", () => {
     for (const side of returns) {
       expect(side.material).toBeInstanceOf(THREE.MeshPhysicalMaterial);
       expect((side.material as THREE.MeshPhysicalMaterial).color.getHexString()).toBe("3f4d3f");
-      expect((side.material as THREE.MeshPhysicalMaterial).roughness).toBeLessThan(0.5);
+      expect((side.material as THREE.MeshPhysicalMaterial).roughness).toBeLessThanOrEqual(0.5);
       expect(side.userData).toMatchObject({ selectedFinishSideSkin: true, selectedFinishStructuralSurface: true });
     }
   });

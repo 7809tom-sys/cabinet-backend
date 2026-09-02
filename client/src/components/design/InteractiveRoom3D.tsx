@@ -473,10 +473,10 @@ export function threeDPhysicalSurfaceProfile(role: ThreeDPhysicalSurfaceRole, ha
     clearcoatRoughness: number;
     envMapIntensity: number;
   }> = {
-    cabinet: { roughness: hasTexture ? 0.38 : 0.46, metalness: 0, clearcoat: 0.1, clearcoatRoughness: 0.5, envMapIntensity: 0.72 },
-    countertop: { roughness: hasTexture ? 0.24 : 0.3, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.22, envMapIntensity: 0.92 },
-    flooring: { roughness: hasTexture ? 0.52 : 0.6, metalness: 0, clearcoat: 0.08, clearcoatRoughness: 0.62, envMapIntensity: 0.58 },
-    backsplash: { roughness: hasTexture ? 0.34 : 0.48, metalness: 0, clearcoat: 0.18, clearcoatRoughness: 0.4, envMapIntensity: 0.68 },
+    cabinet: { roughness: hasTexture ? 0.44 : 0.5, metalness: 0, clearcoat: 0.06, clearcoatRoughness: 0.56, envMapIntensity: 0.42 },
+    countertop: { roughness: hasTexture ? 0.32 : 0.36, metalness: 0, clearcoat: 0.24, clearcoatRoughness: 0.3, envMapIntensity: 0.62 },
+    flooring: { roughness: hasTexture ? 0.58 : 0.64, metalness: 0, clearcoat: 0.04, clearcoatRoughness: 0.7, envMapIntensity: 0.34 },
+    backsplash: { roughness: hasTexture ? 0.42 : 0.52, metalness: 0, clearcoat: 0.12, clearcoatRoughness: 0.48, envMapIntensity: 0.46 },
     metal: { roughness: 0.22, metalness: 0.82, clearcoat: 0.08, clearcoatRoughness: 0.28, envMapIntensity: 1.12 },
     glass: { roughness: 0.07, metalness: 0, clearcoat: 0.32, clearcoatRoughness: 0.14, envMapIntensity: 1.06 },
     wall: { roughness: 0.82, metalness: 0, clearcoat: 0, clearcoatRoughness: 1, envMapIntensity: 0.35 },
@@ -490,7 +490,7 @@ export function threeDSurfaceTextureTransform(
   depthIn = 24,
 ) {
   if (role === "flooring") {
-    return { wrap: "repeat" as const, repeatX: Math.max(1, widthIn / 48), repeatY: Math.max(1, depthIn / 48), offsetX: 0, offsetY: 0 };
+    return { wrap: "repeat" as const, repeatX: Math.max(1, widthIn / 24), repeatY: Math.max(1, depthIn / 24), offsetX: 0, offsetY: 0 };
   }
   if (role === "backsplash") {
     return { wrap: "repeat" as const, repeatX: Math.max(1, widthIn / 18), repeatY: Math.max(1, depthIn / 18), offsetX: 0, offsetY: 0 };
@@ -502,6 +502,51 @@ export function threeDSurfaceTextureTransform(
     return { wrap: "clamp" as const, repeatX: 0.62, repeatY: 0.52, offsetX: 0.19, offsetY: 0.24 };
   }
   return { wrap: "clamp" as const, repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0 };
+}
+
+export function threeDSurfaceImageCrop(role: "countertop" | "flooring" | "backsplash") {
+  if (role === "countertop") return { x: 0.28, y: 0.3, width: 0.44, height: 0.4 };
+  if (role === "flooring") return { x: 0.035, y: 0.035, width: 0.93, height: 0.93 };
+  return { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
+}
+
+function normalizedThreeDSurfaceImage(
+  source: HTMLImageElement,
+  role: "countertop" | "flooring" | "backsplash",
+  maxDimension: number,
+): HTMLImageElement | HTMLCanvasElement {
+  const dimensions = source as HTMLImageElement & {
+    naturalWidth?: number;
+    naturalHeight?: number;
+    videoWidth?: number;
+    videoHeight?: number;
+    width?: number;
+    height?: number;
+  };
+  const sourceWidth = Number(dimensions.naturalWidth ?? dimensions.videoWidth ?? dimensions.width ?? 0);
+  const sourceHeight = Number(dimensions.naturalHeight ?? dimensions.videoHeight ?? dimensions.height ?? 0);
+  if (!sourceWidth || !sourceHeight || typeof document === "undefined") return source;
+  const crop = threeDSurfaceImageCrop(role);
+  const cropWidth = Math.max(1, sourceWidth * crop.width);
+  const cropHeight = Math.max(1, sourceHeight * crop.height);
+  const scale = Math.min(1, maxDimension / Math.max(cropWidth, cropHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(cropWidth * scale));
+  canvas.height = Math.max(1, Math.round(cropHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) return source;
+  context.drawImage(
+    source,
+    sourceWidth * crop.x,
+    sourceHeight * crop.y,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+  return canvas;
 }
 
 export type ThreeDRenderQualityTier = "mobile" | "balanced" | "high";
@@ -1735,13 +1780,21 @@ export function activeThreeDRoomGeometry(
 }
 
 function disposeObject(root: THREE.Object3D) {
+  const textures = new Set<THREE.Texture>();
+  const disposeMaterial = (material: THREE.Material) => {
+    for (const value of Object.values(material)) {
+      if (value instanceof THREE.Texture) textures.add(value);
+    }
+    material.dispose();
+  };
   root.traverse((child) => {
     const mesh = child as THREE.Mesh;
     mesh.geometry?.dispose?.();
     const material = mesh.material;
-    if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
-    else material?.dispose?.();
+    if (Array.isArray(material)) material.forEach(disposeMaterial);
+    else if (material) disposeMaterial(material);
   });
+  textures.forEach((texture) => texture.dispose());
 }
 
 export function resolvedThreeDFaceLayout(input: {
@@ -2165,7 +2218,11 @@ export function addCabinet(
     doorTexture.colorSpace = THREE.SRGBColorSpace;
     doorTexture.wrapS = THREE.ClampToEdgeWrapping;
     doorTexture.wrapT = THREE.ClampToEdgeWrapping;
-    doorTexture.repeat.set(1, 1);
+    // A door-sample photo often includes rails, stiles, and studio background.
+    // The renderer already builds the saved door profile physically, so use only
+    // the uninterrupted center finish grain as its material map.
+    doorTexture.repeat.set(0.42, 0.42);
+    doorTexture.offset.set(0.29, 0.29);
   }
   // The active catalog sample is applied to actual door and drawer panels. The
   // physical rails and stiles stay slightly darker and untextured so the chosen
@@ -4208,6 +4265,141 @@ function addIslandZone(
   root.add(group);
 }
 
+export type ThreeDBacksplashSegment = {
+  side: WallSide;
+  start: number;
+  end: number;
+  bottom: number;
+  top: number;
+};
+
+function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
+  const quarterTurn = Math.abs(Math.round(cabinet.rotation / 90)) % 2 === 1;
+  const rotatedWidth = quarterTurn ? cabinet.depth : cabinet.width;
+  const rotatedDepth = quarterTurn ? cabinet.width : cabinet.depth;
+  const start = side === "top" || side === "bottom" ? cabinet.x : cabinet.y;
+  const span = side === "top" || side === "bottom" ? rotatedWidth : rotatedDepth;
+  return { start, end: start + span };
+}
+
+function mergeThreeDIntervals(intervals: Array<{ start: number; end: number }>) {
+  const ordered = intervals
+    .filter((interval) => interval.end - interval.start > 0.001)
+    .sort((a, b) => a.start - b.start);
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const interval of ordered) {
+    const previous = merged[merged.length - 1];
+    if (previous && interval.start <= previous.end + 0.001) previous.end = Math.max(previous.end, interval.end);
+    else merged.push({ ...interval });
+  }
+  return merged;
+}
+
+function subtractThreeDBacksplashRect(
+  source: Omit<ThreeDBacksplashSegment, "side">,
+  cut: Omit<ThreeDBacksplashSegment, "side">,
+) {
+  const overlapStart = Math.max(source.start, cut.start);
+  const overlapEnd = Math.min(source.end, cut.end);
+  const overlapBottom = Math.max(source.bottom, cut.bottom);
+  const overlapTop = Math.min(source.top, cut.top);
+  if (overlapEnd <= overlapStart || overlapTop <= overlapBottom) return [source];
+  const pieces: Array<Omit<ThreeDBacksplashSegment, "side">> = [];
+  if (source.start < overlapStart) pieces.push({ ...source, end: overlapStart });
+  if (overlapEnd < source.end) pieces.push({ ...source, start: overlapEnd });
+  if (source.bottom < overlapBottom) pieces.push({ start: overlapStart, end: overlapEnd, bottom: source.bottom, top: overlapBottom });
+  if (overlapTop < source.top) pieces.push({ start: overlapStart, end: overlapEnd, bottom: overlapTop, top: source.top });
+  return pieces.filter((piece) => piece.end - piece.start > 0.001 && piece.top - piece.bottom > 0.001);
+}
+
+export function threeDBacksplashSegments(
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+) {
+  const sides: WallSide[] = ["top", "bottom", "left", "right"];
+  const countertopTop = COUNTERTOP_TOP;
+  const standardTop = Math.min(room.ceilingHeight ?? 96, countertopTop + 18);
+  const segments: ThreeDBacksplashSegment[] = [];
+  for (const side of sides) {
+    const wallLength = side === "top" || side === "bottom" ? room.width : room.depth;
+    const rangeIntervals = mergeThreeDIntervals(placed.flatMap((cabinet) => {
+      if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];
+      const isRange = /(?:^|[-_])RANGE(?:[-_]|\d|$)|range\s*\/\s*stove|freestanding\s+range/i.test(`${cabinet.masterCode} ${cabinet.description ?? ""}`);
+      return isRange ? [threeDWallRunSpan(cabinet, side)] : [];
+    }));
+    const cuts = [
+      ...openings.filter((opening) => opening.side === side).map((opening) => ({
+        start: opening.offset,
+        end: opening.offset + opening.width,
+        bottom: opening.sill,
+        top: opening.sill + opening.height,
+      })),
+      ...placed.flatMap((cabinet) => {
+        if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || (cabinet.placement !== "wall" && cabinet.placement !== "tall")) return [];
+        const span = threeDWallRunSpan(cabinet, side);
+        const bottom = cabinet.mountBottom ?? (cabinet.placement === "wall" ? WALL_BOTTOM : 0);
+        return [{ ...span, bottom, top: bottom + (cabinet.height ?? 0) }];
+      }),
+    ];
+    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = [
+      { start: 0, end: wallLength, bottom: countertopTop, top: standardTop },
+      ...rangeIntervals.map((interval) => ({
+        ...interval,
+        bottom: standardTop,
+        top: Math.min(room.ceilingHeight ?? 96, 84),
+      })),
+    ];
+    for (const source of sourceSegments) {
+      let visible: Array<Omit<ThreeDBacksplashSegment, "side">> = [source];
+      for (const cut of cuts) visible = visible.flatMap((segment) => subtractThreeDBacksplashRect(segment, cut));
+      segments.push(...visible.map((segment) => ({ side, ...segment })));
+    }
+  }
+  return segments;
+}
+
+export function threeDBacksplashTransform(segment: ThreeDBacksplashSegment, room: RoomData) {
+  const center = (segment.start + segment.end) / 2;
+  const centerY = (segment.bottom + segment.top) / 2;
+  if (segment.side === "bottom") return { x: center, y: centerY, z: room.depth - 0.07, rotation: Math.PI };
+  if (segment.side === "left") return { x: 0.07, y: centerY, z: center, rotation: Math.PI / 2 };
+  if (segment.side === "right") return { x: room.width - 0.07, y: centerY, z: center, rotation: -Math.PI / 2 };
+  return { x: center, y: centerY, z: 0.07, rotation: 0 };
+}
+
+function addThreeDBacksplash(
+  root: THREE.Group,
+  segments: ThreeDBacksplashSegment[],
+  room: RoomData,
+  sourceTexture: THREE.Texture,
+) {
+  for (const segment of segments) {
+    const widthIn = segment.end - segment.start;
+    const heightIn = segment.top - segment.bottom;
+    const texture = sourceTexture.clone();
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(Math.max(1, widthIn / 18), Math.max(1, heightIn / 18));
+    texture.offset.set((segment.start / 18) % 1, (segment.bottom / 18) % 1);
+    texture.needsUpdate = true;
+    const material = new THREE.MeshPhysicalMaterial({
+      color: "#ffffff",
+      map: texture,
+      side: THREE.DoubleSide,
+      ...threeDPhysicalSurfaceProfile("backsplash", true),
+    });
+    material.userData = { selectedSurfaceRole: "backsplash", usesAuthoritativeProductImage: true, materialOnlyNoGeometryChange: true };
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthIn * INCH, heightIn * INCH), material);
+    const transform = threeDBacksplashTransform(segment, room);
+    mesh.position.set(transform.x * INCH, transform.y * INCH, transform.z * INCH);
+    mesh.rotation.y = transform.rotation;
+    mesh.receiveShadow = true;
+    mesh.userData = { measuredBacksplash: true, ...segment, clippedAroundSavedPlan: true };
+    root.add(mesh);
+  }
+}
+
 function addPonyWall(root: THREE.Group, ponyWall: PonyWall) {
   const transform = ponyWallTransform(ponyWall);
   const wall = new THREE.Mesh(
@@ -4898,7 +5090,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 	    renderer.outputColorSpace = THREE.SRGBColorSpace;
 	    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-	    renderer.toneMappingExposure = 1.08;
+	    renderer.toneMappingExposure = 0.84;
 	    mount.replaceChildren(renderer.domElement);
 
 	    const threeScene = new THREE.Scene();
@@ -4936,8 +5128,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     controls.autoRotateSpeed = 1.1;
     controls.update();
 
-	    threeScene.add(new THREE.HemisphereLight("#fffaf2", "#718096", 1.35));
-	    const keyLight = new THREE.DirectionalLight("#fff5e6", 2.35);
+	    threeScene.add(new THREE.HemisphereLight("#fffaf2", "#718096", 0.92));
+	    const keyLight = new THREE.DirectionalLight("#fff5e6", 1.5);
 	    keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
 	    keyLight.castShadow = true;
 	    keyLight.shadow.mapSize.set(renderQuality.shadowMapSize, renderQuality.shadowMapSize);
@@ -4950,11 +5142,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    keyLight.shadow.bias = -0.00018;
 	    keyLight.shadow.normalBias = 0.018;
 	    threeScene.add(keyLight);
-	    const fillLight = new THREE.DirectionalLight("#cfe0f4", 0.72);
+	    const fillLight = new THREE.DirectionalLight("#cfe0f4", 0.38);
 	    fillLight.position.set(-maxSpan, maxSpan, maxSpan);
 	    threeScene.add(fillLight);
 	    const wallHeight = Math.max(...Object.values(wallHeights)) * INCH;
-	    const warmLight = new THREE.PointLight("#ffdca6", 7.5, maxSpan * 3.2, 2);
+	    const warmLight = new THREE.PointLight("#ffdca6", 2.8, maxSpan * 3.2, 2);
     warmLight.position.set(room.width * INCH * 0.52, wallHeight * 0.76, room.depth * INCH * 0.48);
     threeScene.add(warmLight);
 
@@ -4967,7 +5159,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      depthIn: number,
 	    ) => {
 	      if (!url) return null;
-	      const texture = textureLoader.load(url);
+	      const texture = textureLoader.load(url, (loadedTexture) => {
+	        (loadedTexture as THREE.Texture<HTMLImageElement | HTMLCanvasElement>).image = normalizedThreeDSurfaceImage(
+	          loadedTexture.image,
+	          role,
+	          renderQuality.tier === "mobile" ? 768 : 1280,
+	        );
+	        if (role !== "flooring") {
+	          loadedTexture.repeat.set(1, 1);
+	          loadedTexture.offset.set(0, 0);
+	        }
+	        loadedTexture.needsUpdate = true;
+	      });
 	      texture.colorSpace = THREE.SRGBColorSpace;
 	      texture.anisotropy = Math.min(renderQuality.maxAnisotropy, renderer.capabilities.getMaxAnisotropy());
 	      const transform = threeDSurfaceTextureTransform(role, widthIn, depthIn);
@@ -4984,6 +5187,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    };
 	    const floorTexture = loadSurfaceTexture(catalogFlooringImageUrl, "flooring", room.width, room.depth);
 	    const countertopTexture = loadSurfaceTexture(catalogCountertopImageUrl, "countertop", room.width, room.depth);
+	    const backsplashTexture = loadSurfaceTexture(catalogBacksplashImageUrl, "backsplash", room.width, 18);
+	    const backsplashRoom = roomOverride ?? ({
+	      width: room.width,
+	      depth: room.depth,
+	      ceilingHeight: wallHeightIn,
+	    } as RoomData);
+	    const backsplashSegments = backsplashTexture && renderExistingDesign
+	      ? threeDBacksplashSegments(placed, openings, backsplashRoom)
+	      : [];
 	    const polygon = roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
 	    const floorShape = new THREE.Shape(polygon);
 	    const floorGeometry = normalizeThreeDPlanarUv(new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }));
@@ -5061,7 +5273,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     // cabinet shadows provide scale better than a generic editor grid.
     const floorContact = new THREE.Mesh(
       new THREE.CircleGeometry(Math.max(room.width, room.depth) * INCH * 0.32, 48),
-      new THREE.MeshBasicMaterial({ color: "#73685b", transparent: true, opacity: 0.07, depthWrite: false }),
+	      new THREE.MeshBasicMaterial({ color: "#51483f", transparent: true, opacity: 0.035, depthWrite: false }),
     );
     floorContact.rotation.x = -Math.PI / 2;
     floorContact.position.set(room.width * INCH * 0.52, 0.006, room.depth * INCH * 0.48);
@@ -5084,7 +5296,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      countertopImageUrl: catalogCountertopImageUrl ?? null,
 	      flooringImageUrl: catalogFlooringImageUrl ?? null,
 	      backsplashImageUrl: catalogBacksplashImageUrl ?? null,
-	      backsplashAwaitingMeasuredSurface: Boolean(catalogBacksplashImageUrl),
+	      backsplashRenderedOnMeasuredSurfaces: backsplashSegments.length,
 	      materialOnlyNoGeometryChange: true,
 	    };
 	    catalogRoot.userData.renderQuality = { ...renderQuality, geometryOrCameraChanges: false };
@@ -5113,9 +5325,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
 	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture });
-      }
-    }
-    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
+	      }
+	    }
+	    if (backsplashTexture && backsplashSegments.length > 0) {
+	      addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture);
+	    }
+	    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
 	    if (island) addIslandZone(catalogRoot, island, placed, materialDefaults.countertop, countertopTexture);
 	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
@@ -5162,8 +5377,6 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       };
 	      controls.dispose();
 	      disposeObject(threeScene);
-	      floorTexture?.dispose();
-	      countertopTexture?.dispose();
 	      environmentTarget.dispose();
 	      pmremGenerator.dispose();
 	      renderer.dispose();

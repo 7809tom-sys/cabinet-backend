@@ -19,6 +19,17 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(countertopTexture)');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorTexture)');
+    expect(rendererSource).toContain("threeDBacksplashSegments(placed, openings, backsplashRoom)");
+    expect(rendererSource).toContain("addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture)");
+    expect(rendererSource).toContain('backsplashRenderedOnMeasuredSurfaces: backsplashSegments.length');
+    expect(rendererSource).toContain('measuredBacksplash: true');
+  });
+
+  it("keeps the corrected photographic exposure below neutral after the washed-out mobile regression", () => {
+    expect(rendererSource).toContain("renderer.toneMappingExposure = 0.84");
+    expect(rendererSource).toContain('new THREE.HemisphereLight("#fffaf2", "#718096", 0.92)');
+    expect(rendererSource).toContain('new THREE.DirectionalLight("#fff5e6", 1.5)');
+    expect(rendererSource).toContain('new THREE.PointLight("#ffdca6", 2.8');
   });
 
   it("retains the Administration room scene as a visual reference and never substitutes it for the saved plan", () => {

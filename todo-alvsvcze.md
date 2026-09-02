@@ -1265,3 +1265,12 @@
 - [x] Add automatic desktop/mobile rendering quality tiers with conservative pixel ratio, shadow, and reflection fallbacks for responsive orbit and touch interaction
 - [x] Preserve exact cabinet dimensions, placement, openings, fillers, countertop seams, SKUs, pricing/cart, saved designs, mobile window taps, and all existing Designer controls
 - [x] Add focused and broad renderer regressions, visually verify representative desktop/mobile scenes, and publish the programmed realism upgrade for owner testing
+- [x] Reproduce the owner-confirmed live mobile 3D result where version 8edbbd25 is washed out and the floor and cabinet image patterns are scaled or projected incorrectly
+- [x] Correct renderer exposure, direct/fill/warm light energy, environment intensity, and contact-shadow balance without moving the saved camera or any designed object
+- [x] Replace raw retail-image projection with role-specific door, cabinet-side, flooring, and countertop crop/scale/orientation rules that preserve the authoritative sample appearance
+- [x] Add exact mobile-quality regressions for exposure, UV normalization, image-role mapping, geometry lock, orbit/tap interaction, pricing/cart, and save/restore
+- [x] Validate the corrected live-condition scene and republish only after the overexposure and texture-scale regression is resolved
+- [x] Confirm the exact selected countertop, flooring, and backsplash records and image URLs survive save/restore and reach the final 3D renderer
+- [x] Make the selected countertop and flooring product images visibly render with correct crop, scale, orientation, and color instead of fallback materials
+- [x] Build measured 3D backsplash surfaces from the selected backsplash product that stop at cabinets, windows, doors, appliances, wall ends, and ceiling constraints
+- [x] Preserve the exact plan, camera, product identities, pricing/cart lines, and selected-surface persistence while correcting all three visible materials
