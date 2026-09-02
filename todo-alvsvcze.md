@@ -1341,3 +1341,6 @@
 - [x] Render swatch-pending tile flooring as a clean construction tile field rather than a generic continuous floor color, while preserving separate plank and sheet behavior
 - [x] Replace the unacceptable invented multicolor floor, generic white countertop, and generic wall tile with the owner’s exact selected product materials or an explicitly product-matched approved treatment
 - [x] Restore product-faithful material-only rendering for the saved Sample-design selections: Bedrock 3cm, Bahia 12mil Vinyl Flooring, Acorn 20mil Dryback Planks, Desert Clay, and Calacatta Oro 3cm Super Jumbo
+- [ ] Fix the confirmed live handoff failure where verified saved-surface materials still do not reach the active 3D scene after refresh
+- [ ] Fix the newly confirmed partial handoff: Bedrock renders, but the saved flooring still uses a generic field and the saved Desert Clay backsplash is absent
+- [x] Correct only the currently selected flooring material and its physical plank mapping before resuming any countertop or backsplash changes

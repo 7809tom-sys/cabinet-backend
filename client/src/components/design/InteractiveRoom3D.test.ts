@@ -81,17 +81,23 @@ describe("interactive 3D room scene helpers", () => {
 
 		  it("resolves the owner’s saved Sample-design products to verified material-only sources", () => {
 			const bahia = threeDProductMaterialSource("flooring", "Bahia 12mil Vinyl Flooring", null, { category: "Flooring", subCategory: "Planks & Flooring", size: null });
-			expect(bahia).toMatchObject({
-				url: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp", key: "bahia-12mil-7x48",
-				curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 84,
-				flooringPatternKind: "plank", plankWidthIn: 7, plankLengthIn: 48,
-			});
-			const acorn = threeDProductMaterialSource("flooring", "Acorn 20mil Dryback Planks", null, { category: "Flooring", subCategory: "Planks & Flooring", size: null });
+				expect(bahia).toMatchObject({
+					url: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp", key: "bahia-12mil-7x48",
+					curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 84,
+					flooringPatternKind: "plank", plankWidthIn: 7, plankLengthIn: 48,
+				});
+				expect(threeDProductMaterialSource("flooring", null, null, { productId: 82 })).toMatchObject({
+					key: "bahia-12mil-7x48", curated: true, proceduralFallback: false,
+				});
+				const acorn = threeDProductMaterialSource("flooring", "Acorn 20mil Dryback Planks", null, { category: "Flooring", subCategory: "Planks & Flooring", size: null });
 			expect(acorn).toMatchObject({
 				url: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp", key: "acorn-20mil-7.5x48",
-				curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 90,
-				flooringPatternKind: "plank", plankWidthIn: 7.5, plankLengthIn: 48,
-			});
+					curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 90,
+					flooringPatternKind: "plank", plankWidthIn: 7.5, plankLengthIn: 48,
+				});
+				expect(threeDProductMaterialSource("flooring", "Legacy floor label", null, { productId: 40 })).toMatchObject({
+					key: "acorn-20mil-7.5x48", curated: true, proceduralFallback: false,
+				});
 			expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
 				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
 				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,

@@ -593,16 +593,17 @@ const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_12in_clean_mo
  * the manufacturers' own source photography at documented physical scale.
  */
 export function threeDProductMaterialSource(
-  role: ThreeDProductSurfaceRole,
-  productName: string | null | undefined,
-  originalUrl: string | null | undefined,
-  flooringMetadata?: { category?: string | null; subCategory?: string | null; size?: string | null },
+	role: ThreeDProductSurfaceRole,
+	productName: string | null | undefined,
+	originalUrl: string | null | undefined,
+	flooringMetadata?: { productId?: number | null; category?: string | null; subCategory?: string | null; size?: string | null },
 ): ThreeDProductMaterialSource | null {
-  const normalizedName = (productName ?? "").trim().toLowerCase();
+	const normalizedName = (productName ?? "").trim().toLowerCase();
+	const productId = flooringMetadata?.productId ?? null;
   const flooringProfile = role === "flooring"
     ? threeDFlooringPatternProfile({ name: productName, ...flooringMetadata })
     : null;
-  if (role === "flooring" && normalizedName === "bahia 12mil vinyl flooring") {
+	if (role === "flooring" && (normalizedName === "bahia 12mil vinyl flooring" || productId === 82)) {
     return {
       url: THREE_D_BAHIA_12MIL_FLOOR_URL,
       key: "bahia-12mil-7x48",
@@ -617,7 +618,7 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
     };
   }
-  if (role === "flooring" && normalizedName === "acorn 20mil dryback planks") {
+	if (role === "flooring" && (normalizedName === "acorn 20mil dryback planks" || productId === 40)) {
     return {
       url: THREE_D_ACORN_20MIL_FLOOR_URL,
       key: "acorn-20mil-7.5x48",
@@ -5867,6 +5868,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      return texture;
 	    };
 	    const floorSource = threeDProductMaterialSource("flooring", catalogFlooringName, catalogFlooringImageUrl, {
+	      productId: catalogFlooringProductId,
 	      category: catalogFlooringCategory,
 	      subCategory: catalogFlooringSubCategory,
 	      size: catalogFlooringSize,
