@@ -1786,8 +1786,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
   }, [doorStyles, styleId]);
   const active3DDoorSampleUrl = useMemo(() => {
-    const s = doorStyles?.find((d) => d.id === styleId) as { doorSampleImageUrl?: string | null } | undefined;
-    return s?.doorSampleImageUrl ?? null;
+    const s = doorStyles?.find((d) => d.id === styleId) as { doorSampleImageUrl?: string | null; thumbnailImageUrl?: string | null } | undefined;
+    return s?.doorSampleImageUrl ?? s?.thumbnailImageUrl ?? null;
+  }, [doorStyles, styleId]);
+  const active3DRoomSceneReferenceUrl = useMemo(() => {
+    const s = doorStyles?.find((d) => d.id === styleId) as { roomSceneImageUrl?: string | null } | undefined;
+    return s?.roomSceneImageUrl ?? null;
   }, [doorStyles, styleId]);
 
   // Full active door style (with woodSpecies) so we can apply the Hickory-only
@@ -2143,8 +2147,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const doorSampleById = useMemo(() => {
     const m = new Map<number, string>();
     doorStyles?.forEach((d) => {
-      const s = d as { id: number; doorSampleImageUrl?: string | null };
-      if (s.doorSampleImageUrl) m.set(s.id, s.doorSampleImageUrl);
+      const s = d as { id: number; doorSampleImageUrl?: string | null; thumbnailImageUrl?: string | null };
+      const materialReference = s.doorSampleImageUrl ?? s.thumbnailImageUrl ?? null;
+      if (materialReference) m.set(s.id, materialReference);
     });
     return m;
   }, [doorStyles]);
@@ -6835,6 +6840,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }));
   }, [placed, liveMasterCabinets]);
 
+  const threeDSurfaceTextureUrls = useMemo(() => {
+    const imageForRole = (role: "countertop" | "flooring" | "backsplash") =>
+      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.imageUrl ?? null;
+    return {
+      countertop: imageForRole("countertop"),
+      flooring: imageForRole("flooring"),
+      backsplash: imageForRole("backsplash"),
+    };
+  }, [selectedSurfaces]);
+
   const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
@@ -6877,10 +6892,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       cabinetDoorSampleUrls={threeDCabinetDoorSamples}
       cabinetFrontVisuals={threeDCabinetFrontVisuals}
       catalogDoorSampleUrl={paletteFinishSwatch || active3DDoorSampleUrl}
+      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
       catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
       catalogFinishName={activeStyleName}
       catalogCountertopName={selectedSurfaces.find((surface) => surfaceRole(surface) === "countertop")?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
       catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+      catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
+      catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
+      catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}
       onPresentationChange={setInteractive3dPresentation}
       onRoomWallHeightChange={(ceilingHeight) => setRoom((current) => ({ ...current, ceilingHeight, wallCeilings: undefined }))}
       onRoomWallHeightsChange={(heights) => setRoom((current) => ({ ...current, wallCeilings: Object.fromEntries(Object.entries(heights).map(([side, height]) => [side, { high: height, low: height }])) as RoomData["wallCeilings"] }))}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -387,6 +388,8 @@ interface Props {
   cabinetFrontVisuals?: Record<string, string>;
   /** Exact selected 2D door sample applied to 3D cabinet faces in catalog-finish mode. */
   catalogDoorSampleUrl?: string | null;
+  /** Administration room scene is a visual target reference only; it never replaces saved plan geometry. */
+  catalogRoomSceneUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
   catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null;
   /** Human-readable catalog selections used in PDF and account-email output. */
@@ -394,6 +397,10 @@ interface Props {
   catalogCountertopName?: string | null;
   /** Exact selected 2D countertop fill used when no presentation-only override exists. */
   catalogCountertopColor?: string | null;
+  /** Exact selected website product images used only as material maps. */
+  catalogCountertopImageUrl?: string | null;
+  catalogFlooringImageUrl?: string | null;
+  catalogBacksplashImageUrl?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
   catalogItems?: InteractiveRoomCatalogItem[];
   /** Reactive left-panel drag item used when browsers protect DataTransfer reads during dragover. */
@@ -447,6 +454,80 @@ interface Props {
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
   cabinetConfigHref?: (cabinet: PlacedCabinet) => string | null;
   className?: string;
+}
+
+export type ThreeDPhysicalSurfaceRole =
+  | "cabinet"
+  | "countertop"
+  | "flooring"
+  | "backsplash"
+  | "metal"
+  | "glass"
+  | "wall";
+
+export function threeDPhysicalSurfaceProfile(role: ThreeDPhysicalSurfaceRole, hasTexture = false) {
+  const profiles: Record<ThreeDPhysicalSurfaceRole, {
+    roughness: number;
+    metalness: number;
+    clearcoat: number;
+    clearcoatRoughness: number;
+    envMapIntensity: number;
+  }> = {
+    cabinet: { roughness: hasTexture ? 0.38 : 0.46, metalness: 0, clearcoat: 0.1, clearcoatRoughness: 0.5, envMapIntensity: 0.72 },
+    countertop: { roughness: hasTexture ? 0.24 : 0.3, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.22, envMapIntensity: 0.92 },
+    flooring: { roughness: hasTexture ? 0.52 : 0.6, metalness: 0, clearcoat: 0.08, clearcoatRoughness: 0.62, envMapIntensity: 0.58 },
+    backsplash: { roughness: hasTexture ? 0.34 : 0.48, metalness: 0, clearcoat: 0.18, clearcoatRoughness: 0.4, envMapIntensity: 0.68 },
+    metal: { roughness: 0.22, metalness: 0.82, clearcoat: 0.08, clearcoatRoughness: 0.28, envMapIntensity: 1.12 },
+    glass: { roughness: 0.07, metalness: 0, clearcoat: 0.32, clearcoatRoughness: 0.14, envMapIntensity: 1.06 },
+    wall: { roughness: 0.82, metalness: 0, clearcoat: 0, clearcoatRoughness: 1, envMapIntensity: 0.35 },
+  };
+  return profiles[role];
+}
+
+export function threeDSurfaceTextureTransform(
+  role: "cabinet" | "countertop" | "flooring" | "backsplash",
+  widthIn = 24,
+  depthIn = 24,
+) {
+  if (role === "flooring") {
+    return { wrap: "repeat" as const, repeatX: Math.max(1, widthIn / 48), repeatY: Math.max(1, depthIn / 48), offsetX: 0, offsetY: 0 };
+  }
+  if (role === "backsplash") {
+    return { wrap: "repeat" as const, repeatX: Math.max(1, widthIn / 18), repeatY: Math.max(1, depthIn / 18), offsetX: 0, offsetY: 0 };
+  }
+  if (role === "countertop") {
+    // Website slab photography commonly includes a display background. Use the
+    // material-bearing center of that authoritative image instead of projecting
+    // its showroom frame onto the modeled countertop.
+    return { wrap: "clamp" as const, repeatX: 0.62, repeatY: 0.52, offsetX: 0.19, offsetY: 0.24 };
+  }
+  return { wrap: "clamp" as const, repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0 };
+}
+
+export type ThreeDRenderQualityTier = "mobile" | "balanced" | "high";
+
+export function threeDRenderQualityProfile(input: {
+  canvasWidth: number;
+  canvasHeight: number;
+  devicePixelRatio: number;
+  coarsePointer?: boolean;
+  hardwareConcurrency?: number | null;
+  deviceMemoryGb?: number | null;
+}) {
+  const constrainedHardware = (input.hardwareConcurrency ?? 8) <= 4 || (input.deviceMemoryGb ?? 8) <= 4;
+  const mobileViewport = input.coarsePointer === true || input.canvasWidth <= 640;
+  const tier: ThreeDRenderQualityTier = mobileViewport
+    ? "mobile"
+    : constrainedHardware || input.canvasWidth < 1100 || input.canvasHeight < 620
+      ? "balanced"
+      : "high";
+  if (tier === "mobile") {
+    return { tier, pixelRatioCap: 1.25, shadowMapSize: 1024, maxAnisotropy: 4, environmentEnabled: true };
+  }
+  if (tier === "balanced") {
+    return { tier, pixelRatioCap: 1.5, shadowMapSize: 1536, maxAnisotropy: 6, environmentEnabled: true };
+  }
+  return { tier, pixelRatioCap: 1.75, shadowMapSize: 2048, maxAnisotropy: 8, environmentEnabled: true };
 }
 
 export type HybridPlanUnderlayModel = {
@@ -1619,6 +1700,25 @@ function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
     : [new THREE.Vector2(0, 0), new THREE.Vector2(width * INCH, 0), new THREE.Vector2(width * INCH, -depth * INCH), new THREE.Vector2(0, -depth * INCH)];
 }
 
+export function normalizeThreeDPlanarUv<T extends THREE.BufferGeometry>(geometry: T): T {
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  const positions = geometry.getAttribute("position");
+  const uvs = geometry.getAttribute("uv");
+  if (!bounds || !positions || !uvs) return geometry;
+  const spanX = Math.max(bounds.max.x - bounds.min.x, 0.0001);
+  const spanY = Math.max(bounds.max.y - bounds.min.y, 0.0001);
+  for (let index = 0; index < positions.count; index++) {
+    uvs.setXY(
+      index,
+      (positions.getX(index) - bounds.min.x) / spanX,
+      (positions.getY(index) - bounds.min.y) / spanY,
+    );
+  }
+  uvs.needsUpdate = true;
+  return geometry;
+}
+
 /**
  * The currently edited 2D room is authoritative. A normal 2D room has no
  * polygon vertices and must stay rectangular rather than inheriting an older
@@ -1743,6 +1843,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
+  surfaceTextures?: { countertop?: THREE.Texture | null },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -1837,11 +1938,13 @@ export function addCabinet(
     : resolvedThreeDSpecialtyProfile(sku);
   const angledWallProfile = isAngledWallProfile(sku);
 
-  const bodyMaterial = new THREE.MeshStandardMaterial(isRefrigeratorAppliance
-    ? { color: "#5f666d", roughness: 0.3, metalness: 0.58 }
-    : { color: "#c6b9a7", roughness: 0.72 });
+	  const cabinetPbr = threeDPhysicalSurfaceProfile("cabinet", Boolean(doorSampleUrl));
+	  const metalPbr = threeDPhysicalSurfaceProfile("metal");
+	  const bodyMaterial = new THREE.MeshPhysicalMaterial(isRefrigeratorAppliance
+	    ? { color: "#5f666d", roughness: 0.3, metalness: 0.58, clearcoat: 0.08, clearcoatRoughness: 0.28, envMapIntensity: 1.02 }
+	    : { color: "#c6b9a7", ...cabinetPbr });
   const structuralFinishMaterials: THREE.MeshStandardMaterial[] = isRefrigeratorAppliance ? [] : [bodyMaterial];
-  const flatExposedFinishMaterials: THREE.MeshBasicMaterial[] = [];
+  const flatExposedFinishMaterials: THREE.MeshStandardMaterial[] = [];
   let applyPlainStructuralFinish: ((finishColor: string, sampleTexture?: THREE.Texture | null) => void) | null = null;
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
@@ -1971,8 +2074,8 @@ export function addCabinet(
       // differently from its door planes, which made one WDC side look gray or
       // like a different finish. Add flush finish skins on only those two exposed
       // returns and update them from the same selected finish/door-sample crop.
-      const rightReturnMaterial = new THREE.MeshBasicMaterial({ color });
-      const leftReturnMaterial = new THREE.MeshBasicMaterial({ color });
+	      const rightReturnMaterial = new THREE.MeshPhysicalMaterial({ color, ...cabinetPbr });
+	      const leftReturnMaterial = new THREE.MeshPhysicalMaterial({ color, ...cabinetPbr });
       flatExposedFinishMaterials.push(rightReturnMaterial, leftReturnMaterial);
       const rightReturn = new THREE.Mesh(new THREE.PlaneGeometry(bodyDepth / 2, bodyHeight), rightReturnMaterial);
       rightReturn.position.set(bodyWidth / 2 + 0.006, 0, -bodyDepth / 4);
@@ -2037,7 +2140,7 @@ export function addCabinet(
     bodyMeshes.push(body);
   }
 
-  const textureMaterials: Array<THREE.MeshStandardMaterial | THREE.MeshBasicMaterial> = [];
+	  const textureMaterials: THREE.MeshStandardMaterial[] = [];
   const applyDoorTextureFallback = () => {
     const fallback = threeDDoorMaterialFallback(color);
     for (const material of textureMaterials) {
@@ -2068,9 +2171,11 @@ export function addCabinet(
   // physical rails and stiles stay slightly darker and untextured so the chosen
   // Shaker or raised profile remains visibly constructed instead of flat.
   const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
-  const faceMaterial = threeDUsesExactDoorSampleMaterial(Boolean(doorTexture))
-    ? new THREE.MeshBasicMaterial({ color: faceColor, map: doorTexture })
-    : new THREE.MeshStandardMaterial({ color: faceColor, map: null, roughness: 0.42, metalness: 0.01 });
+	  const faceMaterial = new THREE.MeshPhysicalMaterial({
+	    color: faceColor,
+	    map: doorTexture,
+	    ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)),
+	  });
   const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
   let plainStructuralColor = structuralFinish.color;
   let structuralSampleTexture: THREE.Texture | null = null;
@@ -2095,15 +2200,14 @@ export function addCabinet(
   if (doorTexture?.image) {
     applyStructuralFinish(color, doorTexture);
   }
-  const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.01 });
+	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
   textureMaterials.push(faceMaterial);
   const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
-  const hardwareMaterial = new THREE.MeshStandardMaterial({ color: "#b8bbc0", roughness: 0.2, metalness: 0.86 });
+	  const hardwareMaterial = new THREE.MeshPhysicalMaterial({ color: "#b8bbc0", ...metalPbr });
 	  const glassDoorMaterial = new THREE.MeshPhysicalMaterial({
-    color: "#b8d4dc",
-    roughness: 0.08,
-    metalness: 0.02,
-    transmission: 0.48,
+	    color: "#b8d4dc",
+	    ...threeDPhysicalSurfaceProfile("glass"),
+	    transmission: 0.48,
     transparent: true,
     opacity: 0.34,
     depthWrite: false,
@@ -3318,7 +3422,17 @@ export function addCabinet(
 	    fillerPlacementMode: sku.fillerPlacementMode ?? null,
 	    islandFace: sku.islandFace ?? null,
   })) {
-    const counterMaterial = new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 });
+	    const countertopTexture = surfaceTextures?.countertop ?? null;
+	    const counterMaterial = new THREE.MeshPhysicalMaterial({
+	      color: countertopTexture ? "#ffffff" : counterColor,
+	      map: countertopTexture,
+	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
+	    });
+	    counterMaterial.userData = {
+	      selectedSurfaceRole: "countertop",
+	      usesAuthoritativeProductImage: Boolean(countertopTexture),
+	      materialOnlyNoGeometryChange: true,
+	    };
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counterGroup = new THREE.Group();
       counterGroup.position.set(cabinet.position.x, countertopCenterY, cabinet.position.z);
@@ -4047,7 +4161,13 @@ export function furnitureTransform(furniture: Pick<PlacedFurniture, "x" | "y" | 
   };
 }
 
-function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, placed: PlacedCabinet[], counterColor: string) {
+function addIslandZone(
+  root: THREE.Group,
+  island: NonNullable<Props["island"]>,
+  placed: PlacedCabinet[],
+  counterColor: string,
+  countertopTexture?: THREE.Texture | null,
+) {
   const transform = islandZoneTransform(island);
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
@@ -4067,9 +4187,19 @@ function addIslandZone(root: THREE.Group, island: NonNullable<Props["island"]>, 
   group.add(back, front, left, right);
   const slab = islandCountertopRect(island, placed);
   if (slab) {
+    const counterMaterial = new THREE.MeshPhysicalMaterial({
+      color: countertopTexture ? "#ffffff" : counterColor,
+      map: countertopTexture ?? null,
+      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
+    });
+    counterMaterial.userData = {
+      selectedSurfaceRole: "countertop",
+      usesAuthoritativeProductImage: Boolean(countertopTexture),
+      materialOnlyNoGeometryChange: true,
+    };
     const counter = new THREE.Mesh(
       new THREE.BoxGeometry(slab.width * INCH, 1.5 * INCH, slab.depth * INCH),
-      new THREE.MeshStandardMaterial({ color: counterColor, roughness: 0.33, metalness: 0.03 }),
+      counterMaterial,
     );
     counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
     counter.userData = { islandCountertop: true, widthIn: slab.width, depthIn: slab.depth };
@@ -4247,11 +4377,17 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 	  };
 }
 
-export function threeDSceneInputDiagnostics(placed: PlacedCabinet[], doorSampleUrl: string | null | undefined) {
+export function threeDSceneInputDiagnostics(
+  placed: PlacedCabinet[],
+  doorSampleUrl: string | null | undefined,
+  roomSceneReferenceUrl?: string | null,
+) {
   const mapped = placed.map((cabinet) => existingCabinetSku(cabinet));
   return {
     cabinetCount: mapped.length,
     doorSampleUrl: doorSampleUrl ?? null,
+    roomSceneReferenceUrl: roomSceneReferenceUrl ?? null,
+    roomSceneRenderedAsGeometry: false,
     ovenTowerCount: mapped.filter((item) => Boolean(item.ovenType) || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(`${item.masterCode} ${item.description ?? ""}`)).length,
     measuredDrawerCabinetCount: mapped.filter((item) => item.drawerLayout != null || item.drawerHeight != null).length,
     specialtyCabinetCount: mapped.filter((item) => item.graphicType != null || item.facePattern != null || item.cornerType != null).length,
@@ -4317,6 +4453,33 @@ export function threeDDesignParitySnapshot({
     }),
     ponyWalls: ponyWalls.map((source) => ({ source, transform: ponyWallTransform(source) })),
   };
+}
+
+/**
+ * Stable geometry-only signature for the exact saved Designer plan. Visual
+ * material inputs are intentionally excluded: changing a door sample, surface
+ * image, PBR profile, exposure, or quality tier must never move or substitute
+ * any designed object.
+ */
+export function threeDExactPlanGeometryLock(input: ThreeDDesignParityInput) {
+  const snapshot = threeDDesignParitySnapshot(input);
+  return JSON.stringify({
+    room: snapshot.room,
+    cabinets: snapshot.cabinets.map(({ source, footprint, transform, sku, countertopSupported }) => ({
+      uid: source.uid,
+      cabinetId: source.cabinetId,
+      masterCode: source.masterCode,
+      footprint,
+      transform,
+      dimensions: { width: sku.width, depth: sku.depth, height: sku.height, mountBottom: sku.mountBottom },
+      countertopSupported,
+    })),
+    openings: snapshot.openings.map(({ source, transform }) => ({ uid: source.uid, kind: source.kind, transform })),
+    sinks: snapshot.sinks.map(({ source, transform }) => ({ uid: source.uid, type: source.type, transform })),
+    island: snapshot.island,
+    furniture: snapshot.furniture,
+    ponyWalls: snapshot.ponyWalls,
+  });
 }
 
 /** Stable signature of the exact 2D inputs that must create a fresh WebGL scene. */
@@ -4529,7 +4692,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -4708,26 +4871,42 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const room = roomOverride
       ? { ...roomOverride, ceilingHeight: wallHeightIn }
       : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
-    const canvasWidth = Math.max(280, mount.clientWidth);
-    const canvasHeight = Math.max(280, mount.clientHeight || 420);
-    let renderer: THREE.WebGLRenderer;
+	    const canvasWidth = Math.max(280, mount.clientWidth);
+	    const canvasHeight = Math.max(280, mount.clientHeight || 420);
+	    const navigatorCapabilities = typeof navigator === "undefined"
+	      ? null
+	      : navigator as Navigator & { deviceMemory?: number };
+	    const renderQuality = threeDRenderQualityProfile({
+	      canvasWidth,
+	      canvasHeight,
+	      devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
+	      coarsePointer: typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches,
+	      hardwareConcurrency: navigatorCapabilities?.hardwareConcurrency ?? null,
+	      deviceMemoryGb: navigatorCapabilities?.deviceMemory ?? null,
+	    });
+	    let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
     } catch {
       setWebglUnavailable(true);
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(canvasWidth, canvasHeight);
+	    renderer.setPixelRatio(Math.min(window.devicePixelRatio, renderQuality.pixelRatioCap));
+	    renderer.setSize(canvasWidth, canvasHeight);
+	    renderer.domElement.dataset.renderQuality = renderQuality.tier;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.02;
-    mount.replaceChildren(renderer.domElement);
+	    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+	    renderer.outputColorSpace = THREE.SRGBColorSpace;
+	    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	    renderer.toneMappingExposure = 1.08;
+	    mount.replaceChildren(renderer.domElement);
 
-    const threeScene = new THREE.Scene();
-    threeScene.background = new THREE.Color("#f6f3ed");
+	    const threeScene = new THREE.Scene();
+	    threeScene.background = new THREE.Color("#f6f3ed");
+	    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+	    pmremGenerator.compileEquirectangularShader();
+	    const environmentTarget = pmremGenerator.fromScene(new RoomEnvironment(), 0.04);
+	    threeScene.environment = environmentTarget.texture;
     const camera = new THREE.PerspectiveCamera(42, canvasWidth / canvasHeight, 0.1, 100);
     const maxSpan = Math.max(room.width, room.depth) * INCH;
     const cameraDistances = threeDCameraDistanceLimits(maxSpan);
@@ -4757,29 +4936,71 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     controls.autoRotateSpeed = 1.1;
     controls.update();
 
-    threeScene.add(new THREE.HemisphereLight("#fff8eb", "#526174", 2.45));
-    const keyLight = new THREE.DirectionalLight("#fff6e8", 3.1);
-    keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(2048, 2048);
-    keyLight.shadow.camera.near = 0.1;
-    keyLight.shadow.camera.far = maxSpan * 4;
-    threeScene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight("#b7d1ef", 1.25);
-    fillLight.position.set(-maxSpan, maxSpan, maxSpan);
-    threeScene.add(fillLight);
-    const wallHeight = Math.max(...Object.values(wallHeights)) * INCH;
-    const warmLight = new THREE.PointLight("#ffdca6", 18, maxSpan * 3.2, 2);
+	    threeScene.add(new THREE.HemisphereLight("#fffaf2", "#718096", 1.35));
+	    const keyLight = new THREE.DirectionalLight("#fff5e6", 2.35);
+	    keyLight.position.set(maxSpan, maxSpan * 1.8, maxSpan * 0.8);
+	    keyLight.castShadow = true;
+	    keyLight.shadow.mapSize.set(renderQuality.shadowMapSize, renderQuality.shadowMapSize);
+	    keyLight.shadow.camera.near = 0.1;
+	    keyLight.shadow.camera.far = maxSpan * 4;
+	    keyLight.shadow.camera.left = -maxSpan * 1.15;
+	    keyLight.shadow.camera.right = maxSpan * 1.15;
+	    keyLight.shadow.camera.top = maxSpan * 1.15;
+	    keyLight.shadow.camera.bottom = -maxSpan * 1.15;
+	    keyLight.shadow.bias = -0.00018;
+	    keyLight.shadow.normalBias = 0.018;
+	    threeScene.add(keyLight);
+	    const fillLight = new THREE.DirectionalLight("#cfe0f4", 0.72);
+	    fillLight.position.set(-maxSpan, maxSpan, maxSpan);
+	    threeScene.add(fillLight);
+	    const wallHeight = Math.max(...Object.values(wallHeights)) * INCH;
+	    const warmLight = new THREE.PointLight("#ffdca6", 7.5, maxSpan * 3.2, 2);
     warmLight.position.set(room.width * INCH * 0.52, wallHeight * 0.76, room.depth * INCH * 0.48);
     threeScene.add(warmLight);
 
-    const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
-    const polygon = roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
-    const floorShape = new THREE.Shape(polygon);
-    const floor = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }),
-      new THREE.MeshStandardMaterial({ color: materialDefaults.floor, roughness: 0.62, metalness: 0.02 }),
-    );
+	    const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
+	    const textureLoader = new THREE.TextureLoader();
+	    const loadSurfaceTexture = (
+	      url: string | null | undefined,
+	      role: "countertop" | "flooring" | "backsplash",
+	      widthIn: number,
+	      depthIn: number,
+	    ) => {
+	      if (!url) return null;
+	      const texture = textureLoader.load(url);
+	      texture.colorSpace = THREE.SRGBColorSpace;
+	      texture.anisotropy = Math.min(renderQuality.maxAnisotropy, renderer.capabilities.getMaxAnisotropy());
+	      const transform = threeDSurfaceTextureTransform(role, widthIn, depthIn);
+	      texture.wrapS = transform.wrap === "repeat" ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+	      texture.wrapT = transform.wrap === "repeat" ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+	      texture.repeat.set(transform.repeatX, transform.repeatY);
+	      texture.offset.set(transform.offsetX, transform.offsetY);
+	      texture.userData = {
+	        selectedSurfaceRole: role,
+	        authoritativeWebsiteProductImage: true,
+	        materialOnlyNoGeometryChange: true,
+	      };
+	      return texture;
+	    };
+	    const floorTexture = loadSurfaceTexture(catalogFlooringImageUrl, "flooring", room.width, room.depth);
+	    const countertopTexture = loadSurfaceTexture(catalogCountertopImageUrl, "countertop", room.width, room.depth);
+	    const polygon = roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
+	    const floorShape = new THREE.Shape(polygon);
+	    const floorGeometry = normalizeThreeDPlanarUv(new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }));
+	    const floorMaterial = new THREE.MeshPhysicalMaterial({
+	      color: floorTexture ? "#ffffff" : materialDefaults.floor,
+	      map: floorTexture,
+	      ...threeDPhysicalSurfaceProfile("flooring", Boolean(floorTexture)),
+	    });
+	    floorMaterial.userData = {
+	      selectedSurfaceRole: "flooring",
+	      usesAuthoritativeProductImage: Boolean(floorTexture),
+	      materialOnlyNoGeometryChange: true,
+	    };
+	    const floor = new THREE.Mesh(
+	      floorGeometry,
+	      floorMaterial,
+	    );
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.08;
     floor.receiveShadow = true;
@@ -4853,7 +5074,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const finish = resolvedCabinetFinish;
     const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
     setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
-    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture);
+    catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture, catalogRoomSceneUrl);
+	    catalogRoot.userData.administrationVisualReference = {
+      roomSceneUrl: catalogRoomSceneUrl ?? null,
+      renderedAsBackdropOrGeometry: false,
+	      purpose: "material-and-lighting-reference-only",
+	    };
+	    catalogRoot.userData.selectedSurfaceMaterialReferences = {
+	      countertopImageUrl: catalogCountertopImageUrl ?? null,
+	      flooringImageUrl: catalogFlooringImageUrl ?? null,
+	      backsplashImageUrl: catalogBacksplashImageUrl ?? null,
+	      backsplashAwaitingMeasuredSurface: Boolean(catalogBacksplashImageUrl),
+	      materialOnlyNoGeometryChange: true,
+	    };
+	    catalogRoot.userData.renderQuality = { ...renderQuality, geometryOrCameraChanges: false };
     let disposed = false;
     const updateDoorTextureState = (state: "loading" | "loaded" | "failed") => {
       if (!disposed) setDoorTextureState(state);
@@ -4872,21 +5106,29 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState);
+	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, { countertop: countertopTexture });
 	      }
 	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState);
+	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture });
       }
     }
     for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
-    if (island) addIslandZone(catalogRoot, island, placed, materialDefaults.countertop);
-    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
-    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
-    threeScene.add(catalogRoot);
+	    if (island) addIslandZone(catalogRoot, island, placed, materialDefaults.countertop, countertopTexture);
+	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
+	    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
+	    catalogRoot.traverse((node) => {
+	      if (!(node instanceof THREE.Mesh)) return;
+	      const material = Array.isArray(node.material) ? node.material[0] : node.material;
+	      const transparent = Boolean(material?.transparent && material.opacity < 0.8);
+	      node.castShadow = !transparent;
+	      node.receiveShadow = !transparent;
+	      node.userData = { ...node.userData, photorealShadowParticipant: !transparent };
+	    });
+	    threeScene.add(catalogRoot);
     catalogRootRef.current = catalogRoot;
     rendererRef.current = renderer;
     sceneRef.current = threeScene;
@@ -4918,9 +5160,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         target: controls.target.clone(),
         zoom: camera.zoom,
       };
-      controls.dispose();
-      disposeObject(threeScene);
-      renderer.dispose();
+	      controls.dispose();
+	      disposeObject(threeScene);
+	      floorTexture?.dispose();
+	      countertopTexture?.dispose();
+	      environmentTarget.dispose();
+	      pmremGenerator.dispose();
+	      renderer.dispose();
       renderer.domElement.remove();
       if (rendererRef.current === renderer) rendererRef.current = null;
       if (sceneRef.current === threeScene) sceneRef.current = null;
@@ -4928,7 +5174,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl]);
+	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

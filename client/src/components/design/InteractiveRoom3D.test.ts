@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addSinkFixture, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
-import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
+import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
@@ -15,6 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, threeDPhysicalSurfaceProfile, threeDRenderQualityProfile, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -24,6 +25,41 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("interactive 3D room scene helpers", () => {
+	  it("uses performance-aware mobile and desktop quality tiers without carrying any geometry or camera fields", () => {
+	    expect(threeDRenderQualityProfile({ canvasWidth: 390, canvasHeight: 844, devicePixelRatio: 3, coarsePointer: true, hardwareConcurrency: 8, deviceMemoryGb: 8 })).toEqual({
+	      tier: "mobile", pixelRatioCap: 1.25, shadowMapSize: 1024, maxAnisotropy: 4, environmentEnabled: true,
+	    });
+	    expect(threeDRenderQualityProfile({ canvasWidth: 900, canvasHeight: 700, devicePixelRatio: 2, coarsePointer: false, hardwareConcurrency: 8, deviceMemoryGb: 8 }).tier).toBe("balanced");
+	    expect(threeDRenderQualityProfile({ canvasWidth: 1440, canvasHeight: 900, devicePixelRatio: 2, coarsePointer: false, hardwareConcurrency: 8, deviceMemoryGb: 8 })).toEqual({
+	      tier: "high", pixelRatioCap: 1.75, shadowMapSize: 2048, maxAnisotropy: 8, environmentEnabled: true,
+	    });
+	  });
+
+	  it("defines physically based cabinet and selected-surface profiles independently from plan geometry", () => {
+	    expect(threeDPhysicalSurfaceProfile("cabinet", true)).toMatchObject({ roughness: 0.38, metalness: 0, clearcoat: 0.1 });
+	    expect(threeDPhysicalSurfaceProfile("countertop", true)).toMatchObject({ roughness: 0.24, clearcoat: 0.4 });
+	    expect(threeDPhysicalSurfaceProfile("metal")).toMatchObject({ metalness: 0.82, envMapIntensity: 1.12 });
+	    expect(threeDSurfaceTextureTransform("flooring", 144, 120)).toEqual({ wrap: "repeat", repeatX: 3, repeatY: 2.5, offsetX: 0, offsetY: 0 });
+	    expect(threeDSurfaceTextureTransform("countertop", 144, 25.5)).toEqual({ wrap: "clamp", repeatX: 0.62, repeatY: 0.52, offsetX: 0.19, offsetY: 0.24 });
+	  });
+
+	  it("normalizes flooring UVs without moving a single room-plan vertex", () => {
+	    const shape = new THREE.Shape([
+	      new THREE.Vector2(0, 0), new THREE.Vector2(12, 0), new THREE.Vector2(12, 10), new THREE.Vector2(0, 10),
+	    ]);
+	    const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.08, bevelEnabled: false });
+	    const positions = Array.from(geometry.getAttribute("position").array);
+	    normalizeThreeDPlanarUv(geometry);
+	    expect(Array.from(geometry.getAttribute("position").array)).toEqual(positions);
+	    const uv = geometry.getAttribute("uv");
+	    for (let index = 0; index < uv.count; index++) {
+	      expect(uv.getX(index)).toBeGreaterThanOrEqual(0);
+	      expect(uv.getX(index)).toBeLessThanOrEqual(1);
+	      expect(uv.getY(index)).toBeGreaterThanOrEqual(0);
+	      expect(uv.getY(index)).toBeLessThanOrEqual(1);
+	    }
+	  });
+
   it("keeps an explicitly empty designer room authoritative after Clear Design instead of rendering catalog suggestions", () => {
     const empty = { placed: [], openings: [], sinks: [], island: null, furniture: [], ponyWalls: [] };
     expect(threeDUsesAuthoritativePlanScene({ width: 144, depth: 120 }, empty)).toBe(true);
@@ -321,8 +357,9 @@ describe("interactive 3D room scene helpers", () => {
     expect(returns).toHaveLength(2);
     expect(returns.map((node) => node.userData.diagonalCornerFinishedReturn).sort()).toEqual(["left", "right"]);
     for (const side of returns) {
-      expect(side.material).toBeInstanceOf(THREE.MeshBasicMaterial);
-      expect((side.material as THREE.MeshBasicMaterial).color.getHexString()).toBe("3f4d3f");
+      expect(side.material).toBeInstanceOf(THREE.MeshPhysicalMaterial);
+      expect((side.material as THREE.MeshPhysicalMaterial).color.getHexString()).toBe("3f4d3f");
+      expect((side.material as THREE.MeshPhysicalMaterial).roughness).toBeLessThan(0.5);
       expect(side.userData).toMatchObject({ selectedFinishSideSkin: true, selectedFinishStructuralSurface: true });
     }
   });
@@ -1249,6 +1286,42 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(snapshot.sinks[0]!.transform.z).toBeCloseTo(59 / 12, 12);
     expect(snapshot.cabinets[0]!.sku).toMatchObject({ masterCode: "B-24", numberOfDoors: 2, numberOfDrawers: 1, graphicType: "standard_base" });
+  });
+
+  it("locks the exact saved plan while allowing material-only photorealism inputs to change", () => {
+    const cabinet = {
+      uid: "locked-base", cabinetId: 24, masterCode: "B-24", description: "Base Cabinet", placement: "base",
+      x: 12, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 1,
+    } as never;
+    const base = {
+      roomOverride: { width: 144, depth: 120, ceilingHeight: 96 },
+      placed: [cabinet],
+      openings: [{ uid: "locked-window", kind: "window", label: "Window", side: "top", offset: 48, width: 30, height: 36, sill: 42 } as never],
+      sinks: [{ uid: "locked-sink", type: "single", x: 48, y: 0, width: 30, depth: 22, faucet: true } as never],
+      island: { x: 36, y: 54, width: 72, depth: 36 },
+      furniture: [{ uid: "locked-table", defId: "table-48", x: 60, y: 72, rotation: 0 } as never],
+      ponyWalls: [{ uid: "locked-pony", x: 24, y: 48, width: 48, depth: 6, height: 42 } as never],
+    };
+    const geometryLock = threeDExactPlanGeometryLock({
+      ...base,
+      catalogDoorSampleUrl: "/admin/door-sample-a.webp",
+      catalogFinishOverride: "#8c6a42",
+      catalogCountertopName: "Calacatta Oro",
+      catalogCountertopColor: "#f2f0ea",
+      initialPresentation: { cabinetFinish: "#8c6a42", countertopFinish: "#f2f0ea" },
+    });
+    expect(threeDExactPlanGeometryLock({
+      ...base,
+      catalogDoorSampleUrl: "/admin/door-sample-b.webp",
+      catalogFinishOverride: "#42513e",
+      catalogCountertopName: "Different visual sample",
+      catalogCountertopColor: "#232323",
+      initialPresentation: { cabinetFinish: "#42513e", countertopFinish: "#232323" },
+    })).toBe(geometryLock);
+    expect(threeDExactPlanGeometryLock({
+      ...base,
+      placed: [{ ...cabinet, x: 12.125 }],
+    })).not.toBe(geometryLock);
   });
 
   it("forces the active WebGL preview to rebuild whenever any saved 2D scene input changes", () => {

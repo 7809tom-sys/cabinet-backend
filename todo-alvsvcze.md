@@ -1255,3 +1255,13 @@
 - [x] Trace the exact WDC right-side skin mesh, material assignment, selected per-cabinet finish, and asynchronous texture/fallback path
 - [x] Make all exposed WDC side skins use the same selected cabinet finish as the WDC doors while preserving the diagonal corner body and interior materials
 - [x] Add final-mesh material regressions and validate WDC finish parity, SKU/pricing, save/restore, and main/affiliate responsive 3D behavior before republishing
+- [x] Generate a clean photorealistic kitchen image from the supplied mobile 3D Designer view using the shown natural wood cabinet finish, Calacatta Oro 3cm Super Jumbo countertop, and Aveline 20mil Vinyl Flooring references
+- [x] Audit the final Three.js renderer’s current materials, texture loading, lights, shadows, color management, and mobile GPU limits before changing visual quality
+- [x] Trace featured door-style Administration room-scene, door-sample, and door-front fields and use them only as authoritative visual material references
+- [x] Lock every realism upgrade to the exact saved Designer plan: no added, removed, resized, rotated, repositioned, or substituted cabinets, parts, appliances, openings, walls, islands, countertops, or camera view
+- [x] Trace the featured door-style Administration fields for room-scene photos, door samples, and door-front images and make them authoritative inputs to the selected-style 3D material pipeline
+- [x] Add physically based material profiles for selected cabinet finishes, countertops, flooring, backsplash, metal, glass, appliances, walls, and fixtures while preserving actual website-selected samples
+- [x] Improve final 3D daylight, environment reflections, contact shadows, renderer exposure, antialiasing, and photographic tone mapping without changing measured geometry
+- [x] Add automatic desktop/mobile rendering quality tiers with conservative pixel ratio, shadow, and reflection fallbacks for responsive orbit and touch interaction
+- [x] Preserve exact cabinet dimensions, placement, openings, fillers, countertop seams, SKUs, pricing/cart, saved designs, mobile window taps, and all existing Designer controls
+- [x] Add focused and broad renderer regressions, visually verify representative desktop/mobile scenes, and publish the programmed realism upgrade for owner testing
