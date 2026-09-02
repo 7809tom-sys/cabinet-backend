@@ -4483,6 +4483,13 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain('data-testid="path-trace-production-result"');
 	    expect(source).toContain("WebGLPathTracer");
 	    expect(source).toContain("THREE_D_PATH_TRACE_PREVIEW");
+	    expect(source).toContain("width: 1920");
+	    expect(source).toContain("height: 1080");
+	    expect(source).toContain("samples: 256");
+	    expect(source).toContain("DenoiseMaterial");
+	    expect(source).toContain("pathTracer.renderToCanvas = false");
+	    expect(source).toContain("conservative final denoise pass");
+	    expect(source).toContain("Open HD image");
 	    expect(source).toContain("pathTracer.setScene(pathTraceScene, pathTraceCamera)");
 	    expect(source).toContain("pathTracer.renderSample()");
 	    expect(source).toContain("if (!isPhotoQualityTest) return;");

@@ -1398,3 +1398,4 @@
 - [ ] Define and evaluate an exact-plan production-render pipeline that can improve material and lighting realism without substituting a catalog room scene or changing the designed kitchen
 - [x] Build an administrator-only locked-scene WebGL2 path-tracing prototype that preserves the current geometry and camera before any photo-quality claim
 - [ ] Have the owner visually evaluate the live path-traced exact-scene comparison before treating it as a viable production-render candidate
+- [x] Remove visible noise and low-resolution enlargement artifacts from the exact-scene path-tracing candidate before owner re-evaluation
