@@ -1379,6 +1379,7 @@
 - [x] Audit Glacier Shift from Pelican’s product-only sheet and assign its 12.05-inch recycled-glass-and-aluminum connected herringbone swatch with 1/16-inch joints
 - [x] Audit Golden Trace from Pelican’s product-only sheet and assign its 11.81-inch marble-and-aluminum mosaic swatch with 1/16-inch joints
 - [x] Audit Greenline Square against official Pelican sources and retain staged or partial media as display-only until a complete material-only field is available
+- [x] Audit Greystone Bloom against official Pelican sources and retain incomplete or partial media as display-only until a complete material-only field is available
 - [x] Normalize approved relative CabinetDealz material-storage paths to trusted absolute URLs before protected Photo Quality validation so administrator test renders can proceed
 - [x] Fix the false Photo Quality save prompt so an already saved design is recognized as eligible for an administrator test render
 - [x] Fix the still-visible administrator Photo Quality material-reference validation error after confirming the saved-plan eligibility repair is deployed
@@ -1393,3 +1394,4 @@
 - [x] Reproduce and repair the live deterministic JPEG source-hash rejection reported during administrator testing
 - [x] Trace and correct any missing selected door-sample or approved room-scene reference handoff in the 3D and deterministic final-render paths without changing the locked kitchen plan or camera
 - [x] Make the mobile high-resolution exact-render dialog scroll within the visible viewport and keep its confirmation controls reachable
+- [x] Correct the failed final-render reference evaluation: do not imply that unconsumed door-sample or room-scene references improved a deterministic exact-scene capture
