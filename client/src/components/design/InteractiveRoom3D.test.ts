@@ -4422,7 +4422,8 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain("sourceImageHash");
     expect(source).toContain('generationMethod: "manual-final-review-image-service"');
     expect(source).toContain("const approvedMaterialUrl = (value: string | null | undefined) =>");
-    expect(source).toContain("new URL(value, window.location.origin).toString()");
+    expect(source).toContain('value.startsWith("/manus-storage/")');
+    expect(source).toContain('"https://www.cabinetdealz.com"');
     expect(source).toContain("sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl");
     expect(source).toContain("provenance: photoRenderDraft.provenance");
     expect(source).toContain("if (!photoRenderDraft)");

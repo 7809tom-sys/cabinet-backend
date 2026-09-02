@@ -19,9 +19,22 @@ const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
 export function normalizePhotoQualityMaterialUrl(value: unknown) {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
-  return trimmed.startsWith("/manus-storage/")
-    ? new URL(trimmed, CABINETDEALZ_MATERIAL_ORIGIN).toString()
-    : trimmed;
+  if (trimmed.startsWith("/manus-storage/")) {
+    return new URL(trimmed, CABINETDEALZ_MATERIAL_ORIGIN).toString();
+  }
+  // Earlier preview clients expanded the same trusted relative storage path
+  // against a temporary `*.manus.space` deployment URL.  Normalize only that
+  // known storage namespace back to the permanent CabinetDealz host; arbitrary
+  // paths and hosts continue through the strict validation below.
+  try {
+    const url = new URL(trimmed);
+    if (url.pathname.startsWith("/manus-storage/") && url.hostname.endsWith(".manus.space")) {
+      return new URL(url.pathname, CABINETDEALZ_MATERIAL_ORIGIN).toString();
+    }
+  } catch {
+    // Let Zod produce the normal malformed-URL message.
+  }
+  return trimmed;
 }
 
 const safeMaterialUrl = z.preprocess(normalizePhotoQualityMaterialUrl, z.string().url().refine((value) => {

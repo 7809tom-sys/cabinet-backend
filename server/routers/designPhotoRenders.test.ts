@@ -39,6 +39,10 @@ describe("design photo render safeguards", () => {
   it("upgrades approved CabinetDealz material-storage paths before validation and still rejects untrusted hosts", () => {
     expect(normalizePhotoQualityMaterialUrl("/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp"))
       .toBe("https://www.cabinetdealz.com/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp");
+    expect(normalizePhotoQualityMaterialUrl("https://3000-preview.manus.space/manus-storage/astoria.webp"))
+      .toBe("https://www.cabinetdealz.com/manus-storage/astoria.webp");
+    expect(normalizePhotoQualityMaterialUrl("https://3000-preview.manus.space/not-material/astoria.webp"))
+      .toBe("https://3000-preview.manus.space/not-material/astoria.webp");
     const provenance = photoRenderProvenanceSchema.parse({
       contractVersion: "exact-plan-v1",
       designId: 42,

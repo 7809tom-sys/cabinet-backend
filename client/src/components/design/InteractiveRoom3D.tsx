@@ -6807,7 +6807,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const approvedMaterialUrl = (value: string | null | undefined) => {
       if (!value) return null;
       try {
-        return new URL(value, window.location.origin).toString();
+        // Project storage assets are emitted as relative paths.  Do not expand
+        // them against a temporary preview host (for example, `*.manus.space`),
+        // because the protected final-render API correctly treats that host as
+        // untrusted.  Use the permanent CabinetDealz material origin instead.
+        const origin = value.startsWith("/manus-storage/")
+          ? "https://www.cabinetdealz.com"
+          : window.location.origin;
+        return new URL(value, origin).toString();
       } catch {
         return null;
       }
