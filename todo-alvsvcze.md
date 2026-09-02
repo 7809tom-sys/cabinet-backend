@@ -1420,4 +1420,5 @@
 - [ ] Obtain owner live verification that Island mode keeps selected cabinets and parts within the intended island face and that Wall mode resumes outer-wall placement
 - [x] Make consecutive B24 and other island-face cabinet additions snap flush into one continuous island run with no placement gap
 - [x] Derive each automatic island countertop slab from contiguous cabinet support groups so it cannot bridge an unoccupied gap
+- [x] Ensure every Island mode catalog click, including 2-DB24, uses the active island face and bypasses wall-placement rejection logic
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark

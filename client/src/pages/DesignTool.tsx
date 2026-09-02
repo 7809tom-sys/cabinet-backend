@@ -597,13 +597,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  // Active island run for placement and Island elevation.
 	  const [islandFace, setIslandFace] = useState<IslandFace>("front");
 	  const [islandPlacementMode, setIslandPlacementMode] = useState(false);
+	  // Catalog clicks may follow a target-mode click before React recreates the
+	  // add callback. These refs make the owner-selected island target immediate.
+	  const islandFaceRef = useRef<IslandFace>("front");
+	  const islandPlacementModeRef = useRef(false);
 	  const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   const [autoDimensions, setAutoDimensions] = useState(false);
-  // Island zone: an optional rectangular guide (inches) marking where island
-  // cabinets go. Null when disabled.
+	  // Island zone: an optional rectangular guide (inches) marking where island
+	  // cabinets go. Null when disabled.
 	  const [island, setIsland] = useState<IslandZone | null>(null);
+	  const setPlacementTarget = useCallback((mode: "wall" | "island", face?: IslandFace) => {
+	    islandPlacementModeRef.current = mode === "island";
+	    setIslandPlacementMode(mode === "island");
+	    if (face) {
+	      islandFaceRef.current = face;
+	      setIslandFace(face);
+	      setIsland((current) => current ? { ...current, activeFace: face } : current);
+	    }
+	  }, []);
   // Doors & windows: adjustable wall openings.
   const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [selectedOpeningUid, setSelectedOpeningUid] = useState<string | null>(null);
@@ -2898,7 +2911,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      let spot: { x: number; y: number; rotation: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
-	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementMode ? islandFace : null));
+	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementModeRef.current ? islandFaceRef.current : null));
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -3377,7 +3390,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-    [room, activeWall, openings, island, islandFace, islandPlacementMode, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, island, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
@@ -3401,8 +3414,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // Island mode is an explicit placement target, not merely a view. Do not
 	      // allow a 3D catalog click or drag to fall through to an outer wall while
 	      // the owner is building the island assembly.
-	      if (island && islandPlacementMode) {
-	        addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFace);
+	      if (island && islandPlacementModeRef.current) {
+	        addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFaceRef.current);
 	        return;
 	      }
 	      if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
@@ -3462,7 +3475,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
     if (appliance) addAtDropTarget(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-	  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, island, islandFace, islandPlacementMode, room, placed, openings]);
+	  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, island, room, placed, openings]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
@@ -9293,24 +9306,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              className="absolute left-3 right-3 top-3 z-40 flex flex-wrap items-center gap-1.5 rounded-lg border border-[#b98d3e]/45 bg-white/95 px-2.5 py-2 text-xs font-semibold text-[#1a2744] shadow-lg backdrop-blur sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
 	            >
 	              <span className="mr-1 whitespace-nowrap">Placement:</span>
-	              <button
-	                type="button"
-	                data-testid="wall-placement-mode"
-	                aria-pressed={!islandPlacementMode}
-	                onClick={() => { setIslandPlacementMode(false); setPlacementWarning(null); }}
-	                className={`rounded px-2 py-1 ${!islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+		      <button
+		        type="button"
+		        data-testid="wall-placement-mode"
+		        aria-pressed={!islandPlacementMode}
+		        onClick={() => { setPlacementTarget("wall"); setPlacementWarning(null); }}
+		        className={`rounded px-2 py-1 ${!islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
 	              >Wall mode</button>
-	              <button
-	                type="button"
-	                data-testid="island-placement-mode"
-	                aria-pressed={islandPlacementMode}
-	                onClick={() => { setIslandPlacementMode(true); setViewMode("plan"); setPlacementWarning(null); }}
-	                className={`rounded px-2 py-1 ${islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+		      <button
+		        type="button"
+		        data-testid="island-placement-mode"
+		        aria-pressed={islandPlacementMode}
+		        onClick={() => { setPlacementTarget("island"); setViewMode("plan"); setPlacementWarning(null); }}
+		        className={`rounded px-2 py-1 ${islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
 	              >Island mode</button>
 	              {islandPlacementMode && <>
-	                <span className="ml-1 whitespace-nowrap text-muted-foreground">Add to:</span>
-	                {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
-	                  <button key={face} type="button" onClick={() => { setIslandFace(face); setIsland((current) => current ? { ...current, activeFace: face } : current); }} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
+		        <span className="ml-1 whitespace-nowrap text-muted-foreground">Add to:</span>
+		        {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
+		          <button key={face} type="button" onClick={() => setPlacementTarget("island", face)} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
 	                ))}
 	              </>}
 	              <button type="button" onClick={() => setIslandAttributesOpen(true)} className="rounded border border-[#b98d3e] px-2 py-1 text-[#7b5a20]">Island setup</button>
