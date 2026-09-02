@@ -28,9 +28,10 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain('worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped)');
     expect(rendererSource).toContain('source.flooringPatternKind === "plank"');
     expect(rendererSource).toContain("normalizedThreeDPlankImage(");
-    expect(rendererSource).toContain("threeDBacksplashSegments(placed, openings, backsplashRoom)");
+    expect(rendererSource).toContain("threeDBacksplashSegments(placed, openings, backsplashRoom, backsplashHeightMode, countertopBacksplashHeightIn)");
     expect(rendererSource).toContain("addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture)");
     expect(rendererSource).toContain('backsplashRenderedOnMeasuredSurfaces: backsplashSegments.length');
+    expect(rendererSource).toContain('countertopUpstandRenderedOnSupportedSurfaces: countertopUpstandSegments.length');
     expect(rendererSource).toContain('measuredBacksplash: true');
   });
 

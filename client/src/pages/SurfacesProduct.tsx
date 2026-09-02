@@ -9,6 +9,7 @@ import { useSeo } from "@/hooks/useSeo";
 import { categorySlug, CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Tag, TrendingDown, Waves } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const { data, isLoading, error } = trpc.pelican.bySlug.useQuery({ slug });
   const { addItem } = useCart();
   const { user } = useAuth();
+  const { isPreferred, togglePreferred } = usePreferredProducts();
   const [qty, setQty] = useState(1);
 
   useSeo({
@@ -83,6 +85,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   }
 
   const gradient = CATEGORY_GRADIENT[data.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
+  const preferred = isPreferred(data.id);
 
   // Pricing breakdown logic
   const sellPrice = data.sellPrice;
@@ -275,6 +278,15 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
               disabled={!data.sellPrice}
             >
               <ShoppingCart className="h-4 w-4" /> Add to Cart
+            </Button>
+            <Button
+              variant={preferred ? "secondary" : "outline"}
+              className="gap-2"
+              onClick={() => togglePreferred(data)}
+              aria-pressed={preferred}
+            >
+              <Star className={`h-4 w-4 ${preferred ? "fill-current" : ""}`} />
+              {preferred ? "Preferred" : "Add to Preferred"}
             </Button>
             <Link href="/design">
               <Button variant="outline" className="gap-2">

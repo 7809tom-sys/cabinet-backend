@@ -158,7 +158,7 @@ import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsLi
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
@@ -732,6 +732,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [selectedPonyWallUid, setSelectedPonyWallUid] = useState<string | null>(null);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
+  // Standard tile ends at upper cabinets; full-height extends only on the same
+  // countertop-supported runs. A rear upstand is the physical strip below wall tile.
+  const [backsplashHeightMode, setBacksplashHeightMode] = useState<"standard" | "full-height">("standard");
+  const [countertopBacksplashHeightIn, setCountertopBacksplashHeightIn] = useState<0 | 2.5 | 3>(0);
+  const threeDPresentationForSave = useMemo(() => ({
+    ...(interactive3dPresentation ?? {}),
+    backsplashHeightMode,
+    countertopBacksplashHeightIn,
+  }), [interactive3dPresentation, backsplashHeightMode, countertopBacksplashHeightIn]);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
   // Flooring layout pattern: how planks are arranged (random stagger, 1/3 offset, diagonal, herringbone).
@@ -2293,13 +2302,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // collide with a cabinet masterCode. Quantity is 1 per selected product; the
   // Pelican category is shown as the line's label. Unpriced picks are skipped.
   const surfaceCartLines = useMemo<CartItem[]>(() => {
-    // Compute room areas inline for box-quantity calculation.
-    const bsLinearIn = placed.filter((p) => p.placement === "base" || p.placement === "appliance").reduce((s, p) => s + placedFootprint(p).w, 0);
-    const backsplashSqFt = Math.round(((bsLinearIn * 18) / 144) * 10) / 10;
+    // The selected backsplash is priced from the same supported wall segments
+    // rendered in 3D—never total room walls or cabinet faces. Full-height and
+    // rear-upstand choices therefore increase quantity only where they install.
+    const backsplashSqFt = Math.round((threeDBacksplashSegments(
+      placed,
+      openings,
+      room,
+      backsplashHeightMode,
+      countertopBacksplashHeightIn,
+    ).reduce((total, segment) => total + ((segment.end - segment.start) * (segment.top - segment.bottom)) / 144, 0)) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
     const areas = { backsplashSqFt, flooringSqFt };
     return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas) as CartItem[];
-  }, [selectedSurfaces, tier, placed, room]);
+  }, [selectedSurfaces, tier, placed, openings, room, backsplashHeightMode, countertopBacksplashHeightIn]);
 
   // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
@@ -6033,7 +6049,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const room = (savedDesign.roomData ?? null) as RoomData | null;
     const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
     const savedSurfaces = (savedDesign as { selectedSurfaces?: SelectedSurface[] | null }).selectedSurfaces;
-    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null }).threeDPresentation;
+    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string; backsplashHeightMode?: "standard" | "full-height"; countertopBacksplashHeightIn?: 0 | 2.5 | 3 } | null }).threeDPresentation;
     loadSavedDesign({
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
@@ -6044,6 +6060,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     if (savedPresentation && typeof savedPresentation.cabinetFinish === "string" && typeof savedPresentation.countertopFinish === "string") {
       setInteractive3dPresentation({ cabinetFinish: savedPresentation.cabinetFinish, countertopFinish: savedPresentation.countertopFinish });
+    }
+    if (savedPresentation?.backsplashHeightMode === "standard" || savedPresentation?.backsplashHeightMode === "full-height") {
+      setBacksplashHeightMode(savedPresentation.backsplashHeightMode);
+    }
+    if (savedPresentation?.countertopBacksplashHeightIn === 2.5 || savedPresentation?.countertopBacksplashHeightIn === 3) {
+      setCountertopBacksplashHeightIn(savedPresentation.countertopBacksplashHeightIn);
     }
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
@@ -6128,6 +6150,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     countertopMaterialId,
     edgeProfileId,
     backsplashMaterialId,
+    backsplashHeightMode,
+    countertopBacksplashHeightIn,
     flooringMaterialId,
     flooringPattern,
     selectedSurfaces,
@@ -6220,6 +6244,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
           if (typeof d.edgeProfileId === "string") setEdgeProfileId(d.edgeProfileId);
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
+          if (d.backsplashHeightMode === "standard" || d.backsplashHeightMode === "full-height") setBacksplashHeightMode(d.backsplashHeightMode);
+          if (d.countertopBacksplashHeightIn === 2.5 || d.countertopBacksplashHeightIn === 3) setCountertopBacksplashHeightIn(d.countertopBacksplashHeightIn);
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
           if (typeof d.flooringPattern === "string") setFlooringPattern(d.flooringPattern as import("@/lib/design").FlooringLayoutPattern);
           if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
@@ -6340,7 +6366,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, flooringPattern, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -6927,7 +6953,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	      catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
-      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+	      backsplashHeightMode={backsplashHeightMode}
+	      countertopBacksplashHeightIn={countertopBacksplashHeightIn}
+	      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
       catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
       catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
       catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}
@@ -7951,7 +7979,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             furniture={furniture}
             ponyWalls={ponyWalls}
             selectedSurfaces={selectedSurfaces}
-            threeDPresentation={interactive3dPresentation}
+            threeDPresentation={threeDPresentationForSave}
             styleId={styleId}
             lockedDistributorId={lockedDistributorId}
             styleName={activeStyleName}
@@ -7993,6 +8021,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 });
                 if (d.threeDPresentation && typeof d.threeDPresentation.cabinetFinish === "string" && typeof d.threeDPresentation.countertopFinish === "string") {
                   setInteractive3dPresentation({ cabinetFinish: d.threeDPresentation.cabinetFinish, countertopFinish: d.threeDPresentation.countertopFinish });
+                }
+                if (d.threeDPresentation?.backsplashHeightMode === "standard" || d.threeDPresentation?.backsplashHeightMode === "full-height") {
+                  setBacksplashHeightMode(d.threeDPresentation.backsplashHeightMode);
+                }
+                if (d.threeDPresentation?.countertopBacksplashHeightIn === 2.5 || d.threeDPresentation?.countertopBacksplashHeightIn === 3) {
+                  setCountertopBacksplashHeightIn(d.threeDPresentation.countertopBacksplashHeightIn);
                 }
               }
             }
@@ -10575,6 +10609,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onOpenChange={setSurfacesOpen}
         selected={selectedSurfaces}
         onToggle={toggleSurface}
+        backsplashHeightMode={backsplashHeightMode}
+        onBacksplashHeightModeChange={setBacksplashHeightMode}
+        countertopBacksplashHeightIn={countertopBacksplashHeightIn}
+        onCountertopBacksplashHeightChange={setCountertopBacksplashHeightIn}
       />
 	      <ProDesignerDialog
 	        open={proDesignerOpen}
@@ -11286,19 +11324,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                cabinetDoorProfiles={threeDCabinetDoorProfiles}
 		                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
-		                catalogDoorSampleUrl={active3DDoorSampleUrl}
-		                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
-                catalogDoorProfile={activeStyle ? {
-                  doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
-                  doorPanelType: activeStyle.doorPanelType ?? null,
-                } : null}
-                catalogFinishName={activeStyleName}
+	                catalogDoorSampleUrl={active3DDoorSampleUrl}
+	                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
+	                catalogDoorProfile={activeStyle ? {
+	                  doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
+	                  doorPanelType: activeStyle.doorPanelType ?? null,
+	                } : null}
+	                catalogFinishName={activeStyleName}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	                catalogFlooringName={threeDSurfaceProductNames.flooring}
 	                catalogFlooringCategory={threeDFlooringProductMetadata?.category}
 	                catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	                catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	                catalogBacksplashName={threeDSurfaceProductNames.backsplash}
+	                backsplashHeightMode={backsplashHeightMode}
+	                countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
 	                catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
 	                catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}

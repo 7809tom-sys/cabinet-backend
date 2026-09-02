@@ -19,6 +19,7 @@ import {
   type PelicanCategory,
 } from "@/lib/pelican";
 import { Search, Plus, Check, Waves } from "lucide-react";
+import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 
 export type SelectedSurface = {
   id: number;
@@ -40,15 +41,24 @@ export function SurfacesPickerDialog({
   onOpenChange,
   selected,
   onToggle,
+  backsplashHeightMode = "standard",
+  onBacksplashHeightModeChange,
+  countertopBacksplashHeightIn = 0,
+  onCountertopBacksplashHeightChange,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface) => void;
+  backsplashHeightMode?: "standard" | "full-height";
+  onBacksplashHeightModeChange?: (mode: "standard" | "full-height") => void;
+  countertopBacksplashHeightIn?: 0 | 2.5 | 3;
+  onCountertopBacksplashHeightChange?: (height: 0 | 2.5 | 3) => void;
 }) {
-  const [category, setCategory] = useState<PelicanCategory>(PELICAN_STOREFRONT_CATEGORIES[0]);
+  const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const { products: preferredProducts } = usePreferredProducts();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -68,24 +78,40 @@ export function SurfacesPickerDialog({
 
   // Keep the active category valid as availability loads
   useEffect(() => {
-    if (availableCats.length && !availableCats.includes(category)) {
+    if (category !== "Preferred" && availableCats.length && !availableCats.includes(category)) {
       setCategory(availableCats[0]);
     }
   }, [availableCats, category]);
 
   const { data, isLoading } = trpc.pelican.byCategory.useQuery(
     {
-      category: category as any,
+      category: category as PelicanCategory,
       scope: "designer",
       search: debounced || undefined,
       limit: PAGE_LIMIT,
       offset: 0,
     },
-    { enabled: open }
+    { enabled: open && category !== "Preferred" }
   );
 
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
-  const items = data?.items ?? [];
+  const preferredItems = useMemo(() => preferredProducts.map((product) => ({
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    category: product.productCategory,
+    subCategory: product.subCategory,
+    size: product.size,
+    imageUrl: product.imageUrl,
+    sellPrice: product.sellPrice,
+    coverageSqFt: product.coverageSqFt ?? null,
+  })), [preferredProducts]);
+  const items = category === "Preferred" ? preferredItems : data?.items ?? [];
+  const visibleItems = useMemo(() => {
+    if (category !== "Preferred" || !debounced) return items;
+    const query = debounced.toLowerCase();
+    return items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(query));
+  }, [category, debounced, items]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,6 +128,16 @@ export function SurfacesPickerDialog({
         {/* Category tabs + search */}
         <div className="shrink-0 flex flex-col gap-2 sm:gap-3 border-b border-border px-4 py-2 sm:px-6 sm:py-3">
           <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none">
+            {preferredItems.length > 0 && (
+              <Button
+                size="sm"
+                variant={category === "Preferred" ? "default" : "outline"}
+                className="h-7 text-xs whitespace-nowrap shrink-0"
+                onClick={() => setCategory("Preferred")}
+              >
+                Preferred ({preferredItems.length})
+              </Button>
+            )}
             {availableCats.map((c) => (
               <Button
                 key={c}
@@ -119,28 +155,50 @@ export function SurfacesPickerDialog({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${category.toLowerCase()}…`}
+              placeholder={category === "Preferred" ? "Search preferred products…" : `Search ${category.toLowerCase()}…`}
               className="pl-9"
             />
           </div>
+          {category === "Tile & Mosaic" && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
+            <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Wall tile coverage</div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button type="button" size="sm" variant={backsplashHeightMode === "standard" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("standard")}>Standard to uppers</Button>
+                  <Button type="button" size="sm" variant={backsplashHeightMode === "full-height" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onBacksplashHeightModeChange?.("full-height")}>Full height to ceiling</Button>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Countertop rear upstand</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {([0, 2.5, 3] as const).map((height) => (
+                    <Button key={height} type="button" size="sm" variant={countertopBacksplashHeightIn === height ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => onCountertopBacksplashHeightChange?.(height)}>
+                      {height === 0 ? "None" : `${height}\" upstand`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="sm:col-span-2 text-[10px] leading-relaxed text-muted-foreground">12-inch wall tile is continuous only above countertop-supported cabinet and appliance runs. Standard ends at upper cabinets; a range continues to its hood. Full-height coverage increases material quantity and price.</p>
+            </div>
+          )}
         </div>
 
         {/* Grid */}
         <ScrollArea className="flex-1">
           <div className="px-6 py-4">
-            {isLoading ? (
+            {category !== "Preferred" && isLoading ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-44 w-full rounded-lg" />
                 ))}
               </div>
-            ) : items.length === 0 ? (
+            ) : visibleItems.length === 0 ? (
               <div className="py-14 text-center text-sm text-muted-foreground">
-                No {category.toLowerCase()} items match your search.
+                {category === "Preferred" ? "No preferred products match your search." : `No ${category.toLowerCase()} items match your search.`}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {items.map((p: any) => {
+                {visibleItems.map((p: any) => {
                   const isSel = selectedIds.has(p.id);
                   const gradient =
                     CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";

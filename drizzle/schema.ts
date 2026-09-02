@@ -88,6 +88,59 @@ export const customerFavoriteSyncs = mysqlTable(
 
 export type CustomerFavoriteSync = typeof customerFavoriteSyncs.$inferSelect;
 
+// ─── Customer Preferred catalog products ─────────────────────────────────────
+// Product preferences are distinct from cabinet-style favorites. They retain the
+// exact product identity and functional role that the Designer needs; the API
+// enforces the six-product limit independently in every category.
+export const customerPreferredProducts = mysqlTable(
+  "customer_preferred_products",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    storefrontSlug: varchar("storefrontSlug", { length: 160 }).notNull().default("main"),
+    productId: int("productId").notNull(),
+    category: mysqlEnum("category", ["flooring", "countertop", "backsplash", "faucet", "sink"]).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    userStoreProductUnique: uniqueIndex("customer_preferred_products_user_store_product_uq").on(
+      t.userId,
+      t.storefrontSlug,
+      t.productId,
+    ),
+    userStoreCategoryIndex: index("customer_preferred_products_user_store_category_idx").on(
+      t.userId,
+      t.storefrontSlug,
+      t.category,
+    ),
+  }),
+);
+
+export type CustomerPreferredProduct = typeof customerPreferredProducts.$inferSelect;
+export type InsertCustomerPreferredProduct = typeof customerPreferredProducts.$inferInsert;
+
+// ─── Final photo-quality Designer renders ────────────────────────────────────
+// A render is created only by an explicit final-review confirmation. The combined
+// plan, presentation, selected products, and camera signature makes a prior image
+// reusable while any relevant design change requires a deliberate new request.
+export const designPhotoRenders = mysqlTable(
+  "design_photo_renders",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
+    imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    userSceneUnique: uniqueIndex("design_photo_renders_user_scene_uq").on(t.userId, t.sceneSignature),
+    userUpdatedIndex: index("design_photo_renders_user_updated_idx").on(t.userId, t.updatedAt),
+  }),
+);
+
+export type DesignPhotoRender = typeof designPhotoRenders.$inferSelect;
+
 // ─── Administrator shared notes ──────────────────────────────────────────────
 // Internal coordination only. Every API path is protected by adminProcedure;
 // author attribution is retained so staff can follow up on a note.

@@ -6,6 +6,7 @@ import { CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
 import { ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
+import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 
 export type PelicanCardProduct = {
   id: number;
@@ -26,6 +27,8 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
   const gradient = CATEGORY_GRADIENT[product.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const { addItem } = useCart();
   const [, navigate] = useLocation();
+  const { isPreferred, togglePreferred } = usePreferredProducts();
+  const preferred = isPreferred(product.id);
 
   // Pricing breakdown
   const msrp = product.msrp ? Number(product.msrp) : null;
@@ -60,6 +63,12 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
         action: { label: "View Cart", onClick: () => navigate("/cart") },
       });
     }
+  };
+
+  const handlePreferred = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    togglePreferred(product);
   };
 
   return (
@@ -106,7 +115,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
           {product.size && (
             <div className="text-xs text-muted-foreground">{product.size}</div>
           )}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center justify-between gap-2 pt-1">
             <div className="min-w-0">
               <span className="text-base font-bold text-[var(--color-navy)] dark:text-foreground">
                 {formatPrice(product.sellPrice)}
@@ -117,17 +126,16 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
                 </span>
               )}
             </div>
-            {product.sellPrice && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 w-7 p-0"
-                onClick={handleAddToCart}
-                title="Add to Cart"
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
+            <div className="flex shrink-0 items-center gap-1">
+              <Button size="sm" variant={preferred ? "secondary" : "outline"} className="h-7 gap-1 px-2 text-[10px]" onClick={handlePreferred} aria-pressed={preferred} title={preferred ? "Remove from Preferred" : "Add to Preferred"}>
+                <Star className={`h-3.5 w-3.5 ${preferred ? "fill-current" : ""}`} /> {preferred ? "Preferred" : "Add to Preferred"}
               </Button>
-            )}
+              {product.sellPrice && (
+                <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={handleAddToCart} title="Add to Cart">
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Card>

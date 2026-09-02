@@ -53,6 +53,8 @@ import { catalogImportRouter } from "./routers/catalogImport";
 import { installationEstimatesRouter } from "./routers/installationEstimates";
 import { roomLayoutsRouter } from "./routers/roomLayouts";
 import { favoritesRouter } from "./routers/favorites";
+import { preferredProductsRouter } from "./routers/preferredProducts";
+import { designPhotoRendersRouter } from "./routers/designPhotoRenders";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 
 export const appRouter = router({
@@ -117,6 +119,8 @@ export const appRouter = router({
   installationEstimates: installationEstimatesRouter,
   roomLayouts: roomLayoutsRouter,
   favorites: favoritesRouter,
+  preferredProducts: preferredProductsRouter,
+  designPhotoRenders: designPhotoRendersRouter,
   adminStickyNotes: adminStickyNotesRouter,
 });
 

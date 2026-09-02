@@ -1289,3 +1289,39 @@
 - [x] Enforce a universal plank-floor rule: physical board width and length, staggered neighboring rows, separated end joints, and no continuous cross-room seam
 - [x] Keep tile and sheet flooring on type-appropriate mapping rules instead of forcing a plank pattern
 - [x] Validate the universal rule across Aveline and representative non-plank products without altering scene geometry, pricing, cart, or saved designs
+- [x] Reproduce and remove backsplash currently rendered on unsupported open walls and pony-wall faces
+- [x] Enforce backsplash only above countertop-supported base cabinets and appliances on their owning room walls
+- [x] Run standard backsplash from countertop height to the underside of wall cabinets, clipped around windows and doors
+- [x] Extend backsplash above a range only from range/counter height to the underside of its range hood
+- [x] Exclude islands, pony walls, cabinet faces, unsupported wall spans, and appliances without a countertop/backsplash relationship
+- [x] Preserve the exact selected backsplash product, saved plan, camera, pricing/cart, mobile controls, and persistence
+- [x] Add exact universal backsplash coverage regressions and publish only after validation
+- [x] Add a Standard versus Full height to ceiling backsplash option, defaulting new and existing designs to Standard
+- [x] Limit Full height coverage to the same countertop-supported cabinet and appliance runs instead of covering unrelated walls
+- [x] Persist the selected backsplash height mode in saved designs and restore it in every 3D view
+- [x] Calculate backsplash square footage from the selected mode and update material quantity and price so Full height visibly costs more
+- [x] Add responsive controls and exact standard/full-height area, pricing, persistence, clipping, and geometry regressions
+- [x] Add an “Add to Preferred” check control to every flooring, countertop, backsplash, faucet, and sink product wherever it appears in the catalog
+- [x] Persist surface favorites to the signed-in customer account and retain local favorites for guests
+- [x] Merge guest surface favorites into the account on sign-in without duplicates
+- [x] Enforce a maximum of six Preferred products independently in each of the five categories, prompting remove-or-replace when a seventh is selected
+- [x] Show exact checked flooring, countertop, backsplash, faucet, and sink products automatically in categorized Preferred sections inside the Designer Surfaces & Fixtures picker
+- [x] Preserve each favorite product's exact ID, SKU/slug, image, size, category, availability, and current price
+- [x] Allow removing a surface favorite from the catalog or Designer and synchronize both views immediately
+- [x] Add account-isolation, guest merge, six-item limit, duplicate prevention, product identity, mobile, and Designer preferred-list regressions
+- [x] Add a “Create Photo-Quality Render” button that uses the current saved Designer scene and camera without moving, adding, deleting, or resizing anything
+- [x] Capture a deterministic high-resolution reference from exact cabinet, opening, appliance, surface, fixture, room geometry, and the unchanged current camera before generating a photo render
+- [x] Offer AI only as an explicitly confirmed final stage with strict exact-plan, camera, product, and material-reference constraints
+- [ ] Reject or clearly flag any AI result that changes the designed layout, cabinet count, openings, appliances, island, or selected products
+- [ ] Add responsive progress, cancel, retry, before/after preview, download, and cached-result states for desktop and mobile
+- [ ] Preserve render provenance: saved design ID/revision, camera, product IDs, material selections, and generation method
+- [ ] Add exact-plan render-input, geometry-lock, cost-confirmation, failure, caching, download, and mobile regressions
+- [x] Never generate an AI image automatically while the customer is editing; require an explicit final-review button click
+- [x] Enable photo rendering only when the design passes readiness checks and require an explicit confirmation before each uncached generation
+- [x] Reuse a cached photo at no new generation when the saved design revision, camera, and selected products are unchanged
+- [x] Invalidate the cached photo only when geometry, camera, cabinet finish, countertop, flooring, backsplash, appliances, fixtures, or openings change
+- [x] Replace scattered backsplash tile stamps with continuous 12-inch square tile fields that have grout joints but no empty gaps within each supported run
+- [x] For a standard 18-inch backsplash opening, render one full 12-inch course plus an accurately cut 6-inch course up to the underside of the wall cabinet
+- [x] Offer 2½-inch and 3-inch countertop rear-upstand choices; start wall tile above the selected upstand and cut the remaining top course precisely
+- [x] Continue the same connected tile field from counter/range height to the underside of the range hood, with no gaps or detached tiles
+- [x] Preserve the selected backsplash product, cabinet/appliance/opening boundaries, standard/full-height option, exact plan, camera, pricing, and persistence

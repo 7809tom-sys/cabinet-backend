@@ -18,6 +18,7 @@ import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
 import { trpc } from "@/lib/trpc";
 import { affiliateStorefrontFallbackPath, affiliateSlugFromHostname } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
+import { PreferredProductsProvider } from "@/contexts/PreferredProductsContext";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -197,6 +198,7 @@ export default function App() {
   }, []);
 
   return (
+    <PreferredProductsProvider>
       <ThemeProvider defaultTheme="light">
       <Switch>
         {/* Home has its own footer, no AppLayout wrapper needed */}
@@ -610,5 +612,6 @@ export default function App() {
       <ChatWidget />
       <Toaster />
     </ThemeProvider>
+    </PreferredProductsProvider>
   );
 }

@@ -109,7 +109,12 @@ interface Props {
     distributorId?: number | null;
     roomType?: string | null;
     selectedSurfaces?: unknown[] | null;
-    threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null;
+    threeDPresentation?: {
+      cabinetFinish?: string;
+      countertopFinish?: string;
+      backsplashHeightMode?: "standard" | "full-height";
+      countertopBacksplashHeightIn?: 0 | 2.5 | 3;
+    } | null;
   }) => void;
 }
 
@@ -602,7 +607,12 @@ export function DesignActions({
                               distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
                               roomType: rType ?? null,
                               selectedSurfaces: Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : null,
-                              threeDPresentation: (d as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string } | null }).threeDPresentation ?? null,
+                              threeDPresentation: (d as { threeDPresentation?: {
+                                cabinetFinish?: string;
+                                countertopFinish?: string;
+                                backsplashHeightMode?: "standard" | "full-height";
+                                countertopBacksplashHeightIn?: 0 | 2.5 | 3;
+                              } | null }).threeDPresentation ?? null,
                             });
                             setLoadOpen(false);
                             toast.success(t("dt_act_loaded", { name: d.name }));

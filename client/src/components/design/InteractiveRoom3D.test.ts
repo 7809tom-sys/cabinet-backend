@@ -15,7 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, threeDBacksplashSegments, threeDBacksplashTransform, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
@@ -155,23 +155,27 @@ describe("interactive 3D room scene helpers", () => {
 	    }
 	  });
 
-	  it("covers the full standard backsplash zone on every room wall and keeps transforms on the owning wall", () => {
+	  it("limits standard backsplash to countertop-supported wall runs and keeps transforms on the owning wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
-	    const segments = threeDBacksplashSegments([], [], room);
+	    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
+	    const bases = [
+	      { uid: "top-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null },
+	      { uid: "left-base", masterCode: "B-24", placement: "base", x: 0, y: 24, width: 24, depth: 24, height: 34.5, rotation: 90, islandFace: null },
+	    ] as PlacedCabinet[];
+	    const segments = threeDBacksplashSegments(bases, [], room);
 	    expect(segments).toEqual(expect.arrayContaining([
-	      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
-	      { side: "bottom", start: 0, end: 120, bottom: 36, top: 54 },
-	      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
-	      { side: "right", start: 0, end: 96, bottom: 36, top: 54 },
+	      { side: "top", start: 12, end: 42, bottom: 36, top: 54 },
+	      { side: "left", start: 24, end: 48, bottom: 36, top: 54 },
 	    ]));
-	    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "right")!, room)).toMatchObject({ x: 119.93, z: 48, rotation: -Math.PI / 2 });
+	    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
 	  });
 
-	  it("clips the selected backsplash around a saved window without changing the opening or wall", () => {
+	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 40 } as WallOpening;
 	    const openingBefore = JSON.stringify(windowOpening);
-	    const segments = threeDBacksplashSegments([], [windowOpening], room).filter((segment) => segment.side === "top");
+	    const base = { uid: "base-1", masterCode: "B-120", placement: "base", x: 0, y: 0, width: 120, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
+	    const segments = threeDBacksplashSegments([base], [windowOpening], room).filter((segment) => segment.side === "top");
 	    expect(JSON.stringify(windowOpening)).toBe(openingBefore);
 	    expect(segments).toEqual(expect.arrayContaining([
 	      { side: "top", start: 0, end: 30, bottom: 36, top: 54 },
@@ -181,14 +185,45 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(segments.some((segment) => segment.start < 60 && segment.end > 30 && segment.top > 40)).toBe(false);
 	  });
 
-	  it("extends backsplash above a saved range only when an upper cabinet does not occupy that exact span", () => {
+	  it("extends a supported range backsplash continuously to the matching range-hood underside", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    const range = { uid: "range-1", masterCode: "RANGE-30", description: "Freestanding range", placement: "appliance", x: 45, y: 0, width: 30, depth: 24, height: 36, rotation: 0, islandFace: null } as PlacedCabinet;
-	    const openSegments = threeDBacksplashSegments([range], [], room);
-	    expect(openSegments).toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 84 });
+	    const hood = { uid: "hood-1", masterCode: "HOOD-30", description: "30 inch Range Hood", placement: "appliance", x: 45, y: 0, width: 30, depth: 18, height: 18, rotation: 0, mountBottom: 66, islandFace: null } as PlacedCabinet;
+	    const openSegments = threeDBacksplashSegments([range, hood], [], room);
+	    expect(openSegments).toEqual(expect.arrayContaining([
+	      { side: "top", start: 45, end: 75, bottom: 36, top: 54 },
+	      { side: "top", start: 45, end: 75, bottom: 54, top: 66 },
+	    ]));
 	    const wallCabinet = { uid: "wall-1", masterCode: "W-3030", description: "Wall cabinet", placement: "wall", x: 45, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54, islandFace: null } as PlacedCabinet;
-	    const blockedSegments = threeDBacksplashSegments([range, wallCabinet], [], room);
-	    expect(blockedSegments).not.toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 84 });
+	    const blockedSegments = threeDBacksplashSegments([range, hood, wallCabinet], [], room);
+	    expect(blockedSegments).not.toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 66 });
+	  });
+
+	  it("maps selected backsplash material as one continuous 12-inch tile field with only cut edge courses", () => {
+	    const standard = { side: "top", start: 0, end: 30, bottom: 36, top: 54 } as const;
+	    expect(THREE_D_BACKSPLASH_TILE_SIZE_IN).toBe(12);
+	    expect(threeDBacksplashTileTextureTransform(standard)).toEqual({ repeatX: 2.5, repeatY: 1.5, offsetX: 0, offsetY: 0 });
+	    const joined = threeDBacksplashTileTextureTransform({ side: "top", start: 30, end: 54, bottom: 36, top: 54 });
+	    expect(joined.offsetX).toBe(0.5);
+	    expect(joined.repeatY).toBe(1.5);
+	  });
+
+	  it("uses a continuous 12-inch field above each physical countertop upstand without changing the supported run", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const base = { uid: "upstand-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
+	    expect(threeDBacksplashSegments([base], [], room, "standard", 2.5)).toEqual([
+	      { side: "top", start: 12, end: 42, bottom: 38.5, top: 54 },
+	    ]);
+	    expect(threeDBacksplashTileTextureTransform({ side: "top", start: 12, end: 42, bottom: 38.5, top: 54 })).toMatchObject({ repeatX: 2.5, repeatY: 15.5 / 12 });
+	    expect(threeDCountertopUpstandSegments([base], [], room, 2.5)).toEqual([
+	      { side: "top", start: 12, end: 42, bottom: 36, top: 38.5 },
+	    ]);
+	    expect(threeDBacksplashSegments([base], [], room, "standard", 3)).toEqual([
+	      { side: "top", start: 12, end: 42, bottom: 39, top: 54 },
+	    ]);
+	    expect(threeDCountertopUpstandSegments([base], [], room, 3)).toEqual([
+	      { side: "top", start: 12, end: 42, bottom: 36, top: 39 },
+	    ]);
 	  });
 
   it("keeps an explicitly empty designer room authoritative after Clear Design instead of rendering catalog suggestions", () => {
@@ -4269,5 +4304,23 @@ describe("interactive 3D room scene helpers", () => {
 
     // But the resolved URL is only used as sku.catalogImageUrl — it only becomes
     // a visible overlay when doorSampleUrl is absent (the guard in addCabinet).
+  });
+});
+
+describe("final photo-quality render controls", () => {
+  it("requires an explicit confirmation and sends only the locked current Designer view", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-photo-render"');
+    expect(source).toContain("Create photo-quality render");
+    expect(source).toContain("threeDExactPlanGeometryLock");
+    expect(source).toContain("const capturePhotoRenderReference = (): string | null");
+    expect(source).toContain("renderer.setSize(1280, 720, false)");
+    expect(source).toContain('renderer.domElement.toDataURL("image/jpeg", 0.9)');
+    expect(source).toContain("const sceneImageDataUrl = photoRenderReferenceUrl ?? capturePhotoRenderReference()");
+    expect(source).toContain("Finish the current placement preview before creating a final photo-quality render.");
+    expect(source).toContain("confirmation: true");
+    expect(source).toContain("Your kitchen plan will not be redesigned.");
+    expect(source).toContain("onPhotoRender={openPhotoRenderDialog}");
+    expect(source).toContain("Locked Designer view to render");
   });
 });
