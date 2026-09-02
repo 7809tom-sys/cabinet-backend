@@ -1370,3 +1370,4 @@
 - [x] Allow administrators to create and judge Photo Quality test renders during testing without requiring customer contact capture, while customer-facing requests remain lead-gated
 - [x] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
 - [ ] Add product-specific backsplash pattern treatment beyond the corrected Desert Clay mosaic so other selected tile patterns do not receive a generic square field
+- [x] Normalize approved relative CabinetDealz material-storage paths to trusted absolute URLs before protected Photo Quality validation so administrator test renders can proceed

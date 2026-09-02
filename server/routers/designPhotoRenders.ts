@@ -8,10 +8,26 @@ import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
-const safeMaterialUrl = z.string().url().refine((value) => {
+const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
+
+/**
+ * Designer catalog assets are stored as relative `/manus-storage/...` paths,
+ * while the protected image service needs an absolute fetchable reference.
+ * Only that known CabinetDealz storage namespace is upgraded here; arbitrary
+ * relative paths and untrusted hosts remain invalid.
+ */
+export function normalizePhotoQualityMaterialUrl(value: unknown) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.startsWith("/manus-storage/")
+    ? new URL(trimmed, CABINETDEALZ_MATERIAL_ORIGIN).toString()
+    : trimmed;
+}
+
+const safeMaterialUrl = z.preprocess(normalizePhotoQualityMaterialUrl, z.string().url().refine((value) => {
   const host = new URL(value).hostname.toLowerCase();
   return host === "www.cabinetdealz.com" || host.endsWith(".cabinetdealz.com") || host.endsWith("manuscdn.com") || host === "buildpelican.com";
-}, "Material references must be CabinetDealz or manufacturer image URLs.");
+}, "Material references must be CabinetDealz or manufacturer image URLs."));
 
 const vector3Schema = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]);
 const materialProvenanceSchema = z.object({

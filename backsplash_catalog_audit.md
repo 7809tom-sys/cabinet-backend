@@ -1,0 +1,14 @@
+# Pelican Backsplash Pattern Audit
+
+This working audit records **product-specific 3D material decisions** for active Designer backsplash products. Shopper-facing catalog media remains display-only unless a separately verified material-only source is approved.
+
+| Product ID | Product | Verified source | Physical module | Pattern classification | 3D treatment | Material-source status |
+|---:|---|---|---|---|---|---|
+| 47 | Arctic Vail | [Pelican product page](https://buildpelican.com/products/arctic-vail) | 10.71 × 10.55 in sheet; 8 mm thickness | Interlocking recycled-glass mosaic with elongated hex/chevron-like cells | Continuous internal mosaic field, wall-aligned, 1/16 in fine grout/joint treatment | Approved and assigned: `/manus-storage/arctic_vail_candidate_2_a8bed842.png`. It is a visually verified clean material-only close-up with no labels, card frame, or room background. The product-page hero remains display-only. |
+| 183 | Desert Clay | [Pelican product page](https://buildpelican.com/products/desert-clay) | 11.81 × 11.81 in sheet; 8 mm thickness | Interlocking glass-and-stainless mosaic | Continuous internal mosaic field with 1/16 in joints | Approved material-only asset assigned: `/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp` |
+| 142 | Carbon Hex | [Pelican product page](https://buildpelican.com/products/carbon-hex) | 12.80 × 11.10 in sheet; 8 mm thickness | Onyx-color marble hex mosaic | Continuous hex field, wall-aligned, fine 1/16 in joints | Approved and assigned: `/manus-storage/carbon_hex_candidate_1_2af63616.png`. The verified close-up contains only black marble hex cells and metallic/glass joints, with no labels, card frame, or room background. The hero remains display-only. |
+| 144 | Carrara Subway | [Pelican product page](https://buildpelican.com/products/carrara-subway) | 11.97 × 12.13 in sheet; 8 mm thickness | Marble subway mosaic; visual source shows running-bond rectangular chips | Continuous staggered subway field, wall-aligned, fine 1/16 in joints after clean-source verification | Official gallery candidates: [`CarraraSubway_9157bedb-0946-4aa0-8c3b-1bb299f78894_907x680.png`](https://buildpelican.com/cdn/shop/files/CarraraSubway_9157bedb-0946-4aa0-8c3b-1bb299f78894_907x680.png?v=1777661604), [`CarraraSubway_907x680.png`](https://buildpelican.com/cdn/shop/files/CarraraSubway_907x680.png?v=1770926242), and [`CarraraSubway1_907x680.png`](https://buildpelican.com/cdn/shop/files/CarraraSubway1_907x680.png?v=1770926242). The hero is a staged vanity image and remains display-only; a clean close-up requires visual verification. |
+
+## Audit rule
+
+Every row must be verified from an official Pelican, manufacturer, or authorized distributor source before its pattern metadata or material-only 3D asset is assigned. A staged room, retail card, label, white border, or product-sheet frame is never an approved 3D texture source.

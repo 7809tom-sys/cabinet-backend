@@ -590,6 +590,8 @@ const THREE_D_BAHIA_12MIL_FLOOR_URL = "/manus-storage/bahia_12mil_7x48_staggered
 const THREE_D_ACORN_20MIL_FLOOR_URL = "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp";
 const THREE_D_ASTORIA_22MIL_FLOOR_URL = "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp";
 const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp";
+const THREE_D_ARCTIC_VAIL_MOSAIC_URL = "/manus-storage/arctic_vail_candidate_2_a8bed842.png";
+const THREE_D_CARBON_HEX_MOSAIC_URL = "/manus-storage/carbon_hex_candidate_1_2af63616.png";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -667,9 +669,9 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: null,
     };
   }
-  if (role === "backsplash" && normalizedName === "desert clay") {
-    return {
-      url: THREE_D_DESERT_CLAY_MOSAIC_URL,
+	if (role === "backsplash" && normalizedName === "desert clay") {
+	  return {
+	    url: THREE_D_DESERT_CLAY_MOSAIC_URL,
       key: "desert-clay-11.81in-interlocking-mosaic",
       curated: true,
       proceduralFallback: false,
@@ -682,10 +684,46 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: null,
       backsplashPatternKind: "interlocking-mosaic",
       backsplashModuleIn: 11.81,
-      backsplashGroutJointIn: 1 / 16,
-    };
-  }
-  if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
+	    backsplashGroutJointIn: 1 / 16,
+	  };
+	}
+	if (role === "backsplash" && normalizedName === "arctic vail") {
+	  return {
+	    url: THREE_D_ARCTIC_VAIL_MOSAIC_URL,
+	    key: "arctic-vail-10.71in-interlocking-hex-mosaic",
+	    curated: true,
+	    proceduralFallback: false,
+	    physicalWidthIn: 10.71,
+	    physicalDepthIn: 10.55,
+	    sourceProductName: productName ?? null,
+	    flooringPatternKind: null,
+	    plankWidthIn: null,
+	    plankLengthIn: null,
+	    staggerOffsetsIn: null,
+	    backsplashPatternKind: "interlocking-mosaic",
+	    backsplashModuleIn: 10.71,
+	    backsplashGroutJointIn: 1 / 16,
+	  };
+	}
+	if (role === "backsplash" && normalizedName === "carbon hex") {
+	  return {
+	    url: THREE_D_CARBON_HEX_MOSAIC_URL,
+	    key: "carbon-hex-12.80in-marble-hex-mosaic",
+	    curated: true,
+	    proceduralFallback: false,
+	    physicalWidthIn: 12.8,
+	    physicalDepthIn: 11.1,
+	    sourceProductName: productName ?? null,
+	    flooringPatternKind: null,
+	    plankWidthIn: null,
+	    plankLengthIn: null,
+	    staggerOffsetsIn: null,
+	    backsplashPatternKind: "interlocking-mosaic",
+	    backsplashModuleIn: 12.8,
+	    backsplashGroutJointIn: 1 / 16,
+	  };
+	}
+	if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
     return {
 	      url: THREE_D_AVELINE_20MIL_FLOOR_URL,
 	      key: "aveline-20mil-7x48",
