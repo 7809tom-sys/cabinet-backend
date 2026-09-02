@@ -4405,7 +4405,7 @@ describe("interactive 3D room scene helpers", () => {
 });
 
 describe("final photo-quality render controls", () => {
-  it("requires a reviewed immutable reference, one-cent confirmation, and same-reference retry", () => {
+  it("requires a reviewed immutable reference and produces a deterministic high-resolution exact render", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="three-d-photo-render"');
 	  expect(source).toContain('>Photo Quality</button>');
@@ -4413,14 +4413,16 @@ describe("final photo-quality render controls", () => {
 	  expect(source).toContain('data-testid="photo-quality-admin-test"');
 	  expect(source).toContain('data-testid="photo-quality-contact-lead"');
 	  expect(source).toContain('Mobile-number verification will be added when SMS service is activated.');
-    expect(source).toContain("Create photo-quality render");
+    expect(source).toContain("Create high-resolution exact render");
     expect(source).toContain("threeDExactPlanGeometryLock");
     expect(source).toContain("const capturePhotoRenderReference = (): string | null");
-    expect(source).toContain("renderer.setSize(1280, 720, false)");
-    expect(source).toContain('renderer.domElement.toDataURL("image/jpeg", 0.9)');
+    expect(source).toContain("renderer.setSize(2560, 1440, false)");
+    expect(source).toContain('renderer.domElement.toDataURL("image/jpeg", 0.98)');
+    expect(source).toContain("renderer.capabilities.getMaxAnisotropy()");
+    expect(source).toContain("renderer.render(threeScene, camera);");
     expect(source).toContain("const [photoRenderDraft, setPhotoRenderDraft]");
     expect(source).toContain("sourceImageHash");
-    expect(source).toContain('generationMethod: "manual-final-review-image-service"');
+    expect(source).toContain('generationMethod: "manual-final-review-deterministic-webgl-v1"');
     expect(source).toContain("const approvedMaterialUrl = (value: string | null | undefined) =>");
     expect(source).toContain('value.startsWith("/manus-storage/")');
     expect(source).toContain('"https://www.cabinetdealz.com"');
@@ -4432,16 +4434,15 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain("Finish the current placement preview before creating a final photo-quality render.");
     expect(source).toContain("Save this design before creating a photo-quality render");
     expect(source).toContain("confirmation: true");
-    expect(source).toContain("Confirm ~$0.01 final image");
+    expect(source).toContain("Create exact high-resolution render");
     expect(source).toContain("Your kitchen plan will not be redesigned.");
-    expect(source).toContain("Creating your final image from this locked reference.");
+    expect(source).toContain("Saving your high-resolution exact render from this locked scene.");
     expect(source).toContain("Retry same locked view");
-    expect(source).toContain("cannot be cancelled after confirmation");
-    expect(source).toContain("Reused from the same saved plan, materials, and camera reference");
+    expect(source).toContain("Your editable Designer plan is unchanged.");
+    expect(source).toContain("Reused from the same saved plan, materials, and camera");
     expect(source).toContain("Locked Designer reference");
-    expect(source).toContain("AI photo interpretation");
-    expect(source).toContain("The locked 2D/3D Designer plan, selected products, and pricing remain authoritative.");
-    expect(source).toContain("discard the photo and use the locked Designer reference instead");
+    expect(source).toContain("High-resolution exact render");
+    expect(source).toContain("This image is rendered from the locked Designer scene, camera, and selected products");
     expect(source).toContain("onPhotoRender={openPhotoRenderDialog}");
     expect(source).toContain("Locked Designer view to render");
   });

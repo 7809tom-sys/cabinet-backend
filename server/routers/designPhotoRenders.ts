@@ -3,12 +3,39 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { designPhotoRenders } from "../../drizzle/schema";
 import { getDb } from "../db";
-import { generateImage } from "../_core/imageGeneration";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
+import { storagePut } from "../storage";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
+
+/** Reads JPEG dimensions without accepting a client-declared resolution on trust. */
+export function readJpegDimensions(bytes: Buffer) {
+  if (bytes.length < 10 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error("The deterministic render must be a JPEG image.");
+  }
+  for (let offset = 2; offset + 9 < bytes.length;) {
+    if (bytes[offset] !== 0xff) { offset += 1; continue; }
+    const marker = bytes[offset + 1];
+    offset += 2;
+    if (marker === 0xd8 || marker === 0xd9) continue;
+    if (offset + 2 > bytes.length) break;
+    const segmentLength = bytes.readUInt16BE(offset);
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
+    const isStartOfFrame = marker !== undefined && (
+      (marker >= 0xc0 && marker <= 0xc3)
+      || (marker >= 0xc5 && marker <= 0xc7)
+      || (marker >= 0xc9 && marker <= 0xcb)
+      || (marker >= 0xcd && marker <= 0xcf)
+    );
+    if (isStartOfFrame) {
+      return { width: bytes.readUInt16BE(offset + 5), height: bytes.readUInt16BE(offset + 3) };
+    }
+    offset += segmentLength;
+  }
+  throw new Error("The deterministic render JPEG did not contain readable dimensions.");
+}
 
 /**
  * Designer catalog assets are stored as relative `/manus-storage/...` paths,
@@ -68,6 +95,7 @@ export const photoRenderProvenanceSchema = z.object({
   generationMethod: z.enum([
     "manual-final-review-image-service",
     "manual-final-review-gpt-image-2-high-v2",
+    "manual-final-review-deterministic-webgl-v1",
   ]),
 });
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
@@ -202,27 +230,36 @@ export const designPhotoRendersRouter = router({
         };
       }
 
-      const sceneImage = input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, "");
-      const lockedReferenceBytesHash = createHash("sha256").update(Buffer.from(sceneImage, "base64")).digest("hex");
-      const materialReferences = Array.from(new Set(input.provenance.materials.flatMap((material) => material.materialImageUrl ? [material.materialImageUrl] : [])))
-        .map((url) => ({ url, mimeType: url.toLowerCase().endsWith(".png") ? "image/png" : url.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg" }));
-      const summary = photoRenderProvenanceSummary(input.provenance);
-      const result = await generateImage({
-        prompt: exactPlanPrompt(summary),
-        model: "MODEL_GPT_IMAGE_2",
-        quality: "high",
-        originalImages: [{ b64Json: sceneImage, mimeType: input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] === "jpeg" ? "image/jpeg" : input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] === "webp" ? "image/webp" : "image/png" }, ...materialReferences],
-      });
-      if (!result.url) throw new Error("Photo rendering completed without an image result.");
-      if (result.contentHash && result.contentHash === lockedReferenceBytesHash) {
-        throw new Error("Photo Quality returned an unchanged Designer screenshot. No image was accepted; please try again after the photo-render service is available.");
+      if (input.provenance.generationMethod !== "manual-final-review-deterministic-webgl-v1") {
+        throw new Error("This request uses an obsolete image-interpreter profile. Reopen Photo Quality to create an exact deterministic render.");
       }
-      const promptFingerprint = createHash("sha256").update(exactPlanPrompt(summary)).digest("hex");
+      const sceneImage = input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, "");
+      const renderedBytes = Buffer.from(sceneImage, "base64");
+      const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
+      if (imageKind !== "jpeg") {
+        throw new Error("Photo Quality requires the locked deterministic JPEG capture. Reopen Photo Quality and try again.");
+      }
+      const dimensions = readJpegDimensions(renderedBytes);
+      if (dimensions.width < 1920 || dimensions.height < 1080) {
+        throw new Error("Photo Quality requires a minimum 1920×1080 locked render. Reopen Photo Quality and try again.");
+      }
+      const deterministicSourceHash = createHash("sha256").update(renderedBytes).digest("hex");
+      if (deterministicSourceHash !== input.provenance.sourceImageHash) {
+        throw new Error("The locked deterministic render did not match its recorded source hash. Reopen Photo Quality and try again.");
+      }
+      const contentType = "image/jpeg";
+      const extension = "jpg";
+      const storedRender = await storagePut(
+        `photo-quality/${ctx.user.id}/${input.sceneSignature}-deterministic.${extension}`,
+        renderedBytes,
+        contentType,
+      );
+      const promptFingerprint = createHash("sha256").update("deterministic-webgl-high-resolution-v1").digest("hex");
       const confirmedAt = new Date();
       await db.insert(designPhotoRenders).values({
         userId: ctx.user.id,
         sceneSignature: input.sceneSignature,
-        imageUrl: result.url,
+        imageUrl: storedRender.url,
         provenance: input.provenance,
         sourceImageHash: input.provenance.sourceImageHash,
         promptFingerprint,
@@ -230,7 +267,7 @@ export const designPhotoRendersRouter = router({
         confirmedAt,
       }).onDuplicateKeyUpdate({
         set: {
-          imageUrl: result.url,
+          imageUrl: storedRender.url,
           provenance: input.provenance,
           sourceImageHash: input.provenance.sourceImageHash,
           promptFingerprint,
@@ -249,7 +286,7 @@ export const designPhotoRendersRouter = router({
           reused: false,
         });
       }
-      return { imageUrl: result.url, provenance: input.provenance, sourceImageHash: input.provenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
+      return { imageUrl: storedRender.url, provenance: input.provenance, sourceImageHash: input.provenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
     }),
 });
 

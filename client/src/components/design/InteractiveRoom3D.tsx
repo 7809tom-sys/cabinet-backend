@@ -5682,7 +5682,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
       sourceImageHash: string;
-      generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2";
+      generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1";
     };
   } | null>(null);
   const { user } = useAuth();
@@ -6267,13 +6267,35 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const currentSize = new THREE.Vector2();
     renderer.getSize(currentSize);
     const currentPixelRatio = renderer.getPixelRatio();
+    const maximumAnisotropy = renderer.capabilities.getMaxAnisotropy();
+    const materialMaps: THREE.Texture[] = [];
     try {
       renderer.setPixelRatio(1);
-      renderer.setSize(1280, 720, false);
-      camera.aspect = 1280 / 720;
+      // This is an exact-scene offline capture, not an AI reference screenshot.
+      // The larger locked canvas and supersampled material filtering are deliberately
+      // separate from interactive mobile quality tiers while the scene and camera stay
+      // untouched.
+      renderer.setSize(2560, 1440, false);
+      threeScene.traverse((node) => {
+        if (!(node instanceof THREE.Mesh)) return;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          if (!(material instanceof THREE.Material)) return;
+          const candidate = material as THREE.MeshStandardMaterial;
+          [candidate.map, candidate.normalMap, candidate.roughnessMap, candidate.metalnessMap].forEach((map) => {
+            if (!map) return;
+            map.anisotropy = maximumAnisotropy;
+            map.needsUpdate = true;
+            materialMaps.push(map);
+          });
+        });
+      });
+      camera.aspect = 2560 / 1440;
       camera.updateProjectionMatrix();
+      // Render twice to settle PBR textures, shadows, and the PMREM environment.
       renderer.render(threeScene, camera);
-      return renderer.domElement.toDataURL("image/jpeg", 0.9);
+      renderer.render(threeScene, camera);
+      return renderer.domElement.toDataURL("image/jpeg", 0.98);
     } catch {
       return null;
     } finally {
@@ -6281,6 +6303,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       renderer.setSize(currentSize.x, currentSize.y, false);
       camera.aspect = currentSize.x / currentSize.y;
       camera.updateProjectionMatrix();
+      materialMaps.forEach((map) => { map.needsUpdate = true; });
     }
   };
 
@@ -6841,7 +6864,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       camera: cameraSnapshot,
       materials,
       sourceImageHash,
-      generationMethod: "manual-final-review-gpt-image-2-high-v2" as const,
+      generationMethod: "manual-final-review-deterministic-webgl-v1" as const,
     };
     const sceneSignature = await hash(JSON.stringify({
       designId: provenance.designId,
@@ -6905,7 +6928,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       setPhotoRenderUrl(result.imageUrl);
       setPhotoRenderReused(result.reused);
       setPhotoRenderOpen(false);
-      toast.success(result.reused ? "Your saved photo-quality render is ready." : "Photo-quality render created.");
+      toast.success(result.reused ? "Your saved exact render is ready." : "High-resolution exact render created.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "The photo render could not be created. Please try again.";
       setPhotoRenderError(message);
@@ -7116,8 +7139,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      }}>
         <DialogContent className="max-w-md">
 	          <DialogHeader>
-	            <DialogTitle>Create photo-quality render</DialogTitle>
-	            <DialogDescription>This manual final-review request uses the locked 3D camera view and approved selected cabinet, countertop, flooring, and backsplash references. A new image is approximately $0.01.</DialogDescription>
+          <DialogTitle>Create high-resolution exact render</DialogTitle>
+          <DialogDescription>This manual final-review request creates a high-resolution deterministic render from the locked 3D camera, exact plan geometry, and selected cabinet, countertop, flooring, and backsplash materials. It does not ask AI to reinterpret the kitchen.</DialogDescription>
           </DialogHeader>
 	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 	            <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
@@ -7125,13 +7148,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          </div>
 	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><strong>Administrator test render.</strong> Use this to judge Photo Quality during testing. No customer lead is created and no customer contact information is required.</div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your Photo Quality kitchen image</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this Photo Quality request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and Photo Quality request. Mobile-number verification will be added when SMS service is activated.</label></div>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-36 w-full rounded-md border object-contain" /></div>}
-	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Creating your final image from this locked reference. The request cannot be cancelled after confirmation; your editable Designer plan is unchanged.</div>}
+          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact render from this locked scene. Your editable Designer plan is unchanged.</div>}
 	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}
-	          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Confirm ~$0.01 final image</Button></div>
+          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create exact high-resolution render</Button></div>
 	        </DialogContent>
 	      </Dialog>
 	      <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) { setPhotoRenderUrl(null); setPhotoRenderReused(false); setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>
-	        <DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>Photo-quality render</DialogTitle><DialogDescription>{photoRenderReused ? "Reused from the same saved plan, materials, and camera reference—no new image generation was requested." : "Created from the current exact Designer plan and camera view."}</DialogDescription></DialogHeader>{photoRenderUrl && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption>{photoRenderReferenceUrl ? <img src={photoRenderReferenceUrl} alt="Locked 3D Designer reference for photo render review" className="max-h-[55dvh] w-full rounded-md border object-contain" /> : <div className="flex h-48 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">The original locked reference is not available in this session.</div>}</figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">AI photo interpretation</figcaption><img src={photoRenderUrl} alt="Photo-quality rendering of the current exact Cabinet Dealz kitchen plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950"><strong>Review before sharing or ordering.</strong> The locked 2D/3D Designer plan, selected products, and pricing remain authoritative. If the AI image visibly adds, removes, moves, resizes, hides, or substitutes any cabinet, filler, opening, appliance, island, countertop, or selected product, discard the photo and use the locked Designer reference instead.</div><div className="flex justify-end"><a href={photoRenderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open or download</a></div></>}</DialogContent>
+        <DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>High-resolution exact render</DialogTitle><DialogDescription>{photoRenderReused ? "Reused from the same saved plan, materials, and camera—no new render was created." : "Deterministically rendered from the current exact Designer plan and camera view."}</DialogDescription></DialogHeader>{photoRenderUrl && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption>{photoRenderReferenceUrl ? <img src={photoRenderReferenceUrl} alt="Locked 3D Designer reference for exact render review" className="max-h-[55dvh] w-full rounded-md border object-contain" /> : <div className="flex h-48 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">The original locked reference is not available in this session.</div>}</figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">High-resolution exact render</figcaption><img src={photoRenderUrl} alt="High-resolution exact rendering of the current locked Cabinet Dealz kitchen plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div role="alert" className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-950"><strong>Exact-scene output.</strong> This image is rendered from the locked Designer scene, camera, and selected products; it does not use AI to redesign or reinterpret your kitchen. The saved 2D/3D plan and pricing remain authoritative.</div><div className="flex justify-end"><a href={photoRenderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open or download</a></div></>}</DialogContent>
 	      </Dialog>
     </section>
   );

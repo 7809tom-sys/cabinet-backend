@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exactPlanPrompt, normalizePhotoQualityMaterialUrl, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary } from "./designPhotoRenders";
+import { exactPlanPrompt, normalizePhotoQualityMaterialUrl, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary, readJpegDimensions } from "./designPhotoRenders";
 import { readFileSync } from "node:fs";
 
 describe("design photo render safeguards", () => {
@@ -92,12 +92,18 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('reusedPhotoQualityImage: args.reused');
   });
 
-  it("requests the supported high-quality image mode rather than a default screenshot-like result", () => {
+  it("persists a deterministic high-resolution exact-scene render rather than submitting the locked screenshot to an image interpreter", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
-    expect(source).toContain('model: "MODEL_GPT_IMAGE_2"');
-    expect(source).toContain('quality: "high"');
-    expect(source).toContain("manual-final-review-gpt-image-2-high-v2");
-    expect(source).toContain("lockedReferenceBytesHash");
-    expect(source).toContain("returned an unchanged Designer screenshot");
+    expect(source).toContain("manual-final-review-deterministic-webgl-v1");
+    expect(source).toContain("storagePut(");
+    expect(source).toContain("deterministic-webgl-high-resolution-v1");
+    expect(source).not.toContain("generateImage(");
+  });
+
+  it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {
+    // Minimal JPEG with a baseline SOF0 segment declaring a 2560 × 1440 capture.
+    const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);
+    expect(readJpegDimensions(bytes)).toEqual({ width: 2560, height: 1440 });
+    expect(() => readJpegDimensions(Buffer.from("not-a-jpeg"))).toThrow("must be a JPEG");
   });
 });
