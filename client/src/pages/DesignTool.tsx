@@ -183,6 +183,7 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { FillerAttributesDialog } from "@/components/design/FillerAttributesDialog";
+import { WindowAttributesDialog } from "@/components/design/WindowAttributesDialog";
 import { IslandAttributesDialog } from "@/components/design/IslandAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
@@ -5358,6 +5359,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [attrOpen, setAttrOpen] = useState(false);
   const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
   const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
+  const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
+  const [windowAttrOpen, setWindowAttrOpen] = useState(false);
+  const openWindowAttributes = useCallback((uid: string) => {
+    const opening = openings.find((candidate) => candidate.uid === uid);
+    if (!opening || opening.kind !== "window") return;
+    selectOpening(uid);
+    setWindowAttrUid(uid);
+    setWindowAttrOpen(true);
+    setAttrOpen(false);
+    setFillerAttrOpen(false);
+    setCabEditSheetOpen(false);
+  }, [openings, selectOpening]);
   const openFillerAttributes = useCallback((uid: string) => {
     const filler = placed.find((item) => item.uid === uid);
     if (!filler || !isFillerItem(filler)) return false;
@@ -6848,6 +6861,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       selectedCabinetUid={selectedUid}
       onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
+      onSelectOpening={selectOpening}
+      onOpenWindowEditor={openWindowAttributes}
 	      onRequestFiller={requestFillerAction}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
@@ -10540,6 +10555,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        onResizeStandalone={resizeStandaloneFiller}
 		        onRemove={removeFillerFromAttributes}
 		      />
+		      <WindowAttributesDialog
+		        opening={windowAttrUid ? openings.find((opening) => opening.uid === windowAttrUid) ?? null : null}
+		        room={room}
+		        open={windowAttrOpen}
+		        onOpenChange={(open) => {
+		          setWindowAttrOpen(open);
+		          if (!open) setWindowAttrUid(null);
+		        }}
+		        onChange={changeOpening}
+		        onDelete={(uid) => {
+		          deleteOpening(uid);
+		          setWindowAttrOpen(false);
+		          setWindowAttrUid(null);
+		        }}
+		      />
 
 		      {/* Right-click per-cabinet attributes editor */}
       <CabinetAttributesDialog
@@ -11193,7 +11223,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 catalogItems={interactive3dCatalogItems}
                 onAddCatalogItem={addFromInteractive3d}
                 onAddRangeHood={addRangeHoodFromInteractive3d}
-                onOpenCabinetEditor={openAttributes}
+	                onOpenCabinetEditor={openAttributes}
+	                onSelectOpening={selectOpening}
+	                onOpenWindowEditor={openWindowAttributes}
 	                onRequestFiller={requestFillerAction}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 onSyncCart={syncThreeDOrderWithCart}

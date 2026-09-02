@@ -113,6 +113,24 @@ export function isEqualHeightTwoDrawerBase(
   return /^2DB\d/.test(code) && drawerCount === 2;
 }
 
+/**
+ * Standard 3-DB bases use one 6-inch utility drawer over two equal deeper
+ * drawers. Active catalog rows intentionally leave drawerLayout/drawerHeight
+ * empty, so this family fallback is the shared rendering contract.
+ */
+export function threeDrawerBaseRowHeights(
+  cabinet: Pick<CabinetLike, "masterCode" | "numberOfDrawers">,
+  availableFaceHeightIn: number,
+  fallbackCount = 0,
+): number[] | null {
+  const code = String(cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const drawerCount = Math.max(0, Number(cabinet.numberOfDrawers) || fallbackCount);
+  if (!/^3DB\d/.test(code) || drawerCount !== 3 || !(availableFaceHeightIn > 0)) return null;
+  const top = Math.min(6, availableFaceHeightIn / 3);
+  const lower = (availableFaceHeightIn - top) / 2;
+  return [top, lower, lower];
+}
+
 const WORD_NUM: Record<string, number> = {
   single: 1, one: 1, two: 2, double: 2, three: 3, triple: 3,
   four: 4, five: 5, six: 6,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Trash2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, AlignCenterHorizontal } from "lucide-react";
-import { clampOpening, wallLength, type WallOpening, type RoomData } from "@/lib/design";
+import { clampOpening, formatEighthInches, wallLength, wallCeilingMin, type WallOpening, type RoomData } from "@/lib/design";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   room: RoomData;
   onChange: (o: WallOpening) => void;
   onDelete: () => void;
+  movementIncrementIn?: number;
 }
 
 // Inline editor shown in the contextual row when a door/window is selected.
@@ -19,7 +20,7 @@ interface Props {
 // numeric "from corner" inches field, and a Center button — so the opening can
 // be moved precisely without dragging. Dragging is hard on a phone, so these
 // tap targets are the reliable way to reposition a door/window there.
-export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) {
+export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementIncrementIn = 1 }: Props) {
   const { t } = useLanguage();
   // Windows and cased openings expose Height + Sill (sizeable like a doorway);
   // doors stay a standard 80" tall so only their width is editable.
@@ -28,6 +29,9 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
   const maxW = wallLen;
   // The largest valid offset keeps the whole opening on the wall.
   const maxOffset = Math.max(0, Math.round(wallLen - opening.width));
+  const wallCeilingIn = wallCeilingMin(room, opening.side);
+  const moveIncrement = Math.max(0.125, Math.round(movementIncrementIn * 8) / 8);
+  const moveIncrementLabel = Math.abs(moveIncrement - 1) < 0.001 ? "1 inch" : formatEighthInches(moveIncrement);
 
   // Local text state so the user can clear/retype without the value snapping
   // back mid-edit. We commit (clamped) on blur or Enter.
@@ -55,7 +59,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
   const commitHeight = () => {
     const n = parseFloat(heightText);
     if (Number.isFinite(n) && n > 0) {
-      onChange({ ...opening, height: Math.min(Math.max(6, n), 120) });
+      onChange(clampOpening({ ...opening, height: Math.min(Math.max(6, n), 120) }, room));
     } else {
       setHeightText(String(Math.round(opening.height)));
     }
@@ -63,14 +67,15 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
   const commitSill = () => {
     const n = parseFloat(sillText);
     if (Number.isFinite(n) && n >= 0) {
-      onChange({ ...opening, sill: Math.min(n, 96) });
+      onChange(clampOpening({ ...opening, sill: n }, room));
     } else {
       setSillText(String(Math.round(opening.sill)));
     }
   };
   const nudgeSill = (delta: number) => {
-    const nextSill = Math.min(Math.max(0, opening.sill + delta), 96);
-    onChange({ ...opening, sill: nextSill });
+    const nextOpening = clampOpening({ ...opening, sill: opening.sill + delta }, room);
+    const nextSill = nextOpening.sill;
+    onChange(nextOpening);
     setSillText(String(Math.round(nextSill)));
   };
 
@@ -147,7 +152,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
               type="number"
               inputMode="decimal"
               min={0}
-              max={96}
+              max={Math.max(0, wallCeilingIn - opening.height)}
               value={sillText}
               onChange={(e) => setSillText(e.target.value)}
               onBlur={commitSill}
@@ -161,20 +166,20 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
           <div className="flex items-center gap-1" aria-label="Window vertical position">
             <button
               type="button"
-              onClick={() => nudgeSill(-1)}
-              disabled={Math.round(opening.sill) <= 0}
-              title="Move window down 1 inch"
-              aria-label="Move window down 1 inch"
+              onClick={() => nudgeSill(-moveIncrement)}
+              disabled={opening.sill <= 0.001}
+              title={`Move window down ${moveIncrementLabel}`}
+              aria-label={`Move window down ${moveIncrementLabel}`}
               className={nudgeBtnClass}
             >
               <ChevronDown className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => nudgeSill(1)}
-              disabled={Math.round(opening.sill) >= 96}
-              title="Move window up 1 inch"
-              aria-label="Move window up 1 inch"
+              onClick={() => nudgeSill(moveIncrement)}
+              disabled={opening.sill >= wallCeilingIn - opening.height - 0.001}
+              title={`Move window up ${moveIncrementLabel}`}
+              aria-label={`Move window up ${moveIncrementLabel}`}
               className={nudgeBtnClass}
             >
               <ChevronUp className="h-4 w-4" />
@@ -190,8 +195,8 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
         <span className="text-[11px] font-medium text-muted-foreground">{t("dt_op_position")}</span>
         <button
           type="button"
-          onClick={() => nudge(-1)}
-          disabled={Math.round(opening.offset) <= 0}
+          onClick={() => nudge(-moveIncrement)}
+          disabled={opening.offset <= 0.001}
           title={t("dt_op_move_left")}
           aria-label={t("dt_op_move_left")}
           className={nudgeBtnClass}
@@ -216,8 +221,8 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
         <span className="text-foreground/60 text-[11px]">{t("dt_op_in")}</span>
         <button
           type="button"
-          onClick={() => nudge(1)}
-          disabled={Math.round(opening.offset) >= maxOffset}
+          onClick={() => nudge(moveIncrement)}
+          disabled={opening.offset >= maxOffset - 0.001}
           title={t("dt_op_move_right")}
           aria-label={t("dt_op_move_right")}
           className={nudgeBtnClass}

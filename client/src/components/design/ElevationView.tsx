@@ -19,7 +19,7 @@ import {
   FRAMED_STILE_CENTER_IN,
   normalizeDoorHardwareFramePosition,
 } from "@/lib/hardware";
-import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, threeDrawerBaseRowHeights, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
@@ -3199,8 +3199,17 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
         </>
       );
     }
-    // DRAWER BASE (all-drawer, no doors): equal-height drawers (2DB = 50/50, 3DB = 33/33/33).
-    const allDrawerRowHeights: number[] = Array.from({ length: drawerCount }, () => 100 / drawerCount);
+    // Drawer-only bases share the same family rules as thumbnails, selected
+    // details, and final 3D: 2-DB is 50/50; 3-DB is 6in over equal lower rows.
+    const availableDrawerFaceIn = Math.max(1, (cabinetHeightIn ?? 34.5) - (isWall ? 0 : 4.5));
+    const verifiedThreeDrawerRows = threeDrawerBaseRowHeights(
+      { masterCode, numberOfDrawers: drawerCount },
+      availableDrawerFaceIn,
+      drawerCount,
+    );
+    const allDrawerRowHeights: number[] = verifiedThreeDrawerRows
+      ? verifiedThreeDrawerRows.map((height) => (height / availableDrawerFaceIn) * 100)
+      : Array.from({ length: drawerCount }, () => 100 / drawerCount);
     return withFace(
       <>
         {Array.from({ length: drawerCount }).map((_, i) => {
@@ -3214,7 +3223,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
               {i > 0 && (
                 <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
               )}
-              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 24} faceHeightIn={(cabinetHeightIn ?? 34.5) / drawerCount} />
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} frameInsetPx={frameInsetPx} faceWidthIn={cabinetWidthIn ?? 24} faceHeightIn={verifiedThreeDrawerRows?.[i] ?? availableDrawerFaceIn / drawerCount} />
             </div>
           );
         })}

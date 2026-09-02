@@ -25,4 +25,26 @@ describe("CabinetDrawing 2-DB family", () => {
     expect(heights).toHaveLength(2);
     expect(heights[0]).toBeCloseTo(heights[1]!, 12);
   });
+
+  it("renders active 3-DB30 with a shallow top drawer and two equal deeper drawers", () => {
+    const markup = renderToStaticMarkup(createElement(CabinetDrawing, {
+      cabinet: {
+        masterCode: "3-DB30",
+        description: '30" 3 Drawer Base Cabinet',
+        category: "Base",
+        subCategory: "Drawer Base",
+        width: 30,
+        height: 34.5,
+        numberOfDoors: 0,
+        numberOfDrawers: 3,
+        drawerHeight: null,
+        drawerLayout: null,
+      },
+    }));
+
+    const heights = Array.from(markup.matchAll(/data-drawer-front-height="([^"]+)"/g)).map((match) => Number(match[1]));
+    expect(heights).toHaveLength(3);
+    expect(heights[0]).toBeLessThan(heights[1]!);
+    expect(heights[1]).toBeCloseTo(heights[2]!, 12);
+  });
 });

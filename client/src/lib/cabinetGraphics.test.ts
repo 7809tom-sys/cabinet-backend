@@ -8,6 +8,7 @@ import {
   resolveConfiguredFaceCounts,
   resolveDoorDrawerCounts,
   isEqualHeightTwoDrawerBase,
+  threeDrawerBaseRowHeights,
   standardDoorCountForFaceWidth,
   baseSubGroup,
   type CabinetLike,
@@ -24,6 +25,21 @@ describe("two-drawer base family", () => {
   it("does not change standard three-drawer or door-and-drawer bases", () => {
     expect(isEqualHeightTwoDrawerBase({ masterCode: "3-DB30", numberOfDrawers: 3 })).toBe(false);
     expect(isEqualHeightTwoDrawerBase({ masterCode: "B-30", numberOfDrawers: 1 })).toBe(false);
+  });
+});
+
+describe("three-drawer base family", () => {
+  it.each(["3-DB18", "3-DB21", "3-DB24", "3-DB27", "3-DB30", "3-DB33", "3-DB36"])(
+    "keeps %s as one 6-inch top drawer over two equal lower drawers",
+    (masterCode) => {
+      expect(threeDrawerBaseRowHeights({ masterCode, numberOfDrawers: 3 }, 30)).toEqual([6, 12, 12]);
+    },
+  );
+
+  it("does not apply the 3-DB rule to two-drawer, corner-drawer, or door-and-drawer cabinets", () => {
+    expect(threeDrawerBaseRowHeights({ masterCode: "2-DB30", numberOfDrawers: 2 }, 30)).toBeNull();
+    expect(threeDrawerBaseRowHeights({ masterCode: "CDB36", numberOfDrawers: 3 }, 30)).toBeNull();
+    expect(threeDrawerBaseRowHeights({ masterCode: "B-30", numberOfDrawers: 1 }, 30)).toBeNull();
   });
 });
 

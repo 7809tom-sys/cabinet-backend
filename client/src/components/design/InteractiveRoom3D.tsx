@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
-import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, resolveDoorDrawerCounts, standardDoorCountForFaceWidth } from "@/lib/cabinetGraphics";
+import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -410,6 +410,10 @@ interface Props {
   onSelectCabinet?: (uid: string) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
   onOpenCabinetEditor?: (uid: string) => void;
+  /** Selects an architectural opening in the authoritative host plan. */
+  onSelectOpening?: (uid: string) => void;
+  /** Opens the selected window's exact attributes controls. */
+  onOpenWindowEditor?: (uid: string) => void;
   /** Opens the host Designer's measured, catalog-backed add or edit filler choices. */
   onRequestFiller?: (uid: string) => void;
   /** Uses the same 90-degree cabinet rotation action as the 2D planner. */
@@ -619,6 +623,41 @@ export function threeDCabinetHitFromIntersections(
   return null;
 }
 
+export type ThreeDOpeningHit = {
+  uid: string;
+  kind: WallOpening["kind"];
+  label: string | null;
+};
+
+/** Resolve any visible opening mesh back to its saved architectural opening. */
+export function threeDOpeningHitFromObject(object: THREE.Object3D): ThreeDOpeningHit | null {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (typeof node.userData.openingUid === "string") {
+      return {
+        uid: node.userData.openingUid,
+        kind: node.userData.kind as WallOpening["kind"],
+        label: typeof node.userData.label === "string" ? node.userData.label : null,
+      };
+    }
+    node = node.parent;
+  }
+  return null;
+}
+
+export function threeDOpeningHitFromIntersections(
+  intersections: Array<Pick<THREE.Intersection, "object">>,
+): ThreeDOpeningHit | null {
+  for (const intersection of intersections) {
+    const hit = threeDOpeningHitFromObject(intersection.object);
+    if (hit) return hit;
+    // Stop at the first tagged physical object. A visible cabinet must keep
+    // its own context action rather than selecting a window behind it.
+    if (threeDCabinetHitFromObject(intersection.object)?.uid) return null;
+  }
+  return null;
+}
+
 /** Stamp exact saved-placement identity onto every visible part of a generated cabinet assembly. */
 export function applyThreeDPlacementIdentity(
   object: THREE.Object3D,
@@ -795,9 +834,46 @@ export function threeDFaceMaterialColor(color: string, hasProvidedDoorSample: bo
 /** Every structural cabinet surface follows the chosen finish; a supplied door sample supplies both its detail and hue. */
 export function threeDStructuralFinish(color: string, hasProvidedDoorSample: boolean) {
   return {
-    color,
-    usesDoorSample: false,
+    color: hasProvidedDoorSample ? "#ffffff" : color,
+    usesDoorSample: hasProvidedDoorSample,
   };
+}
+
+/**
+ * Cabinet boxes, finished ends, toe kicks, and crown need the selected wood or
+ * painted finish without projecting the framed-door geometry onto those flat
+ * structural surfaces. Crop the center of the verified door sample, where the
+ * uninterrupted finish lives, and reuse that crop across structural meshes.
+ */
+export function threeDStructuralSampleTexture(texture: THREE.Texture) {
+  const structural = texture.clone();
+  structural.wrapS = THREE.ClampToEdgeWrapping;
+  structural.wrapT = THREE.ClampToEdgeWrapping;
+  structural.repeat.set(0.42, 0.42);
+  structural.offset.set(0.29, 0.29);
+  structural.needsUpdate = true;
+  return structural;
+}
+
+export function applyThreeDStructuralFinishMaterials(
+  materials: THREE.MeshStandardMaterial[],
+  finishColor: string,
+  sampleTexture: THREE.Texture | null = null,
+) {
+  const structuralTexture = sampleTexture ? threeDStructuralSampleTexture(sampleTexture) : null;
+  for (const material of materials) {
+    material.color.set(structuralTexture ? "#ffffff" : finishColor);
+    material.map = structuralTexture;
+    material.roughness = structuralTexture ? 0.48 : 0.5;
+    material.needsUpdate = true;
+    material.userData = {
+      ...material.userData,
+      selectedFinishStructuralSurface: true,
+      usesDoorSample: Boolean(structuralTexture),
+      usesDoorImage: Boolean(structuralTexture),
+    };
+  }
+  return { color: structuralTexture ? "#ffffff" : finishColor, texture: structuralTexture };
 }
 
 /** Decorative end panels are opt-in; normal cabinet ends are plain finished skins. */
@@ -805,25 +881,6 @@ export function threeDDecorativeEndSides(treatment: SceneSku["decorativeEnd"] | 
   if (treatment === "left") return [-1];
   if (treatment === "right") return [1];
   return treatment === "both" ? [-1, 1] : [];
-}
-
-function threeDDoorTextureAverageColor(texture: THREE.Texture | null, fallback: string) {
-  if (!texture?.image || typeof document === "undefined") return fallback;
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return fallback;
-    context.drawImage(texture.image as CanvasImageSource, 0, 0, 1, 1);
-    const pixels = context.getImageData(0, 0, 1, 1).data;
-    const red = pixels[0];
-    const green = pixels[1];
-    const blue = pixels[2];
-    return `#${[red, green, blue].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-  } catch {
-    return fallback;
-  }
 }
 
 export function shouldRenderCountertopOverSceneItem(
@@ -1013,6 +1070,12 @@ export function resolvedThreeDDrawerRows(
     }
   } catch {
     // Older placements may not have a valid JSON drawer layout. Use counts.
+  }
+  const verifiedThreeDrawerRows = useShallowTopDrawer
+    ? threeDrawerBaseRowHeights(sku, availableHeight / INCH, count)
+    : null;
+  if (verifiedThreeDrawerRows) {
+    return verifiedThreeDrawerRows.map((heightIn) => ({ count: 1, height: heightIn * INCH }));
   }
   if (useShallowTopDrawer && count > 1 && availableHeight > 6 * INCH) {
     const topHeight = 6 * INCH;
@@ -1745,7 +1808,7 @@ export function addCabinet(
     ? { color: "#5f666d", roughness: 0.3, metalness: 0.58 }
     : { color: "#c6b9a7", roughness: 0.72 });
   const structuralFinishMaterials: THREE.MeshStandardMaterial[] = isRefrigeratorAppliance ? [] : [bodyMaterial];
-  let applyPlainStructuralFinish: ((finishColor: string) => void) | null = null;
+  let applyPlainStructuralFinish: ((finishColor: string, sampleTexture?: THREE.Texture | null) => void) | null = null;
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
@@ -1934,10 +1997,11 @@ export function addCabinet(
   const useDoorTexture = threeDUsesDoorSampleTexture(doorSampleUrl);
   const doorTexture = useDoorTexture && doorSampleUrl
     ? new THREE.TextureLoader().load(doorSampleUrl, (loadedTexture) => {
-      applyPlainStructuralFinish?.(threeDDoorTextureAverageColor(loadedTexture, color));
+      applyPlainStructuralFinish?.(color, loadedTexture);
       onDoorTextureState?.("loaded");
     }, undefined, () => {
       applyDoorTextureFallback();
+      applyPlainStructuralFinish?.(color, null);
       onDoorTextureState?.("failed");
     })
     : null;
@@ -1957,21 +2021,16 @@ export function addCabinet(
     : new THREE.MeshStandardMaterial({ color: faceColor, map: null, roughness: 0.42, metalness: 0.01 });
   const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
   let plainStructuralColor = structuralFinish.color;
-  const applyStructuralFinish = (finishColor: string) => {
-    plainStructuralColor = finishColor;
-    for (const material of structuralFinishMaterials) {
-    material.color.set(structuralFinish.color);
-    material.color.set(finishColor);
-    material.map = null;
-    material.roughness = 0.5;
-    material.needsUpdate = true;
-    material.userData = { selectedFinishStructuralSurface: true, usesDoorSample: false };
-    }
+  let structuralSampleTexture: THREE.Texture | null = null;
+  const applyStructuralFinish = (finishColor: string, sampleTexture: THREE.Texture | null = null) => {
+    const applied = applyThreeDStructuralFinishMaterials(structuralFinishMaterials, finishColor, sampleTexture);
+    plainStructuralColor = applied.color;
+    structuralSampleTexture = applied.texture;
   };
   applyPlainStructuralFinish = applyStructuralFinish;
-  applyStructuralFinish(structuralFinish.color);
+  applyStructuralFinish(color, null);
   if (doorTexture?.image) {
-    applyStructuralFinish(threeDDoorTextureAverageColor(doorTexture, color));
+    applyStructuralFinish(color, doorTexture);
   }
   const trimMaterial = new THREE.MeshStandardMaterial({ color: faceColor, map: doorTexture, roughness: 0.46, metalness: 0.01 });
   textureMaterials.push(faceMaterial);
@@ -1994,8 +2053,8 @@ export function addCabinet(
   // sample image or Shaker panel layout onto a cabinet end. The actual door sample
   // is reserved for true front meshes above; the carcass gets a flush finish skin.
   bodyMaterial.userData = isRefrigeratorAppliance
-    ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true, usesDoorImage: false }
-    : { selectedFinishSideSkin: true, usesDoorImage: false };
+    ? { ...bodyMaterial.userData, refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true, usesDoorImage: false }
+    : { ...bodyMaterial.userData, selectedFinishSideSkin: true, usesDoorImage: Boolean(bodyMaterial.map) };
   // Every decorative standard front must remain on the physical exterior of the
   // carcass. The former 0.015-ft group offset placed the inner face of a 0.045-
   // or 0.052-ft door mesh inside the box. Seat the deepest supported front just
@@ -3644,7 +3703,19 @@ export function addThreeDCrownMolding(
     if (!cabinet) continue;
     const crownHeight = 3 * INCH;
     const railThickness = 0.075;
-    const material = new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
+    const ownerGroup = root.children.find((node) => node.userData.placedUid === cabinet.uid);
+    let ownerFinishMaterial: THREE.MeshStandardMaterial | null = null;
+    ownerGroup?.traverse((node) => {
+      if (ownerFinishMaterial || !(node instanceof THREE.Mesh)) return;
+      const candidate = Array.isArray(node.material) ? node.material[0] : node.material;
+      if (candidate instanceof THREE.MeshStandardMaterial && candidate.userData.selectedFinishSideSkin === true) {
+        ownerFinishMaterial = candidate;
+      }
+    });
+    // Sharing the owner cabinet's structural material keeps asynchronous sample
+    // loading synchronized across its exposed side, toe kick, and crown.
+    const material = ownerFinishMaterial
+      ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
     const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownHeight, railThickness), material);
     rail.position.set(segment.center.x * INCH, (segment.top + 1.5) * INCH, segment.center.z * INCH);
     rail.rotation.y = segment.rotation;
@@ -3658,6 +3729,8 @@ export function addThreeDCrownMolding(
       exposedTopEdge: true,
       segment: segment.kind,
       continuousRunOverlap: true,
+      selectedFinishStructuralSurface: true,
+      sharesOwnerCabinetFinishMaterial: Boolean(ownerFinishMaterial),
     };
     root.add(rail);
   }
@@ -4369,7 +4442,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogDoorProfile, catalogFinishName, catalogCountertopName, catalogCountertopColor, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -4902,6 +4975,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     return selection;
   };
 
+  const inspectOpeningAtPoint = (clientX: number, clientY: number) => {
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const root = catalogRootRef.current;
+    if (!renderer || !camera || !root) return null;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    return threeDOpeningHitFromIntersections(raycaster.intersectObjects(root.children, true));
+  };
+
   const catalogDropTargetAtPoint = (clientX: number, clientY: number): ThreeDCatalogDropTarget | undefined => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
@@ -5000,6 +5085,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	  if ((event.target as Element | null)?.closest?.("[data-ui-overlay]")) return;
 	  pointerStartRef.current = { x: event.clientX, y: event.clientY, button: event.button };
     if (event.button !== 2 || !onMoveCabinetTo) return;
+    if (onOpenWindowEditor && inspectOpeningAtPoint(event.clientX, event.clientY)?.kind === "window") {
+      rightDragRef.current = null;
+      return;
+    }
     const selection = inspectCabinetAtPoint(event.clientX, event.clientY);
     const source = selection?.uid ? placed.find((cabinet) => cabinet.uid === selection.uid) ?? null : null;
     const movementRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
@@ -5291,7 +5380,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onContextMenu={(event) => { event.preventDefault(); if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onContextMenu={(event) => { event.preventDefault(); if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
         event.preventDefault();
         const key = event.dataTransfer.getData("text/plain") || draggedCatalogId || "";
         const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem;

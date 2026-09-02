@@ -3137,12 +3137,15 @@ export function wallLength(side: WallSide, room: RoomData): number {
   return side === "top" || side === "bottom" ? room.width : room.depth;
 }
 
-// Clamp an opening's offset so it stays within its wall.
+// Clamp an opening to its owning wall in both run and elevation directions.
 export function clampOpening(o: WallOpening, room: RoomData): WallOpening {
   const len = wallLength(o.side, room);
   const width = Math.max(6, Math.min(o.width, len));
   const offset = Math.max(0, Math.min(o.offset, len - width));
-  return { ...o, width, offset };
+  const ceiling = wallCeilingMin(room, o.side);
+  const height = Math.max(6, Math.min(o.height, ceiling));
+  const sill = Math.max(0, Math.min(o.sill, ceiling - height));
+  return { ...o, width, offset, height, sill };
 }
 
 export function makeOpening(def: OpeningDef, side: WallSide, room: RoomData): WallOpening {

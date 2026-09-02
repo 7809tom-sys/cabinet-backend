@@ -1221,3 +1221,14 @@
 - [x] Define one authoritative 2-DB family rule that produces exactly two equal-height drawer fronts for every available width
 - [x] Apply the equal two-drawer rule consistently to plan/elevation, final 3D meshes, cabinet thumbnails, and selected-cabinet details without changing physical dimensions
 - [x] Validate drawer hardware centering, catalog identity, selected style, price/cart lines, saved-design refresh, 2D/3D parity, and desktop/mobile behavior before publishing
+- [x] Reproduce why exposed cabinet sides, toe kicks, and crown molding remain flat mismatched colors while door and drawer fronts use the selected wood finish
+- [x] Make exposed sides, toe kicks, and crown use the same active selected-finish material/texture without recoloring appliances, countertops, or cabinet interiors incorrectly
+- [x] Reproduce the earlier W-1242 add failure using the reported hood layout and verify the selected wall identity, available opening, and error path
+- [x] Re-audit every normal, corner, drag/drop, snap, filler, panel, and cabinet-part placement path so the hood's physical upper-wall footprint is always occupied
+- [x] Audit active 3-drawer base Cabinet Config metadata and render the authoritative top/middle/bottom proportions consistently in thumbnails, elevation, details, and final 3D
+- [x] Validate finish continuity, W-1242 placement, hood blocking, 2-DB/3-DB drawer faces and hardware, pricing/cart, persistence, 2D/3D, and desktop/mobile behavior before publishing
+- [x] Make a 3D right-click on a window select its exact opening UID and open a dedicated window attributes popup
+- [x] Add up, down, left, and right window movement with selectable exact distance and one-eighth-inch precision
+- [x] Keep moved windows inside their owning wall and ceiling bounds while recomputing the required three-inch cabinet clearance conflicts
+- [x] Preserve 2D/3D synchronization, save/reload identity, wall ownership, opening dimensions, and desktop/tablet/mobile usability
+- [x] Validate window raycasting, movement, collision warnings, persistence, camera stability, and existing cabinet right-click behavior before publishing

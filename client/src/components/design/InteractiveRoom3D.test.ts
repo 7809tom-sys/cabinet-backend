@@ -8,12 +8,13 @@ import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
-import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
+import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
+import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
@@ -55,6 +56,16 @@ describe("interactive 3D room scene helpers", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("if (selection?.uid && onOpenCabinetEditor)");
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
+  });
+
+  it("opens Window Attributes with the exact saved opening UID before cabinet context handling", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain('openingSelection?.kind === "window" && onOpenWindowEditor');
+    expect(rendererSource).toContain("onSelectOpening?.(openingSelection.uid)");
+    expect(rendererSource).toContain("onOpenWindowEditor(openingSelection.uid)");
+    expect(designerSource).toContain("onOpenWindowEditor={openWindowAttributes}");
+    expect(designerSource).toContain("<WindowAttributesDialog");
   });
 
   it("right-drags cabinets, panels, fillers, floor appliances, and range hoods through one shared measured wall path in every 3D renderer", () => {
@@ -207,7 +218,52 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses every selected cabinet finish on structural surfaces, including texture-backed styles", () => {
     expect(threeDStructuralFinish("#4f5549", false)).toEqual({ color: "#4f5549", usesDoorSample: false });
-    expect(threeDStructuralFinish("#C8A040", true)).toEqual({ color: "#C8A040", usesDoorSample: false });
+    expect(threeDStructuralFinish("#C8A040", true)).toEqual({ color: "#ffffff", usesDoorSample: true });
+  });
+
+  it("crops the uninterrupted center finish from a door sample for sides and toe kicks without altering the framed door texture", () => {
+    const selectedSample = new THREE.Texture();
+    const side = new THREE.MeshStandardMaterial({ color: "#C8A040" });
+    const toeKick = new THREE.MeshStandardMaterial({ color: "#C8A040" });
+    side.userData = { selectedFinishSideSkin: true };
+    toeKick.userData = { baseToeKick: true };
+
+    const structuralSample = threeDStructuralSampleTexture(selectedSample);
+    expect(structuralSample).not.toBe(selectedSample);
+    expect(structuralSample.repeat.toArray()).toEqual([0.42, 0.42]);
+    expect(structuralSample.offset.toArray()).toEqual([0.29, 0.29]);
+    expect(selectedSample.repeat.toArray()).toEqual([1, 1]);
+    expect(selectedSample.offset.toArray()).toEqual([0, 0]);
+
+    const result = applyThreeDStructuralFinishMaterials([side, toeKick], "#C8A040", selectedSample);
+    expect(result.color).toBe("#ffffff");
+    expect(side.map).toBe(result.texture);
+    expect(toeKick.map).toBe(result.texture);
+    expect(side.color.getHexString()).toBe("ffffff");
+    expect(toeKick.color.getHexString()).toBe("ffffff");
+    expect(side.userData).toMatchObject({ selectedFinishSideSkin: true, selectedFinishStructuralSurface: true, usesDoorSample: true, usesDoorImage: true });
+    expect(toeKick.userData).toMatchObject({ baseToeKick: true, selectedFinishStructuralSurface: true, usesDoorSample: true, usesDoorImage: true });
+  });
+
+  it("shares the owning cabinet's selected structural finish material with its crown molding", () => {
+    const root = new THREE.Group();
+    const cabinet = new THREE.Group();
+    cabinet.userData = { placedUid: "wall-24" };
+    const material = new THREE.MeshStandardMaterial({ color: "#ffffff", map: new THREE.Texture() });
+    material.userData = { selectedFinishSideSkin: true, selectedFinishStructuralSurface: true, usesDoorSample: true };
+    cabinet.add(new THREE.Mesh(new THREE.BoxGeometry(2, 3.5, 1), material));
+    root.add(cabinet);
+
+    addThreeDCrownMolding(root, [{
+      uid: "wall-24", cabinetId: 24, masterCode: "W-24-42", description: "24 inch Wall Cabinet",
+      placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, rotation: 0,
+      mountBottom: 54, numberOfDoors: 2, numberOfDrawers: 0,
+    }], { width: 144, depth: 120, ceilingHeight: 96 }, { "wall-24": "#C8A040" }, "#C8A040");
+
+    const crown = root.children.find((node) => node.userData.crownMolding) as THREE.Mesh;
+    expect(crown).toBeTruthy();
+    expect(crown.material).toBe(material);
+    expect(crown.userData).toMatchObject({ selectedFinishStructuralSurface: true, sharesOwnerCabinetFinishMaterial: true });
   });
 
   it("uses a shallow six-inch drawer by default for every standard base cabinet with drawers and doors", () => {
@@ -422,6 +478,32 @@ describe("interactive 3D room scene helpers", () => {
       description: "36-inch Base Easy Reach corner cabinet",
       distributorSkuId: 936036,
     });
+  });
+
+  it("resolves a visible 3D window child mesh to its exact saved opening UID", () => {
+    const windowRoot = new THREE.Group();
+    windowRoot.userData = { openingUid: "window-42", kind: "window", label: "Kitchen window" };
+    const frame = new THREE.Group();
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.1));
+    windowRoot.add(frame);
+    frame.add(glass);
+
+    expect(threeDOpeningHitFromObject(glass)).toEqual({
+      uid: "window-42",
+      kind: "window",
+      label: "Kitchen window",
+    });
+    expect(threeDOpeningHitFromIntersections([
+      { object: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)) },
+      { object: glass },
+    ])).toEqual({ uid: "window-42", kind: "window", label: "Kitchen window" });
+
+    const visibleCabinet = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    applyThreeDPlacementIdentity(visibleCabinet, { uid: "cabinet-in-front", masterCode: "W-30-42" });
+    expect(threeDOpeningHitFromIntersections([
+      { object: visibleCabinet },
+      { object: glass },
+    ])).toBeNull();
   });
 
   it("skips untagged room geometry and resolves the visible BER36 countertop to its exact placement UID", () => {
@@ -1985,7 +2067,7 @@ describe("interactive 3D room scene helpers", () => {
     const usableHeight = 34.5 / 12 - 0.08;
     const drawerZone = layout.doorCount === 0 && !layout.hasConfiguredOpening ? usableHeight : usableHeight * 0.35;
     expect(drawerZone).toBeCloseTo(usableHeight, 12);
-    const rows = resolvedThreeDDrawerRows({ drawerLayout: null }, drawerZone, layout.drawerCount, true);
+    const rows = resolvedThreeDDrawerRows({ masterCode: "3-DB30", numberOfDoors: 0, numberOfDrawers: 3, drawerLayout: null }, drawerZone, layout.drawerCount, true);
     expect(rows[0]).toEqual({ count: 1, height: 0.5 });
     expect(rows.slice(1).map((row) => row.height)).toEqual([
       expect.closeTo((usableHeight - 0.5) / 2, 12),
