@@ -31,8 +31,9 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain('if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet")');
     expect(designToolSource).toContain("addRecommendedSurface(item, role);");
     expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');
-    expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(mappedCountertopTexture)');
-    expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorTexture)');
+    expect(rendererSource).toContain('authoritativeWebsiteProductImage: !source.proceduralFallback');
+    expect(rendererSource).toContain('representativePreview: source.proceduralFallback');
+    expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorSource && !floorSource.proceduralFallback)');
     expect(rendererSource).toContain('curatedSurfaceKey: source.key');
     expect(rendererSource).toContain('worldSlabMapped: Boolean(mappedCountertopTexture?.userData?.worldSlabMapped)');
     expect(rendererSource).toContain('source.flooringPatternKind === "plank"');

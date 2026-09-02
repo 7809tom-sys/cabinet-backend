@@ -535,6 +535,8 @@ export type ThreeDProductMaterialSource = {
   url: string;
   key: string | null;
   curated: boolean;
+  /** Deterministic no-photo preview used while an exact product awaits an approved swatch. */
+  proceduralFallback: boolean;
   physicalWidthIn: number | null;
   physicalDepthIn: number | null;
   sourceProductName: string | null;
@@ -598,10 +600,11 @@ export function threeDProductMaterialSource(
     : null;
   if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
     return {
-      url: THREE_D_AVELINE_20MIL_FLOOR_URL,
-      key: "aveline-20mil-7x48",
-      curated: true,
-      physicalWidthIn: 192,
+	      url: THREE_D_AVELINE_20MIL_FLOOR_URL,
+	      key: "aveline-20mil-7x48",
+	      curated: true,
+	      proceduralFallback: false,
+	      physicalWidthIn: 192,
       physicalDepthIn: 84,
       sourceProductName: productName ?? null,
       flooringPatternKind: "plank",
@@ -612,10 +615,11 @@ export function threeDProductMaterialSource(
   }
   if (role === "countertop" && normalizedName === "calacatta oro 3cm super jumbo") {
     return {
-      url: THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL,
-      key: "calacatta-oro-138x79",
-      curated: true,
-      physicalWidthIn: 138,
+	      url: THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL,
+	      key: "calacatta-oro-138x79",
+	      curated: true,
+	      proceduralFallback: false,
+	      physicalWidthIn: 138,
       physicalDepthIn: 79,
       sourceProductName: productName ?? null,
       flooringPatternKind: null,
@@ -624,19 +628,118 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: null,
     };
   }
-  if (!originalUrl) return null;
-  return {
-    url: originalUrl,
-    key: null,
-    curated: false,
-    physicalWidthIn: null,
+	// Shopper-facing room and product-card imagery is never allowed into this
+	// texture path. A selected product without an approved swatch still receives
+	// a visible deterministic representative material, not a missing surface.
+	if (!originalUrl) {
+		if (!productName?.trim()) return null;
+		return {
+			url: "",
+			key: `representative-${role}`,
+			curated: false,
+			proceduralFallback: true,
+			physicalWidthIn: role === "countertop" ? 138 : null,
+			physicalDepthIn: role === "countertop" ? 79 : null,
+			sourceProductName: productName,
+			flooringPatternKind: flooringProfile?.kind ?? null,
+			plankWidthIn: flooringProfile?.plankWidthIn ?? null,
+			plankLengthIn: flooringProfile?.plankLengthIn ?? null,
+			staggerOffsetsIn: flooringProfile?.staggerOffsetsIn ?? null,
+		};
+	}
+	return {
+	  url: originalUrl,
+	  key: null,
+	  curated: false,
+	  proceduralFallback: false,
+	  physicalWidthIn: null,
     physicalDepthIn: null,
     sourceProductName: productName ?? null,
     flooringPatternKind: flooringProfile?.kind ?? null,
     plankWidthIn: flooringProfile?.plankWidthIn ?? null,
     plankLengthIn: flooringProfile?.plankLengthIn ?? null,
     staggerOffsetsIn: flooringProfile?.staggerOffsetsIn ?? null,
-  };
+	};
+}
+
+/** Stable seed used only to vary a neutral representative material preview. */
+function threeDMaterialPreviewSeed(value: string | null | undefined) {
+	return Array.from(value ?? "").reduce((seed, char) => ((seed * 31) + char.charCodeAt(0)) >>> 0, 2166136261);
+}
+
+/**
+ * In-memory neutral material fields retain visual surface feedback while a
+ * selected catalog product awaits an admin-approved material-only swatch. They
+ * cannot contain retail labels, framed samples, room photography, or geometry.
+ */
+function threeDRepresentativeSurfaceTexture(role: ThreeDProductSurfaceRole, source: ThreeDProductMaterialSource): THREE.CanvasTexture | null {
+	if (typeof document === "undefined") return null;
+	const canvas = document.createElement("canvas");
+	const context = canvas.getContext("2d");
+	if (!context) return null;
+	const seed = threeDMaterialPreviewSeed(source.sourceProductName);
+	const tone = seed % 18;
+
+	if (role === "flooring" && source.flooringPatternKind === "plank") {
+		const profile = threeDPlankAtlasProfile(source.plankWidthIn ?? 7, source.plankLengthIn ?? 48);
+		canvas.width = 768;
+		canvas.height = Math.max(180, Math.round(canvas.width * profile.physicalDepthIn / profile.physicalWidthIn));
+		const rowHeight = canvas.height / profile.rows;
+		const boardWidth = canvas.width / profile.columns;
+		for (let row = 0; row < profile.rows; row += 1) {
+			const lightness = 34 + ((tone + row * 5) % 14);
+			context.fillStyle = `hsl(${25 + ((seed + row * 7) % 24)} ${20 + (seed % 12)}% ${lightness}%)`;
+			context.fillRect(0, row * rowHeight, canvas.width, rowHeight);
+			const offset = (profile.staggerOffsetsIn[row] / (source.plankLengthIn ?? 48)) * boardWidth;
+			context.strokeStyle = "rgba(48,35,24,0.48)";
+			context.lineWidth = 1.2;
+			context.beginPath();
+			context.moveTo(0, row * rowHeight + 0.6);
+			context.lineTo(canvas.width, row * rowHeight + 0.6);
+			for (let x = -offset; x <= canvas.width + boardWidth; x += boardWidth) {
+				context.moveTo(x, row * rowHeight + 1);
+				context.lineTo(x, (row + 1) * rowHeight - 1);
+			}
+			context.stroke();
+		}
+	} else if (role === "backsplash") {
+		canvas.width = 240;
+		canvas.height = 240;
+		context.fillStyle = `hsl(${30 + (seed % 26)} ${9 + (seed % 12)}% ${78 + (tone % 11)}%)`;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		context.strokeStyle = "rgba(91,86,79,0.46)";
+		context.lineWidth = 5;
+		context.strokeRect(2.5, 2.5, canvas.width - 5, canvas.height - 5);
+		context.strokeStyle = "rgba(255,255,255,0.22)";
+		context.lineWidth = 2;
+		context.beginPath();
+		context.moveTo(10, 14);
+		context.lineTo(canvas.width - 14, 10);
+		context.stroke();
+	} else if (role === "countertop") {
+		canvas.width = 690;
+		canvas.height = 395;
+		context.fillStyle = `hsl(${28 + (seed % 24)} ${7 + (seed % 10)}% ${74 + (tone % 13)}%)`;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		for (let vein = 0; vein < 7; vein += 1) {
+			const y = 30 + ((seed >>> (vein % 16)) % Math.max(1, canvas.height - 60));
+			context.strokeStyle = vein % 2 ? "rgba(121,111,99,0.26)" : "rgba(255,255,255,0.46)";
+			context.lineWidth = 1.2 + ((seed + vein) % 3);
+			context.beginPath();
+			context.moveTo(-30, y);
+			context.bezierCurveTo(canvas.width * 0.24, y - 44, canvas.width * 0.66, y + 48, canvas.width + 30, y + ((vein % 3) - 1) * 32);
+			context.stroke();
+		}
+	} else {
+		canvas.width = 320;
+		canvas.height = 320;
+		context.fillStyle = `hsl(${25 + (seed % 25)} 13% ${63 + (tone % 16)}%)`;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+	}
+	const texture = new THREE.CanvasTexture(canvas);
+	texture.colorSpace = THREE.SRGBColorSpace;
+	texture.userData = { representativePreview: true, materialOnlyNoGeometryChange: true };
+	return texture;
 }
 
 export function threeDProductSurfaceTextureTransform(
@@ -4786,7 +4889,7 @@ function addThreeDBacksplash(
       side: THREE.DoubleSide,
       ...threeDPhysicalSurfaceProfile("backsplash", true),
     });
-    material.userData = { selectedSurfaceRole: "backsplash", usesAuthoritativeProductImage: true, tileModuleIn: THREE_D_BACKSPLASH_TILE_SIZE_IN, continuousTileField: true, materialOnlyNoGeometryChange: true };
+    material.userData = { selectedSurfaceRole: "backsplash", usesAuthoritativeProductImage: !sourceTexture.userData?.representativePreview, representativePreview: Boolean(sourceTexture.userData?.representativePreview), tileModuleIn: THREE_D_BACKSPLASH_TILE_SIZE_IN, continuousTileField: true, materialOnlyNoGeometryChange: true };
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthIn * INCH, heightIn * INCH), material);
     const transform = threeDBacksplashTransform(segment, room);
     mesh.position.set(transform.x * INCH, transform.y * INCH, transform.z * INCH);
@@ -5621,7 +5724,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      depthIn: number,
 	    ) => {
 	      if (!source) return null;
-	      const texture = textureLoader.load(source.url, (loadedTexture) => {
+	      const texture = source.proceduralFallback
+	        ? threeDRepresentativeSurfaceTexture(role, source)
+	        : textureLoader.load(source.url, (loadedTexture) => {
 	        if (!source.curated && role === "flooring" && source.flooringPatternKind === "plank" && source.plankWidthIn && source.plankLengthIn) {
 	          (loadedTexture as THREE.Texture<HTMLImageElement | HTMLCanvasElement>).image = normalizedThreeDPlankImage(
 	            loadedTexture.image,
@@ -5647,6 +5752,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        }
 	        loadedTexture.needsUpdate = true;
 	      });
+	      if (!texture) return null;
 	      texture.colorSpace = THREE.SRGBColorSpace;
 	      texture.anisotropy = Math.min(renderQuality.maxAnisotropy, renderer.capabilities.getMaxAnisotropy());
 	      const transform = threeDProductSurfaceTextureTransform(role, source, widthIn, depthIn);
@@ -5658,7 +5764,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	      texture.rotation = transform.rotation;
 	      texture.userData = {
 	        selectedSurfaceRole: role,
-	        authoritativeWebsiteProductImage: true,
+	        authoritativeWebsiteProductImage: !source.proceduralFallback,
+	        approvedMaterialSwatch: !source.proceduralFallback,
+	        representativePreview: source.proceduralFallback,
 	        curatedSurfaceKey: source.key,
 	        curatedFromManufacturerSource: source.curated,
 	        sourceProductName: source.sourceProductName,
@@ -5703,7 +5811,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    });
 	    floorMaterial.userData = {
 	      selectedSurfaceRole: "flooring",
-	      usesAuthoritativeProductImage: Boolean(floorTexture),
+	      usesAuthoritativeProductImage: Boolean(floorSource && !floorSource.proceduralFallback),
+	      representativePreview: Boolean(floorSource?.proceduralFallback),
 	      materialOnlyNoGeometryChange: true,
 	    };
 	    const floor = new THREE.Mesh(

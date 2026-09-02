@@ -133,9 +133,24 @@ describe("interactive 3D room scene helpers", () => {
 		    const sheet = threeDProductMaterialSource("flooring", "Commercial Sheet Vinyl", "/sheet.jpg", { category: "Flooring", subCategory: "Sheet", size: null });
 		    expect(sheet).toMatchObject({ flooringPatternKind: "sheet", plankWidthIn: null, plankLengthIn: null, staggerOffsetsIn: null });
 		    expect(threeDProductSurfaceTextureTransform("flooring", sheet!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
-		    const unknown = threeDProductMaterialSource("flooring", "Custom Floor Finish", "/custom.jpg", { category: "Flooring", subCategory: null, size: null });
-		    expect(unknown).toMatchObject({ flooringPatternKind: "unknown", plankWidthIn: null, plankLengthIn: null, staggerOffsetsIn: null });
-		    expect(threeDProductSurfaceTextureTransform("flooring", unknown!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
+			const unknown = threeDProductMaterialSource("flooring", "Custom Floor Finish", "/custom.jpg", { category: "Flooring", subCategory: null, size: null });
+			expect(unknown).toMatchObject({ flooringPatternKind: "unknown", plankWidthIn: null, plankLengthIn: null, staggerOffsetsIn: null });
+			expect(threeDProductSurfaceTextureTransform("flooring", unknown!, 120, 96)).toEqual({ wrap: "repeat", repeatX: 5, repeatY: 4, offsetX: 0, offsetY: 0, rotation: 0 });
+		  });
+
+		  it("keeps a swatch-pending selected surface visibly represented without loading its catalog photo", () => {
+			const floor = threeDProductMaterialSource("flooring", "Harbor Oak Luxury Vinyl Plank", null, {
+				category: "Flooring", subCategory: "Planks & Flooring", size: '7" x 48"',
+			});
+			expect(floor).toMatchObject({
+				url: "", key: "representative-flooring", curated: false, proceduralFallback: true,
+				flooringPatternKind: "plank", plankWidthIn: 7, plankLengthIn: 48,
+			});
+			const counter = threeDProductMaterialSource("countertop", "Selected Quartz", null);
+			expect(counter).toMatchObject({ key: "representative-countertop", proceduralFallback: true, physicalWidthIn: 138, physicalDepthIn: 79 });
+			const backsplash = threeDProductMaterialSource("backsplash", "Selected Tile", null);
+			expect(backsplash).toMatchObject({ key: "representative-backsplash", proceduralFallback: true });
+			expect(threeDProductMaterialSource("flooring", null, null)).toBeNull();
 		  });
 
 		  it("normalizes flooring UVs without moving a single room-plan vertex", () => {
