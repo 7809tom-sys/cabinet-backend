@@ -6898,7 +6898,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // final 3D scene accepts only an explicitly approved, repeatable swatch;
       // named curated assets are resolved separately by the 3D renderer.
       if (role === "flooring" && selected?.id != null) {
-        return selected.materialImageUrl ?? approvedFlooringSwatchByProductId[Number(selected.id)] ?? null;
+        // Restore the original floor-selection behavior: the exact selected
+        // flooring image remains the usable fallback when a catalog record has
+        // not yet received an approved 3D swatch. Known product-specific
+        // curated maps still take precedence; countertop and backsplash stay
+        // material-swatch-only because their staged images are unsafe fields.
+        return selected.materialImageUrl
+          ?? approvedFlooringSwatchByProductId[Number(selected.id)]
+          ?? selected.imageUrl
+          ?? null;
       }
       return selected?.materialImageUrl ?? null;
     };
