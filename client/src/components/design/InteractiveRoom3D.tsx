@@ -4861,6 +4861,28 @@ function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
   return { start, end: start + span };
 }
 
+/**
+ * A Lazy Susan is one ground-level L-corner countertop support, so it carries
+ * backsplash on both wall-facing legs. Other base cabinets continue to support
+ * only their owning room wall. This adds wall coverage only—it never changes
+ * the saved corner footprint, cabinet placement, countertop, or camera.
+ */
+export function threeDBacksplashSupportSpans(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
+  if (!threeDSupportsBacksplash(cabinet, room)) return [];
+  const cornerKind = placedCornerGeometryKind(cabinet);
+  const isLazySusan = cabinet.cornerType === "lazy-susan" || /(?:^|[-\s])LS|LAZY\s*SUSAN/i.test(`${cabinet.masterCode} ${cabinet.description ?? ""}`);
+  if (cornerKind !== "l-shape" || !isLazySusan) {
+    return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side)] : [];
+  }
+  const footprint = placedFootprint(cabinet);
+  const wallToleranceIn = 0.5;
+  if (side === "top" && cabinet.y <= wallToleranceIn) return [{ start: cabinet.x, end: cabinet.x + footprint.w }];
+  if (side === "bottom" && cabinet.y + footprint.d >= room.depth - wallToleranceIn) return [{ start: cabinet.x, end: cabinet.x + footprint.w }];
+  if (side === "left" && cabinet.x <= wallToleranceIn) return [{ start: cabinet.y, end: cabinet.y + footprint.d }];
+  if (side === "right" && cabinet.x + footprint.w >= room.width - wallToleranceIn) return [{ start: cabinet.y, end: cabinet.y + footprint.d }];
+  return [];
+}
+
 function mergeThreeDIntervals(intervals: Array<{ start: number; end: number }>) {
   const ordered = intervals
     .filter((interval) => interval.end - interval.start > 0.001)
@@ -4906,8 +4928,8 @@ export function threeDBacksplashSegments(
   const segments: ThreeDBacksplashSegment[] = [];
   for (const side of sides) {
     const wallItems = placed.filter((cabinet) => !cabinet.islandFace && cabinetWall(cabinet, room) === side);
-    const supportIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) =>
-      threeDSupportsBacksplash(cabinet, room) ? [threeDWallRunSpan(cabinet, side)] : [],
+    const supportIntervals = mergeThreeDIntervals(placed.flatMap((cabinet) =>
+      cabinet.islandFace ? [] : threeDBacksplashSupportSpans(cabinet, side, room),
     ));
     const rangeIntervals = mergeThreeDIntervals(wallItems.flatMap((cabinet) => {
       if (cabinet.islandFace || cabinetWall(cabinet, room) !== side || cabinet.placement !== "appliance") return [];

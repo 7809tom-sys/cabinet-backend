@@ -15,7 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
@@ -226,7 +226,7 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
 		  });
 
-		  it("continues backsplash above every countertop-height base component and under-counter appliance", () => {
+	  it("continues backsplash above every countertop-height base component and under-counter appliance", () => {
 		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 		    const base = { uid: "base-1", masterCode: "B-24", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
 		    const filler = { uid: "filler-1", masterCode: "FILL-3", description: '3" Filler', placement: "base", x: 24, y: 0, width: 3, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
@@ -236,8 +236,19 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(threeDSupportsBacksplash(filler, room)).toBe(true);
 		    expect(threeDSupportsBacksplash(dishwasher, room)).toBe(true);
 		    expect(threeDSupportsBacksplash(refrigerator, room)).toBe(false);
-		    expect(threeDBacksplashSegments([base, filler, dishwasher, refrigerator], [], room)).toContainEqual({ side: "top", start: 0, end: 51, bottom: 36, top: 54 });
-		  });
+	    expect(threeDBacksplashSegments([base, filler, dishwasher, refrigerator], [], room)).toContainEqual({ side: "top", start: 0, end: 51, bottom: 36, top: 54 });
+	  });
+
+	  it("wraps backsplash around both countertop-supported wall legs of a Lazy Susan base corner", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const lazySusan = { uid: "ls-top-left", masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, cornerType: "lazy-susan", islandFace: null } as PlacedCabinet;
+	    expect(threeDBacksplashSupportSpans(lazySusan, "top", room)).toEqual([{ start: 0, end: 36 }]);
+	    expect(threeDBacksplashSupportSpans(lazySusan, "left", room)).toEqual([{ start: 0, end: 36 }]);
+	    expect(threeDBacksplashSegments([lazySusan], [], room)).toEqual(expect.arrayContaining([
+	      { side: "top", start: 0, end: 36, bottom: 36, top: 54 },
+	      { side: "left", start: 0, end: 36, bottom: 36, top: 54 },
+	    ]));
+	  });
 
 	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;

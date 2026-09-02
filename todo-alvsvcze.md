@@ -1368,5 +1368,5 @@
 - [x] Ensure a customer requesting an already-cached Photo Quality image still creates the required CRM follow-up lead without triggering a second image charge
 - [x] Complete the Photo Quality contact-and-consent lead flow now, with SMS verification displayed as a future activation step until the owner configures an SMS provider
 - [x] Allow administrators to create and judge Photo Quality test renders during testing without requiring customer contact capture, while customer-facing requests remain lead-gated
-- [ ] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
+- [x] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
 - [ ] Add product-specific backsplash pattern treatment beyond the corrected Desert Clay mosaic so other selected tile patterns do not receive a generic square field
