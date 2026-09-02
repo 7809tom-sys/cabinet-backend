@@ -595,6 +595,7 @@ const THREE_D_CARBON_HEX_MOSAIC_URL = "/manus-storage/carbon_hex_candidate_1_2af
 const THREE_D_CARRARA_SUBWAY_MOSAIC_URL = "/manus-storage/carrara_subway_11_97x12_13_running_bond_f57029f6.webp";
 const THREE_D_CLOUDLINE_MARBLE_MOSAIC_URL = "/manus-storage/cloudline_marble_11_81x11_81_staggered_mosaic_32c5408e.webp";
 const THREE_D_CONCORD_SQUARE_MOSAIC_URL = "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp";
+const THREE_D_GLACIER_SHIFT_HERRINGBONE_URL = "/manus-storage/glacier_shift_12_05x12_05_recycled_glass_herringbone_3f2c6eb9.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -807,6 +808,24 @@ export function threeDProductMaterialSource(
 			staggerOffsetsIn: null,
 			backsplashPatternKind: "interlocking-mosaic",
 			backsplashModuleIn: 11.81,
+			backsplashGroutJointIn: 1 / 16,
+		};
+	}
+	if (role === "backsplash" && normalizedName === "glacier shift") {
+		return {
+			url: THREE_D_GLACIER_SHIFT_HERRINGBONE_URL,
+			key: "glacier-shift-12.05in-recycled-glass-herringbone",
+			curated: true,
+			proceduralFallback: false,
+			physicalWidthIn: 12.05,
+			physicalDepthIn: 12.05,
+			sourceProductName: productName ?? null,
+			flooringPatternKind: null,
+			plankWidthIn: null,
+			plankLengthIn: null,
+			staggerOffsetsIn: null,
+			backsplashPatternKind: "interlocking-mosaic",
+			backsplashModuleIn: 12.05,
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}

@@ -135,10 +135,15 @@ describe("interactive 3D room scene helpers", () => {
 							backsplashPatternKind: "subway-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
 						});
 				expect(threeDProductMaterialSource("backsplash", "Concord Square", "/manus-storage/pelican/164_7f2e1c1b.png")).toMatchObject({
-							url: "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp", key: "concord-square-11.81in-glass-marble-mosaic",
-							curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
-							backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
-						});
+						url: "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp", key: "concord-square-11.81in-glass-marble-mosaic",
+						curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
+						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
+					});
+				expect(threeDProductMaterialSource("backsplash", "Glacier Shift", "/manus-storage/pelican/242_approved.png")).toMatchObject({
+						url: "/manus-storage/glacier_shift_12_05x12_05_recycled_glass_herringbone_3f2c6eb9.webp", key: "glacier-shift-12.05in-recycled-glass-herringbone",
+						curated: true, proceduralFallback: false, physicalWidthIn: 12.05, physicalDepthIn: 12.05,
+						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 12.05, backsplashGroutJointIn: 1 / 16,
+					});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
