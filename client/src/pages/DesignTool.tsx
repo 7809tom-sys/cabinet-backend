@@ -6941,7 +6941,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
-    return <InteractiveRoom3D
+	    return <InteractiveRoom3D
+		      key={`active-floor-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}
 		      embedded
 		      hybridPlanUnderlay={hybridPlanUnderlay}
 		      catalogDragItem={interactive3dCatalogDragItem}
@@ -11344,7 +11345,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
-		              <InteractiveRoom3D
+	              <InteractiveRoom3D
+		                key={`active-floor-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}
 		                scene={resolvedInteractive3dScene}
 		                placed={threeDPlaced}
 		                crown={crown}

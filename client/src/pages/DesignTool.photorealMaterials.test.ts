@@ -24,6 +24,8 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\") ?? null;");
 	    expect(designToolSource).toContain("82: \"/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp\"");
 	    expect(designToolSource).toContain("40: \"/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp\"");
+	    expect(designToolSource).toContain('key={`active-floor-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}');
+	    expect(designToolSource).toContain('key={`active-floor-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}');
 	    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
