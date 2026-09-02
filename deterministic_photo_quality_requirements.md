@@ -31,6 +31,21 @@ The owner confirmed that the captured result is visually the same kitchen image 
 
 The production workflow requires an actual higher-fidelity deterministic renderer with authored PBR material maps, stronger physically consistent lighting, and a fixed output camera. It must not submit the locked scene to an image reinterpretation model.
 
+### Gemini-level acceptance bar — 2026-09-02
+
+The owner supplied a Gemini-rendered kitchen image as the **minimum visual-quality benchmark**. The CabinetDealz production render must approach its natural daylight balance, cabinet depth, countertop reflection, mosaic definition, floor detail, appliance realism, contact shadows, and clean enlarged image quality. The Gemini image is a visual-quality benchmark only; it must never replace the saved CabinetDealz layout, insert or remove cabinets or openings, substitute products or material identities, or alter the saved camera. Any render below this bar remains an internal administrator test and cannot be called Photo Quality or exposed as a customer final render.
+
+## Production-candidate acceptance contract
+
+| Area | Required testable condition | Failure outcome |
+| --- | --- | --- |
+| Scene and camera | The candidate is built from a cloned live Three.js scene and cloned saved camera; no generated or reference-image geometry may be inserted. | Reject the candidate. |
+| Product identity | Each cabinet, countertop, flooring, backsplash, appliance, fixture, and opening remains tied to the locked scene/provenance identity. | Reject the candidate. |
+| Material source | Only the selected product’s approved material swatch or a declared deterministic safe fallback may be used. Catalog room photos and product-card imagery remain display-only. | Reject the candidate. |
+| Lighting | A deterministic physical studio/daylight rig may be added only to the clone; it may not change the original saved scene or claim to be the catalog room-scene image. | Internal candidate only until visually approved. |
+| Output quality | The candidate must render at least 1920×1080, use a converged sampling profile, preserve material detail after denoising, and provide the full-resolution file for enlarged review. | Keep as an internal test. |
+| Visual approval | The owner must approve natural lighting, material depth, cabinetry, surfaces, appliances, shadows, reflections, and enlargement quality against the Gemini benchmark. | Do not use the Photo Quality label or customer workflow. |
+
 ## Feasibility options
 
 1. **In-app deterministic renderer**: use the current Three.js scene with a dedicated high-resolution offline capture profile and upgraded material/lighting assets. This is the shortest implementation path and preserves current geometry exactly.

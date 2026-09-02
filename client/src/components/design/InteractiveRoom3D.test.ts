@@ -15,7 +15,7 @@ import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement,
 import { placedCornerGeometryKind } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const baseScene: InteractiveRoomScene = {
@@ -36,8 +36,8 @@ describe("interactive 3D room scene helpers", () => {
 	    });
 	  });
 
-	  it("defines physically based cabinet and selected-surface profiles independently from plan geometry", () => {
-	    expect(threeDPhysicalSurfaceProfile("cabinet", true)).toMatchObject({ roughness: 0.44, metalness: 0, clearcoat: 0.06 });
+		  it("defines physically based cabinet and selected-surface profiles independently from plan geometry", () => {
+		    expect(threeDPhysicalSurfaceProfile("cabinet", true)).toMatchObject({ roughness: 0.44, metalness: 0, clearcoat: 0.06 });
 	    expect(threeDPhysicalSurfaceProfile("countertop", true)).toMatchObject({ roughness: 0.32, clearcoat: 0.24 });
 	    expect(threeDPhysicalSurfaceProfile("metal")).toMatchObject({ metalness: 0.82, envMapIntensity: 1.12 });
 	    expect(threeDSurfaceTextureTransform("flooring", 144, 120)).toEqual({ wrap: "repeat", repeatX: 6, repeatY: 5, offsetX: 0, offsetY: 0 });
@@ -45,6 +45,15 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(threeDSurfaceImageCrop("countertop")).toEqual({ x: 0.28, y: 0.3, width: 0.44, height: 0.4 });
 		    expect(threeDSurfaceImageCrop("flooring")).toEqual({ x: 0.035, y: 0.035, width: 0.93, height: 0.93 });
 		    expect(threeDSurfaceImageCrop("backsplash")).toEqual({ x: 0.08, y: 0.08, width: 0.84, height: 0.84 });
+		  });
+
+		  it("adds clone-only deterministic production lighting without importing a catalog room scene or changing the room geometry", () => {
+		    const productionScene = new THREE.Scene();
+		    const lights = addThreeDProductionLightRig(productionScene, 12, 10, 8);
+		    expect(lights).toHaveLength(3);
+		    expect(productionScene.children).toHaveLength(3);
+		    expect(lights.map((light) => light.userData.rig)).toEqual(["daylight", "ceiling", "soft-fill"]);
+		    expect(lights.every((light) => light.userData.productionRenderLight && light.userData.cloneOnly)).toBe(true);
 		  });
 
 		  it("resolves the exact selected Aveline and Calacatta products to curated manufacturer-derived material fields", () => {

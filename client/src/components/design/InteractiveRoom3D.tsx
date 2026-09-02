@@ -29,22 +29,67 @@ export const THREE_D_PATH_TRACE_PREVIEW = {
 } as const;
 
 function pathTraceCompatibleMaterial(material: THREE.Material) {
-  const source = material as THREE.MeshStandardMaterial;
+  const source = material as THREE.MeshPhysicalMaterial;
+  const hasMaterialMap = Boolean(source.map);
   const converted = new THREE.MeshPhysicalMaterial({
     color: source.color?.clone() ?? new THREE.Color("#ffffff"),
     map: source.map ?? null,
     normalMap: source.normalMap ?? null,
+    normalScale: source.normalScale?.clone(),
+    bumpMap: source.bumpMap ?? (hasMaterialMap ? source.map : null),
+    bumpScale: source.bumpMap ? source.bumpScale : (hasMaterialMap ? 0.008 : 0),
     roughnessMap: source.roughnessMap ?? null,
     metalnessMap: source.metalnessMap ?? null,
+    aoMap: source.aoMap ?? null,
+    aoMapIntensity: source.aoMapIntensity,
+    alphaMap: source.alphaMap ?? null,
+    emissive: source.emissive?.clone() ?? new THREE.Color("#000000"),
+    emissiveMap: source.emissiveMap ?? null,
+    emissiveIntensity: source.emissiveIntensity,
     roughness: typeof source.roughness === "number" ? source.roughness : 0.72,
     metalness: typeof source.metalness === "number" ? source.metalness : 0,
+    clearcoat: source.clearcoat ?? 0,
+    clearcoatMap: source.clearcoatMap ?? null,
+    clearcoatRoughness: source.clearcoatRoughness ?? 0,
+    clearcoatRoughnessMap: source.clearcoatRoughnessMap ?? null,
+    envMapIntensity: source.envMapIntensity ?? 1,
     transparent: source.transparent,
     opacity: source.opacity,
     alphaTest: source.alphaTest,
     side: source.side,
   });
   converted.name = `path-trace:${source.name || source.type}`;
+  converted.userData = {
+    ...source.userData,
+    productionRenderMaterial: true,
+    reusedApprovedTextureMap: hasMaterialMap,
+  };
   return converted;
+}
+
+export function addThreeDProductionLightRig(
+  scene: THREE.Scene,
+  roomWidth: number,
+  roomDepth: number,
+  wallHeight: number,
+): THREE.Light[] {
+  const target = new THREE.Vector3(roomWidth * 0.5, wallHeight * 0.44, roomDepth * 0.47);
+  const daylight = new THREE.RectAreaLight("#fff5e6", 4.5, Math.max(2.6, roomWidth * 0.72), Math.max(2.2, wallHeight * 0.38));
+  daylight.position.set(roomWidth * 0.16, wallHeight * 0.84, roomDepth * 0.05);
+  daylight.lookAt(target);
+  daylight.userData = { productionRenderLight: true, rig: "daylight", cloneOnly: true };
+
+  const ceiling = new THREE.RectAreaLight("#fff1db", 3.1, Math.max(2.7, roomWidth * 0.55), Math.max(2.4, roomDepth * 0.45));
+  ceiling.position.set(roomWidth * 0.52, wallHeight * 0.94, roomDepth * 0.47);
+  ceiling.lookAt(target);
+  ceiling.userData = { productionRenderLight: true, rig: "ceiling", cloneOnly: true };
+
+  const softFill = new THREE.PointLight("#dfeeff", 1.05, Math.max(roomWidth, roomDepth) * 2.4, 2);
+  softFill.position.set(roomWidth * 0.88, wallHeight * 0.56, roomDepth * 0.82);
+  softFill.userData = { productionRenderLight: true, rig: "soft-fill", cloneOnly: true };
+
+  scene.add(daylight, ceiling, softFill);
+  return [daylight, ceiling, softFill];
 }
 
 type SceneSku = {
@@ -6446,6 +6491,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const sourceScene = sceneRef.current;
     const sourceCamera = cameraRef.current;
     const referenceUrl = captureShareThumbnail();
+    const pathTraceRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
     if (!sourceScene || !sourceCamera || !referenceUrl) {
       toast.error("The current 3D view is still loading. Try the production-render test again in a moment.");
       return;
@@ -6487,9 +6533,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       productionEnvironment.update();
       pathTraceScene.environment = productionEnvironment;
       pathTraceScene.background = new THREE.Color("#f7f4ee");
+      addThreeDProductionLightRig(
+        pathTraceScene,
+        pathTraceRoom.width * INCH,
+        pathTraceRoom.depth * INCH,
+        Math.max(...Object.values(wallHeights)) * INCH,
+      );
 
       pathTracer = new WebGLPathTracer(renderer);
       pathTracer.bounces = THREE_D_PATH_TRACE_PREVIEW.bounces;
+      pathTracer.multipleImportanceSampling = true;
+      pathTracer.filterGlossyFactor = 0.24;
       pathTracer.minSamples = 1;
       pathTracer.renderDelay = 0;
       pathTracer.fadeDuration = 0;
@@ -7388,7 +7442,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          </div>
 	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Selected door-material input</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">This sample is already applied to the existing 3D cabinet faces after it loads. It does not create a new photorealistic room image.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
 	          {catalogRoomSceneUrl && <div data-testid="photo-quality-room-scene-not-applied" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"><strong>Style room-scene picture:</strong> saved catalog reference only. This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.</div>}
-	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p><strong>Administrator test preview.</strong> Use the exact high-resolution 3D capture to confirm plan fidelity. No customer lead is created and no customer contact information is required.</p><div className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Production render test — experimental</p><p className="mt-1">Creates a 1920×1080 WebGL2 path trace from a cloned current scene, camera, and loaded materials, then applies a conservative final denoise pass. It does not use AI or the room-scene picture, does not save a customer render, and must be visually approved before any Photo Quality claim.</p><Button data-testid="path-trace-production-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void createPathTracePreview()} disabled={pathTracePreviewBusy || !photoRenderDoorReference.ready}>{pathTracePreviewBusy ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{pathTracePreviewBusy ? `Tracing exact scene… ${pathTracePreviewProgress}%` : "Run HD production render test"}</Button>{pathTracePreviewBusy && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-[#1a2744]" style={{ width: `${pathTracePreviewProgress}%` }} /></div>}{pathTracePreviewError && <p role="alert" className="mt-2 text-rose-800">{pathTracePreviewError}</p>}</div></div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your high-resolution 3D preview</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this preview request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and high-resolution preview request. Mobile-number verification will be added when SMS service is activated.</label></div>}
+	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p><strong>Administrator test preview.</strong> Use the exact high-resolution 3D capture to confirm plan fidelity. No customer lead is created and no customer contact information is required.</p><div className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Production render test — experimental</p><p className="mt-1">Creates a 1920×1080 WebGL2 path trace from a cloned current scene and camera, preserving loaded PBR material maps while adding a clone-only deterministic daylight and interior-light rig. It then applies a conservative final denoise pass. It does not use AI or the room-scene picture, does not save a customer render, and must be visually approved before any Photo Quality claim.</p><Button data-testid="path-trace-production-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void createPathTracePreview()} disabled={pathTracePreviewBusy || !photoRenderDoorReference.ready}>{pathTracePreviewBusy ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{pathTracePreviewBusy ? `Tracing exact scene… ${pathTracePreviewProgress}%` : "Run HD production render test"}</Button>{pathTracePreviewBusy && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-[#1a2744]" style={{ width: `${pathTracePreviewProgress}%` }} /></div>}{pathTracePreviewError && <p role="alert" className="mt-2 text-rose-800">{pathTracePreviewError}</p>}</div></div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your high-resolution 3D preview</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this preview request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and high-resolution preview request. Mobile-number verification will be added when SMS service is activated.</label></div>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-28 w-full rounded-md border object-contain sm:h-36" /></div>}
 	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact 3D preview. Your editable Designer plan is unchanged.</div>}
 	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}
@@ -7401,7 +7455,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        <DialogContent className="max-w-5xl"><DialogHeader><DialogTitle>High-resolution 3D preview</DialogTitle><DialogDescription>{photoRenderReused ? "Reused from the same saved plan, materials, and camera—no new capture was created." : "A deterministic 2560×1440 capture of the current exact Designer plan and camera view."}</DialogDescription></DialogHeader>{photoRenderUrl && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption>{photoRenderReferenceUrl ? <img src={photoRenderReferenceUrl} alt="Locked 3D Designer reference for exact preview review" className="max-h-[55dvh] w-full rounded-md border object-contain" /> : <div className="flex h-48 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">The original locked reference is not available in this session.</div>}</figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">High-resolution 3D preview</figcaption><img src={photoRenderUrl} alt="High-resolution 3D preview of the current locked Cabinet Dealz kitchen plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950"><strong>Exact 3D capture—not photo quality.</strong> This image intentionally remains the same locked Designer scene, camera, and loaded product materials at higher resolution. It does not use AI or the style room-scene picture to redesign, relight, or reinterpret your kitchen. The saved 2D/3D plan and pricing remain authoritative.</div><div className="flex justify-end"><a href={photoRenderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open or download</a></div></>}</DialogContent>
 	      </Dialog>
 	      <Dialog open={pathTracePreview !== null} onOpenChange={(open) => { if (!open) setPathTracePreview(null); }}>
-	        <DialogContent data-testid="path-trace-production-result" className="max-w-5xl"><DialogHeader><DialogTitle>Production render test — exact scene</DialogTitle><DialogDescription>A 1920×1080 WebGL2 path-traced comparison from a cloned locked Three.js scene and the same camera, converged to 256 samples with a conservative final denoise pass. It is not yet Photo Quality and is not saved as a customer render.</DialogDescription></DialogHeader>{pathTracePreview && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Current Designer view</figcaption><img src={pathTracePreview.referenceUrl} alt="Current locked Designer view before the path-tracing test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">HD path-traced exact-scene test</figcaption><img src={pathTracePreview.renderUrl} alt="Experimental HD exact-scene path-traced production render test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-950"><strong>What this test uses:</strong> the current exact geometry, camera, and loaded 3D materials. It does not use AI, substitute a catalog room scene, change products, or create a customer lead. Approve visual quality only after comparing both images.</div><div className="flex justify-end"><a href={pathTracePreview.renderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open HD image</a></div></>}</DialogContent>
+	        <DialogContent data-testid="path-trace-production-result" className="max-w-5xl"><DialogHeader><DialogTitle>Production render test — exact scene</DialogTitle><DialogDescription>A 1920×1080 WebGL2 path-traced comparison from a cloned locked Three.js scene and the same camera. It preserves loaded PBR maps, adds a clone-only deterministic daylight and interior-light rig, converges to 256 samples, and uses a conservative final denoise pass. It is not yet Photo Quality and is not saved as a customer render.</DialogDescription></DialogHeader>{pathTracePreview && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Current Designer view</figcaption><img src={pathTracePreview.referenceUrl} alt="Current locked Designer view before the path-tracing test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">HD path-traced exact-scene test</figcaption><img src={pathTracePreview.renderUrl} alt="Experimental HD exact-scene path-traced production render test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-950"><strong>What this test uses:</strong> the current exact geometry, camera, and loaded 3D materials, plus clone-only deterministic daylight and interior lighting. It does not use AI, substitute a catalog room scene, change products, or create a customer lead. Approve visual quality only after comparing both images.</div><div className="flex justify-end"><a href={pathTracePreview.renderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open HD image</a></div></>}</DialogContent>
 	      </Dialog>
     </section>
   );
