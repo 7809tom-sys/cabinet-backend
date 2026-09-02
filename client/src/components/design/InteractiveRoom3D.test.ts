@@ -69,14 +69,37 @@ describe("interactive 3D room scene helpers", () => {
 		      offsetY: 0,
 		      rotation: 0,
 		    });
-		    const slab = threeDProductMaterialSource("countertop", "Calacatta Oro 3cm Super Jumbo", "/manus-storage/pelican/8_acb59792.png");
-		    expect(slab).toMatchObject({
-		      url: "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp",
-		      key: "calacatta-oro-138x79",
-		      curated: true,
-		      physicalWidthIn: 138,
-		      physicalDepthIn: 79,
-		    });
+			const slab = threeDProductMaterialSource("countertop", "Calacatta Oro 3cm Super Jumbo", "/manus-storage/pelican/8_acb59792.png");
+			expect(slab).toMatchObject({
+				url: "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp",
+				key: "calacatta-oro-138x79",
+				curated: true,
+				physicalWidthIn: 138,
+				physicalDepthIn: 79,
+			});
+		  });
+
+		  it("resolves the owner’s saved Sample-design products to verified material-only sources", () => {
+			const bahia = threeDProductMaterialSource("flooring", "Bahia 12mil Vinyl Flooring", null, { category: "Flooring", subCategory: "Planks & Flooring", size: null });
+			expect(bahia).toMatchObject({
+				url: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp", key: "bahia-12mil-7x48",
+				curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 84,
+				flooringPatternKind: "plank", plankWidthIn: 7, plankLengthIn: 48,
+			});
+			const acorn = threeDProductMaterialSource("flooring", "Acorn 20mil Dryback Planks", null, { category: "Flooring", subCategory: "Planks & Flooring", size: null });
+			expect(acorn).toMatchObject({
+				url: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp", key: "acorn-20mil-7.5x48",
+				curated: true, proceduralFallback: false, physicalWidthIn: 192, physicalDepthIn: 90,
+				flooringPatternKind: "plank", plankWidthIn: 7.5, plankLengthIn: 48,
+			});
+			expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
+				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
+				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,
+			});
+			expect(threeDProductMaterialSource("backsplash", "Desert Clay", null)).toMatchObject({
+				url: "/manus-storage/desert_clay_12in_clean_mosaic_22580455.webp", key: "desert-clay-12in-mosaic",
+				curated: true, proceduralFallback: false,
+			});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {

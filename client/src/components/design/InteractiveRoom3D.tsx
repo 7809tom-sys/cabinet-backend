@@ -582,6 +582,10 @@ export function threeDFlooringPatternProfile(input: {
 
 const THREE_D_AVELINE_20MIL_FLOOR_URL = "/manus-storage/aveline_20mil_7x48_staggered_floor_2675d409.webp";
 const THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL = "/manus-storage/calacatta_oro_138x79_clean_slab_903624a9.webp";
+const THREE_D_BEDROCK_3CM_SLAB_URL = "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp";
+const THREE_D_BAHIA_12MIL_FLOOR_URL = "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp";
+const THREE_D_ACORN_20MIL_FLOOR_URL = "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp";
+const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_12in_clean_mosaic_22580455.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -598,6 +602,66 @@ export function threeDProductMaterialSource(
   const flooringProfile = role === "flooring"
     ? threeDFlooringPatternProfile({ name: productName, ...flooringMetadata })
     : null;
+  if (role === "flooring" && normalizedName === "bahia 12mil vinyl flooring") {
+    return {
+      url: THREE_D_BAHIA_12MIL_FLOOR_URL,
+      key: "bahia-12mil-7x48",
+      curated: true,
+      proceduralFallback: false,
+      physicalWidthIn: 192,
+      physicalDepthIn: 84,
+      sourceProductName: productName ?? null,
+      flooringPatternKind: "plank",
+      plankWidthIn: 7,
+      plankLengthIn: 48,
+      staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
+    };
+  }
+  if (role === "flooring" && normalizedName === "acorn 20mil dryback planks") {
+    return {
+      url: THREE_D_ACORN_20MIL_FLOOR_URL,
+      key: "acorn-20mil-7.5x48",
+      curated: true,
+      proceduralFallback: false,
+      physicalWidthIn: 192,
+      physicalDepthIn: 90,
+      sourceProductName: productName ?? null,
+      flooringPatternKind: "plank",
+      plankWidthIn: 7.5,
+      plankLengthIn: 48,
+      staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
+    };
+  }
+  if (role === "countertop" && normalizedName === "bedrock 3cm") {
+    return {
+      url: THREE_D_BEDROCK_3CM_SLAB_URL,
+      key: "bedrock-3cm-126x63",
+      curated: true,
+      proceduralFallback: false,
+      physicalWidthIn: 126,
+      physicalDepthIn: 63,
+      sourceProductName: productName ?? null,
+      flooringPatternKind: null,
+      plankWidthIn: null,
+      plankLengthIn: null,
+      staggerOffsetsIn: null,
+    };
+  }
+  if (role === "backsplash" && normalizedName === "desert clay") {
+    return {
+      url: THREE_D_DESERT_CLAY_MOSAIC_URL,
+      key: "desert-clay-12in-mosaic",
+      curated: true,
+      proceduralFallback: false,
+      physicalWidthIn: null,
+      physicalDepthIn: null,
+      sourceProductName: productName ?? null,
+      flooringPatternKind: null,
+      plankWidthIn: null,
+      plankLengthIn: null,
+      staggerOffsetsIn: null,
+    };
+  }
   if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
     return {
 	      url: THREE_D_AVELINE_20MIL_FLOOR_URL,

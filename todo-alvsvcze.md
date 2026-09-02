@@ -1339,3 +1339,5 @@
 - [x] Reproduce and restore the owner’s previously saved flooring, countertop, and backsplash selections when opening the authenticated Kitchen Designer, without treating a missing approved 3D swatch as a missing selected product
 - [x] Fix the confirmed runtime regression where newly selected or reopened flooring, countertop, and backsplash products still do not visibly apply anywhere in the Designer despite the picker action
 - [x] Render swatch-pending tile flooring as a clean construction tile field rather than a generic continuous floor color, while preserving separate plank and sheet behavior
+- [x] Replace the unacceptable invented multicolor floor, generic white countertop, and generic wall tile with the owner’s exact selected product materials or an explicitly product-matched approved treatment
+- [x] Restore product-faithful material-only rendering for the saved Sample-design selections: Bedrock 3cm, Bahia 12mil Vinyl Flooring, Acorn 20mil Dryback Planks, Desert Clay, and Calacatta Oro 3cm Super Jumbo
