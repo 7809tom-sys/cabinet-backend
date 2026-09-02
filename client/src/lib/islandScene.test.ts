@@ -95,6 +95,13 @@ describe("island mini-scene geometry", () => {
     expect(hasCollision(front!, [back!])).toBe(false);
   });
 
+  it("keeps opposing front and back runs aligned from the same island edge", () => {
+    const front = nextIslandFacePlacement(cabinet({ uid: "front-a" }), island, "front", []);
+    const back = nextIslandFacePlacement(cabinet({ uid: "back-a" }), island, "back", [front!]);
+    expect(back).toMatchObject({ islandFace: "back", islandOffset: 0, x: front!.x });
+    expect(hasCollision(back!, [front!])).toBe(false);
+  });
+
 	it("snaps opposing front and back runs beside a usable end cabinet and fits one slab to the combined shape", () => {
 	  const leftEnd = nextIslandFacePlacement(cabinet({ uid: "left-end" }), island, "left", []);
 	  const back = nextIslandFacePlacement(cabinet({ uid: "back" }), island, "back", [leftEnd!]);

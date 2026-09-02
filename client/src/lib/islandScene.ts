@@ -149,11 +149,18 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
     .filter((item) => item.islandFace === face)
     .map((item) => ({ start: islandOffsetForPlaced(item, island, face), end: islandOffsetForPlaced(item, island, face) + Math.max(0, Number(item.width) || 0) }))
     .sort((a, b) => a.start - b.start);
-  // Same-face end points keep a run flush. Perpendicular members also expose
-  // their physical edge for legitimate L-shaped/end-cap configurations; they
-  // are not allowed to displace an already available same-face end position.
+  // Same-face end points keep a run flush. Only perpendicular members expose
+  // physical edges for legitimate L-shaped/end-cap configurations. An opposing
+  // face shares the same run axis and must never offset a Back run away from
+  // the Front run (or vice versa), which would leave a visible open island gap.
   const crossFaceEdges = placed
-    .filter((item) => item.islandFace !== face && isOnIsland(item, island))
+    .filter((item) => {
+      if (!isOnIsland(item, island)) return false;
+      const itemFace = inferredIslandFace(item, island);
+      const faceUsesHorizontalRun = face === "front" || face === "back";
+      const itemUsesHorizontalRun = itemFace === "front" || itemFace === "back";
+      return faceUsesHorizontalRun !== itemUsesHorizontalRun;
+    })
     .flatMap((item) => {
       const footprint = placedFootprint(item);
       return face === "front" || face === "back"
