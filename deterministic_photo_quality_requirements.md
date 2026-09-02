@@ -23,7 +23,13 @@ The renderer must create a high-resolution image from the current scene rather t
 
 ## Current implementation findings
 
-The live Three.js scene already contains a physical material system, ACES tone mapping, PMREM room environment, shadows, and an exact saved-camera restore. The present Photo Quality reference capture is a 1280×720 JPEG at quality 0.9 and re-renders at device pixel ratio 1, which is insufficient as a production-quality source. The production workflow must render at a larger locked output resolution and use a high-quality material/lighting profile, not submit the capture to an image reinterpretation model.
+The live Three.js scene already contains a physical material system, ACES tone mapping, PMREM room environment, shadows, and an exact saved-camera restore. The current 2560×1440 JPEG capture applies maximum texture anisotropy and two render passes, but it is still a deterministic capture of the existing interactive scene rather than a second production renderer.
+
+### Owner visual evaluation — 2026-09-02
+
+The owner confirmed that the captured result is visually the same kitchen image at higher resolution. Displaying the selected door sample and style room-scene image in the dialog did not make either image an active relighting or photorealistic-rendering input. The door sample can only affect the capture if it has already loaded as a texture on the live cabinet faces. The room-scene image is catalog context and is not applied to the capture. Therefore the current feature is correctly described only as a **high-resolution exact 3D preview**. It must not be called Photo Quality, photo-realistic, reference-driven, or a final production render.
+
+The production workflow requires an actual higher-fidelity deterministic renderer with authored PBR material maps, stronger physically consistent lighting, and a fixed output camera. It must not submit the locked scene to an image reinterpretation model.
 
 ## Feasibility options
 

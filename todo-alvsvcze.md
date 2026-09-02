@@ -1395,3 +1395,6 @@
 - [x] Trace and correct any missing selected door-sample or approved room-scene reference handoff in the 3D and deterministic final-render paths without changing the locked kitchen plan or camera
 - [x] Make the mobile high-resolution exact-render dialog scroll within the visible viewport and keep its confirmation controls reachable
 - [x] Correct the failed final-render reference evaluation: do not imply that unconsumed door-sample or room-scene references improved a deterministic exact-scene capture
+- [ ] Define and evaluate an exact-plan production-render pipeline that can improve material and lighting realism without substituting a catalog room scene or changing the designed kitchen
+- [x] Build an administrator-only locked-scene WebGL2 path-tracing prototype that preserves the current geometry and camera before any photo-quality claim
+- [ ] Have the owner visually evaluate the live path-traced exact-scene comparison before treating it as a viable production-render candidate

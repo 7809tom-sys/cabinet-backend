@@ -4424,12 +4424,12 @@ describe("interactive 3D room scene helpers", () => {
   });
 });
 
-describe("final photo-quality render controls", () => {
-  it("requires a reviewed immutable reference and produces a deterministic high-resolution exact render", () => {
+describe("final high-resolution preview controls", () => {
+	  it("requires a reviewed immutable reference, avoids a photo-quality claim, and exposes a bounded administrator-only path-tracing test", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="three-d-photo-render"');
-	  expect(source).toContain('>Photo Quality</button>');
-    expect(source).toContain('title="Photo Quality — final review image"');
+	  expect(source).toContain('>Final preview</Button>');
+	  expect(source).toContain('title="High-resolution exact 3D preview"');
 	  expect(source).toContain('data-testid="photo-quality-admin-test"');
 	  expect(source).toContain('data-testid="photo-quality-contact-lead"');
 	  expect(source).toContain('Mobile-number verification will be added when SMS service is activated.');
@@ -4479,6 +4479,14 @@ describe("final photo-quality render controls", () => {
 	    expect(source).toContain("This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.");
 	    expect(source).toContain("Exact 3D capture—not photo quality.");
 	    expect(source).toContain("if (!photoRenderDoorReference.ready)");
+	    expect(source).toContain('data-testid="path-trace-production-test"');
+	    expect(source).toContain('data-testid="path-trace-production-result"');
+	    expect(source).toContain("WebGLPathTracer");
+	    expect(source).toContain("THREE_D_PATH_TRACE_PREVIEW");
+	    expect(source).toContain("pathTracer.setScene(pathTraceScene, pathTraceCamera)");
+	    expect(source).toContain("pathTracer.renderSample()");
+	    expect(source).toContain("if (!isPhotoQualityTest) return;");
+	    expect(source).toContain("does not use AI or the room-scene picture");
 	  });
 
 	  it("never captures a generic fallback while an active selected door sample is loading or has failed", () => {
