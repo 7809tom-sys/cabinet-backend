@@ -1885,7 +1885,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // built-in 2D-render materials (floor/backsplash/countertop) from them,
       // so a reloaded design shows the same surfaces in the cart, the 3D gate,
       // and the plan/elevation fill.
-      const surfaces = Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : [];
+      const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);
       setSelectedSurfaces(surfaces);
       applySurfaceRenderMaterials(surfaces);
       setSelectedUid(null);

@@ -17,6 +17,7 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
 	    expect(designToolSource).toContain("return [...prev.filter((surface) => surfaceRole(surface) !== \"flooring\"), item];");
 	    expect(designToolSource).toContain("const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);");
+	    expect(designToolSource).toContain("const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);");
 	    expect(designToolSource).toContain("const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);");
 	    expect(designToolSource).toContain("const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\") ?? null;");
 	    expect(designToolSource).toContain("82: \"/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp\"");
