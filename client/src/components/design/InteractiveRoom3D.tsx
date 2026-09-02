@@ -5682,7 +5682,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
       sourceImageHash: string;
-      generationMethod: "manual-final-review-image-service";
+      generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2";
     };
   } | null>(null);
   const { user } = useAuth();
@@ -6841,7 +6841,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       camera: cameraSnapshot,
       materials,
       sourceImageHash,
-      generationMethod: "manual-final-review-image-service" as const,
+      generationMethod: "manual-final-review-gpt-image-2-high-v2" as const,
     };
     const sceneSignature = await hash(JSON.stringify({
       designId: provenance.designId,
@@ -6849,6 +6849,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       geometryLock: provenance.geometryLock,
       camera: provenance.camera,
       materials: provenance.materials,
+      generationMethod: provenance.generationMethod,
       backsplashHeightMode,
       countertopBacksplashHeightIn,
     }));

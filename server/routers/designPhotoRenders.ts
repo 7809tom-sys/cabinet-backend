@@ -65,7 +65,10 @@ export const photoRenderProvenanceSchema = z.object({
   camera: z.object({ position: vector3Schema, target: vector3Schema, zoom: z.number().finite().positive() }),
   materials: z.array(materialProvenanceSchema).length(4),
   sourceImageHash: z.string().regex(/^[a-f0-9]{64}$/i, "A SHA-256 source-image hash is required."),
-  generationMethod: z.literal("manual-final-review-image-service"),
+  generationMethod: z.enum([
+    "manual-final-review-image-service",
+    "manual-final-review-gpt-image-2-high-v2",
+  ]),
 });
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
 type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
@@ -120,9 +123,9 @@ function emitPhotoQualityLead(args: {
 
 function exactPlanPrompt(summary: string) {
   return [
-    "Create a polished, photo-quality interior visualization from the FIRST reference image.",
-    "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve it exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, or fixtures. Do not change the camera angle, crop, viewpoint, or room dimensions.",
-    "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Keep product material color and grain faithful. Improve natural daylight, soft contact shadows, metal, glass, and surface realism without changing geometry.",
+    "Create a genuinely photorealistic, high-end architectural interior photograph from the FIRST reference image—not a screenshot, wireframe, illustration, or a copy of the reference pixels.",
+    "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
+    "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
     "Return only the finished photorealistic kitchen image; no labels, UI, people, text, logos, watermarks, measurements, or additional products.",
     summary ? `Selected design summary: ${summary}` : "",
   ].filter(Boolean).join(" ");
@@ -200,14 +203,20 @@ export const designPhotoRendersRouter = router({
       }
 
       const sceneImage = input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, "");
+      const lockedReferenceBytesHash = createHash("sha256").update(Buffer.from(sceneImage, "base64")).digest("hex");
       const materialReferences = Array.from(new Set(input.provenance.materials.flatMap((material) => material.materialImageUrl ? [material.materialImageUrl] : [])))
         .map((url) => ({ url, mimeType: url.toLowerCase().endsWith(".png") ? "image/png" : url.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg" }));
       const summary = photoRenderProvenanceSummary(input.provenance);
       const result = await generateImage({
         prompt: exactPlanPrompt(summary),
+        model: "MODEL_GPT_IMAGE_2",
+        quality: "high",
         originalImages: [{ b64Json: sceneImage, mimeType: input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] === "jpeg" ? "image/jpeg" : input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] === "webp" ? "image/webp" : "image/png" }, ...materialReferences],
       });
       if (!result.url) throw new Error("Photo rendering completed without an image result.");
+      if (result.contentHash && result.contentHash === lockedReferenceBytesHash) {
+        throw new Error("Photo Quality returned an unchanged Designer screenshot. No image was accepted; please try again after the photo-render service is available.");
+      }
       const promptFingerprint = createHash("sha256").update(exactPlanPrompt(summary)).digest("hex");
       const confirmedAt = new Date();
       await db.insert(designPhotoRenders).values({

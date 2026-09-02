@@ -1374,3 +1374,5 @@
 - [x] Fix the false Photo Quality save prompt so an already saved design is recognized as eligible for an administrator test render
 - [x] Fix the still-visible administrator Photo Quality material-reference validation error after confirming the saved-plan eligibility repair is deployed
 - [x] Allow administrator Photo Quality test renders from the locked current view without a saved-design ID, while customer requests remain saved-plan and lead-gated
+- [ ] Replace the ineffective Photo Quality screenshot-copy output with a verified materially improved generative image while preserving the exact locked kitchen plan
+- [ ] Use the high-quality image-generation mode for Photo Quality renders and reject any returned image that is identical to the locked screenshot

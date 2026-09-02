@@ -6,6 +6,7 @@ describe("design photo render safeguards", () => {
   it("treats the captured Designer scene as a locked plan and camera reference", () => {
     const prompt = exactPlanPrompt("12 exact placed items. Countertop: Calacatta Oro.");
     expect(prompt).toContain("exact locked CabinetDealz Designer plan and camera composition");
+    expect(prompt).toContain("not a screenshot, wireframe, illustration, or a copy of the reference pixels");
     expect(prompt).toContain("do not add, remove, move, rotate, resize, substitute, merge, hide, or invent");
     expect(prompt).toContain("Do not change the camera angle, crop, viewpoint, or room dimensions");
     expect(prompt).toContain("Use the following reference images only to improve physically plausible surface appearance");
@@ -89,5 +90,14 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('reused: true,');
     expect(source).toContain('emitPhotoQualityLead({');
     expect(source).toContain('reusedPhotoQualityImage: args.reused');
+  });
+
+  it("requests the supported high-quality image mode rather than a default screenshot-like result", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain('model: "MODEL_GPT_IMAGE_2"');
+    expect(source).toContain('quality: "high"');
+    expect(source).toContain("manual-final-review-gpt-image-2-high-v2");
+    expect(source).toContain("lockedReferenceBytesHash");
+    expect(source).toContain("returned an unchanged Designer screenshot");
   });
 });

@@ -17,9 +17,14 @@
  */
 import { storagePut } from "server/storage";
 import { ENV } from "./env";
+import { createHash } from "crypto";
 
 export type GenerateImageOptions = {
   prompt: string;
+  /** ImageService model identifier, for example MODEL_GPT_IMAGE_2. */
+  model?: string;
+  /** Supported quality tier for the selected image model. */
+  quality?: "low" | "medium" | "high";
   originalImages?: Array<{
     url?: string;
     b64Json?: string;
@@ -29,6 +34,8 @@ export type GenerateImageOptions = {
 
 export type GenerateImageResponse = {
   url?: string;
+  /** SHA-256 of the returned image bytes for duplicate-output safeguards. */
+  contentHash?: string;
 };
 
 export async function generateImage(
@@ -60,6 +67,8 @@ export async function generateImage(
     },
     body: JSON.stringify({
       prompt: options.prompt,
+      model: options.model,
+      quality: options.quality,
       original_images: options.originalImages || [],
     }),
   });
@@ -88,5 +97,6 @@ export async function generateImage(
   );
   return {
     url,
+    contentHash: createHash("sha256").update(buffer).digest("hex"),
   };
 }
