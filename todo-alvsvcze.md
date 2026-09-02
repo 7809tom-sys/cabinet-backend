@@ -1357,3 +1357,6 @@
 - [x] Replace the active Astoria 22mil Vinyl Flooring staged room-card image with a verified material-only floor source and remove raw staged-photo fallback from 3D flooring
 - [x] Restore the last known working flooring-selection behavior without rolling back countertop, backsplash, photo-render, Preferred, cabinet, pricing, or mobile improvements
 - [ ] Correct the displayed and saved price for the owner’s currently selected flooring product after confirming the exact product, unit, and intended price
+
+- [ ] Research real backsplash installation and product-pattern construction, then implement interlocking pattern modules with 1/16-inch grout joints instead of repeated complete-square images
+- [x] Render the owner-selected Desert Clay 11.81-inch glass-and-stainless mosaic as a continuous interlocking internal-tile field with 1/16-inch joints and no visible square-sheet boundary

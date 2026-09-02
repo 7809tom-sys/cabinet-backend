@@ -109,10 +109,11 @@ describe("interactive 3D room scene helpers", () => {
 				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
 				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,
 			});
-			expect(threeDProductMaterialSource("backsplash", "Desert Clay", null)).toMatchObject({
-				url: "/manus-storage/desert_clay_12in_clean_mosaic_22580455.webp", key: "desert-clay-12in-mosaic",
-				curated: true, proceduralFallback: false,
-			});
+				expect(threeDProductMaterialSource("backsplash", "Desert Clay", null)).toMatchObject({
+					url: "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp", key: "desert-clay-11.81in-interlocking-mosaic",
+					curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
+					backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
+				});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
@@ -254,14 +255,16 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(blockedSegments).not.toContainEqual({ side: "top", start: 45, end: 75, bottom: 54, top: 66 });
 	  });
 
-	  it("maps selected backsplash material as one continuous 12-inch tile field with only cut edge courses", () => {
+		  it("maps selected backsplash material as one continuous 12-inch tile field with only cut edge courses", () => {
 	    const standard = { side: "top", start: 0, end: 30, bottom: 36, top: 54 } as const;
 	    expect(THREE_D_BACKSPLASH_TILE_SIZE_IN).toBe(12);
 	    expect(threeDBacksplashTileTextureTransform(standard)).toEqual({ repeatX: 2.5, repeatY: 1.5, offsetX: 0, offsetY: 0 });
 	    const joined = threeDBacksplashTileTextureTransform({ side: "top", start: 30, end: 54, bottom: 36, top: 54 });
 	    expect(joined.offsetX).toBe(0.5);
-	    expect(joined.repeatY).toBe(1.5);
-	  });
+		    expect(joined.repeatY).toBe(1.5);
+		    const mosaic = threeDBacksplashTileTextureTransform(standard, 11.81);
+		    expect(mosaic).toMatchObject({ repeatX: 30 / 11.81, repeatY: 18 / 11.81, offsetX: 0, offsetY: (36 / 11.81) % 1 });
+		  });
 
 	  it("uses a continuous 12-inch field above each physical countertop upstand without changing the supported run", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;

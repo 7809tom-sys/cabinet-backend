@@ -544,6 +544,9 @@ export type ThreeDProductMaterialSource = {
   plankWidthIn: number | null;
   plankLengthIn: number | null;
   staggerOffsetsIn: number[] | null;
+  backsplashPatternKind?: "field-tile" | "interlocking-mosaic" | null;
+  backsplashModuleIn?: number | null;
+  backsplashGroutJointIn?: number | null;
 };
 
 export type ThreeDFlooringPatternKind = "plank" | "tile" | "sheet" | "unknown";
@@ -586,7 +589,7 @@ const THREE_D_BEDROCK_3CM_SLAB_URL = "/manus-storage/bedrock_3cm_126x63_clean_sl
 const THREE_D_BAHIA_12MIL_FLOOR_URL = "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp";
 const THREE_D_ACORN_20MIL_FLOOR_URL = "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp";
 const THREE_D_ASTORIA_22MIL_FLOOR_URL = "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp";
-const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_12in_clean_mosaic_22580455.webp";
+const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -667,16 +670,19 @@ export function threeDProductMaterialSource(
   if (role === "backsplash" && normalizedName === "desert clay") {
     return {
       url: THREE_D_DESERT_CLAY_MOSAIC_URL,
-      key: "desert-clay-12in-mosaic",
+      key: "desert-clay-11.81in-interlocking-mosaic",
       curated: true,
       proceduralFallback: false,
-      physicalWidthIn: null,
-      physicalDepthIn: null,
+      physicalWidthIn: 11.81,
+      physicalDepthIn: 11.81,
       sourceProductName: productName ?? null,
       flooringPatternKind: null,
       plankWidthIn: null,
       plankLengthIn: null,
       staggerOffsetsIn: null,
+      backsplashPatternKind: "interlocking-mosaic",
+      backsplashModuleIn: 11.81,
+      backsplashGroutJointIn: 1 / 16,
     };
   }
   if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
@@ -4821,12 +4827,13 @@ export type ThreeDBacksplashSegment = {
 export type BacksplashHeightMode = "standard" | "full-height";
 export const THREE_D_BACKSPLASH_TILE_SIZE_IN = 12;
 
-export function threeDBacksplashTileTextureTransform(segment: ThreeDBacksplashSegment) {
+export function threeDBacksplashTileTextureTransform(segment: ThreeDBacksplashSegment, moduleIn = THREE_D_BACKSPLASH_TILE_SIZE_IN) {
+  const safeModuleIn = Math.max(0.125, moduleIn);
   return {
-    repeatX: Math.max(0.001, (segment.end - segment.start) / THREE_D_BACKSPLASH_TILE_SIZE_IN),
-    repeatY: Math.max(0.001, (segment.top - segment.bottom) / THREE_D_BACKSPLASH_TILE_SIZE_IN),
-    offsetX: (segment.start / THREE_D_BACKSPLASH_TILE_SIZE_IN) % 1,
-    offsetY: (segment.bottom / THREE_D_BACKSPLASH_TILE_SIZE_IN) % 1,
+    repeatX: Math.max(0.001, (segment.end - segment.start) / safeModuleIn),
+    repeatY: Math.max(0.001, (segment.top - segment.bottom) / safeModuleIn),
+    offsetX: (segment.start / safeModuleIn) % 1,
+    offsetY: (segment.bottom / safeModuleIn) % 1,
   };
 }
 
@@ -4982,7 +4989,10 @@ function addThreeDBacksplash(
     const texture = sourceTexture.clone();
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    const tileTransform = threeDBacksplashTileTextureTransform(segment);
+    const moduleIn = Number(sourceTexture.userData?.backsplashModuleIn) || THREE_D_BACKSPLASH_TILE_SIZE_IN;
+    const groutJointIn = Number(sourceTexture.userData?.backsplashGroutJointIn) || null;
+    const patternKind = sourceTexture.userData?.backsplashPatternKind ?? "field-tile";
+    const tileTransform = threeDBacksplashTileTextureTransform(segment, moduleIn);
     texture.repeat.set(tileTransform.repeatX, tileTransform.repeatY);
     texture.offset.set(tileTransform.offsetX, tileTransform.offsetY);
     texture.needsUpdate = true;
@@ -4992,13 +5002,13 @@ function addThreeDBacksplash(
       side: THREE.DoubleSide,
       ...threeDPhysicalSurfaceProfile("backsplash", true),
     });
-    material.userData = { selectedSurfaceRole: "backsplash", usesAuthoritativeProductImage: !sourceTexture.userData?.representativePreview, representativePreview: Boolean(sourceTexture.userData?.representativePreview), tileModuleIn: THREE_D_BACKSPLASH_TILE_SIZE_IN, continuousTileField: true, materialOnlyNoGeometryChange: true };
+    material.userData = { selectedSurfaceRole: "backsplash", usesAuthoritativeProductImage: !sourceTexture.userData?.representativePreview, representativePreview: Boolean(sourceTexture.userData?.representativePreview), tileModuleIn: moduleIn, groutJointIn, backsplashPatternKind: patternKind, continuousTileField: true, materialOnlyNoGeometryChange: true };
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthIn * INCH, heightIn * INCH), material);
     const transform = threeDBacksplashTransform(segment, room);
     mesh.position.set(transform.x * INCH, transform.y * INCH, transform.z * INCH);
     mesh.rotation.y = transform.rotation;
     mesh.receiveShadow = true;
-    mesh.userData = { measuredBacksplash: true, ...segment, tileModuleIn: THREE_D_BACKSPLASH_TILE_SIZE_IN, continuousTileField: true, clippedAroundSavedPlan: true };
+    mesh.userData = { measuredBacksplash: true, ...segment, tileModuleIn: moduleIn, groutJointIn, backsplashPatternKind: patternKind, continuousTileField: true, clippedAroundSavedPlan: true };
     root.add(mesh);
   }
 }
@@ -5879,6 +5889,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        plankWidthIn: source.plankWidthIn,
 	        plankLengthIn: source.plankLengthIn,
 	        staggerOffsetsIn: source.staggerOffsetsIn,
+	        backsplashPatternKind: source.backsplashPatternKind ?? null,
+	        backsplashModuleIn: source.backsplashModuleIn ?? null,
+	        backsplashGroutJointIn: source.backsplashGroutJointIn ?? null,
 	        materialOnlyNoGeometryChange: true,
 	      };
 	      return texture;
