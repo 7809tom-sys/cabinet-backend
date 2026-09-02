@@ -4420,6 +4420,8 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain('renderer.domElement.toDataURL("image/jpeg", 0.98)');
     expect(source).toContain("renderer.capabilities.getMaxAnisotropy()");
     expect(source).toContain("renderer.render(threeScene, camera);");
+    expect(source).toContain("const hashCaptureBytes = async (dataUrl: string)");
+    expect(source).toContain("Uint8Array.from(atob(base64)");
     expect(source).toContain("const [photoRenderDraft, setPhotoRenderDraft]");
     expect(source).toContain("sourceImageHash");
     expect(source).toContain('generationMethod: "manual-final-review-deterministic-webgl-v1"');

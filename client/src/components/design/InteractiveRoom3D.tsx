@@ -6852,7 +6852,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
       return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
     };
-    const sourceImageHash = await hash(reference);
+    const hashCaptureBytes = async (dataUrl: string) => {
+      const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    };
+    // Match the protected server-side validation: provenance covers the JPEG
+    // bytes that will be stored, not the data-URL text wrapper.
+    const sourceImageHash = await hashCaptureBytes(reference);
     const provenance = {
       contractVersion: "exact-plan-v1" as const,
       // An administrator test may use the locked current view even if a route

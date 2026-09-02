@@ -1380,3 +1380,4 @@
 - [x] Evaluate and reject MyArchitectAI and the current image-interpreter path for authoritative exact-plan kitchen imagery after they failed to preserve the Hickory kitchen
 - [x] Implement a deterministic architectural render prototype that preserves the exact Hickory kitchen geometry, selected finishes, camera, and trusted material references
 - [ ] Run administrator visual evaluation of the deterministic high-resolution exact render before representing it as a completed photo-quality solution
+- [x] Align client and server deterministic render source hashes over the same captured JPEG bytes before administrator evaluation
