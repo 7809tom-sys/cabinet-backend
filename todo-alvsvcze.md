@@ -1349,6 +1349,8 @@
 - [x] Enforce one active flooring selection so the floor most recently selected replaces earlier flooring picks and drives the 3D material instead of the first saved flooring row
 - [x] Make selecting a legacy stored but inactive flooring item activate and render that item instead of toggling it off and leaving the earlier floor active
 - [ ] Identify and remove the fixed floor-mesh texture or overlay that still overrides every selected flooring product in the owner’s live 3D view
+- [ ] Observe the exact mobile Materials selection path and active renderer state before making any further flooring behavior changes
+- [x] Eliminate the stale `cabinet-dealz-v1` mobile navigation cache so published Designer flooring updates activate on the owner’s device
 - [x] Recreate the active 3D floor material whenever the selected flooring product identity or approved material source changes, preventing a cached mesh from retaining the prior default texture
 - [x] Prove the complete currently selected-floor-to-final-mesh runtime path and fix the exact point that still leaves the floor unchanged after product selection
 - [ ] Restore the previously working direct selected-floor behavior that regressed during the later material-safety changes, then retain only the staged-photo safety boundary

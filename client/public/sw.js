@@ -1,13 +1,14 @@
 // Cabinet Dealz — Service Worker
 // Provides offline shell caching so the app loads even without a network.
 
-const CACHE_NAME = "cabinet-dealz-v1";
-const SHELL_URLS = ["/", "/manifest.json", "/favicon.svg"];
+// Do not cache application HTML or navigation responses. The Designer changes
+// frequently and an old shell can point a phone at obsolete JavaScript chunks.
+// This version advances once to remove the prior v1 navigation cache from every
+// returning client, then keeps the app network-current on future publishes.
+const CACHE_NAME = "cabinet-dealz-v2-network-current";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS))
-  );
+  event.waitUntil(Promise.resolve());
   self.skipWaiting();
 });
 
@@ -20,24 +21,5 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-self.addEventListener("fetch", (event) => {
-  // Only handle GET requests to same origin
-  if (event.request.method !== "GET") return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
-  // API calls: network-first, no caching
-  if (url.pathname.startsWith("/api/")) return;
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Cache successful navigation responses
-        if (response.ok && event.request.mode === "navigate") {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/")))
-  );
-});
+// Intentionally no fetch handler. Returning clients always request the latest
+// deployed HTML and its content-hashed JavaScript chunks from the network.
