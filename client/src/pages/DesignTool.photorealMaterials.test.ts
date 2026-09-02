@@ -16,6 +16,8 @@ describe("Designer programmed photoreal material wiring", () => {
 	  it("passes only exact approved material swatches into material-only renderer props", () => {
 	    expect(designToolSource).toContain("const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
 	    expect(designToolSource).toContain("return [...prev.filter((surface) => surfaceRole(surface) !== \"flooring\"), item];");
+	    expect(designToolSource).toContain("const activeFloor = [...prev].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
+	    expect(designToolSource).toContain("? [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\")?.id === item.id");
 	    expect(designToolSource).toContain("const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);");
 	    expect(designToolSource).toContain("const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);");
 	    expect(designToolSource).toContain("const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);");

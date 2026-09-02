@@ -655,9 +655,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   };
   const toggleSurface = (item: SelectedSurface) =>
     setSelectedSurfaces((prev) => {
+      if (surfaceRole(item) === "flooring") {
+        const activeFloor = [...prev].reverse().find((surface) => surfaceRole(surface) === "flooring");
+        if (activeFloor?.id === item.id) return prev.filter((surface) => surface.id !== item.id);
+        return [...prev.filter((surface) => surfaceRole(surface) !== "flooring"), item];
+      }
       if (prev.some((surface) => surface.id === item.id)) return prev.filter((surface) => surface.id !== item.id);
-      if (surfaceRole(item) !== "flooring") return [...prev, item];
-      return [...prev.filter((surface) => surfaceRole(surface) !== "flooring"), item];
+      return [...prev, item];
     });
   // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
   // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
@@ -667,7 +671,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     item: SelectedSurface,
     role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet" | "range-top"
   ) => {
-    const already = selectedSurfaces.some((s) => s.id === item.id);
+    const already = role === "flooring"
+      ? [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "flooring")?.id === item.id
+      : selectedSurfaces.some((surface) => surface.id === item.id);
     toggleSurface(item);
     if (already) return; // removal: leave the 2D material as-is (harmless)
     const pick = {
