@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exactPlanPrompt, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary } from "./designPhotoRenders";
+import { readFileSync } from "node:fs";
 
 describe("design photo render safeguards", () => {
   it("treats the captured Designer scene as a locked plan and camera reference", () => {
@@ -48,5 +49,12 @@ describe("design photo render safeguards", () => {
       phone: "555-555-0199",
       followUpConsent: false,
     })).toThrow();
+  });
+
+  it("creates a CRM follow-up event even when a customer reuses a cached image", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain('reused: true,');
+    expect(source).toContain('emitPhotoQualityLead({');
+    expect(source).toContain('reusedPhotoQualityImage: args.reused');
   });
 });

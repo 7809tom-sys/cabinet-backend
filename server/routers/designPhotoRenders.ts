@@ -37,6 +37,55 @@ export const photoRenderProvenanceSchema = z.object({
   generationMethod: z.literal("manual-final-review-image-service"),
 });
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
+type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
+
+function photoQualityCrmData(args: {
+  sceneSignature: string;
+  provenance: PhotoRenderProvenanceInput;
+  requestedAt: Date;
+  reused: boolean;
+}) {
+  return {
+    source: "photo_quality_render",
+    consentToFollowUp: true,
+    phoneVerification: "pending_sms_provider_activation",
+    sceneSignature: args.sceneSignature,
+    designId: args.provenance.designId,
+    designRevision: args.provenance.designRevision,
+    selectedProducts: args.provenance.materials.map(({ role, productId, name }) => ({ role, productId, name })),
+    requestedAt: args.requestedAt.toISOString(),
+    reusedPhotoQualityImage: args.reused,
+  };
+}
+
+function emitPhotoQualityLead(args: {
+  userId: number;
+  lead: PhotoQualityLeadInput;
+  sceneSignature: string;
+  provenance: PhotoRenderProvenanceInput;
+  originHeader: string | string[] | undefined;
+  reused: boolean;
+}) {
+  const origin = typeof args.originHeader === "string" && /^https?:\/\//.test(args.originHeader)
+    ? args.originHeader.replace(/\/$/, "")
+    : null;
+  void emitCrmEvent({
+    event: "lead",
+    contact: {
+      userId: args.userId,
+      name: args.lead.name,
+      email: args.lead.email,
+      phone: args.lead.phone,
+    },
+    data: photoQualityCrmData({
+      sceneSignature: args.sceneSignature,
+      provenance: args.provenance,
+      requestedAt: new Date(),
+      reused: args.reused,
+    }),
+    link: origin ? `${origin}/design?load=${args.provenance.designId}` : null,
+  });
+}
 
 function exactPlanPrompt(summary: string) {
   return [
@@ -94,15 +143,27 @@ export const designPhotoRendersRouter = router({
       const [cached] = await db.select().from(designPhotoRenders)
         .where(and(eq(designPhotoRenders.userId, ctx.user.id), eq(designPhotoRenders.sceneSignature, input.sceneSignature)))
         .limit(1);
-      if (cached) return {
-        imageUrl: cached.imageUrl,
-        provenance: cached.provenance,
-        sourceImageHash: cached.sourceImageHash,
-        promptFingerprint: cached.promptFingerprint,
-        generationMethod: cached.generationMethod,
-        confirmedAt: cached.confirmedAt,
-        reused: true,
-      };
+      if (cached) {
+        if (!isAdministratorTest && input.lead) {
+          emitPhotoQualityLead({
+            userId: ctx.user.id,
+            lead: input.lead,
+            sceneSignature: input.sceneSignature,
+            provenance: input.provenance,
+            originHeader: ctx.req.headers.origin,
+            reused: true,
+          });
+        }
+        return {
+          imageUrl: cached.imageUrl,
+          provenance: cached.provenance,
+          sourceImageHash: cached.sourceImageHash,
+          promptFingerprint: cached.promptFingerprint,
+          generationMethod: cached.generationMethod,
+          confirmedAt: cached.confirmedAt,
+          reused: true,
+        };
+      }
 
       const sceneImage = input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, "");
       const materialReferences = Array.from(new Set(input.provenance.materials.flatMap((material) => material.materialImageUrl ? [material.materialImageUrl] : [])))
@@ -136,29 +197,13 @@ export const designPhotoRendersRouter = router({
         },
       });
       if (!isAdministratorTest && input.lead) {
-        const originHeader = ctx.req.headers.origin;
-        const origin = typeof originHeader === "string" && /^https?:\/\//.test(originHeader)
-          ? originHeader.replace(/\/$/, "")
-          : null;
-        void emitCrmEvent({
-          event: "lead",
-          contact: {
-            userId: ctx.user.id,
-            name: input.lead.name,
-            email: input.lead.email,
-            phone: input.lead.phone,
-          },
-          data: {
-            source: "photo_quality_render",
-            consentToFollowUp: true,
-            phoneVerification: "pending_sms_provider_activation",
-            sceneSignature: input.sceneSignature,
-            designId: input.provenance.designId,
-            designRevision: input.provenance.designRevision,
-            selectedProducts: input.provenance.materials.map(({ role, productId, name }) => ({ role, productId, name })),
-            requestedAt: confirmedAt.toISOString(),
-          },
-          link: origin ? `${origin}/design?load=${input.provenance.designId}` : null,
+        emitPhotoQualityLead({
+          userId: ctx.user.id,
+          lead: input.lead,
+          sceneSignature: input.sceneSignature,
+          provenance: input.provenance,
+          originHeader: ctx.req.headers.origin,
+          reused: false,
         });
       }
       return { imageUrl: result.url, provenance: input.provenance, sourceImageHash: input.provenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
