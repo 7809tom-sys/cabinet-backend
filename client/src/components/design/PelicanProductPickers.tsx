@@ -5,7 +5,7 @@
  * user select one. Replaces the old generic COUNTERTOP_MATERIALS dropdown and
  * SINK_PRESETS buttons in the Design Tool's right panel.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { formatPrice } from "@/lib/pelican";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,45 +107,61 @@ export function PelicanCountertopPicker({
   const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 8 });
   const items = (data ?? []) as RecItem[];
   const selectedIds = useMemo(() => new Set(selectedSurfaces.map((s) => s.id)), [selectedSurfaces]);
+  const [expanded, setExpanded] = useState(false);
+  const selectedSummary = selectedSurfaces.length === 0
+    ? "Choose a countertop"
+    : selectedSurfaces.length === 1
+      ? selectedSurfaces[0].name
+      : `${selectedSurfaces.length} countertops selected`;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Pelican Quartz Slabs
-        </span>
+    <div className="overflow-hidden rounded-lg border border-[#d9c196]/70 bg-[#fffdf9]">
+      <div className="flex min-h-12 items-stretch">
+        <button
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+          aria-expanded={expanded}
+          aria-controls="countertop-material-options"
+          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[#fbf5e8]"
+        >
+          <Waves className="h-4 w-4 shrink-0 text-[#a87f33]" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-semibold text-foreground">Countertop choices</span>
+            <span className="block truncate text-[10px] text-muted-foreground">{selectedSummary}</span>
+          </span>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-[#8a6828] transition-transform ${expanded ? "rotate-90" : ""}`} />
+        </button>
         <button
           type="button"
           onClick={onBrowseAll}
-          className="flex items-center gap-0.5 text-[10px] font-medium text-[#a87f33] hover:text-[#8a6828] transition-colors"
+          className="shrink-0 border-l border-[#d9c196]/70 px-2 text-[10px] font-semibold text-[#8a6828] transition-colors hover:bg-[#f7edd9]"
         >
-          Browse all <ChevronRight className="h-3 w-3" />
+          Browse all
         </button>
       </div>
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <button
-          type="button"
-          onClick={onBrowseAll}
-          className="w-full rounded-lg border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground hover:border-[#a87f33]/50 hover:text-foreground transition-colors"
-        >
-          No countertops available — browse the full catalog
-        </button>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {items.map((p) => (
-            <ProductCard
-              key={p.id}
-              item={p}
-              isSelected={selectedIds.has(p.id)}
-              onSelect={onSelect}
-            />
-          ))}
+      {expanded && (
+        <div id="countertop-material-options" className="border-t border-[#d9c196]/70 p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pelican Quartz Slabs</span>
+            <span className="text-[10px] text-muted-foreground">Tap to select</span>
+          </div>
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-2">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+            </div>
+          ) : items.length === 0 ? (
+            <button
+              type="button"
+              onClick={onBrowseAll}
+              className="w-full rounded-lg border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground hover:border-[#a87f33]/50 hover:text-foreground transition-colors"
+            >
+              No countertops available — browse the full catalog
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {items.map((p) => <ProductCard key={p.id} item={p} isSelected={selectedIds.has(p.id)} onSelect={onSelect} />)}
+            </div>
+          )}
         </div>
       )}
     </div>

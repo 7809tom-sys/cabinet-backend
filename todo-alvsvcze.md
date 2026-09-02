@@ -1410,6 +1410,9 @@
 - [x] Replace the incomplete ERB36 toe-kick strips with a continuous recessed L-corner return beneath both exposed cabinet legs
 - [x] Exclude all fitted-filler toe-kick meshes from dishwasher-adjacent opening edges to remove visible cabinet-finish blocks while retaining the appliance toe kick
 - [x] Identify and remove the remaining small cabinet-finish support block immediately beside the dishwasher after the fitted-filler exclusion
+- [x] Replace the expanded mobile countertop-material grid with a compact clickable chooser that preserves cabinet-list space and the current selection
+- [ ] Trace and remove the still-visible dishwasher-side cabinet-finish mesh that remains after the base-filler toe-kick suppression
+- [x] Extend the dishwasher-edge safeguard to older/manual base filler records identified by catalog code or description
 - [x] Add a visible Island mode / Wall mode control so catalog additions route only to the active placement region
 - [x] Restrict Island mode cabinet and cabinet-part placement to the configured island footprint while preserving ordinary wall placement in Wall mode
 - [x] Add rule-based island depth guidance for 24-inch base and 12-inch wall-cabinet back runs, including 48-inch and 60-inch island depths
