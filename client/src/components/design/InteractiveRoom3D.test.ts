@@ -2045,6 +2045,82 @@ describe("interactive 3D room scene helpers", () => {
     expect(drawerPulls.every((pull) => !pull.userData.verticalPull && pull.userData.hardwarePosition === "center" && pull.position.x === 0)).toBe(true);
   });
 
+  it("keeps the reported adjacent 36-inch island cabinets visually edge-to-edge when their saved offsets already touch", () => {
+    const inch = 1 / 12;
+    const cabinets = [
+      {
+        uid: "reported-island-front-left",
+        cabinetId: 9390010,
+        masterCode: "B-36",
+        description: "36 inch Double Door Two Drawer Base Cabinet",
+        placement: "base",
+        x: 1.744956772334291,
+        y: 83.34293948126802,
+        width: 36,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: 2,
+        numberOfDrawers: 2,
+        islandFace: "front",
+        islandOffset: 0,
+      },
+      {
+        uid: "reported-island-front-right",
+        cabinetId: 9400179,
+        masterCode: "2-DB36",
+        description: "36 inch Two Drawer Base Cabinet",
+        placement: "base",
+        x: 37.74495677233429,
+        y: 83.34293948126802,
+        width: 36,
+        depth: 24,
+        height: 34.5,
+        rotation: 0,
+        numberOfDoors: 0,
+        numberOfDrawers: 2,
+        drawerLayout: JSON.stringify([{ count: 2 }]),
+        islandFace: "front",
+        islandOffset: 36,
+      },
+    ] as const;
+    const root = new THREE.Group();
+    for (const cabinet of cabinets) {
+      addCabinet(
+        root,
+        existingCabinetSku(cabinet as never),
+        null,
+        {},
+        144,
+        120,
+        "#4f5549",
+        "#ffffff",
+        { doorStyle: "Shaker", doorPanelType: null },
+        existingCabinetTransform(cabinet as never),
+      );
+    }
+    root.updateMatrixWorld(true);
+    const cabinetGroups = root.children.filter((child) => child.userData.placedUid);
+    expect(cabinetGroups).toHaveLength(2);
+    expect((cabinetGroups[1]!.position.x - cabinetGroups[0]!.position.x) / inch).toBeCloseTo(36, 10);
+
+    const visibleBounds = cabinetGroups.map((group) => {
+      const fronts: THREE.Mesh[] = [];
+      group.traverse((node) => {
+        if (node instanceof THREE.Mesh && node.userData.cabinetFront) fronts.push(node);
+      });
+      const edges = fronts.flatMap((front) => {
+        const center = new THREE.Vector3();
+        front.getWorldPosition(center);
+        const width = (front.geometry as THREE.BoxGeometry).parameters.width;
+        return [center.x - width / 2, center.x + width / 2];
+      });
+      return { min: Math.min(...edges), max: Math.max(...edges) };
+    });
+    const visibleGapIn = (visibleBounds[1]!.min - visibleBounds[0]!.max) / inch;
+    expect(visibleGapIn).toBeLessThanOrEqual(0.125);
+  });
+
   it("uses compact W3024 code dimensions as 30 inches wide by 24 inches high even when an import transposes the row", () => {
     const imported = {
       uid: "w3024", cabinetId: 1, masterCode: "W3024", description: "Wall Cabinet 30 x 24",

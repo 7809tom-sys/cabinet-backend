@@ -533,6 +533,28 @@ export const THREE_D_WALL_SIDES: WallSide[] = ["top", "left", "right", "bottom"]
 const BASE_DEPTH = 24;
 const WALL_DEPTH = 12;
 const THREE_D_TOE_KICK = 4.5;
+export const THREE_D_CABINET_FRONT_OUTER_REVEAL_IN = 1 / 16;
+export const THREE_D_CABINET_FRONT_CENTER_GAP_IN = 1 / 8;
+
+export function threeDCabinetFrontColumnLayout(bodyWidth: number, count: number) {
+  const columnCount = Math.max(1, Math.round(count));
+  const outerReveal = THREE_D_CABINET_FRONT_OUTER_REVEAL_IN * INCH;
+  const centerGap = THREE_D_CABINET_FRONT_CENTER_GAP_IN * INCH;
+  const availableWidth = Math.max(
+    0.08,
+    bodyWidth - outerReveal * 2 - centerGap * Math.max(0, columnCount - 1),
+  );
+  const columnWidth = availableWidth / columnCount;
+  return {
+    columnCount,
+    columnWidth,
+    centerGap,
+    outerReveal,
+    centerX(index: number) {
+      return -bodyWidth / 2 + outerReveal + columnWidth / 2 + index * (columnWidth + centerGap);
+    },
+  };
+}
 // A 1½-inch countertop sits directly on the 34½-inch base cabinet, so its
 // center is 35¼ inches—not the 37½-inch finished-counter height. Keeping this
 // as the slab center prevents a visible vertical gap above every base run.
@@ -3113,21 +3135,22 @@ export function addCabinet(
 	      frontGroup.add(shelf);
 	    }
 	  }
+	  const standardDoorColumns = threeDCabinetFrontColumnLayout(bodyWidth, doorCount);
 	  for (let i = 0; i < doorCount; i++) {
-	    const doorWidth = (bodyWidth - 0.08) / doorCount;
-	    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth - 0.03, doorHeight, 0.045), sku.glassDoor ? glassDoorMaterial : faceMaterial);
+	    const doorWidth = standardDoorColumns.columnWidth;
+	    const door = new THREE.Mesh(new THREE.BoxGeometry(doorWidth, doorHeight, 0.045), sku.glassDoor ? glassDoorMaterial : faceMaterial);
 	    door.position.set(
-	      -bodyWidth / 2 + 0.04 + doorWidth * (i + 0.5),
+	      standardDoorColumns.centerX(i),
 	      wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : standardDoorCenterY,
 	      0,
 	    );
 	    door.userData = { cabinetFront: true, flushPhysicalFace: true, ...(sku.glassDoor ? { glassCabinetDoor: true, transparentGlassCenter: true } : {}), ...(wd18Layout ? { wd18UpperDoor: true } : {}) };
 	    frontGroup.add(door);
-	    if (!sku.glassDoor) addFaceShadow(doorWidth - 0.03, doorHeight, door.position.x, door.position.y);
-	    addPull(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
+	    if (!sku.glassDoor) addFaceShadow(doorWidth, doorHeight, door.position.x, door.position.y);
+	    addPull(doorWidth, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
 	    const isRaised = profileKind === "raised";
 	    if (sku.glassDoor || profileKind === "shaker") {
-	      addShakerFrame(doorWidth - 0.03, doorHeight, door.position.x, door.position.y, 0.036, 0, Boolean(sku.glassDoor));
+	      addShakerFrame(doorWidth, doorHeight, door.position.x, door.position.y, 0.036, 0, Boolean(sku.glassDoor));
 	    } else if (isRaised) {
       const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
       panel.position.set(door.position.x, door.position.y, 0.045);
@@ -3147,22 +3170,23 @@ export function addCabinet(
     );
   const drawersAtBottom = hasConfiguredOpening || Boolean(wd18Layout);
   let drawerCursor = drawersAtBottom ? -bodyHeight / 2 + 0.04 : bodyHeight / 2 - 0.04;
-  for (const row of drawerRows) {
-    const rowHeight = Math.max(0.08, row.height - 0.025);
-    const drawerWidth = (bodyWidth - 0.08) / row.count;
-    for (let column = 0; column < row.count; column++) {
-      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth - 0.025, rowHeight, 0.048), faceMaterial);
-      const rowY = drawersAtBottom ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
-      drawer.position.set(-bodyWidth / 2 + 0.04 + drawerWidth * (column + 0.5), rowY, 0.004);
-      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ...(isStandardSinkBase ? { falseDrawerFront: true } : {}), ...(wd18Layout ? { wd18BottomDrawer: true } : {}), flushPhysicalFace: true };
-      frontGroup.add(drawer);
-      addDrawerReveal(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
-      addShakerFrame(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
-      addFaceShadow(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y);
+	  for (const row of drawerRows) {
+	    const rowHeight = Math.max(0.08, row.height - 0.025);
+	    const drawerColumns = threeDCabinetFrontColumnLayout(bodyWidth, row.count);
+	    const drawerWidth = drawerColumns.columnWidth;
+	    for (let column = 0; column < row.count; column++) {
+	      const drawer = new THREE.Mesh(new THREE.BoxGeometry(drawerWidth, rowHeight, 0.048), faceMaterial);
+	      const rowY = drawersAtBottom ? drawerCursor + row.height / 2 : drawerCursor - row.height / 2;
+	      drawer.position.set(drawerColumns.centerX(column), rowY, 0.004);
+	      drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, ...(isStandardSinkBase ? { falseDrawerFront: true } : {}), ...(wd18Layout ? { wd18BottomDrawer: true } : {}), flushPhysicalFace: true };
+	      frontGroup.add(drawer);
+	      addDrawerReveal(drawerWidth, rowHeight, drawer.position.x, drawer.position.y);
+	      addShakerFrame(drawerWidth, rowHeight, drawer.position.x, drawer.position.y);
+	      addFaceShadow(drawerWidth, rowHeight, drawer.position.x, drawer.position.y);
       // A standard sink base may have a shallow false front above its doors,
       // but that face is not an operable drawer and must not receive a
       // horizontal handle. Its vertical door pulls remain unchanged above.
-      if (!isStandardSinkBase) addPull(drawerWidth - 0.025, rowHeight, drawer.position.x, drawer.position.y, true);
+	      if (!isStandardSinkBase) addPull(drawerWidth, rowHeight, drawer.position.x, drawer.position.y, true);
     }
     drawerCursor += drawersAtBottom ? row.height : -row.height;
   }

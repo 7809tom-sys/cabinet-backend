@@ -1232,3 +1232,8 @@
 - [x] Keep moved windows inside their owning wall and ceiling bounds while recomputing the required three-inch cabinet clearance conflicts
 - [x] Preserve 2D/3D synchronization, save/reload identity, wall ownership, opening dimensions, and desktop/tablet/mobile usability
 - [x] Validate window raycasting, movement, collision warnings, persistence, camera stability, and existing cabinet right-click behavior before publishing
+- [x] Reproduce why two base cabinets on the same island Front face show a positive physical gap despite the required edge-to-edge placement rule
+- [x] Determine whether the gap originates in islandFaceOffset placement, saved-design normalization, member movement, or final 3D transform/visible carcass geometry
+- [x] Make same-face island cabinets snap with exactly 0-inch gap and 0-inch overlap on Front, Back, Left, and Right faces
+- [x] Preserve deliberate fillers, cabinet widths, back-to-back runs, island movement/rotation, sink fixtures, automatic countertop slab, pricing/cart identity, and saved-design refresh
+- [x] Validate placement, drag/move, resize, reload, plan/elevation/final 3D parity, and desktop/mobile behavior before publishing
