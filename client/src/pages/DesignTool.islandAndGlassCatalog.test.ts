@@ -4,14 +4,19 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
-  it("routes normal catalog placement to the selected island face and enables the required automatic slab", () => {
+	  it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {
 	  expect(source).toContain("targetIslandFace ?? (islandPlacementMode ? islandFace : null)");
 	  expect(source).not.toContain("islandPlacementMode && x == null && y == null");
-    expect(source).toContain("nextIslandFacePlacement(newCab, island, requestedIslandFace, prev)");
-    expect(source).toContain("setCountertop(true)");
-    expect(source).toContain('data-testid="island-placement-active-indicator"');
-    expect(source).toContain("Place on walls");
-  });
+	    expect(source).toContain("if (island && islandPlacementMode)");
+	    expect(source).toContain("addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFace)");
+	    expect(source).toContain("nextIslandFacePlacement(newCab, island, requestedIslandFace, prev)");
+	    expect(source).toContain("setCountertop(true)");
+	    expect(source).toContain('data-testid="island-placement-active-indicator"');
+	    expect(source).toContain('data-testid="wall-placement-mode"');
+	    expect(source).toContain('data-testid="island-placement-mode"');
+	    expect(source).toContain(">Wall mode<");
+	    expect(source).toContain(">Island mode<");
+	  });
 
 	it("synchronizes the active placement face when an existing island cabinet is selected", () => {
 	  expect(source).toContain("inferredIslandFace(cabinet, island)");

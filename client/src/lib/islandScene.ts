@@ -215,18 +215,20 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   const centerX = island.x + island.width / 2;
   const centerY = island.y + island.depth / 2;
   const faceMap: Record<IslandFace, IslandFace> = { front: "left", left: "back", back: "right", right: "front" };
-  const nextIsland = clampIslandToRoom({
+	  const nextIsland = clampIslandToRoom({
     ...island,
     x: centerX - island.depth / 2,
     y: centerY - island.width / 2,
     width: island.depth,
     depth: island.width,
     activeFace: faceMap[island.activeFace ?? "front"],
-    countertopWidth: island.countertopDepth ?? null,
-    countertopDepth: island.countertopWidth ?? null,
-    countertopOffsetX: -(island.countertopOffsetY ?? 0),
-    countertopOffsetY: island.countertopOffsetX ?? 0,
-  }, room)!;
+	    countertopWidth: island.countertopDepth ?? null,
+	    countertopDepth: island.countertopWidth ?? null,
+	    countertopOffsetX: -(island.countertopOffsetY ?? 0),
+	    countertopOffsetY: island.countertopOffsetX ?? 0,
+	    countertopWidthAnchoredToZone: island.countertopDepthAnchoredToZone ?? false,
+	    countertopDepthAnchoredToZone: island.countertopWidthAnchoredToZone ?? false,
+	  }, room)!;
   if (Math.abs(nextIsland.x - (centerX - island.depth / 2)) > COLLISION_EPSILON_IN || Math.abs(nextIsland.y - (centerY - island.width / 2)) > COLLISION_EPSILON_IN) {
     return { ok: false, reason: "The rotated island assembly would leave the room.", island, placed };
   }
@@ -263,9 +265,11 @@ export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]
   const maxY = Math.max(...footprints.map(({ item, footprint }) => item.y + footprint.d));
   const autoWidth = maxX - minX + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
   const autoDepth = maxY - minY + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
-  const width = island.countertopWidth ?? autoWidth;
-  const depth = island.countertopDepth ?? autoDepth;
-  const centerX = (minX + maxX) / 2 + Number(island.countertopOffsetX ?? 0);
-  const centerY = (minY + maxY) / 2 + Number(island.countertopOffsetY ?? 0);
-  return { x: centerX - width / 2, y: centerY - depth / 2, width, depth };
+	  const width = island.countertopWidth ?? autoWidth;
+	  const depth = island.countertopDepth ?? autoDepth;
+	  const supportCenterX = (minX + maxX) / 2;
+	  const supportCenterY = (minY + maxY) / 2;
+	  const centerX = (island.countertopWidthAnchoredToZone ? island.x + island.width / 2 : supportCenterX) + Number(island.countertopOffsetX ?? 0);
+	  const centerY = (island.countertopDepthAnchoredToZone ? island.y + island.depth / 2 : supportCenterY) + Number(island.countertopOffsetY ?? 0);
+	  return { x: centerX - width / 2, y: centerY - depth / 2, width, depth };
 }

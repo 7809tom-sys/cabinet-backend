@@ -3395,8 +3395,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [layoutLocked, roomType, addCabinet]);
 
 	  const addFromInteractive3d = useCallback((item: InteractiveRoomCatalogItem, dropTarget?: ThreeDWallDropTarget, freehand = false) => {
-    const addAtDropTarget = (cabinet: DesignCabinet, forceAccessory = false) => {
-      if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
+	    const addAtDropTarget = (cabinet: DesignCabinet, forceAccessory = false) => {
+	      // Island mode is an explicit placement target, not merely a view. Do not
+	      // allow a 3D catalog click or drag to fall through to an outer wall while
+	      // the owner is building the island assembly.
+	      if (island && islandPlacementMode) {
+	        addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFace);
+	        return;
+	      }
+	      if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
       const dimensions = resolvedDesignCabinetDimensions(cabinet);
       const width = forceAccessory ? dim(cabinet.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(cabinet) ? 0.75 : forceAccessory ? footprintDepth(cabinet) : dimensions.depth;
@@ -3453,7 +3460,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
     if (appliance) addAtDropTarget(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, room, placed, openings]);
+	  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, island, islandFace, islandPlacementMode, room, placed, openings]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
@@ -4841,6 +4848,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      countertopDepth: draft.countertopDepth ?? null,
 	      countertopOffsetX: draft.countertopOffsetX ?? 0,
 	      countertopOffsetY: draft.countertopOffsetY ?? 0,
+	      countertopWidthAnchoredToZone: draft.countertopWidthAnchoredToZone ?? false,
+	      countertopDepthAnchoredToZone: draft.countertopDepthAnchoredToZone ?? false,
 	    };
 	    const slab = islandCountertopRect(nextIsland, resized.placed);
 	    if (slab && (slab.x < 0 || slab.y < 0 || slab.x + slab.width > room.width || slab.y + slab.depth > room.depth)) {
@@ -9274,19 +9283,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              </div>}
 	            </div>
 	          )}
-	          {islandPlacementMode && island && !customPlacementMode && (
+	          {island && !customPlacementMode && (
 	            <div
 	              role="status"
 	              aria-live="polite"
 	              data-testid="island-placement-active-indicator"
 	              className="absolute left-3 right-3 top-3 z-40 flex flex-wrap items-center gap-1.5 rounded-lg border border-[#b98d3e]/45 bg-white/95 px-2.5 py-2 text-xs font-semibold text-[#1a2744] shadow-lg backdrop-blur sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
 	            >
-	              <span className="mr-1 whitespace-nowrap">Adding to island:</span>
-	              {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
-	                <button key={face} type="button" onClick={() => { setIslandFace(face); setIsland((current) => current ? { ...current, activeFace: face } : current); }} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
-	              ))}
-	              <button type="button" onClick={() => setIslandAttributesOpen(true)} className="rounded border border-[#b98d3e] px-2 py-1 text-[#7b5a20]">Edit</button>
-	              <button type="button" onClick={() => setIslandPlacementMode(false)} className="rounded border border-border px-2 py-1 text-muted-foreground">Place on walls</button>
+	              <span className="mr-1 whitespace-nowrap">Placement:</span>
+	              <button
+	                type="button"
+	                data-testid="wall-placement-mode"
+	                aria-pressed={!islandPlacementMode}
+	                onClick={() => { setIslandPlacementMode(false); setPlacementWarning(null); }}
+	                className={`rounded px-2 py-1 ${!islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+	              >Wall mode</button>
+	              <button
+	                type="button"
+	                data-testid="island-placement-mode"
+	                aria-pressed={islandPlacementMode}
+	                onClick={() => { setIslandPlacementMode(true); setViewMode("plan"); setPlacementWarning(null); }}
+	                className={`rounded px-2 py-1 ${islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+	              >Island mode</button>
+	              {islandPlacementMode && <>
+	                <span className="ml-1 whitespace-nowrap text-muted-foreground">Add to:</span>
+	                {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
+	                  <button key={face} type="button" onClick={() => { setIslandFace(face); setIsland((current) => current ? { ...current, activeFace: face } : current); }} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
+	                ))}
+	              </>}
+	              <button type="button" onClick={() => setIslandAttributesOpen(true)} className="rounded border border-[#b98d3e] px-2 py-1 text-[#7b5a20]">Island setup</button>
 	            </div>
 	          )}
 	          {customPlacementMode && (

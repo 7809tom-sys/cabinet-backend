@@ -37,4 +37,15 @@ describe("IslandAttributesDialog", () => {
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/four independent runs/i)).toBeTruthy();
   });
+
+  it("explains the 24, 36, 48, and 60 inch depth rules and exposes a 12-inch rear seating overhang", () => {
+    render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
+    const guidance = screen.getByTestId("island-depth-guidance").textContent ?? "";
+    expect(guidance).toContain("24 in.");
+    expect(guidance).toContain("36 in.");
+    expect(guidance).toContain("48 in.");
+    expect(guidance).toContain("60 in.");
+    expect(screen.getByTestId("island-seating-overhang")).toBeTruthy();
+    expect(screen.getByText(/rear seating countertop overhang/i)).toBeTruthy();
+  });
 });

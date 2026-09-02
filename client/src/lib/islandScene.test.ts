@@ -166,6 +166,21 @@ describe("island mini-scene geometry", () => {
 	    expect(islandCountertopRect(custom, [attached])).toEqual({ x: 20, y: 56, width: 60, depth: 30 });
 	  });
 
+	  it("keeps a guided 12-inch rear seating overhang anchored to the island work zone before a rear cabinet run exists", () => {
+	    const workZone = { ...island, depth: 36 };
+	    const frontOnly = islandFacePlacement(cabinet({ uid: "front-only" }), workZone, "front", 0);
+	    const seatingIsland = {
+	      ...workZone,
+	      countertopDepth: 48,
+	      countertopOffsetY: -6,
+	      countertopDepthAnchoredToZone: true,
+	    };
+	    expect(islandCountertopRect(seatingIsland, [frontOnly])).toMatchObject({
+	      y: workZone.y - 12,
+	      depth: 48,
+	    });
+	  });
+
 	  it("preserves island face ownership and exact slab metadata through design save and restore", () => {
 	    const attached = islandFacePlacement(cabinet({ uid: "saved-island-base" }), island, "right", 12);
 	    const savedIsland = {
@@ -175,6 +190,7 @@ describe("island mini-scene geometry", () => {
 	      countertopDepth: 54,
 	      countertopOffsetX: 1.5,
 	      countertopOffsetY: -0.5,
+	      countertopDepthAnchoredToZone: true,
 	    };
 	    const restored = JSON.parse(JSON.stringify({ island: savedIsland, placed: [attached] })) as {
 	      island: IslandZone;

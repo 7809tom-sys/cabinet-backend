@@ -1405,4 +1405,9 @@
 - [x] Make the reported ERB36 corner cabinet directly selectable in 3D instead of allowing adjacent cabinet meshes to win the pointer target
 - [x] Remove the small cabinet-finish toe-kick fragments visible under and beside the dishwasher while preserving all actual base-cabinet toe kicks
 - [ ] Obtain owner live verification that ERB36/filler toe kicks, dishwasher boundaries, and ERB36 right-click targeting match the reported scene
+- [x] Add a visible Island mode / Wall mode control so catalog additions route only to the active placement region
+- [x] Restrict Island mode cabinet and cabinet-part placement to the configured island footprint while preserving ordinary wall placement in Wall mode
+- [x] Add rule-based island depth guidance for 24-inch base and 12-inch wall-cabinet back runs, including 48-inch and 60-inch island depths
+- [x] Add a seating-side countertop overhang choice that updates the island slab without changing selected cabinets or the island footprint
+- [ ] Obtain owner live verification that Island mode keeps selected cabinets and parts within the intended island face and that Wall mode resumes outer-wall placement
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark

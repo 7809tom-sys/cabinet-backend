@@ -5196,6 +5196,10 @@ export interface IslandZone {
   countertopDepth?: number | null;
   countertopOffsetX?: number | null;
   countertopOffsetY?: number | null;
+  /** When true, the explicit slab width remains centered on the island work zone instead of the current cabinet envelope. */
+  countertopWidthAnchoredToZone?: boolean | null;
+  /** When true, the explicit slab depth remains centered on the island work zone instead of the current cabinet envelope. */
+  countertopDepthAnchoredToZone?: boolean | null;
 }
 
 export function clampIslandToRoom(island: IslandZone | null, room: RoomData): IslandZone | null {
