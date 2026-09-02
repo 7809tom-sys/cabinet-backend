@@ -379,7 +379,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [search]);
   const [activeSavedDesignId, setActiveSavedDesignId] = useState<number | null>(() => loadDesignId);
   useEffect(() => {
-    setActiveSavedDesignId(loadDesignId);
+    // A route-provided design must become the active persisted plan.  But when
+    // this Designer has no `load` parameter, do not erase the ID returned by a
+    // just-completed Save action merely because another benign query parameter
+    // (such as `from_webdev`) changes.  The Photo Quality workflow relies on
+    // this ID to lock its final reference to the existing saved plan.
+    if (loadDesignId != null) setActiveSavedDesignId(loadDesignId);
   }, [loadDesignId]);
   // Administration can inspect an existing saved design directly. This is a
   // read-only entry path into the same renderer and intentionally avoids

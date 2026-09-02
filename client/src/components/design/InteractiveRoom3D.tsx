@@ -544,7 +544,7 @@ export type ThreeDProductMaterialSource = {
   plankWidthIn: number | null;
   plankLengthIn: number | null;
   staggerOffsetsIn: number[] | null;
-  backsplashPatternKind?: "field-tile" | "interlocking-mosaic" | null;
+  backsplashPatternKind?: "field-tile" | "interlocking-mosaic" | "subway-mosaic" | null;
   backsplashModuleIn?: number | null;
   backsplashGroutJointIn?: number | null;
 };
@@ -592,6 +592,7 @@ const THREE_D_ASTORIA_22MIL_FLOOR_URL = "/manus-storage/astoria_22mil_9x60_stagg
 const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp";
 const THREE_D_ARCTIC_VAIL_MOSAIC_URL = "/manus-storage/arctic_vail_candidate_2_a8bed842.png";
 const THREE_D_CARBON_HEX_MOSAIC_URL = "/manus-storage/carbon_hex_candidate_1_2af63616.png";
+const THREE_D_CARRARA_SUBWAY_MOSAIC_URL = "/manus-storage/carrara_subway_11_97x12_13_running_bond_f57029f6.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -738,7 +739,7 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
     };
   }
-  if (role === "countertop" && normalizedName === "calacatta oro 3cm super jumbo") {
+	if (role === "countertop" && normalizedName === "calacatta oro 3cm super jumbo") {
     return {
 	      url: THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL,
 	      key: "calacatta-oro-138x79",
@@ -751,8 +752,26 @@ export function threeDProductMaterialSource(
       plankWidthIn: null,
       plankLengthIn: null,
       staggerOffsetsIn: null,
-    };
-  }
+	  };
+	}
+	if (role === "backsplash" && normalizedName === "carrara subway") {
+		return {
+			url: THREE_D_CARRARA_SUBWAY_MOSAIC_URL,
+			key: "carrara-subway-11.97in-running-bond-mosaic",
+			curated: true,
+			proceduralFallback: false,
+			physicalWidthIn: 11.97,
+			physicalDepthIn: 12.13,
+			sourceProductName: productName ?? null,
+			flooringPatternKind: null,
+			plankWidthIn: null,
+			plankLengthIn: null,
+			staggerOffsetsIn: null,
+			backsplashPatternKind: "subway-mosaic",
+			backsplashModuleIn: 11.97,
+			backsplashGroutJointIn: 1 / 16,
+		};
+	}
 	// Shopper-facing room and product-card imagery is never allowed into this
 	// texture path. A selected product without an approved swatch still receives
 	// a visible deterministic representative material, not a missing surface.

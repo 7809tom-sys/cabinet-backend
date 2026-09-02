@@ -1371,3 +1371,4 @@
 - [x] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
 - [ ] Add product-specific backsplash pattern treatment beyond the corrected Desert Clay mosaic so other selected tile patterns do not receive a generic square field
 - [x] Normalize approved relative CabinetDealz material-storage paths to trusted absolute URLs before protected Photo Quality validation so administrator test renders can proceed
+- [x] Fix the false Photo Quality save prompt so an already saved design is recognized as eligible for an administrator test render

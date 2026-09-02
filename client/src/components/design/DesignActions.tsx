@@ -385,13 +385,17 @@ export function DesignActions({
   const saveMutation = trpc.design.save.useMutation({
     onSuccess: (res) => {
       const savedName = name || t("dt_act_saved_untitled");
+      if (!res?.id) {
+        toast.error(t("dt_act_save_err"), { description: "The design was saved but its plan reference was not returned. Please try saving once more." });
+        return;
+      }
       toast.success(t("dt_act_saved"), { description: savedName });
-      onSaveSuccess?.(savedName, res?.id ?? 0);
+      onSaveSuccess?.(savedName, res.id);
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
       // Optionally request a quote from the design's owning CRM.
-      if (requestQuote && res?.id) {
+      if (requestQuote) {
         quoteMutation.mutate({
           designId: res.id,
           contactName: customerName.trim() || null,
