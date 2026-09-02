@@ -1374,6 +1374,7 @@
 - [x] Audit Concord Square from the official Pelican product sheet, assign its clean 11.81-inch glass-and-marble mosaic swatch, and retain staged catalog imagery as display-only
 - [x] Audit Earthstone Blend against official Pelican sources and retain its staged or partial media as display-only until a complete material-only field is available
 - [x] Audit Emerald Dust against official Pelican sources and retain its staged or partial media as display-only until a complete material-only field is available
+- [x] Audit Forest Stone against official Pelican sources and retain staged or incomplete media as display-only until a complete material-only field is available
 - [x] Normalize approved relative CabinetDealz material-storage paths to trusted absolute URLs before protected Photo Quality validation so administrator test renders can proceed
 - [x] Fix the false Photo Quality save prompt so an already saved design is recognized as eligible for an administrator test render
 - [x] Fix the still-visible administrator Photo Quality material-reference validation error after confirming the saved-plan eligibility repair is deployed
