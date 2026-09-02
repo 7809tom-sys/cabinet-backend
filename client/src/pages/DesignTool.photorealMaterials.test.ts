@@ -27,6 +27,9 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("catalogFlooringProductId={threeDSurfaceProductIds.flooring}");
     expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
     expect(designToolSource).toContain("savedDesignId={activeSavedDesignId ?? loadDesignId ?? null}");
+    expect(designToolSource).toContain("onToggle={(item) => {");
+    expect(designToolSource).toContain('if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet")');
+    expect(designToolSource).toContain("addRecommendedSurface(item, role);");
     expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(mappedCountertopTexture)');
     expect(rendererSource).toContain('usesAuthoritativeProductImage: Boolean(floorTexture)');

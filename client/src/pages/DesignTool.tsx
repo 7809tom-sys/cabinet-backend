@@ -10623,12 +10623,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           placedCabinets={placed}
         />
       )}
-      <SurfacesPickerDialog
-        open={surfacesOpen}
-        onOpenChange={setSurfacesOpen}
-        selected={selectedSurfaces}
-        onToggle={toggleSurface}
-        backsplashHeightMode={backsplashHeightMode}
+	      <SurfacesPickerDialog
+	        open={surfacesOpen}
+	        onOpenChange={setSurfacesOpen}
+	        selected={selectedSurfaces}
+	        onToggle={(item) => {
+	          const role = surfaceRole(item);
+	          if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet") {
+	            addRecommendedSurface(item, role);
+	            return;
+	          }
+	          toggleSurface(item);
+	        }}
+	        backsplashHeightMode={backsplashHeightMode}
         onBacksplashHeightModeChange={setBacksplashHeightMode}
         countertopBacksplashHeightIn={countertopBacksplashHeightIn}
         onCountertopBacksplashHeightChange={setCountertopBacksplashHeightIn}

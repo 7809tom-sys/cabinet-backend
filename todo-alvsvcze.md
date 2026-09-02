@@ -1336,3 +1336,4 @@
 - [x] Render flooring as true staggered boards and backsplash as connected 12-inch tile courses only from validated material regions
 - [x] Add regressions that reject repeated room/product-thumbnail artifacts while preserving exact plan, selected products, pricing, mobile behavior, and saved designs
 - [x] Clearly identify in the Surfaces picker when a selected flooring, countertop, or backsplash product has no approved material-only 3D swatch and will use the neutral PBR fallback rather than its catalog photograph
+- [x] Reproduce and restore the owner’s previously saved flooring, countertop, and backsplash selections when opening the authenticated Kitchen Designer, without treating a missing approved 3D swatch as a missing selected product
