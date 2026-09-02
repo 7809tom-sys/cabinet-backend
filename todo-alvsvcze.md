@@ -1407,6 +1407,8 @@
 - [x] Make the reported ERB36 corner cabinet directly selectable in 3D instead of allowing adjacent cabinet meshes to win the pointer target
 - [x] Remove the small cabinet-finish toe-kick fragments visible under and beside the dishwasher while preserving all actual base-cabinet toe kicks
 - [ ] Obtain owner live verification that ERB36/filler toe kicks, dishwasher boundaries, and ERB36 right-click targeting match the reported scene
+- [x] Replace the incomplete ERB36 toe-kick strips with a continuous recessed L-corner return beneath both exposed cabinet legs
+- [x] Exclude all fitted-filler toe-kick meshes from dishwasher-adjacent opening edges to remove visible cabinet-finish blocks while retaining the appliance toe kick
 - [x] Add a visible Island mode / Wall mode control so catalog additions route only to the active placement region
 - [x] Restrict Island mode cabinet and cabinet-part placement to the configured island footprint while preserving ordinary wall placement in Wall mode
 - [x] Add rule-based island depth guidance for 24-inch base and 12-inch wall-cabinet back runs, including 48-inch and 60-inch island depths

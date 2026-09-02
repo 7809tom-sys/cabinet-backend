@@ -8,6 +8,7 @@ import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./Inter
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { pathTraceCompatibleMaterial } from "./InteractiveRoom3D";
+import { threeDFittedFillerToeKickSuppressionUids } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetSelectionPriority, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
@@ -1816,7 +1817,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
   });
 
-  it("builds ERB36 toe kicks only as two recessed exposed-face strips rather than deep leg blocks", () => {
+  it("builds ERB36 toe kicks as two recessed exposed-face strips joined by a continuous inside-corner return rather than deep leg blocks", () => {
     const root = new THREE.Group();
     const erb = {
       uid: "erb36-kick", cabinetId: 36, masterCode: "ERB-36", description: "Easy Reach Corner Base",
@@ -1826,8 +1827,8 @@ describe("interactive 3D room scene helpers", () => {
     const kicks: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.lCornerToeKick) kicks.push(node); });
 
-    expect(kicks).toHaveLength(2);
-    expect(kicks.map((node) => node.userData.lCornerToeKickSide).sort()).toEqual(["back-leg", "side-leg"]);
+    expect(kicks).toHaveLength(3);
+    expect(kicks.map((node) => node.userData.lCornerToeKickSide).sort()).toEqual(["back-leg", "corner-return", "side-leg"]);
     for (const kick of kicks) {
       expect(kick.userData.lCornerExposedFaceToeKick).toBe(true);
       expect(kick.userData.toeKickRecessIn).toBe(3);
@@ -1835,7 +1836,7 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
-  it("keeps an installed filler kick recessed and makes the dishwasher its own only floor-support mesh", () => {
+  it("suppresses a fitted filler toe kick that touches a dishwasher opening while retaining the dishwasher's own floor support", () => {
     const root = new THREE.Group();
     const filler = {
       uid: "filler-beside-dw", cabinetId: 342, masterCode: "F342", description: "Filler cut to 3 inches",
@@ -1847,7 +1848,9 @@ describe("interactive 3D room scene helpers", () => {
       placement: "appliance", x: 27, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 0, numberOfDrawers: 0,
     } as never;
     const room = { width: 120, depth: 96, ceilingHeight: 96 } as never;
-    addCabinet(root, existingCabinetSku(filler), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(filler, room));
+    const suppressions = threeDFittedFillerToeKickSuppressionUids([filler, dishwasher]);
+    expect(suppressions.has(filler.uid)).toBe(true);
+    addCabinet(root, existingCabinetSku(filler), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(filler, room), undefined, undefined, { suppressFittedFillerToeKick: suppressions.has(filler.uid) });
     addCabinet(root, existingCabinetSku(dishwasher), null, {}, 120, 96, "#7e8d72", "#f8f8f6", undefined, existingCabinetTransform(dishwasher, room));
     const fillerKick: THREE.Object3D[] = [];
     const dishwasherKicks: THREE.Object3D[] = [];
@@ -1856,8 +1859,7 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.dishwasherToeKick) dishwasherKicks.push(node);
     });
 
-    expect(fillerKick).toHaveLength(1);
-    expect(fillerKick[0]?.userData.toeKickRecessIn).toBe(3);
+    expect(fillerKick).toHaveLength(0);
     expect(dishwasherKicks).toHaveLength(1);
     expect(dishwasherKicks[0]?.userData.floorApplianceSupport).toBe(true);
   });
@@ -4447,9 +4449,10 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.baseToeKick) toeKicks.push(node);
       if (node.userData.catalogApplianceEnvelope) applianceRoots.push(node);
     });
-    // CDB36 is an L-corner: it contributes 2 leg toe kicks instead of 1 rectangular one.
-    // The 5 base cabinets therefore produce 6 toe-kick meshes (CDB36×2 + DB-18×1 + SB-36×1 + DB-30×1 + B-33×1).
-    expect(toeKicks).toHaveLength(6);
+    // CDB36 is an L-corner: two recessed leg kicks and one small joined
+    // inside-corner return replace a rectangular 36-by-36 toe-kick box.
+    // The five base cabinets therefore produce seven toe-kick meshes.
+    expect(toeKicks).toHaveLength(7);
     expect(applianceRoots).toHaveLength(3);
     expect(applianceRoots.map((node) => node.userData.masterCode)).toEqual(expect.arrayContaining(["RANGE-30", "HOOD-30", "FRIDGE-36"]));
     expect(applianceRoots.find((node) => node.userData.masterCode === "HOOD-30")!.userData.catalogApplianceEnvelope.mountBottomIn).toBe(66);

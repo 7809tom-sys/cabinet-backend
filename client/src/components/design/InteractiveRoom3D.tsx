@@ -2263,6 +2263,44 @@ export function lCornerCarcassParts(bodyWidth: number, bodyDepth: number, legRat
   };
 }
 
+type ThreeDPlanRect = { x: number; y: number; width: number; depth: number };
+
+function threeDPlanRect(cabinet: Pick<PlacedCabinet, "x" | "y" | "width" | "depth" | "rotation">): ThreeDPlanRect {
+  const quarterTurn = Math.abs(Math.round((cabinet.rotation ?? 0) / 90)) % 2 === 1;
+  return {
+    x: cabinet.x,
+    y: cabinet.y,
+    width: Math.max(0, quarterTurn ? cabinet.depth : cabinet.width),
+    depth: Math.max(0, quarterTurn ? cabinet.width : cabinet.depth),
+  };
+}
+
+function threeDPlanRectsShareEdge(first: ThreeDPlanRect, second: ThreeDPlanRect, toleranceIn = 0.08): boolean {
+  const xOverlap = Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x);
+  const yOverlap = Math.min(first.y + first.depth, second.y + second.depth) - Math.max(first.y, second.y);
+  const touchesVertically = Math.abs(first.x + first.width - second.x) <= toleranceIn || Math.abs(second.x + second.width - first.x) <= toleranceIn;
+  const touchesHorizontally = Math.abs(first.y + first.depth - second.y) <= toleranceIn || Math.abs(second.y + second.depth - first.y) <= toleranceIn;
+  return (touchesVertically && yOverlap > toleranceIn) || (touchesHorizontally && xOverlap > toleranceIn);
+}
+
+/** A fitted filler cannot add a cabinet toe kick into a dishwasher opening. */
+export function threeDFittedFillerToeKickSuppressionUids(placed: PlacedCabinet[]): Set<string> {
+  const dishwashers = placed.filter((cabinet) => (
+    cabinet.placement === "appliance"
+    && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`)
+  ));
+  const suppressed = new Set<string>();
+  for (const filler of placed) {
+    const isFittedBaseFiller = filler.placement === "base"
+      && Boolean(filler.fillerPieceGroupId && filler.fillerPlacementMode && Number(filler.fillerTotalWidth) > 0);
+    if (!isFittedBaseFiller) continue;
+    if (dishwashers.some((dishwasher) => threeDPlanRectsShareEdge(threeDPlanRect(filler), threeDPlanRect(dishwasher)))) {
+      suppressed.add(filler.uid);
+    }
+  }
+  return suppressed;
+}
+
 /**
  * Plan-space vertices for a true diagonal-corner cabinet. The saved 2D plan
  * stores the enclosing square, but the cabinet occupies the wall-side triangle
@@ -2686,7 +2724,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -2749,6 +2787,7 @@ export function addCabinet(
     Number.isFinite(Number(sku.fillerTotalWidth)) &&
     Number(sku.fillerTotalWidth) > 0,
   );
+  const suppressInstalledFillerToeKick = isInstalledFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
   const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isInstalledFillerPiece ? (bodyDepth - installedFillerBoardDepth) / 2 : 0;
   const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
@@ -2808,6 +2847,9 @@ export function addCabinet(
       const exposedSideZ = lShape.sideLeg.z;
       const toeKickRecess = 3 * INCH;
       const toeKickThickness = 0.08;
+      const cornerReturnSpan = toeKickRecess + toeKickThickness;
+      const cornerReturnX = exposedSideX - toeKickRecess - toeKickThickness / 2 + cornerReturnSpan / 2;
+      const cornerReturnZ = exposedBackZ - toeKickRecess - toeKickThickness / 2 + cornerReturnSpan / 2;
       const exposedKicks = [
         {
           side: "back-leg" as const,
@@ -2820,6 +2862,15 @@ export function addCabinet(
           geometry: new THREE.BoxGeometry(toeKickThickness, toeKickHeight, exposedSideLength),
           x: exposedSideX - toeKickRecess - toeKickThickness / 2,
           z: exposedSideZ,
+        },
+        {
+          // The two recessed room-facing toe-kick legs must visibly meet at
+          // the inside corner. This small square return fills only that
+          // connection, never the L-corner's open appliance-facing cavity.
+          side: "corner-return" as const,
+          geometry: new THREE.BoxGeometry(cornerReturnSpan, toeKickHeight, cornerReturnSpan),
+          x: cornerReturnX,
+          z: cornerReturnZ,
         },
       ];
       for (const exposedKick of exposedKicks) {
@@ -2869,8 +2920,8 @@ export function addCabinet(
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);
       }
-	    } else {
-	      const toeKick = new THREE.Mesh(
+    } else if (!suppressInstalledFillerToeKick) {
+      const toeKick = new THREE.Mesh(
 	        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, isInstalledFillerPiece ? installedFillerBoardDepth : Math.max(0.12, bodyDepth - 0.25)),
 	        toeKickMaterial,
 	      );
@@ -6348,8 +6399,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     threeScene.add(floorContact);
 
     const catalogRoot = new THREE.Group();
-    const cursor = { back: 3, left: 3, right: 3, front: 3 };
-    const finish = resolvedCabinetFinish;
+	    const cursor = { back: 3, left: 3, right: 3, front: 3 };
+	    const finish = resolvedCabinetFinish;
+	    const fittedFillerToeKickSuppressions = renderExistingDesign
+	      ? threeDFittedFillerToeKickSuppressionUids(placed)
+	      : new Set<string>();
     const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
     setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
     catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture, catalogRoomSceneUrl);
@@ -6387,7 +6441,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, { countertop: countertopTexture });
+	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, { countertop: countertopTexture, suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid) });
 	      }
 	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
