@@ -1344,3 +1344,5 @@
 - [ ] Fix the confirmed live handoff failure where verified saved-surface materials still do not reach the active 3D scene after refresh
 - [ ] Fix the newly confirmed partial handoff: Bedrock renders, but the saved flooring still uses a generic field and the saved Desert Clay backsplash is absent
 - [x] Correct only the currently selected flooring material and its physical plank mapping before resuming any countertop or backsplash changes
+- [ ] Trace and replace the actual generic floor state displayed in the owner’s live 3D scene, which is still unchanged after the prior product-name and product-ID source updates
+- [ ] Remove the shared hardcoded generic floor pattern so each selected flooring product resolves and renders its own approved material source
