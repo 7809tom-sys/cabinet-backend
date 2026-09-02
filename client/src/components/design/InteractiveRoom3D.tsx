@@ -594,6 +594,7 @@ const THREE_D_ARCTIC_VAIL_MOSAIC_URL = "/manus-storage/arctic_vail_candidate_2_a
 const THREE_D_CARBON_HEX_MOSAIC_URL = "/manus-storage/carbon_hex_candidate_1_2af63616.png";
 const THREE_D_CARRARA_SUBWAY_MOSAIC_URL = "/manus-storage/carrara_subway_11_97x12_13_running_bond_f57029f6.webp";
 const THREE_D_CLOUDLINE_MARBLE_MOSAIC_URL = "/manus-storage/cloudline_marble_11_81x11_81_staggered_mosaic_32c5408e.webp";
+const THREE_D_CONCORD_SQUARE_MOSAIC_URL = "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp";
 
 /**
  * Exact selected products may provide retail thumbnails that are unsuitable as
@@ -787,6 +788,24 @@ export function threeDProductMaterialSource(
 			plankLengthIn: null,
 			staggerOffsetsIn: null,
 			backsplashPatternKind: "subway-mosaic",
+			backsplashModuleIn: 11.81,
+			backsplashGroutJointIn: 1 / 16,
+		};
+	}
+	if (role === "backsplash" && normalizedName === "concord square") {
+		return {
+			url: THREE_D_CONCORD_SQUARE_MOSAIC_URL,
+			key: "concord-square-11.81in-glass-marble-mosaic",
+			curated: true,
+			proceduralFallback: false,
+			physicalWidthIn: 11.81,
+			physicalDepthIn: 11.81,
+			sourceProductName: productName ?? null,
+			flooringPatternKind: null,
+			plankWidthIn: null,
+			plankLengthIn: null,
+			staggerOffsetsIn: null,
+			backsplashPatternKind: "interlocking-mosaic",
 			backsplashModuleIn: 11.81,
 			backsplashGroutJointIn: 1 / 16,
 		};

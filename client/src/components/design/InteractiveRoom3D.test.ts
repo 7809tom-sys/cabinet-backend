@@ -134,6 +134,11 @@ describe("interactive 3D room scene helpers", () => {
 							curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
 							backsplashPatternKind: "subway-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
 						});
+				expect(threeDProductMaterialSource("backsplash", "Concord Square", "/manus-storage/pelican/164_7f2e1c1b.png")).toMatchObject({
+							url: "/manus-storage/concord_square_11_81x11_81_glass_marble_mosaic_8ffff52d.webp", key: "concord-square-11.81in-glass-marble-mosaic",
+							curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
+							backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
+						});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
