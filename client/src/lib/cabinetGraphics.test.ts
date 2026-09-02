@@ -8,11 +8,21 @@ import {
   resolveConfiguredFaceCounts,
   resolveDoorDrawerCounts,
   isEqualHeightTwoDrawerBase,
+  isWallBlindCornerCabinet,
   threeDrawerBaseRowHeights,
   standardDoorCountForFaceWidth,
   baseSubGroup,
   type CabinetLike,
 } from "./cabinetGraphics";
+
+describe("wall blind-corner family", () => {
+  it("recognizes every WBC height without classifying base blind corners", () => {
+    expect(isWallBlindCornerCabinet({ masterCode: "WBC-27-30", description: null })).toBe(true);
+    expect(isWallBlindCornerCabinet({ masterCode: "WBC-27-36", description: null })).toBe(true);
+    expect(isWallBlindCornerCabinet({ masterCode: "WBC-27-42", description: null })).toBe(true);
+    expect(isWallBlindCornerCabinet({ masterCode: "BBC-36", description: "Blind Corner Base" })).toBe(false);
+  });
+});
 
 describe("two-drawer base family", () => {
   it.each(["2-DB18", "2-DB21", "2-DB24", "2-DB27", "2-DB30", "2-DB33", "2-DB36"])(

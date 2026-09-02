@@ -177,7 +177,7 @@ import {
 } from "@/lib/surfaceSelection";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { baseSubGroup, cabinetDrawingType, type BaseSubGroup } from "@/lib/cabinetGraphics";
+import { baseSubGroup, cabinetDrawingType, isWallBlindCornerCabinet, type BaseSubGroup } from "@/lib/cabinetGraphics";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
@@ -3123,7 +3123,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             else newCab.y = wallLen - cabWidth;
           }
         }
-        newCab.swing = cornerAtStart ? "right" : "left";
+        newCab.swing = isWallBlindCornerCabinet(newCab) ? "right" : cornerAtStart ? "right" : "left";
       }
 
       // Filler auto-snap: find nearest gap and resize/reposition

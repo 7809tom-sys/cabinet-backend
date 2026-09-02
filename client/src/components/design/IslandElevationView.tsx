@@ -36,7 +36,7 @@ import {
   FRAMED_STILE_CENTER_IN,
   normalizeDoorHardwareFramePosition,
 } from "@/lib/hardware";
-import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, isWallBlindCornerCabinet, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -409,7 +409,7 @@ export function IslandElevationView({
       inferredDrawers: isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p)),
     });
     const isBlind = isBlindCorner(p.masterCode, p.description);
-    const blindLeft = isBlind ? (cabPosAlong <= 2) : true;
+    const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || cabPosAlong <= 2) : true;
 
     return (
       <div

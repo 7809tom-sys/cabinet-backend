@@ -12,6 +12,7 @@ import {
   removePlacedCabinetGroup,
   smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
+  wallBlindCornerPreferredFillerMode,
 } from "@/lib/smallGapFiller";
 
 const cabinet: PlacedCabinet = {
@@ -32,8 +33,64 @@ describe("small-gap filler placement", () => {
 	    remaining: 2,
 	  };
 	  expect(automaticSmallGapFillerMode(baseOpportunity)).toBe("split");
-	  expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("left");
-	  expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("right");
+		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("left");
+		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("right");
+	});
+
+	it("places a start-corner WBC-27-42 filler on the blind side, to the left of its door", () => {
+		const wbc: PlacedCabinet = {
+			...cabinet,
+			uid: "wbc-start",
+			masterCode: "WBC-27-42",
+			description: "27 inch Blind Corner Wall Cabinet",
+			placement: "wall",
+			x: 0,
+			y: 0,
+			width: 27,
+			depth: 12,
+			height: 42,
+			mountBottom: 54,
+			rotation: 0,
+			swing: "right",
+			openingWidth: 12,
+		};
+		const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 30 }, [wbc], [], wbc.uid)!;
+		expect(opportunity).toMatchObject({ remaining: 3, cabinetStart: 0, openingStart: 0 });
+		expect(automaticSmallGapFillerMode(opportunity)).toBe("left");
+	});
+
+	it("mirrors the fixed left-of-door WBC filler into increasing run coordinates on the bottom wall", () => {
+		const wbc: PlacedCabinet = {
+			...cabinet,
+			uid: "wbc-end",
+			masterCode: "WBC-27-42",
+			description: "27 inch Blind Corner Wall Cabinet",
+			placement: "wall",
+			x: 0,
+			y: DEFAULT_ROOM.depth - 12,
+			width: 27,
+			depth: 12,
+			height: 42,
+			mountBottom: 54,
+			rotation: 180,
+			swing: "left",
+			openingWidth: 12,
+		};
+		const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 30 }, [wbc], [], wbc.uid)!;
+		expect(opportunity).toMatchObject({ remaining: 3, cabinetStart: 0, openingStart: 0 });
+		expect(automaticSmallGapFillerMode(opportunity)).toBe("right");
+	});
+
+	it.each([
+		["top", "left"],
+		["bottom", "right"],
+		["left", "right"],
+		["right", "left"],
+	] as const)("maps the WBC blind-left filler to the %s wall's %s run side", (wall, expectedMode) => {
+		expect(wallBlindCornerPreferredFillerMode({
+			masterCode: "WBC-27-42",
+			description: "27 inch Blind Corner Wall Cabinet",
+		}, wall)).toBe(expectedMode);
 	});
 
   it("installs a base filler as a 30-inch visible panel above the 4½-inch toe kick", () => {

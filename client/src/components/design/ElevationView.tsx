@@ -19,7 +19,7 @@ import {
   FRAMED_STILE_CENTER_IN,
   normalizeDoorHardwareFramePosition,
 } from "@/lib/hardware";
-import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, threeDrawerBaseRowHeights, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
+import { resolveConfiguredFaceCounts, resolveDoorDrawerCounts, cabinetDrawingType, isWallBlindCornerCabinet, threeDrawerBaseRowHeights, type CabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
 import { toeKickHeightForElevation } from "@/lib/elevationToeKick";
 import { drawerPanelInsetPx, elevationFrameInsetPx, isShakerElevationStyle, shakerFacePanelGeometry } from "@/lib/elevationFrameGeometry";
 import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
@@ -467,7 +467,7 @@ export function ElevationView({
     // is on the left. If its end is near planSpan (wall end), the corner is on
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = p.cornerType === "blind-corner" || isBlindCorner(p.masterCode, p.description);
-    const blindLeft = isBlind ? (posAlong <= 2) : true;
+    const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || posAlong <= 2) : true;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (

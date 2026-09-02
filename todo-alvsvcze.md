@@ -1237,3 +1237,12 @@
 - [x] Make same-face island cabinets snap with exactly 0-inch gap and 0-inch overlap on Front, Back, Left, and Right faces
 - [x] Preserve deliberate fillers, cabinet widths, back-to-back runs, island movement/rotation, sink fixtures, automatic countertop slab, pricing/cart identity, and saved-design refresh
 - [x] Validate placement, drag/move, resize, reload, plan/elevation/final 3D parity, and desktop/mobile behavior before publishing
+- [x] Reproduce why the required F342 filler for the reported WBC-27-42 is installed on the opposite side from the cabinet door
+- [x] Identify the authoritative WBC fixed hand, door side, blind panel side, wall ownership, and saved filler-group metadata in the reported design
+- [x] Place and render the required wall blind-corner filler to the left of the WBC door, mirrored correctly by room-wall orientation
+- [x] Preserve the real F342 SKU, selected style, price/cart quantity, zero overlap, cabinet opening clearance, and whole-group edit/removal behavior
+- [x] Validate WBC-27-30, WBC-27-36, WBC-27-42, all room walls, save/reload, 2D/3D, and desktop/mobile behavior before publishing
+- [x] Reproduce why the new 3D Window Attributes workflow is inaccessible on touch devices that have no right-click
+- [x] Make a stationary tap on an exposed 3D window open Window Attributes on mobile and tablet while swipe/orbit gestures continue to move the camera
+- [x] Preserve desktop window right-click, cabinet frontmost selection, exact movement increments, wall/ceiling bounds, clearance conflicts, and save/reload behavior
+- [x] Add direct touch-event regressions and verify the responsive popup on mobile before publishing with the pending WBC filler-side correction

@@ -13,6 +13,7 @@ import {
   type WallSide,
 } from "@/lib/design";
 import { islandFaceFitMeasure, islandOffsetForPlaced } from "@/lib/islandScene";
+import { isWallBlindCornerCabinet } from "@/lib/cabinetGraphics";
 
 const EDGE_EPSILON_IN = 0.001;
 export const SMALL_GAP_FILLER_MIN_IN = 0.5;
@@ -34,6 +35,8 @@ export type SmallGapFillerOpportunity = {
   islandFace?: IslandFace;
   /** Existing purchased filler group replaced when an installed filler is edited. */
   replacingFillerGroupId?: string;
+  /** Fixed-hand one-click preference; explicit user left/right/split still wins. */
+  preferredMode?: SmallGapFillerPlacementMode;
 };
 
 export type SmallGapFillerLayout = {
@@ -97,6 +100,15 @@ function gapCrossesWallOpening(openings: readonly WallOpening[], wall: WallSide,
     && opening.offset + opening.width > start + EDGE_EPSILON_IN);
 }
 
+/** Convert the WBC's fixed local blind-left side into the wall's run direction. */
+export function wallBlindCornerPreferredFillerMode(
+  cabinet: Pick<PlacedCabinet, "masterCode" | "description">,
+  wall: WallSide,
+): SmallGapFillerPlacementMode | null {
+  if (!isWallBlindCornerCabinet(cabinet)) return null;
+  return wall === "top" || wall === "right" ? "left" : "right";
+}
+
 /** Detects only a real post-placement bounded opening with 3 inches or less total remainder. */
 export function findSmallGapFillerOpportunity(
   room: RoomData,
@@ -125,6 +137,7 @@ export function findSmallGapFillerOpportunity(
   if (remaining == null) return null;
   if (gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)) return null;
   if (gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)) return null;
+  const preferredMode = wallBlindCornerPreferredFillerMode(cabinet, wall);
   return {
     cabinetUid,
     wall,
@@ -134,6 +147,7 @@ export function findSmallGapFillerOpportunity(
     openingStart: leadingStart,
     openingLength: cabinetSpan + remaining,
     remaining,
+    ...(preferredMode ? { preferredMode } : {}),
   };
 }
 
@@ -176,6 +190,7 @@ export function smallGapFillerOpportunityFromDragPreview(
   if (!preview.candidate || preview.fit.status !== "valid") return null;
   const remaining = installableSmallGapRemainder(preview.fit.before + preview.fit.after);
   if (remaining == null) return null;
+  const preferredMode = wallBlindCornerPreferredFillerMode(preview.candidate, preview.wall);
   return {
     cabinetUid,
     wall: preview.wall,
@@ -185,6 +200,7 @@ export function smallGapFillerOpportunityFromDragPreview(
     openingStart: preview.fit.gap.start,
     openingLength: preview.fit.gap.length,
     remaining,
+    ...(preferredMode ? { preferredMode } : {}),
   };
 }
 
@@ -194,6 +210,7 @@ export function canSplitSmallGapFiller(opportunity: Pick<SmallGapFillerOpportuni
 
 /** Chooses the safest one-click layout while reusing the existing priced filler transaction. */
 export function automaticSmallGapFillerMode(opportunity: SmallGapFillerOpportunity): SmallGapFillerPlacementMode {
+  if (opportunity.preferredMode) return opportunity.preferredMode;
   if (canSplitSmallGapFiller(opportunity)) return "split";
   const leftOpen = Math.max(0, opportunity.cabinetStart - opportunity.openingStart);
   const openingEnd = opportunity.openingStart + opportunity.openingLength;

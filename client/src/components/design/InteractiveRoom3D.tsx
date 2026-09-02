@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRect, islandFaceFitMeasure } from "@/lib/islandScene";
-import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
+import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -312,6 +312,17 @@ export function threeDTemporaryPreviewCounterText(counter?: { current: number; t
 /** Cabinet attributes stay locked until an intentional click or context-menu action picks another cabinet. */
 export function threeDPointerSelectsCabinet(gesture: "move" | "up" | "context", travelPx = 0): boolean {
   return gesture === "context" || (gesture === "up" && travelPx < 6);
+}
+
+/** Touch and pen devices open Window Attributes on a stationary tap; mouse keeps right-click. */
+export function threeDTouchTapOpensWindow(
+  pointerType: string,
+  travelPx: number,
+  openingKind: WallOpening["kind"] | null | undefined,
+): boolean {
+  return pointerType !== "mouse"
+    && openingKind === "window"
+    && threeDPointerSelectsCabinet("up", travelPx);
 }
 
 export type ThreeDRightPointerGesture = "none" | "context" | "drag";
@@ -2966,10 +2977,10 @@ export function addCabinet(
       addShakerFrame(attachedFronts.doorWidth - 0.03, faceHeight, door.position.x + frameNormalX, door.position.y, door.position.z + frameNormalZ, door.rotation.y);
     }
 		  } else if (specialty.kind === "blind-corner") {
-		    const layout = threeDBlindCornerFrontLayout(
-		      bodyWidth,
-		      sku.swing === "left" ? "left" : "right",
-		      sku.openingWidth,
+			    const layout = threeDBlindCornerFrontLayout(
+			      bodyWidth,
+			      isWallBlindCornerCabinet(sku) ? "right" : sku.swing === "left" ? "left" : "right",
+			      sku.openingWidth,
 		    );
 		    const faceHeight = Math.max(0.2, bodyHeight - 0.1);
 	    const blindPanel = new THREE.Mesh(
@@ -5178,17 +5189,26 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     return true;
   };
 
-  const handleRoomPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = pointerStartRef.current;
-    pointerStartRef.current = null;
-    if (finishRightDrag(event)) return;
-    if (start?.button === 2) return;
-    const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY;
-    if (threeDPointerSelectsCabinet("up", travelPx)) {
-      inspectCabinetAtPoint(event.clientX, event.clientY);
-      setMovePanelOpen(false);
-    }
-  };
+	  const handleRoomPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+	    const start = pointerStartRef.current;
+	    pointerStartRef.current = null;
+	    if (finishRightDrag(event)) return;
+	    if (start?.button === 2) return;
+	    const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY;
+	    if (threeDPointerSelectsCabinet("up", travelPx)) {
+	      const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY);
+	      if (threeDTouchTapOpensWindow(event.pointerType, travelPx, openingSelection?.kind) && openingSelection && onOpenWindowEditor) {
+	        onSelectOpening?.(openingSelection.uid);
+	        onOpenWindowEditor(openingSelection.uid);
+	        setMovePanelOpen(false);
+	        event.preventDefault();
+	        event.stopPropagation();
+	        return;
+	      }
+	      inspectCabinetAtPoint(event.clientX, event.clientY);
+	      setMovePanelOpen(false);
+	    }
+	  };
 
   const buildQuotePdf = async () => {
     const renderer = rendererRef.current;

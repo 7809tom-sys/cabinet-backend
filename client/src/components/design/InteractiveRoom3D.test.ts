@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addSinkFixture, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot } from "./InteractiveRoom3D";
@@ -41,7 +41,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(rendererSource).not.toContain("ACTIVE-3D-SCENE-MESHES");
   });
 
-  it("keeps the selected 3D cabinet stable while the pointer moves and only selects on a click or context action", () => {
+	  it("keeps the selected 3D cabinet stable while the pointer moves and only selects on a click or context action", () => {
     expect(threeDPointerSelectsCabinet("move")).toBe(false);
     expect(threeDPointerSelectsCabinet("up", 5)).toBe(true);
     expect(threeDPointerSelectsCabinet("up", 6)).toBe(false);
@@ -49,8 +49,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDRightPointerGesture(2, 5, true)).toBe("context");
     expect(threeDRightPointerGesture(2, 6, true)).toBe("drag");
     expect(threeDRightPointerGesture(0, 20, true)).toBe("none");
-    expect(threeDRightPointerGesture(2, 20, false)).toBe("none");
-  });
+	    expect(threeDRightPointerGesture(2, 20, false)).toBe("none");
+	  });
+
+	  it("opens window attributes on a stationary mobile tap without treating a swipe as a tap", () => {
+	    expect(threeDTouchTapOpensWindow("touch", 5, "window")).toBe(true);
+	    expect(threeDTouchTapOpensWindow("pen", 0, "window")).toBe(true);
+	    expect(threeDTouchTapOpensWindow("touch", 6, "window")).toBe(false);
+	    expect(threeDTouchTapOpensWindow("touch", 0, "door")).toBe(false);
+	    expect(threeDTouchTapOpensWindow("mouse", 0, "window")).toBe(false);
+	    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+	    expect(rendererSource).toContain("threeDTouchTapOpensWindow(event.pointerType, travelPx, openingSelection?.kind)");
+	    expect(rendererSource).toContain("onOpenWindowEditor(openingSelection.uid)");
+	  });
 
   it("opens Cabinet Attributes with the exact raycast placement UID on 3D right-click", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");

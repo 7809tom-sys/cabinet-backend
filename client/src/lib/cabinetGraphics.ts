@@ -113,6 +113,16 @@ export function isEqualHeightTwoDrawerBase(
   return /^2DB\d/.test(code) && drawerCount === 2;
 }
 
+/** WBC is the fixed-hand wall blind-corner family: blind panel left, door right. */
+export function isWallBlindCornerCabinet(
+  cabinet: Pick<CabinetLike, "masterCode" | "description">,
+): boolean {
+  const code = String(cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (/^WBC\d/.test(code)) return true;
+  const description = String(cabinet.description ?? "").toLowerCase();
+  return /(?:wall.*blind corner|blind corner.*wall)/.test(description);
+}
+
 /**
  * Standard 3-DB bases use one 6-inch utility drawer over two equal deeper
  * drawers. Active catalog rows intentionally leave drawerLayout/drawerHeight
