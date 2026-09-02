@@ -1814,6 +1814,18 @@ export function threeDMaterialStatusText(mode: ReturnType<typeof threeDVisibleMa
   return `Cabinet material: ${mode.replaceAll("-", " ")} · Door sample texture: ${textureLabel}`;
 }
 
+/** A locked final capture must never race ahead of the selected cabinet sample. */
+export function threeDPhotoRenderDoorReferenceStatus(
+  doorSampleUrl: string | null | undefined,
+  textureState: "not-requested" | "loading" | "loaded" | "failed",
+) {
+  if (!doorSampleUrl) return { ready: true, message: "No selected door sample is available; calibrated cabinet finish remains in use." };
+  if (textureState === "loading") return { ready: false, message: "The selected cabinet door sample is still loading. Wait until it is visible in the 3D kitchen before creating the exact render." };
+  if (textureState === "failed") return { ready: false, message: "The selected cabinet door sample could not be loaded. Reopen the 3D view after the sample is available; the exact render will not substitute a generic door finish." };
+  if (textureState === "loaded") return { ready: true, message: "The selected cabinet door sample is loaded on the 3D cabinet faces." };
+  return { ready: false, message: "The selected cabinet door sample has not started loading. Reopen the 3D view before creating the exact render." };
+}
+
 function numberValue(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -5777,6 +5789,21 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   // while physical rails, stiles, carcasses, and skins remain constructed meshes.
   const activeDoorTexture = resolvedThreeDDoorSampleUrl("catalog", catalogDoorSampleUrl, renderExistingDesign);
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
+  const photoRenderDoorReference = threeDPhotoRenderDoorReferenceStatus(activeDoorTexture, doorTextureState);
+  const photoRenderVisualReferences = [
+    activeDoorTexture ? {
+      id: "door-sample",
+      label: "Selected door sample",
+      url: activeDoorTexture,
+      description: "Applied to the current cabinet faces after it has loaded.",
+    } : null,
+    catalogRoomSceneUrl ? {
+      id: "room-scene",
+      label: "Style room scene",
+      url: catalogRoomSceneUrl,
+      description: "Visual color and lighting reference only; it never replaces this kitchen’s geometry or camera.",
+    } : null,
+  ].filter((reference): reference is { id: string; label: string; url: string; description: string } => reference !== null);
   const resolvedCabinetFinish = catalogFinish;
   const cabinetFinishLabel = catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
@@ -6834,6 +6861,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Save this design before creating a photo-quality render so the final image remains tied to its exact plan.");
       return;
     }
+    if (!photoRenderDoorReference.ready) {
+      toast.error(photoRenderDoorReference.message);
+      return;
+    }
     const reference = capturePhotoRenderReference();
     if (!reference) {
       toast.error("The 3D view is still loading. Please try the photo render again in a moment.");
@@ -7183,15 +7214,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        setPhotoRenderOpen(open);
 	        if (!open) { setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); setPhotoRenderError(null); }
 	      }}>
-        <DialogContent className="max-w-md">
+	        <DialogContent className="max-w-md">
 	          <DialogHeader>
-          <DialogTitle>Create high-resolution exact render</DialogTitle>
-          <DialogDescription>This manual final-review request creates a high-resolution deterministic render from the locked 3D camera, exact plan geometry, and selected cabinet, countertop, flooring, and backsplash materials. It does not ask AI to reinterpret the kitchen.</DialogDescription>
-          </DialogHeader>
+	          <DialogTitle>Create high-resolution exact render</DialogTitle>
+	          <DialogDescription>This manual final-review request creates a high-resolution deterministic render from the locked 3D camera, exact plan geometry, and selected cabinet, countertop, flooring, and backsplash materials. It does not ask AI to reinterpret the kitchen.</DialogDescription>
+	          </DialogHeader>
 	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 	            <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
 	            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, and camera framing are locked. A completed image is reused until this plan, its selected materials, or its camera changes. If this request fails, retrying uses the same displayed locked reference.</p>
 	          </div>
+	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-visual-references" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Selected visual references</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">Confirm the selected door finish and its approved style context before capture. The room scene is never inserted into or substituted for your locked kitchen.</p><div className="mt-3 grid grid-cols-2 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
 	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><strong>Administrator test render.</strong> Use this to judge Photo Quality during testing. No customer lead is created and no customer contact information is required.</div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your Photo Quality kitchen image</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this Photo Quality request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and Photo Quality request. Mobile-number verification will be added when SMS service is activated.</label></div>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-36 w-full rounded-md border object-contain" /></div>}
           {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact render from this locked scene. Your editable Designer plan is unchanged.</div>}

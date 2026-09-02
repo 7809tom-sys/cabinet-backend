@@ -65,10 +65,13 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain('new THREE.PointLight("#ffdca6", 2.8');
   });
 
-  it("retains the Administration room scene as a visual reference and never substitutes it for the saved plan", () => {
-    expect(designToolSource).toContain("catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}");
-    expect(rendererSource).toContain('renderedAsBackdropOrGeometry: false');
-    expect(rendererSource).toContain('purpose: "material-and-lighting-reference-only"');
-    expect(rendererSource).toContain("threeDExactPlanGeometryLock");
-  });
+	  it("retains the Administration room scene as a visual reference and never substitutes it for the saved plan", () => {
+	    expect(designToolSource).toContain("catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}");
+	    expect(rendererSource).toContain('renderedAsBackdropOrGeometry: false');
+	    expect(rendererSource).toContain('purpose: "material-and-lighting-reference-only"');
+	    expect(rendererSource).toContain('data-testid="photo-quality-selected-visual-references"');
+	    expect(rendererSource).toContain("The room scene is never inserted into or substituted for your locked kitchen.");
+	    expect(rendererSource).toContain("threeDPhotoRenderDoorReferenceStatus");
+	    expect(rendererSource).toContain("threeDExactPlanGeometryLock");
+	  });
 });
