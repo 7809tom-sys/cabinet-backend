@@ -12,6 +12,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		  expect(source).toContain("nextIslandFacePlacement(newCab, island, requestedIslandFace, prev)");
 		  expect(source).toContain("const islandPlacementModeRef = useRef(false);");
 		  expect(source).toContain('setPlacementTarget("island")');
+		  expect(source).toContain("islandFaceRef.current = islandFace;");
+		  expect(source).toContain("islandPlacementModeRef.current = islandPlacementMode;");
 		  expect(source).toContain("const prev = placedRef.current;");
 		  expect(source).toContain("const islandPlacementModeRef = useRef(false);");
 	    expect(source).toContain("setCountertop(true)");

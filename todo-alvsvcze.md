@@ -1421,4 +1421,7 @@
 - [x] Make consecutive B24 and other island-face cabinet additions snap flush into one continuous island run with no placement gap
 - [x] Derive each automatic island countertop slab from contiguous cabinet support groups so it cannot bridge an unoccupied gap
 - [x] Ensure every Island mode catalog click, including 2-DB24, uses the active island face and bypasses wall-placement rejection logic
+- [x] Synchronize all visible Island mode face selections with their routing refs so Back-mode catalog additions cannot evaluate as Front
+- [ ] Correct back-face Island mode placement so cabinets align to the opposite island edge and do not leave a visible front gap in the two-sided assembly
+- [ ] Build automatic island countertops from the complete physically contiguous two-sided island support footprint without spanning an unoccupied interior gap
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark

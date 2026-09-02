@@ -601,6 +601,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  // add callback. These refs make the owner-selected island target immediate.
 	  const islandFaceRef = useRef<IslandFace>("front");
 	  const islandPlacementModeRef = useRef(false);
+	  useEffect(() => {
+	    islandFaceRef.current = islandFace;
+	    islandPlacementModeRef.current = islandPlacementMode;
+	  }, [islandFace, islandPlacementMode]);
 	  const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
@@ -4809,19 +4813,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
 	  const selectCabinet = useCallback((uid: string | null) => {
 	    setSelectedUid(uid);
-	    if (uid) {
-	      const cabinet = placed.find((candidate) => candidate.uid === uid);
-	      if (cabinet && island && isOnIsland(cabinet, island)) {
-	        const face = inferredIslandFace(cabinet, island);
-	        setIslandFace(face);
-	        setIslandPlacementMode(true);
-	        setIsland((current) => current ? { ...current, activeFace: face } : current);
+		    if (uid) {
+		      const cabinet = placed.find((candidate) => candidate.uid === uid);
+		      if (cabinet && island && isOnIsland(cabinet, island)) {
+		        const face = inferredIslandFace(cabinet, island);
+		        setPlacementTarget("island", face);
 	      } else if (cabinet) {
 	        setActiveWall(cabinetWall(cabinet, room));
 	      }
 	      setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null);
 	    }
-	  }, [island, placed, room]);
+	  }, [island, placed, room, setPlacementTarget]);
   const selectSink = useCallback((uid: string | null) => {
     setSelectedSinkUid(uid);
     if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }
@@ -4835,11 +4837,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (uid) { setSelectedUid(null); setSelectedSinkUid(null); setSelectedOpeningUid(null); }
   }, []);
 
-	  const commitIslandScene = useCallback((nextIsland: IslandZone, nextPlaced: PlacedCabinet[]) => {
-	    placedRef.current = nextPlaced;
-	    setPlaced(nextPlaced);
-	    setIsland(nextIsland);
-	    setIslandFace(nextIsland.activeFace ?? "front");
+		  const commitIslandScene = useCallback((nextIsland: IslandZone, nextPlaced: PlacedCabinet[]) => {
+		    placedRef.current = nextPlaced;
+		    setPlaced(nextPlaced);
+		    setIsland(nextIsland);
+		    islandFaceRef.current = nextIsland.activeFace ?? "front";
+		    setIslandFace(islandFaceRef.current);
 	    setSinks((current) => normalizeSinkFixturesToBases(current, nextPlaced, room));
 	  }, [room]);
 
@@ -4871,10 +4874,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      toast.error("The island countertop would extend outside the room.");
 	      return;
 	    }
-	    commitIslandScene(nextIsland, resized.placed);
-	    setIslandPlacementMode(true);
+		    commitIslandScene(nextIsland, resized.placed);
+		    setPlacementTarget("island", nextIsland.activeFace);
 	    setIslandAttributesOpen(false);
-	  }, [commitIslandScene, island, islandFace, room]);
+	  }, [commitIslandScene, island, islandFace, room, setPlacementTarget]);
 
 	  const rotateIsland = useCallback(() => {
 	    if (!island) return;
@@ -4889,17 +4892,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    const nextPlaced = placedRef.current.filter((item) => !memberIds.has(item.uid));
 	    placedRef.current = nextPlaced;
 	    setPlaced(nextPlaced);
-	    setSinks((current) => current.filter((sink) => !sink.cabinetUid || !memberIds.has(sink.cabinetUid)));
-	    setIsland(null);
-	    setIslandPlacementMode(false);
+		    setSinks((current) => current.filter((sink) => !sink.cabinetUid || !memberIds.has(sink.cabinetUid)));
+		    setIsland(null);
+		    setPlacementTarget("wall");
 	    setIslandAttributesOpen(false);
 	    setViewMode("plan");
-	  }, [island]);
+	  }, [island, setPlacementTarget]);
 
-	  const openOrCreateIsland = useCallback(() => {
-	    if (island) {
-	      setIslandPlacementMode(true);
-	      setIslandFace(island.activeFace ?? "front");
+		  const openOrCreateIsland = useCallback(() => {
+		    if (island) {
+		      setPlacementTarget("island", island.activeFace ?? "front");
 	      setIslandAttributesOpen(true);
 	      return;
 	    }
@@ -4915,13 +4917,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      countertopDepth: null,
 	      countertopOffsetX: 0,
 	      countertopOffsetY: 0,
-	    };
-	    setIsland(next);
-	    setIslandFace("front");
-	    setIslandPlacementMode(true);
+		    };
+		    setIsland(next);
+		    setPlacementTarget("island", "front");
 	    setViewMode("plan");
 	    setIslandAttributesOpen(true);
-	  }, [island, room]);
+	  }, [island, room, setPlacementTarget]);
 
   // Apply a new room size and keep every item inside the new walls.
   const applyRoom = useCallback((next: RoomData) => {
