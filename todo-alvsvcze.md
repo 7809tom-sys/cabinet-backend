@@ -1370,6 +1370,7 @@
 - [x] Allow administrators to create and judge Photo Quality test renders during testing without requiring customer contact capture, while customer-facing requests remain lead-gated
 - [x] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
 - [ ] Add product-specific backsplash pattern treatment beyond the corrected Desert Clay mosaic so other selected tile patterns do not receive a generic square field
+- [x] Audit Cloudline Marble from the official Pelican product sheet, assign its clean 11.81-inch staggered glass-and-marble mosaic swatch, and retain staged catalog imagery as display-only
 - [x] Normalize approved relative CabinetDealz material-storage paths to trusted absolute URLs before protected Photo Quality validation so administrator test renders can proceed
 - [x] Fix the false Photo Quality save prompt so an already saved design is recognized as eligible for an administrator test render
 - [x] Fix the still-visible administrator Photo Quality material-reference validation error after confirming the saved-plan eligibility repair is deployed

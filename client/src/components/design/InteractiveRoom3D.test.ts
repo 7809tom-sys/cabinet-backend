@@ -125,10 +125,15 @@ describe("interactive 3D room scene helpers", () => {
 						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 12.8, backsplashGroutJointIn: 1 / 16,
 					});
 				expect(threeDProductMaterialSource("backsplash", "Carrara Subway", null)).toMatchObject({
-						url: "/manus-storage/carrara_subway_11_97x12_13_running_bond_f57029f6.webp", key: "carrara-subway-11.97in-running-bond-mosaic",
-						curated: true, proceduralFallback: false, physicalWidthIn: 11.97, physicalDepthIn: 12.13,
-						backsplashPatternKind: "subway-mosaic", backsplashModuleIn: 11.97, backsplashGroutJointIn: 1 / 16,
-					});
+							url: "/manus-storage/carrara_subway_11_97x12_13_running_bond_f57029f6.webp", key: "carrara-subway-11.97in-running-bond-mosaic",
+							curated: true, proceduralFallback: false, physicalWidthIn: 11.97, physicalDepthIn: 12.13,
+							backsplashPatternKind: "subway-mosaic", backsplashModuleIn: 11.97, backsplashGroutJointIn: 1 / 16,
+						});
+				expect(threeDProductMaterialSource("backsplash", "Cloudline Marble", "/manus-storage/pelican/149_7a8d9432.png")).toMatchObject({
+							url: "/manus-storage/cloudline_marble_11_81x11_81_staggered_mosaic_32c5408e.webp", key: "cloudline-marble-11.81in-staggered-glass-marble-mosaic",
+							curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
+							backsplashPatternKind: "subway-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
+						});
 		  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
