@@ -1361,3 +1361,11 @@
 - [ ] Research real backsplash installation and product-pattern construction, then implement interlocking pattern modules with 1/16-inch grout joints instead of repeated complete-square images
 - [x] Render the owner-selected Desert Clay 11.81-inch glass-and-stainless mosaic as a continuous interlocking internal-tile field with 1/16-inch joints and no visible square-sheet boundary
 - [x] Extend backsplash by default above every base cabinet and base appliance run, including dishwasher spans, unless the owner explicitly deletes or excludes that section
+- [x] Add a clear Photo Quality final-review button to the completed Kitchen Designer so the manual high-resolution image option is easy to find on desktop and mobile
+- [x] Require customer contact information and clear follow-up consent before a Photo Quality render is created, while keeping ordinary Designer editing unrestricted
+- [ ] Require SMS verification of a customer mobile number before a Photo Quality render can be created, so only consented, follow-up-ready leads trigger image cost
+- [ ] Send the verified customer contact, follow-up consent, locked design reference, selected products, and Photo Quality request state automatically to the CRM
+- [x] Complete the Photo Quality contact-and-consent lead flow now, with SMS verification displayed as a future activation step until the owner configures an SMS provider
+- [x] Allow administrators to create and judge Photo Quality test renders during testing without requiring customer contact capture, while customer-facing requests remain lead-gated
+- [ ] Extend backsplash around both countertop-supported wall legs of Lazy Susan corner bases instead of covering only one side
+- [ ] Add product-specific backsplash pattern treatment beyond the corrected Desert Clay mosaic so other selected tile patterns do not receive a generic square field

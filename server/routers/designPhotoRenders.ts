@@ -4,6 +4,7 @@ import { z } from "zod";
 import { designPhotoRenders } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { generateImage } from "../_core/imageGeneration";
+import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
@@ -18,6 +19,12 @@ const materialProvenanceSchema = z.object({
   productId: z.number().int().positive().nullable(),
   name: z.string().trim().max(255).nullable(),
   materialImageUrl: safeMaterialUrl.nullable(),
+});
+export const photoQualityLeadSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().min(7).max(32).regex(/^[+0-9().\-\s]+$/, "Enter a valid mobile phone number."),
+  followUpConsent: z.literal(true),
 });
 export const photoRenderProvenanceSchema = z.object({
   contractVersion: z.literal("exact-plan-v1"),
@@ -74,10 +81,16 @@ export const designPhotoRendersRouter = router({
       sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A PNG, JPEG, or WebP Designer image is required."),
       provenance: photoRenderProvenanceSchema,
       confirmation: z.literal(true),
+      /** Administrators create render tests without creating customer leads. */
+      lead: photoQualityLeadSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Photo rendering is temporarily unavailable.");
+      const isAdministratorTest = ctx.user.role === "admin";
+      if (!isAdministratorTest && !input.lead) {
+        throw new Error("Add your name, email, mobile number, and follow-up consent before requesting a Photo Quality image.");
+      }
       const [cached] = await db.select().from(designPhotoRenders)
         .where(and(eq(designPhotoRenders.userId, ctx.user.id), eq(designPhotoRenders.sceneSignature, input.sceneSignature)))
         .limit(1);
@@ -122,6 +135,32 @@ export const designPhotoRendersRouter = router({
           updatedAt: confirmedAt,
         },
       });
+      if (!isAdministratorTest && input.lead) {
+        const originHeader = ctx.req.headers.origin;
+        const origin = typeof originHeader === "string" && /^https?:\/\//.test(originHeader)
+          ? originHeader.replace(/\/$/, "")
+          : null;
+        void emitCrmEvent({
+          event: "lead",
+          contact: {
+            userId: ctx.user.id,
+            name: input.lead.name,
+            email: input.lead.email,
+            phone: input.lead.phone,
+          },
+          data: {
+            source: "photo_quality_render",
+            consentToFollowUp: true,
+            phoneVerification: "pending_sms_provider_activation",
+            sceneSignature: input.sceneSignature,
+            designId: input.provenance.designId,
+            designRevision: input.provenance.designRevision,
+            selectedProducts: input.provenance.materials.map(({ role, productId, name }) => ({ role, productId, name })),
+            requestedAt: confirmedAt.toISOString(),
+          },
+          link: origin ? `${origin}/design?load=${input.provenance.designId}` : null,
+        });
+      }
       return { imageUrl: result.url, provenance: input.provenance, sourceImageHash: input.provenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
     }),
 });

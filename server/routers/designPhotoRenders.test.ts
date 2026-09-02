@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exactPlanPrompt, photoRenderProvenanceSchema, photoRenderProvenanceSummary } from "./designPhotoRenders";
+import { exactPlanPrompt, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary } from "./designPhotoRenders";
 
 describe("design photo render safeguards", () => {
   it("treats the captured Designer scene as a locked plan and camera reference", () => {
@@ -33,5 +33,20 @@ describe("design photo render safeguards", () => {
     expect(() => photoRenderProvenanceSchema.parse({ ...provenance, designId: 0 })).toThrow();
     expect(() => photoRenderProvenanceSchema.parse({ ...provenance, sourceImageHash: "not-a-hash" })).toThrow();
     expect(() => photoRenderProvenanceSchema.parse({ ...provenance, materials: provenance.materials.slice(0, 3) })).toThrow();
+  });
+
+  it("requires a consented, contactable customer lead shape for customer Photo Quality requests", () => {
+    expect(photoQualityLeadSchema.parse({
+      name: "Sample Customer",
+      email: "customer@example.com",
+      phone: "+1 (555) 555-0199",
+      followUpConsent: true,
+    })).toMatchObject({ phone: "+1 (555) 555-0199", followUpConsent: true });
+    expect(() => photoQualityLeadSchema.parse({
+      name: "Sample Customer",
+      email: "customer@example.com",
+      phone: "555-555-0199",
+      followUpConsent: false,
+    })).toThrow();
   });
 });

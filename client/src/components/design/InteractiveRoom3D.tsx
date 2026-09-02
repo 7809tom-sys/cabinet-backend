@@ -5529,7 +5529,7 @@ export function ThreeDViewerNavigationControls({ onZoom, onReset, onShare, onPho
     <div data-testid={testId} aria-label="3D viewer zoom and pan controls" className={`flex flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white/95 p-1.5 shadow-lg backdrop-blur ${className}`}>
       <div className="flex gap-1"><button data-testid="three-d-zoom-in" type="button" onClick={() => onZoom("in")} aria-label="Zoom in for a closer cabinet view" title="Zoom in" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Plus className="h-4 w-4" /></button><button data-testid="three-d-zoom-out" type="button" onClick={() => onZoom("out")} aria-label="Zoom out for a wider room view" title="Zoom out" className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><Minus className="h-4 w-4" /></button><button data-testid="three-d-reset-view" type="button" onClick={onReset} aria-label="Reset 3D room view" title="Reset view" className="flex h-9 w-9 items-center justify-center rounded-md border border-[#a87f33]/50 bg-[#fffaf1] text-[#765416] transition hover:bg-amber-100 active:scale-95"><RefreshCw className="h-4 w-4" /></button></div>
       <button data-testid="three-d-share-view" type="button" onClick={() => void onShare()} aria-label="Share the current 3D zoom and pan perspective" title="Share current view" className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-[#a87f33]/45 bg-[#fffaf1] px-2 text-[11px] font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Share2 className="h-3.5 w-3.5" />Share View</button>
-      {onPhotoRender && <button data-testid="three-d-photo-render" type="button" onClick={onPhotoRender} aria-label="Create a final photo-quality render from this exact 3D view" title="Create photo-quality render" className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-[#1a2744]/35 bg-[#1a2744] px-2 text-[11px] font-semibold text-white transition hover:bg-[#24375f] active:scale-95"><Sparkles className="h-3.5 w-3.5" />Photo render</button>}
+      {onPhotoRender && <button data-testid="three-d-photo-render" type="button" onClick={onPhotoRender} aria-label="Create a final photo-quality image from this exact completed 3D view" title="Photo Quality — final review image" className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-md border border-[#1a2744]/35 bg-[#1a2744] px-2 text-[11px] font-semibold text-white transition hover:bg-[#24375f] active:scale-95"><Sparkles className="h-3.5 w-3.5" />Photo Quality</button>}
       <div className="grid grid-cols-3 gap-1" aria-label="Pan the 3D room view"><span /><button data-testid="three-d-pan-up" type="button" onClick={() => onPan("up")} aria-label="Pan view up" title="Pan up" className="flex h-8 w-8 items-center justify-center rounded-t-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowUp className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-left" type="button" onClick={() => onPan("left")} aria-label="Pan view left" title="Pan left" className="flex h-8 w-8 items-center justify-center rounded-l-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowLeft className="h-4 w-4" /></button><span className="flex h-8 w-8 items-center justify-center text-[9px] font-bold text-slate-500">PAN</span><button data-testid="three-d-pan-right" type="button" onClick={() => onPan("right")} aria-label="Pan view right" title="Pan right" className="flex h-8 w-8 items-center justify-center rounded-r-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowRight className="h-4 w-4" /></button><span /><button data-testid="three-d-pan-down" type="button" onClick={() => onPan("down")} aria-label="Pan view down" title="Pan down" className="flex h-8 w-8 items-center justify-center rounded-b-md border border-slate-300 bg-white text-[#1a2744] transition hover:bg-slate-50 active:scale-95"><ArrowDown className="h-4 w-4" /></button><span /></div>
     </div>
   );
@@ -5591,6 +5591,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [photoRenderReferenceUrl, setPhotoRenderReferenceUrl] = useState<string | null>(null);
   const [photoRenderReused, setPhotoRenderReused] = useState(false);
   const [photoRenderError, setPhotoRenderError] = useState<string | null>(null);
+  const [photoQualityLead, setPhotoQualityLead] = useState({ name: "", email: "", phone: "", followUpConsent: false });
   const [photoRenderDraft, setPhotoRenderDraft] = useState<{
     sceneSignature: string;
     sceneImageDataUrl: string;
@@ -5606,6 +5607,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     };
   } | null>(null);
   const { user } = useAuth();
+  const isPhotoQualityTest = user?.role === "admin";
   const photoRenderMutation = trpc.designPhotoRenders.create.useMutation();
   useEffect(() => {
     if (!temporaryPreviewTransitionKey || typeof window === "undefined") { setTemporaryPreviewFading(false); return; }
@@ -6764,6 +6766,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     setPhotoRenderDraft({ sceneSignature, sceneImageDataUrl: reference, provenance });
     setPhotoRenderReferenceUrl(reference);
     setPhotoRenderError(null);
+    if (!isPhotoQualityTest) {
+      setPhotoQualityLead((current) => ({
+        ...current,
+        name: current.name || user?.name || "",
+        email: current.email || user?.email || "",
+      }));
+    }
     setPhotoRenderOpen(true);
   };
 
@@ -6780,6 +6789,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Review the locked 3D reference before confirming the final image.");
       return;
     }
+    const normalizedLead = {
+      name: photoQualityLead.name.trim(),
+      email: photoQualityLead.email.trim(),
+      phone: photoQualityLead.phone.trim(),
+      followUpConsent: photoQualityLead.followUpConsent,
+    };
+    if (!isPhotoQualityTest && (!normalizedLead.name || !/^\S+@\S+\.\S+$/.test(normalizedLead.email) || normalizedLead.phone.length < 7 || !normalizedLead.followUpConsent)) {
+      toast.error("Enter your name, email, mobile number, and consent to follow up before requesting Photo Quality.");
+      return;
+    }
+    const verifiedLead = isPhotoQualityTest ? undefined : {
+      ...normalizedLead,
+      followUpConsent: true as const,
+    };
     setPhotoRenderError(null);
     try {
       const result = await photoRenderMutation.mutateAsync({
@@ -6787,6 +6810,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl,
         provenance: photoRenderDraft.provenance,
         confirmation: true,
+        lead: verifiedLead,
       });
       setPhotoRenderUrl(result.imageUrl);
       setPhotoRenderReused(result.reused);
@@ -6978,7 +7002,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           {workspacePanel === "output" && <>
             <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>
             {orderSummary && <div className="mt-4 flex items-center justify-between rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><div><p className="text-sm font-semibold text-[#4b3a20]">Current design</p><p className="text-xs text-[#6e5d42]">{orderSummary.itemCount} items · {orderSummary.pricedLineCount} priced lines</p></div><p className="text-lg font-semibold text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>}
-	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void openPhotoRenderDialog()} disabled={!renderExistingDesign || !savedDesignId || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo render</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
+	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void openPhotoRenderDialog()} disabled={!renderExistingDesign || !savedDesignId || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo Quality</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
           </>}
         </SheetContent>
       </Sheet>
@@ -7009,6 +7033,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	            <p className="font-semibold">Your kitchen plan will not be redesigned.</p>
 	            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, and camera framing are locked. A completed image is reused until this plan, its selected materials, or its camera changes. If this request fails, retrying uses the same displayed locked reference.</p>
 	          </div>
+	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><strong>Administrator test render.</strong> Use this to judge Photo Quality during testing. No customer lead is created and no customer contact information is required.</div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your Photo Quality kitchen image</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this Photo Quality request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and Photo Quality request. Mobile-number verification will be added when SMS service is activated.</label></div>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-36 w-full rounded-md border object-contain" /></div>}
 	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Creating your final image from this locked reference. The request cannot be cancelled after confirmation; your editable Designer plan is unchanged.</div>}
 	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}

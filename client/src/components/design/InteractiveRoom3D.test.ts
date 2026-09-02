@@ -4382,6 +4382,11 @@ describe("final photo-quality render controls", () => {
   it("requires a reviewed immutable reference, one-cent confirmation, and same-reference retry", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="three-d-photo-render"');
+	  expect(source).toContain('>Photo Quality</button>');
+    expect(source).toContain('title="Photo Quality — final review image"');
+	  expect(source).toContain('data-testid="photo-quality-admin-test"');
+	  expect(source).toContain('data-testid="photo-quality-contact-lead"');
+	  expect(source).toContain('Mobile-number verification will be added when SMS service is activated.');
     expect(source).toContain("Create photo-quality render");
     expect(source).toContain("threeDExactPlanGeometryLock");
     expect(source).toContain("const capturePhotoRenderReference = (): string | null");
