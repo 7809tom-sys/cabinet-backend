@@ -205,6 +205,8 @@ export function SurfacesPickerDialog({
                   const isSel = selectedIds.has(p.id);
                   const gradient =
                     CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
+                  const hasThreeDMaterialRole = /floor|tile|mosaic|backsplash|countertop|quartz|slab/i.test(`${p.category ?? ""} ${p.subCategory ?? ""}`);
+                  const hasApprovedMaterialSwatch = Boolean(p.materialImageUrl?.trim());
                   const item: SelectedSurface = {
                     id: p.id,
                     slug: p.slug,
@@ -244,6 +246,11 @@ export function SurfacesPickerDialog({
                         </div>
                         {p.size && (
                           <div className="text-[11px] text-muted-foreground">{p.size}</div>
+                        )}
+                        {hasThreeDMaterialRole && (
+                          <p data-testid={`surface-material-readiness-${p.id}`} className={`text-[10px] font-medium leading-snug ${hasApprovedMaterialSwatch ? "text-emerald-700" : "text-amber-800"}`}>
+                            {hasApprovedMaterialSwatch ? "3D material swatch ready" : "3D material swatch pending — neutral preview"}
+                          </p>
                         )}
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-sm font-bold text-[var(--color-navy)] dark:text-foreground">
