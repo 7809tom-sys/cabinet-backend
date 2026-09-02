@@ -13,9 +13,15 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("{paletteFinishSwatch ? (");
   });
 
-  it("passes only exact approved material swatches into material-only renderer props", () => {
-    expect(designToolSource).toContain("selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.materialImageUrl ?? null");
-    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
+	  it("passes only exact approved material swatches into material-only renderer props", () => {
+	    expect(designToolSource).toContain("const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
+	    expect(designToolSource).toContain("return [...prev.filter((surface) => surfaceRole(surface) !== \"flooring\"), item];");
+	    expect(designToolSource).toContain("const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);");
+	    expect(designToolSource).toContain("const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);");
+	    expect(designToolSource).toContain("const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\") ?? null;");
+	    expect(designToolSource).toContain("82: \"/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp\"");
+	    expect(designToolSource).toContain("40: \"/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp\"");
+	    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
     expect(designToolSource).toContain("catalogFlooringCategory={threeDFlooringProductMetadata?.category}");

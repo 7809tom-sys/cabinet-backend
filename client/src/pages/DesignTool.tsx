@@ -646,12 +646,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
+  // A kitchen has one active installed floor. When a customer chooses another
+  // flooring product, it replaces the prior active flooring pick rather than
+  // leaving an old first row to silently control the rendered material.
+  const normalizeActiveFloorSelection = (surfaces: SelectedSurface[]) => {
+    const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === "flooring");
+    return surfaces.filter((surface) => surfaceRole(surface) !== "flooring" || surface.id === activeFloor?.id);
+  };
   const toggleSurface = (item: SelectedSurface) =>
-    setSelectedSurfaces((prev) =>
-      prev.some((s) => s.id === item.id)
-        ? prev.filter((s) => s.id !== item.id)
-        : [...prev, item]
-    );
+    setSelectedSurfaces((prev) => {
+      if (prev.some((surface) => surface.id === item.id)) return prev.filter((surface) => surface.id !== item.id);
+      if (surfaceRole(item) !== "flooring") return [...prev, item];
+      return [...prev.filter((surface) => surfaceRole(surface) !== "flooring"), item];
+    });
   // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
   // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
   // gate), and for flooring/backsplash/countertop ALSO drive the built-in 2D
@@ -6252,8 +6259,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           // Restore the exact Pelican surface & fixture picks so the cart, the
           // 3D View gate and the plan/elevation fill all match the draft.
           if (Array.isArray(d.selectedSurfaces)) {
-            setSelectedSurfaces(d.selectedSurfaces as SelectedSurface[]);
-            applySurfaceRenderMaterials(d.selectedSurfaces as SelectedSurface[]);
+            const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);
+            setSelectedSurfaces(restoredSurfaces);
+            applySurfaceRenderMaterials(restoredSurfaces);
           }
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
           if (d.roomType) setRoomType(d.roomType);
@@ -6874,11 +6882,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [placed, liveMasterCabinets]);
 
   const threeDSurfaceTextureUrls = useMemo(() => {
-    const imageForRole = (role: "countertop" | "flooring" | "backsplash") =>
+    const approvedFlooringSwatchByProductId: Record<number, string> = {
+      40: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp",
+      82: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp",
+    };
+    const imageForRole = (role: "countertop" | "flooring" | "backsplash") => {
+      const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);
       // Catalog product cards can be staged-room or retail photographs. The
       // final 3D scene accepts only an explicitly approved, repeatable swatch;
       // named curated assets are resolved separately by the 3D renderer.
-      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.materialImageUrl ?? null;
+      if (role === "flooring" && selected?.id != null) {
+        return selected.materialImageUrl ?? approvedFlooringSwatchByProductId[Number(selected.id)] ?? null;
+      }
+      return selected?.materialImageUrl ?? null;
+    };
     return {
       countertop: imageForRole("countertop"),
       flooring: imageForRole("flooring"),
@@ -6888,7 +6905,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   const threeDSurfaceProductNames = useMemo(() => {
     const nameForRole = (role: "countertop" | "flooring" | "backsplash") =>
-      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.name ?? null;
+      [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role)?.name ?? null;
     return {
       countertop: nameForRole("countertop"),
       flooring: nameForRole("flooring"),
@@ -6898,7 +6915,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   const threeDSurfaceProductIds = useMemo(() => {
     const idForRole = (role: "countertop" | "flooring" | "backsplash") =>
-      selectedSurfaces.find((surface) => surfaceRole(surface) === role)?.id ?? null;
+      [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role)?.id ?? null;
     return {
       countertop: idForRole("countertop"),
       flooring: idForRole("flooring"),
@@ -6907,7 +6924,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [selectedSurfaces]);
 
   const threeDFlooringProductMetadata = useMemo(() => {
-    const flooring = selectedSurfaces.find((surface) => surfaceRole(surface) === "flooring") ?? null;
+    const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "flooring") ?? null;
     return flooring ? {
       category: flooring.category,
       subCategory: flooring.subCategory ?? null,

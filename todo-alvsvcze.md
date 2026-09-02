@@ -1346,3 +1346,5 @@
 - [x] Correct only the currently selected flooring material and its physical plank mapping before resuming any countertop or backsplash changes
 - [ ] Trace and replace the actual generic floor state displayed in the owner’s live 3D scene, which is still unchanged after the prior product-name and product-ID source updates
 - [ ] Remove the shared hardcoded generic floor pattern so each selected flooring product resolves and renders its own approved material source
+- [x] Enforce one active flooring selection so the floor most recently selected replaces earlier flooring picks and drives the 3D material instead of the first saved flooring row
+- [ ] Correct the displayed and saved price for the owner’s currently selected flooring product after confirming the exact product, unit, and intended price
