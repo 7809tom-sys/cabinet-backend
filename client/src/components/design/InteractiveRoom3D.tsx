@@ -6769,7 +6769,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Finish the current placement preview before creating a final photo-quality render.");
       return;
     }
-    if (!savedDesignId) {
+    if (!savedDesignId && !isPhotoQualityTest) {
       toast.error("Save this design before creating a photo-quality render so the final image remains tied to its exact plan.");
       return;
     }
@@ -6832,7 +6832,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     const sourceImageHash = await hash(reference);
     const provenance = {
       contractVersion: "exact-plan-v1" as const,
-      designId: savedDesignId,
+      // An administrator test may use the locked current view even if a route
+      // transition temporarily drops the persisted design ID. Customer
+      // requests remain saved-design gated above and on the server.
+      designId: savedDesignId ?? 0,
       designRevision: savedDesignRevision ?? null,
       geometryLock,
       camera: cameraSnapshot,
@@ -7088,7 +7091,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           {workspacePanel === "output" && <>
             <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>
             {orderSummary && <div className="mt-4 flex items-center justify-between rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><div><p className="text-sm font-semibold text-[#4b3a20]">Current design</p><p className="text-xs text-[#6e5d42]">{orderSummary.itemCount} items · {orderSummary.pricedLineCount} priced lines</p></div><p className="text-lg font-semibold text-[#382710]">${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p></div>}
-	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void openPhotoRenderDialog()} disabled={!renderExistingDesign || !savedDesignId || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo Quality</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
+	            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Button type="button" variant="outline" onClick={downloadImage}><Download className="mr-1.5 h-4 w-4" />Image</Button><Button type="button" variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button><Button type="button" variant="outline" onClick={printPdf}><Printer className="mr-1.5 h-4 w-4" />Print</Button><Button type="button" variant="outline" onClick={emailPdf} disabled={emailQuoteMutation.isPending || !orderSummary}><Mail className="mr-1.5 h-4 w-4" />Email</Button><Button type="button" className="bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void openPhotoRenderDialog()} disabled={!renderExistingDesign || (!savedDesignId && !isPhotoQualityTest) || photoRenderMutation.isPending}><Sparkles className="mr-1.5 h-4 w-4" />Photo Quality</Button>{onSaveToAccount && <Button type="button" variant="outline" onClick={onSaveToAccount}><Save className="mr-1.5 h-4 w-4" />Save</Button>}{onSyncCart && <Button type="button" variant="outline" onClick={() => { onSyncCart(); setWorkspacePanel(null); }} disabled={!canSyncThreeDOrderToCart(orderLines)}><RefreshCw className="mr-1.5 h-4 w-4" />Sync cart</Button>}<Button type="button" onClick={() => void shareConfiguration()} disabled={!shareContext || !roomOverride || shareMutation.isPending}><Share2 className="mr-1.5 h-4 w-4" />Share</Button></div>
           </>}
         </SheetContent>
       </Sheet>

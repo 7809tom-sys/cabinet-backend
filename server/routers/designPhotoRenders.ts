@@ -57,7 +57,9 @@ export const photoQualityLeadSchema = z.object({
 });
 export const photoRenderProvenanceSchema = z.object({
   contractVersion: z.literal("exact-plan-v1"),
-  designId: z.number().int().positive(),
+  // Design ID 0 is reserved for an administrator-only locked-view test. A
+  // customer request must still have a persisted positive saved-design ID.
+  designId: z.number().int().nonnegative(),
   designRevision: z.string().trim().max(191).nullable(),
   geometryLock: z.string().min(16).max(400_000),
   camera: z.object({ position: vector3Schema, target: vector3Schema, zoom: z.number().finite().positive() }),
@@ -168,6 +170,9 @@ export const designPhotoRendersRouter = router({
       const isAdministratorTest = ctx.user.role === "admin";
       if (!isAdministratorTest && !input.lead) {
         throw new Error("Add your name, email, mobile number, and follow-up consent before requesting a Photo Quality image.");
+      }
+      if (!isAdministratorTest && input.provenance.designId === 0) {
+        throw new Error("Save this design before creating a Photo Quality image so your follow-up lead is tied to its exact plan.");
       }
       const [cached] = await db.select().from(designPhotoRenders)
         .where(and(eq(designPhotoRenders.userId, ctx.user.id), eq(designPhotoRenders.sceneSignature, input.sceneSignature)))

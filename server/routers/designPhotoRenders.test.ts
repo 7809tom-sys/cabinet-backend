@@ -31,7 +31,8 @@ describe("design photo render safeguards", () => {
 
     expect(photoRenderProvenanceSummary(provenance)).toContain("Saved design #42 revision 2026-09-02T08:30:00.000Z");
     expect(photoRenderProvenanceSummary(provenance)).toContain("Flooring: Aveline 20mil");
-    expect(() => photoRenderProvenanceSchema.parse({ ...provenance, designId: 0 })).toThrow();
+    expect(photoRenderProvenanceSchema.parse({ ...provenance, designId: 0 }).designId).toBe(0);
+    expect(() => photoRenderProvenanceSchema.parse({ ...provenance, designId: -1 })).toThrow();
     expect(() => photoRenderProvenanceSchema.parse({ ...provenance, sourceImageHash: "not-a-hash" })).toThrow();
     expect(() => photoRenderProvenanceSchema.parse({ ...provenance, materials: provenance.materials.slice(0, 3) })).toThrow();
   });

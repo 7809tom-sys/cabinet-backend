@@ -4427,6 +4427,8 @@ describe("final photo-quality render controls", () => {
     expect(source).toContain("sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl");
     expect(source).toContain("provenance: photoRenderDraft.provenance");
     expect(source).toContain("if (!photoRenderDraft)");
+    expect(source).toContain("if (!savedDesignId && !isPhotoQualityTest)");
+    expect(source).toContain("designId: savedDesignId ?? 0");
     expect(source).toContain("Finish the current placement preview before creating a final photo-quality render.");
     expect(source).toContain("Save this design before creating a photo-quality render");
     expect(source).toContain("confirmation: true");
