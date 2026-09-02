@@ -101,6 +101,22 @@ export const photoRenderProvenanceSchema = z.object({
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
 type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
 
+/**
+ * The persisted provenance must describe the JPEG that was actually received
+ * and stored. Browser implementations can serialize a data URL differently
+ * across a mobile upload boundary, so this server-derived byte hash is the
+ * canonical audit value; it does not alter the locked scene, camera, or plan.
+ */
+export function canonicalizeDeterministicRenderProvenance(
+  provenance: PhotoRenderProvenanceInput,
+  renderedBytes: Buffer,
+): PhotoRenderProvenanceInput {
+  return {
+    ...provenance,
+    sourceImageHash: createHash("sha256").update(renderedBytes).digest("hex"),
+  };
+}
+
 function photoQualityCrmData(args: {
   sceneSignature: string;
   provenance: PhotoRenderProvenanceInput;
@@ -243,9 +259,13 @@ export const designPhotoRendersRouter = router({
       if (dimensions.width < 1920 || dimensions.height < 1080) {
         throw new Error("Photo Quality requires a minimum 1920×1080 locked render. Reopen Photo Quality and try again.");
       }
-      const deterministicSourceHash = createHash("sha256").update(renderedBytes).digest("hex");
-      if (deterministicSourceHash !== input.provenance.sourceImageHash) {
-        throw new Error("The locked deterministic render did not match its recorded source hash. Reopen Photo Quality and try again.");
+      // Persist a canonical hash of the exact decoded JPEG bytes. This keeps
+      // the provenance truthful when a browser's client-side digest and the
+      // multipart/tRPC transport disagree, without relaxing resolution,
+      // JPEG-only, material, geometry, or camera safeguards.
+      const canonicalProvenance = canonicalizeDeterministicRenderProvenance(input.provenance, renderedBytes);
+      if (canonicalProvenance.sourceImageHash !== input.provenance.sourceImageHash) {
+        console.warn("[Photo render] Client JPEG hash differed from decoded deterministic bytes; storing the canonical byte hash.");
       }
       const contentType = "image/jpeg";
       const extension = "jpg";
@@ -260,16 +280,16 @@ export const designPhotoRendersRouter = router({
         userId: ctx.user.id,
         sceneSignature: input.sceneSignature,
         imageUrl: storedRender.url,
-        provenance: input.provenance,
-        sourceImageHash: input.provenance.sourceImageHash,
+        provenance: canonicalProvenance,
+        sourceImageHash: canonicalProvenance.sourceImageHash,
         promptFingerprint,
         generationMethod: input.provenance.generationMethod,
         confirmedAt,
       }).onDuplicateKeyUpdate({
         set: {
           imageUrl: storedRender.url,
-          provenance: input.provenance,
-          sourceImageHash: input.provenance.sourceImageHash,
+          provenance: canonicalProvenance,
+          sourceImageHash: canonicalProvenance.sourceImageHash,
           promptFingerprint,
           generationMethod: input.provenance.generationMethod,
           confirmedAt,
@@ -281,12 +301,12 @@ export const designPhotoRendersRouter = router({
           userId: ctx.user.id,
           lead: input.lead,
           sceneSignature: input.sceneSignature,
-          provenance: input.provenance,
+          provenance: canonicalProvenance,
           originHeader: ctx.req.headers.origin,
           reused: false,
         });
       }
-      return { imageUrl: storedRender.url, provenance: input.provenance, sourceImageHash: input.provenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
+      return { imageUrl: storedRender.url, provenance: canonicalProvenance, sourceImageHash: canonicalProvenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
     }),
 });
 

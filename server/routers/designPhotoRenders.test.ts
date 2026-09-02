@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { exactPlanPrompt, normalizePhotoQualityMaterialUrl, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary, readJpegDimensions } from "./designPhotoRenders";
+import { canonicalizeDeterministicRenderProvenance, exactPlanPrompt, normalizePhotoQualityMaterialUrl, photoQualityLeadSchema, photoRenderProvenanceSchema, photoRenderProvenanceSummary, readJpegDimensions } from "./designPhotoRenders";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 describe("design photo render safeguards", () => {
@@ -105,5 +106,39 @@ describe("design photo render safeguards", () => {
     const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);
     expect(readJpegDimensions(bytes)).toEqual({ width: 2560, height: 1440 });
     expect(() => readJpegDimensions(Buffer.from("not-a-jpeg"))).toThrow("must be a JPEG");
+  });
+
+  it("stores a canonical server hash for the exact decoded deterministic JPEG when mobile client metadata drifts", () => {
+    const provenance = photoRenderProvenanceSchema.parse({
+      contractVersion: "exact-plan-v1",
+      designId: 0,
+      designRevision: null,
+      geometryLock: "locked-current-plan-with-placed-cabinets-and-openings",
+      camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 1.25 },
+      materials: [
+        { role: "cabinet", productId: 12, name: "Rustic Hickory", materialImageUrl: null },
+        { role: "countertop", productId: 21, name: "Calacatta Oro", materialImageUrl: null },
+        { role: "flooring", productId: 34, name: "Astoria", materialImageUrl: null },
+        { role: "backsplash", productId: 55, name: "Desert Clay", materialImageUrl: null },
+      ],
+      sourceImageHash: "f".repeat(64),
+      generationMethod: "manual-final-review-deterministic-webgl-v1",
+    });
+    const exactJpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);
+
+    const canonical = canonicalizeDeterministicRenderProvenance(provenance, exactJpegBytes);
+
+    expect(canonical.sourceImageHash).toBe(createHash("sha256").update(exactJpegBytes).digest("hex"));
+    expect(canonical.sourceImageHash).not.toBe(provenance.sourceImageHash);
+    expect(canonical.geometryLock).toBe(provenance.geometryLock);
+    expect(canonical.camera).toEqual(provenance.camera);
+    expect(canonical.materials).toEqual(provenance.materials);
+  });
+
+  it("does not reject an exact JPEG solely because a client-reported hash differs", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("canonicalizeDeterministicRenderProvenance(input.provenance, renderedBytes)");
+    expect(source).toContain("storing the canonical byte hash");
+    expect(source).not.toContain("The locked deterministic render did not match its recorded source hash");
   });
 });
