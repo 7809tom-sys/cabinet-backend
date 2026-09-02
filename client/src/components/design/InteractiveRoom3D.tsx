@@ -36,7 +36,7 @@ export const THREE_D_PATH_TRACE_PREVIEW = {
  */
 export const THREE_D_PRODUCTION_HDRI_URL = "/manus-storage/photo_studio_01_1k_5f7e3d4e.hdr";
 
-function pathTraceCompatibleMaterial(material: THREE.Material) {
+export function pathTraceCompatibleMaterial(material: THREE.Material) {
   const source = material as THREE.MeshPhysicalMaterial;
   const hasMaterialMap = Boolean(source.map);
   const converted = new THREE.MeshPhysicalMaterial({
@@ -60,6 +60,22 @@ function pathTraceCompatibleMaterial(material: THREE.Material) {
     clearcoatMap: source.clearcoatMap ?? null,
     clearcoatRoughness: source.clearcoatRoughness ?? 0,
     clearcoatRoughnessMap: source.clearcoatRoughnessMap ?? null,
+    ior: source.ior,
+    transmission: source.transmission,
+    transmissionMap: source.transmissionMap ?? null,
+    thickness: source.thickness,
+    thicknessMap: source.thicknessMap ?? null,
+    attenuationDistance: source.attenuationDistance,
+    attenuationColor: source.attenuationColor?.clone(),
+    specularIntensity: source.specularIntensity,
+    specularIntensityMap: source.specularIntensityMap ?? null,
+    specularColor: source.specularColor?.clone(),
+    specularColorMap: source.specularColorMap ?? null,
+    sheen: source.sheen,
+    sheenRoughness: source.sheenRoughness,
+    sheenColor: source.sheenColor?.clone(),
+    sheenColorMap: source.sheenColorMap ?? null,
+    sheenRoughnessMap: source.sheenRoughnessMap ?? null,
     envMapIntensity: source.envMapIntensity ?? 1,
     transparent: source.transparent,
     opacity: source.opacity,

@@ -1397,6 +1397,7 @@
 - [x] Correct the failed final-render reference evaluation: do not imply that unconsumed door-sample or room-scene references improved a deterministic exact-scene capture
 - [ ] Define and evaluate an exact-plan production-render pipeline that can improve material and lighting realism without substituting a catalog room scene or changing the designed kitchen
 - [x] Add a licensed neutral daylight HDRI to the clone-only production renderer so reflections and indirect light improve without adding or substituting kitchen geometry
+- [x] Preserve glass transmission, specular response, sheen, attenuation, and physical material maps when cloning the exact scene for path tracing
 - [x] Build an administrator-only locked-scene WebGL2 path-tracing prototype that preserves the current geometry and camera before any photo-quality claim
 - [ ] Have the owner visually evaluate the live path-traced exact-scene comparison before treating it as a viable production-render candidate
 - [x] Remove visible noise and low-resolution enlargement artifacts from the exact-scene path-tracing candidate before owner re-evaluation

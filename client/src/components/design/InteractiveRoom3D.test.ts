@@ -7,6 +7,7 @@ import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./In
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
+import { pathTraceCompatibleMaterial } from "./InteractiveRoom3D";
 import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetSelectionPriority, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
@@ -64,6 +65,42 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(source).toContain("productionEnvironment.mapping = THREE.EquirectangularReflectionMapping");
 		    expect(source).toContain("pathTraceScene.environment = productionEnvironment");
 		    expect(source).not.toContain("pathTraceScene.background = productionEnvironment");
+		  });
+
+		  it("preserves existing physical glass, specular, and sheen response when cloning the exact scene for path tracing", () => {
+		    const source = new THREE.MeshPhysicalMaterial({
+		      color: "#bccfd8",
+		      roughness: 0.12,
+		      metalness: 0.18,
+		      clearcoat: 0.28,
+		      ior: 1.45,
+		      transmission: 0.48,
+		      thickness: 0.18,
+		      attenuationDistance: 0.9,
+		      attenuationColor: "#d4e5ee",
+		      specularIntensity: 0.74,
+		      specularColor: "#e2eef2",
+		      sheen: 0.06,
+		      sheenRoughness: 0.42,
+		      sheenColor: "#f2eee8",
+		    });
+		    const converted = pathTraceCompatibleMaterial(source);
+		    expect(converted).toBeInstanceOf(THREE.MeshPhysicalMaterial);
+		    expect(converted).toMatchObject({
+		      roughness: 0.12,
+		      metalness: 0.18,
+		      clearcoat: 0.28,
+		      ior: 1.45,
+		      transmission: 0.48,
+		      thickness: 0.18,
+		      attenuationDistance: 0.9,
+		      specularIntensity: 0.74,
+		      sheen: 0.06,
+		      sheenRoughness: 0.42,
+		    });
+		    expect(converted.attenuationColor.getHexString()).toBe(source.attenuationColor.getHexString());
+		    expect(converted.specularColor.getHexString()).toBe(source.specularColor.getHexString());
+		    expect(converted.sheenColor.getHexString()).toBe(source.sheenColor.getHexString());
 		  });
 
 		  it("resolves the exact selected Aveline and Calacatta products to curated manufacturer-derived material fields", () => {
