@@ -585,6 +585,7 @@ const THREE_D_CALACATTA_ORO_SUPER_JUMBO_URL = "/manus-storage/calacatta_oro_138x
 const THREE_D_BEDROCK_3CM_SLAB_URL = "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp";
 const THREE_D_BAHIA_12MIL_FLOOR_URL = "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp";
 const THREE_D_ACORN_20MIL_FLOOR_URL = "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp";
+const THREE_D_ASTORIA_22MIL_FLOOR_URL = "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp";
 const THREE_D_DESERT_CLAY_MOSAIC_URL = "/manus-storage/desert_clay_12in_clean_mosaic_22580455.webp";
 
 /**
@@ -619,7 +620,7 @@ export function threeDProductMaterialSource(
     };
   }
 	if (role === "flooring" && (normalizedName === "acorn 20mil dryback planks" || productId === 40)) {
-    return {
+	  return {
       url: THREE_D_ACORN_20MIL_FLOOR_URL,
       key: "acorn-20mil-7.5x48",
       curated: true,
@@ -630,10 +631,25 @@ export function threeDProductMaterialSource(
       flooringPatternKind: "plank",
       plankWidthIn: 7.5,
       plankLengthIn: 48,
-      staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
-    };
-  }
-  if (role === "countertop" && normalizedName === "bedrock 3cm") {
+	    staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(48 * fraction * 8) / 8),
+	  };
+	}
+	if (role === "flooring" && (normalizedName === "astoria 22mil vinyl flooring" || productId === 54)) {
+	  return {
+	    url: THREE_D_ASTORIA_22MIL_FLOOR_URL,
+	    key: "astoria-22mil-9x60",
+	    curated: true,
+	    proceduralFallback: false,
+	    physicalWidthIn: 240,
+	    physicalDepthIn: 108,
+	    sourceProductName: productName ?? null,
+	    flooringPatternKind: "plank",
+	    plankWidthIn: 9,
+	    plankLengthIn: 60,
+	    staggerOffsetsIn: THREE_D_PLANK_STAGGER_FRACTIONS.map((fraction) => Math.round(60 * fraction * 8) / 8),
+	  };
+	}
+	if (role === "countertop" && normalizedName === "bedrock 3cm") {
     return {
       url: THREE_D_BEDROCK_3CM_SLAB_URL,
       key: "bedrock-3cm-126x63",

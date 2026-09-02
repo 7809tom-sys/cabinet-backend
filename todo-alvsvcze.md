@@ -1354,5 +1354,6 @@
 - [x] Recreate the active 3D floor material whenever the selected flooring product identity or approved material source changes, preventing a cached mesh from retaining the prior default texture
 - [x] Prove the complete currently selected-floor-to-final-mesh runtime path and fix the exact point that still leaves the floor unchanged after product selection
 - [ ] Restore the previously working direct selected-floor behavior that regressed during the later material-safety changes, then retain only the staged-photo safety boundary
+- [x] Replace the active Astoria 22mil Vinyl Flooring staged room-card image with a verified material-only floor source and remove raw staged-photo fallback from 3D flooring
 - [x] Restore the last known working flooring-selection behavior without rolling back countertop, backsplash, photo-render, Preferred, cabinet, pricing, or mobile improvements
 - [ ] Correct the displayed and saved price for the owner’s currently selected flooring product after confirming the exact product, unit, and intended price

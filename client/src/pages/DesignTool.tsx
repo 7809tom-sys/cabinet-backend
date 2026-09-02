@@ -6888,24 +6888,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [placed, liveMasterCabinets]);
 
   const threeDSurfaceTextureUrls = useMemo(() => {
-    const approvedFlooringSwatchByProductId: Record<number, string> = {
-      40: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp",
-      82: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp",
-    };
+  const approvedFlooringSwatchByProductId: Record<number, string> = {
+    82: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp",
+    40: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp",
+    54: "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp",
+  };
     const imageForRole = (role: "countertop" | "flooring" | "backsplash") => {
       const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);
       // Catalog product cards can be staged-room or retail photographs. The
       // final 3D scene accepts only an explicitly approved, repeatable swatch;
       // named curated assets are resolved separately by the 3D renderer.
       if (role === "flooring" && selected?.id != null) {
-        // Restore the original floor-selection behavior: the exact selected
-        // flooring image remains the usable fallback when a catalog record has
-        // not yet received an approved 3D swatch. Known product-specific
-        // curated maps still take precedence; countertop and backsplash stay
-        // material-swatch-only because their staged images are unsafe fields.
+        // Never let a staged room/card image tile across a floor. Known
+        // product-specific maps and Admin-approved swatches are safe; any
+        // other selected floor receives the renderer's neutral PBR fallback.
         return selected.materialImageUrl
           ?? approvedFlooringSwatchByProductId[Number(selected.id)]
-          ?? selected.imageUrl
           ?? null;
       }
       return selected?.materialImageUrl ?? null;

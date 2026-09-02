@@ -98,7 +98,14 @@ describe("interactive 3D room scene helpers", () => {
 				expect(threeDProductMaterialSource("flooring", "Legacy floor label", null, { productId: 40 })).toMatchObject({
 					key: "acorn-20mil-7.5x48", curated: true, proceduralFallback: false,
 				});
-			expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
+				const astoria = threeDProductMaterialSource("flooring", "Astoria 22mil Vinyl Flooring", "/manus-storage/pelican/54_65e4c5a2.png", { productId: 54, category: "Flooring", subCategory: "Planks & Flooring", size: null });
+				expect(astoria).toMatchObject({
+					url: "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp", key: "astoria-22mil-9x60",
+					curated: true, proceduralFallback: false, physicalWidthIn: 240, physicalDepthIn: 108,
+					flooringPatternKind: "plank", plankWidthIn: 9, plankLengthIn: 60,
+				});
+				expect(astoria?.url).not.toContain("pelican/54_65e4c5a2.png");
+				expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
 				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
 				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,
 			});
