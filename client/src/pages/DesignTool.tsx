@@ -92,7 +92,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-		  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -508,6 +508,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     side: WallSide;
     spot: { x: number; y: number; rotation: number };
     availableLength: number;
+  } | null>(null);
+  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
+    hood: PlacedCabinet;
+    conflictingUpper: PlacedCabinet;
   } | null>(null);
   const [materialsListOpen, setMaterialsListOpen] = useState(false);
 
@@ -3340,8 +3344,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
 	      if (!requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
 	      normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
-      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
+	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
+	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
+	        ? cabinetCollisionDetail(finalCab, normalizedPrevious)
+	        : null;
 	      if (hasCollision(finalCab, normalizedPrevious)) {
+	        // A hood must occupy the same upper-wall span as its range. When an
+	        // existing upper cabinet is already in that exact band, do not move
+	        // either object silently or allow physical overlap. Offer the shopper
+	        // one explicit replacement action instead.
+	        if (rangeHoodConflict?.cabinet.placement === "wall") {
+	          setRangeHoodReplacementRecommendation({
+	            hood: finalCab,
+	            conflictingUpper: rangeHoodConflict.cabinet,
+	          });
+	          const message = `${finalCab.masterCode} mounts above the selected range, but ${rangeHoodConflict.cabinet.masterCode} occupies that upper-cabinet space. Replace that upper cabinet with the hood?`;
+	          setPlacementWarning(message);
+	          toast.info(message);
+	          return;
+	        }
 	        if (requestedIslandFace) {
 	          const message = `${finalCab.masterCode} was not added because it would overlap another island or room object.`;
 	          setPlacementWarning(message);
@@ -3481,6 +3502,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      null,
 	    );
 	  }, [addCabinet, alternateWallRecommendation]);
+	  const replaceUpperWithRangeHood = useCallback(() => {
+	    const recommendation = rangeHoodReplacementRecommendation;
+	    if (!recommendation) return;
+	    const withoutConflictingUpper = placedRef.current.filter((cabinet) => cabinet.uid !== recommendation.conflictingUpper.uid);
+	    if (hasCollision(recommendation.hood, withoutConflictingUpper)) {
+	      toast.error(`${recommendation.hood.masterCode} still needs a clear upper-wall span above the selected range.`);
+	      return;
+	    }
+	    const committed = normalizeRefrigeratorBayUppers([...withoutConflictingUpper, recommendation.hood], room);
+	    placedRef.current = committed;
+	    setPlaced(() => committed);
+	    setSelectedUid(recommendation.hood.uid);
+	    setPlacementWarning(null);
+	    setFailedWallFit(null);
+	    setRangeHoodReplacementRecommendation(null);
+	    justPlacedRef.current = true;
+	    toast.success(`${recommendation.hood.masterCode} replaced ${recommendation.conflictingUpper.masterCode} above the range.`);
+	  }, [rangeHoodReplacementRecommendation, room]);
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
   // makeFiller spec as the auto-fill engine so it carries a code + width and
@@ -11434,6 +11473,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          </DialogFooter>
 	        </DialogContent>
 	      </Dialog>
+
+	      <AlertDialog open={!!rangeHoodReplacementRecommendation} onOpenChange={(open) => { if (!open) setRangeHoodReplacementRecommendation(null); }}>
+	        <AlertDialogContent>
+	          <AlertDialogHeader>
+	            <AlertDialogTitle>Upper cabinet occupies the hood space</AlertDialogTitle>
+	            <AlertDialogDescription>
+	              {rangeHoodReplacementRecommendation
+	                ? `${rangeHoodReplacementRecommendation.hood.masterCode} is centered above the selected range, but ${rangeHoodReplacementRecommendation.conflictingUpper.masterCode} occupies that same upper-wall span. Replace only that upper cabinet with the hood?`
+	                : ""}
+	            </AlertDialogDescription>
+	          </AlertDialogHeader>
+	          <AlertDialogFooter>
+	            <AlertDialogCancel>Keep upper cabinet</AlertDialogCancel>
+	            <AlertDialogAction onClick={replaceUpperWithRangeHood}>Replace with range hood</AlertDialogAction>
+	          </AlertDialogFooter>
+	        </AlertDialogContent>
+	      </AlertDialog>
 
 	      <Dialog
 	        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}

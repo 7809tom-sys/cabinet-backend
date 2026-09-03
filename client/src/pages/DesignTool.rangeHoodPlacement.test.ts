@@ -13,10 +13,19 @@ describe("Design Tool range hood placement wiring", () => {
     expect(hoodStart).toBeGreaterThan(addStart);
     expect(hoodStart).toBeLessThan(runStart);
     expect(addSource).toContain("resolveRangeHoodPlacement(");
-    expect(addSource).toContain("spot = rangeHoodPlacement.spot");
-    expect(addSource).toContain("mountBottom: rangeHoodPlacement.mountBottom");
-    expect(addSource).toContain("setPlacementWarning(rangeHoodPlacement.message)");
-  });
+	    expect(addSource).toContain("spot = rangeHoodPlacement.spot");
+	    expect(addSource).toContain("mountBottom: rangeHoodPlacement.mountBottom");
+	    expect(addSource).toContain("setPlacementWarning(rangeHoodPlacement.message)");
+	    expect(addSource).toContain("const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)");
+	    expect(addSource).toContain("setRangeHoodReplacementRecommendation({");
+	  });
+
+	  it("offers an explicit upper-cabinet replacement instead of silently moving or overlapping a range-mounted hood", () => {
+	    expect(source).toContain("Upper cabinet occupies the hood space");
+	    expect(source).toContain("Replace with range hood");
+	    expect(source).toContain("const replaceUpperWithRangeHood = useCallback");
+	    expect(source).toContain("filter((cabinet) => cabinet.uid !== recommendation.conflictingUpper.uid)");
+	  });
 
   it("does not announce a successful 3D hood add until the shared placement transaction succeeds", () => {
     const shortcutStart = source.indexOf("const addRangeHoodFromInteractive3d");

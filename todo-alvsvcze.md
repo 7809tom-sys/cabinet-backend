@@ -1467,3 +1467,4 @@
 - [x] Enforce wall cabinets as wall-snapped only so they cannot float away from their selected wall in 3D
 - [x] Align fitted fillers flush to the room-facing cabinet front instead of recessed against the back wall
 - [x] Move mobile Walls, Hide Walls, and fitted-filler feedback into compact right-side pop-ups that preserve canvas space
+- [x] Reproduce and repair HOOD-30 placement when it is falsely rejected for overlapping an adjacent wall cabinet instead of mounting above its associated range
