@@ -5077,7 +5077,17 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   root.add(drainRing);
   if (!sink.faucet) return;
   const faucet = sinkFaucetTransform(sink);
-  const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#c8d0d4", metalness: 0.88, roughness: 0.14 });
+  const faucetMaterial = new THREE.MeshStandardMaterial({
+    color: sink.faucetFinish === "matte-black"
+      ? "#24272a"
+      : sink.faucetFinish === "brushed-gold"
+        ? "#b28a42"
+        : sink.faucetFinish === "chrome"
+          ? "#d8dde0"
+          : "#c8d0d4",
+    metalness: sink.faucetFinish === "matte-black" ? 0.7 : 0.88,
+    roughness: sink.faucetFinish === "matte-black" ? 0.32 : sink.faucetFinish === "brushed-gold" ? 0.24 : 0.14,
+  });
   const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
   const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
   const side = { x: -forward.z, z: forward.x };
@@ -5102,7 +5112,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.62, faucet.z + forward.z * reach),
   ]);
   const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.032, 10, false), faucetMaterial);
-  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
+  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish };
   root.add(spout);
   const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, 0.23, 16), faucetMaterial);
   sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);

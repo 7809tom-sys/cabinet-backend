@@ -33,7 +33,7 @@ export type VerifiedPelicanFaucetProfile = {
   spoutLengthIn: number;
   spoutHeightIn: number;
   profile: "pull-down";
-  finish: "brushed-nickel";
+  finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
   specificationUrl: string;
 };
 
@@ -149,6 +149,78 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     finish: "brushed-nickel",
     specificationUrl: "https://cdn.accentuate.io/7876662329484/1729881091715/PL-8203-Spec-Sheet.pdf?v=1734119171551",
   },
+  "PL-8207 BN": {
+    id: "pelican-pl-8207-fountain-pull-down-brushed-nickel",
+    pelicanCode: "PL-8207 BN",
+    name: "PL-8207 Fountain Series Pull-Down Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole",
+    overallHeightIn: 26.125,
+    spoutLengthIn: 7.6875,
+    spoutHeightIn: 6.5,
+    profile: "pull-down",
+    finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876662395020/1729881131839/PL-8207-Spec-Sheet.pdf?v=1734119192469",
+  },
+  "PL-8207 MB": {
+    id: "pelican-pl-8207-fountain-pull-down-matte-black",
+    pelicanCode: "PL-8207 MB",
+    name: "PL-8207 Fountain Series Pull-Down Kitchen Faucet — Matte Black",
+    installation: "single-hole",
+    overallHeightIn: 26.125,
+    spoutLengthIn: 7.6875,
+    spoutHeightIn: 6.5,
+    profile: "pull-down",
+    finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/7876662395020/1729881131839/PL-8207-Spec-Sheet.pdf?v=1734119192469",
+  },
+  "PL-8237 BG": {
+    id: "pelican-pl-8237-fountain-standard-arc-brushed-gold",
+    pelicanCode: "PL-8237 BG",
+    name: "PL-8237 Fountain Series Kitchen Faucet — Brushed Gold",
+    installation: "single-hole",
+    overallHeightIn: 12.8125,
+    spoutLengthIn: 7.0625,
+    spoutHeightIn: 8.375,
+    profile: "pull-down",
+    finish: "brushed-gold",
+    specificationUrl: "https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238",
+  },
+  "PL-8237 BN": {
+    id: "pelican-pl-8237-fountain-standard-arc-brushed-nickel",
+    pelicanCode: "PL-8237 BN",
+    name: "PL-8237 Fountain Series Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole",
+    overallHeightIn: 12.8125,
+    spoutLengthIn: 7.0625,
+    spoutHeightIn: 8.375,
+    profile: "pull-down",
+    finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238",
+  },
+  "PL-8237 CHR": {
+    id: "pelican-pl-8237-fountain-standard-arc-chrome",
+    pelicanCode: "PL-8237 CHR",
+    name: "PL-8237 Fountain Series Kitchen Faucet — Chrome",
+    installation: "single-hole",
+    overallHeightIn: 12.8125,
+    spoutLengthIn: 7.0625,
+    spoutHeightIn: 8.375,
+    profile: "pull-down",
+    finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238",
+  },
+  "PL-8237 MB": {
+    id: "pelican-pl-8237-fountain-standard-arc-matte-black",
+    pelicanCode: "PL-8237 MB",
+    name: "PL-8237 Fountain Series Kitchen Faucet — Matte Black",
+    installation: "single-hole",
+    overallHeightIn: 12.8125,
+    spoutLengthIn: 7.0625,
+    spoutHeightIn: 8.375,
+    profile: "pull-down",
+    finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {
@@ -169,7 +241,7 @@ export function verifiedPelicanSinkProfile(code: string | null | undefined): Ver
 export function verifiedPelicanFaucetProfile(code: string | null | undefined): VerifiedPelicanFaucetProfile | null {
   const normalized = (code ?? "").trim().toUpperCase();
   if (/^PL-8203(?:\s+BN)?$/.test(normalized)) return VERIFIED_PELICAN_FAUCETS["PL-8203"];
-  return null;
+  return VERIFIED_PELICAN_FAUCETS[normalized] ?? null;
 }
 
 export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfile, cabinetWidthIn: number): boolean {

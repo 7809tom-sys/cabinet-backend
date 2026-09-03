@@ -83,3 +83,21 @@ PL-8203 Brushed Nickel is the first verified faucet profile. Pelican’s product
 
 12. [Pelican Int’l — PL-8203 product page](https://buildpelican.com/products/pl-8203)
 13. [Pelican Int’l — PL-8203 specification sheet](https://cdn.accentuate.io/7876662329484/1729881091715/PL-8203-Spec-Sheet.pdf?v=1734119171551)
+
+## Next Verified Faucet Candidate — PL-8207
+
+Pelican’s official PL-8207 product page and specification sheet identify this Fountain Series single-hole pull-down faucet as a 26⅛-inch overall-height model with a 7 11/16-inch spout length and a 6½-inch spout height. The sheet lists Brushed Nickel and Matte Black finishes. It is a source-verified candidate for the next parametric faucet profile; catalog imagery remains display-only.
+
+### Sources
+
+14. [Pelican Int’l — PL-8207 product page](https://buildpelican.com/products/pl-8207)
+15. [Pelican Int’l — PL-8207 specification sheet](https://cdn.accentuate.io/7876662395020/1729881131839/PL-8207-Spec-Sheet.pdf?v=1734119192469)
+
+## Verified PL-8237 Standard-Arc Faucet Family
+
+Pelican’s PL-8237 specification sheet verifies one common single-hole faucet geometry for all active imported finishes: a 12 13/16-inch overall height, 7 1/16-inch spout length, and 8⅜-inch spout height. The registered Designer variants are PL-8237 BG, BN, CHR, and MB. Each retains the selected finish while sharing only the authoritative geometry.
+
+### Sources
+
+16. [Pelican Int’l — PL-8237 product page](https://buildpelican.com/products/pl-8237)
+17. [Pelican Int’l — PL-8237 specification sheet](https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238)

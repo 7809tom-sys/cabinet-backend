@@ -45,6 +45,32 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps both imported PL-8207 finish codes to their shared measured profile geometry", () => {
+    expect(verifiedPelicanFaucetProfile("PL-8207 BN")).toMatchObject({
+      overallHeightIn: 26.125,
+      spoutLengthIn: 7.6875,
+      spoutHeightIn: 6.5,
+      finish: "brushed-nickel",
+    });
+    expect(verifiedPelicanFaucetProfile("PL-8207 MB")).toMatchObject({
+      overallHeightIn: 26.125,
+      spoutLengthIn: 7.6875,
+      spoutHeightIn: 6.5,
+      finish: "matte-black",
+    });
+  });
+
+  it("maps every active PL-8237 finish code to Pelican’s same verified standard-arc measurements", () => {
+    for (const [code, finish] of [["PL-8237 BG", "brushed-gold"], ["PL-8237 BN", "brushed-nickel"], ["PL-8237 CHR", "chrome"], ["PL-8237 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanFaucetProfile(code)).toMatchObject({
+        overallHeightIn: 12.8125,
+        spoutLengthIn: 7.0625,
+        spoutHeightIn: 8.375,
+        finish,
+      });
+    }
+  });
+
   it("does not treat an unverified code as a measured Designer profile", () => {
     const profile = verifiedPelicanSinkProfile("PL-FC2418SB");
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
