@@ -1426,3 +1426,5 @@
 - [x] Build automatic island countertops from the complete physically contiguous two-sided island support footprint without spanning an unoccupied interior gap
 - [x] Correct the opposing Front/Back island depth registration so a DB24 meets the existing 24-inch-deep cabinet run back-to-back with no visible void
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark
+- [x] Audit Pelican International’s public catalog hierarchy and map an original CabinetDealz department, category, filter, and product-detail organization roadmap
+- [ ] Apply Pelican-style organization and plain-language product names only to Pelican surfaces and fixtures; do not change cabinetry catalog, SKUs, pricing, labels, or Designer cabinet navigation
