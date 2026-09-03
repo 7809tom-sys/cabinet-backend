@@ -1427,4 +1427,8 @@
 - [x] Correct the opposing Front/Back island depth registration so a DB24 meets the existing 24-inch-deep cabinet run back-to-back with no visible void
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark
 - [x] Audit Pelican International’s public catalog hierarchy and map an original CabinetDealz department, category, filter, and product-detail organization roadmap
-- [ ] Apply Pelican-style organization and plain-language product names only to Pelican surfaces and fixtures; do not change cabinetry catalog, SKUs, pricing, labels, or Designer cabinet navigation
+- [x] Apply Pelican-style organization and plain-language product names only to Pelican surfaces and fixtures; do not change cabinetry catalog, SKUs, pricing, labels, or Designer cabinet navigation
+- [x] Add Pelican-only shopper departments and product-family navigation while preserving existing raw Pelican category routes as compatible fallbacks
+- [x] Add presentation-only Pelican product-type and plain-language display-name helpers while retaining source names, codes, prices, slugs, descriptions, and cart identity
+- [x] Apply the approved Pelican presentation helpers to public catalog cards, product details, and guided surface-selection results without changing cabinetry UI
+- [x] Add targeted Pelican-only navigation and display-label regression coverage, then validate the published catalog routes on desktop and mobile

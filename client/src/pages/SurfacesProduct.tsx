@@ -6,7 +6,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeo } from "@/hooks/useSeo";
-import { categorySlug, CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
+import {
+  categorySlug,
+  CATEGORY_GRADIENT,
+  formatPrice,
+  pelicanCategoryLabel,
+  pelicanDisplayName,
+  pelicanProductType,
+} from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
@@ -20,10 +27,12 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const { user } = useAuth();
   const { isPreferred, togglePreferred } = usePreferredProducts();
   const [qty, setQty] = useState(1);
+  const displayName = data ? pelicanDisplayName(data) : "Product";
+  const productType = data ? pelicanProductType(data) : "Pelican Product";
 
   useSeo({
     title: data
-      ? `${data.name} — Surfaces & Fixtures | Cabinet Dealz`
+      ? `${displayName} — Surfaces & Fixtures | Cabinet Dealz`
       : "Product — Surfaces & Fixtures | Cabinet Dealz",
     description: data?.description?.slice(0, 160),
     type: "product",
@@ -112,7 +121,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
         onClick={() => navigate(`/surfaces/${categorySlug(data.category)}`)}
         className="mb-5 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to {data.category}
+        <ArrowLeft className="h-4 w-4" /> Back to {pelicanCategoryLabel(data.category)}
       </button>
 
       <div className="grid gap-8 md:grid-cols-2">
@@ -120,7 +129,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
         <Card className="overflow-hidden">
           <div className="relative aspect-[4/3] w-full">
             {data.imageUrl ? (
-              <img src={data.imageUrl} alt={data.name} className="h-full w-full object-cover" />
+              <img src={data.imageUrl} alt={displayName} className="h-full w-full object-cover" />
             ) : (
               <div
                 className="flex h-full w-full items-center justify-center"
@@ -142,10 +151,9 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
         {/* Details */}
         <div>
           <div className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            {data.category}
-            {data.subCategory ? ` · ${data.subCategory}` : ""}
+            {productType}
           </div>
-          <h1 className="mt-1 font-serif text-3xl font-bold">{data.name}</h1>
+          <h1 className="mt-1 font-serif text-3xl font-bold">{displayName}</h1>
 
           {/* ─── Pricing Breakdown Card ─── */}
           <div className="mt-4 rounded-xl border border-border bg-card p-4">
@@ -295,8 +303,9 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
             </Link>
           </div>
 
-          <div className="mt-6 text-xs text-muted-foreground">
-            Item code: {data.pelicanCode}
+          <div className="mt-6 space-y-1 text-xs text-muted-foreground">
+            <div>Item code: {data.pelicanCode}</div>
+            {displayName !== data.name && <div>Source name: {data.name}</div>}
           </div>
         </div>
       </div>
@@ -356,7 +365,7 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
                   {product.imageUrl ? (
                     <img
                       src={product.imageUrl}
-                      alt={product.name}
+                      alt={pelicanDisplayName(product)}
                       loading="lazy"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                     />
@@ -368,8 +377,11 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
                 </div>
                 <div className="p-3">
                   <p className="text-xs font-medium line-clamp-2 group-hover:text-primary transition-colors">
-                    {product.name}
+                    {pelicanDisplayName(product)}
                   </p>
+                  {product.pelicanCode && (
+                    <p className="mt-1 text-[10px] font-medium text-muted-foreground">Item code: {product.pelicanCode}</p>
+                  )}
                   {product.sellPrice && (
                     <p className="mt-1 text-sm font-semibold text-primary">{formatPrice(product.sellPrice)}</p>
                   )}

@@ -10,8 +10,8 @@ export type PelicanCategory =
   | "Tile & Mosaic"
   | "Quartz Slabs (Countertops)";
 
-// Categories we surface to shoppers, in display order. (Samples / Marketing are
-// intentionally excluded from the storefront.)
+// Categories we surface to shoppers, in display order. Samples and Marketing
+// are intentionally excluded from the storefront.
 export const PELICAN_STOREFRONT_CATEGORIES: PelicanCategory[] = [
   "Quartz Slabs (Countertops)",
   "Flooring",
@@ -67,6 +67,237 @@ export const CATEGORY_GRADIENT: Record<string, string> = {
 export function formatPrice(n: number | null | undefined): string {
   if (n == null) return "Call for pricing";
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+/**
+ * The Pelican import categories remain authoritative for inventory and pricing.
+ * These labels are a shopper-facing presentation layer only; they never replace
+ * a source category in product data, queries, carts, quotes, or orders.
+ */
+export const PELICAN_CATEGORY_LABEL: Record<string, string> = {
+  "Quartz Slabs (Countertops)": "Quartz Countertops",
+  Flooring: "Flooring",
+  "Tile & Mosaic": "Tile & Mosaic",
+  "Sinks & Faucets": "Sinks & Faucets",
+  "Shower & Bath": "Shower & Bath",
+  "Toilets & Bidets": "Toilets & Bidets",
+};
+
+export function pelicanCategoryLabel(category: string): string {
+  return PELICAN_CATEGORY_LABEL[category] ?? category;
+}
+
+export type PelicanDepartmentSlug =
+  | "kitchen-surfaces"
+  | "kitchen-fixtures"
+  | "bathroom-fixtures"
+  | "bath-surfaces-enclosures";
+
+export type PelicanProductFamily = {
+  title: string;
+  description: string;
+  category: PelicanCategory;
+  subCategory?: string;
+};
+
+export type PelicanDepartment = {
+  slug: PelicanDepartmentSlug;
+  title: string;
+  description: string;
+  families: PelicanProductFamily[];
+};
+
+/**
+ * Original CabinetDealz browse structure informed by Pelican's public site.
+ * Product families link to the existing raw-category API plus an optional raw
+ * subcategory filter, keeping imported category values fully intact.
+ */
+export const PELICAN_DEPARTMENTS: PelicanDepartment[] = [
+  {
+    slug: "kitchen-surfaces",
+    title: "Kitchen Surfaces",
+    description: "Countertops, backsplash tile, flooring, and finishing pieces for a kitchen project.",
+    families: [
+      {
+        title: "Quartz Countertops",
+        description: "Browse quartz countertop slabs by finish, size, and thickness.",
+        category: "Quartz Slabs (Countertops)",
+      },
+      {
+        title: "Backsplash & Wall Tile",
+        description: "Explore mosaic and tile options for kitchen walls and accents.",
+        category: "Tile & Mosaic",
+      },
+      {
+        title: "Flooring",
+        description: "Shop flooring products for the room under your kitchen project.",
+        category: "Flooring",
+        subCategory: "Planks & Flooring",
+      },
+      {
+        title: "Flooring Trim & Transitions",
+        description: "Find matching trim pieces and transitions for a finished floor edge.",
+        category: "Flooring",
+        subCategory: "Moldings & Trim",
+      },
+    ],
+  },
+  {
+    slug: "kitchen-fixtures",
+    title: "Kitchen Fixtures",
+    description: "Shop sinks, faucets, disposals, and cooking surfaces for the kitchen.",
+    families: [
+      {
+        title: "Sinks",
+        description: "Browse the available sink collection by type, size, and installation details.",
+        category: "Sinks & Faucets",
+        subCategory: "Sinks",
+      },
+      {
+        title: "Faucets",
+        description: "Browse faucets and compare finish, fit, and configuration details.",
+        category: "Sinks & Faucets",
+        subCategory: "Faucets",
+      },
+      {
+        title: "Disposals & Sink Accessories",
+        description: "Find disposals and practical accessories for a complete sink setup.",
+        category: "Sinks & Faucets",
+        subCategory: "Disposals & Accessories",
+      },
+    ],
+  },
+  {
+    slug: "bathroom-fixtures",
+    title: "Bathroom Fixtures",
+    description: "Find sinks, faucets, toilets, bidets, and bathing fixtures for a bathroom project.",
+    families: [
+      {
+        title: "Sinks",
+        description: "Browse the sink collection by type, dimensions, and installation details.",
+        category: "Sinks & Faucets",
+        subCategory: "Sinks",
+      },
+      {
+        title: "Faucets",
+        description: "Browse faucet options and compare configurations and finishes.",
+        category: "Sinks & Faucets",
+        subCategory: "Faucets",
+      },
+      {
+        title: "Toilets & Bidets",
+        description: "Explore toilet and bidet fixture options for a bathroom build.",
+        category: "Toilets & Bidets",
+      },
+    ],
+  },
+  {
+    slug: "bath-surfaces-enclosures",
+    title: "Bath Surfaces & Enclosures",
+    description: "Build a coordinated shower and bath with tile, surrounds, doors, systems, and accessories.",
+    families: [
+      {
+        title: "Mosaic & Tile",
+        description: "Browse tile and mosaics for bath walls, floors, and accents.",
+        category: "Tile & Mosaic",
+      },
+      {
+        title: "Shower & Tub Doors",
+        description: "Explore glass-door and enclosure options for a shower or tub.",
+        category: "Shower & Bath",
+        subCategory: "Shower & Tub Doors",
+      },
+      {
+        title: "Shower Surrounds",
+        description: "Shop surround options for the shower enclosure.",
+        category: "Shower & Bath",
+        subCategory: "Shower Surrounds",
+      },
+      {
+        title: "Shower Systems & Accessories",
+        description: "Find shower systems, valves, and finishing accessories.",
+        category: "Shower & Bath",
+        subCategory: "Shower Valves & Systems",
+      },
+    ],
+  },
+];
+
+export function pelicanDepartmentFromSlug(slug: string): PelicanDepartment | null {
+  return PELICAN_DEPARTMENTS.find((department) => department.slug === slug) ?? null;
+}
+
+export function pelicanFamilyHref(family: Pick<PelicanProductFamily, "category" | "subCategory">): string {
+  const base = `/surfaces/${categorySlug(family.category)}`;
+  return family.subCategory ? `${base}?family=${encodeURIComponent(family.subCategory)}` : base;
+}
+
+export type PelicanProductPresentationInput = {
+  name?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
+};
+
+/**
+ * Returns a concise shopper-facing product type from the authoritative imported
+ * category fields. It deliberately does not modify the original source name or
+ * Pelican item code used for ordering.
+ */
+export function pelicanProductType(input: PelicanProductPresentationInput): string {
+  const category = input.category?.trim() ?? "";
+  const subCategory = input.subCategory?.trim() ?? "";
+
+  switch (category) {
+    case "Quartz Slabs (Countertops)":
+      return "Quartz Countertop Slab";
+    case "Flooring":
+      if (subCategory === "Moldings & Trim") return "Flooring Trim";
+      if (subCategory === "Underlayment") return "Flooring Underlayment";
+      return "Flooring";
+    case "Tile & Mosaic":
+      return subCategory === "Mosaic" ? "Mosaic Tile" : "Wall & Floor Tile";
+    case "Sinks & Faucets":
+      if (subCategory === "Sinks") return "Sink";
+      if (subCategory === "Faucets") return "Faucet";
+      if (subCategory === "Disposals & Accessories") return "Disposal & Sink Accessory";
+      if (subCategory === "Sink & Faucet Accessories") return "Sink & Faucet Accessory";
+      return "Kitchen & Bath Fixture";
+    case "Shower & Bath":
+      if (subCategory === "Shower & Tub Doors") return "Shower or Tub Door";
+      if (subCategory === "Shower Surrounds") return "Shower Surround";
+      if (subCategory === "Shower Valves & Systems") return "Shower Valve & System";
+      if (subCategory === "Shower Accessories") return "Shower Accessory";
+      return "Shower & Bath Fixture";
+    case "Toilets & Bidets":
+      return "Toilet & Bidet Fixture";
+    default:
+      return subCategory || category || "Pelican Product";
+  }
+}
+
+function sourceNameAlreadyStatesType(sourceName: string, productType: string): boolean {
+  const source = sourceName.toLowerCase();
+  const cues = productType.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  return cues.some((cue) => source.includes(cue));
+}
+
+function sourceNameLooksLikeCode(sourceName: string): boolean {
+  // Product names such as “Calacatta Oro” should stay concise. This deliberately
+  // accepts compact, all-capital catalog identifiers such as “PR42” or “PL-3082”.
+  return /^[A-Z]{1,5}(?:[- ]?[A-Z0-9]{1,8}){1,3}$/.test(sourceName.trim());
+}
+
+/**
+ * Adds a plain-language product type only to ambiguous imported source names
+ * such as short codes. Descriptive source names stay concise, while callers
+ * still show the product type and authoritative source name/code separately.
+ */
+export function pelicanDisplayName(input: PelicanProductPresentationInput): string {
+  const sourceName = input.name?.trim() ?? "";
+  const productType = pelicanProductType(input);
+  if (!sourceName) return productType;
+  if (sourceNameAlreadyStatesType(sourceName, productType)) return sourceName;
+  return sourceNameLooksLikeCode(sourceName) ? `${sourceName} — ${productType}` : sourceName;
 }
 
 // ─── Surface roles ────────────────────────────────────────────────────────────

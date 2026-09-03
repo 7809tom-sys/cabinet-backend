@@ -3,6 +3,11 @@ import {
   categorySlug,
   categoryFromSlug,
   formatPrice,
+  pelicanCategoryLabel,
+  pelicanDepartmentFromSlug,
+  pelicanDisplayName,
+  pelicanFamilyHref,
+  pelicanProductType,
   surfaceRole,
   PELICAN_STOREFRONT_CATEGORIES,
 } from "./pelican";
@@ -30,6 +35,37 @@ describe("pelican storefront helpers", () => {
     expect(formatPrice(0)).toBe("$0.00");
     expect(formatPrice(null)).toBe("Call for pricing");
     expect(formatPrice(undefined)).toBe("Call for pricing");
+  });
+
+  it("keeps raw categories queryable while returning a clear shopper-facing category label", () => {
+    expect(categorySlug("Quartz Slabs (Countertops)")).toBe("quartz");
+    expect(categoryFromSlug("quartz")).toBe("Quartz Slabs (Countertops)");
+    expect(pelicanCategoryLabel("Quartz Slabs (Countertops)")).toBe("Quartz Countertops");
+  });
+
+  it("maps a shopper department to existing raw-category family routes", () => {
+    const kitchenSurfaces = pelicanDepartmentFromSlug("kitchen-surfaces");
+    expect(kitchenSurfaces?.title).toBe("Kitchen Surfaces");
+    const flooring = kitchenSurfaces?.families.find((family) => family.title === "Flooring");
+    expect(flooring).toBeDefined();
+    expect(pelicanFamilyHref(flooring!)).toBe("/surfaces/flooring?family=Planks%20%26%20Flooring");
+    expect(pelicanDepartmentFromSlug("cabinets")).toBeNull();
+  });
+
+  it("adds a plain-language Pelican product type without changing an authoritative source name", () => {
+    const quartz = { name: "Calacatta Oro", category: "Quartz Slabs (Countertops)", subCategory: "Quartz Slab" };
+    expect(pelicanProductType(quartz)).toBe("Quartz Countertop Slab");
+    expect(pelicanDisplayName(quartz)).toBe("Calacatta Oro");
+
+    const codedSink = { name: "PL-3082", category: "Sinks & Faucets", subCategory: "Sinks" };
+    expect(pelicanProductType(codedSink)).toBe("Sink");
+    expect(pelicanDisplayName(codedSink)).toBe("PL-3082 — Sink");
+
+    const alreadyClear = { name: "Farmhouse Sink", category: "Sinks & Faucets", subCategory: "Sinks" };
+    expect(pelicanDisplayName(alreadyClear)).toBe("Farmhouse Sink");
+
+    const descriptiveFixture = { name: "Farmhouse Reserve 33", category: "Sinks & Faucets", subCategory: "Sinks" };
+    expect(pelicanDisplayName(descriptiveFixture)).toBe("Farmhouse Reserve 33");
   });
 });
 

@@ -47,6 +47,7 @@ const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
 const FeeSystemDoc = lazy(() => import("@/pages/FeeSystemDoc"));
 const Surfaces = lazy(() => import("@/pages/Surfaces"));
+const SurfacesDepartment = lazy(() => import("@/pages/SurfacesDepartment"));
 const SurfacesCategory = lazy(() => import("@/pages/SurfacesCategory"));
 const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
 const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
@@ -379,6 +380,15 @@ export default function App() {
             <AppLayout>
               <Suspense fallback={<PageLoader />}>
                 <SurfacesProduct slug={params.slug} />
+              </Suspense>
+            </AppLayout>
+          )}
+        </Route>
+        <Route path="/surfaces/department/:departmentSlug">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <SurfacesDepartment departmentSlug={params.departmentSlug} />
               </Suspense>
             </AppLayout>
           )}

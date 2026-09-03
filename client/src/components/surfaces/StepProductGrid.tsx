@@ -3,7 +3,13 @@ import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CATEGORY_GRADIENT, formatPrice, type PelicanCategory } from "@/lib/pelican";
+import {
+  CATEGORY_GRADIENT,
+  formatPrice,
+  pelicanDisplayName,
+  pelicanProductType,
+  type PelicanCategory,
+} from "@/lib/pelican";
 import { Search, Check, Plus, Star } from "lucide-react";
 import type { SurfacePick, SurfaceRole } from "@/lib/surfaceSelection";
 
@@ -65,6 +71,8 @@ export function StepProductGrid({
             const isSel = selectedId === p.id;
             const gradient =
               CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
+            const displayName = pelicanDisplayName(p);
+            const productType = pelicanProductType(p);
             return (
               <button
                 key={p.id}
@@ -91,7 +99,7 @@ export function StepProductGrid({
                   {p.imageUrl ? (
                     <img
                       src={p.imageUrl}
-                      alt={p.name}
+                      alt={displayName}
                       loading="lazy"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                     />
@@ -121,15 +129,16 @@ export function StepProductGrid({
                   </span>
                 </div>
                 <div className="space-y-1 p-2.5">
-                  {p.subCategory && (
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      {p.subCategory}
-                    </div>
-                  )}
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {productType}
+                  </div>
                   <div className="line-clamp-2 min-h-[2.25rem] text-xs font-semibold leading-snug">
-                    {p.name}
+                    {displayName}
                   </div>
                   {p.size && <div className="text-[11px] text-muted-foreground">{p.size}</div>}
+                  {p.pelicanCode && (
+                    <div className="text-[10px] font-medium text-muted-foreground">Item code: {p.pelicanCode}</div>
+                  )}
                   <div className="pt-0.5 text-sm font-bold text-[var(--color-navy)] dark:text-foreground">
                     {formatPrice(p.sellPrice)}
                     {(role === "flooring" || role === "tile") && p.sellPrice != null && (

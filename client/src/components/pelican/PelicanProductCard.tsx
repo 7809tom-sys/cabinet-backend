@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
+import { CATEGORY_GRADIENT, formatPrice, pelicanDisplayName, pelicanProductType } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
 import { ShoppingCart, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +25,8 @@ export type PelicanCardProduct = {
 
 export function PelicanProductCard({ product }: { product: PelicanCardProduct }) {
   const gradient = CATEGORY_GRADIENT[product.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
+  const displayName = pelicanDisplayName(product);
+  const productType = pelicanProductType(product);
   const { addItem } = useCart();
   const [, navigate] = useLocation();
   const { isPreferred, togglePreferred } = usePreferredProducts();
@@ -78,7 +80,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
-              alt={product.name}
+              alt={displayName}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
@@ -104,16 +106,17 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
           )}
         </div>
         <div className="space-y-1 p-3">
-          {product.subCategory && (
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              {product.subCategory}
-            </div>
-          )}
+          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {productType}
+          </div>
           <div className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug">
-            {product.name}
+            {displayName}
           </div>
           {product.size && (
             <div className="text-xs text-muted-foreground">{product.size}</div>
+          )}
+          {product.pelicanCode && (
+            <div className="text-[11px] font-medium text-muted-foreground">Item code: {product.pelicanCode}</div>
           )}
           <div className="flex items-center justify-between gap-2 pt-1">
             <div className="min-w-0">

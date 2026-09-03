@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   categorySlug,
   CATEGORY_BLURB,
   PELICAN_STOREFRONT_CATEGORIES,
+  pelicanCategoryLabel,
 } from "@/lib/pelican";
 import { ArrowLeft, Search, Star, ChevronLeft, ChevronRight, Waves } from "lucide-react";
 
@@ -20,7 +21,12 @@ const PAGE_SIZE = 24;
 
 export default function SurfacesCategory({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
+  const queryString = useSearch();
   const category = categoryFromSlug(slug);
+  const requestedFamily = useMemo(
+    () => new URLSearchParams(queryString).get("family")?.trim() || undefined,
+    [queryString]
+  );
 
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -35,17 +41,17 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset filters when the category changes
+  // Reset filters when the category or linked product family changes.
   useEffect(() => {
     setSearch("");
     setDebounced("");
-    setSubCategory(undefined);
+    setSubCategory(requestedFamily);
     setPage(0);
-  }, [slug]);
+  }, [slug, requestedFamily]);
 
   useSeo({
     title: category
-      ? `${category} — Surfaces & Fixtures | Cabinet Dealz`
+      ? `${pelicanCategoryLabel(category)} — Surfaces & Fixtures | Cabinet Dealz`
       : "Surfaces & Fixtures | Cabinet Dealz",
     description: category ? CATEGORY_BLURB[category] : undefined,
   });
@@ -99,7 +105,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
           </Link>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-serif text-3xl font-bold">{category}</h1>
+              <h1 className="font-serif text-3xl font-bold">{pelicanCategoryLabel(category)}</h1>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                 {CATEGORY_BLURB[category]}
               </p>
@@ -109,7 +115,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Search ${category.toLowerCase()}…`}
+                placeholder={`Search ${pelicanCategoryLabel(category).toLowerCase()}…`}
                 className="pl-9"
               />
             </div>
@@ -123,7 +129,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
                   variant={c === category ? "default" : "secondary"}
                   className="cursor-pointer"
                 >
-                  {c}
+                  {pelicanCategoryLabel(c)}
                 </Badge>
               </Link>
             ))}
@@ -183,7 +189,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
           </div>
         ) : total === 0 ? (
           <Card className="p-10 text-center text-muted-foreground">
-            No products match your search in {category}.
+            No products match your search in {pelicanCategoryLabel(category)}.
           </Card>
         ) : (
           <>
