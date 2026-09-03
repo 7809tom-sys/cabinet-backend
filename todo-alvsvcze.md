@@ -1443,5 +1443,8 @@
 - [x] Render source-verified Pelican faucet families with their documented physical form as well as their measured dimensions and selected finish
 - [x] Gate Designer sink and faucet placement to source-verified profiles so no unmeasured fixture or generic faucet representation can enter an exact kitchen plan
 - [x] Explain within the Pelican Designer palette that exact faucets are selected through a compatible sink-base workflow, so the palette does not imply free-floating fixture placement
+- [x] Fix the false PL-FC3318SB width rejection on a 36-inch farmhouse sink base and prevent repeated mobile warning toasts from blocking faucet selection
+- [x] Position each source-verified farmhouse sink on the countertop at its compatible sink-base opening, with only the published apron extending down the cabinet front
+- [x] Render the selected farmhouse sink’s verified apron visibly on the sink-base face below the countertop, without lowering the basin below the counter opening
 - [x] Filter Pelican sink choices by compatible sink-base type: farmhouse/apron-front bases accept farmhouse sinks only, while standard SB36-style bases accept standard sinks only
 - [x] Correct Pelican Designer fixture-family eligibility so imported sinks, faucets, and countertop records are not offered under the wrong Designer role

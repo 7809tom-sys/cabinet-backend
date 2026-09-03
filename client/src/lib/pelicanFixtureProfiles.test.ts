@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
+import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
 
 describe("verifiedPelicanSinkProfile", () => {
   it("uses Pelican’s published dimensions for the PL-FC2418SB measured profile", () => {
@@ -151,6 +151,13 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
     expect(profile && verifiedPelicanSinkFitsCabinet(profile, 24)).toBe(true);
     expect(profile && verifiedPelicanSinkFitsCabinet(profile, 18)).toBe(false);
+  });
+
+  it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {
+    const farmhouse = verifiedPelicanSinkProfile("PL-FC3318SB")!;
+    const rotatedFsb36 = { width: 36, depth: 24, rotation: 90 };
+    expect(sinkBaseOpeningWidthIn(rotatedFsb36)).toBe(36);
+    expect(verifiedPelicanSinkFitsCabinet(farmhouse, sinkBaseOpeningWidthIn(rotatedFsb36))).toBe(true);
   });
 
   it("keeps farmhouse and standard sink choices in their matching sink bases", () => {

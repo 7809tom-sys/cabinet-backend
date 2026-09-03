@@ -5875,6 +5875,8 @@ export interface SinkFixture {
   bowlWidth?: number;
   bowlDepth?: number;
   bowlHeight?: number;
+  /** Verified outer sink height in inches, used by an apron-front sink face. */
+  exteriorHeight?: number;
   /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
   apronFront?: boolean;
   /** Selected Pelican faucet identity and source-verified parametric profile, when present. */
@@ -5946,8 +5948,25 @@ export function makeSinkForCabinet(
   const rawDepth = dimensions?.depth ?? SINK_PRESETS[type].depth;
   const plan = sinkPlanDimensions(rawWidth, rawDepth, side);
   const footprint = placedFootprint(cabinet);
-  const x = Math.max(cabinet.x, Math.min(cabinet.x + footprint.w - plan.width, cabinet.x + footprint.w / 2 - plan.width / 2));
-  const y = Math.max(cabinet.y, Math.min(cabinet.y + footprint.d - plan.depth, cabinet.y + footprint.d / 2 - plan.depth / 2));
+  const centeredX = Math.max(cabinet.x, Math.min(cabinet.x + footprint.w - plan.width, cabinet.x + footprint.w / 2 - plan.width / 2));
+  const centeredY = Math.max(cabinet.y, Math.min(cabinet.y + footprint.d - plan.depth, cabinet.y + footprint.d / 2 - plan.depth / 2));
+  // Farmhouse sinks are countertop-mounted but their apron is flush with the
+  // room-facing cabinet front. Keep the run axis centered while moving only the
+  // wall-normal axis to that front edge.
+  const x = type === "farmhouse"
+    ? side === "left"
+      ? cabinet.x + footprint.w - plan.width
+      : side === "right"
+        ? cabinet.x
+        : centeredX
+    : centeredX;
+  const y = type === "farmhouse"
+    ? side === "top"
+      ? cabinet.y + footprint.d - plan.depth
+      : side === "bottom"
+        ? cabinet.y
+        : centeredY
+    : centeredY;
   return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid };
 }
 
@@ -5979,6 +5998,7 @@ export function normalizeSinkFixturesToBases(
       bowlWidth: sink.bowlWidth,
       bowlDepth: sink.bowlDepth,
       bowlHeight: sink.bowlHeight,
+      exteriorHeight: sink.exteriorHeight,
       apronFront: sink.apronFront,
       pelicanFaucetProductId: sink.pelicanFaucetProductId,
       pelicanFaucetProductName: sink.pelicanFaucetProductName,

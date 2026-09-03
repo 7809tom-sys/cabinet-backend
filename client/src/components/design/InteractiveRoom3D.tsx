@@ -5034,7 +5034,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
   root.add(bowlFloor);
   if (sink.apronFront) {
-    const exteriorHeight = Math.max(bowlHeight + 0.025, 0.18);
+    const exteriorHeight = Math.max((sink.exteriorHeight ?? (sink.bowlHeight ?? 10)) * INCH, bowlHeight + 0.025, 0.18);
     const apronThickness = Math.min(0.12, depth * 0.2);
     const side = sink.wallSide ?? "top";
     const apron = new THREE.Mesh(

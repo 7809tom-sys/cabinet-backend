@@ -42,7 +42,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
+import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import {
@@ -10521,7 +10521,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       toast.info("This sink is not yet a source-verified 3D profile. Choose one of the verified Pelican sinks shown in the palette.");
                       return;
                     }
-                    if (verifiedProfile && !verifiedPelicanSinkFitsCabinet(verifiedProfile, rotatedSize(owner).w)) {
+                    if (verifiedProfile && !verifiedPelicanSinkFitsCabinet(verifiedProfile, sinkBaseOpeningWidthIn(owner))) {
                       toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
                       return;
                     }
@@ -10544,6 +10544,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       bowlWidth: verifiedProfile.bowlWidthIn,
                       bowlDepth: verifiedProfile.bowlDepthIn,
                       bowlHeight: verifiedProfile.bowlHeightIn,
+                      exteriorHeight: verifiedProfile.exteriorHeightIn,
                       apronFront: verifiedProfile.apronFront,
                     };
                     setSinks((prev) => [...prev, sink]);
@@ -10868,9 +10869,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }>;
         const sinkBaseCabinet = placed.find((p) => p.uid === sinkBaseDialog.cabinetUid) ?? null;
         const sinkBaseKind = sinkBaseCabinet && isFarmSinkBasePaletteItem(sinkBaseCabinet) ? "farmhouse" : "standard";
+        const sinkBaseOpeningWidth = sinkBaseOpeningWidthIn(sinkBaseCabinet ?? undefined);
         const filteredSinks = allRecommendedSinks
           .filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))
-          .filter((product) => Boolean(verifiedPelicanSinkProfile(product.pelicanCode)))
+          .filter((product) => {
+            const profile = verifiedPelicanSinkProfile(product.pelicanCode);
+            return Boolean(profile && verifiedPelicanSinkFitsCabinet(profile, sinkBaseOpeningWidth));
+          })
           .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
         const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? null });
@@ -10892,7 +10897,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
           const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
-          const cabinetWidth = cab ? rotatedSize(cab).w : 0;
+          const cabinetWidth = sinkBaseOpeningWidthIn(cab ?? undefined);
           const targetBaseKind = cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
           if (!sinkProduct || !verifiedProfile) {
             toast.error("Choose a source-verified Pelican sink before adding it to this kitchen plan.");
@@ -10908,6 +10913,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
           if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
             toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
+            setPendingSinkProduct(null);
+            setRangeTopStep("sink");
             return;
           }
           const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
@@ -10924,6 +10931,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             bowlWidth: verifiedProfile.bowlWidthIn,
             bowlDepth: verifiedProfile.bowlDepthIn,
             bowlHeight: verifiedProfile.bowlHeightIn,
+            exteriorHeight: verifiedProfile.exteriorHeightIn,
             apronFront: verifiedProfile.apronFront,
             pelicanFaucetProductId: faucetProduct?.id,
             pelicanFaucetProductName: faucetProduct?.name,

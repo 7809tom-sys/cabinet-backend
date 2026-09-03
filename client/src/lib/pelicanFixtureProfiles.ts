@@ -249,6 +249,16 @@ export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfi
   return Number.isFinite(cabinetWidthIn) && cabinetWidthIn >= profile.minimumCabinetWidthIn;
 }
 
+/**
+ * A sink base's usable opening is its nominal cabinet face width.  Its rotated
+ * plan footprint may swap width/depth, but that must never turn an FSB-36 into
+ * a 24-inch opening during a sink compatibility check.
+ */
+export function sinkBaseOpeningWidthIn(base?: { width?: number | null }): number {
+  const width = Number(base?.width ?? 0);
+  return Number.isFinite(width) && width > 0 ? width : 0;
+}
+
 export type PelicanSinkCandidate = { pelicanCode?: string | null; name?: string | null; description?: string | null };
 export type PelicanSinkBaseKind = "farmhouse" | "standard";
 

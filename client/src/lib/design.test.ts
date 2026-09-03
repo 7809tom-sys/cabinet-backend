@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
-  conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, STD,
+  conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, makeSinkForCabinet, STD,
   appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
   snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
@@ -2884,17 +2884,24 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(isSinkBaseCabinet({ masterCode: "BFH-30", description: '30" Full Height Door Vanity Sink Cabinet' })).toBe(true);
   });
 
-  it("routes FSB farm sink bases through the active-wall palette resolver only", () => {
-    const farmSink = { masterCode: "FSB-36", description: '36" Farmhouse Sink Base' };
+	  it("routes FSB farm sink bases through the active-wall palette resolver only", () => {
+	    const farmSink = { masterCode: "FSB-36", description: '36" Farmhouse Sink Base' };
     expect(isFarmSinkBasePaletteItem(farmSink)).toBe(true);
     expect(isFarmSinkBasePaletteItem({ masterCode: "SB-36", description: "Sink Base 36" })).toBe(false);
     expect(isFarmSinkBasePaletteItem({ masterCode: "LSB36", description: "Base Easy Reach Lazy Susan" })).toBe(false);
 
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base"))
       .toEqual({ x: 0, y: 0, rotation: 0 });
-    const fullTopWall = [cab({ uid: "full-top", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
-    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullTopWall, [], 36, 24, "base")).toBeNull();
-  });
+	    const fullTopWall = [cab({ uid: "full-top", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
+	    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullTopWall, [], 36, 24, "base")).toBeNull();
+	  });
+
+	  it("seats a farmhouse sink at the countertop opening with its apron flush to the room-facing cabinet front", () => {
+	    const base = cab({ masterCode: "FSB-36", description: '36" Farmhouse Sink Base', x: 24, y: 0, width: 36, depth: 24, rotation: 0, placement: "base" });
+	    const sink = makeSinkForCabinet("farmhouse", base, ROOM_12x10, { width: 32.625, depth: 18 });
+	    expect(sink.x).toBeCloseTo(25.6875, 8);
+	    expect(sink.y + sink.depth).toBe(24);
+	  });
 
   it("does NOT mistake look-alike non-sink families for sink bases", () => {
     // These share a prefix/letters with sink families but are NOT sinks:
