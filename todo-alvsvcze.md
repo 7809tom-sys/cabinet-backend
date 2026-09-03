@@ -1463,3 +1463,4 @@
 - [x] Add a pre-save plan check that presents safe filler opportunities, required fillers, cabinet recommendations, and unresolved clearance issues for review before saving
 - [x] Allow shoppers to accept or skip each pre-save recommendation without changing the existing design until an explicit action is chosen
 - [x] Validate the pre-save plan check on mobile and publish it only after filler, clearance, and recommendation actions are tested
+- [x] Reproduce and repair the FSB-36 farmhouse sink mismatch where the 2D elevation is correct but the 3D cabinet-owned basin and apron are not aligned to that same placement

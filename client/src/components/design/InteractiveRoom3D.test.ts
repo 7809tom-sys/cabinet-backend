@@ -3376,6 +3376,33 @@ describe("interactive 3D room scene helpers", () => {
     expect((apronBounds.max.y - apronBounds.min.y) * 12).toBeCloseTo(10, 6);
   });
 
+  it("suppresses the generic FSB placeholder when an exact cabinet-owned farmhouse fixture renders separately", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -167, cabinetId: 167, masterCode: "FSB-36", description: "36 inch Farm Sink Base",
+      placementType: "base", width: 36, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#4f5549", "#f8f8f6", undefined, { x: 36, z: 0, rotation: 0, bottom: 0 }, undefined, undefined, {
+      suppressFarmhouseSinkPlaceholder: true,
+    });
+    const genericPlaceholderParts: THREE.Object3D[] = [];
+    const cabinetFaceParts: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.farmhouseApronFront || node.userData.farmhouseSinkBasin || node.userData.farmhouseSinkFaucetPost) genericPlaceholderParts.push(node);
+      if (node.userData.farmhouseFalseFront || node.userData.farmhouseSideDoor) cabinetFaceParts.push(node);
+    });
+    expect(genericPlaceholderParts).toHaveLength(0);
+    expect(cabinetFaceParts).toHaveLength(3);
+
+    addSinkFixture(root, {
+      uid: "exact-fsb36", cabinetUid: "fsb36", type: "farmhouse", x: 37.6875, y: 6, width: 32.625, depth: 18,
+      sourceWidth: 32.625, sourceDepth: 18, bowlWidth: 31.375, bowlDepth: 16.625, bowlHeight: 9.25, exteriorHeight: 10,
+      apronFront: true, pelicanProfileId: "pelican-pl-fc3318sb-fireclay-farmhouse", faucet: false, wallSide: "top",
+    } as never);
+    let exactApron: THREE.Object3D | null = null;
+    root.traverse((node) => { if (node.userData.sinkApronFront) exactApron = node; });
+    expect(exactApron).not.toBeNull();
+  });
+
   it("keeps a visible divider for existing double-bowl sink choices", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

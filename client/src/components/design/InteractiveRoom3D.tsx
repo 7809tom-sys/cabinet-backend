@@ -2726,7 +2726,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -4133,28 +4133,35 @@ export function addCabinet(
     // cabinet's resolved wall transform keeps that feature facing the room.
     const apronWidth = Math.max(0.3, bodyWidth * 0.68);
     const apronHeight = Math.max(0.22, bodyHeight * 0.56);
-    const apron = new THREE.Mesh(
-      new THREE.BoxGeometry(apronWidth, apronHeight, 0.066),
-      new THREE.MeshStandardMaterial({ color: "#ece9e1", roughness: 0.34, metalness: 0.04 }),
-    );
-    apron.position.set(0, -bodyHeight * 0.1, 0.038);
-    apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
-    frontGroup.add(apron);
-    const basinMaterial = new THREE.MeshStandardMaterial({ color: "#d5d8d9", roughness: 0.22, metalness: 0.62 });
-    const basin = new THREE.Mesh(new THREE.BoxGeometry(apronWidth * 0.82, 0.055, Math.max(0.22, bodyDepth * 0.46)), basinMaterial);
-    basin.position.set(0, bodyHeight / 2 + 0.016, bodyDepth * 0.08);
-    basin.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkBasin: true, dimensionalApplianceDetail: true };
-    cabinet.add(basin);
-    const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#9fa5aa", roughness: 0.16, metalness: 0.88 });
-    const faucetPost = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, bodyHeight * 0.16, 14), faucetMaterial);
-    faucetPost.position.set(0, bodyHeight / 2 + bodyHeight * 0.08, -bodyDepth * 0.12);
-    faucetPost.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetPost: true, dimensionalApplianceDetail: true };
-    cabinet.add(faucetPost);
-    const faucetSpout = new THREE.Mesh(new THREE.TorusGeometry(bodyDepth * 0.11, 0.018, 8, 18, Math.PI), faucetMaterial);
-    faucetSpout.rotation.x = Math.PI / 2;
-    faucetSpout.position.set(0, bodyHeight / 2 + bodyHeight * 0.15, -bodyDepth * 0.015);
-    faucetSpout.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetSpout: true, dimensionalApplianceDetail: true };
-    cabinet.add(faucetSpout);
+    const apronY = -bodyHeight * 0.1;
+    // An empty FSB needs a neutral built-in placeholder. Once a cabinet-owned,
+    // source-verified Pelican sink is selected, its measured countertop basin,
+    // visible apron, and selected faucet are rendered separately below. Keeping
+    // both creates the 3D/2D mismatch by drawing two sinks on one base.
+    if (!surfaceTextures?.suppressFarmhouseSinkPlaceholder) {
+      const apron = new THREE.Mesh(
+        new THREE.BoxGeometry(apronWidth, apronHeight, 0.066),
+        new THREE.MeshStandardMaterial({ color: "#ece9e1", roughness: 0.34, metalness: 0.04 }),
+      );
+      apron.position.set(0, apronY, 0.038);
+      apron.userData = { specialtyProfile: "farmhouse-sink", farmhouseApronFront: true, cabinetFront: true };
+      frontGroup.add(apron);
+      const basinMaterial = new THREE.MeshStandardMaterial({ color: "#d5d8d9", roughness: 0.22, metalness: 0.62 });
+      const basin = new THREE.Mesh(new THREE.BoxGeometry(apronWidth * 0.82, 0.055, Math.max(0.22, bodyDepth * 0.46)), basinMaterial);
+      basin.position.set(0, bodyHeight / 2 + 0.016, bodyDepth * 0.08);
+      basin.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkBasin: true, dimensionalApplianceDetail: true };
+      cabinet.add(basin);
+      const faucetMaterial = new THREE.MeshStandardMaterial({ color: "#9fa5aa", roughness: 0.16, metalness: 0.88 });
+      const faucetPost = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, bodyHeight * 0.16, 14), faucetMaterial);
+      faucetPost.position.set(0, bodyHeight / 2 + bodyHeight * 0.08, -bodyDepth * 0.12);
+      faucetPost.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetPost: true, dimensionalApplianceDetail: true };
+      cabinet.add(faucetPost);
+      const faucetSpout = new THREE.Mesh(new THREE.TorusGeometry(bodyDepth * 0.11, 0.018, 8, 18, Math.PI), faucetMaterial);
+      faucetSpout.rotation.x = Math.PI / 2;
+      faucetSpout.position.set(0, bodyHeight / 2 + bodyHeight * 0.15, -bodyDepth * 0.015);
+      faucetSpout.userData = { specialtyProfile: "farmhouse-sink", farmhouseSinkFaucetSpout: true, dimensionalApplianceDetail: true };
+      cabinet.add(faucetSpout);
+    }
     const falseFrontHeight = Math.max(0.1, bodyHeight * 0.18);
     const falseFront = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.08, falseFrontHeight, 0.048), faceMaterial);
     falseFront.position.set(0, bodyHeight / 2 - falseFrontHeight / 2 - 0.04, 0.028);
@@ -4164,7 +4171,7 @@ export function addCabinet(
     const sideDoorWidth = Math.max(0.1, (bodyWidth - apronWidth - 0.12) / 2);
     for (const side of [-1, 1] as const) {
       const sideDoor = new THREE.Mesh(new THREE.BoxGeometry(sideDoorWidth, apronHeight, 0.052), faceMaterial);
-      sideDoor.position.set(side * (apronWidth + sideDoorWidth) / 2, apron.position.y, 0.032);
+      sideDoor.position.set(side * (apronWidth + sideDoorWidth) / 2, apronY, 0.032);
       sideDoor.userData = { specialtyProfile: "farmhouse-sink", farmhouseSideDoor: side === -1 ? "left" : "right", cabinetFront: true };
       frontGroup.add(sideDoor);
       addShakerFrame(sideDoorWidth, apronHeight, sideDoor.position.x, sideDoor.position.y, 0.066);
@@ -6565,7 +6572,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
           ? savedRangeHoodTransform(cabinet, placed, room)
           : existingCabinetTransform(cabinet, room);
-	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, { countertop: countertopTexture, suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid) });
+	        const hasExactFarmhouseFixture = sinks.some((sink) => (
+	          sink.cabinetUid === cabinet.uid
+	          && sink.type === "farmhouse"
+	          && Boolean(sink.pelicanProfileId)
+	        ));
+	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
+	          countertop: countertopTexture,
+	          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
+	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
+	        });
 	      }
 	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
