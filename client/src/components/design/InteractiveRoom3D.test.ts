@@ -3219,6 +3219,19 @@ describe("interactive 3D room scene helpers", () => {
     expect((bounds.max.y - sinkFixtureTransform(sink).countertopTop) * 12).toBeCloseTo(22.5, 0);
   });
 
+  it("retains the selected PL-8211 brushed-gold finish on its measured pull-down profile", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8211-bg", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8211-fountain-pull-down-brushed-gold",
+      faucetOverallHeight: 15.6875, faucetSpoutLength: 9.4375, faucetSpoutHeight: 6.625, faucetFinish: "brushed-gold", faucetForm: "pull-down",
+    } as never);
+    let spout: THREE.Mesh | null = null;
+    root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8211-fountain-pull-down-brushed-gold" && node.userData.sinkFaucetSpout) spout = node as THREE.Mesh; });
+    expect(spout?.userData.faucetFinish).toBe("brushed-gold");
+    expect((spout?.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("b28a42");
+  });
+
   it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
     const root = new THREE.Group();
     addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);

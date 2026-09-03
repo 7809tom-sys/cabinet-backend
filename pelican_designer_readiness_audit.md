@@ -150,3 +150,12 @@ Pelican’s PL-8210 specification identifies a single-hole commercial-style pull
 
 26. [Pelican Int’l — PL-8210 product page](https://buildpelican.com/products/pl-8210)
 27. [Pelican Int’l — PL-8210 specification sheet](https://cdn.accentuate.io/7876662493324/1729881249111/PL-8210-Spec-Sheet.pdf?v=1734119224340)
+
+## Next Verified Faucet Candidate — PL-8211
+
+Pelican’s PL-8211 specification identifies a single-hole pull-down faucet with a pull-out sprayer. Its measured overall height is 15 11/16 inches, spout length is 9 7/16 inches, and spout height is 6⅝ inches. Active Brushed Gold, Brushed Nickel, and Chrome variants are candidates for the established exact pull-down form after catalog-code verification; product images remain display-only.
+
+### Sources
+
+28. [Pelican Int’l — PL-8211 product page](https://buildpelican.com/products/pl-8211)
+29. [Pelican Int’l — PL-8211 specification sheet](https://cdn.accentuate.io/7876662689932/1729881278122/PL-8211-spec.pdf?v=1750169308913)
