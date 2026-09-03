@@ -42,7 +42,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
+import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import {
@@ -10875,11 +10875,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
         };
         const filteredFaucets = (faucetBaseProducts ?? []) as Array<{
-          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+          id: number; pelicanCode?: string | null; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
+          const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
           const cabinetWidth = cab ? rotatedSize(cab).w : 0;
           const targetBaseKind = cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
           if (sinkProduct && !isPelicanSinkCompatibleWithBase(sinkProduct, targetBaseKind)) {
@@ -10907,6 +10908,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             bowlDepth: verifiedProfile?.bowlDepthIn,
             bowlHeight: verifiedProfile?.bowlHeightIn,
             apronFront: verifiedProfile?.apronFront ?? false,
+            pelicanFaucetProductId: faucetProduct?.id,
+            pelicanFaucetProductName: faucetProduct?.name,
+            pelicanFaucetProductImage: faucetProduct?.imageUrl ?? undefined,
+            pelicanFaucetProfileId: verifiedFaucetProfile?.id,
+            faucetOverallHeight: verifiedFaucetProfile?.overallHeightIn,
+            faucetSpoutLength: verifiedFaucetProfile?.spoutLengthIn,
+            faucetSpoutHeight: verifiedFaucetProfile?.spoutHeightIn,
           };
           setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
           setSelectedSinkUid(sinkWithFaucet.uid);
@@ -10919,7 +10927,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
           if (faucetProduct) {
             addRecommendedSurface(
-              { id: faucetProduct.id, slug: faucetProduct.slug, name: faucetProduct.name, category: faucetProduct.category, subCategory: faucetProduct.subCategory, size: faucetProduct.size, imageUrl: faucetProduct.imageUrl, sellPrice: faucetProduct.sellPrice },
+              { id: faucetProduct.id, pelicanCode: faucetProduct.pelicanCode, slug: faucetProduct.slug, name: faucetProduct.name, category: faucetProduct.category, subCategory: faucetProduct.subCategory, size: faucetProduct.size, imageUrl: faucetProduct.imageUrl, sellPrice: faucetProduct.sellPrice },
               "faucet"
             );
           }

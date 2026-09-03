@@ -5877,6 +5877,15 @@ export interface SinkFixture {
   bowlHeight?: number;
   /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
   apronFront?: boolean;
+  /** Selected Pelican faucet identity and source-verified parametric profile, when present. */
+  pelicanFaucetProductId?: number;
+  pelicanFaucetProductName?: string;
+  pelicanFaucetProductImage?: string;
+  pelicanFaucetProfileId?: string;
+  /** Published faucet dimensions in inches; only source-verified values are stored here. */
+  faucetOverallHeight?: number;
+  faucetSpoutLength?: number;
+  faucetSpoutHeight?: number;
 }
 
 export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {
@@ -5969,6 +5978,13 @@ export function normalizeSinkFixturesToBases(
       bowlDepth: sink.bowlDepth,
       bowlHeight: sink.bowlHeight,
       apronFront: sink.apronFront,
+      pelicanFaucetProductId: sink.pelicanFaucetProductId,
+      pelicanFaucetProductName: sink.pelicanFaucetProductName,
+      pelicanFaucetProductImage: sink.pelicanFaucetProductImage,
+      pelicanFaucetProfileId: sink.pelicanFaucetProfileId,
+      faucetOverallHeight: sink.faucetOverallHeight,
+      faucetSpoutLength: sink.faucetSpoutLength,
+      faucetSpoutHeight: sink.faucetSpoutHeight,
     };
   });
   return changed ? normalized : sinks;

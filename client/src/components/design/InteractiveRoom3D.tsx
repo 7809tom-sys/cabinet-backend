@@ -5081,8 +5081,15 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
   const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
   const side = { x: -forward.z, z: forward.x };
-  const overallHeight = Math.min(2.24, Math.max(1.45, depth * 0.88));
-  const reach = Math.min(depth * 0.38, 0.72);
+  const overallHeight = sink.faucetOverallHeight != null
+    ? Math.max(0.25, sink.faucetOverallHeight * INCH)
+    : Math.min(2.24, Math.max(1.45, depth * 0.88));
+  const reach = sink.faucetSpoutLength != null
+    ? Math.max(0.1, sink.faucetSpoutLength * INCH)
+    : Math.min(depth * 0.38, 0.72);
+  const outletHeight = sink.faucetSpoutHeight != null
+    ? Math.max(0.08, sink.faucetSpoutHeight * INCH)
+    : overallHeight * 0.55;
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
@@ -5095,11 +5102,11 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.62, faucet.z + forward.z * reach),
   ]);
   const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.032, 10, false), faucetMaterial);
-  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true };
+  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
   root.add(spout);
   const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, 0.23, 16), faucetMaterial);
-  sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.55, faucet.z + forward.z * reach);
-  sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true };
+  sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
+  sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
   root.add(sprayHead);
   const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.18, 16), faucetMaterial);
   handleBase.position.set(faucet.x + side.x * 0.12, countertopTop + 0.14, faucet.z + side.z * 0.12);

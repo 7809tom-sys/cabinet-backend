@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
+import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
 
 describe("verifiedPelicanSinkProfile", () => {
   it("uses Pelican’s published dimensions for the PL-FC2418SB measured profile", () => {
@@ -32,6 +32,16 @@ describe("verifiedPelicanSinkProfile", () => {
       apronFront: false,
       exteriorHeightIn: 5.5,
       bowlHeightIn: 5.5,
+    });
+  });
+
+  it("uses Pelican’s published PL-8203 dimensions for the matching brushed-nickel faucet", () => {
+    expect(verifiedPelicanFaucetProfile("PL-8203 BN")).toMatchObject({
+      installation: "single-hole",
+      overallHeightIn: 27.1875,
+      spoutLengthIn: 9.875,
+      spoutHeightIn: 4.9375,
+      profile: "pull-down",
     });
   });
 

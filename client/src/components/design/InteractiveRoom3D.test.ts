@@ -3091,6 +3091,34 @@ describe("interactive 3D room scene helpers", () => {
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform({ x: 24, y: 48, width: 24, depth: 18 } as never).z);
   });
 
+  it("uses the verified PL-8203 faucet height and spout dimensions instead of generic pull-down proportions", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-8203",
+      type: "single",
+      x: 24,
+      y: 48,
+      width: 30,
+      depth: 18,
+      faucet: true,
+      wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8203-fountain-pull-down",
+      faucetOverallHeight: 27.1875,
+      faucetSpoutLength: 9.875,
+      faucetSpoutHeight: 4.9375,
+    } as never;
+    addSinkFixture(root, sink);
+    let spout: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanFaucetProfileId === "pelican-pl-8203-fountain-pull-down" && node.userData.sinkFaucetSpout) spout = node;
+    });
+    expect(spout).not.toBeNull();
+    const spoutBounds = new THREE.Box3().setFromObject(spout!);
+    const countertopTop = sinkFixtureTransform(sink).countertopTop;
+    expect((spoutBounds.max.y - countertopTop) * 12).toBeCloseTo(27.1875, 0);
+    expect((spoutBounds.max.z - spoutBounds.min.z) * 12).toBeGreaterThan(9);
+  });
+
   it("preserves the verified farmhouse sink exterior width after a left-wall plan rotation", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

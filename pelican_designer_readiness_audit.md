@@ -74,3 +74,12 @@ PL-HA109 establishes the first **standard sink-base** measured profile set. Peli
 ## Designer Visual-Load Check — 2026-09-03
 
 The live Designer may show its normal loading indicator during initial data hydration. An interactive browser check completed successfully afterward and displayed the kitchen workspace, cabinet palette, sink-base group, and **Surfaces & Fixtures** entry without a browser-console exception. This verifies the current profile additions did not prevent the Designer from loading; it does not replace owner testing of a saved design.
+
+## First Verified Faucet Profile
+
+PL-8203 Brushed Nickel is the first verified faucet profile. Pelican’s product page and specification sheet identify it as a single-hole pull-down kitchen faucet with a 27 3/16 inch overall height, 9 7/8 inch spout length, and 4 15/16 inch spout height. The Designer stores these measurements only when that actual faucet is selected in the sink-base flow, then uses a measured parametric pull-down silhouette. It does not use the product photo as a 3D asset.
+
+### Sources
+
+12. [Pelican Int’l — PL-8203 product page](https://buildpelican.com/products/pl-8203)
+13. [Pelican Int’l — PL-8203 specification sheet](https://cdn.accentuate.io/7876662329484/1729881091715/PL-8203-Spec-Sheet.pdf?v=1734119171551)

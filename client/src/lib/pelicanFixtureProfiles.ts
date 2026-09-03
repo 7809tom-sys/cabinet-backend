@@ -24,6 +24,19 @@ export type VerifiedPelicanSinkProfile = {
   specificationUrl: string;
 };
 
+export type VerifiedPelicanFaucetProfile = {
+  id: string;
+  pelicanCode: string;
+  name: string;
+  installation: "single-hole";
+  overallHeightIn: number;
+  spoutLengthIn: number;
+  spoutHeightIn: number;
+  profile: "pull-down";
+  finish: "brushed-nickel";
+  specificationUrl: string;
+};
+
 const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-FC2418SB": {
     id: "pelican-pl-fc2418sb-fireclay-farmhouse",
@@ -123,6 +136,21 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   },
 };
 
+const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
+  "PL-8203": {
+    id: "pelican-pl-8203-fountain-pull-down",
+    pelicanCode: "PL-8203",
+    name: "PL-8203 Fountain Series Pull-Down Kitchen Faucet",
+    installation: "single-hole",
+    overallHeightIn: 27.1875,
+    spoutLengthIn: 9.875,
+    spoutHeightIn: 4.9375,
+    profile: "pull-down",
+    finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876662329484/1729881091715/PL-8203-Spec-Sheet.pdf?v=1734119171551",
+  },
+};
+
 function normalizedPelicanCode(value: string | null | undefined): string {
   const normalized = (value ?? "")
     .trim()
@@ -136,6 +164,12 @@ function normalizedPelicanCode(value: string | null | undefined): string {
 
 export function verifiedPelicanSinkProfile(code: string | null | undefined): VerifiedPelicanSinkProfile | null {
   return VERIFIED_PELICAN_SINKS[normalizedPelicanCode(code)] ?? null;
+}
+
+export function verifiedPelicanFaucetProfile(code: string | null | undefined): VerifiedPelicanFaucetProfile | null {
+  const normalized = (code ?? "").trim().toUpperCase();
+  if (/^PL-8203(?:\s+BN)?$/.test(normalized)) return VERIFIED_PELICAN_FAUCETS["PL-8203"];
+  return null;
 }
 
 export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfile, cabinetWidthIn: number): boolean {
