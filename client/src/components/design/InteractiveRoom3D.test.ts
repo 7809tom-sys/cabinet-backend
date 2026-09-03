@@ -3093,6 +3093,39 @@ describe("interactive 3D room scene helpers", () => {
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform({ x: 24, y: 48, width: 24, depth: 18 } as never).z);
   });
 
+  it("renders PL-HA128 as a countertop-seated double-bowl farmhouse sink with its two measured bowls and visible apron", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha128-r15", type: "farmhouse", x: 24, y: 48, width: 33, depth: 21,
+      sourceWidth: 33, sourceDepth: 21, bowlWidth: 14.5, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha128-r15-stainless-double-bowl-farmhouse",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    let apron: THREE.Object3D | null = null;
+    let divider: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkApronFront) apron = node;
+      if (node.userData.sinkBowlDivider) divider = node;
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    expect(divider).not.toBeNull();
+    expect(apron).not.toBeNull();
+    for (const bowl of bowls) {
+      const bounds = new THREE.Box3().setFromObject(bowl);
+      expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(14.5, 6);
+      expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(16, 6);
+      expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(10, 6);
+      expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+    expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+  });
+
   it("uses the verified PL-8203 faucet height and spout dimensions instead of generic pull-down proportions", () => {
     const root = new THREE.Group();
     const sink = {

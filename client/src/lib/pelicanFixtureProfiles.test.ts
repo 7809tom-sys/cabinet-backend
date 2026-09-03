@@ -35,6 +35,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA128 R15 source-verified double-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA128 R15 16g")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 33,
+      exteriorDepthIn: 21,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 14.5,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("uses Pelican’s published PL-8203 dimensions for the matching brushed-nickel faucet", () => {
     expect(verifiedPelicanFaucetProfile("PL-8203 BN")).toMatchObject({
       installation: "single-hole",

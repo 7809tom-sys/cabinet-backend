@@ -195,3 +195,25 @@ Pelican’s official documentation identifies PL-8231 Fountain Series as a singl
 
 36. [Pelican Int’l — PL-8231 product page](https://buildpelican.com/products/pl-8231)
 37. [Pelican Int’l — PL-8231 specification sheet](https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030)
+
+## Excluded From Kitchen Sink-Base Placement — PL-CI8004
+
+PL-CI8004 is a **Forge Series wall-hung bathroom sink**, not a kitchen sink-base product. Pelican’s source documentation gives its exterior dimensions as 36 × 20 5/32 × 18½ inches and specifies wall-hung installation with 8-inch-center wall-mount faucets. It must therefore remain outside the kitchen sink-base palette, despite a legacy import category that can make it appear in a broad sink query. It can be evaluated later for a dedicated bathroom Designer once bathroom walls, mounting height, and the compatible wall-mount faucet workflow are supported.
+
+### Sources
+
+38. [Pelican Int’l — PL-CI8004 product page](https://buildpelican.com/products/pl-ci8004)
+39. [Pelican Int’l — PL-CI8004 specification sheet](https://cdn.accentuate.io/8980582989964/1776100660059/PL-CI8004-Spec.pdf?v=1776100660059)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-FC103
+
+The imported PL-FC103 record describes a fireclay reversible farmhouse kitchen sink, but Pelican’s direct `products/pl-fc103` URL currently resolves to a not-found page and no Pelican technical sheet was recovered. A third-party listing also reports internally inconsistent exterior and bowl widths, so it cannot be used as an authoritative dimensional source. PL-FC103 remains outside the verified kitchen sink palette until a complete official Pelican specification sheet is available.
+
+## Next Verified Farmhouse Sink Candidate — PL-HA128 R15
+
+Pelican’s official PL-HA128 documentation verifies a Handmade Series **double-bowl stainless-steel apron-front undermount** sink. Its exterior dimensions are 33 × 21 × 10 inches and it has two 14½ × 16 × 10-inch bowls. It belongs only on a compatible farmhouse sink base at least 33 inches wide. It is eligible for a measured double-bowl parametric profile that renders the countertop-seated basin and visible front apron; catalog photography and the optional DXF remain display-only and are not 3D material assets.
+
+### Sources
+
+40. [Pelican Int’l — PL-HA128 product page](https://buildpelican.com/products/pl-ha128)
+41. [Pelican Int’l — PL-HA128 R15 specification sheet](https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067)

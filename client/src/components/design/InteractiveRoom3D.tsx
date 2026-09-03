@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -5009,9 +5009,13 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const steel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
   const brushedSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
   const basinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
-  const innerWidth = Math.max(0.26, (sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3) * INCH);
-  const innerDepth = Math.max(0.24, (sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3) * INCH);
+  const sourceBowlWidth = sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3;
+  const sourceBowlDepth = sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3;
+  const bowlPlan = sinkPlanDimensions(sourceBowlWidth, sourceBowlDepth, sink.wallSide);
+  const innerWidth = Math.max(0.26, bowlPlan.width * INCH);
+  const innerDepth = Math.max(0.24, bowlPlan.depth * INCH);
   const bowlHeight = Math.max(0.12, (sink.bowlHeight ?? 10) * INCH);
+  const measuredDoubleBowl = sink.bowlCount === 2;
   const rim = new THREE.Mesh(
     new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
     steel,
@@ -5019,20 +5023,41 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   rim.position.set(centerX, countertopTop + 0.015, centerZ);
   rim.userData = { sinkRim: true, fixtureDetail: true };
   root.add(rim);
-  const bowl = new THREE.Mesh(
-    new RoundedBoxGeometry(innerWidth, bowlHeight, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
-    basinInterior,
-  );
-  bowl.position.set(centerX, countertopTop - bowlHeight / 2, centerZ);
-  bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
-  root.add(bowl);
-  const bowlFloor = new THREE.Mesh(
-    new RoundedBoxGeometry(innerWidth * 0.72, 0.025, innerDepth * 0.68, 3, Math.min(0.08, innerWidth * 0.06, innerDepth * 0.06)),
-    brushedSteel,
-  );
-  bowlFloor.position.set(centerX, countertopTop - bowlHeight + 0.014, centerZ);
-  bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
-  root.add(bowlFloor);
+  // A verified two-bowl profile gives the physical dimensions of each bowl.
+  // Preserve those two measurements rather than stretching one generic basin.
+  const lateralIsX = sink.wallSide !== "left" && sink.wallSide !== "right";
+  const availableDividerSpan = lateralIsX ? width - innerWidth * 2 : depth - innerDepth * 2;
+  const bowlSeparation = measuredDoubleBowl
+    ? Math.max((lateralIsX ? innerWidth : innerDepth) / 2 + 0.04, (lateralIsX ? innerWidth : innerDepth) / 2 + availableDividerSpan * 0.25)
+    : 0;
+  const bowlOffsets = measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0];
+  bowlOffsets.forEach((lateralOffset, bowlIndex) => {
+    const bowlX = centerX + (lateralIsX ? lateralOffset : 0);
+    const bowlZ = centerZ + (lateralIsX ? 0 : lateralOffset);
+    const bowl = new THREE.Mesh(
+      new RoundedBoxGeometry(innerWidth, bowlHeight, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
+      basinInterior,
+    );
+    bowl.position.set(bowlX, countertopTop - bowlHeight / 2, bowlZ);
+    bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    root.add(bowl);
+    const bowlFloor = new THREE.Mesh(
+      new RoundedBoxGeometry(innerWidth * 0.72, 0.025, innerDepth * 0.68, 3, Math.min(0.08, innerWidth * 0.06, innerDepth * 0.06)),
+      brushedSteel,
+    );
+    bowlFloor.position.set(bowlX, countertopTop - bowlHeight + 0.014, bowlZ);
+    bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    root.add(bowlFloor);
+    const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
+    drain.position.set(bowlX, countertopTop - 0.235, bowlZ + innerDepth * 0.18);
+    drain.userData = { sinkDrain: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
+    root.add(drain);
+    const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
+    drainRing.rotation.x = Math.PI / 2;
+    drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
+    drainRing.userData = { sinkDrainRing: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
+    root.add(drainRing);
+  });
   if (sink.apronFront) {
     const exteriorHeight = Math.max((sink.exteriorHeight ?? (sink.bowlHeight ?? 10)) * INCH, bowlHeight + 0.025, 0.18);
     const apronThickness = Math.min(0.12, depth * 0.2);
@@ -5060,21 +5085,21 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     apron.userData = { sinkApronFront: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
     root.add(apron);
   }
-  if (sink.type === "double") {
-    const divider = new THREE.Mesh(new RoundedBoxGeometry(0.055, 0.19, innerDepth * 0.88, 3, 0.02), steel);
+  if (sink.type === "double" || measuredDoubleBowl) {
+    const divider = new THREE.Mesh(
+      new RoundedBoxGeometry(
+        lateralIsX ? 0.055 : innerWidth * 0.88,
+        0.19,
+        lateralIsX ? innerDepth * 0.88 : 0.055,
+        3,
+        0.02,
+      ),
+      steel,
+    );
     divider.position.set(centerX, countertopTop - 0.11, centerZ);
     divider.userData = { sinkBowlDivider: true, fixtureDetail: true };
     root.add(divider);
   }
-  const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
-  drain.position.set(centerX, countertopTop - 0.235, centerZ + innerDepth * 0.18);
-  drain.userData = { sinkDrain: true, fixtureDetail: true };
-  root.add(drain);
-  const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
-  drainRing.rotation.x = Math.PI / 2;
-  drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
-  drainRing.userData = { sinkDrainRing: true, fixtureDetail: true };
-  root.add(drainRing);
   if (!sink.faucet || !sink.pelicanFaucetProfileId || sink.faucetOverallHeight == null || sink.faucetSpoutLength == null || sink.faucetSpoutHeight == null || !sink.faucetForm) return;
   const faucet = sinkFaucetTransform(sink);
   const faucetMaterial = new THREE.MeshStandardMaterial({
