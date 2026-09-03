@@ -4435,6 +4435,24 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderSavedSceneCabinet(fridge, [base, fridge])).toBe(true);
   });
 
+  it("keeps opposing 24-inch island faces on their saved back-to-back depth planes instead of applying a legacy room-wall anchor", () => {
+    const room = { width: 144, depth: 144, ceilingHeight: 96 } as never;
+    const front = {
+      uid: "island-front-b24", cabinetId: 1, masterCode: "B-24", description: "Base cabinet",
+      placement: "base", width: 24, height: 34.5, depth: 24, rotation: 0, x: 48, y: 72,
+      islandFace: "front", islandOffset: 0,
+    } as never;
+    const back = {
+      uid: "island-back-db24", cabinetId: 2, masterCode: "2-DB24", description: "Two drawer base",
+      placement: "base", width: 24, height: 34.5, depth: 24, rotation: 180, x: 48, y: 48,
+      islandFace: "back", islandOffset: 0,
+    } as never;
+
+    expect(existingCabinetTransform(front, room)).toMatchObject({ x: 60, z: 84 });
+    expect(existingCabinetTransform(back, room)).toMatchObject({ x: 60, z: 60 });
+    expect(existingCabinetTransform(front, room).z - existingCabinetTransform(back, room).z).toBeCloseTo(24, 12);
+  });
+
   it("reconstructs design 8190001's persisted base run, range, hood, and refrigerator without generic fallbacks", () => {
     const room = { width: 144, depth: 145, ceilingHeight: 96 } as never;
     const placed = [

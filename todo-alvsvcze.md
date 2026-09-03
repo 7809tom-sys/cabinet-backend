@@ -1424,4 +1424,5 @@
 - [x] Synchronize all visible Island mode face selections with their routing refs so Back-mode catalog additions cannot evaluate as Front
 - [x] Correct back-face Island mode placement so cabinets align to the opposite island edge and do not leave a visible front gap in the two-sided assembly
 - [x] Build automatic island countertops from the complete physically contiguous two-sided island support footprint without spanning an unoccupied interior gap
+- [x] Correct the opposing Front/Back island depth registration so a DB24 meets the existing 24-inch-deep cabinet run back-to-back with no visible void
 - [ ] Gate any future customer-facing Photo Quality label or workflow on owner approval that the exact-scene result meets or exceeds the supplied Gemini visual-quality benchmark

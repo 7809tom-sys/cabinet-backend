@@ -4636,6 +4636,7 @@ export function existingCabinetTransform(
   // Move In/Move Out adjustments intact, but seat legacy end runs flush so their
   // backs do not float inside the room.
   const legacyWall = hasPlacedRoom
+    && !cabinet.islandFace
     && !cabinet.depthPositionAdjusted
     && (cabinet.placement === "base" || cabinet.placement === "wall")
     ? threeDLegacyWallAnchor(cabinet, room as Pick<RoomData, "width" | "depth">)
