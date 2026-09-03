@@ -1442,5 +1442,6 @@
 - [ ] Maximize verified Pelican product-family coverage in the Designer palette, prioritizing the highest-value kitchen products first
 - [x] Render source-verified Pelican faucet families with their documented physical form as well as their measured dimensions and selected finish
 - [x] Gate Designer sink and faucet placement to source-verified profiles so no unmeasured fixture or generic faucet representation can enter an exact kitchen plan
+- [x] Explain within the Pelican Designer palette that exact faucets are selected through a compatible sink-base workflow, so the palette does not imply free-floating fixture placement
 - [x] Filter Pelican sink choices by compatible sink-base type: farmhouse/apron-front bases accept farmhouse sinks only, while standard SB36-style bases accept standard sinks only
 - [x] Correct Pelican Designer fixture-family eligibility so imported sinks, faucets, and countertop records are not offered under the wrong Designer role
