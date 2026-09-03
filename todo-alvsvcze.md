@@ -1434,3 +1434,9 @@
 - [x] Add targeted Pelican-only navigation and display-label regression coverage, then validate the published catalog routes on desktop and mobile
 - [ ] Investigate and correct the owner-reported Pelican catalog price discrepancy while preserving source costs, product identity, and all cabinetry pricing
 - [x] Hide Pelican source cost from non-admin product-detail visitors and replace the misleading public MSRP label without changing configured sell prices
+- [ ] Audit every designer-enabled Pelican product for verified dimensions, placement metadata, approved material or geometry assets, and an exact supported 3D role
+- [ ] Define a Pelican Designer-readiness contract that prevents non-verifiable products from being represented as exact 3D fixtures or materials
+- [ ] Implement the first verified Pelican sink and faucet 3D placement flow so a customer can see the selected product in its exact sink-base location
+- [ ] Preserve the exact kitchen plan and prohibit raw catalog images from being used as 3D geometry or material substitutions
+- [x] Make the Pelican Designer label appear only when the product is actually available in the palette and supported by its verified Designer rendering or placement workflow
+- [ ] Maximize verified Pelican product-family coverage in the Designer palette, prioritizing the highest-value kitchen products first

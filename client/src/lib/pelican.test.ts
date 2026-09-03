@@ -9,6 +9,7 @@ import {
   pelicanFamilyHref,
   pelicanPricePresentation,
   pelicanProductType,
+  isPelicanDesignerPaletteAvailable,
   surfaceRole,
   PELICAN_STOREFRONT_CATEGORIES,
 } from "./pelican";
@@ -78,6 +79,24 @@ describe("pelican storefront helpers", () => {
       referencePrice: 101.25,
       savingsPercent: 28,
     });
+  });
+
+  it("shows a Pelican Designer action only for a paid product that the current Designer palette can load", () => {
+    expect(isPelicanDesignerPaletteAvailable({
+      category: "Sinks & Faucets",
+      showInDesigner: true,
+      sellPrice: 72.56,
+    })).toBe(true);
+    expect(isPelicanDesignerPaletteAvailable({
+      category: "Range Tops",
+      showInDesigner: true,
+      sellPrice: 899,
+    })).toBe(false);
+    expect(isPelicanDesignerPaletteAvailable({
+      category: "Sinks & Faucets",
+      showInDesigner: false,
+      sellPrice: 72.56,
+    })).toBe(false);
   });
 });
 

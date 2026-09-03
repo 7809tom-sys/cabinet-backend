@@ -10,6 +10,7 @@ import {
   categorySlug,
   CATEGORY_GRADIENT,
   formatPrice,
+  isPelicanDesignerPaletteAvailable,
   pelicanCategoryLabel,
   pelicanDisplayName,
   pelicanPricePresentation,
@@ -18,7 +19,7 @@ import {
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
-import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Tag, TrendingDown, Waves } from "lucide-react";
+import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Waves } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SurfacesProduct({ slug }: { slug: string }) {
@@ -96,6 +97,11 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
 
   const gradient = CATEGORY_GRADIENT[data.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const preferred = isPreferred(data.id);
+  const isDesignerPaletteAvailable = isPelicanDesignerPaletteAvailable({
+    category: data.category,
+    showInDesigner: data.showInDesigner,
+    sellPrice: data.sellPrice,
+  });
 
   // The configured sell price is the only public price. Internal cost and the
   // imported comparison value are kept in the administrator-only view.
@@ -262,11 +268,13 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
               <Star className={`h-4 w-4 ${preferred ? "fill-current" : ""}`} />
               {preferred ? "Preferred" : "Add to Preferred"}
             </Button>
-            <Link href="/design">
-              <Button variant="outline" className="gap-2">
-                <PencilRuler className="h-4 w-4" /> Add to a Design
-              </Button>
-            </Link>
+            {isDesignerPaletteAvailable && (
+              <Link href="/design">
+                <Button variant="outline" className="gap-2" data-testid="open-designer-palette">
+                  <PencilRuler className="h-4 w-4" /> View in Designer Palette
+                </Button>
+              </Link>
+            )}
           </div>
 
           <div className="mt-6 space-y-1 text-xs text-muted-foreground">

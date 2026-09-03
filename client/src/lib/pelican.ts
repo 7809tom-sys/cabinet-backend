@@ -300,6 +300,26 @@ export function pelicanDisplayName(input: PelicanProductPresentationInput): stri
   return sourceNameLooksLikeCode(sourceName) ? `${sourceName} — ${productType}` : sourceName;
 }
 
+export type PelicanDesignerPaletteInput = {
+  category?: string | null;
+  showInDesigner?: boolean | null;
+  sellPrice?: number | null;
+};
+
+/**
+ * This is deliberately a palette-availability check, not an “exact 3D model”
+ * claim. When it returns true, the product meets the same category, visibility,
+ * and pricing prerequisites used by the current Designer surfaces picker.
+ */
+export function isPelicanDesignerPaletteAvailable(input: PelicanDesignerPaletteInput): boolean {
+  const category = input.category ?? "";
+  return Boolean(input.showInDesigner)
+    && PELICAN_STOREFRONT_CATEGORIES.includes(category as PelicanCategory)
+    && typeof input.sellPrice === "number"
+    && Number.isFinite(input.sellPrice)
+    && input.sellPrice > 0;
+}
+
 export type PelicanPricePresentationInput = {
   sellPrice?: number | null;
   msrp?: number | string | null;
