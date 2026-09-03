@@ -182,6 +182,16 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 15.6875, spoutLengthIn: 9.4375, spoutHeightIn: 6.625, profile: "pull-down", finish: "chrome",
     specificationUrl: "https://cdn.accentuate.io/7876662689932/1729881278122/PL-8211-spec.pdf?v=1750169308913",
   },
+  "PL-8213 BN": {
+    id: "pelican-pl-8213-fountain-pull-down-brushed-nickel", pelicanCode: "PL-8213 BN", name: "PL-8213 Fountain Series Pull-Down Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-down", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876662886540/1729881310144/PL-8213-Spec-Sheet.pdf?v=1734119293439",
+  },
+  "PL-8213 CHR": {
+    id: "pelican-pl-8213-fountain-pull-down-chrome", pelicanCode: "PL-8213 CHR", name: "PL-8213 Fountain Series Pull-Down Kitchen Faucet — Chrome",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-down", finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/7876662886540/1729881310144/PL-8213-Spec-Sheet.pdf?v=1734119293439",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {
