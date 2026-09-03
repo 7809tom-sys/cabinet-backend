@@ -5075,7 +5075,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
   drainRing.userData = { sinkDrainRing: true, fixtureDetail: true };
   root.add(drainRing);
-  if (!sink.faucet) return;
+  if (!sink.faucet || !sink.pelicanFaucetProfileId || sink.faucetOverallHeight == null || sink.faucetSpoutLength == null || sink.faucetSpoutHeight == null || !sink.faucetForm) return;
   const faucet = sinkFaucetTransform(sink);
   const faucetMaterial = new THREE.MeshStandardMaterial({
     color: sink.faucetFinish === "matte-black"
@@ -5091,16 +5091,10 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
   const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };
   const side = { x: -forward.z, z: forward.x };
-  const overallHeight = sink.faucetOverallHeight != null
-    ? Math.max(0.25, sink.faucetOverallHeight * INCH)
-    : Math.min(2.24, Math.max(1.45, depth * 0.88));
-  const reach = sink.faucetSpoutLength != null
-    ? Math.max(0.1, sink.faucetSpoutLength * INCH)
-    : Math.min(depth * 0.38, 0.72);
-  const outletHeight = sink.faucetSpoutHeight != null
-    ? Math.max(0.08, sink.faucetSpoutHeight * INCH)
-    : overallHeight * 0.55;
-  const faucetForm = sink.faucetForm ?? "pull-down";
+  const overallHeight = Math.max(0.25, sink.faucetOverallHeight * INCH);
+  const reach = Math.max(0.1, sink.faucetSpoutLength * INCH);
+  const outletHeight = Math.max(0.08, sink.faucetSpoutHeight * INCH);
+  const faucetForm = sink.faucetForm;
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };

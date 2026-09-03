@@ -3043,6 +3043,8 @@ describe("interactive 3D room scene helpers", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {
       uid: "sink-realistic", type: "single", x: 24, y: 48, width: 30, depth: 22, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8203-fountain-pull-down",
+      faucetOverallHeight: 27.1875, faucetSpoutLength: 9.875, faucetSpoutHeight: 4.9375, faucetFinish: "brushed-nickel", faucetForm: "pull-down",
     } as never);
     const markers = new Set<string>();
     root.traverse((node) => {
@@ -3106,6 +3108,7 @@ describe("interactive 3D room scene helpers", () => {
       faucetOverallHeight: 27.1875,
       faucetSpoutLength: 9.875,
       faucetSpoutHeight: 4.9375,
+      faucetForm: "pull-down",
     } as never;
     addSinkFixture(root, sink);
     let spout: THREE.Object3D | null = null;
@@ -3124,7 +3127,7 @@ describe("interactive 3D room scene helpers", () => {
     addSinkFixture(root, {
       uid: "pelican-pl-8207-mb", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
       pelicanFaucetProfileId: "pelican-pl-8207-fountain-pull-down-matte-black",
-      faucetOverallHeight: 26.125, faucetSpoutLength: 7.6875, faucetSpoutHeight: 6.5, faucetFinish: "matte-black",
+      faucetOverallHeight: 26.125, faucetSpoutLength: 7.6875, faucetSpoutHeight: 6.5, faucetFinish: "matte-black", faucetForm: "pull-down",
     } as never);
     let spout: THREE.Mesh | null = null;
     root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8207-fountain-pull-down-matte-black" && node.userData.sinkFaucetSpout) spout = node as THREE.Mesh; });
@@ -3159,6 +3162,14 @@ describe("interactive 3D room scene helpers", () => {
     expect(markers.has("sinkFaucetSprayHead")).toBe(true);
     const pullOutSpout = root.children.find((node) => node.userData.pelicanFaucetProfileId === "pelican-pl-8248-fountain-pull-out-brushed-nickel" && node.userData.sinkFaucetSpout);
     expect(pullOutSpout?.userData.faucetForm).toBe("pull-out");
+  });
+
+  it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);
+    let foundGenericFaucet = false;
+    root.traverse((node) => { if (node.userData.sinkFaucet || node.userData.sinkFaucetSpout || node.userData.sinkFaucetSprayHead) foundGenericFaucet = true; });
+    expect(foundGenericFaucet).toBe(false);
   });
 
   it("preserves the verified farmhouse sink exterior width after a left-wall plan rotation", () => {

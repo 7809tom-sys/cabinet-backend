@@ -4806,8 +4806,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, []);
 
   const toggleSinkFaucet = useCallback((uid: string) => {
+    const sink = sinks.find((candidate) => candidate.uid === uid);
+    if (!sink?.pelicanFaucetProfileId) {
+      toast.info("Choose a source-verified Pelican faucet from the sink-base selector before displaying one in 3D.");
+      return;
+    }
     setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, faucet: !s.faucet } : s)));
-  }, []);
+  }, [sinks]);
 
   // Selecting any one object on the canvas (cabinet / sink / wall opening)
   // clears the other selections, so there is exactly one "active" object the
@@ -10512,6 +10517,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       return;
                     }
                     const verifiedProfile = verifiedPelicanSinkProfile(item.pelicanCode);
+                    if (!verifiedProfile) {
+                      toast.info("This sink is not yet a source-verified 3D profile. Choose one of the verified Pelican sinks shown in the palette.");
+                      return;
+                    }
                     if (verifiedProfile && !verifiedPelicanSinkFitsCabinet(verifiedProfile, rotatedSize(owner).w)) {
                       toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
                       return;
@@ -10521,20 +10530,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     const sizeStr = item.size || "";
                     const wMatch = sizeStr.match(/(\d+)/); // first number = width
                     const w = wMatch ? parseInt(wMatch[1], 10) : 30;
-                    const sinkW = verifiedProfile?.exteriorWidthIn ?? Math.min(Math.max(w, 12), 42);
-                    const sinkD = verifiedProfile?.exteriorDepthIn ?? (sinkW >= 30 ? 20 : 18);
-                    const sinkType: SinkType = verifiedProfile?.sinkType ?? (baseKind === "farmhouse" ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single");
+                    const sinkW = verifiedProfile.exteriorWidthIn;
+                    const sinkD = verifiedProfile.exteriorDepthIn;
+                    const sinkType: SinkType = verifiedProfile.sinkType;
                     const attached = makeSinkForCabinet(sinkType, owner, room, { width: sinkW, depth: sinkD });
                     const sink: SinkFixture = {
                       ...attached,
+                      faucet: false,
                       pelicanProductId: item.id,
                       pelicanProductName: item.name,
                       pelicanProductImage: item.imageUrl ?? undefined,
-                      pelicanProfileId: verifiedProfile?.id,
-                      bowlWidth: verifiedProfile?.bowlWidthIn,
-                      bowlDepth: verifiedProfile?.bowlDepthIn,
-                      bowlHeight: verifiedProfile?.bowlHeightIn,
-                      apronFront: verifiedProfile?.apronFront ?? false,
+                      pelicanProfileId: verifiedProfile.id,
+                      bowlWidth: verifiedProfile.bowlWidthIn,
+                      bowlDepth: verifiedProfile.bowlDepthIn,
+                      bowlHeight: verifiedProfile.bowlHeightIn,
+                      apronFront: verifiedProfile.apronFront,
                     };
                     setSinks((prev) => [...prev, sink]);
                     setSelectedSinkUid(sink.uid);
@@ -10860,6 +10870,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const sinkBaseKind = sinkBaseCabinet && isFarmSinkBasePaletteItem(sinkBaseCabinet) ? "farmhouse" : "standard";
         const filteredSinks = allRecommendedSinks
           .filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))
+          .filter((product) => Boolean(verifiedPelicanSinkProfile(product.pelicanCode)))
           .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
         const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? null });
@@ -10874,40 +10885,46 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           setPendingRangeTopType(null);
           toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
         };
-        const filteredFaucets = (faucetBaseProducts ?? []) as Array<{
+        const filteredFaucets = ((faucetBaseProducts ?? []) as Array<{
           id: number; pelicanCode?: string | null; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
-        }>;
+        }>).filter((product) => Boolean(verifiedPelicanFaucetProfile(product.pelicanCode)));
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
           const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
           const cabinetWidth = cab ? rotatedSize(cab).w : 0;
           const targetBaseKind = cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
+          if (!sinkProduct || !verifiedProfile) {
+            toast.error("Choose a source-verified Pelican sink before adding it to this kitchen plan.");
+            return;
+          }
+          if (faucetProduct && !verifiedFaucetProfile) {
+            toast.error("Choose a source-verified Pelican faucet before adding it to this kitchen plan.");
+            return;
+          }
           if (sinkProduct && !isPelicanSinkCompatibleWithBase(sinkProduct, targetBaseKind)) {
             toast.error(`${pelicanSinkBaseKind(sinkProduct) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${targetBaseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
             return;
           }
-          if (verifiedProfile && (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth))) {
+          if (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth)) {
             toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
             return;
           }
-          const verifiedDimensions = verifiedProfile
-            ? { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn }
-            : undefined;
+          const verifiedDimensions = { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn };
           const autoSink = cab
-            ? makeSinkForCabinet(verifiedProfile?.sinkType ?? "single", cab, room, verifiedDimensions)
-            : makeSink(verifiedProfile?.sinkType ?? "single", 0, 0, activeWall, verifiedDimensions);
+            ? makeSinkForCabinet(verifiedProfile.sinkType, cab, room, verifiedDimensions)
+            : makeSink(verifiedProfile.sinkType, 0, 0, activeWall, verifiedDimensions);
           const sinkWithFaucet: SinkFixture = {
             ...autoSink,
             faucet: Boolean(faucetProduct),
             pelicanProductId: sinkProduct?.id,
             pelicanProductName: sinkProduct?.name,
             pelicanProductImage: sinkProduct?.imageUrl ?? undefined,
-            pelicanProfileId: verifiedProfile?.id,
-            bowlWidth: verifiedProfile?.bowlWidthIn,
-            bowlDepth: verifiedProfile?.bowlDepthIn,
-            bowlHeight: verifiedProfile?.bowlHeightIn,
-            apronFront: verifiedProfile?.apronFront ?? false,
+            pelicanProfileId: verifiedProfile.id,
+            bowlWidth: verifiedProfile.bowlWidthIn,
+            bowlDepth: verifiedProfile.bowlDepthIn,
+            bowlHeight: verifiedProfile.bowlHeightIn,
+            apronFront: verifiedProfile.apronFront,
             pelicanFaucetProductId: faucetProduct?.id,
             pelicanFaucetProductName: faucetProduct?.name,
             pelicanFaucetProductImage: faucetProduct?.imageUrl ?? undefined,

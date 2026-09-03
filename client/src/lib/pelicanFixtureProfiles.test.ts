@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
+import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
 
 describe("verifiedPelicanSinkProfile", () => {
   it("uses Pelican’s published dimensions for the PL-FC2418SB measured profile", () => {
@@ -82,6 +82,13 @@ describe("verifiedPelicanSinkProfile", () => {
         finish,
       });
     }
+  });
+
+  it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
+    expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
+    expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);
+    expect(hasVerifiedPelicanFixtureProfile("PL-UNMEASURED")).toBe(false);
+    expect(hasVerifiedPelicanFixtureProfile(null)).toBe(false);
   });
 
   it("does not treat an unverified code as a measured Designer profile", () => {

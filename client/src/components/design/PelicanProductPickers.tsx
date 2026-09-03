@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { formatPrice } from "@/lib/pelican";
+import { verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Plus, ChevronRight, Waves } from "lucide-react";
 import type { SelectedSurface } from "./SurfacesPickerDialog";
@@ -180,14 +181,17 @@ export function PelicanSinkPicker({
   onBrowseAll: () => void;
 }) {
   const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role: "sink", limit: 8 });
-  const items = (data ?? []) as RecItem[];
+  const items = useMemo(
+    () => ((data ?? []) as RecItem[]).filter((item) => Boolean(verifiedPelicanSinkProfile(item.pelicanCode))),
+    [data],
+  );
   const selectedIds = useMemo(() => new Set(selectedSurfaces.map((s) => s.id)), [selectedSurfaces]);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Pelican Sinks
+          Verified Pelican Sinks
         </span>
         <button
           type="button"

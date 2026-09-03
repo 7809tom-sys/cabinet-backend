@@ -146,6 +146,10 @@ export function verifiedPelicanFaucetProfile(code: string | null | undefined): V
   return VERIFIED_PELICAN_FAUCETS[normalized] ?? null;
 }
 
+export function hasVerifiedPelicanFixtureProfile(code: string | null | undefined): boolean {
+  return Boolean(verifiedPelicanSinkProfile(code) || verifiedPelicanFaucetProfile(code));
+}
+
 export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfile, cabinetWidthIn: number): boolean {
   return Number.isFinite(cabinetWidthIn) && cabinetWidthIn >= profile.minimumCabinetWidthIn;
 }

@@ -110,3 +110,7 @@ Pelican’s PL-8248 documentation describes a single-hole pull-out kitchen fauce
 
 18. [Pelican Int’l — PL-8248 product page](https://buildpelican.com/products/pl-8144)
 19. [Pelican Int’l — PL-8248 specification sheet](https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241)
+
+## Enforced Exact-Fixture Eligibility Rule
+
+Only a sink or faucet with a registered, source-verified Pelican fixture profile may now be offered for physical placement in the Designer. The compact picker and full Surfaces & Fixtures dialog hide unverified fixture records; sink-base placement rejects them defensively; and the 3D renderer refuses to create a fallback faucet when a saved fixture lacks verified profile identity, dimensions, and form. This prevents catalog imagery or inferred generic geometry from being presented as an exact selected product.

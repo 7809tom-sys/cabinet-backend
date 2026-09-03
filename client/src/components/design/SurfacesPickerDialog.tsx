@@ -18,6 +18,7 @@ import {
   formatPrice,
   type PelicanCategory,
 } from "@/lib/pelican";
+import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
 import { Search, Plus, Check, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 
@@ -114,9 +115,10 @@ export function SurfacesPickerDialog({
   })), [preferredProducts]);
   const items = category === "Preferred" ? preferredItems : data?.items ?? [];
   const visibleItems = useMemo(() => {
-    if (category !== "Preferred" || !debounced) return items;
-    const query = debounced.toLowerCase();
-    return items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(query));
+    const searched = category !== "Preferred" || !debounced
+      ? items
+      : items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(debounced.toLowerCase()));
+    return searched.filter((item) => item.category !== "Sinks & Faucets" || hasVerifiedPelicanFixtureProfile(item.pelicanCode));
   }, [category, debounced, items]);
 
   return (
@@ -165,6 +167,9 @@ export function SurfacesPickerDialog({
               className="pl-9"
             />
           </div>
+          {category === "Sinks & Faucets" && (
+            <p className="text-[10px] leading-relaxed text-muted-foreground">Only fixtures with a source-verified 3D profile are shown here, so selected products can be represented faithfully in the kitchen plan.</p>
+          )}
           {category === "Tile & Mosaic" && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
             <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
               <div>
