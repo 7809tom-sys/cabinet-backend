@@ -211,7 +211,7 @@ export function RefrigeratorOptionsDialog({
   const [fridgeD, setFridgeD] = useState<number>(30);
 
   // ── Over-fridge cabinet ────────────────────────────────────────────────────
-  const [above, setAbove] = useState<FridgeAbove>("none");
+  const [above, setAbove] = useState<FridgeAbove>("bridge");
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
   const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
   // Bridge width is independent of fridge width — always 30/33/36
@@ -295,8 +295,12 @@ export function RefrigeratorOptionsDialog({
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);
-      setBridgeWidthChoice(36);
-      setAbove("none");
+      setBridgeWidthChoice(BRIDGE_WIDTH_OPTIONS.reduce((best, option) =>
+        Math.abs(option - w) < Math.abs(best - w) ? option : best,
+      BRIDGE_WIDTH_OPTIONS[0]));
+      // Offer the matching refrigerator cabinet by default; the customer can
+      // still choose No Cabinet before applying this optional enclosure.
+      setAbove("bridge");
       setPanels("both");
       setPanelDepth(24);
       setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
@@ -379,7 +383,7 @@ export function RefrigeratorOptionsDialog({
           <Section title="Over-Fridge Cabinet">
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Cabinet sits directly above the fridge (bottom = top of fridge)
+                Recommended: add a matching cabinet above the refrigerator, with the required 2-inch appliance clearance.
               </p>
               <OptionPills<FridgeAbove>
                 value={above}

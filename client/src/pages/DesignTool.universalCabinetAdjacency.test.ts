@@ -70,6 +70,8 @@ describe("universal exact-zero cabinet adjacency routing", () => {
   it("routes every normal base, wall, tall, and appliance selection through the active wall's next-in-line sequence", () => {
     const addPath = sourceBetween("const addCabinet = useCallback", "const addManualFiller");
     expect(addPath).toContain("paletteActiveWallPlacement(");
+    expect(addPath).toContain("refrigeratorAdjacentOpeningPlacement(activeWall, room, prev, openings, width, depth, accPlacement)");
+    expect(addPath).toContain("} else if (refrigeratorAdjacentSpot) {");
     expect(addPath).toContain("selectedSinkBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)");
     expect(addPath).toContain("explicitSelectedSinkTarget = true");
     expect(addPath).toContain('accPlacement === "base"');

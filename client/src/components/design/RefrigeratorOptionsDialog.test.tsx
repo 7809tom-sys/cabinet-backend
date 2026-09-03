@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RefrigeratorOptionsDialog } from "./RefrigeratorOptionsDialog";
 
 vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({ t: (key: string) => key }),
 }));
+
+afterEach(cleanup);
 
 const endPanel = {
   id: 9390059,
@@ -32,6 +34,13 @@ function renderDialog(onApply = vi.fn()) {
 }
 
 describe("RefrigeratorOptionsDialog end-panel defaults", () => {
+  it("recommends a matching cabinet above the refrigerator without removing the No Cabinet choice", () => {
+    renderDialog();
+    expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText(/recommended: add a matching cabinet above the refrigerator/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "No Cabinet" })).toBeTruthy();
+  });
+
   it("submits both structural end panels by default for a new refrigerator enclosure", () => {
     const onApply = renderDialog();
     expect(screen.getByRole("button", { name: "Both" }).getAttribute("aria-pressed")).toBe("true");

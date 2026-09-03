@@ -5018,6 +5018,53 @@ export function paletteActiveWallPlacement(
 }
 
 /**
+ * Resolves a floor/tall cabinet into an open run immediately beside an existing
+ * refrigerator enclosure.  Refrigerator end panels extend the protected bay,
+ * so an adjacent cabinet never overlaps the appliance or a selected panel.
+ * The nearest exact opening is preferred; any final remainder is intentionally
+ * left to the existing measured small-gap filler flow after placement.
+ */
+export function refrigeratorAdjacentOpeningPlacement(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  width: number,
+  depth: number,
+  placement: Placement,
+): { x: number; y: number; rotation: number } | null {
+  if (placement !== "base" && placement !== "tall") return null;
+  const horizontal = side === "top" || side === "bottom";
+  const segments = freeSegmentsOnWall(side, room, placed, openings, width, 0, placement);
+  const choices: Array<{ start: number; remainder: number }> = [];
+  for (const refrigerator of placed.filter((item) => isRefrigerator(item) && cabinetWall(item, room) === side)) {
+    const assembly = [refrigerator, ...placed.filter((item) => refrigeratorAssemblyMemberRole(item, refrigerator, room) !== null)];
+    const bounds = assembly.reduce(
+      (current, item) => {
+        const footprint = placedFootprint(item);
+        const itemStart = horizontal ? item.x : item.y;
+        const itemSpan = horizontal ? footprint.w : footprint.d;
+        return { start: Math.min(current.start, itemStart), end: Math.max(current.end, itemStart + itemSpan) };
+      },
+      { start: Number.POSITIVE_INFINITY, end: Number.NEGATIVE_INFINITY },
+    );
+    for (const segment of segments) {
+      if (segment.length + COLLISION_EPSILON_IN < width) continue;
+      const segmentEnd = segment.start + segment.length;
+      if (Math.abs(segmentEnd - bounds.start) <= COLLISION_EPSILON_IN) {
+        choices.push({ start: segmentEnd - width, remainder: segment.length - width });
+      }
+      if (Math.abs(segment.start - bounds.end) <= COLLISION_EPSILON_IN) {
+        choices.push({ start: segment.start, remainder: segment.length - width });
+      }
+    }
+  }
+  if (choices.length === 0) return null;
+  choices.sort((left, right) => left.remainder - right.remainder || left.start - right.start);
+  return wallPlacementAt(choices[0].start, width, depth, side, room);
+}
+
+/**
  * Catalog-added true corner cabinets belong at a real room corner, not at the
  * first open point in a straight wall run. Starting from the active wall, test
  * all four corners in clockwise room order and return the first exact physical

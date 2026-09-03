@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { findSmallGapFillerOpportunity } from "./smallGapFiller";
 import {
   isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
@@ -16,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -1960,6 +1961,15 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(selectedLowerCabinetWallPlacement(dishwasher, room, 24, 12, 30, [dishwasher, range, refrigerator], [])).toEqual({ x: 132, y: 36, rotation: 90 });
     expect(selectedLowerCabinetWallPlacement(range, room, 30, 12, 30, [dishwasher, range, refrigerator], [])).toBeNull();
     expect(selectedLowerCabinetWallPlacement(refrigerator, room, 36, 24, 24, [dishwasher, range, refrigerator], [])).toBeNull();
+  });
+
+  it("uses the nearest clear opening beside a refrigerator and leaves a three-inch remainder for the existing filler flow", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const refrigerator = cab({ uid: "top-fridge-36", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 60, y: 0, width: 36, depth: 24, height: 70, rotation: 0 });
+    const spot = refrigeratorAdjacentOpeningPlacement("top", room, [refrigerator], [], 45, 24, "base");
+    expect(spot).toEqual({ x: 96, y: 0, rotation: 0 });
+    const placedBase = cab({ uid: "top-adjacent-b45", masterCode: "B-45", placement: "base", ...spot!, width: 45, depth: 24, height: 34.5, rotation: 0 });
+    expect(findSmallGapFillerOpportunity(room, [refrigerator, placedBase], [], placedBase.uid)).toMatchObject({ remaining: 3, layer: "base" });
   });
 
   it("blocks a matching upper that violates the three-inch wall-opening clearance", () => {

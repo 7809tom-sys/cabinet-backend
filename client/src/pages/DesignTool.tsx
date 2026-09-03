@@ -91,7 +91,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+		  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -2934,6 +2934,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
+	      const refrigeratorAdjacentSpot = !requestedIslandFace
+	        && !selectedPlacementTarget
+	        && x == null
+	        && y == null
+	        && (accPlacement === "base" || accPlacement === "tall")
+	        ? refrigeratorAdjacentOpeningPlacement(activeWall, room, prev, openings, width, depth, accPlacement)
+	        : null;
 	      const rangeHoodPlacement = !requestedIslandFace && isRangeHoodPlacement({ masterCode: c.masterCode, description: c.description ?? "", placement: accPlacement })
 	        ? resolveRangeHoodPlacement(
 	            prev,
@@ -2962,10 +2969,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       } else if (selectedLowerSpot) {
         spot = selectedLowerSpot;
         preserveResolvedPlacement = true;
-      } else if (automaticLowerMatch) {
-        spot = automaticLowerMatch.spot;
-        preserveResolvedPlacement = true;
-      } else if (x != null && y != null) {
+	      } else if (automaticLowerMatch) {
+	        spot = automaticLowerMatch.spot;
+	        preserveResolvedPlacement = true;
+	      } else if (refrigeratorAdjacentSpot) {
+	        spot = refrigeratorAdjacentSpot;
+	        preserveResolvedPlacement = true;
+	      } else if (x != null && y != null) {
         spot = { x, y, rotation };
 	      } else {
 	        const requiresRoomCorner = !isAccessory

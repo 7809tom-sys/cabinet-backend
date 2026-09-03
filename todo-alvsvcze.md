@@ -1448,3 +1448,6 @@
 - [x] Render the selected farmhouse sink’s verified apron visibly on the sink-base face below the countertop, without lowering the basin below the counter opening
 - [x] Filter Pelican sink choices by compatible sink-base type: farmhouse/apron-front bases accept farmhouse sinks only, while standard SB36-style bases accept standard sinks only
 - [x] Correct Pelican Designer fixture-family eligibility so imported sinks, faucets, and countertop records are not offered under the wrong Designer role
+- [x] Add a refrigerator-adjacent cabinet placement rule that uses the available opening without overlap and offers a fitted filler only for the remaining eligible gap
+- [x] Suggest a compatible wall cabinet above an installed refrigerator while preserving refrigerator enclosure and clearance rules
+- [x] Validate refrigerator-area placement, filler behavior, and upper-cabinet guidance on mobile before publishing
