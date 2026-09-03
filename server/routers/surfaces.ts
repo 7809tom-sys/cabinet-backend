@@ -136,8 +136,10 @@ export const surfacesRouter = router({
       return rows
         .map((r) => ({
           id: r.id,
+          pelicanCode: r.pelicanCode,
           slug: r.slug,
           name: r.name,
+          description: r.description,
           category: r.category,
           subCategory: r.subCategory,
           size: r.size,

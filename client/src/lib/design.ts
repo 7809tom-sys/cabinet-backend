@@ -5869,6 +5869,14 @@ export interface SinkFixture {
   pelicanProductName?: string;
   /** Pelican product image URL */
   pelicanProductImage?: string;
+  /** Source-verified parametric profile identifier, when a real Pelican fixture has one. */
+  pelicanProfileId?: string;
+  /** Verified bowl dimensions in inches for the selected Pelican sink profile. */
+  bowlWidth?: number;
+  bowlDepth?: number;
+  bowlHeight?: number;
+  /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
+  apronFront?: boolean;
 }
 
 export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {
@@ -5949,7 +5957,19 @@ export function normalizeSinkFixturesToBases(
     const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
     if (same) return sink;
     changed = true;
-    return { ...next, uid: sink.uid, faucet: sink.faucet, pelicanProductId: sink.pelicanProductId, pelicanProductName: sink.pelicanProductName, pelicanProductImage: sink.pelicanProductImage };
+    return {
+      ...next,
+      uid: sink.uid,
+      faucet: sink.faucet,
+      pelicanProductId: sink.pelicanProductId,
+      pelicanProductName: sink.pelicanProductName,
+      pelicanProductImage: sink.pelicanProductImage,
+      pelicanProfileId: sink.pelicanProfileId,
+      bowlWidth: sink.bowlWidth,
+      bowlDepth: sink.bowlDepth,
+      bowlHeight: sink.bowlHeight,
+      apronFront: sink.apronFront,
+    };
   });
   return changed ? normalized : sinks;
 }

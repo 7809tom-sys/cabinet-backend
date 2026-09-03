@@ -3059,6 +3059,64 @@ describe("interactive 3D room scene helpers", () => {
     expect(markers.has("sinkFaucetHandle")).toBe(true);
   });
 
+  it("uses a verified Pelican farmhouse profile’s measured bowl and apron geometry", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-fc2418sb",
+      type: "farmhouse",
+      x: 24,
+      y: 48,
+      width: 24,
+      depth: 18,
+      sourceWidth: 24,
+      sourceDepth: 18,
+      bowlWidth: 22.5,
+      bowlDepth: 16.625,
+      bowlHeight: 9,
+      apronFront: true,
+      pelicanProfileId: "pelican-pl-fc2418sb-fireclay-farmhouse",
+      faucet: false,
+      wallSide: "top",
+    } as never);
+    let bowl: THREE.Object3D | null = null;
+    let apron: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === "pelican-pl-fc2418sb-fireclay-farmhouse" && node.userData.sinkBowl) bowl = node;
+      if (node.userData.pelicanProfileId === "pelican-pl-fc2418sb-fireclay-farmhouse" && node.userData.sinkApronFront) apron = node;
+    });
+    expect(bowl).not.toBeNull();
+    expect(apron).not.toBeNull();
+    const bowlBounds = new THREE.Box3().setFromObject(bowl!);
+    expect(bowlBounds.max.y - bowlBounds.min.y).toBeCloseTo(0.75, 12);
+    expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform({ x: 24, y: 48, width: 24, depth: 18 } as never).z);
+  });
+
+  it("preserves the verified farmhouse sink exterior width after a left-wall plan rotation", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-fc2418sb-left",
+      type: "farmhouse",
+      x: 24,
+      y: 48,
+      width: 18,
+      depth: 24,
+      sourceWidth: 24,
+      sourceDepth: 18,
+      bowlWidth: 22.5,
+      bowlDepth: 16.625,
+      bowlHeight: 9,
+      apronFront: true,
+      pelicanProfileId: "pelican-pl-fc2418sb-fireclay-farmhouse",
+      faucet: false,
+      wallSide: "left",
+    } as never);
+    let apron: THREE.Object3D | null = null;
+    root.traverse((node) => { if (node.userData.sinkApronFront) apron = node; });
+    const apronBounds = new THREE.Box3().setFromObject(apron!);
+    expect(apronBounds.max.z - apronBounds.min.z).toBeCloseTo(2, 12);
+    expect(apron?.position.x).toBeGreaterThan(sinkFixtureTransform({ x: 24, y: 48, width: 18, depth: 24 } as never).x);
+  });
+
   it("keeps a visible divider for existing double-bowl sink choices", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

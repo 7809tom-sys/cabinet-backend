@@ -30,3 +30,14 @@ A Pelican product may be labeled **Exact 3D Ready** only when all of the followi
 ## Next Audit Slice
 
 The first implementation slice should be **kitchen sinks and faucets**. It should begin with one product at a time, starting with products that have a verifiable technical sheet and clear dimensional compatibility with a known sink base. Only after verification should that exact product become selectable for exact 3D placement.
+
+## Verified Pilot Candidate — PL-FC2418SB
+
+Pelican’s product page and linked specification sheet verify that **PL-FC2418SB** is a reversible, apron-front undermount fireclay sink. Its exterior dimensions are **24 × 18 × 10 inches**, and its single-bowl interior dimensions are **22½ × 16⅝ × 9 inches**. The product page also provides a manufacturer DXF resource, but neither catalog photography nor the DXF should be treated as a texture or a substitute for a full 3D product model.
+
+The first implementation may therefore use a measured, parametric fireclay-sink profile with these verified dimensions. It must remain identified as a dimensional profile, preserve the Pelican product code, fit only on a compatible sink base, and retain the exact saved kitchen plan.
+
+### Sources
+
+1. [Pelican Int’l — PL-FC2418SB product page](https://buildpelican.com/products/pl-fc2418sb)
+2. [Pelican Int’l — PL-FC2418SB specification sheet](https://cdn.accentuate.io/7876648042636/1729870572366/PL-FC2418SB.pdf?v=1729870572366)

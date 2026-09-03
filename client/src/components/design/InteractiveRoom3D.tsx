@@ -5009,8 +5009,9 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const steel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
   const brushedSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
   const basinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
-  const innerWidth = Math.max(0.26, width - 0.18);
-  const innerDepth = Math.max(0.24, depth - 0.18);
+  const innerWidth = Math.max(0.26, (sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3) * INCH);
+  const innerDepth = Math.max(0.24, (sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3) * INCH);
+  const bowlHeight = Math.max(0.12, (sink.bowlHeight ?? 10) * INCH);
   const rim = new THREE.Mesh(
     new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
     steel,
@@ -5019,19 +5020,46 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   rim.userData = { sinkRim: true, fixtureDetail: true };
   root.add(rim);
   const bowl = new THREE.Mesh(
-    new RoundedBoxGeometry(innerWidth, 0.26, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
+    new RoundedBoxGeometry(innerWidth, bowlHeight, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
     basinInterior,
   );
-  bowl.position.set(centerX, countertopTop - 0.13, centerZ);
-  bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true };
+  bowl.position.set(centerX, countertopTop - bowlHeight / 2, centerZ);
+  bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
   root.add(bowl);
   const bowlFloor = new THREE.Mesh(
     new RoundedBoxGeometry(innerWidth * 0.72, 0.025, innerDepth * 0.68, 3, Math.min(0.08, innerWidth * 0.06, innerDepth * 0.06)),
     brushedSteel,
   );
-  bowlFloor.position.set(centerX, countertopTop - 0.26, centerZ);
-  bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true };
+  bowlFloor.position.set(centerX, countertopTop - bowlHeight + 0.014, centerZ);
+  bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
   root.add(bowlFloor);
+  if (sink.apronFront) {
+    const exteriorHeight = Math.max(bowlHeight + 0.025, 0.18);
+    const apronThickness = Math.min(0.12, depth * 0.2);
+    const side = sink.wallSide ?? "top";
+    const apron = new THREE.Mesh(
+      new RoundedBoxGeometry(
+        side === "left" || side === "right" ? apronThickness : width,
+        exteriorHeight,
+        side === "left" || side === "right" ? depth : apronThickness,
+        4,
+        Math.min(0.04, apronThickness * 0.25),
+      ),
+      new THREE.MeshStandardMaterial({ color: "#f4f3ef", roughness: 0.2, metalness: 0.02 }),
+    );
+    const edgeInset = Math.max(0, (side === "left" || side === "right" ? depth : width) / 2 - apronThickness / 2);
+    // A sink against the top/left wall faces into the room (positive Z/X); a
+    // sink against the bottom/right wall faces in the negative direction.
+    const direction = side === "top" ? 1 : side === "bottom" ? -1 : 0;
+    const sidewaysDirection = side === "left" ? 1 : side === "right" ? -1 : 0;
+    apron.position.set(
+      centerX + sidewaysDirection * edgeInset,
+      countertopTop - exteriorHeight / 2 + 0.006,
+      centerZ + direction * edgeInset,
+    );
+    apron.userData = { sinkApronFront: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
+    root.add(apron);
+  }
   if (sink.type === "double") {
     const divider = new THREE.Mesh(new RoundedBoxGeometry(0.055, 0.19, innerDepth * 0.88, 3, 0.02), steel);
     divider.position.set(centerX, countertopTop - 0.11, centerZ);

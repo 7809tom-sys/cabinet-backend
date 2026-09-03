@@ -42,6 +42,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import {
@@ -4079,7 +4080,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Also used for sink/faucet steps: "sink" = sink picker, "faucet" = faucet picker.
   const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "range-type" | "range-product" | "gas" | "electric" | "smooth-top">("choose");
   // Pending sink product selected in the "sink" step, waiting for faucet selection.
-  type SinkDialogProduct = { id: number; slug: string; name: string; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
+  type SinkDialogProduct = { id: number; pelicanCode?: string | null; slug: string; name: string; description?: string | null; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
   const [pendingSinkProduct, setPendingSinkProduct] = useState<SinkDialogProduct | null>(null);
   // Pending range top type selected in the "range-type" step, waiting for product selection.
   const [pendingRangeTopType, setPendingRangeTopType] = useState<"gas" | "electric" | "smooth-top" | null>(null);
@@ -4090,7 +4091,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
   // Recommended sink products fetched from Stone Creek catalog.
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
-    { role: "sink", limit: 6 },
+    // Fetch a broader set only while the sink-base dialog is open so verified
+    // compatible products can be prioritized without altering catalog ranking.
+    { role: "sink", limit: 24 },
     { enabled: !!sinkBaseDialog }
   );
   // Recommended faucet products fetched from Stone Creek catalog.
@@ -10498,23 +10501,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 <PelicanSinkPicker
                   selectedSurfaces={selectedSurfaces}
                   onSelect={(item) => {
+                    const owner = selectedCab && isSinkBaseCabinet(selectedCab) ? selectedCab : null;
+                    if (!owner) {
+                      toast.info("Select a compatible sink base cabinet before choosing a Pelican sink.");
+                      return;
+                    }
+                    const baseKind = isFarmSinkBasePaletteItem(owner) ? "farmhouse" : "standard";
+                    if (!isPelicanSinkCompatibleWithBase(item, baseKind)) {
+                      toast.error(`${pelicanSinkBaseKind(item) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${baseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
+                      return;
+                    }
+                    const verifiedProfile = verifiedPelicanSinkProfile(item.pelicanCode);
+                    if (verifiedProfile && !verifiedPelicanSinkFitsCabinet(verifiedProfile, rotatedSize(owner).w)) {
+                      toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
+                      return;
+                    }
                     addRecommendedSurface(item, "sink");
-                    // Also place a physical sink fixture on the plan
+                    // Add the physical fixture only to the selected compatible sink base.
                     const sizeStr = item.size || "";
                     const wMatch = sizeStr.match(/(\d+)/); // first number = width
                     const w = wMatch ? parseInt(wMatch[1], 10) : 30;
-                    const sinkW = Math.min(Math.max(w, 12), 42);
-                    const sinkD = sinkW >= 30 ? 20 : 18;
-                    const sinkType: SinkType = /farm/i.test(item.name) ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single";
-	                    const owner = sinkBaseDialog ? placed.find((cabinet) => cabinet.uid === sinkBaseDialog.cabinetUid) ?? null : null;
-	                    const attached = owner
-	                      ? makeSinkForCabinet(sinkType, owner, room, { width: sinkW, depth: sinkD })
-	                      : makeSink(sinkType, Math.max(0, room.width / 2 - sinkW / 2), Math.max(0, room.depth / 2 - sinkD / 2), activeWall, { width: sinkW, depth: sinkD });
-	                    const sink: SinkFixture = {
-	                      ...attached,
+                    const sinkW = verifiedProfile?.exteriorWidthIn ?? Math.min(Math.max(w, 12), 42);
+                    const sinkD = verifiedProfile?.exteriorDepthIn ?? (sinkW >= 30 ? 20 : 18);
+                    const sinkType: SinkType = verifiedProfile?.sinkType ?? (baseKind === "farmhouse" ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single");
+                    const attached = makeSinkForCabinet(sinkType, owner, room, { width: sinkW, depth: sinkD });
+                    const sink: SinkFixture = {
+                      ...attached,
                       pelicanProductId: item.id,
                       pelicanProductName: item.name,
                       pelicanProductImage: item.imageUrl ?? undefined,
+                      pelicanProfileId: verifiedProfile?.id,
+                      bowlWidth: verifiedProfile?.bowlWidthIn,
+                      bowlDepth: verifiedProfile?.bowlDepthIn,
+                      bowlHeight: verifiedProfile?.bowlHeightIn,
+                      apronFront: Boolean(verifiedProfile),
                     };
                     setSinks((prev) => [...prev, sink]);
                     setSelectedSinkUid(sink.uid);
@@ -10833,9 +10853,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
           id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
-        const filteredSinks = (sinkBaseProducts ?? []) as Array<{
-          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+        const allRecommendedSinks = (sinkBaseProducts ?? []) as Array<{
+          id: number; pelicanCode?: string | null; name: string; description?: string | null; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
+        const sinkBaseCabinet = placed.find((p) => p.uid === sinkBaseDialog.cabinetUid) ?? null;
+        const sinkBaseKind = sinkBaseCabinet && isFarmSinkBasePaletteItem(sinkBaseCabinet) ? "farmhouse" : "standard";
+        const filteredSinks = allRecommendedSinks
+          .filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))
+          .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
         const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? null });
           if (product) {
@@ -10854,10 +10879,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }>;
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
+          const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
+          const cabinetWidth = cab ? rotatedSize(cab).w : 0;
+          const targetBaseKind = cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
+          if (sinkProduct && !isPelicanSinkCompatibleWithBase(sinkProduct, targetBaseKind)) {
+            toast.error(`${pelicanSinkBaseKind(sinkProduct) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${targetBaseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
+            return;
+          }
+          if (verifiedProfile && (!cab || !verifiedPelicanSinkFitsCabinet(verifiedProfile, cabinetWidth))) {
+            toast.error(`${verifiedProfile.name} requires a sink base at least ${verifiedProfile.minimumCabinetWidthIn}" wide.`);
+            return;
+          }
+          const verifiedDimensions = verifiedProfile
+            ? { width: verifiedProfile.exteriorWidthIn, depth: verifiedProfile.exteriorDepthIn }
+            : undefined;
           const autoSink = cab
-            ? makeSinkForCabinet("single", cab, room)
-            : makeSink("single", 0, 0, activeWall);
-          const sinkWithFaucet = { ...autoSink, faucet: Boolean(faucetProduct) };
+            ? makeSinkForCabinet(verifiedProfile?.sinkType ?? "single", cab, room, verifiedDimensions)
+            : makeSink(verifiedProfile?.sinkType ?? "single", 0, 0, activeWall, verifiedDimensions);
+          const sinkWithFaucet: SinkFixture = {
+            ...autoSink,
+            faucet: Boolean(faucetProduct),
+            pelicanProductId: sinkProduct?.id,
+            pelicanProductName: sinkProduct?.name,
+            pelicanProductImage: sinkProduct?.imageUrl ?? undefined,
+            pelicanProfileId: verifiedProfile?.id,
+            bowlWidth: verifiedProfile?.bowlWidthIn,
+            bowlDepth: verifiedProfile?.bowlDepthIn,
+            bowlHeight: verifiedProfile?.bowlHeightIn,
+            apronFront: Boolean(verifiedProfile),
+          };
           setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
           setSelectedSinkUid(sinkWithFaucet.uid);
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
@@ -10924,7 +10974,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     </button>
                     <h2 className="text-lg font-semibold text-foreground">Choose a Sink</h2>
                   </div>
-                  <p className="text-sm text-muted-foreground -mt-2">Pick a sink from our Stone Creek collection, or skip to add without one.</p>
+                  <p className="text-sm text-muted-foreground -mt-2">Showing only {sinkBaseKind === "farmhouse" ? "farmhouse / apron-front" : "standard"} Pelican sinks that fit this base.</p>
                   {filteredSinks.length === 0 ? (
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Continue without a sink product</button>
                   ) : (

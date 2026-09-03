@@ -14,6 +14,7 @@ import type { SelectedSurface } from "./SurfacesPickerDialog";
 
 type RecItem = {
   id: number;
+  pelicanCode?: string | null;
   slug: string;
   name: string;
   category: string;
@@ -26,6 +27,7 @@ type RecItem = {
 function toSurface(p: RecItem): SelectedSurface {
   return {
     id: p.id,
+    pelicanCode: p.pelicanCode,
     slug: p.slug,
     name: p.name,
     category: p.category,

@@ -42,6 +42,19 @@ describe("DesignTool island scene and glass catalog wiring", () => {
     expect(source).toContain("normalizeSinkFixturesToBases(current, nextPlaced, room)");
   });
 
+  it("requires a selected compatible sink base before the compact Pelican sink picker can place a fixture", () => {
+    expect(source).toContain("Select a compatible sink base cabinet before choosing a Pelican sink.");
+    expect(source).toContain("isPelicanSinkCompatibleWithBase(item, baseKind)");
+    expect(source).toContain("const attached = makeSinkForCabinet(sinkType, owner, room");
+    expect(source).not.toContain("makeSink(sinkType, Math.max(0, room.width / 2");
+  });
+
+  it("prioritizes verified compatible Pelican sinks in the sink-base dialog without changing catalog popularity data", () => {
+    expect(source).toContain('{ role: "sink", limit: 24 }');
+    expect(source).toContain(".filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))");
+    expect(source).toContain("verifiedPelicanSinkProfile(right.pelicanCode)");
+  });
+
 	  it("exposes real PG wall cabinets and base-plus-PGWDC corner glass choices without inventing combined SKUs", () => {
     expect(source).toContain('label: "Glass Door Wall Cabinets"');
     expect(source).toContain('label: "Glass Door Corner Wall Cabinets"');

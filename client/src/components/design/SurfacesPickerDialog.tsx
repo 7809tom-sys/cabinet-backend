@@ -23,6 +23,8 @@ import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 
 export type SelectedSurface = {
   id: number;
+  /** Authoritative Pelican item code; retained for verified fixture-profile matching. */
+  pelicanCode?: string | null;
   slug: string;
   name: string;
   category: string;
@@ -98,8 +100,9 @@ export function SurfacesPickerDialog({
 
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
   const preferredItems = useMemo(() => preferredProducts.map((product) => ({
-    id: product.id,
-    slug: product.slug,
+      id: product.id,
+      pelicanCode: null,
+      slug: product.slug,
     name: product.name,
     category: product.productCategory,
     subCategory: product.subCategory,
@@ -209,6 +212,7 @@ export function SurfacesPickerDialog({
                   const hasApprovedMaterialSwatch = Boolean(p.materialImageUrl?.trim());
                   const item: SelectedSurface = {
                     id: p.id,
+                    pelicanCode: p.pelicanCode,
                     slug: p.slug,
                     name: p.name,
                     category: p.category,

@@ -1440,3 +1440,4 @@
 - [ ] Preserve the exact kitchen plan and prohibit raw catalog images from being used as 3D geometry or material substitutions
 - [x] Make the Pelican Designer label appear only when the product is actually available in the palette and supported by its verified Designer rendering or placement workflow
 - [ ] Maximize verified Pelican product-family coverage in the Designer palette, prioritizing the highest-value kitchen products first
+- [x] Filter Pelican sink choices by compatible sink-base type: farmhouse/apron-front bases accept farmhouse sinks only, while standard SB36-style bases accept standard sinks only
