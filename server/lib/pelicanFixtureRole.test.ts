@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import { pelicanFixtureRole } from "./pelicanFixtureRole";
+
+describe("pelicanFixtureRole", () => {
+  it("corrects a cast-iron sink historically imported in the Faucets subcategory", () => {
+    expect(pelicanFixtureRole({
+      name: "PL-CI6004 White",
+      description: '33" x 22" Cast Iron Drop-In Double Bowl Kitchen Sink with 4 faucet holes in White',
+      subCategory: "Faucets",
+    })).toBe("sink");
+  });
+
+  it("keeps true faucets in the faucet role when no sink evidence is present", () => {
+    expect(pelicanFixtureRole({
+      name: "PL-KF100 Pull-Down Kitchen Faucet",
+      description: "Single-hole kitchen faucet with pull-down sprayer",
+      subCategory: "Faucets",
+    })).toBe("faucet");
+  });
+
+  it("excludes accessories and prefabricated counters even when their descriptions mention sinks or faucets", () => {
+    expect(pelicanFixtureRole({ name: "Stainless Sink Clip", description: "Mounting clip for undermount sink", subCategory: "Sinks" })).toBeNull();
+    expect(pelicanFixtureRole({ name: "Special Order PF-4225FM", description: "Prefabricated countertop with faucet cut-out for sinks", subCategory: "Faucets" })).toBeNull();
+  });
+});

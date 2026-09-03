@@ -6,6 +6,7 @@ import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
+import { pelicanFixtureRole } from "../lib/pelicanFixtureRole";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -80,15 +81,10 @@ function roleFilter(role: RecommendedRole) {
     case "countertop":
       return eq(pelicanProducts.category, "Quartz Slabs (Countertops)");
     case "sink":
-      return and(
-        eq(pelicanProducts.category, "Sinks & Faucets"),
-        eq(pelicanProducts.subCategory, "Sinks")
-      );
     case "faucet":
-      return and(
-        eq(pelicanProducts.category, "Sinks & Faucets"),
-        eq(pelicanProducts.subCategory, "Faucets")
-      );
+      // Imported subcategories contain historical misclassifications. The
+      // response below derives the final placement family from product text.
+      return eq(pelicanProducts.category, "Sinks & Faucets");
     case "range-top":
       return eq(pelicanProducts.category, "Range Tops");
   }
@@ -127,12 +123,9 @@ export const surfacesRouter = router({
           asc(pelicanProducts.popularRank),
           asc(pelicanProducts.name)
         )
-        // Over-fetch so the accessory filter below can't starve the list.
-        .limit(input.limit + 12);
-      // A handful of parts are mis-filed under "Sinks"/"Faucets" (clips, grids,
-      // strainers, templates, mounting hardware). Keep the recommended list to
-      // actual fixtures by dropping obvious accessory names.
-      const ACCESSORY = /clip|strainer|\bgrid\b|template|mounting|drain assembly|flange|cutting board|colander|bottom grid|rinse basket/i;
+        // Sink/faucet source labels need post-query classification; request
+        // sufficient candidates so misplaced fixtures do not get starved.
+        .limit(input.role === "sink" || input.role === "faucet" ? 480 : input.limit + 12);
       return rows
         .map((r) => ({
           id: r.id,
@@ -148,10 +141,7 @@ export const surfacesRouter = router({
           sellPrice: sellPriceOf(r, map),
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
-        .filter((r) => {
-          if (input.role === "sink" || input.role === "faucet") return !ACCESSORY.test(r.name);
-          return true;
-        })
+        .filter((r) => input.role !== "sink" && input.role !== "faucet" || pelicanFixtureRole(r) === input.role)
         .slice(0, input.limit);
     }),
 
