@@ -1451,3 +1451,4 @@
 - [x] Add a refrigerator-adjacent cabinet placement rule that uses the available opening without overlap and offers a fitted filler only for the remaining eligible gap
 - [x] Suggest a compatible wall cabinet above an installed refrigerator while preserving refrigerator enclosure and clearance rules
 - [x] Validate refrigerator-area placement, filler behavior, and upper-cabinet guidance on mobile before publishing
+- [x] Reproduce and fix the refrigerator-adjacent opening rule when it fails to activate in an existing saved layout, then republish the verified repair

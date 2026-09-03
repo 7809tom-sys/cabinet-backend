@@ -2934,8 +2934,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
+	      // A prior cabinet commonly remains selected after editing an existing
+	      // plan.  That passive selection must not suppress normal base/tall
+	      // placement into the clear refrigerator-adjacent opening. Only an
+	      // explicit 3D drop target is allowed to override this catalog rule.
 	      const refrigeratorAdjacentSpot = !requestedIslandFace
-	        && !selectedPlacementTarget
+	        && !targetCabinetUid
 	        && x == null
 	        && y == null
 	        && (accPlacement === "base" || accPlacement === "tall")
