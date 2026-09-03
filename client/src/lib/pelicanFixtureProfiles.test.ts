@@ -84,6 +84,16 @@ describe("verifiedPelicanSinkProfile", () => {
     }
   });
 
+  it("maps PL-8222 Brushed Nickel to Pelican’s measured compact pull-out faucet profile", () => {
+    expect(verifiedPelicanFaucetProfile("PL-8222 BN")).toMatchObject({
+      overallHeightIn: 9.5625,
+      spoutLengthIn: 8.375,
+      spoutHeightIn: 5.8125,
+      profile: "pull-out",
+      finish: "brushed-nickel",
+    });
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);

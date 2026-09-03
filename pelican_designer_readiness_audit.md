@@ -114,3 +114,12 @@ Pelican’s PL-8248 documentation describes a single-hole pull-out kitchen fauce
 ## Enforced Exact-Fixture Eligibility Rule
 
 Only a sink or faucet with a registered, source-verified Pelican fixture profile may now be offered for physical placement in the Designer. The compact picker and full Surfaces & Fixtures dialog hide unverified fixture records; sink-base placement rejects them defensively; and the 3D renderer refuses to create a fallback faucet when a saved fixture lacks verified profile identity, dimensions, and form. This prevents catalog imagery or inferred generic geometry from being presented as an exact selected product.
+
+## Next Verified Faucet Candidate — PL-8222
+
+Pelican’s PL-8222 specification identifies a single-hole, Brushed Nickel pull-out faucet. Its measured overall height is 9 9/16 inches, its spout length is 8⅜ inches, and its spout height is 5 13/16 inches. It is eligible for an exact parametric pull-out profile; catalog photography remains display-only.
+
+### Sources
+
+20. [Pelican Int’l — PL-8222 product page](https://buildpelican.com/products/pl-8222)
+21. [Pelican Int’l — PL-8222 specification sheet](https://cdn.accentuate.io/7876663148684/1729881399900/PL-8222-Spec-Sheet.pdf?v=1734119372824)

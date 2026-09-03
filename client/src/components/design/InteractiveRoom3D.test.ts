@@ -3164,6 +3164,20 @@ describe("interactive 3D room scene helpers", () => {
     expect(pullOutSpout?.userData.faucetForm).toBe("pull-out");
   });
 
+  it("uses the compact PL-8222 pull-out profile dimensions instead of a generic faucet", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8222-bn", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8222-fountain-pull-out-brushed-nickel",
+      faucetOverallHeight: 9.5625, faucetSpoutLength: 8.375, faucetSpoutHeight: 5.8125, faucetFinish: "brushed-nickel", faucetForm: "pull-out",
+    } as never);
+    let spout: THREE.Object3D | null = null;
+    root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8222-fountain-pull-out-brushed-nickel" && node.userData.sinkFaucetSpout) spout = node; });
+    expect(spout?.userData.faucetForm).toBe("pull-out");
+    const bounds = new THREE.Box3().setFromObject(spout!);
+    expect((bounds.max.y - sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 18 } as never).countertopTop) * 12).toBeCloseTo(9.5625, 0);
+  });
+
   it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
     const root = new THREE.Group();
     addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);

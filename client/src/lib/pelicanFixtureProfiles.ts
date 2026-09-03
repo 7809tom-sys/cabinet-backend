@@ -127,6 +127,11 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 12.375, spoutLengthIn: 10.0625, spoutHeightIn: 10.875, profile: "pull-out", finish: "matte-black",
     specificationUrl: "https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241",
   },
+  "PL-8222 BN": {
+    id: "pelican-pl-8222-fountain-pull-out-brushed-nickel", pelicanCode: "PL-8222 BN", name: "PL-8222 Fountain Series Pull-Out Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 9.5625, spoutLengthIn: 8.375, spoutHeightIn: 5.8125, profile: "pull-out", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876663148684/1729881399900/PL-8222-Spec-Sheet.pdf?v=1734119372824",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {
