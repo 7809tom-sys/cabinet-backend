@@ -5084,9 +5084,11 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
         ? "#b28a42"
         : sink.faucetFinish === "chrome"
           ? "#d8dde0"
-          : "#c8d0d4",
+          : sink.faucetFinish === "oil-rubbed-bronze"
+            ? "#4a3328"
+            : "#c8d0d4",
     metalness: sink.faucetFinish === "matte-black" ? 0.7 : 0.88,
-    roughness: sink.faucetFinish === "matte-black" ? 0.32 : sink.faucetFinish === "brushed-gold" ? 0.24 : 0.14,
+    roughness: sink.faucetFinish === "matte-black" ? 0.32 : sink.faucetFinish === "oil-rubbed-bronze" ? 0.27 : sink.faucetFinish === "brushed-gold" ? 0.24 : 0.14,
   });
   const backLength = Math.hypot(faucet.back.x, faucet.back.z) || 1;
   const forward = { x: -faucet.back.x / backLength, z: -faucet.back.z / backLength };

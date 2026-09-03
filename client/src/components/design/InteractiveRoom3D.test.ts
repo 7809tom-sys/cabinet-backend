@@ -3191,6 +3191,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(joints.map((joint) => joint.userData.swingJointIndex)).toEqual([1, 2]);
   });
 
+  it("keeps the selected PL-8224 oil-rubbed-bronze finish on its measured pull-out geometry", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8224-orb", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8224-fountain-pull-out-oil-rubbed-bronze",
+      faucetOverallHeight: 19.3125, faucetSpoutLength: 7.9375, faucetSpoutHeight: 10.25, faucetFinish: "oil-rubbed-bronze", faucetForm: "pull-out",
+    } as never);
+    let spout: THREE.Mesh | null = null;
+    root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8224-fountain-pull-out-oil-rubbed-bronze" && node.userData.sinkFaucetSpout) spout = node as THREE.Mesh; });
+    expect(spout?.userData.faucetFinish).toBe("oil-rubbed-bronze");
+    expect((spout?.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("4a3328");
+  });
+
   it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
     const root = new THREE.Group();
     addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);

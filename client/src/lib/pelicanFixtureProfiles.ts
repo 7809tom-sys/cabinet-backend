@@ -33,7 +33,7 @@ export type VerifiedPelicanFaucetProfile = {
   spoutLengthIn: number;
   spoutHeightIn: number;
   profile: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
-  finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
+  finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome" | "oil-rubbed-bronze";
   specificationUrl: string;
 };
 
@@ -146,6 +146,16 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     id: "pelican-pl-8206-fountain-articulated-swing-matte-black", pelicanCode: "PL-8206 MB", name: "PL-8206 Fountain Series Articulated Kitchen Faucet — Matte Black",
     installation: "single-hole", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 9.25, profile: "articulated-swing", finish: "matte-black",
     specificationUrl: "https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387",
+  },
+  "PL-8224 BN": {
+    id: "pelican-pl-8224-fountain-pull-out-brushed-nickel", pelicanCode: "PL-8224 BN", name: "PL-8224 Fountain Series Pull-Out Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 19.3125, spoutLengthIn: 7.9375, spoutHeightIn: 10.25, profile: "pull-out", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876664131724/1729881432596/PL-8224-Spec-Sheet.pdf?v=1734119408878",
+  },
+  "PL-8224 ORB": {
+    id: "pelican-pl-8224-fountain-pull-out-oil-rubbed-bronze", pelicanCode: "PL-8224 ORB", name: "PL-8224 Fountain Series Pull-Out Kitchen Faucet — Oil Rubbed Bronze",
+    installation: "single-hole", overallHeightIn: 19.3125, spoutLengthIn: 7.9375, spoutHeightIn: 10.25, profile: "pull-out", finish: "oil-rubbed-bronze",
+    specificationUrl: "https://cdn.accentuate.io/7876664131724/1729881432596/PL-8224-Spec-Sheet.pdf?v=1734119408878",
   },
 };
 

@@ -106,6 +106,11 @@ describe("verifiedPelicanSinkProfile", () => {
     }
   });
 
+  it("maps active PL-8224 finishes to Pelican’s measured tall pull-out faucet profile", () => {
+    expect(verifiedPelicanFaucetProfile("PL-8224 BN")).toMatchObject({ overallHeightIn: 19.3125, spoutLengthIn: 7.9375, spoutHeightIn: 10.25, profile: "pull-out", finish: "brushed-nickel" });
+    expect(verifiedPelicanFaucetProfile("PL-8224 ORB")).toMatchObject({ overallHeightIn: 19.3125, spoutLengthIn: 7.9375, spoutHeightIn: 10.25, profile: "pull-out", finish: "oil-rubbed-bronze" });
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);

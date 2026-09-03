@@ -5886,7 +5886,7 @@ export interface SinkFixture {
   faucetOverallHeight?: number;
   faucetSpoutLength?: number;
   faucetSpoutHeight?: number;
-  faucetFinish?: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
+  faucetFinish?: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome" | "oil-rubbed-bronze";
   faucetForm?: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
 }
 

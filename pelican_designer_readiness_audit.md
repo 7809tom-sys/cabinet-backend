@@ -132,3 +132,12 @@ Pelican’s PL-8206 specification identifies a single-hole faucet with a pull-ou
 
 22. [Pelican Int’l — PL-8206 product page](https://buildpelican.com/products/pl-8143)
 23. [Pelican Int’l — PL-8206 specification sheet](https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387)
+
+## Next Verified Faucet Candidate — PL-8224
+
+Pelican’s PL-8224 specification identifies a single-hole pull-out kitchen faucet. Its measured overall height is 19 5/16 inches, spout length is 7 15/16 inches, and spout height is 10¼ inches. The active color records can use the established exact pull-out form after their catalog codes are verified; product images remain display-only.
+
+### Sources
+
+24. [Pelican Int’l — PL-8224 product page](https://buildpelican.com/products/pl-8224)
+25. [Pelican Int’l — PL-8224 specification sheet](https://cdn.accentuate.io/7876664131724/1729881432596/PL-8224-Spec-Sheet.pdf?v=1734119408878)
