@@ -39,10 +39,59 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     minimumCabinetWidthIn: 24,
     specificationUrl: "https://cdn.accentuate.io/7876648042636/1729870572366/PL-FC2418SB.pdf?v=1729870572366",
   },
+  "PL-FC3018SB": {
+    id: "pelican-pl-fc3018sb-fireclay-farmhouse",
+    pelicanCode: "PL-FC3018SB",
+    name: "PL-FC3018SB Fireclay Farmhouse Sink",
+    installation: "apron-front-undermount",
+    sinkType: "farmhouse",
+    exteriorWidthIn: 30,
+    exteriorDepthIn: 18,
+    exteriorHeightIn: 10,
+    bowlWidthIn: 28.625,
+    bowlDepthIn: 16.625,
+    bowlHeightIn: 9.25,
+    minimumCabinetWidthIn: 30,
+    specificationUrl: "https://cdn.accentuate.io/9682969362572/1786578710369/PL-FC3018SB-Spec.pdf?v=1786578710369",
+  },
+  "PL-FC3318SB": {
+    id: "pelican-pl-fc3318sb-fireclay-farmhouse",
+    pelicanCode: "PL-FC3318SB",
+    name: "PL-FC3318SB Fireclay Farmhouse Sink",
+    installation: "apron-front-undermount",
+    sinkType: "farmhouse",
+    exteriorWidthIn: 32.625,
+    exteriorDepthIn: 18,
+    exteriorHeightIn: 10,
+    bowlWidthIn: 31.375,
+    bowlDepthIn: 16.625,
+    bowlHeightIn: 9.25,
+    minimumCabinetWidthIn: 33,
+    specificationUrl: "https://cdn.accentuate.io/8980578500748/1775068978130/PL-FC3318SB.pdf?v=1776100416378",
+  },
+  "PL-FC3321SB": {
+    id: "pelican-pl-fc3321sb-fireclay-farmhouse",
+    pelicanCode: "PL-FC3321SB",
+    name: "PL-FC3321SB Fireclay Farmhouse Sink",
+    installation: "apron-front-undermount",
+    sinkType: "farmhouse",
+    exteriorWidthIn: 33,
+    exteriorDepthIn: 20.875,
+    exteriorHeightIn: 10,
+    bowlWidthIn: 31.625,
+    bowlDepthIn: 19.75,
+    bowlHeightIn: 10,
+    minimumCabinetWidthIn: 33,
+    specificationUrl: "https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {
-  return (value ?? "").trim().toUpperCase();
+  return (value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+\(OLD\)$/, "")
+    .replace(/\s+(?:BLACK|GREY|WHITE)$/, "");
 }
 
 export function verifiedPelicanSinkProfile(code: string | null | undefined): VerifiedPelicanSinkProfile | null {

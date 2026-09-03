@@ -14,6 +14,12 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("recognizes imported Farmhouse Series color variants without treating their abbreviated size fields as authoritative", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toMatchObject({ exteriorWidthIn: 30, bowlWidthIn: 28.625 });
+    expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toMatchObject({ exteriorWidthIn: 32.625, bowlHeightIn: 9.25 });
+    expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toMatchObject({ exteriorDepthIn: 20.875, bowlDepthIn: 19.75 });
+  });
+
   it("does not treat an unverified code as a measured Designer profile", () => {
     const profile = verifiedPelicanSinkProfile("PL-FC2418SB");
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();

@@ -41,3 +41,22 @@ The first implementation may therefore use a measured, parametric fireclay-sink 
 
 1. [Pelican Int’l — PL-FC2418SB product page](https://buildpelican.com/products/pl-fc2418sb)
 2. [Pelican Int’l — PL-FC2418SB specification sheet](https://cdn.accentuate.io/7876648042636/1729870572366/PL-FC2418SB.pdf?v=1729870572366)
+
+## Additional Verified Farmhouse Profiles
+
+The following single-bowl Farmhouse Series models also have Pelican specification sheets with exterior and interior measurements. Their imported Black, Grey, White, and legacy “(old)” catalog forms resolve to the same verified base model; their truncated importer `size` text is not used for 3D geometry.
+
+| Pelican base model | Exterior dimensions | Interior/bowl dimensions | Designer host requirement |
+|---|---:|---:|---:|
+| PL-FC3018SB | 30 × 18 × 10 in | 28⅝ × 16⅝ × 9¼ in | Farmhouse sink base at least 30 in wide |
+| PL-FC3318SB | 32⅝ × 18 × 10 in | 31⅜ × 16⅝ × 9¼ in | Farmhouse sink base at least 33 in wide |
+| PL-FC3321SB | 33 × 20⅞ × 10 in | 31⅝ × 19¾ × 10 in | Farmhouse sink base at least 33 in wide |
+
+### Additional Sources
+
+3. [Pelican Int’l — PL-FC3018SB product page](https://buildpelican.com/products/pl-fc3018sb)
+4. [Pelican Int’l — PL-FC3018SB specification sheet](https://cdn.accentuate.io/9682969362572/1786578710369/PL-FC3018SB-Spec.pdf?v=1786578710369)
+5. [Pelican Int’l — PL-FC3318SB product page](https://buildpelican.com/products/pl-fc3318sb)
+6. [Pelican Int’l — PL-FC3318SB specification sheet](https://cdn.accentuate.io/8980578500748/1775068978130/PL-FC3318SB.pdf?v=1776100416378)
+7. [Pelican Int’l — PL-FC3321SB product page](https://buildpelican.com/products/pl-fc3321sb)
+8. [Pelican Int’l — PL-FC3321SB specification sheet](https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350)
