@@ -7,6 +7,7 @@ import {
   pelicanDepartmentFromSlug,
   pelicanDisplayName,
   pelicanFamilyHref,
+  pelicanPricePresentation,
   pelicanProductType,
   surfaceRole,
   PELICAN_STOREFRONT_CATEGORIES,
@@ -66,6 +67,17 @@ describe("pelican storefront helpers", () => {
 
     const descriptiveFixture = { name: "Farmhouse Reserve 33", category: "Sinks & Faucets", subCategory: "Sinks" };
     expect(pelicanDisplayName(descriptiveFixture)).toBe("Farmhouse Reserve 33");
+  });
+
+  it("keeps Pelican cost-reference pricing out of public product presentation", () => {
+    expect(pelicanPricePresentation({ sellPrice: 72.56, msrp: "101.25", isAdmin: false })).toEqual({
+      referencePrice: null,
+      savingsPercent: null,
+    });
+    expect(pelicanPricePresentation({ sellPrice: 72.56, msrp: "101.25", isAdmin: true })).toEqual({
+      referencePrice: 101.25,
+      savingsPercent: 28,
+    });
   });
 });
 

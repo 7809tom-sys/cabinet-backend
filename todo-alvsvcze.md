@@ -1432,3 +1432,5 @@
 - [x] Add presentation-only Pelican product-type and plain-language display-name helpers while retaining source names, codes, prices, slugs, descriptions, and cart identity
 - [x] Apply the approved Pelican presentation helpers to public catalog cards, product details, and guided surface-selection results without changing cabinetry UI
 - [x] Add targeted Pelican-only navigation and display-label regression coverage, then validate the published catalog routes on desktop and mobile
+- [ ] Investigate and correct the owner-reported Pelican catalog price discrepancy while preserving source costs, product identity, and all cabinetry pricing
+- [x] Hide Pelican source cost from non-admin product-detail visitors and replace the misleading public MSRP label without changing configured sell prices

@@ -300,6 +300,34 @@ export function pelicanDisplayName(input: PelicanProductPresentationInput): stri
   return sourceNameLooksLikeCode(sourceName) ? `${sourceName} — ${productType}` : sourceName;
 }
 
+export type PelicanPricePresentationInput = {
+  sellPrice?: number | null;
+  msrp?: number | string | null;
+  isAdmin: boolean;
+};
+
+/**
+ * Public product pages must present the configured sell price only. Source cost
+ * and comparison data are internal information; an administrator can still see
+ * a clearly labeled source reference without exposing it to shoppers.
+ */
+export function pelicanPricePresentation(input: PelicanPricePresentationInput): {
+  referencePrice: number | null;
+  savingsPercent: number | null;
+} {
+  if (!input.isAdmin || input.sellPrice == null || input.sellPrice <= 0) {
+    return { referencePrice: null, savingsPercent: null };
+  }
+  const candidate = input.msrp == null ? null : Number(input.msrp);
+  if (candidate == null || !Number.isFinite(candidate) || candidate <= input.sellPrice) {
+    return { referencePrice: null, savingsPercent: null };
+  }
+  return {
+    referencePrice: candidate,
+    savingsPercent: Math.round(((candidate - input.sellPrice) / candidate) * 100),
+  };
+}
+
 // ─── Surface roles ────────────────────────────────────────────────────────────
 // Maps a chosen Surfaces & Fixtures product to the functional role it plays in a
 // kitchen design. This is the SINGLE source of truth for "what does this product

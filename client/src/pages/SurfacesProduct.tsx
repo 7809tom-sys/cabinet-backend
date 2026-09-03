@@ -12,6 +12,7 @@ import {
   formatPrice,
   pelicanCategoryLabel,
   pelicanDisplayName,
+  pelicanPricePresentation,
   pelicanProductType,
 } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
@@ -96,21 +97,18 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const gradient = CATEGORY_GRADIENT[data.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const preferred = isPreferred(data.id);
 
-  // Pricing breakdown logic
+  // The configured sell price is the only public price. Internal cost and the
+  // imported comparison value are kept in the administrator-only view.
   const sellPrice = data.sellPrice;
-  const msrp = data.msrp ? Number(data.msrp) : null;
-  const listPrice = data.listPrice ? Number(data.listPrice) : null;
-  // Use MSRP as the "compare at" reference; fall back to listPrice if MSRP is missing
-  const compareAt = msrp && msrp > (sellPrice ?? 0) ? msrp : listPrice && listPrice > (sellPrice ?? 0) ? listPrice : null;
-  const savePct = compareAt && sellPrice && compareAt > sellPrice
-    ? Math.round(((compareAt - sellPrice) / compareAt) * 100)
-    : null;
-
-  // Cost breakdown - show our cost (yourCost or listPrice as fallback)
   const isOwner = user?.role === "admin";
+  const { referencePrice, savingsPercent } = pelicanPricePresentation({
+    sellPrice,
+    msrp: data.msrp,
+    isAdmin: isOwner,
+  });
+  // Cost breakdown - show our cost (yourCost or listPrice as fallback) only to admins.
   const ourCost = data.yourCost ? Number(data.yourCost) : (data.listPrice ? Number(data.listPrice) : null);
-  const yourCost = ourCost;
-  const marginDollars = isOwner && yourCost != null && sellPrice != null ? Math.round((sellPrice - yourCost) * 100) / 100 : null;
+  const marginDollars = isOwner && ourCost != null && sellPrice != null ? Math.round((sellPrice - ourCost) * 100) / 100 : null;
   const marginPct = marginDollars != null && sellPrice != null && sellPrice > 0
     ? Math.round((marginDollars / sellPrice) * 1000) / 10
     : null;
@@ -165,52 +163,15 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
               <div className="text-3xl font-bold text-[var(--color-navy)] dark:text-foreground">
                 {formatPrice(sellPrice)}
               </div>
-              {compareAt != null && (
+              {referencePrice != null && (
                 <div className="text-base text-muted-foreground line-through">
-                  ${compareAt.toFixed(2)}
+                  ${referencePrice.toFixed(2)}
                 </div>
               )}
-              {savePct != null && savePct > 0 && (
+              {savingsPercent != null && savingsPercent > 0 && (
                 <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-                  Save {savePct}%
+                  Save {savingsPercent}%
                 </Badge>
-              )}
-            </div>
-            {/* Price detail rows */}
-            <div className="mt-3 space-y-1.5 text-sm">
-              {yourCost != null && (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" /> Our Cost
-                  </span>
-                  <span className="font-medium">${yourCost.toFixed(2)}</span>
-                </div>
-              )}
-              {compareAt != null && (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5" /> MSRP (3× Cost)
-                  </span>
-                  <span className="font-medium line-through">${compareAt.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <TrendingDown className="h-3.5 w-3.5" /> Your Price
-                </span>
-                <span className="font-semibold text-foreground">
-                  {sellPrice != null ? `$${sellPrice.toFixed(2)}` : "\u2014"}
-                </span>
-              </div>
-              {savePct != null && savePct > 0 && (
-                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
-                  <span className="flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" /> You Save vs MSRP
-                  </span>
-                  <span className="font-semibold">
-                    ${(compareAt! - sellPrice!).toFixed(2)} ({savePct}%)
-                  </span>
-                </div>
               )}
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
@@ -218,7 +179,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
             </div>
 
             {/* Owner-only cost breakdown */}
-            {isOwner && yourCost != null && (
+            {isOwner && ourCost != null && (
               <div className="mt-3 pt-3 border-t border-dashed border-amber-500/60 rounded-md bg-amber-500/5 px-3 py-2">
                 <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1">
                   <span>Owner view · not shown to customers</span>
@@ -226,7 +187,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div>
                     <div className="text-xs text-muted-foreground">My Cost</div>
-                    <div className="font-semibold text-foreground">${yourCost.toFixed(2)}</div>
+                    <div className="font-semibold text-foreground">${ourCost.toFixed(2)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground">Sells At</div>
@@ -243,6 +204,11 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
                     </div>
                   </div>
                 </div>
+                {referencePrice != null && (
+                  <div className="mt-2 border-t border-amber-500/20 pt-2 text-xs text-muted-foreground">
+                    Source reference price: ${referencePrice.toFixed(2)} · internal comparison only
+                  </div>
+                )}
               </div>
             )}
           </div>
