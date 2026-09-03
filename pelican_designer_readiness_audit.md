@@ -177,3 +177,12 @@ Pelican’s PL-8217 specification identifies a single-hole pull-down faucet with
 
 32. [Pelican Int’l — PL-8217 product page](https://buildpelican.com/products/pl-8217)
 33. [Pelican Int’l — PL-8217 specification sheet](https://cdn.accentuate.io/7876662952076/1729881335594/PL-8217-Spec-Sheet.pdf?v=1734119313031)
+
+## Next Verified Faucet Candidate — PL-8218
+
+Pelican’s PL-8218 specification identifies a single-hole pull-down faucet with a pull-out sprayer. Its measured overall height is 17 11/16 inches, spout length is 9⅜ inches, and spout height is 8⅜ inches. Active Brushed Nickel, Chrome, and Matte Black variants are candidates for the established exact pull-down form after catalog-code verification; product images remain display-only.
+
+### Sources
+
+34. [Pelican Int’l — PL-8218 product page](https://buildpelican.com/products/pl-8218)
+35. [Pelican Int’l — PL-8218 specification sheet](https://cdn.accentuate.io/7876663017612/1729881362501/PL-8218-Spec-Sheet.pdf?v=1734119334413)

@@ -133,6 +133,12 @@ describe("verifiedPelicanSinkProfile", () => {
     }
   });
 
+  it("maps every active PL-8218 finish to Pelican’s measured pull-down profile", () => {
+    for (const [code, finish] of [["PL-8218 BN", "brushed-nickel"], ["PL-8218 CHR", "chrome"], ["PL-8218 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanFaucetProfile(code)).toMatchObject({ overallHeightIn: 17.6875, spoutLengthIn: 9.375, spoutHeightIn: 8.375, profile: "pull-down", finish });
+    }
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);
