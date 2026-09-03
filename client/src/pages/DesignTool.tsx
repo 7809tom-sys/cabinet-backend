@@ -57,6 +57,7 @@ import {
   type PhysicalRoomMeasurement,
 } from "@/lib/physicalRoomMeasurement";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
+import { buildPreSavePlanReview, type PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
@@ -2591,6 +2592,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return set;
   }, [placed, room, island, openings, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
+  const preSavePlanReview = useMemo(
+    () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
+    [catalogFillers, conflictUids, island, openings, placed, room],
+  );
+  const reviewPreSavePlanFinding = useCallback((finding: PreSavePlanReviewFinding) => {
+    if (finding.action.kind === "filler") {
+      setSmallGapFillerPrompt(finding.action.opportunity);
+      return;
+    }
+    if (finding.action.kind === "refrigerator") {
+      setFridgeDialog({ fridgeUid: finding.action.refrigeratorUid });
+      return;
+    }
+    setSelectedUid(finding.action.cabinetUid);
+    setSelectedOpeningUid(null);
+    setPlacementWarning("Review this placement or clearance item before saving.");
+  }, []);
   const cornerBaseViolationUids = useMemo(
     () => missingCornerBaseViolations(placed, room, island, openings),
     [placed, room, island, openings]
@@ -8095,6 +8113,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            brandName={affiliateBrand?.storeName}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
+	            preSavePlanReview={preSavePlanReview}
+	            onReviewPlanFinding={reviewPreSavePlanFinding}
 	            onSaveSuccess={(designName, designId) => {
 	              setActiveSavedDesignId(designId);
 	              if (isMobile) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler } from "lucide-react";
+import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler, ClipboardCheck, Lightbulb, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PlacedFurniture, PonyWall } from "@/lib/design";
 import { roomWithPersistedEntities } from "@/lib/design";
+import type { PreSavePlanReview, PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DesignActions
@@ -99,6 +100,10 @@ interface Props {
   // Save / My Plans dialogs without the parent needing access to internal state.
   openSaveSignal?: number;
   openLoadSignal?: number;
+  /** Measured, non-destructive recommendations reviewed before the save dialog opens. */
+  preSavePlanReview?: PreSavePlanReview;
+  /** Opens an existing safe editing workflow; it never changes the plan itself. */
+  onReviewPlanFinding?: (finding: PreSavePlanReviewFinding) => void;
   /** Called after a design is successfully saved (after the user confirms in the dialog). */
   onSaveSuccess?: (designName: string, designId: number) => void;
   onLoad: (d: {
@@ -351,12 +356,14 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const utils = trpc.useUtils();
   const [saveOpen, setSaveOpen] = useState(false);
+  const [planCheckOpen, setPlanCheckOpen] = useState(false);
+  const [dismissedPlanFindingIds, setDismissedPlanFindingIds] = useState<string[]>([]);
   const [loadOpen, setLoadOpen] = useState(false);
   const [name, setName] = useState("");
   // Customer/House this plan is for (the CRM contact + grouping key). A homeowner
@@ -366,7 +373,11 @@ export function DesignActions({
   const [projectName, setProjectName] = useState("");
   const [roomLabel, setRoomLabel] = useState("");
   // Open the Save / My Plans dialogs when a parent bumps the signal (mobile menu).
-  useEffect(() => { if (openSaveSignal) setSaveOpen(true); }, [openSaveSignal]);
+  useEffect(() => {
+    if (!openSaveSignal) return;
+    setDismissedPlanFindingIds([]);
+    setPlanCheckOpen(true);
+  }, [openSaveSignal]);
   useEffect(() => { if (openLoadSignal) setLoadOpen(true); }, [openLoadSignal]);
   // When checked, after saving we create a CRM deal for the design's owner.
   const [requestQuote, setRequestQuote] = useState(false);
@@ -442,11 +453,57 @@ export function DesignActions({
   const handleExport = () =>
     exportBuildSheet({ room, styleName, tier, total, buildRows, extraLines, brandName });
 
+  const activePlanFindings = (preSavePlanReview?.findings ?? []).filter((finding) => !dismissedPlanFindingIds.includes(finding.id));
+  const openSaveAfterPlanCheck = () => {
+    setPlanCheckOpen(false);
+    setSaveOpen(true);
+  };
+
   return (
     <>
       <Button variant="outline" size="icon" className="h-9 w-9" title={t("dt_act_my_designs_btn")} onClick={() => setLoadOpen(true)}>
         <FolderOpen className="h-4 w-4" />
       </Button>
+
+      <Dialog open={planCheckOpen} onOpenChange={setPlanCheckOpen}>
+        <DialogContent className="max-w-lg max-h-[82svh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-[#a87f33]" />Plan check before saving</DialogTitle>
+            <DialogDescription>
+              Review measured suggestions and any open placement checks. Nothing changes until you choose an action.
+            </DialogDescription>
+          </DialogHeader>
+          {activePlanFindings.length === 0 ? (
+            <div data-testid="pre-save-plan-check-clear" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
+              <p className="font-semibold">Plan checks complete</p>
+              <p className="mt-1 text-xs">No remaining measured filler, refrigerator-upper, or placement items need review right now.</p>
+            </div>
+          ) : (
+            <div data-testid="pre-save-plan-check-findings" className="space-y-2">
+              {activePlanFindings.map((finding) => {
+                const Icon = finding.severity === "attention" ? TriangleAlert : Lightbulb;
+                return <div key={finding.id} className={`rounded-md border px-3 py-2.5 ${finding.severity === "attention" ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"}`}>
+                  <div className="flex gap-2">
+                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${finding.severity === "attention" ? "text-amber-700" : "text-[#a87f33]"}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">{finding.title}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{finding.description}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" className="h-8" onClick={() => { setPlanCheckOpen(false); onReviewPlanFinding?.(finding); }}>{finding.actionLabel}</Button>
+                        <Button size="sm" variant="ghost" className="h-8" onClick={() => setDismissedPlanFindingIds((ids) => [...ids, finding.id])}>Skip for now</Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>;
+              })}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setPlanCheckOpen(false)}>Keep designing</Button>
+            <Button onClick={openSaveAfterPlanCheck}><Save className="mr-1.5 h-4 w-4" />{activePlanFindings.length > 0 ? "Save without changes" : "Continue to save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
