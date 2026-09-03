@@ -5099,7 +5099,23 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
   root.add(base);
-  const curve = faucetForm === "pull-out"
+  const articulatedJointPoints = faucetForm === "articulated-swing"
+    ? [
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + overallHeight * 0.7, faucet.z + forward.z * reach * 0.24),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.68, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.68),
+    ]
+    : [];
+  const curve = faucetForm === "articulated-swing"
+    ? (() => {
+      const basePoint = new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z);
+      const outlet = new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
+      const path = new THREE.CurvePath<THREE.Vector3>();
+      path.add(new THREE.LineCurve3(basePoint, articulatedJointPoints[0]!));
+      path.add(new THREE.LineCurve3(articulatedJointPoints[0]!, articulatedJointPoints[1]!));
+      path.add(new THREE.LineCurve3(articulatedJointPoints[1]!, outlet));
+      return path;
+    })()
+    : faucetForm === "pull-out"
     ? (() => {
       const basePoint = new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z);
       const apex = new THREE.Vector3(faucet.x + forward.x * reach * 0.22, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.22);
@@ -5127,6 +5143,14 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, faucetForm === "standard-arc" ? 0.027 : 0.032, 10, false), faucetMaterial);
   spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish, faucetForm };
   root.add(spout);
+  if (faucetForm === "articulated-swing") {
+    articulatedJointPoints.forEach((position, index) => {
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.052, 16, 12), faucetMaterial);
+      joint.position.copy(position);
+      joint.userData = { sinkFaucetSwingJoint: true, fixtureDetail: true, swingJointIndex: index + 1, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
+      root.add(joint);
+    });
+  }
   if (faucetForm !== "standard-arc") {
     const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, faucetForm === "pull-out" ? 0.17 : 0.23, 16), faucetMaterial);
     sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);

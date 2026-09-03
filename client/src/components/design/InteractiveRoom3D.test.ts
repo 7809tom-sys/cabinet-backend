@@ -3178,6 +3178,19 @@ describe("interactive 3D room scene helpers", () => {
     expect((bounds.max.y - sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 18 } as never).countertopTop) * 12).toBeCloseTo(9.5625, 0);
   });
 
+  it("renders PL-8206 with its documented pair of articulated swing joints", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8206-mb", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8206-fountain-articulated-swing-matte-black",
+      faucetOverallHeight: 10.5, faucetSpoutLength: 9.75, faucetSpoutHeight: 9.25, faucetFinish: "matte-black", faucetForm: "articulated-swing",
+    } as never);
+    const joints: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.sinkFaucetSwingJoint) joints.push(node); });
+    expect(joints).toHaveLength(2);
+    expect(joints.map((joint) => joint.userData.swingJointIndex)).toEqual([1, 2]);
+  });
+
   it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
     const root = new THREE.Group();
     addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);

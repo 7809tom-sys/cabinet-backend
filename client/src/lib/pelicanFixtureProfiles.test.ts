@@ -94,6 +94,18 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps every active PL-8206 finish to Pelican’s articulated dual-swing-joint faucet profile", () => {
+    for (const [code, finish] of [["PL-8206 BN", "brushed-nickel"], ["PL-8206 CHR", "chrome"], ["PL-8206 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanFaucetProfile(code)).toMatchObject({
+        overallHeightIn: 10.5,
+        spoutLengthIn: 9.75,
+        spoutHeightIn: 9.25,
+        profile: "articulated-swing",
+        finish,
+      });
+    }
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);

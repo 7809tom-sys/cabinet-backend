@@ -123,3 +123,12 @@ Pelican’s PL-8222 specification identifies a single-hole, Brushed Nickel pull-
 
 20. [Pelican Int’l — PL-8222 product page](https://buildpelican.com/products/pl-8222)
 21. [Pelican Int’l — PL-8222 specification sheet](https://cdn.accentuate.io/7876663148684/1729881399900/PL-8222-Spec-Sheet.pdf?v=1734119372824)
+
+## Next Verified Faucet Candidate — PL-8206
+
+Pelican’s PL-8206 specification identifies a single-hole faucet with a pull-out sprayer and **dual swing joints that rotate 360 degrees**. Its measured overall height is 10½ inches, spout length is 9¾ inches, and spout height is 9¼ inches. Active Brushed Nickel, Chrome, and Matte Black variants are candidates for a distinct articulated-swing parametric form; product images remain display-only.
+
+### Sources
+
+22. [Pelican Int’l — PL-8206 product page](https://buildpelican.com/products/pl-8143)
+23. [Pelican Int’l — PL-8206 specification sheet](https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387)

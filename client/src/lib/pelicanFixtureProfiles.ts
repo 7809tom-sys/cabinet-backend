@@ -32,7 +32,7 @@ export type VerifiedPelicanFaucetProfile = {
   overallHeightIn: number;
   spoutLengthIn: number;
   spoutHeightIn: number;
-  profile: "pull-down" | "standard-arc" | "pull-out";
+  profile: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
   finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
   specificationUrl: string;
 };
@@ -131,6 +131,21 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     id: "pelican-pl-8222-fountain-pull-out-brushed-nickel", pelicanCode: "PL-8222 BN", name: "PL-8222 Fountain Series Pull-Out Kitchen Faucet — Brushed Nickel",
     installation: "single-hole", overallHeightIn: 9.5625, spoutLengthIn: 8.375, spoutHeightIn: 5.8125, profile: "pull-out", finish: "brushed-nickel",
     specificationUrl: "https://cdn.accentuate.io/7876663148684/1729881399900/PL-8222-Spec-Sheet.pdf?v=1734119372824",
+  },
+  "PL-8206 BN": {
+    id: "pelican-pl-8206-fountain-articulated-swing-brushed-nickel", pelicanCode: "PL-8206 BN", name: "PL-8206 Fountain Series Articulated Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 9.25, profile: "articulated-swing", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387",
+  },
+  "PL-8206 CHR": {
+    id: "pelican-pl-8206-fountain-articulated-swing-chrome", pelicanCode: "PL-8206 CHR", name: "PL-8206 Fountain Series Articulated Kitchen Faucet — Chrome",
+    installation: "single-hole", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 9.25, profile: "articulated-swing", finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387",
+  },
+  "PL-8206 MB": {
+    id: "pelican-pl-8206-fountain-articulated-swing-matte-black", pelicanCode: "PL-8206 MB", name: "PL-8206 Fountain Series Articulated Kitchen Faucet — Matte Black",
+    installation: "single-hole", overallHeightIn: 10.5, spoutLengthIn: 9.75, spoutHeightIn: 9.25, profile: "articulated-swing", finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387",
   },
 };
 
