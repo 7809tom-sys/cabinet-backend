@@ -1456,3 +1456,4 @@
 - [x] Add the source-verified PL-8231 Fountain Series pull-out faucet profiles and preserve their documented form, dimensions, and selected finish in the 3D Designer
 - [x] Identify and source-verify the next active Pelican kitchen fixture family for exact 3D palette expansion after PL-8231
 - [x] Add the source-verified PL-HA128 R15 double-bowl farmhouse sink with both measured bowls, countertop seating, visible apron, and farmhouse-base fit validation
+- [x] Restore a clearly reachable mobile Down control for selected wall cabinets so they can be lowered over a refrigerator without hiding the drawing
