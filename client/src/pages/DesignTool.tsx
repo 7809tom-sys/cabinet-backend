@@ -93,7 +93,7 @@ import {
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
 		  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
-	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange,
+		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -502,6 +502,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
+  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
+    cabinet: DesignCabinet;
+    forceAccessory: boolean;
+    side: WallSide;
+    spot: { x: number; y: number; rotation: number };
+    availableLength: number;
+  } | null>(null);
   const [materialsListOpen, setMaterialsListOpen] = useState(false);
 
   // Last line of defense for legacy designs and any future placement path that
@@ -2905,9 +2912,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
-      if (isAddingRef.current) return;
-      isAddingRef.current = true;
-      setTimeout(() => { isAddingRef.current = false; }, 500);
+	      if (isAddingRef.current) return;
+	      isAddingRef.current = true;
+	      setTimeout(() => { isAddingRef.current = false; }, 500);
+	      if (!(strictDropTarget && x != null && y != null)) setAlternateWallRecommendation(null);
       // Placeable accessories (decorative/end panels, skins, appliance garages)
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
@@ -3051,6 +3059,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             }),
 	          );
 	          if (!nextSpot) {
+	            const alternate = alternateWallPlacementRecommendation(
+	              activeWall,
+	              room,
+	              prev,
+	              openings,
+	              width,
+	              depth,
+	              accPlacement,
+	              accPlacement === "wall" && !isRefrigeratorWallCabinet({
+	                masterCode: c.masterCode,
+	                description: c.description,
+	                placement: accPlacement,
+	              }),
+	            );
+	            if (alternate) {
+	              setAlternateWallRecommendation({
+	                cabinet: c,
+	                forceAccessory,
+	                side: alternate.side,
+	                spot: alternate.spot,
+	                availableLength: alternate.availableLength,
+	              });
+	              const message = `${c.masterCode} does not fit on the selected ${WALL_LABELS[activeWall]} wall. A clear ${formatInches(alternate.availableLength)} opening is available on the ${WALL_LABELS[alternate.side]} wall.`;
+	              setPlacementWarning(message);
+	              toast.info(message);
+	              return;
+	            }
 	            const runName = accPlacement === "wall" ? "wall-cabinet" : "base-cabinet";
 	            const currentUpperHeight = prev
 	              .filter((item) => item.placement === "wall" && cabinetWall(item, room) === activeWall)
@@ -3428,7 +3463,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
     },
 	    [room, activeWall, openings, island, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
-  );
+	  );
+	  const placeOnRecommendedWall = useCallback(() => {
+	    const recommendation = alternateWallRecommendation;
+	    if (!recommendation) return;
+	    isAddingRef.current = false;
+	    setAlternateWallRecommendation(null);
+	    setActiveWall(recommendation.side);
+	    addCabinet(
+	      recommendation.cabinet,
+	      recommendation.spot.x,
+	      recommendation.spot.y,
+	      recommendation.forceAccessory,
+	      recommendation.spot.rotation,
+	      true,
+	      null,
+	      null,
+	    );
+	  }, [addCabinet, alternateWallRecommendation]);
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
   // makeFiller spec as the auto-fill engine so it carries a code + width and
@@ -11357,8 +11409,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </Sheet>
       )}
 
-      <Dialog
-        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}
+	      <Dialog open={!!alternateWallRecommendation} onOpenChange={(open) => { if (!open) setAlternateWallRecommendation(null); }}>
+	        <DialogContent className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle>Clear cabinet opening found</DialogTitle>
+	            <DialogDescription>
+	              The selected wall does not have a clear opening large enough for this cabinet. The design has not changed.
+	            </DialogDescription>
+	          </DialogHeader>
+	          {alternateWallRecommendation && (
+	            <div data-testid="alternate-wall-placement-recommendation" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
+	              <p className="font-semibold">{alternateWallRecommendation.cabinet.masterCode} fits on the {WALL_LABELS[alternateWallRecommendation.side]} wall</p>
+	              <p className="mt-1 text-xs leading-relaxed">Place it in the measured {formatInches(alternateWallRecommendation.availableLength)} opening with zero overlap, or keep choosing a different cabinet.</p>
+	            </div>
+	          )}
+	          <DialogFooter className="gap-2 sm:gap-0">
+	            <Button variant="outline" onClick={() => setAlternateWallRecommendation(null)}>Keep current wall</Button>
+	            <Button onClick={placeOnRecommendedWall}>Place on {alternateWallRecommendation ? WALL_LABELS[alternateWallRecommendation.side] : "recommended"} wall</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
+
+	      <Dialog
+	        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}
         onOpenChange={(open) => { if (!open) setSmallGapFillerPrompt(null); }}
       >
         <DialogContent className="max-w-lg">

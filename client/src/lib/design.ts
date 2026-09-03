@@ -5017,6 +5017,64 @@ export function paletteActiveWallPlacement(
   return null;
 }
 
+export type AlternateWallPlacementRecommendation = {
+  side: WallSide;
+  spot: { x: number; y: number; rotation: number };
+  availableLength: number;
+};
+
+/**
+ * When the active wall is full, find the most economical clear opening on a
+ * different room wall. It reuses the authoritative layer, opening-clearance,
+ * full-height-appliance, and exact wall-placement rules; it does not move any
+ * existing cabinet or create a candidate that overlaps the plan.
+ */
+export function alternateWallPlacementRecommendation(
+  activeWall: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  width: number,
+  depth: number,
+  placement: Placement,
+  reserveFullHeightAppliances = false,
+): AlternateWallPlacementRecommendation | null {
+  const orderedWalls: WallSide[] = ["top", "bottom", "left", "right"];
+  const options = orderedWalls.flatMap((side, order) => {
+    if (side === activeWall) return [];
+    const spot = paletteActiveWallPlacement(
+      side,
+      room,
+      placed,
+      openings,
+      width,
+      depth,
+      placement,
+      reserveFullHeightAppliances,
+    );
+    if (!spot) return [];
+    const availableLength = freeSegmentsOnWall(
+      side,
+      room,
+      placed,
+      openings,
+      Math.min(width, 9),
+      placement === "wall" ? WALL_OPENING_CLEARANCE_IN : 0,
+      placement,
+      reserveFullHeightAppliances,
+    ).find((segment) => segment.length + 0.001 >= width)?.length;
+    if (availableLength == null) return [];
+    return [{ side, spot, availableLength, order }];
+  });
+  options.sort((left, right) => {
+    const leftRemainder = left.availableLength - width;
+    const rightRemainder = right.availableLength - width;
+    return leftRemainder - rightRemainder || left.order - right.order;
+  });
+  const best = options[0];
+  return best ? { side: best.side, spot: best.spot, availableLength: best.availableLength } : null;
+}
+
 /**
  * Resolves a floor/tall cabinet into an open run immediately beside an existing
  * refrigerator enclosure.  Refrigerator end panels extend the protected bay,

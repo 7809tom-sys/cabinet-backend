@@ -1457,9 +1457,9 @@
 - [x] Identify and source-verify the next active Pelican kitchen fixture family for exact 3D palette expansion after PL-8231
 - [x] Add the source-verified PL-HA128 R15 double-bowl farmhouse sink with both measured bowls, countertop seating, visible apron, and farmhouse-base fit validation
 - [x] Restore a clearly reachable mobile Down control for selected wall cabinets so they can be lowered over a refrigerator without hiding the drawing
-- [ ] Fix selected-wall catalog placement so it searches every clear opening on that wall and only rejects a cabinet when none can fit with zero overlap
-- [ ] When the selected wall cannot fit a cabinet, recommend a measured zero-overlap opening on another wall and offer a direct placement action
-- [ ] Validate the universal alternate-wall recommendation on mobile with selected-wall failure and successful cross-wall placement cases
+- [x] Fix selected-wall catalog placement so it searches every clear opening on that wall and only rejects a cabinet when none can fit with zero overlap
+- [x] When the selected wall cannot fit a cabinet, recommend a measured zero-overlap opening on another wall and offer a direct placement action
+- [x] Validate the universal alternate-wall recommendation on mobile with selected-wall failure and successful cross-wall placement cases
 - [x] Add a pre-save plan check that presents safe filler opportunities, required fillers, cabinet recommendations, and unresolved clearance issues for review before saving
 - [x] Allow shoppers to accept or skip each pre-save recommendation without changing the existing design until an explicit action is chosen
 - [x] Validate the pre-save plan check on mobile and publish it only after filler, clearance, and recommendation actions are tested
