@@ -186,3 +186,12 @@ Pelican’s PL-8218 specification identifies a single-hole pull-down faucet with
 
 34. [Pelican Int’l — PL-8218 product page](https://buildpelican.com/products/pl-8218)
 35. [Pelican Int’l — PL-8218 specification sheet](https://cdn.accentuate.io/7876663017612/1729881362501/PL-8218-Spec-Sheet.pdf?v=1734119334413)
+
+## Next Verified Faucet Candidate — PL-8231
+
+Pelican’s official documentation identifies PL-8231 Fountain Series as a single-hole **pull-out** kitchen faucet. Its nominal measurements are a 15¾-inch overall height, 9⅜-inch spout length, and 6½-inch spout height. The active imported variants are Brushed Gold, Brushed Nickel, Chrome, and Matte Black. These variants can share this measured geometry while retaining the selected finish; catalog photography remains display-only.
+
+### Sources
+
+36. [Pelican Int’l — PL-8231 product page](https://buildpelican.com/products/pl-8231)
+37. [Pelican Int’l — PL-8231 specification sheet](https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030)

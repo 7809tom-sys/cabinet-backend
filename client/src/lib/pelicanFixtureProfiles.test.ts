@@ -139,6 +139,12 @@ describe("verifiedPelicanSinkProfile", () => {
     }
   });
 
+  it("maps every active PL-8231 finish to Pelican’s measured Fountain pull-out profile", () => {
+    for (const [code, finish] of [["PL-8231 BG", "brushed-gold"], ["PL-8231 BN", "brushed-nickel"], ["PL-8231 CHR", "chrome"], ["PL-8231 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanFaucetProfile(code)).toMatchObject({ overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish });
+    }
+  });
+
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
     expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);

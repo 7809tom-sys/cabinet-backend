@@ -222,6 +222,26 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 17.6875, spoutLengthIn: 9.375, spoutHeightIn: 8.375, profile: "pull-down", finish: "matte-black",
     specificationUrl: "https://cdn.accentuate.io/7876663017612/1729881362501/PL-8218-Spec-Sheet.pdf?v=1734119334413",
   },
+  "PL-8231 BG": {
+    id: "pelican-pl-8231-fountain-pull-out-brushed-gold", pelicanCode: "PL-8231 BG", name: "PL-8231 Fountain Series Pull-Out Kitchen Faucet — Brushed Gold",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish: "brushed-gold",
+    specificationUrl: "https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030",
+  },
+  "PL-8231 BN": {
+    id: "pelican-pl-8231-fountain-pull-out-brushed-nickel", pelicanCode: "PL-8231 BN", name: "PL-8231 Fountain Series Pull-Out Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030",
+  },
+  "PL-8231 CHR": {
+    id: "pelican-pl-8231-fountain-pull-out-chrome", pelicanCode: "PL-8231 CHR", name: "PL-8231 Fountain Series Pull-Out Kitchen Faucet — Chrome",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030",
+  },
+  "PL-8231 MB": {
+    id: "pelican-pl-8231-fountain-pull-out-matte-black", pelicanCode: "PL-8231 MB", name: "PL-8231 Fountain Series Pull-Out Kitchen Faucet — Matte Black",
+    installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {

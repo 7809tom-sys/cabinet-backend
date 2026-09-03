@@ -3178,6 +3178,21 @@ describe("interactive 3D room scene helpers", () => {
     expect((bounds.max.y - sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 18 } as never).countertopTop) * 12).toBeCloseTo(9.5625, 0);
   });
 
+  it("uses the PL-8231 measured pull-out geometry and selected matte-black finish", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8231-mb", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8231-fountain-pull-out-matte-black",
+      faucetOverallHeight: 15.75, faucetSpoutLength: 9.375, faucetSpoutHeight: 6.5, faucetFinish: "matte-black", faucetForm: "pull-out",
+    } as never);
+    let spout: THREE.Object3D | null = null;
+    root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8231-fountain-pull-out-matte-black" && node.userData.sinkFaucetSpout) spout = node; });
+    expect(spout?.userData.faucetForm).toBe("pull-out");
+    expect(spout?.userData.faucetFinish).toBe("matte-black");
+    const bounds = new THREE.Box3().setFromObject(spout!);
+    expect((bounds.max.y - sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 18 } as never).countertopTop) * 12).toBeCloseTo(15.75, 0);
+  });
+
   it("renders PL-8206 with its documented pair of articulated swing joints", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

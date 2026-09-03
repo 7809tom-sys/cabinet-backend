@@ -1452,3 +1452,5 @@
 - [x] Suggest a compatible wall cabinet above an installed refrigerator while preserving refrigerator enclosure and clearance rules
 - [x] Validate refrigerator-area placement, filler behavior, and upper-cabinet guidance on mobile before publishing
 - [x] Reproduce and fix the refrigerator-adjacent opening rule when it fails to activate in an existing saved layout, then republish the verified repair
+- [x] Identify and source-verify the next active Pelican kitchen fixture family for exact Designer palette expansion, preserving the verified-only gate
+- [x] Add the source-verified PL-8231 Fountain Series pull-out faucet profiles and preserve their documented form, dimensions, and selected finish in the 3D Designer
