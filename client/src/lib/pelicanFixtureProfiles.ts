@@ -157,6 +157,16 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 19.3125, spoutLengthIn: 7.9375, spoutHeightIn: 10.25, profile: "pull-out", finish: "oil-rubbed-bronze",
     specificationUrl: "https://cdn.accentuate.io/7876664131724/1729881432596/PL-8224-Spec-Sheet.pdf?v=1734119408878",
   },
+  "PL-8210 BN": {
+    id: "pelican-pl-8210-fountain-commercial-pull-down-brushed-nickel", pelicanCode: "PL-8210 BN", name: "PL-8210 Fountain Series Commercial Pull-Down Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 22.5, spoutLengthIn: 9.75, spoutHeightIn: 7.75, profile: "pull-down", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876662493324/1729881249111/PL-8210-Spec-Sheet.pdf?v=1734119224340",
+  },
+  "PL-8210 MB": {
+    id: "pelican-pl-8210-fountain-commercial-pull-down-matte-black", pelicanCode: "PL-8210 MB", name: "PL-8210 Fountain Series Commercial Pull-Down Kitchen Faucet — Matte Black",
+    installation: "single-hole", overallHeightIn: 22.5, spoutLengthIn: 9.75, spoutHeightIn: 7.75, profile: "pull-down", finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/7876662493324/1729881249111/PL-8210-Spec-Sheet.pdf?v=1734119224340",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {

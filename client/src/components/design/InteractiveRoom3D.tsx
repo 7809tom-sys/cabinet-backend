@@ -5097,6 +5097,8 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const reach = Math.max(0.1, sink.faucetSpoutLength * INCH);
   const outletHeight = Math.max(0.08, sink.faucetSpoutHeight * INCH);
   const faucetForm = sink.faucetForm;
+  const tubeRadius = faucetForm === "standard-arc" ? 0.027 : 0.032;
+  const measuredApexHeight = Math.max(0.25, overallHeight - tubeRadius);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
@@ -5104,7 +5106,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const articulatedJointPoints = faucetForm === "articulated-swing"
     ? [
       new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + overallHeight * 0.7, faucet.z + forward.z * reach * 0.24),
-      new THREE.Vector3(faucet.x + forward.x * reach * 0.68, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.68),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.68, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.68),
     ]
     : [];
   const curve = faucetForm === "articulated-swing"
@@ -5120,29 +5122,33 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     : faucetForm === "pull-out"
     ? (() => {
       const basePoint = new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z);
-      const apex = new THREE.Vector3(faucet.x + forward.x * reach * 0.22, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.22);
+      const apex = new THREE.Vector3(faucet.x + forward.x * reach * 0.22, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.22);
       const outlet = new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
       const path = new THREE.CurvePath<THREE.Vector3>();
       path.add(new THREE.LineCurve3(basePoint, apex));
-      path.add(new THREE.QuadraticBezierCurve3(apex, new THREE.Vector3(faucet.x + forward.x * reach * 0.75, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.75), outlet));
+      path.add(new THREE.QuadraticBezierCurve3(apex, new THREE.Vector3(faucet.x + forward.x * reach * 0.75, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.75), outlet));
       return path;
     })()
     : faucetForm === "standard-arc"
-      ? new THREE.CatmullRomCurve3([
-      new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
-      new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
-      new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.24),
-      new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * 0.88, faucet.z + forward.z * reach * 0.7),
-      new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach),
-    ])
-      : new THREE.CatmullRomCurve3([
-      new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
-      new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
-      new THREE.Vector3(faucet.x + forward.x * reach * 0.08, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.08),
-      new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * 0.88, faucet.z + forward.z * reach * 0.7),
-      new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach),
-    ]);
-  const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, faucetForm === "standard-arc" ? 0.027 : 0.032, 10, false), faucetMaterial);
+      ? (() => {
+        const basePoint = new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z);
+        const apex = new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.24);
+        const outlet = new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
+        const path = new THREE.CurvePath<THREE.Vector3>();
+        path.add(new THREE.QuadraticBezierCurve3(basePoint, new THREE.Vector3(faucet.x, countertopTop + measuredApexHeight * 0.72, faucet.z), apex));
+        path.add(new THREE.QuadraticBezierCurve3(apex, new THREE.Vector3(faucet.x + forward.x * reach * 0.72, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.72), outlet));
+        return path;
+      })()
+      : (() => {
+        const basePoint = new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z);
+        const apex = new THREE.Vector3(faucet.x + forward.x * reach * 0.08, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.08);
+        const outlet = new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
+        const path = new THREE.CurvePath<THREE.Vector3>();
+        path.add(new THREE.QuadraticBezierCurve3(basePoint, new THREE.Vector3(faucet.x, countertopTop + measuredApexHeight * 0.72, faucet.z), apex));
+        path.add(new THREE.QuadraticBezierCurve3(apex, new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + measuredApexHeight, faucet.z + forward.z * reach * 0.7), outlet));
+        return path;
+      })();
+  const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, tubeRadius, 10, false), faucetMaterial);
   spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish, faucetForm };
   root.add(spout);
   if (faucetForm === "articulated-swing") {
