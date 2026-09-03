@@ -92,7 +92,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-		  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+		  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -5126,7 +5126,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
 		        : []);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
-	      const requestedCabinet = { ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) };
+		      const requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
 	      const peers = workingPrev.filter((p) => p.uid !== uid);
 	      const edgeSnap = customPlacementMode || exactWallDrag ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
 		      const movedCabinet = {
@@ -5297,9 +5297,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           : p
       );
       const clamped = clampCabinetsToRoom(moved, room);
-	      const rawCandidate = clamped.find((p) => p.uid === selectedUid);
-	      const peers = clamped.filter((p) => p.uid !== selectedUid);
-		      const candidate = rawCandidate ? snapCabinetSeamOverlap(rawCandidate, peers) : rawCandidate;
+		      const rawCandidate = clamped.find((p) => p.uid === selectedUid);
+		      const peers = clamped.filter((p) => p.uid !== selectedUid);
+			      const seatedCandidate = rawCandidate ? snapWallCabinetToOwningWall(rawCandidate, room) : rawCandidate;
+			      const candidate = seatedCandidate ? snapCabinetSeamOverlap(seatedCandidate, peers) : seatedCandidate;
 	      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode)) {
 	        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
@@ -5441,6 +5442,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          : `Y ${formatEighthInches(cabinet.y)} → ${formatEighthInches(candidate.y)}`;
 	      return { status: "moved", message: `Moved ${cabinet.masterCode} ${direction} ${formatEighthInches(step)} (${coordinateChange}).` };
 	    };
+	    if ((direction === "in" || direction === "out") && cabinet.placement === "wall") {
+	      return blocked(`${cabinet.masterCode} stays flush to its wall. Use Left/Right to move along the wall or Up/Down to set its mounting height.`);
+	    }
 	    if (direction === "up" || direction === "down") {
 	      const currentElevation = elevationBox(cabinet, room);
 	      const { ceiling } = wallCabinetVerticalMoveLimit(cabinet, room);
@@ -5463,12 +5467,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    const delta = (direction === "left" || direction === "right") && screenPlanDelta
 	      ? screenPlanDelta
 	      : threeDPlanMoveDelta(cabinet, room, direction, step);
-	    const candidate = {
+	    const movedCandidate = {
 	      ...cabinet,
 	      x: Math.round((cabinet.x + delta.x) * 8) / 8,
 	      y: Math.round((cabinet.y + delta.y) * 8) / 8,
 	      ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
 	    };
+	    const candidate = snapWallCabinetToOwningWall(movedCandidate, room);
 	    const peers = peersWithoutLinkedFiller;
 	    // D-pad movement is an explicit incremental edit. Do not run automatic
 	    // seam attraction here: a one-inch move beside an existing seam would

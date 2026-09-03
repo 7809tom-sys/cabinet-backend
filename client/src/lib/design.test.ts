@@ -6,7 +6,7 @@ import {
   conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, makeSinkForCabinet, STD,
   appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
-  snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
+	  snapToWall, snapWallCabinetToOwningWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
   ROOM_MIN_IN, ROOM_MAX_IN,
   nextFreeSpotOnWall, clampCabinetToRoom, clampCabinetsToRoom,
   clampIslandToRoom, WALL_LABELS, resizeRoomByWall,
@@ -34,6 +34,27 @@ import {
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
+
+describe("wall cabinet flush mounting", () => {
+  it("reseats a moved wall cabinet against its rotation-owned wall while preserving its along-wall coordinate", () => {
+    const floating: PlacedCabinet = {
+      uid: "floating-upper", cabinetId: 1, masterCode: "W-3624", description: "36 inch Wall Cabinet",
+      placement: "wall", x: 42, y: 37, width: 36, depth: 12, height: 24, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
+      depthPositionAdjusted: true,
+    };
+    const snapped = snapWallCabinetToOwningWall(floating, ROOM_12x10);
+    expect(snapped).toMatchObject({ x: 42, y: 0, depthPositionAdjusted: false });
+  });
+
+  it("reseats a vertical wall cabinet against its left or right wall without changing its along-wall coordinate", () => {
+    const floating: PlacedCabinet = {
+      uid: "floating-side-upper", cabinetId: 2, masterCode: "W-2430", description: "24 inch Wall Cabinet",
+      placement: "wall", x: 28, y: 54, width: 24, depth: 12, height: 30, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    };
+    const snapped = snapWallCabinetToOwningWall(floating, ROOM_12x10);
+    expect(snapped).toMatchObject({ x: 0, y: 54 });
+  });
+});
 
 describe("3D same-wall cabinet drag", () => {
   const cabinet = (uid: string, x: number, y: number, width: number, rotation = 0): PlacedCabinet => ({

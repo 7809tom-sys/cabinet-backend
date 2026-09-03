@@ -2793,9 +2793,10 @@ export function addCabinet(
     isInstalledFillerPiece
     || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
   );
+  const isFrontFlushFillerBoard = isBaseFillerPiece;
   const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
   const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
-  const installedFillerFrontOffset = isInstalledFillerPiece ? (bodyDepth - installedFillerBoardDepth) / 2 : 0;
+  const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
   const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
   const countertopCenterY = (bottom + heightIn + 0.75) * INCH;
   const cabinet = new THREE.Group();
@@ -2928,7 +2929,7 @@ export function addCabinet(
       }
     } else if (!suppressInstalledFillerToeKick) {
       const toeKick = new THREE.Mesh(
-	        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, isInstalledFillerPiece ? installedFillerBoardDepth : Math.max(0.12, bodyDepth - 0.25)),
+		        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : Math.max(0.12, bodyDepth - 0.25)),
 	        toeKickMaterial,
 	      );
       // Recess the toe-kick three inches from the cabinet face, matching the
@@ -2936,7 +2937,7 @@ export function addCabinet(
 	      toeKick.position.set(
 	        0,
 	        -bodyHeight / 2 - toeKickHeight / 2,
-	        isInstalledFillerPiece ? installedFillerFrontOffset - 3 * INCH : -0.125,
+		        isFrontFlushFillerBoard ? installedFillerFrontOffset - 3 * INCH : -0.125,
 	      );
 	      toeKick.userData = {
 	        baseToeKick: true,
@@ -2944,7 +2945,7 @@ export function addCabinet(
         floorStandingToeKick: true,
         toeKickHeightIn: THREE_D_TOE_KICK,
 	        toeKickRecessIn: 3,
-	        ...(isInstalledFillerPiece ? { installedFillerToeKickRecessed: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH } : {}),
+		        ...(isFrontFlushFillerBoard ? { installedFillerToeKickRecessed: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH } : {}),
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
@@ -3058,15 +3059,15 @@ export function addCabinet(
     toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
     toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
     cabinet.add(toeRecess);
-	  } else if (!isPlacedHood) {
-	    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isInstalledFillerPiece ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
-	    if (isInstalledFillerPiece) body.position.z = installedFillerFrontOffset;
+		  } else if (!isPlacedHood) {
+		    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
+		    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
 	    body.userData = {
       ...(isRefrigeratorAppliance
         ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
         : { selectedStyleSideSkin: true }),
 	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
-	      ...(isInstalledFillerPiece ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
+		      ...(isFrontFlushFillerBoard ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
 	    };
     cabinet.add(body);
     bodyMeshes.push(body);
@@ -4644,10 +4645,14 @@ export function existingCabinetTransform(
   // backs do not float inside the room.
   const legacyWall = hasPlacedRoom
     && !cabinet.islandFace
-    && !cabinet.depthPositionAdjusted
-    && (cabinet.placement === "base" || cabinet.placement === "wall")
-    ? threeDLegacyWallAnchor(cabinet, room as Pick<RoomData, "width" | "depth">)
-    : null;
+    && cabinet.placement === "wall"
+    ? cabinetWall(cabinet, room as RoomData)
+    : hasPlacedRoom
+      && !cabinet.islandFace
+      && !cabinet.depthPositionAdjusted
+      && cabinet.placement === "base"
+      ? threeDLegacyWallAnchor(cabinet, room as Pick<RoomData, "width" | "depth">)
+      : null;
   if (legacyWall === "left") x = width / 2;
   if (legacyWall === "right") x = (room as Pick<RoomData, "width">).width - width / 2;
   if (legacyWall === "back") z = depth / 2;
@@ -6124,6 +6129,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   }, [temporaryPreviewTransitionKey]);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [workspacePanel, setWorkspacePanel] = useState<"catalog" | "view" | "finish" | "room" | "output" | null>(null);
+  const [mobileCanvasToolsOpen, setMobileCanvasToolsOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogGroup, setCatalogGroup] = useState<ThreeDCatalogGroup>("All");
   const [draggedCatalogId, setDraggedCatalogId] = useState<string | null>(null);
@@ -7554,8 +7560,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 		        {catalogDragMeasurement?.fit.status === "valid" && <ThreeDRemainingSpaceLine before={catalogDragMeasurement.fit.before} after={catalogDragMeasurement.fit.after} />}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
-	        {embedded && <div className={THREE_D_EMBEDDED_TOOLBAR_CLASS} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" /><span className="hidden sm:inline">Wall heights</span><span className="sm:hidden">Walls</span></button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" /><span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span><span className="sm:hidden">{showWallLayer ? "Hide walls" : "Show walls"}</span></button>}</div>}
-	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
+		        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} hidden sm:flex`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className="absolute right-3 top-3 z-20 flex items-start gap-1 sm:hidden" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button><div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-52 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur"><button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fittedFillerLabels.length > 0 && <div data-testid="three-d-mobile-fitted-filler-labels" className="mt-1 border-t border-[#ead9b6] px-2.5 pt-2 text-[#634b20]"><p className="font-semibold">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-1 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}</div>}</div></div></>}
+	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
 	        {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <div data-testid="three-d-range-hood-status" className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm backdrop-blur"><span>Add a range hood in the catalog to show it above this saved range.</span>{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add now</button>}</div>}
 	        <ThreeDViewerNavigationControls onZoom={zoomViewer} onReset={resetViewerNavigation} onShare={shareCurrentView} onPhotoRender={openPhotoRenderDialog} onPan={panViewer} className="absolute bottom-3 right-3 z-20 hidden sm:flex" />

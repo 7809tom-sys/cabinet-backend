@@ -17,4 +17,20 @@ describe("3D cabinet movement controls on mobile", () => {
     expect(dpad).toContain('testId="three-d-move-down"');
     expect(dpad).toContain('max-md:rounded-r-md');
   });
+
+  it("moves wall controls and fitted filler feedback into a compact right-side canvas pop-up on mobile", () => {
+    expect(source).toContain('data-testid="three-d-mobile-canvas-tools"');
+    expect(source).toContain('data-testid="three-d-mobile-canvas-tools-trigger"');
+    expect(source).toContain('data-testid="three-d-mobile-canvas-tools-menu"');
+    expect(source).toContain('data-testid="three-d-mobile-wall-heights"');
+    expect(source).toContain('data-testid="three-d-mobile-toggle-wall-cabinets"');
+    expect(source).toContain('data-testid="three-d-mobile-fitted-filler-labels"');
+    expect(source).toContain('hidden max-w-[calc(100%-10rem)]');
+  });
+
+  it("keeps every base filler board flush to the room-facing cabinet front", () => {
+    expect(source).toContain('const isFrontFlushFillerBoard = isBaseFillerPiece;');
+    expect(source).toContain('bodyDepth / 2 - installedFillerBoardDepth / 2');
+    expect(source).toContain('if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;');
+  });
 });

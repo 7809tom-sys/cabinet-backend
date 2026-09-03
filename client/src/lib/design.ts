@@ -4008,6 +4008,18 @@ export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { 
   return { x, y };
 }
 
+/**
+ * Wall cabinets are mounted products, not free-standing room objects. Preserve
+ * their along-wall position and mount height, but always reseat their shallow
+ * depth against the wall they already belong to.
+ */
+export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): PlacedCabinet {
+  if (p.placement !== "wall" || p.islandFace) return p;
+  const side = cabinetWall(p, room);
+  const { x, y } = snapToWall(p, side, room);
+  return { ...p, x, y, depthPositionAdjusted: false };
+}
+
 // ─── Room dimension parsing / formatting ────────────────────────────────────
 // Room dimensions are stored in inches. The editable UI lets users type feet +
 // inches, so we convert between the two. Clamp to a sane kitchen range.
