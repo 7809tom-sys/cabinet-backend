@@ -10534,7 +10534,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       bowlWidth: verifiedProfile?.bowlWidthIn,
                       bowlDepth: verifiedProfile?.bowlDepthIn,
                       bowlHeight: verifiedProfile?.bowlHeightIn,
-                      apronFront: Boolean(verifiedProfile),
+                      apronFront: verifiedProfile?.apronFront ?? false,
                     };
                     setSinks((prev) => [...prev, sink]);
                     setSelectedSinkUid(sink.uid);
@@ -10906,7 +10906,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             bowlWidth: verifiedProfile?.bowlWidthIn,
             bowlDepth: verifiedProfile?.bowlDepthIn,
             bowlHeight: verifiedProfile?.bowlHeightIn,
-            apronFront: Boolean(verifiedProfile),
+            apronFront: verifiedProfile?.apronFront ?? false,
           };
           setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
           setSelectedSinkUid(sinkWithFaucet.uid);

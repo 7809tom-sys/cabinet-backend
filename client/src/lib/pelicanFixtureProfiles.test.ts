@@ -20,6 +20,21 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toMatchObject({ exteriorDepthIn: 20.875, bowlDepthIn: 19.75 });
   });
 
+  it("distinguishes the measured standard and ADA PL-HA109 undermount depths", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA109 R15 16g")).toMatchObject({
+      installation: "undermount",
+      apronFront: false,
+      exteriorHeightIn: 10,
+      bowlHeightIn: 10,
+    });
+    expect(verifiedPelicanSinkProfile("PL-HA109 ADA R0 18g")).toMatchObject({
+      installation: "undermount",
+      apronFront: false,
+      exteriorHeightIn: 5.5,
+      bowlHeightIn: 5.5,
+    });
+  });
+
   it("does not treat an unverified code as a measured Designer profile", () => {
     const profile = verifiedPelicanSinkProfile("PL-FC2418SB");
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();

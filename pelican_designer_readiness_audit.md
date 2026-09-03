@@ -60,3 +60,17 @@ The following single-bowl Farmhouse Series models also have Pelican specificatio
 6. [Pelican Int’l — PL-FC3318SB specification sheet](https://cdn.accentuate.io/8980578500748/1775068978130/PL-FC3318SB.pdf?v=1776100416378)
 7. [Pelican Int’l — PL-FC3321SB product page](https://buildpelican.com/products/pl-fc3321sb)
 8. [Pelican Int’l — PL-FC3321SB specification sheet](https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350)
+
+## First Verified Standard-Sink Profiles
+
+PL-HA109 establishes the first **standard sink-base** measured profile set. Pelican’s standard R0/R15 sheets specify a 30 × 18 × 10 inch exterior and 28 × 16 × 10 inch single bowl; its separately documented ADA R0/R15 forms have the same 30 × 18 footprint with a 5½ inch depth. They remain standard undermount profiles without an apron-front mesh and require a standard base at least 30 inches wide.
+
+### Additional Sources
+
+9. [Pelican Int’l — PL-HA109 product page](https://buildpelican.com/products/pl-ha109)
+10. [Pelican Int’l — PL-HA109 R0 specification sheet](https://cdn.accentuate.io/7876665442444/1729872829476/PL-HA109-R0.pdf?v=1729872829477)
+11. [Pelican Int’l — PL-HA109 ADA R0 specification sheet](https://cdn.accentuate.io/7876665442444/1742318026789/PL-HA109-ADA-R0-18g-Spec.pdf?v=1742318026789)
+
+## Designer Visual-Load Check — 2026-09-03
+
+The live Designer may show its normal loading indicator during initial data hydration. An interactive browser check completed successfully afterward and displayed the kitchen workspace, cabinet palette, sink-base group, and **Surfaces & Fixtures** entry without a browser-console exception. This verifies the current profile additions did not prevent the Designer from loading; it does not replace owner testing of a saved design.

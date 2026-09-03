@@ -11,8 +11,9 @@ export type VerifiedPelicanSinkProfile = {
   id: string;
   pelicanCode: string;
   name: string;
-  installation: "apron-front-undermount";
-  sinkType: "farmhouse";
+  installation: "apron-front-undermount" | "undermount";
+  sinkType: "farmhouse" | "single";
+  apronFront: boolean;
   exteriorWidthIn: number;
   exteriorDepthIn: number;
   exteriorHeightIn: number;
@@ -30,6 +31,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     name: "PL-FC2418SB Fireclay Farmhouse Sink",
     installation: "apron-front-undermount",
     sinkType: "farmhouse",
+    apronFront: true,
     exteriorWidthIn: 24,
     exteriorDepthIn: 18,
     exteriorHeightIn: 10,
@@ -45,6 +47,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     name: "PL-FC3018SB Fireclay Farmhouse Sink",
     installation: "apron-front-undermount",
     sinkType: "farmhouse",
+    apronFront: true,
     exteriorWidthIn: 30,
     exteriorDepthIn: 18,
     exteriorHeightIn: 10,
@@ -60,6 +63,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     name: "PL-FC3318SB Fireclay Farmhouse Sink",
     installation: "apron-front-undermount",
     sinkType: "farmhouse",
+    apronFront: true,
     exteriorWidthIn: 32.625,
     exteriorDepthIn: 18,
     exteriorHeightIn: 10,
@@ -75,6 +79,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     name: "PL-FC3321SB Fireclay Farmhouse Sink",
     installation: "apron-front-undermount",
     sinkType: "farmhouse",
+    apronFront: true,
     exteriorWidthIn: 33,
     exteriorDepthIn: 20.875,
     exteriorHeightIn: 10,
@@ -84,14 +89,49 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350",
   },
+  "PL-HA109": {
+    id: "pelican-pl-ha109-stainless-undermount",
+    pelicanCode: "PL-HA109",
+    name: "PL-HA109 Stainless Steel Undermount Sink",
+    installation: "undermount",
+    sinkType: "single",
+    apronFront: false,
+    exteriorWidthIn: 30,
+    exteriorDepthIn: 18,
+    exteriorHeightIn: 10,
+    bowlWidthIn: 28,
+    bowlDepthIn: 16,
+    bowlHeightIn: 10,
+    minimumCabinetWidthIn: 30,
+    specificationUrl: "https://cdn.accentuate.io/7876665442444/1729872829476/PL-HA109-R0.pdf?v=1729872829477",
+  },
+  "PL-HA109 ADA": {
+    id: "pelican-pl-ha109-ada-stainless-undermount",
+    pelicanCode: "PL-HA109 ADA",
+    name: "PL-HA109 ADA Stainless Steel Undermount Sink",
+    installation: "undermount",
+    sinkType: "single",
+    apronFront: false,
+    exteriorWidthIn: 30,
+    exteriorDepthIn: 18,
+    exteriorHeightIn: 5.5,
+    bowlWidthIn: 28,
+    bowlDepthIn: 16,
+    bowlHeightIn: 5.5,
+    minimumCabinetWidthIn: 30,
+    specificationUrl: "https://cdn.accentuate.io/7876665442444/1742318026789/PL-HA109-ADA-R0-18g-Spec.pdf?v=1742318026789",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {
-  return (value ?? "")
+  const normalized = (value ?? "")
     .trim()
     .toUpperCase()
     .replace(/\s+\(OLD\)$/, "")
     .replace(/\s+(?:BLACK|GREY|WHITE)$/, "");
+  if (/^PL-HA109\s+ADA\s+R(?:0|15)\s+18G$/.test(normalized)) return "PL-HA109 ADA";
+  if (/^PL-HA109\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA109";
+  return normalized;
 }
 
 export function verifiedPelicanSinkProfile(code: string | null | undefined): VerifiedPelicanSinkProfile | null {
