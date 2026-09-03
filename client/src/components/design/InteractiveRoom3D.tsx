@@ -5100,24 +5100,35 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const outletHeight = sink.faucetSpoutHeight != null
     ? Math.max(0.08, sink.faucetSpoutHeight * INCH)
     : overallHeight * 0.55;
+  const faucetForm = sink.faucetForm ?? "pull-down";
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
   root.add(base);
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
-    new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
-    new THREE.Vector3(faucet.x + forward.x * reach * 0.08, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.08),
-    new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * 0.88, faucet.z + forward.z * reach * 0.7),
-    new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + overallHeight * 0.62, faucet.z + forward.z * reach),
-  ]);
-  const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.032, 10, false), faucetMaterial);
-  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish };
+  const curve = faucetForm === "standard-arc"
+    ? new THREE.CatmullRomCurve3([
+      new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
+      new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.24),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * 0.88, faucet.z + forward.z * reach * 0.7),
+      new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach),
+    ])
+    : new THREE.CatmullRomCurve3([
+      new THREE.Vector3(faucet.x, countertopTop + 0.09, faucet.z),
+      new THREE.Vector3(faucet.x, countertopTop + overallHeight * 0.58, faucet.z),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.08, countertopTop + overallHeight, faucet.z + forward.z * reach * 0.08),
+      new THREE.Vector3(faucet.x + forward.x * reach * 0.7, countertopTop + overallHeight * (faucetForm === "pull-out" ? 0.98 : 0.88), faucet.z + forward.z * reach * 0.7),
+      new THREE.Vector3(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach),
+    ]);
+  const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, faucetForm === "standard-arc" ? 0.027 : 0.032, 10, false), faucetMaterial);
+  spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish, faucetForm };
   root.add(spout);
-  const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, 0.23, 16), faucetMaterial);
-  sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
-  sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
-  root.add(sprayHead);
+  if (faucetForm !== "standard-arc") {
+    const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, faucetForm === "pull-out" ? 0.17 : 0.23, 16), faucetMaterial);
+    sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
+    sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetForm };
+    root.add(sprayHead);
+  }
   const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.18, 16), faucetMaterial);
   handleBase.position.set(faucet.x + side.x * 0.12, countertopTop + 0.14, faucet.z + side.z * 0.12);
   handleBase.userData = { sinkFaucetHandleBase: true, fixtureDetail: true };

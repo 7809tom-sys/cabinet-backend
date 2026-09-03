@@ -5887,6 +5887,7 @@ export interface SinkFixture {
   faucetSpoutLength?: number;
   faucetSpoutHeight?: number;
   faucetFinish?: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
+  faucetForm?: "pull-down" | "standard-arc" | "pull-out";
 }
 
 export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {
@@ -5987,6 +5988,7 @@ export function normalizeSinkFixturesToBases(
       faucetSpoutLength: sink.faucetSpoutLength,
       faucetSpoutHeight: sink.faucetSpoutHeight,
       faucetFinish: sink.faucetFinish,
+      faucetForm: sink.faucetForm,
     };
   });
   return changed ? normalized : sinks;

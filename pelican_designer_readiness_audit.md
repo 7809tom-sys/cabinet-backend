@@ -101,3 +101,12 @@ Pelican’s PL-8237 specification sheet verifies one common single-hole faucet g
 
 16. [Pelican Int’l — PL-8237 product page](https://buildpelican.com/products/pl-8237)
 17. [Pelican Int’l — PL-8237 specification sheet](https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238)
+
+## Next Verified Faucet Candidate — PL-8248
+
+Pelican’s PL-8248 documentation describes a single-hole pull-out kitchen faucet, in Brushed Nickel, Chrome, and Matte Black. Its listed measurements are a 12⅜-inch overall height, 10 1/16-inch spout length, and 10⅞-inch spout height. The records are source-verified candidates for the next distinct **pull-out** form; catalog images remain display-only.
+
+### Sources
+
+18. [Pelican Int’l — PL-8248 product page](https://buildpelican.com/products/pl-8144)
+19. [Pelican Int’l — PL-8248 specification sheet](https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241)

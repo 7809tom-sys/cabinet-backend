@@ -10916,6 +10916,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             faucetSpoutLength: verifiedFaucetProfile?.spoutLengthIn,
             faucetSpoutHeight: verifiedFaucetProfile?.spoutHeightIn,
             faucetFinish: verifiedFaucetProfile?.finish,
+            faucetForm: verifiedFaucetProfile?.profile,
           };
           setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
           setSelectedSinkUid(sinkWithFaucet.uid);

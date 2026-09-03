@@ -67,6 +67,19 @@ describe("verifiedPelicanSinkProfile", () => {
         spoutLengthIn: 7.0625,
         spoutHeightIn: 8.375,
         finish,
+        profile: "standard-arc",
+      });
+    }
+  });
+
+  it("maps every active PL-8248 finish code to Pelican’s verified pull-out faucet form", () => {
+    for (const [code, finish] of [["PL-8248 BN", "brushed-nickel"], ["PL-8248 CHR", "chrome"], ["PL-8248 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanFaucetProfile(code)).toMatchObject({
+        overallHeightIn: 12.375,
+        spoutLengthIn: 10.0625,
+        spoutHeightIn: 10.875,
+        profile: "pull-out",
+        finish,
       });
     }
   });

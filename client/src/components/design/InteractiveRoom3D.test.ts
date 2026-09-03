@@ -3137,12 +3137,28 @@ describe("interactive 3D room scene helpers", () => {
     addSinkFixture(root, {
       uid: "pelican-pl-8237-bg", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
       pelicanFaucetProfileId: "pelican-pl-8237-fountain-standard-arc-brushed-gold",
-      faucetOverallHeight: 12.8125, faucetSpoutLength: 7.0625, faucetSpoutHeight: 8.375, faucetFinish: "brushed-gold",
+      faucetOverallHeight: 12.8125, faucetSpoutLength: 7.0625, faucetSpoutHeight: 8.375, faucetFinish: "brushed-gold", faucetForm: "standard-arc",
     } as never);
     let spout: THREE.Mesh | null = null;
     root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8237-fountain-standard-arc-brushed-gold" && node.userData.sinkFaucetSpout) spout = node as THREE.Mesh; });
     expect(spout?.userData.faucetFinish).toBe("brushed-gold");
+    expect(spout?.userData.faucetForm).toBe("standard-arc");
     expect((spout?.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("b28a42");
+  });
+
+  it("renders the verified PL-8248 pull-out form with its separate handheld spray head", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "pelican-pl-8248-bn", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8248-fountain-pull-out-brushed-nickel",
+      faucetOverallHeight: 12.375, faucetSpoutLength: 10.0625, faucetSpoutHeight: 10.875, faucetFinish: "brushed-nickel", faucetForm: "pull-out",
+    } as never);
+    const markers = new Set<string>();
+    root.traverse((node) => { for (const [key, value] of Object.entries(node.userData)) if (value === true) markers.add(key); });
+    expect(markers.has("sinkFaucetSpout")).toBe(true);
+    expect(markers.has("sinkFaucetSprayHead")).toBe(true);
+    const pullOutSpout = root.children.find((node) => node.userData.pelicanFaucetProfileId === "pelican-pl-8248-fountain-pull-out-brushed-nickel" && node.userData.sinkFaucetSpout);
+    expect(pullOutSpout?.userData.faucetForm).toBe("pull-out");
   });
 
   it("preserves the verified farmhouse sink exterior width after a left-wall plan rotation", () => {
