@@ -1538,3 +1538,11 @@ Pelican’s direct PL-VS3020 product URL currently returns 404. A current offici
 ### Source
 
 243. [Pelican Int’l — PL-VS3020 direct product URL](https://buildpelican.com/products/pl-vs3020)
+
+## Retain Exclusion — PL-VS3070 ADA Shallow Stainless Steel Double-Bowl Sink
+
+Pelican’s direct PL-VS3070 ADA product URL currently returns 404. A current official technical drawing establishing its shallow bowl geometry, drain datum, material/finish, and compatible sink-base opening was not available through the product source. PL-VS3070 ADA remains outside physical placement rather than receiving an inferred shallow-bowl version of PL-VS3070.
+
+### Source
+
+244. [Pelican Int’l — PL-VS3070 ADA direct product URL](https://buildpelican.com/products/pl-vs3070-ada)
