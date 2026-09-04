@@ -346,3 +346,14 @@ An exact profile must preserve the distinct 19-inch left bowl and 13-inch right 
 
 63. [Pelican Int’l — PL-HA125 product page](https://buildpelican.com/products/pl-ha125)
 64. [Pelican Int’l — PL-HA125 R0 specification sheet](https://cdn.accentuate.io/7876666392716/1729873787540/PL-HA125-R0.pdf?v=1729873787540)
+
+## Next Verified Farmhouse Sink Candidate — PL-HA124 R0
+
+Pelican’s current product page and official PL-HA124 R0 specification sheet identify this as a 16-gauge stainless-steel, single-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **35⅞ × 20¾ × 10 inches** and its interior bowl measures **33 × 16 × 10 inches**.
+
+These measurements support a source-measured parametric farmhouse profile with countertop seating, one drain, and a visible apron. The sink is eligible only on compatible 36-inch-or-wider farmhouse bases. It does not change cabinetry or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+65. [Pelican Int’l — PL-HA124 product page](https://buildpelican.com/products/pl-ha124)
+66. [Pelican Int’l — PL-HA124 R0 specification sheet](https://cdn.accentuate.io/7876666294412/1729873733866/PL-HA124-R0.pdf?v=1729873733866)
