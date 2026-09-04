@@ -499,9 +499,9 @@ describe("verifiedPelicanSinkProfile", () => {
     }
   });
 
-  it("maps both active PL-8213 finishes to Pelican’s measured pull-down profile", () => {
+  it("maps PL-8213 brushed nickel to Pelican’s active measured pull-down profile and excludes unsupported chrome", () => {
     expect(verifiedPelicanFaucetProfile("PL-8213 BN")).toMatchObject({ overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-down", finish: "brushed-nickel" });
-    expect(verifiedPelicanFaucetProfile("PL-8213 CHR")).toMatchObject({ overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-down", finish: "chrome" });
+    expect(verifiedPelicanFaucetProfile("PL-8213 CHR")).toBeNull();
   });
 
   it("maps every active PL-8217 finish to Pelican’s measured pull-down profile", () => {
@@ -550,6 +550,7 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3219SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3620SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
+    expect(verifiedPelicanFaucetProfile("PL-8213 CHR")).toBeNull();
   });
 
   it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {
