@@ -917,3 +917,14 @@ The normal-depth PL-HA109 remains available only on standard SB-style sink bases
 
 152. [Pelican Int’l — PL-HA109 product page](https://buildpelican.com/products/pl-ha109)
 153. [Pelican Int’l — PL-HA109 R0 specification sheet](https://cdn.accentuate.io/7876665442444/1729872829476/PL-HA109-R0.pdf?v=1729872829477)
+
+## Retain Exclusion — PL-HA135 R0 Retrofit Apron-Front Sink
+
+Pelican’s active product page and R0 drawing establish a 16-gauge 304 stainless-steel, satin-brushed single-bowl sink with a **35½ × 21¼ × 9⅜-inch** exterior and **32½ × 17¼ × 9⅛-inch** bowl. They also establish centered drain and side-view geometry. However, Pelican explicitly identifies the sink’s apron as a **retrofit apron front** that allows installation in existing standard kitchen cabinets without remodel or custom cabinetry.
+
+That intended compatibility conflicts with the Designer’s preserved policy: apron-front fixtures are placed only on farmhouse bases with a supported countertop opening and visible cabinet-face apron; standard SB-style bases accept undermounts only. Adding PL-HA135 would require a distinct verified retrofit cabinet/opening contract rather than silently treating it as either a standard undermount or an ordinary farmhouse sink. It therefore remains outside the physical palette.
+
+### Sources
+
+154. [Pelican Int’l — PL-HA135 product page](https://buildpelican.com/products/pl-ha135)
+155. [Pelican Int’l — PL-HA135 R0 specification sheet](https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424)
