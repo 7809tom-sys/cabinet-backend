@@ -1527,3 +1527,4 @@
 - [x] Correct the admitted PL-HA128 R15 double-bowl farmhouse profile and renderer so both source-verified rear-center drain data persist in every wall orientation
 - [x] Remove PL-FC3318DB from physical eligibility because its official reversible-front and drain documentation cannot support an exact parametric profile
 - [x] Remove PL-FC3219SB from physical eligibility because its source-documented offset drain lacks an exact numerical datum for a faithful model
+- [x] Remove PL-FC3318SB from physical eligibility because its official reversible-front and drain documentation cannot support an exact parametric profile

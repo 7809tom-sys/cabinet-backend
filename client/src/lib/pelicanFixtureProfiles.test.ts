@@ -4,7 +4,7 @@ import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, peli
 describe("verifiedPelicanSinkProfile", () => {
   it("recognizes imported Farmhouse Series color variants without treating their abbreviated size fields as authoritative", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toBeNull();
-    expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toMatchObject({ exteriorWidthIn: 32.625, bowlHeightIn: 9.25 });
+    expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toMatchObject({ exteriorWidthIn: 36, bowlWidthIn: 34.5625 });
   });
@@ -560,13 +560,14 @@ describe("verifiedPelicanSinkProfile", () => {
   it("does not treat unverified or source-incomplete codes as measured Designer profiles", () => {
     expect(verifiedPelicanSinkProfile("PL-FC2418SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3018SB")).toBeNull();
+    expect(verifiedPelicanSinkProfile("PL-FC3318SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318DB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3219SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
   });
 
   it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {
-    const farmhouse = verifiedPelicanSinkProfile("PL-FC3318SB")!;
+    const farmhouse = verifiedPelicanSinkProfile("PL-FC3620SB")!;
     const rotatedFsb36 = { width: 36, depth: 24, rotation: 90 };
     expect(sinkBaseOpeningWidthIn(rotatedFsb36)).toBe(36);
     expect(verifiedPelicanSinkFitsCabinet(farmhouse, sinkBaseOpeningWidthIn(rotatedFsb36))).toBe(true);
