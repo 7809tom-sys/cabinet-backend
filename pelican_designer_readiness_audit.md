@@ -1280,3 +1280,11 @@ Pelican’s official PL-8237 drawing confirms the existing physical profiles: **
 ### Source
 
 198. [Pelican Int’l — PL-8237 technical drawing](https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238)
+
+## Source-Verified Profile Audit — PL-8222 Fountain Series Pull-Out Kitchen Faucet
+
+Pelican’s official PL-8222 drawing confirms the existing physical profile: a **single-hole**, brushed-nickel pull-out kitchen faucet with a **9 9/16-inch** overall height, **8⅜-inch** spout length, and **5 13/16-inch** spout height. The existing profile retains those source-measured dimensions and the documented finish; no geometry change is required.
+
+### Source
+
+199. [Pelican Int’l — PL-8222 technical drawing](https://cdn.accentuate.io/7876663148684/1729881399900/PL-8222-Spec-Sheet.pdf?v=1734119372824)
