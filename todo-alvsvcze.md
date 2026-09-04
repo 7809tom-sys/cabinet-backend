@@ -1499,3 +1499,4 @@
 - [x] Add source-measured single-bowl drain-offset support and admit PL-HA119 R19 only when its documented rear-right drain location persists and renders exactly
 - [x] Add the source-verified PL-VS2718 normal-depth standard undermount sink with a measured bowl, drain, and 27-inch standard-base fit support
 - [x] Add the source-verified PL-VS1815 compact standard undermount sink with a measured bowl, drain, and 21-inch standard-base fit support
+- [x] Add the source-verified PL-VS2118 compact standard undermount sink with a measured bowl, drain, and 21-inch standard-base fit support

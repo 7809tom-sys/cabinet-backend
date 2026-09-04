@@ -228,6 +228,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 18.5, exteriorDepthIn: 15, exteriorHeightIn: 7, bowlWidthIn: 16.5, bowlDepthIn: 13, bowlHeightIn: 7, minimumCabinetWidthIn: 21,
     specificationUrl: "https://cdn.accentuate.io/7876667375756/1729875932156/PL-VS1815.pdf?v=1742391310508",
   },
+  "PL-VS2118": {
+    id: "pelican-pl-vs2118-stainless-undermount", pelicanCode: "PL-VS2118", name: "PL-VS2118 Signature Series Stainless Steel Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 20.625, exteriorDepthIn: 17.875, exteriorHeightIn: 9, bowlWidthIn: 18.625, bowlDepthIn: 15.875, bowlHeightIn: 9, minimumCabinetWidthIn: 21,
+    specificationUrl: "https://cdn.accentuate.io/7876667408524/1729875967180/PL-VS2118.pdf?v=1742391427922",
+  },
 };
 
 const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
@@ -421,6 +427,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-VS3018\s+(?:16|18)G$/.test(normalized)) return "PL-VS3018";
   if (/^PL-VS2718\s+(?:16|18)G$/.test(normalized)) return "PL-VS2718";
   if (/^PL-VS1815\s+18G$/.test(normalized)) return "PL-VS1815";
+  if (/^PL-VS2118\s+18G$/.test(normalized)) return "PL-VS2118";
   return normalized;
 }
 
