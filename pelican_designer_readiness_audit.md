@@ -628,3 +628,74 @@ These measurements support a source-measured stainless parametric profile for co
 
 103. [Pelican Int’l — PL-HA108 product page](https://buildpelican.com/products/pl-ha108)
 104. [Pelican Int’l — PL-HA108 R0 specification sheet](https://cdn.accentuate.io/7876665376908/1729872673252/PL-HA108-R0.pdf?v=1729872673252)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS3118
+
+Pelican’s direct current `products/pl-vs3118` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA103
+
+Pelican’s direct current `products/pl-ha103` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA107
+
+Pelican’s direct current `products/pl-ha107` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA105
+
+Pelican’s direct current `products/pl-ha105` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-CI6012
+
+Pelican’s active PL-CI6012 product page and official specification sheet identify this as a white cast-iron, double-bowl **self-rimming** kitchen sink. The documented exterior is **43 × 22 × 10⅝ inches**. The sheet also specifies two 90-millimeter drains and **four pre-drilled 1⅜-inch faucet holes on 4-inch centers**, with compatibility for the PL-8480 faucet. Its drawing shows unequal bowl widths of **18 57⁄64 inches** and **16½ inches**.
+
+The verified-only physical fixture gate remains closed for this item because the current standard undermount renderer cannot truthfully model its elevated self-rim, special cast-iron material, four-hole deck configuration, and the drawing does not label independent three-axis interior dimensions for both bowls in the same form used by the existing parametric sink profile. No generic undermount substitute, product image, or unmeasured visual feature is used.
+
+### Sources
+
+105. [Pelican Int’l — PL-CI6012 product page](https://buildpelican.com/products/pl-ci6012)
+106. [Pelican Int’l — PL-CI6012 specification sheet](https://cdn.accentuate.io/8980582826124/1776101769649/PL-CI6012-Spec.pdf?v=1776101769649)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-FC3321SB
+
+Pelican’s active PL-FC3321SB product page and official specification sheet identify a white, matte-grey, or matte-black fireclay, single-bowl **apron-front undermount** sink. Its documented exterior measures **33 × 20⅞ × 10 inches** and its interior bowl measures **31⅝ × 19¾ × 10 inches**. The technical sheet and product page expressly identify a **curved apron front**.
+
+The existing farmhouse renderer has a straight measured apron and the source does not provide the curved apron’s radius, depth, or sectional geometry. This sink must therefore remain outside the physical Designer fixture palette until the curve can be source-measured and faithfully rendered. No straight-apron substitute, product image, or inferred curvature is used.
+
+### Sources
+
+107. [Pelican Int’l — PL-FC3321SB product page](https://buildpelican.com/products/pl-fc3321sb)
+108. [Pelican Int’l — PL-FC3321SB specification sheet](https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS2321
+
+Pelican’s active PL-VS2321 product page and official specification sheet identify this as an 18-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its documented exterior measures **23½ × 20⅞ × 9 inches** and its interior bowl measures **21½ × 18⅞ × 9 inches**. Unlike the already admitted straight-walled sinks, its drawing specifies a drawn-bowl shape with a **47¼-inch inner radius**, a **35½-inch outer lower radius**, and additional 7⅞-inch and ¾-inch radii around the rim profile.
+
+The current rectangular parametric renderer cannot represent those documented rounded bowl walls and rim transitions exactly. This sink remains outside the physical Designer fixture palette until the source-measured drawn-bowl radii can be persisted and faithfully rendered. No box-bowl substitute, catalog image, or inferred curvature is used.
+
+### Sources
+
+109. [Pelican Int’l — PL-VS2321 product page](https://buildpelican.com/products/pl-vs2321)
+110. [Pelican Int’l — PL-VS2321 specification sheet](https://cdn.accentuate.io/7876667736204/1729876188293/PL-VS2321.pdf?v=1742392364751)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS3070
+
+Pelican’s active PL-VS3070 product page and official specification sheet identify a 16- or 18-gauge stainless-steel, double-bowl **undermount** kitchen sink. The documented exterior is **31½ × 20½ × 9 inches**. Its bowls are asymmetric: the left is **10⅝ × 16 × 7 inches** and the right is **17¾ × 18½ × 9 inches**. The drawing additionally specifies complex radii, including **3½-inch**, **3-inch**, **2-inch**, **1½-inch**, and **1⅜-inch** contours across the drawn bowls and rim.
+
+Although the current fixture metadata supports independently measured bowl widths and depths, its rectangular sink renderer cannot faithfully reproduce those documented drawn-bowl radii and rim transitions. PL-VS3070 therefore remains outside the physical Designer palette until the source-measured curved geometry can be rendered exactly. No box-bowl substitute, catalog image, or inferred curvature is used.
+
+### Sources
+
+111. [Pelican Int’l — PL-VS3070 product page](https://buildpelican.com/products/pl-vs3070)
+112. [Pelican Int’l — PL-VS3070 specification sheet](https://cdn.accentuate.io/7876668129420/1729876545002/PL-VS3070.pdf?v=1742392860993)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VT2522-1
+
+Pelican’s active PL-VT2522 product page and official PL-VT2522-1 specification sheet identify an 18-gauge stainless-steel, single-bowl **top-mount** kitchen sink. Its exterior measures **25 × 22 × 8 inches** and its interior bowl measures **21 × 15¾ × 8 inches**. The drawing documents a raised rim, four bowl-corner radii of **3 inches**, and a **pre-drilled faucet-hole deck** on the rear rim.
+
+The current standard-sink renderer cannot faithfully represent the raised top-mount rim, documented rounded bowl transitions, or pre-drilled deck configuration. This model remains outside the physical Designer palette until those source-measured top-mount features can be persisted and rendered exactly. No undermount substitute, product image, or inferred geometry is used.
+
+### Sources
+
+113. [Pelican Int’l — PL-VT2522 product page](https://buildpelican.com/products/pl-vt2522)
+114. [Pelican Int’l — PL-VT2522-1 specification sheet](https://cdn.accentuate.io/7876669145228/1729877217251/PL-VT2522-1-Spec.pdf?v=1729877217251)
