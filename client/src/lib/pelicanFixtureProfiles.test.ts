@@ -348,6 +348,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VR4060 R20 as a source-verified stainless stepped double-bowl profile with independent bowl dimensions", () => {
+    expect(verifiedPelicanSinkProfile("PL-VR4060 R20")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 31.5,
+      exteriorDepthIn: 20.5,
+      exteriorHeightIn: 9,
+      bowlCount: 2,
+      bowlWidthsIn: [12.75, 15.75],
+      bowlDepthsIn: [16, 18.5],
+      bowlHeightsIn: [8, 9],
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps PL-VS3070 as a source-verified stainless stepped double-bowl profile with independent bowl dimensions", () => {
     expect(verifiedPelicanSinkProfile("PL-VS3070 16g")).toMatchObject({
       installation: "undermount",

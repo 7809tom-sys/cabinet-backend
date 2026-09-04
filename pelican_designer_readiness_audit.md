@@ -1628,3 +1628,13 @@ Pelican’s active product page and manufacturer-linked specification establish 
 259. [Pelican Int’l — PL-VR1816 R20 product page](https://buildpelican.com/products/pl-vr1816-r20)
 
 260. [Pelican Int’l — PL-VR1816 R20 technical drawing](https://cdn.accentuate.io/7876649877644/1729874954761/PL-VR1816-R20.pdf?v=1742389823793)
+
+## Source Review — PL-VR4060 R20 Urban Series Stainless Steel Stepped Double-Bowl Undermount Sink
+
+Pelican’s active product page and manufacturer-linked specification establish PL-VR4060 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl kitchen sink with low-radius rounded corners and sound-deadening pads. Its measured nominal exterior is 31½ × 20½ × 9 inches. The official sheet separately documents a 12¾ × 16 × 8-inch left bowl and a 15¾ × 18½ × 9-inch right bowl, requiring independent persisted width, depth, and height values. Pelican’s sheet provides no numerical drain-center datum; no drain offset may be inferred. A physical admission decision remains limited to the existing standard sink-base contract and the documented parametric geometry; catalog photos and accessories will not become fixture geometry or textures.
+
+### Sources
+
+261. [Pelican Int’l — PL-VR4060 R20 product page](https://buildpelican.com/products/pl-vr4060-r20)
+
+262. [Pelican Int’l — PL-VR4060 R20 technical drawing](https://cdn.accentuate.io/7876650958988/1742389325891/_PL-VR4060-R20.pdf?v=1742389325891)
