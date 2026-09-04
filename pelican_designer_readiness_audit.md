@@ -1352,3 +1352,11 @@ Pelican’s live PL-8231 product page and active specification sheet confirm the
 209. [Pelican Int’l — PL-8231 product page](https://buildpelican.com/products/pl-8231)
 
 210. [Pelican Int’l — PL-8231 technical drawing](https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030)
+
+## Source-Verified Profile Audit — PL-8257 Fountain Series Pull-Down Kitchen Faucet
+
+Pelican’s direct PL-8257 product URL currently returns 404, but Pelican’s accessible official technical drawing continues to establish the physical fixture: a **single-hole** pull-down kitchen faucet with a **17¾-inch** overall height, **8¼-inch** spout length, and **9½-inch** spout height. The source documents the stored chrome, brushed-nickel, and matte-black finishes. The existing measured profiles match that official drawing; no geometry or finish change is required.
+
+### Source
+
+211. [Pelican Int’l — PL-8257 technical drawing](https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437)

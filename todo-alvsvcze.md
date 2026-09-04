@@ -1532,3 +1532,4 @@
 - [x] Retain the PL-8213 brushed-nickel profile against Pelican’s active specification and withdraw the unsupported chrome physical variant
 - [x] Retain active-source PL-8217 brushed-nickel and oil-rubbed-bronze profiles while withdrawing an unsupported chrome physical variant
 - [x] Retain active-source PL-8218 brushed-nickel and matte-black profiles while withdrawing an unsupported chrome physical variant
+- [x] Retain PL-8257 physical eligibility because Pelican’s accessible official technical drawing establishes its exact faucet geometry and finishes
