@@ -288,6 +288,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VR2718 ADA as shallow source-measured geometry without changing the standard base contract", () => {
+    expect(verifiedPelicanSinkProfile("PL-VR2718 ADA")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 27,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 5.5,
+      bowlWidthIn: 25,
+      bowlDepthIn: 16,
+      bowlHeightIn: 5.5,
+      minimumCabinetWidthIn: 27,
+    });
+  });
+
   it("maps PL-VR3118 R20 as a source-verified stainless standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-VR3118 R20")).toMatchObject({
       installation: "undermount",
