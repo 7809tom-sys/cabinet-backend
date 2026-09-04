@@ -1272,3 +1272,11 @@ Pelican’s official PL-8207 drawing confirms the existing physical profiles: **
 ### Source
 
 197. [Pelican Int’l — PL-8207 technical drawing](https://cdn.accentuate.io/7876662395020/1729881131839/PL-8207-Spec-Sheet.pdf?v=1734119192469)
+
+## Source-Verified Profile Audit — PL-8237 Fountain Series Standard-Arc Kitchen Faucet
+
+Pelican’s official PL-8237 drawing confirms the existing physical profiles: **single-hole** standard-arc kitchen faucets with a **12 13/16-inch** overall height, **7 1/16-inch** spout length, and **8⅜-inch** spout height. The source documents the stored chrome, brushed-nickel, matte-black, and brushed-gold finishes. No geometry or finish change is required.
+
+### Source
+
+198. [Pelican Int’l — PL-8237 technical drawing](https://cdn.accentuate.io/7876664393868/1729881524238/PL-8237.pdf?v=1729881524238)
