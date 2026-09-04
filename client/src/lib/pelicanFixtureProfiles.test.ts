@@ -80,6 +80,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA117 R0 source-verified equal double-bowl standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA117 R0 16g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 32,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 14.5,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps the PL-HA126 R0 source-verified asymmetric double-bowl standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA126 R0 16g")).toMatchObject({
       installation: "undermount",
