@@ -1434,3 +1434,13 @@ Pelican’s direct PL-HA137 product URL currently returns 404. A targeted offici
 ### Source
 
 224. [Pelican Int’l — PL-HA137 direct product URL](https://buildpelican.com/products/pl-ha137)
+
+## Retain Exclusion — PL-150 Crystallite Granite Composite Single-Bowl Sink
+
+Pelican’s live PL-150 product page and technical drawing document a 29½ × 18¾ × 9½-inch, single-bowl granite-composite **undermount** sink with a 27 × 16½ × 9½-inch bowl and seven documented finish choices: Alpina, Chroma, Concrete, Gunmetal, Mocha, Onyx, and Sand. The current catalog-to-fixture contract does not identify and persist the selected PL-150 color, and no approved material swatches establish faithful physical surface rendering for the seven finishes. Admitting a generic or default-colored substitute would violate saved-plan finish fidelity. PL-150 remains outside physical placement until its selected finish can be persistently mapped to an approved material representation.
+
+### Sources
+
+225. [Pelican Int’l — PL-150 product page](https://buildpelican.com/products/pl-150)
+
+226. [Pelican Int’l — PL-150 technical drawing](https://cdn.accentuate.io/8059575566476/1737642094870/PL-150.pdf?v=1737642094870)

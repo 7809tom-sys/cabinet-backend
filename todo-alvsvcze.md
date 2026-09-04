@@ -1539,3 +1539,4 @@
 - [x] Retain PL-WS400 outside physical placement because its dual-mount installation and included workstation accessories cannot yet be persisted and faithfully rendered
 - [x] Retain PL-WS2819 R0 outside physical placement because its documented ledge and included workstation accessories cannot yet be persisted and faithfully rendered
 - [x] Retain PL-HA137 outside physical placement because no active official product or technical source establishes its exact sink geometry and base fit
+- [x] Retain PL-150 outside physical placement because its seven documented granite-composite finishes cannot yet be selected, persisted, and rendered through approved material swatches
