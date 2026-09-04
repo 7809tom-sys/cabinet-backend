@@ -693,9 +693,50 @@ Although the current fixture metadata supports independently measured bowl width
 
 Pelican’s active PL-VT2522 product page and official PL-VT2522-1 specification sheet identify an 18-gauge stainless-steel, single-bowl **top-mount** kitchen sink. Its exterior measures **25 × 22 × 8 inches** and its interior bowl measures **21 × 15¾ × 8 inches**. The drawing documents a raised rim, four bowl-corner radii of **3 inches**, and a **pre-drilled faucet-hole deck** on the rear rim.
 
-The current standard-sink renderer cannot faithfully represent the raised top-mount rim, documented rounded bowl transitions, or pre-drilled deck configuration. This model remains outside the physical Designer palette until those source-measured top-mount features can be persisted and rendered exactly. No undermount substitute, product image, or inferred geometry is used.
+The current standard-sink renderer can draw only a generic rounded bowl; it has no profile-specific three-inch-corner, raised top-mount rim, or faucet-deck model. The drawing identifies a pre-drilled deck but does not publish the deck’s complete hole size and placement dimensions, so they cannot be inferred. This model remains outside the physical Designer palette until those source-measured top-mount features can be persisted and rendered exactly. No undermount substitute, product image, or inferred geometry is used.
 
 ### Sources
 
 113. [Pelican Int’l — PL-VT2522 product page](https://buildpelican.com/products/pl-vt2522)
 114. [Pelican Int’l — PL-VT2522-1 specification sheet](https://cdn.accentuate.io/7876669145228/1729877217251/PL-VT2522-1-Spec.pdf?v=1729877217251)
+
+## Official Active-Product Discovery Queue
+
+Pelican’s live public product feed currently lists several kitchen sink models not in the verified physical palette, including **PL-GMB135**, **PL-GMB144**, **PL-CI6004**, **PL-CI8001**, **PL-CI8002**, **PL-CI8004**, **PL-125**, **PL-150**, **PL-VL5050**, **PL-WS400**, **PL-WS500**, **PL-VT6040**, **PL-VT5050**, and **PL-VT3322**. Their live listing alone is not sufficient for Designer admission. Each must be independently checked for an official technical drawing and for geometry that the exact renderer can reproduce without approximation.
+
+### Source
+
+115. [Pelican Int’l — live public product feed](https://buildpelican.com/products.json?limit=250)
+
+## Not Admitted Under the Current Sink-Base Policy — PL-GMB135 R0
+
+Pelican’s active PL-GMB135 page and official specification sheet identify this as a 16-gauge stainless-steel, single-bowl **retrofit apron-front** kitchen sink. The product page says the apron-front design rests on cabinetry and allows installation into existing standard kitchen cabinets without remodeling, while the technical sheet lists its installation as **apron front, undermount**. The measured exterior is **35½ × 21¼ × 9⅜ inches**, and the measured interior bowl is **32½ × 17¼ × 9⅛ inches**.
+
+The current verified placement policy is intentionally stricter: any apron-front sink is offered only on a farmhouse base, and any standard SB-style base offers normal non-apron sinks only. The conflicting retrofit claim therefore prevents a truthful, policy-compliant palette placement until the owner establishes a distinct retrofit sink-base category and geometry rule. No standard-sink substitute, generic apron, product photograph, or inferred installation is used.
+
+### Sources
+
+116. [Pelican Int’l — PL-GMB135 product page](https://buildpelican.com/products/pl-gmb135)
+117. [Pelican Int’l — PL-GMB135 R0 specification sheet](https://cdn.accentuate.io/8978112348300/1775067777812/PL-GMB135-R0.pdf?v=1775067777812)
+
+## Not Admitted to Exact Physical Placement Yet — PL-150 Granite Composite
+
+Pelican’s active PL-150 product page and official specification sheet identify this as a granite-composite, single-bowl **undermount** kitchen sink. Its exterior measures **29½ × 18¾ × 9½ inches**, and its interior bowl measures **27 × 16½ × 9½ inches**. Pelican offers the product in Alpina, Chroma, Concrete, Gunmetal, Mocha, Onyx, and Sand finishes.
+
+Although its published overall and bowl dimensions are sufficient for basic parametric placement, the current exact sink profile stores neither a source-defined composite material nor the selected seven-color finish. The source does not publish numeric color values or complete formed corner/sidewall geometry. Rendering it in the generic stainless treatment or inferring color from catalog imagery would be misleading, so PL-150 remains outside the verified physical palette until source-referenced non-texture material definitions and its profile-specific formed geometry are supported.
+
+### Sources
+
+118. [Pelican Int’l — PL-150 product page](https://buildpelican.com/products/pl-150)
+119. [Pelican Int’l — PL-150 specification sheet](https://cdn.accentuate.io/8059575566476/1737642094870/PL-150.pdf?v=1737642094870)
+
+## Not Admitted to Exact Physical Placement Yet — PL-VL5050
+
+Pelican’s active PL-VL5050 product page and official specification sheet identify an 18-gauge 304 stainless-steel double-bowl **drawn top-mount** kitchen sink. Its listed exterior is **32¼ × 18⅞ × 8½ inches**. The official product page links top-mount installation instructions, and the technical drawing depicts a formed deck/rim and drawn bowl sidewalls rather than the current sink renderer’s simple undermount rim and rectangular bowl construction.
+
+Even though Pelican provides an official sheet, the current parametric profile does not support this product’s formed top-mount deck or its documented drawn bowl geometry. Rendering it as an undermount sink, using a generic rim, or inferring bowl form from catalog imagery would be misleading. It remains outside the verified physical palette until those exact special features can be represented and tested.
+
+### Sources
+
+120. [Pelican Int’l — PL-VL5050 product page](https://buildpelican.com/products/pl-vl5050)
+121. [Pelican Int’l — PL-VL5050 specification sheet](https://cdn.accentuate.io/8138474619020/1745954728015/PL-VL5050.pdf?v=1745954728015)
