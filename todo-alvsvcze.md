@@ -1500,3 +1500,4 @@
 - [x] Add the source-verified PL-VS2718 normal-depth standard undermount sink with a measured bowl, drain, and 27-inch standard-base fit support
 - [x] Add the source-verified PL-VS1815 compact standard undermount sink with a measured bowl, drain, and 21-inch standard-base fit support
 - [x] Add the source-verified PL-VS2118 compact standard undermount sink with a measured bowl, drain, and 21-inch standard-base fit support
+- [x] Add the source-verified PL-VS2318 normal-depth standard undermount sink with a measured bowl, drain, and 24-inch standard-base fit support
