@@ -390,3 +390,22 @@ These source measurements support an equal double-bowl standard parametric profi
 
 71. [Pelican Int’l — PL-HA117 product page](https://buildpelican.com/products/pl-ha117)
 72. [Pelican Int’l — PL-HA117 R0 specification sheet](https://cdn.accentuate.io/7876666130572/1729873362647/PL-HA117-R0.pdf?v=1729873362647)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA116
+
+Pelican’s direct current `products/pl-ha116` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA112
+
+Pelican’s direct current `products/pl-ha112` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
+
+Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
+
+An exact profile must preserve the documented left-to-right 12-inch and 17-inch bowl widths. The sink is eligible only on compatible 33-inch-or-wider farmhouse bases, including FSB-36. It does not change cabinetry or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+73. [Pelican Int’l — PL-HA139 product page](https://buildpelican.com/products/pl-ha139)
+74. [Pelican Int’l — PL-HA139 R15 specification sheet](https://cdn.accentuate.io/7876666982540/1729874196839/PL-HA139-R15.pdf?v=1729874196839)

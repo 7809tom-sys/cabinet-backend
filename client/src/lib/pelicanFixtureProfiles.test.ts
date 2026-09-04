@@ -147,6 +147,23 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA139 R15 source-verified asymmetric double-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA139 R15 16g")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 33,
+      exteriorDepthIn: 21,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 12,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      bowlCount: 2,
+      bowlWidthsIn: [12, 17],
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("maps the PL-HA130 R0 source-verified equal double-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA130 R0 16g")).toMatchObject({
       installation: "apron-front-undermount",
