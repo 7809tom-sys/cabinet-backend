@@ -5122,6 +5122,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const exteriorHeight = Math.max((sink.exteriorHeight ?? (sink.bowlHeight ?? 10)) * INCH, bowlHeight + 0.025, 0.18);
     const apronThickness = Math.min(0.12, depth * 0.2);
     const side = sink.wallSide ?? "top";
+    const isSourceMeasuredStainlessApron = sink.pelicanProfileId === "pelican-pl-ha135-r0-retrofit-stainless-farmhouse";
     const apron = new THREE.Mesh(
       new RoundedBoxGeometry(
         side === "left" || side === "right" ? apronThickness : width,
@@ -5130,7 +5131,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
         4,
         Math.min(0.04, apronThickness * 0.25),
       ),
-      new THREE.MeshStandardMaterial({ color: "#f4f3ef", roughness: 0.2, metalness: 0.02 }),
+      isSourceMeasuredStainlessApron ? steel : new THREE.MeshStandardMaterial({ color: "#f4f3ef", roughness: 0.2, metalness: 0.02 }),
     );
     const edgeInset = Math.max(0, (side === "left" || side === "right" ? depth : width) / 2 - apronThickness / 2);
     // A sink against the top/left wall faces into the room (positive Z/X); a
@@ -5142,7 +5143,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       countertopTop - exteriorHeight / 2 + 0.006,
       centerZ + direction * edgeInset,
     );
-    apron.userData = { sinkApronFront: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
+    apron.userData = { sinkApronFront: true, sinkApronMaterial: isSourceMeasuredStainlessApron ? "stainless-steel" : "fireclay", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
     root.add(apron);
   }
   if (sink.type === "double" || measuredDoubleBowl) {

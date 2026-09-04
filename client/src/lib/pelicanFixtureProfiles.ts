@@ -108,6 +108,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 14.5, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, drainInsetBackIn: 120 / 25.4, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067",
   },
+  "PL-HA135": {
+    id: "pelican-pl-ha135-r0-retrofit-stainless-farmhouse", pelicanCode: "PL-HA135", name: "PL-HA135 R0 Retrofit Stainless Steel Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 35.5, exteriorDepthIn: 21.25, exteriorHeightIn: 9.375, bowlWidthIn: 32.5, bowlDepthIn: 17.25, bowlHeightIn: 9.125, minimumCabinetWidthIn: 36,
+    specificationUrl: "https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424",
+  },
   "PL-HA136": {
     id: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse", pelicanCode: "PL-HA136", name: "PL-HA136 R15 Handmade Double-Bowl Farmhouse Sink",
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
@@ -380,6 +386,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA119\s+R(?:15|19)\s+18G$/.test(normalized)) return "PL-HA119";
   if (/^PL-HA126\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA126";
   if (/^PL-HA128\s+R15\s+16G$/.test(normalized)) return "PL-HA128";
+  if (/^PL-HA135\s+R0\s+16G$/.test(normalized)) return "PL-HA135";
   if (/^PL-HA130\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA130";
   if (/^PL-HA122\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA122";
   if (/^PL-HA118\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA118";

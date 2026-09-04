@@ -249,6 +249,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA135 R0 source-verified retrofit stainless-steel farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA135 R0 16g")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 35.5,
+      exteriorDepthIn: 21.25,
+      exteriorHeightIn: 9.375,
+      bowlWidthIn: 32.5,
+      bowlDepthIn: 17.25,
+      bowlHeightIn: 9.125,
+      minimumCabinetWidthIn: 36,
+    });
+  });
+
   it("maps the PL-HA136 R15 source-verified asymmetric double-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA136")).toMatchObject({
       installation: "apron-front-undermount",

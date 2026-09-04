@@ -1376,3 +1376,13 @@ Pelican’s direct PL-8248 product URL currently returns 404, but Pelican’s ac
 ### Source
 
 213. [Pelican Int’l — PL-8248 technical drawing](https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241)
+
+## Verified Physical Admission — PL-HA135 R0 Retrofit Stainless Steel Farmhouse Sink
+
+Pelican’s live product page and official two-page drawing establish PL-HA135 R0 as a **16-gauge stainless-steel**, single-bowl **retrofit apron-front undermount** sink. Its 35½ × 21¼ × 9⅜-inch exterior, 32½ × 17¼ × 9⅛-inch bowl, zero-radius form, and retrofit apron geometry map directly to the existing farmhouse fixture contract and a 36-inch nominal farmhouse-base opening. The source documents a centered drain in the drawing but does not give an unambiguous bowl-edge inset, so no drain-offset metadata is inferred. The verified profile persists its exact exterior/bowl/apron dimensions and renders its documented stainless apron without using any product image as geometry or a texture. Gunmetal black is not exposed as a separately identifiable saved product variant.
+
+### Sources
+
+214. [Pelican Int’l — PL-HA135 product page](https://buildpelican.com/products/pl-ha135)
+
+215. [Pelican Int’l — PL-HA135 R0 technical drawing](https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424)
