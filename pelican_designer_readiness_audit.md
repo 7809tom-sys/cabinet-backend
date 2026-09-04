@@ -960,3 +960,11 @@ Pelican’s active PL-8480 product page identifies a deck-mounted, double-handle
 ### Source
 
 159. [Pelican Int’l — PL-8480 product page](https://buildpelican.com/products/pl-8480)
+
+## Retain Exclusion — PL-8515 Flowline Freestanding Bathtub Faucet
+
+Pelican’s active PL-8515 product page identifies this Flowline Series item as a single-handle, floor-mounted freestanding **bathtub faucet** with hand shower. It is designed to operate outside the tub basin for bathroom use, not at a kitchen sink base. It therefore remains absent from the kitchen Designer fixture palette.
+
+### Source
+
+160. [Pelican Int’l — PL-8515 product page](https://buildpelican.com/products/pl-8515)
