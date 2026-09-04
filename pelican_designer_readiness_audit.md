@@ -1208,3 +1208,11 @@ Pelican’s current direct PL-HA132 product URL returns **404 Not Found**. No ac
 ### Source
 
 189. [Pelican Int’l — PL-HA132 product URL](https://buildpelican.com/products/pl-ha132)
+
+## Retain Exclusion — PL-HA141
+
+Pelican’s current direct PL-HA141 product URL returns **404 Not Found**. No active official product page or technical drawing establishes its intended installation, bowl geometry, drain datum, material treatment, finish set, or sink-base fit. It remains outside the physical Designer palette rather than receiving a generic sink substitute.
+
+### Source
+
+190. [Pelican Int’l — PL-HA141 product URL](https://buildpelican.com/products/pl-ha141)
