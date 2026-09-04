@@ -1480,3 +1480,4 @@
 - [x] Add the source-verified PL-FC3318DB double-bowl farmhouse sink with two measured bowls, drains, visible apron, and farmhouse-base fit support
 - [x] Add the source-verified PL-HA136 asymmetric double-bowl farmhouse sink with individually measured bowls, drains, visible apron, and farmhouse-base fit support
 - [x] Add the source-verified PL-HA130 double-bowl farmhouse sink with two measured bowls, drains, visible apron, and 36-inch farmhouse-base fit support
+- [x] Add the source-verified PL-HA122 single-bowl farmhouse sink with measured bowl, drain, visible apron, and 33-inch farmhouse-base fit support
