@@ -102,6 +102,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 17, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 15, bowlDepthIn: 16, bowlHeightIn: 10, minimumCabinetWidthIn: 18,
     specificationUrl: "https://cdn.accentuate.io/7876665278604/1729872420755/PL-HA104-R0.pdf?v=1729872420755",
   },
+  "PL-HA108": {
+    id: "pelican-pl-ha108-r0-stainless-undermount", pelicanCode: "PL-HA108", name: "PL-HA108 R0 Stainless Steel Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 23, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 21, bowlDepthIn: 16, bowlHeightIn: 10, minimumCabinetWidthIn: 24,
+    specificationUrl: "https://cdn.accentuate.io/7876665376908/1729872673252/PL-HA108-R0.pdf?v=1729872673252",
+  },
   "PL-HA111": {
     id: "pelican-pl-ha111-r0-stainless-undermount", pelicanCode: "PL-HA111", name: "PL-HA111 R0 Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -416,6 +422,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA109\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA109";
   if (/^PL-HA115\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA115";
   if (/^PL-HA104\s+R(?:0|15)\s+16G$/.test(normalized)) return "PL-HA104";
+  if (/^PL-HA108\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA108";
   if (/^PL-HA111\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA111";
   if (/^PL-HA117\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA117";
   if (/^PL-HA119\s+R(?:15|19)\s+18G$/.test(normalized)) return "PL-HA119";

@@ -171,6 +171,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA108 R0 source-verified normal-depth standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA108 R0 18g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 23,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 21,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      minimumCabinetWidthIn: 24,
+    });
+  });
+
   it("maps the PL-HA111 R0 source-verified normal-depth standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA111 R0 16g")).toMatchObject({
       installation: "undermount",

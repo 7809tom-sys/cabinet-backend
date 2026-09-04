@@ -605,3 +605,26 @@ These measurements support a source-measured stainless parametric profile for co
 
 101. [Pelican Int’l — PL-VS2318 product page](https://buildpelican.com/products/pl-vs2318)
 102. [Pelican Int’l — PL-VS2318 normal-depth specification sheet](https://cdn.accentuate.io/7876667474060/1729876113634/PL-VS2318-.pdf?v=1742392230407)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS2418
+
+Pelican’s direct current `products/pl-vs2418` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS1515
+
+Pelican’s direct current `products/pl-vs1515` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA143
+
+Pelican’s direct current `products/pl-ha143` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so this product remains outside the verified physical Designer palette until its exact source, measurements, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Next Verified Standard-Sink Candidate — PL-HA108 R0
+
+Pelican’s active product page and official PL-HA108 R0 specification sheet identify this as a 16- or 18-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its exterior measures **23 × 18 × 10 inches** and its interior bowl measures **21 × 16 × 10 inches**. The source identifies a single centered drain; ADA and R15 variants are separately documented and cannot inherit this normal-depth R0 profile.
+
+These measurements support a source-measured stainless parametric profile for compatible 24-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and product images and DXF files remain display-only.
+
+### Sources
+
+103. [Pelican Int’l — PL-HA108 product page](https://buildpelican.com/products/pl-ha108)
+104. [Pelican Int’l — PL-HA108 R0 specification sheet](https://cdn.accentuate.io/7876665376908/1729872673252/PL-HA108-R0.pdf?v=1729872673252)
