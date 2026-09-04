@@ -1515,3 +1515,4 @@
 - [x] Correct the admitted PL-HA118 R15 farmhouse profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
 - [x] Correct the admitted PL-HA125 R0 asymmetric double-bowl farmhouse profile and renderer so both source-verified rear-center drain data persist in every wall orientation
 - [x] Correct the admitted PL-HA124 R0 farmhouse profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
+- [x] Correct the admitted PL-HA115 R0 profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
