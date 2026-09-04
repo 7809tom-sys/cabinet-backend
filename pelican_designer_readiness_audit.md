@@ -968,3 +968,11 @@ Pelican’s active PL-8515 product page identifies this Flowline Series item as 
 ### Source
 
 160. [Pelican Int’l — PL-8515 product page](https://buildpelican.com/products/pl-8515)
+
+## Retain Exclusion — PL-8248
+
+Pelican’s current direct PL-8248 product URL returns **404 Not Found**. No active official product page or technical sheet establishes the model’s intended kitchen role, mounting form, spout geometry, finish set, or physical fit. It remains outside the kitchen Designer palette rather than receiving a generic faucet substitute.
+
+### Source
+
+161. [Pelican Int’l — PL-8248 product URL](https://buildpelican.com/products/pl-8248)
