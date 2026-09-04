@@ -419,19 +419,8 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC2522SB White")).toBeNull();
   });
 
-  it("maps the PL-FC3219SB source-verified single-bowl farmhouse profile", () => {
-    expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toMatchObject({
-      installation: "apron-front-undermount",
-      sinkType: "farmhouse",
-      apronFront: true,
-      exteriorWidthIn: 31.875,
-      exteriorDepthIn: 19.125,
-      exteriorHeightIn: 10.25,
-      bowlWidthIn: 29.125,
-      bowlDepthIn: 16.125,
-      bowlHeightIn: 9.25,
-      minimumCabinetWidthIn: 33,
-    });
+  it("keeps PL-FC3219SB outside physical placement while its offset drain lacks a numerical datum", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toBeNull();
   });
 
   it("keeps PL-FC3318DB outside physical placement while its reversible front and drain data remain source-incomplete", () => {
@@ -572,6 +561,7 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC2418SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3018SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318DB")).toBeNull();
+    expect(verifiedPelicanSinkProfile("PL-FC3219SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
   });
 

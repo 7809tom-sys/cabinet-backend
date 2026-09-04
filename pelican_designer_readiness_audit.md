@@ -1232,3 +1232,11 @@ Pelican’s official drawing confirms that PL-FC3318DB is a double-bowl, reversi
 ### Source
 
 192. [Pelican Int’l — PL-FC3318DB technical drawing](https://cdn.accentuate.io/8980578435212/1775069060533/PL-FC3318DB-(2).pdf?v=1776100453253)
+
+## Retain Exclusion — PL-FC3219SB Offset-Drain Fireclay Sink
+
+Pelican’s official drawing identifies PL-FC3219SB as a single-bowl fireclay sink with an **offset drain** and confirms nominal exterior and bowl dimensions. It does **not** give numerical rear or lateral drain-center offsets. A generic centered drain would contradict the documented offset-drain feature, while estimating an offset would violate exact-plan fidelity. PL-FC3219SB is therefore removed from physical eligibility rather than rendered with an inferred drain location.
+
+### Source
+
+193. [Pelican Int’l — PL-FC3219SB technical drawing](https://cdn.accentuate.io/9687395860620/1786579710979/PL-FC3219SB.pdf?v=1786579710979)
