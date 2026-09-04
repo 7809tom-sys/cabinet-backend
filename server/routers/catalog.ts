@@ -12,6 +12,7 @@ import {
   distributors,
   doorStyles,
   distributorSkus,
+  cabinetDistributorEligibility,
   costChangeLog,
   doorStyleCorrections,
   distributorCabinetOverrides,
@@ -2474,9 +2475,30 @@ export const cabinetsRouter = router({
       if (input.cabinetId) {
         conditions.push(eq(cabinets.id, input.cabinetId));
       }
-      if (input.search) {
-        const like = `%${input.search}%`;
-        conditions.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`);
+      const search = input.search?.trim();
+      if (search) {
+        const like = `%${search}%`;
+        conditions.push(sql`(
+          ${cabinets.masterCode} LIKE ${like}
+          OR ${cabinets.sku} LIKE ${like}
+          OR ${cabinets.vendorSku} LIKE ${like}
+          OR ${cabinets.altSku1} LIKE ${like}
+          OR ${cabinets.altSku2} LIKE ${like}
+          OR ${cabinets.altSku3} LIKE ${like}
+          OR ${cabinets.description} LIKE ${like}
+          OR EXISTS (
+            SELECT 1
+            FROM cabinet_aliases cabinet_config_aliases
+            WHERE cabinet_config_aliases.cabinetId = ${cabinets.id}
+              AND cabinet_config_aliases.alias LIKE ${like}
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM sku_master_aliases cabinet_master_aliases
+            WHERE cabinet_master_aliases.masterCode = ${cabinets.masterCode}
+              AND cabinet_master_aliases.aliasCode LIKE ${like}
+          )
+        )`);
       }
       if (input.category) {
         conditions.push(eq(cabinets.category, input.category));
@@ -3015,6 +3037,86 @@ export const cabinetsRouter = router({
         .set({ isPublished: input.isPublished })
         .where(inArray(distributorSkus.id, input.skuIds));
       return { updated: input.skuIds.length };
+    }),
+
+  // ─── Remove a cabinet from a distributor line without deleting either record ───────
+  // Distributor SKU history remains in place for audit and future re-imports. The
+  // relationship is removed from customer-facing availability by disabling every
+  // currently active SKU for this cabinet/distributor pair and dropping the separate
+  // eligibility marker.
+  adminRemoveCabinetDistributor: adminProcedure
+    .input(z.object({
+      cabinetId: z.number().int().positive(),
+      distributorId: z.number().int().positive(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [cabinet] = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.cabinetId))
+        .limit(1);
+      if (!cabinet) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
+
+      const [distributor] = await db
+        .select({ id: distributors.id, name: distributors.name })
+        .from(distributors)
+        .where(eq(distributors.id, input.distributorId))
+        .limit(1);
+      if (!distributor) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found." });
+
+      const activeSkus = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(and(
+          eq(distributorSkus.cabinetId, input.cabinetId),
+          eq(distributorSkus.distributorId, input.distributorId),
+          sql`(${distributorSkus.isAvailable} = true OR ${distributorSkus.isPublished} = true)`,
+        ));
+
+      const [eligibility] = await db
+        .select({ id: cabinetDistributorEligibility.id })
+        .from(cabinetDistributorEligibility)
+        .where(and(
+          eq(cabinetDistributorEligibility.cabinetId, input.cabinetId),
+          eq(cabinetDistributorEligibility.distributorId, input.distributorId),
+        ))
+        .limit(1);
+
+      if (activeSkus.length === 0 && !eligibility) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This distributor is not currently connected to the selected cabinet.",
+        });
+      }
+
+      await db.transaction(async (tx) => {
+        if (activeSkus.length > 0) {
+          await tx
+            .update(distributorSkus)
+            .set({ isAvailable: false, isPublished: false })
+            .where(and(
+              eq(distributorSkus.cabinetId, input.cabinetId),
+              eq(distributorSkus.distributorId, input.distributorId),
+            ));
+        }
+        if (eligibility) {
+          await tx
+            .delete(cabinetDistributorEligibility)
+            .where(eq(cabinetDistributorEligibility.id, eligibility.id));
+        }
+      });
+
+      return {
+        cabinetId: cabinet.id,
+        masterCode: cabinet.masterCode,
+        distributorId: distributor.id,
+        distributorName: distributor.name,
+        disabledSkuCount: activeSkus.length,
+        removedEligibility: Boolean(eligibility),
+      };
     }),
 
   // ─── Get distributors that have this cabinet active (published + available SKUs) ───

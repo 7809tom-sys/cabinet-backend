@@ -881,6 +881,15 @@ function EditModal({
     onError: (e) => toast.error(`Save failed: ${e.message}`),
   });
 
+  const removeDistributorMutation = trpc.cabinets.adminRemoveCabinetDistributor.useMutation({
+    onSuccess: (result) => {
+      utils.cabinets.getDistributorsForCabinet.invalidate({ cabinetId: row.id });
+      utils.cabinets.adminListCabinetConfig.invalidate();
+      toast.success(`${result.distributorName} was removed from ${result.masterCode}. ${result.disabledSkuCount} active SKU${result.disabledSkuCount === 1 ? "" : "s"} hidden.`);
+    },
+    onError: (error) => toast.error(`Could not remove distributor: ${error.message}`),
+  });
+
   const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
     onSuccess: (data) => {
       setUploading(false);
@@ -985,10 +994,16 @@ function EditModal({
 
   const handleSave = () => {
     if (Object.keys(draft).length === 0) { onClose(); return; }
+    const requestedMasterCode = (merged.masterCode ?? "").trim().toUpperCase();
+    if (!requestedMasterCode) {
+      toast.error("A master code is required. Add an alias instead if this is an alternate code.");
+      return;
+    }
     // Helper: convert empty strings to null for decimal DB columns
     const strOrNull = (v: string | null | undefined): string | null => (v && v.trim() ? v.trim() : null);
     updateMutation.mutate({
       id: row.id,
+      masterCode: requestedMasterCode === (row.masterCode ?? "").trim().toUpperCase() ? undefined : requestedMasterCode,
       description: merged.description ?? undefined,
       depth: strOrNull(merged.depth),
       width: strOrNull(merged.width),
@@ -1039,7 +1054,7 @@ function EditModal({
     });
   };
 
-  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending;
+  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending || removeDistributorMutation.isPending;
   const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
   const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
@@ -1067,6 +1082,19 @@ function EditModal({
 
           {/* ── Details tab ── */}
           <TabsContent value="details" className="space-y-5 mt-0">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Master Code</Label>
+              <Input
+                className="font-mono text-sm uppercase"
+                maxLength={64}
+                placeholder="e.g. W1215GD"
+                value={merged.masterCode ?? ""}
+                onChange={(e) => set("masterCode", e.target.value.toUpperCase())}
+                disabled={busy}
+              />
+              <p className="text-[11px] text-muted-foreground">Changing the master code preserves the prior code as a searchable legacy alias.</p>
+            </div>
+
             {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Description</Label>
@@ -1128,10 +1156,41 @@ function EditModal({
               <Label className="text-sm font-medium">Active on Distributors</Label>
               <div className="rounded-lg border border-border bg-muted/20 p-3">
                 {distributorsForCabinet && distributorsForCabinet.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {distributorsForCabinet.map((dist) => (
-                      <div key={dist.id} className="text-sm text-foreground">
-                        {dist.name}
+                      <div key={dist.id} className="flex items-center justify-between gap-3 rounded-md bg-background px-2.5 py-2 text-sm text-foreground">
+                        <span className="min-w-0 truncate">{dist.name}</span>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 shrink-0 border-destructive/40 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              disabled={busy}
+                            >
+                              <Trash2 className="mr-1 h-3.5 w-3.5" />
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove this distributor from the cabinet?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove <strong>{dist.name}</strong> from <strong className="font-mono">{merged.masterCode}</strong> by disabling its active SKU records and removing the eligibility link. It does not delete the distributor, cabinet, price history, or inactive SKU history. A later verified import can reconnect the product.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => removeDistributorMutation.mutate({ cabinetId: row.id, distributorId: dist.id })}
+                              >
+                                Remove from cabinet
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     ))}
                   </div>
@@ -1139,6 +1198,7 @@ function EditModal({
                   <p className="text-xs text-muted-foreground">Not active on any distributors yet</p>
                 )}
               </div>
+              <p className="text-[11px] text-muted-foreground">Use Remove only when this distributor does not sell this cabinet. The distributor and its historical SKU records remain intact.</p>
             </div>
 
             {/* Not a cabinet */}
@@ -2248,7 +2308,7 @@ export function CabinetConfigAdmin() {
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8 h-8 text-sm"
-            placeholder="Search code or description…"
+            placeholder="Search master code, alias, SKU, or description…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => {
@@ -2283,6 +2343,7 @@ export function CabinetConfigAdmin() {
           Search
         </Button>
       </div>
+      <p className="-mt-1 text-[11px] text-muted-foreground">Search supports master codes, saved aliases, alternative and vendor SKUs, and any partial words from the cabinet description.</p>
 
       {/* Merge button */}
       {canMerge && (

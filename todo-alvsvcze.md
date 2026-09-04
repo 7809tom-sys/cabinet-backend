@@ -1554,3 +1554,15 @@
 - [x] Add the source-measured PL-VR5050 R20 stainless equal double-bowl undermount sink with its exact bowl geometry and standard sink-base compatibility
 - [x] Add the source-measured PL-VR6040 R20 stainless stepped double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans
 - [x] Add the source-measured PL-VR2318 R20 compact stainless undermount sink with its exact bowl geometry and standard sink-base compatibility
+- [ ] Require a saved kitchen plan and verified customer phone number before a customer can request a plan-locked image
+- [ ] Persist qualified image leads, verification status, immutable plan linkage, generation status, and generated image URL for CRM follow-up
+- [ ] Deliver qualified plan-image leads to the configured CRM webhook without exposing contact data or service credentials in the client
+- [ ] Add accessible responsive contact, phone-verification, image-request, loading, error, and result states to the Designer image workflow
+- [ ] Add focused database, API, gating, CRM-payload, and interface regressions for the verified-phone image feature
+- [ ] Lock every customer image request to the immutable saved plan and its selected door style, flooring, backsplash, countertop, faucet, and sink without substitutions or layout changes
+- [x] Document Twilio Verify under Operations as the server-side phone-verification service and list its required secure configuration
+- [x] Expand the Operations Team Notes entry into a complete owner setup and testing checklist for the verified plan-image workflow
+- [x] Audit and enable authoritative cabinet configuration editing from the Administration Cabinet Config dialog
+- [x] Let administrators remove a distributor-product relationship when the distributor does not sell that cabinet without deleting the cabinet or distributor
+- [x] Expand Cabinet Config search to match aliases, master codes, and partial cabinet descriptions consistently
+- [x] Add focused regression coverage for cabinet edits, distributor-product removal, and alias/master/partial search results
