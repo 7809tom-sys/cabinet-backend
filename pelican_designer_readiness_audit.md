@@ -1444,3 +1444,11 @@ Pelican’s live PL-150 product page and technical drawing document a 29½ × 18
 225. [Pelican Int’l — PL-150 product page](https://buildpelican.com/products/pl-150)
 
 226. [Pelican Int’l — PL-150 technical drawing](https://cdn.accentuate.io/8059575566476/1737642094870/PL-150.pdf?v=1737642094870)
+
+## Retain Exclusion — PL-HA120 Handmade Stainless Steel Double-Bowl Sink
+
+Pelican’s direct PL-HA120 product URL currently returns 404. A targeted official-source search did not locate an accessible current Pelican technical drawing that establishes the sink’s installation, each bowl’s geometry, numerical drain locations, material/finish, or compatible sink-base opening. PL-HA120 remains outside physical placement rather than receiving a generic equal- or asymmetric-double-bowl substitute.
+
+### Source
+
+227. [Pelican Int’l — PL-HA120 direct product URL](https://buildpelican.com/products/pl-ha120)
