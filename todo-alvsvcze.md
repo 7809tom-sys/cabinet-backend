@@ -1506,3 +1506,4 @@
 - [x] Add the source-verified PL-8257 pull-down kitchen faucet with exact height, spout reach, outlet height, finish persistence, and compatible sink-base placement
 - [x] Correct the admitted PL-HA109 R0 profile and renderer so its source-verified rear-center drain datum is persisted and rendered on every wall orientation
 - [x] Remove PL-FC2418SB and PL-FC3018SB from physical eligibility because their current official sheets omit required drain and reversible-apron geometry
+- [x] Remove PL-FC3321SB from physical eligibility because its current official source documents a curved apron without the source measurements required to render the curve faithfully

@@ -5,7 +5,7 @@ describe("verifiedPelicanSinkProfile", () => {
   it("recognizes imported Farmhouse Series color variants without treating their abbreviated size fields as authoritative", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toMatchObject({ exteriorWidthIn: 32.625, bowlHeightIn: 9.25 });
-    expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toMatchObject({ exteriorDepthIn: 20.875, bowlDepthIn: 19.75 });
+    expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toMatchObject({ exteriorWidthIn: 36, bowlWidthIn: 34.5625 });
   });
 

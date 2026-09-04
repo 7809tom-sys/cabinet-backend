@@ -660,7 +660,7 @@ The verified-only physical fixture gate remains closed for this item because the
 
 Pelican’s active PL-FC3321SB product page and official specification sheet identify a white, matte-grey, or matte-black fireclay, single-bowl **apron-front undermount** sink. Its documented exterior measures **33 × 20⅞ × 10 inches** and its interior bowl measures **31⅝ × 19¾ × 10 inches**. The technical sheet and product page expressly identify a **curved apron front**.
 
-The existing farmhouse renderer has a straight measured apron and the source does not provide the curved apron’s radius, depth, or sectional geometry. This sink must therefore remain outside the physical Designer fixture palette until the curve can be source-measured and faithfully rendered. No straight-apron substitute, product image, or inferred curvature is used.
+The existing farmhouse renderer has a straight measured apron and the source does not provide the curved apron’s radius, depth, or sectional geometry. Its prior physical profile has therefore been withdrawn. This sink must remain outside the physical Designer fixture palette until the curve can be source-measured and faithfully rendered. No straight-apron substitute, product image, or inferred curvature is used.
 
 ### Sources
 
