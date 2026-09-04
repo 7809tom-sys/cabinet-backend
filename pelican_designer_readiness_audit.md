@@ -952,3 +952,11 @@ Pelican’s current direct PL-8206 product URL returns **404 Not Found**. No act
 ### Source
 
 158. [Pelican Int’l — PL-8206 product URL](https://buildpelican.com/products/pl-8206)
+
+## Retain Exclusion — PL-8480 Deck-Mounted Bridge Kitchen Faucet
+
+Pelican’s active PL-8480 product page identifies a deck-mounted, double-handle **bridge** kitchen faucet with Brushed Gold, Brushed Nickel, Chrome, and Matte Black options. The page supplies no official technical drawing, mounting-hole spacing, overall height, spout reach, outlet datum, or handle geometry. In addition, the existing verified faucet contract represents only single-hole deck fixtures. PL-8480 therefore remains outside the physical kitchen palette until Pelican provides complete source measurements and a distinct exact bridge-faucet contract is available.
+
+### Source
+
+159. [Pelican Int’l — PL-8480 product page](https://buildpelican.com/products/pl-8480)
