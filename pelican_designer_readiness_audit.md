@@ -840,3 +840,14 @@ The current verified physical sink path supports straight-walled undermount and 
 
 138. [Pelican Int’l — PL-VT6040 product page](https://buildpelican.com/products/pl-vt6040)
 139. [Pelican Int’l — PL-VT6040-1 specification sheet](https://cdn.accentuate.io/7876669407372/1729877587399/_PL-VT6040-1.pdf?v=1742389522523)
+
+## Not Admitted to Exact Physical Placement Yet — PL-FC3020WS Fireclay Workstation Sink
+
+Pelican’s active PL-FC3020WS page and official drawing identify a reversible-front, apron-front undermount fireclay workstation sink in White, Matte Grey, and Matte Black. The product includes graduated accessory ledges, a custom wood cutting board, a roll-out drying rack, a bottom grid, and a stainless-steel deluxe strainer. Its drawing supplies a **30 × 20 × 10-inch** exterior, a **27¾ × 18 × 9-inch** single bowl, and a 92-millimeter drain opening.
+
+The current exact farmhouse-sink profile does not model source-defined workstation ledges or any of the included accessory products. Pelican’s drawing does not dimension the individual accessory bodies or provide the complete ledge/retention geometry needed to position them faithfully. A plain apron-front bowl would omit the selected product’s material functionality, while catalog imagery cannot supply the missing dimensions. PL-FC3020WS therefore remains outside the physical Designer palette until those source-measured workstation components can persist and render without approximation.
+
+### Sources
+
+140. [Pelican Int’l — PL-FC3020WS product page](https://buildpelican.com/products/pl-fc3020ws)
+141. [Pelican Int’l — PL-FC3020WS specification sheet](https://cdn.accentuate.io/9714226987148/1786633188065/PL-FC3020WS.pdf?v=1786633188065)
