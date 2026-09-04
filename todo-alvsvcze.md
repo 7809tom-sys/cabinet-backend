@@ -1531,3 +1531,4 @@
 - [x] Remove PL-FC3620SB from physical eligibility because its source-documented reversible aprons and drain lack the persisted selection and numerical datum required for an exact profile
 - [x] Retain the PL-8213 brushed-nickel profile against Pelican’s active specification and withdraw the unsupported chrome physical variant
 - [x] Retain active-source PL-8217 brushed-nickel and oil-rubbed-bronze profiles while withdrawing an unsupported chrome physical variant
+- [x] Retain active-source PL-8218 brushed-nickel and matte-black profiles while withdrawing an unsupported chrome physical variant
