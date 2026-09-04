@@ -1360,3 +1360,11 @@ Pelican’s direct PL-8257 product URL currently returns 404, but Pelican’s ac
 ### Source
 
 211. [Pelican Int’l — PL-8257 technical drawing](https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437)
+
+## Source-Verified Profile Audit — PL-8206 Fountain Series Articulated Kitchen Faucet
+
+Pelican’s direct PL-8206 product URL currently returns 404, but Pelican’s accessible official technical drawing establishes the physical fixture: a **single-hole** articulated faucet with two **360-degree rotating** swing joints, a **10½-inch** overall height, **9¾-inch** spout length, and **9¼-inch** spout height. The source documents the stored chrome, brushed-nickel, and matte-black finishes. The existing measured profiles match that official drawing; no geometry or finish change is required.
+
+### Source
+
+212. [Pelican Int’l — PL-8206 technical drawing](https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387)
