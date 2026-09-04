@@ -1368,3 +1368,11 @@ Pelican’s direct PL-8206 product URL currently returns 404, but Pelican’s ac
 ### Source
 
 212. [Pelican Int’l — PL-8206 technical drawing](https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387)
+
+## Source-Verified Profile Audit — PL-8248 Fountain Series Pull-Out Kitchen Faucet
+
+Pelican’s direct PL-8248 product URL currently returns 404, but Pelican’s accessible official technical drawing establishes the physical fixture: a **single-hole** pull-out kitchen faucet with a **12⅜-inch** overall height, **10 1/16-inch** spout length, and **10⅞-inch** spout height. The source documents the stored chrome, brushed-nickel, and matte-black finishes. The existing measured profiles match that official drawing; no geometry or finish change is required.
+
+### Source
+
+213. [Pelican Int’l — PL-8248 technical drawing](https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241)
