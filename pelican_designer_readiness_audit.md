@@ -572,3 +572,14 @@ These measurements support a source-measured stainless parametric profile for co
 
 95. [Pelican Int’l — PL-VS2718 product page](https://buildpelican.com/products/pl-vs2718)
 96. [Pelican Int’l — PL-VS2718 normal-depth specification sheet](https://cdn.accentuate.io/7876667900044/1729876262131/PL-VS2718.pdf?v=1742392624082)
+
+## Next Verified Standard-Sink Candidate — PL-VS1815
+
+Pelican’s active PL-VS1815 kitchen-sink product page and official technical specification sheet identify an 18-gauge stainless-steel, single-bowl **undermount** sink. Its exterior measures **18½ × 15 × 7 inches** and its interior bowl measures **16½ × 13 × 7 inches**. The technical drawing identifies a single centered drain and no special geometry beyond the documented rounded corners.
+
+These measurements support a source-measured stainless parametric profile for compatible 21-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and product images and DXF files remain display-only.
+
+### Sources
+
+97. [Pelican Int’l — PL-VS1815 product page](https://buildpelican.com/products/pl-vs1815)
+98. [Pelican Int’l — PL-VS1815 specification sheet](https://cdn.accentuate.io/7876667375756/1729875932156/PL-VS1815.pdf?v=1742391310508)
