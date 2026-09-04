@@ -178,6 +178,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VS4040 as a source-verified compact stainless equal double-bowl standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS4040 18g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 29.125,
+      exteriorDepthIn: 18.5,
+      exteriorHeightIn: 8,
+      bowlWidthIn: 13,
+      bowlDepthIn: 16.5,
+      bowlHeightIn: 8,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 30,
+    });
+  });
+
   it("maps PL-VS5050 as a source-verified stainless equal double-bowl standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-VS5050 16g")).toMatchObject({
       installation: "undermount",

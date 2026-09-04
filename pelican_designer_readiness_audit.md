@@ -1502,3 +1502,13 @@ Pelican’s live product page and official specification establish PL-VS5050 as 
 236. [Pelican Int’l — PL-VS5050 product page](https://buildpelican.com/products/pl-vs5050)
 
 237. [Pelican Int’l — PL-VS5050 technical drawing](https://cdn.accentuate.io/7876668752012/1729876810836/PL-VS5050.pdf?v=1758902044753)
+
+## Verified Physical Admission — PL-VS4040 Signature Series Stainless Steel Equal Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VS4040 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl sink. Its source-measured 29⅛ × 18½ × 8-inch exterior and two equal 13 × 16½ × 8-inch bowls map directly to the existing standard sink-base fixture contract with a 30-inch nominal opening. The physical profile persists the measured equal bowl geometry for deterministic placement and rendering. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+238. [Pelican Int’l — PL-VS4040 product page](https://buildpelican.com/products/pl-vs4040)
+
+239. [Pelican Int’l — PL-VS4040 technical drawing](https://cdn.accentuate.io/7876668391564/1729876706766/PL-VS4040.pdf?v=1742393226362)
