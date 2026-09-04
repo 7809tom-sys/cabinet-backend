@@ -1538,3 +1538,4 @@
 - [x] Retain PL-WS4519 outside physical placement because no active official product or technical source establishes its workstation ledges, accessories, drain, and cabinet fit
 - [x] Retain PL-WS400 outside physical placement because its dual-mount installation and included workstation accessories cannot yet be persisted and faithfully rendered
 - [x] Retain PL-WS2819 R0 outside physical placement because its documented ledge and included workstation accessories cannot yet be persisted and faithfully rendered
+- [x] Retain PL-HA137 outside physical placement because no active official product or technical source establishes its exact sink geometry and base fit

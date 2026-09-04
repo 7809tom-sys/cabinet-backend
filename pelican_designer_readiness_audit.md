@@ -1426,3 +1426,11 @@ Pelican’s live PL-WS2819 R0 16g product page and technical drawing document a 
 222. [Pelican Int’l — PL-WS2819 R0 16g product page](https://buildpelican.com/products/pl-ws2819-r0-16g)
 
 223. [Pelican Int’l — PL-WS2819 R0 technical drawing](https://cdn.accentuate.io/7876651352204/1729877780749/PL-WS2819-R0.pdf?v=1729877780749)
+
+## Retain Exclusion — PL-HA137 R10 Handmade Farmhouse Sink
+
+Pelican’s direct PL-HA137 product URL currently returns 404. A targeted official-source search did not locate an accessible current Pelican technical drawing that establishes its installation, exterior and bowl geometry, drain datum, material/finish, apron form, or compatible farmhouse-base opening. PL-HA137 remains outside physical placement rather than receiving a generic farmhouse profile or inferred dimensions.
+
+### Source
+
+224. [Pelican Int’l — PL-HA137 direct product URL](https://buildpelican.com/products/pl-ha137)
