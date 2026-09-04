@@ -1512,3 +1512,11 @@ Pelican’s live product page and official specification establish PL-VS4040 as 
 238. [Pelican Int’l — PL-VS4040 product page](https://buildpelican.com/products/pl-vs4040)
 
 239. [Pelican Int’l — PL-VS4040 technical drawing](https://cdn.accentuate.io/7876668391564/1729876706766/PL-VS4040.pdf?v=1742393226362)
+
+## Verified Physical Admission — PL-VS5050 ADA Shallow Stainless Steel Equal Double-Bowl Undermount Sink
+
+Pelican’s official ADA specification establishes PL-VS5050 ADA as an 18-gauge stainless-steel **undermount** double-bowl sink with a 32⅛ × 18 × 5½-inch exterior and two equal 14½ × 16 × 5½-inch bowls. The verified profile persists that shallow-bowl geometry and uses the same 33-inch standard sink-base fit as the standard PL-VS5050, without changing any cabinet height, counter height, or ADA-clearance rules. The catalog product’s ADA compliance remains subject to installation according to the applicable accessibility standards; the physical fixture representation does not imply that an ordinary Designer base assembly is ADA compliant. The official sheet does not provide numerical drain-center offsets, so none are inferred.
+
+### Source
+
+240. [Pelican Int’l — PL-VS5050 ADA technical drawing](https://cdn.accentuate.io/7876668752012/1729876868211/PL-VS5050-ADA.pdf?v=1742393422746)

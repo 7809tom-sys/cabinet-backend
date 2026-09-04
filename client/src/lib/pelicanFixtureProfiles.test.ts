@@ -210,6 +210,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VS5050 ADA as a source-verified shallow equal double-bowl profile without changing cabinet-height behavior", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS5050 18g ADA")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 32.125,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 5.5,
+      bowlWidthIn: 14.5,
+      bowlDepthIn: 16,
+      bowlHeightIn: 5.5,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("maps the PL-HA104 R0 source-verified compact standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA104 R0 16g")).toMatchObject({
       installation: "undermount",
