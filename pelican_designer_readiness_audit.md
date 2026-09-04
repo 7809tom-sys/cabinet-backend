@@ -873,3 +873,14 @@ The existing farmhouse sink renderer must not infer the missing drain or reversi
 
 144. [Pelican Int’l — PL-FC2418SB product page](https://buildpelican.com/products/pl-fc2418sb)
 145. [Pelican Int’l — PL-FC2418SB specification sheet](https://cdn.accentuate.io/7876648042636/1729870572366/PL-FC2418SB.pdf?v=1729870572366)
+
+## Not Admitted to Exact Physical Placement Yet — PL-FC099
+
+Pelican’s public product feed currently contains a PL-FC099 listing, but the direct active `products/pl-fc099` product URL returns **404 Not Found**. No current official product detail page or technical specification was available to establish its precise product identity, installation class, exterior and bowl dimensions, drain geometry, apron form, finish, or compatible sink-base rule.
+
+PL-FC099 remains outside the physical Designer palette until Pelican exposes an authoritative current product page and complete technical documentation. No catalog-feed value, product photograph, or generic sink substitution is used as a physical model.
+
+### Sources
+
+146. [Pelican Int’l — current public product feed](https://buildpelican.com/products.json?limit=250)
+147. [Pelican Int’l — PL-FC099 product URL](https://buildpelican.com/products/pl-fc099)
