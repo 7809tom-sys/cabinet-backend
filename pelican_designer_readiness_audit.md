@@ -944,3 +944,11 @@ Pelican’s active PL-8107 product page identifies this 7⅝-inch ADA-compliant 
 ### Source
 
 157. [Pelican Int’l — PL-8107 product page](https://buildpelican.com/products/pl-8107)
+
+## Retain Exclusion — PL-8206
+
+Pelican’s current direct PL-8206 product URL returns **404 Not Found**. No active official product page or technical sheet establishes the model’s intended kitchen role, mounting form, spout geometry, finish set, or fit requirements. It remains outside the physical kitchen fixture palette rather than receiving a generic faucet substitute.
+
+### Source
+
+158. [Pelican Int’l — PL-8206 product URL](https://buildpelican.com/products/pl-8206)
