@@ -1483,3 +1483,4 @@
 - [x] Add the source-verified PL-HA122 single-bowl farmhouse sink with measured bowl, drain, visible apron, and 33-inch farmhouse-base fit support
 - [x] Add the source-verified PL-HA115 normal-depth standard undermount sink with a measured bowl, drain, and 32-inch standard-base fit support
 - [x] Add the source-verified PL-HA104 standard undermount sink with a measured bowl, drain, and 18-inch standard-base fit support
+- [x] Add the source-verified PL-HA118 single-bowl farmhouse sink with a measured bowl, drain, visible apron, and 30-inch farmhouse-base fit support
