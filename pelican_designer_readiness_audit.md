@@ -1566,3 +1566,13 @@ Pelican’s live product page and official specification establish PL-VR6040 R20
 247. [Pelican Int’l — PL-VR6040 R20 product page](https://buildpelican.com/products/pl-vr6040-r20)
 
 248. [Pelican Int’l — PL-VR6040 R20 technical drawing](https://cdn.accentuate.io/7876651253900/1729875738021/PL-VR6040-R20.pdf?v=1742391112882)
+
+## Verified Physical Admission — PL-VR2318 R20 Urban Series Compact Stainless Steel Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VR2318 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** single-bowl sink. Its source-measured 23 × 18 × 9-inch exterior and 21 × 16 × 9-inch bowl map directly to the existing standard sink-base fixture contract with a 24-inch nominal opening. The physical profile persists every documented exterior and bowl dimension for deterministic placement and rendering. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+249. [Pelican Int’l — PL-VR2318 R20 product page](https://buildpelican.com/products/pl-vr2318-r20)
+
+250. [Pelican Int’l — PL-VR2318 R20 technical drawing](https://cdn.accentuate.io/7876650336396/1729875037735/PL-VR2318-R20.pdf?v=1742390106955)
