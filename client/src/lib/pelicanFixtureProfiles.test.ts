@@ -6,22 +6,7 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toBeNull();
-    expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toMatchObject({ exteriorWidthIn: 36, bowlWidthIn: 34.5625 });
-  });
-
-  it("maps Pelican’s published PL-FC3620SB single-bowl farmhouse profile", () => {
-    expect(verifiedPelicanSinkProfile("PL-FC3620SB")).toMatchObject({
-      installation: "apron-front-undermount",
-      sinkType: "farmhouse",
-      apronFront: true,
-      exteriorWidthIn: 36,
-      exteriorDepthIn: 20,
-      exteriorHeightIn: 10,
-      bowlWidthIn: 34.5625,
-      bowlDepthIn: 18.5625,
-      bowlHeightIn: 9,
-      minimumCabinetWidthIn: 36,
-    });
+    expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toBeNull();
   });
 
   it("distinguishes the measured standard and ADA PL-HA109 undermount depths", () => {
@@ -563,11 +548,12 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3318SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318DB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3219SB")).toBeNull();
+    expect(verifiedPelicanSinkProfile("PL-FC3620SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
   });
 
   it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {
-    const farmhouse = verifiedPelicanSinkProfile("PL-FC3620SB")!;
+    const farmhouse = verifiedPelicanSinkProfile("PL-HA128 R15 16g")!;
     const rotatedFsb36 = { width: 36, depth: 24, rotation: 90 };
     expect(sinkBaseOpeningWidthIn(rotatedFsb36)).toBe(36);
     expect(verifiedPelicanSinkFitsCabinet(farmhouse, sinkBaseOpeningWidthIn(rotatedFsb36))).toBe(true);

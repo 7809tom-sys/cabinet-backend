@@ -1248,3 +1248,11 @@ Pelican’s official drawing confirms that PL-FC3318SB is a single-bowl, reversi
 ### Source
 
 194. [Pelican Int’l — PL-FC3318SB technical drawing](https://cdn.accentuate.io/8980578500748/1775068978130/PL-FC3318SB.pdf?v=1776100416378)
+
+## Retain Exclusion — PL-FC3620SB Reversible Single-Bowl Farmhouse Sink
+
+Pelican’s official drawing identifies PL-FC3620SB as a reversible-front, single-bowl fireclay apron-front undermount sink and documents distinct plain and fluted apron elevations. It does **not** establish which apron is selected for a saved plan or numerical drain-center offsets. The existing profile cannot truthfully preserve either the user-chosen reversible front or the documented drain location without inference. PL-FC3620SB is therefore removed from physical eligibility rather than rendered with a generic apron or centered drain.
+
+### Source
+
+195. [Pelican Int’l — PL-FC3620SB technical drawing](https://cdn.accentuate.io/7876649746572/1729870771898/PL-FC3620SB.pdf?v=1729870771898)
