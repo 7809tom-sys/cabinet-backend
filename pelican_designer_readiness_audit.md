@@ -226,11 +226,31 @@ Pelican identifies PL-3099 as an 18 × 13-inch porcelain **vanity sink**, not a 
 
 42. [Pelican Int’l — PL-3099 product page](https://buildpelican.com/products/pl-3099)
 
-## Next Verified Farmhouse Sink Candidate — PL-FC3219SB
+## Verified Farmhouse Sink — PL-FC3219SB
 
-Pelican’s official Farmhouse Series documentation verifies PL-FC3219SB as a white fireclay, single-bowl sink that can be installed as either drop-in or undermount. Its exterior dimensions are 31⅞ × 19⅛ × 10¼ inches and its interior bowl dimensions are 29⅛ × 16⅛ × 9¼ inches. The design tool may use only a measured parametric profile from those dimensions; product images remain display-only. The sink needs a compatible farmhouse base at least 32 inches wide, which means the current FSB-36 is a valid host.
+Pelican’s official Farmhouse Series documentation verifies PL-FC3219SB as a white fireclay, single-bowl sink that can be installed as either drop-in or undermount. Its exterior dimensions are 31⅞ × 19⅛ × 10¼ inches and its interior bowl dimensions are 29⅛ × 16⅛ × 9¼ inches. The design tool may use only a measured parametric profile from those dimensions; product images remain display-only. The registered profile uses a conservative 33-inch farmhouse-base minimum, so the current FSB-36 is a valid host.
 
 ### Sources
 
 43. [Pelican Int’l — PL-FC3219SB product page](https://buildpelican.com/products/pl-fc3219sb)
 44. [Pelican Int’l — PL-FC3219SB specification sheet](https://cdn.accentuate.io/9687395860620/1786579710979/PL-FC3219SB.pdf?v=1786579710979)
+
+## Source-Verified Retrofit Sink — PL-FC3220SB
+
+Pelican’s official PL-FC3220SB product page identifies a white fireclay, single-bowl **retrofit apron-front farmhouse** kitchen sink. Its exterior dimensions are **32⅝ × 20⅛ × 10⅛ inches**. Pelican’s official technical drawing gives a **29⅝ × 17⅛ × 9⅛-inch** interior bowl and confirms the same exterior dimensions. The product description states that its retrofit apron front is designed to fit into existing standard kitchen cabinets.
+
+The measurements are sufficient for a future parametric profile, and its apron-front must remain visibly seated at the countertop/front-face interface. However, it is not yet added to the current kitchen palette because the owner-approved compatibility rule presently limits apron-front farmhouse products to farmhouse sink-base selection and limits standard SB-style bases to standard sinks. This policy conflict must be resolved explicitly before the product can be offered on a standard base; catalog or product imagery remains display-only in all cases.
+
+### Sources
+
+45. [Pelican Int’l — PL-FC3220SB product page](https://buildpelican.com/products/pl-fc3220sb)
+46. [Pelican Int’l — PL-FC3220SB official technical drawing](https://buildpelican.com/cdn/shop/files/PL-FC3220SBLD.png?v=1786580547)
+
+## Next Verified Farmhouse Sink Candidate — PL-FC3318DB
+
+Pelican’s current product page and official specification sheet identify PL-FC3318DB as a white fireclay, reversible, double-bowl **apron-front undermount** farmhouse kitchen sink. The published exterior measures **32⅝ × 18 × 10 inches**. Each of its two bowls measures **15⅜ × 16½ × 9¼ inches**; the technical drawing also shows two drains. These measurements support a source-measured double-bowl parametric profile with a visible apron, countertop seating, and two measured drains. It must be offered only on a compatible farmhouse sink base with a conservative 33-inch minimum, so the current FSB-36 is a valid host; catalog photographs and product diagrams remain display-only and cannot become 3D texture or geometry.
+
+### Sources
+
+47. [Pelican Int’l — PL-FC3318DB product page](https://buildpelican.com/products/pl-fc3318db-1)
+48. [Pelican Int’l — PL-FC3318DB specification sheet](https://cdn.accentuate.io/8980578435212/1775069060533/PL-FC3318DB-(2).pdf?v=1776100453253)

@@ -1477,3 +1477,4 @@
 - [x] Identify and source-verify the next active Pelican kitchen fixture family for exact 3D palette expansion after PL-HA128
 - [x] Add the source-verified PL-FC3219SB single-bowl farmhouse sink with exact countertop seating, visible apron, and farmhouse-base fit support
 - [x] Exclude source-verified PL-3099 bathroom vanity sinks from the kitchen farmhouse sink-base palette while preserving their public Pelican catalog records
+- [x] Add the source-verified PL-FC3318DB double-bowl farmhouse sink with two measured bowls, drains, visible apron, and farmhouse-base fit support

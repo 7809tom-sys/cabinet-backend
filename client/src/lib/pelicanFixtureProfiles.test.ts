@@ -66,6 +66,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-FC3318DB source-verified double-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC3318DB White")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 32.625,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 15.375,
+      bowlDepthIn: 16.5,
+      bowlHeightIn: 9.25,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("uses Pelican’s published PL-8203 dimensions for the matching brushed-nickel faucet", () => {
     expect(verifiedPelicanFaucetProfile("PL-8203 BN")).toMatchObject({
       installation: "single-hole",
