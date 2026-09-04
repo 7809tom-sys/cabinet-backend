@@ -851,3 +851,14 @@ The current exact farmhouse-sink profile does not model source-defined workstati
 
 140. [Pelican Int’l — PL-FC3020WS product page](https://buildpelican.com/products/pl-fc3020ws)
 141. [Pelican Int’l — PL-FC3020WS specification sheet](https://cdn.accentuate.io/9714226987148/1786633188065/PL-FC3020WS.pdf?v=1786633188065)
+
+## Not Admitted to Exact Physical Placement Yet — PL-FC3018SB Reversible Fireclay Farmhouse Sink
+
+Pelican’s active PL-FC3018SB product page and readable official specification sheet identify a **30 × 18 × 10-inch**, single-bowl fireclay farmhouse sink with a **28⅝ × 16⅝ × 9¼-inch** bowl, an apron-front/undermount installation class, a reversible-front design, and White, Matte Grey, and Matte Black variants. The official sheet provides this general dimensional text but no plan/elevation drawing that locates the drain, defines the apron shape, or distinguishes the two selectable front configurations.
+
+The existing farmhouse sink renderer must not infer this missing geometry from catalog images or silently collapse the reversible product to a generic straight-apron model. PL-FC3018SB remains outside the physical Designer palette until a complete official drawing establishes the selected front geometry, drain position, countertop seating, and compatible farmhouse-base requirements.
+
+### Sources
+
+142. [Pelican Int’l — PL-FC3018SB product page](https://buildpelican.com/products/pl-fc3018sb)
+143. [Pelican Int’l — PL-FC3018SB specification sheet](https://cdn.accentuate.io/9682969362572/1786578710369/PL-FC3018SB-Spec.pdf?v=1786578710369)
