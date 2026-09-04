@@ -1224,3 +1224,11 @@ Pelican’s official PL-HA119 R19 drawing confirms the existing physical profile
 ### Source
 
 191. [Pelican Int’l — PL-HA119 R19 technical drawing](https://cdn.accentuate.io/8978112544908/1775067326529/PL-HA119-R15.pdf?v=1775067326529)
+
+## Retain Exclusion — PL-FC3318DB Reversible Double-Bowl Farmhouse Sink
+
+Pelican’s official drawing confirms that PL-FC3318DB is a double-bowl, reversible-front fireclay apron-front undermount sink, together with nominal exterior and bowl dimensions. It does **not** document which reversible apron face is selected for a saved design, a source-measured parametric form for either apron face, or numerical drain-center offsets. Those omissions prevent faithful saved-plan geometry. PL-FC3318DB is therefore removed from physical eligibility rather than rendered with a generic reversible apron or inferred drain positions.
+
+### Source
+
+192. [Pelican Int’l — PL-FC3318DB technical drawing](https://cdn.accentuate.io/8980578435212/1775069060533/PL-FC3318DB-(2).pdf?v=1776100453253)

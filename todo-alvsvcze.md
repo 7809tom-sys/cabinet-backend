@@ -1525,3 +1525,4 @@
 - [x] Remove PL-FC2522SB from physical eligibility because its official source leaves the reversible apron and drain position insufficiently measured for an exact model
 - [x] Correct the admitted PL-HA126 R0 asymmetric double-bowl profile and renderer so both source-verified rear-center drain data persist in every wall orientation
 - [x] Correct the admitted PL-HA128 R15 double-bowl farmhouse profile and renderer so both source-verified rear-center drain data persist in every wall orientation
+- [x] Remove PL-FC3318DB from physical eligibility because its official reversible-front and drain documentation cannot support an exact parametric profile

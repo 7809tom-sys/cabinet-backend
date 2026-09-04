@@ -126,12 +126,6 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 31.875, exteriorDepthIn: 19.125, exteriorHeightIn: 10.25, bowlWidthIn: 29.125, bowlDepthIn: 16.125, bowlHeightIn: 9.25, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/9687395860620/1786579710979/PL-FC3219SB.pdf?v=1786579710979",
   },
-  "PL-FC3318DB": {
-    id: "pelican-pl-fc3318db-fireclay-double-bowl-farmhouse", pelicanCode: "PL-FC3318DB", name: "PL-FC3318DB Fireclay Double-Bowl Farmhouse Sink",
-    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
-    exteriorWidthIn: 32.625, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 15.375, bowlDepthIn: 16.5, bowlHeightIn: 9.25, bowlCount: 2, minimumCabinetWidthIn: 33,
-    specificationUrl: "https://cdn.accentuate.io/8980578435212/1775069060533/PL-FC3318DB-(2).pdf?v=1776100453253",
-  },
   "PL-HA136": {
     id: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse", pelicanCode: "PL-HA136", name: "PL-HA136 R15 Handmade Double-Bowl Farmhouse Sink",
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
