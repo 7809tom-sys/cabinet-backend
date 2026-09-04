@@ -1556,3 +1556,13 @@ Pelican’s live product page and official specification establish PL-VR5050 R20
 245. [Pelican Int’l — PL-VR5050 R20 product page](https://buildpelican.com/products/pl-vr5050-r20)
 
 246. [Pelican Int’l — PL-VR5050 R20 technical drawing](https://cdn.accentuate.io/7876651090060/1729875615547/PL-VR5050-R20.pdf?v=1742390973929)
+
+## Verified Physical Admission — PL-VR6040 R20 Urban Series Stainless Steel Stepped Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VR6040 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl sink. Its source-measured 31½ × 20½ × 9-inch exterior, 15¾ × 18½ × 9-inch left bowl, and 12¾ × 16 × 8-inch right bowl map to the existing standard sink-base fixture contract with a 32-inch nominal opening. The physical profile persists each bowl’s independent width, depth, and height; the renderer applies those values through all saved wall orientations. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+247. [Pelican Int’l — PL-VR6040 R20 product page](https://buildpelican.com/products/pl-vr6040-r20)
+
+248. [Pelican Int’l — PL-VR6040 R20 technical drawing](https://cdn.accentuate.io/7876651253900/1729875738021/PL-VR6040-R20.pdf?v=1742391112882)
