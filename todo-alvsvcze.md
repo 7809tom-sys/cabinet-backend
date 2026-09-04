@@ -1534,3 +1534,4 @@
 - [x] Retain active-source PL-8218 brushed-nickel and matte-black profiles while withdrawing an unsupported chrome physical variant
 - [x] Retain PL-8257 physical eligibility because Pelican’s accessible official technical drawing establishes its exact faucet geometry and finishes
 - [x] Add the source-measured PL-HA135 R0 retrofit stainless-steel farmhouse sink with its exact profile, sink-base gate, and stainless apron material
+- [x] Add the source-measured PL-GMB135 R0 gunmetal PVD farmhouse sink with its exact profile, sink-base gate, persisted surface finish, and dark PVD fixture materials

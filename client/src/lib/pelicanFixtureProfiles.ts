@@ -30,6 +30,8 @@ export type VerifiedPelicanSinkProfile = {
   drainInsetRightIn?: number;
   /** Source-documented inset from the bowl's rear edge to its drain center. */
   drainInsetBackIn?: number;
+  /** Source-documented physical sink finish persisted for deterministic fixture rendering. */
+  surfaceFinish?: "stainless-steel" | "gunmetal-black";
   minimumCabinetWidthIn: number;
   specificationUrl: string;
 };
@@ -113,6 +115,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
     exteriorWidthIn: 35.5, exteriorDepthIn: 21.25, exteriorHeightIn: 9.375, bowlWidthIn: 32.5, bowlDepthIn: 17.25, bowlHeightIn: 9.125, minimumCabinetWidthIn: 36,
     specificationUrl: "https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424",
+  },
+  "PL-GMB135": {
+    id: "pelican-pl-gmb135-r0-gunmetal-retrofit-farmhouse", pelicanCode: "PL-GMB135", name: "PL-GMB135 R0 Gunmetal Retrofit Stainless Steel Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 35.5, exteriorDepthIn: 21.25, exteriorHeightIn: 9.375, bowlWidthIn: 32.5, bowlDepthIn: 17.25, bowlHeightIn: 9.125, surfaceFinish: "gunmetal-black", minimumCabinetWidthIn: 36,
+    specificationUrl: "https://cdn.accentuate.io/8978112348300/1775067777812/PL-GMB135-R0.pdf?v=1775067777812",
   },
   "PL-HA136": {
     id: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse", pelicanCode: "PL-HA136", name: "PL-HA136 R15 Handmade Double-Bowl Farmhouse Sink",
@@ -387,6 +395,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA126\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA126";
   if (/^PL-HA128\s+R15\s+16G$/.test(normalized)) return "PL-HA128";
   if (/^PL-HA135\s+R0\s+16G$/.test(normalized)) return "PL-HA135";
+  if (/^PL-GMB135\s+R0\s+16G$/.test(normalized)) return "PL-GMB135";
   if (/^PL-HA130\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA130";
   if (/^PL-HA122\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA122";
   if (/^PL-HA118\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA118";

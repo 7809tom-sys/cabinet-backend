@@ -10703,6 +10703,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       drainInsetBack: verifiedProfile.drainInsetBackIn,
                       exteriorHeight: verifiedProfile.exteriorHeightIn,
                       apronFront: verifiedProfile.apronFront,
+                      surfaceFinish: verifiedProfile.surfaceFinish,
                     };
                     setSinks((prev) => [...prev, sink]);
                     setSelectedSinkUid(sink.uid);
@@ -11110,6 +11111,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             drainInsetBack: verifiedProfile.drainInsetBackIn,
             exteriorHeight: verifiedProfile.exteriorHeightIn,
             apronFront: verifiedProfile.apronFront,
+            surfaceFinish: verifiedProfile.surfaceFinish,
             pelicanFaucetProductId: faucetProduct?.id,
             pelicanFaucetProductName: faucetProduct?.name,
             pelicanFaucetProductImage: faucetProduct?.imageUrl ?? undefined,

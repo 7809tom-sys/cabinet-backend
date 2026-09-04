@@ -6042,6 +6042,8 @@ export interface SinkFixture {
   exteriorHeight?: number;
   /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
   apronFront?: boolean;
+  /** Source-documented sink surface finish for deterministic physical fixture rendering. */
+  surfaceFinish?: "stainless-steel" | "gunmetal-black";
   /** Selected Pelican faucet identity and source-verified parametric profile, when present. */
   pelicanFaucetProductId?: number;
   pelicanFaucetProductName?: string;
@@ -6168,6 +6170,7 @@ export function normalizeSinkFixturesToBases(
       drainInsetBack: sink.drainInsetBack,
       exteriorHeight: sink.exteriorHeight,
       apronFront: sink.apronFront,
+      surfaceFinish: sink.surfaceFinish,
       pelicanFaucetProductId: sink.pelicanFaucetProductId,
       pelicanFaucetProductName: sink.pelicanFaucetProductName,
       pelicanFaucetProductImage: sink.pelicanFaucetProductImage,

@@ -1386,3 +1386,13 @@ Pelican’s live product page and official two-page drawing establish PL-HA135 R
 214. [Pelican Int’l — PL-HA135 product page](https://buildpelican.com/products/pl-ha135)
 
 215. [Pelican Int’l — PL-HA135 R0 technical drawing](https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424)
+
+## Verified Physical Admission — PL-GMB135 R0 Gunmetal Retrofit Farmhouse Sink
+
+Pelican’s live product page and official two-page drawing establish PL-GMB135 R0 as a **16-gauge stainless-steel**, PVD-coated **gunmetal-black**, single-bowl **retrofit apron-front undermount** sink. Its 35½ × 21¼ × 9⅜-inch exterior, 32½ × 17¼ × 9⅛-inch bowl, zero-radius form, and retrofit apron map directly to the farmhouse fixture contract and a 36-inch nominal farmhouse-base opening. The source documents the drain visually but not with an unambiguous bowl-edge inset, so no drain-offset metadata is inferred. The physical profile persists the source finish, exact exterior/bowl/apron dimensions, and compatible base fit; the renderer uses deterministic gunmetal material values, never a product photo or image texture. The secondary stainless finish is not exposed as a separately identifiable saved variant.
+
+### Sources
+
+216. [Pelican Int’l — PL-GMB135 product page](https://buildpelican.com/products/pl-gmb135)
+
+217. [Pelican Int’l — PL-GMB135 R0 technical drawing](https://cdn.accentuate.io/8978112348300/1775067777812/PL-GMB135-R0.pdf?v=1775067777812)

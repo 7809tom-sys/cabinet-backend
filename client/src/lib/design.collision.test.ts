@@ -61,12 +61,14 @@ describe("design placement collision prevention", () => {
       bowlCount: 2,
       exteriorHeight: 10,
       apronFront: true,
+      surfaceFinish: "gunmetal-black" as const,
     }], [topFarmhouseBase], DEFAULT_ROOM);
     expect(normalized[0]).toMatchObject({
       cabinetUid: "fsb36",
       pelicanProfileId: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse",
       bowlWidths: [17, 12],
       bowlCount: 2,
+      surfaceFinish: "gunmetal-black",
     });
   });
 

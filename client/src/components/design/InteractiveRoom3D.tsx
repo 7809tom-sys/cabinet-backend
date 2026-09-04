@@ -5018,9 +5018,16 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const width = sink.width * INCH;
   const depth = sink.depth * INCH;
   const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
-  const steel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
-  const brushedSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
-  const basinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
+  const stainlessSteel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
+  const brushedStainlessSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
+  const stainlessBasinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
+  const isGunmetalBlack = sink.surfaceFinish === "gunmetal-black";
+  const gunmetalSteel = new THREE.MeshStandardMaterial({ color: "#202326", metalness: 0.7, roughness: 0.26 });
+  const brushedGunmetalSteel = new THREE.MeshStandardMaterial({ color: "#303438", metalness: 0.62, roughness: 0.34 });
+  const gunmetalBasinInterior = new THREE.MeshStandardMaterial({ color: "#191b1d", metalness: 0.58, roughness: 0.38 });
+  const steel = isGunmetalBlack ? gunmetalSteel : stainlessSteel;
+  const brushedSteel = isGunmetalBlack ? brushedGunmetalSteel : brushedStainlessSteel;
+  const basinInterior = isGunmetalBlack ? gunmetalBasinInterior : stainlessBasinInterior;
   const sourceBowlWidth = sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3;
   const sourceBowlDepth = sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3;
   const measuredDoubleBowl = sink.bowlCount === 2;
@@ -5123,6 +5130,11 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const apronThickness = Math.min(0.12, depth * 0.2);
     const side = sink.wallSide ?? "top";
     const isSourceMeasuredStainlessApron = sink.pelicanProfileId === "pelican-pl-ha135-r0-retrofit-stainless-farmhouse";
+    const apronMaterial = isGunmetalBlack
+      ? steel
+      : isSourceMeasuredStainlessApron
+        ? steel
+        : new THREE.MeshStandardMaterial({ color: "#f4f3ef", roughness: 0.2, metalness: 0.02 });
     const apron = new THREE.Mesh(
       new RoundedBoxGeometry(
         side === "left" || side === "right" ? apronThickness : width,
@@ -5131,7 +5143,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
         4,
         Math.min(0.04, apronThickness * 0.25),
       ),
-      isSourceMeasuredStainlessApron ? steel : new THREE.MeshStandardMaterial({ color: "#f4f3ef", roughness: 0.2, metalness: 0.02 }),
+      apronMaterial,
     );
     const edgeInset = Math.max(0, (side === "left" || side === "right" ? depth : width) / 2 - apronThickness / 2);
     // A sink against the top/left wall faces into the room (positive Z/X); a
@@ -5143,7 +5155,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       countertopTop - exteriorHeight / 2 + 0.006,
       centerZ + direction * edgeInset,
     );
-    apron.userData = { sinkApronFront: true, sinkApronMaterial: isSourceMeasuredStainlessApron ? "stainless-steel" : "fireclay", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
+    apron.userData = { sinkApronFront: true, sinkApronMaterial: isGunmetalBlack ? "gunmetal-black" : isSourceMeasuredStainlessApron ? "stainless-steel" : "fireclay", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
     root.add(apron);
   }
   if (sink.type === "double" || measuredDoubleBowl) {
