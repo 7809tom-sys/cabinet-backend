@@ -1508,3 +1508,4 @@
 - [x] Remove PL-FC2418SB and PL-FC3018SB from physical eligibility because their current official sheets omit required drain and reversible-apron geometry
 - [x] Remove PL-FC3321SB from physical eligibility because its current official source documents a curved apron without the source measurements required to render the curve faithfully
 - [x] Correct the PL-8206 and PL-8248 audit entries so their official technical sheets and existing verified kitchen-faucet profiles agree
+- [x] Correct the admitted PL-HA104 R0 profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
