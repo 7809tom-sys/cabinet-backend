@@ -928,3 +928,11 @@ That intended compatibility conflicts with the Designer’s preserved policy: ap
 
 154. [Pelican Int’l — PL-HA135 product page](https://buildpelican.com/products/pl-ha135)
 155. [Pelican Int’l — PL-HA135 R0 specification sheet](https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424)
+
+## Retain Exclusion — PL-HA127
+
+Pelican’s current direct PL-HA127 product URL returns **404 Not Found**. No active official product page or technical sheet is available to verify the fixture’s installation form, exterior, bowl, drain, finish, or compatible sink-base rule. It remains outside the physical Designer palette rather than receiving a catalog-feed or generic substitute.
+
+### Source
+
+156. [Pelican Int’l — PL-HA127 product URL](https://buildpelican.com/products/pl-ha127)
