@@ -1304,3 +1304,11 @@ Pelican’s official PL-8210 drawing confirms the existing physical profiles: **
 ### Source
 
 201. [Pelican Int’l — PL-8210 technical drawing](https://cdn.accentuate.io/7876662493324/1729881249111/PL-8210-Spec-Sheet.pdf?v=1734119224340)
+
+## Source-Verified Profile Audit — PL-8211 Fountain Series Pull-Down Kitchen Faucet
+
+Pelican’s official PL-8211 drawing confirms the existing physical profiles: **single-hole** pull-down kitchen faucets with a **15 11/16-inch** overall height, **9 7/16-inch** spout length, and **6⅝-inch** spout height. The source documents the stored chrome, brushed-nickel, and brushed-gold finishes. No geometry or finish change is required.
+
+### Source
+
+202. [Pelican Int’l — PL-8211 technical drawing](https://cdn.accentuate.io/7876662689932/1729881278122/PL-8211-spec.pdf?v=1750169308913)
