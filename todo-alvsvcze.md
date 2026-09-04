@@ -1494,3 +1494,4 @@
 - [x] Add the source-verified PL-HA144 R10 single-bowl farmhouse sink with measured bowl, drain, visible apron, and 33-inch farmhouse-base fit support
 - [x] Add the source-verified PL-HA148 R10 single-bowl farmhouse sink with measured bowl, drain, visible apron, and 36-inch farmhouse-base fit support
 - [x] Add the source-verified PL-FC2522SB compact farmhouse sink with measured bowl, drain, visible apron, and 27-inch farmhouse-base fit support
+- [x] Add the source-verified PL-VS3218 normal-depth standard undermount sink with a measured bowl, drain, and 32-inch standard-base fit support

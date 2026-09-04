@@ -66,6 +66,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-VS3218 source-verified normal-depth standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS3218 18g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 32.125,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 9,
+      bowlWidthIn: 30.125,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9,
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps the PL-HA104 R0 source-verified compact standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA104 R0 16g")).toMatchObject({
       installation: "undermount",

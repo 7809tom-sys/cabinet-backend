@@ -476,6 +476,39 @@ These measurements support a source-measured compact parametric farmhouse profil
 83. [Pelican Int’l — PL-FC2522SB product page](https://buildpelican.com/products/pl-fc2522sb)
 84. [Pelican Int’l — PL-FC2522SB specification sheet](https://cdn.accentuate.io/8980578369676/1775069308518/PL-FC2522SB.pdf?v=1776100502044)
 
+## Not Admitted to Exact Kitchen Placement Yet — PL-FC3118WS Workstation
+
+Pelican’s active product page and official specification sheet identify PL-FC3118WS as a black/grey/white fireclay, single-bowl **apron-front undermount workstation** sink. The source identifies graduated accessory ledges and included accessory components—a custom wood cutting board, roll-out drying rack, bottom grid, and stainless strainer. The technical drawing documents a **31¼ × 18¼ × 10⅛-inch** exterior and a **30¼ × 17¼ × 10⅛-inch** interior bowl.
+
+The workstation ledge steps, accessory engagement positions, and accessory dimensions require explicit technical measurements before a faithful exact 3D profile can be admitted. A conventional farmhouse basin would be a misleading substitute, and product or accessory images cannot supply geometry. PL-FC3118WS remains outside the verified physical fixture palette until Pelican documents all geometry required for its workstation construction.
+
+### Sources
+
+85. [Pelican Int’l — PL-FC3118WS product page](https://buildpelican.com/products/pl-fc3118ws)
+86. [Pelican Int’l — PL-FC3118WS specification sheet](https://cdn.accentuate.io/8980578402444/1775069194594/PL-FC3118WS.pdf?v=1776100478317)
+
+## Pending Exact-Profile Evaluation — PL-CI6008 Self-Rimming Cast Iron Sink
+
+Pelican’s active PL-CI6008 kitchen-sink product page and official specification sheet identify a white cast-iron, single-bowl **self-rimming** sink measuring **33 × 22 × 8⅝ inches**. The technical drawing documents a **29 27⁄32 × 16½ × 8 5⁄64-inch** interior bowl, a 90-millimeter drain, and four pre-drilled 35-millimeter faucet holes on 4-inch centers; the top-view drawing also documents the countertop-overlapping rim.
+
+This differs materially from the current farmhouse and undermount fixture classes. Exact admission requires an authoritative bowl drawing and an explicit self-rimming profile—including the countertop-overlapping rim and faucet-hole geometry—rather than reusing an undermount or apron-front substitute. The product remains outside the verified physical fixture palette while that geometry is assessed; images remain display-only.
+
+### Sources
+
+87. [Pelican Int’l — PL-CI6008 product page](https://buildpelican.com/products/pl-ci6008)
+88. [Pelican Int’l — PL-CI6008 specification sheet](https://cdn.accentuate.io/8980582793356/1776101842556/PL-CI6008-Spec.pdf?v=1776101842556)
+
+## Next Verified Standard-Sink Candidate — PL-VS3218
+
+Pelican’s active PL-VS3218 product page and its official normal-depth specification sheet identify this as a 16- or 18-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its documented exterior measures **32⅛ × 18 × 9 inches** and its normal-depth interior bowl measures **30⅛ × 16 × 9 inches**. Pelican documents an ADA version separately, which cannot inherit this normal-depth bowl metadata.
+
+These measurements support a source-measured stainless parametric profile for compatible 32-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and product images and DXF files remain display-only.
+
+### Sources
+
+89. [Pelican Int’l — PL-VS3218 product page](https://buildpelican.com/products/pl-vs3218)
+90. [Pelican Int’l — PL-VS3218 normal-depth specification sheet](https://cdn.accentuate.io/7876668227724/1729876598079/PL-VS3218.pdf?v=1758834311979)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
