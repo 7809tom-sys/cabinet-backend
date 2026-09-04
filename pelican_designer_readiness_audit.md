@@ -1110,3 +1110,13 @@ Pelican’s official PL-HA148 R10 drawing identifies a 16-gauge stainless-steel 
 ### Source
 
 177. [Pelican Int’l — PL-HA148 R10 technical drawing](https://cdn.accentuate.io/8978112938124/1775058900343/PL-HA148-R10.pdf?v=1775058900343)
+
+## Retain Exclusion — PL-FC2522SB Fireclay Farmhouse Sink
+
+Pelican’s official PL-FC2522SB drawing documents a **25 × 22 × 11⅝-inch** exterior and a **19⅞ × 14 × 11-inch** single bowl. It also identifies a **reversible front design**, but does not provide enough measured geometry to distinguish the reversible apron configurations or a numerical plan datum for the drain center. The current simple physical profile cannot honestly substitute a generic rectangular apron and inferred drain for those missing source details.
+
+PL-FC2522SB must therefore remain outside physical Designer placement until Pelican supplies a source-complete drawing for the selected reversible-front geometry and drain position. The catalog record remains unaffected.
+
+### Source
+
+178. [Pelican Int’l — PL-FC2522SB technical drawing](https://cdn.accentuate.io/8980578369676/1775069308518/PL-FC2522SB.pdf?v=1776100502044)

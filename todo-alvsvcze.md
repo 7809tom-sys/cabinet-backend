@@ -1522,3 +1522,4 @@
 - [x] Correct the admitted PL-HA139 R15 asymmetric double-bowl farmhouse profile and renderer so both source-verified rear-center drain data persist in every wall orientation
 - [x] Correct the admitted PL-HA144 R10 farmhouse profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
 - [x] Correct the admitted PL-HA148 R10 farmhouse profile and renderer so its source-verified rear-center drain datum persists in every wall orientation
+- [x] Remove PL-FC2522SB from physical eligibility because its official source leaves the reversible apron and drain position insufficiently measured for an exact model
