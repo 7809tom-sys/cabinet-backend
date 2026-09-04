@@ -1406,3 +1406,13 @@ Pelican’s current plumbing catalog names PL-WS4519, but its direct product URL
 218. [Pelican Int’l — 2026 Plumbing Products Catalog](https://flipbook.buildpelican.com/flip-book/201822/2437748)
 
 219. [Pelican Int’l — PL-WS4519 direct product URL](https://buildpelican.com/products/pl-ws4519)
+
+## Retain Exclusion — PL-WS400 Crystallite Granite Composite Workstation Sink
+
+Pelican’s live PL-WS400 product page and technical drawing document a 33 × 22 × 9½-inch single-bowl granite-composite workstation sink with dual-mount installation, a graduated accessory ledge, and included cutting board, roll-out drying rack, and bottom grid. The current verified fixture contract only persists one sink installation and has no saved-plan model for the product’s dual-mount choice, ledge, or included accessory configuration. The technical sheet also does not establish a minimum compatible sink-base opening. PL-WS400 therefore remains outside physical placement rather than being represented as an ordinary bowl, an inferred installation, or incomplete accessory set.
+
+### Sources
+
+220. [Pelican Int’l — PL-WS400 product page](https://buildpelican.com/products/pl-ws400)
+
+221. [Pelican Int’l — PL-WS400 technical drawing](https://cdn.accentuate.io/7876669440140/1729877896993/PL-WS400.pdf?v=1762354147631)
