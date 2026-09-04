@@ -142,6 +142,23 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA119 R19 source-verified rear-right drain offset profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA119 R19 18g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 31.25,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 29.25,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9.5,
+      drainInsetRightIn: 5,
+      drainInsetBackIn: 5,
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps the PL-HA126 R0 source-verified asymmetric double-bowl standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA126 R0 16g")).toMatchObject({
       installation: "undermount",

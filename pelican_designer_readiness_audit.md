@@ -520,6 +520,25 @@ These measurements support a source-measured stainless parametric profile for co
 91. [Pelican Int’l — PL-VS3018 product page](https://buildpelican.com/products/pl-vs3018)
 92. [Pelican Int’l — PL-VS3018 normal-depth specification sheet](https://cdn.accentuate.io/7876667965580/1729876393881/PL-VS3018.pdf?v=1758828574961)
 
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS2818 and PL-VS2518
+
+Pelican’s direct current `products/pl-vs2818` and `products/pl-vs2518` URLs both return **404 Not Found** pages. Neither product has a current Pelican product page or official technical specification available from these URLs, so neither is eligible for physical placement in the Designer. No third-party dimensions, catalogue imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS3219
+
+Pelican’s direct current `products/pl-vs3219` URL returns a **404 Not Found** page. No current Pelican product page or official technical specification was recovered, so this item is not eligible for physical placement in the Designer. No third-party dimensions, catalogue imagery, or generic substitute geometry are used.
+
+## Pending Exact Drain-Offset Profile Support — PL-HA119 R19
+
+Pelican’s active PL-HA119 product page and official specification sheet identify this as an 18-gauge stainless-steel, single-bowl **undermount** kitchen sink with a rear offset drain. Its exterior measures **31¼ × 18 × 10 inches** and its interior bowl measures **29¼ × 16 × 9½ inches**. The technical drawing locates the drain **5 inches from the bowl’s right side and 5 inches from its rear edge**.
+
+The measured vessel and bowl are sufficient, but the current centered-drain sink geometry cannot represent the documented rear-right offset accurately. The profile remains outside the physical fixture palette until drain offsets can persist through the Designer and render in the correct orientation under rotation. No generic substitute geometry, product photography, or source-image texture is used.
+
+### Sources
+
+93. [Pelican Int’l — PL-HA119 product page](https://buildpelican.com/products/pl-ha119)
+94. [Pelican Int’l — PL-HA119 R15 specification sheet](https://cdn.accentuate.io/8978112544908/1775067326529/PL-HA119-R15.pdf?v=1775067326529)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.

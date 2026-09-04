@@ -3513,6 +3513,36 @@ describe("interactive 3D room scene helpers", () => {
     expect(bowlBounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
   });
 
+  it("renders PL-HA119’s source-verified rear-right drain offset through top and left wall orientations", () => {
+    const measuredDrain = (wallSide: "top" | "left") => {
+      const root = new THREE.Group();
+      const sink = {
+        uid: `pelican-pl-ha119-r19-${wallSide}`, type: "single", x: 24, y: 48,
+        width: wallSide === "top" ? 31.25 : 18, depth: wallSide === "top" ? 18 : 31.25,
+        sourceWidth: 31.25, sourceDepth: 18, bowlWidth: 29.25, bowlDepth: 16, bowlHeight: 9.5,
+        drainInsetRight: 5, drainInsetBack: 5, exteriorHeight: 10, apronFront: false,
+        pelicanProfileId: "pelican-pl-ha119-r19-stainless-offset-drain-undermount", faucet: false, wallSide,
+      } as never;
+      addSinkFixture(root, sink);
+      let bowl: THREE.Object3D | null = null;
+      let drain: THREE.Object3D | null = null;
+      root.traverse((node) => {
+        if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowl = node;
+        if (node.userData.sinkDrain) drain = node;
+      });
+      expect(bowl).not.toBeNull();
+      expect(drain).not.toBeNull();
+      expect(drain?.userData.documentedDrainInset).toBe(true);
+      return { bowl: bowl!, drain: drain! };
+    };
+    const top = measuredDrain("top");
+    expect((top.drain.position.x - top.bowl.position.x) * 12).toBeCloseTo(9.625, 5);
+    expect((top.drain.position.z - top.bowl.position.z) * 12).toBeCloseTo(-3, 5);
+    const left = measuredDrain("left");
+    expect((left.drain.position.x - left.bowl.position.x) * 12).toBeCloseTo(-3, 5);
+    expect((left.drain.position.z - left.bowl.position.z) * 12).toBeCloseTo(-9.625, 5);
+  });
+
   it("renders PL-HA130 as a countertop-seated double-bowl farmhouse sink with two 16-inch bowls, drains, and a visible apron", () => {
     const root = new THREE.Group();
     const sink = {

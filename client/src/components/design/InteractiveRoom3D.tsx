@@ -5067,6 +5067,18 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     return { bowlOffsets: [firstCenter, secondCenter], dividerOffset: firstCenter + firstBowlSpan / 2 + dividerGap / 2 };
   })();
   const bowlOffsets = asymmetricLayout?.bowlOffsets ?? (measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0]);
+  const hasMeasuredDrainInset = Number.isFinite(sink.drainInsetRight) && Number.isFinite(sink.drainInsetBack);
+  const documentedDrainPosition = (bowlX: number, bowlZ: number) => {
+    if (!hasMeasuredDrainInset) return { x: bowlX, z: bowlZ + sourceBowlDepth * INCH * 0.18 };
+    const rightOffset = (sourceBowlWidth / 2 - (sink.drainInsetRight ?? sourceBowlWidth / 2)) * INCH;
+    const backOffset = (sourceBowlDepth / 2 - (sink.drainInsetBack ?? sourceBowlDepth / 2)) * INCH;
+    switch (sink.wallSide ?? "top") {
+      case "bottom": return { x: bowlX - rightOffset, z: bowlZ + backOffset };
+      case "left": return { x: bowlX - backOffset, z: bowlZ - rightOffset };
+      case "right": return { x: bowlX + backOffset, z: bowlZ + rightOffset };
+      default: return { x: bowlX + rightOffset, z: bowlZ - backOffset };
+    }
+  };
   bowlOffsets.forEach((lateralOffset, bowlIndex) => {
     const bowlX = centerX + (lateralIsX ? lateralOffset : 0);
     const bowlZ = centerZ + (lateralIsX ? 0 : lateralOffset);
@@ -5088,8 +5100,9 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowlFloor);
     const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
-    drain.position.set(bowlX, countertopTop - 0.235, bowlZ + bowlInnerDepth * 0.18);
-    drain.userData = { sinkDrain: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
+    const drainPosition = documentedDrainPosition(bowlX, bowlZ);
+    drain.position.set(drainPosition.x, countertopTop - 0.235, drainPosition.z);
+    drain.userData = { sinkDrain: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1, documentedDrainInset: hasMeasuredDrainInset };
     root.add(drain);
     const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
     drainRing.rotation.x = Math.PI / 2;
