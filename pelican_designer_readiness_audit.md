@@ -796,3 +796,14 @@ Pelican’s current Kitchen faucet collection displayed **21 products** and mixe
 ### Source
 
 131. [Pelican Int’l — current Kitchen faucet collection](https://buildpelican.com/collections/faucets/Kitchen?system_tags=kitchen)
+
+## Not Admitted to Exact Physical Placement Yet — PL-GMB144 Obsidian Farmhouse Sink
+
+Pelican’s active PL-GMB144 page and official R10 drawing identify a 16-gauge stainless-steel, apron-front undermount farmhouse sink with a single bowl, integrated front towel bar, fitted sound-deadening pads, and Stainless Steel or Gunmetal Black PVD finishes. The drawing supplies a **33 × 21 × 10-inch** exterior, a **31 × 16 × 9¾-inch** bowl, an R10 corner reference, a centered 114-millimeter drain, and 30-inch/23⅜-inch towel-bar spans.
+
+The current farmhouse profile deliberately supports only source-measured plain stainless or fireclay bowls and straight aprons. Although PL-GMB144 has a compatible general installation role, the source does not completely dimension the towel bar’s cross-section, its attachment geometry, the apron profile, or a source-defined PVD material treatment. Omitting its expressly integrated towel bar or substituting the standard stainless model would misrepresent this premium product; inferring those values from product images is prohibited. PL-GMB144 therefore remains outside the physical Designer palette until a complete source dimension set and a material contract can retain its real towel-bar and Gunmetal Black variant without approximation.
+
+### Sources
+
+132. [Pelican Int’l — PL-GMB144 product page](https://buildpelican.com/products/pl-gmb144)
+133. [Pelican Int’l — PL-GMB144 R10 specification sheet](https://cdn.accentuate.io/8978112446604/1775062193659/PL-GMB144-R10.pdf?v=1775062193659)
