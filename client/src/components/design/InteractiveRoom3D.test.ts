@@ -3488,7 +3488,7 @@ describe("interactive 3D room scene helpers", () => {
     const root = new THREE.Group();
     const sink = {
       uid: "pelican-pl-ha126-r0", type: "single", x: 24, y: 48, width: 31.25, depth: 20.5,
-      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2,
+      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2, drainInsetBack: 120 / 25.4,
       exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
       faucet: false, wallSide: "top",
     } as never;
@@ -3506,6 +3506,9 @@ describe("interactive 3D room scene helpers", () => {
       expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(expectedWidth, 5);
       expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(expectedDepth, 5);
       expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+      expect(drains[index].userData.documentedDrainInset).toBe(true);
+      expect((drains[index].position.x - bowls[index].position.x) * 12).toBeCloseTo(0, 5);
+      expect((drains[index].position.z - bowls[index].position.z) * 12).toBeCloseTo(-(expectedDepth / 2 - 120 / 25.4), 5);
     }
   });
 
@@ -3513,21 +3516,27 @@ describe("interactive 3D room scene helpers", () => {
     const root = new THREE.Group();
     const sink = {
       uid: "pelican-pl-ha126-r0-left", type: "single", x: 24, y: 48, width: 20.5, depth: 31.25,
-      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2,
+      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2, drainInsetBack: 120 / 25.4,
       exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
       faucet: false, wallSide: "left",
     } as never;
     addSinkFixture(root, sink);
     const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
     root.traverse((node) => {
       if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
     });
     expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
     for (const [index, [expectedWidth, expectedDepth]] of [[14, 18], [13.5, 16]].entries()) {
       const bounds = new THREE.Box3().setFromObject(bowls[index]);
       expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(expectedDepth, 5);
       expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(expectedWidth, 5);
       expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+      expect(drains[index].userData.documentedDrainInset).toBe(true);
+      expect((drains[index].position.x - bowls[index].position.x) * 12).toBeCloseTo(-(expectedDepth / 2 - 120 / 25.4), 5);
+      expect((drains[index].position.z - bowls[index].position.z) * 12).toBeCloseTo(0, 5);
     }
   });
 

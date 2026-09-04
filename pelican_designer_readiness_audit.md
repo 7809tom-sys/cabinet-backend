@@ -1120,3 +1120,11 @@ PL-FC2522SB must therefore remain outside physical Designer placement until Peli
 ### Source
 
 178. [Pelican Int’l — PL-FC2522SB technical drawing](https://cdn.accentuate.io/8980578369676/1775069308518/PL-FC2522SB.pdf?v=1776100502044)
+
+## Source-Verified Drain Datum — PL-HA126 R0 Asymmetric Double-Bowl Standard Undermount Sink
+
+Pelican’s official PL-HA126 R0 drawing confirms a 16-gauge stainless-steel double-bowl undermount sink with a **31¼ × 20½ × 10-inch** exterior, a **14 × 18 × 10-inch** left bowl, and a **13½ × 16 × 10-inch** right bowl. The plan locates both drains on their respective bowl centerlines and **120 mm (4.724 inches) from the rear bowl edge**. The physical profile must retain this shared rear-center datum for both independently measured bowls rather than use a generic double-bowl fallback.
+
+### Source
+
+179. [Pelican Int’l — PL-HA126 R0 technical drawing](https://cdn.accentuate.io/7876666523788/1729873836731/PL-HA126-R0.pdf?v=1729873836732)

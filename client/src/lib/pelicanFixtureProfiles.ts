@@ -111,7 +111,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA126": {
     id: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount", pelicanCode: "PL-HA126", name: "PL-HA126 R0 Stainless Steel Double-Bowl Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
-    exteriorWidthIn: 31.25, exteriorDepthIn: 20.5, exteriorHeightIn: 10, bowlWidthIn: 14, bowlDepthIn: 18, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [14, 13.5], bowlDepthsIn: [18, 16], minimumCabinetWidthIn: 32,
+    exteriorWidthIn: 31.25, exteriorDepthIn: 20.5, exteriorHeightIn: 10, bowlWidthIn: 14, bowlDepthIn: 18, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [14, 13.5], bowlDepthsIn: [18, 16], drainInsetBackIn: 120 / 25.4, minimumCabinetWidthIn: 32,
     specificationUrl: "https://cdn.accentuate.io/7876666523788/1729873836731/PL-HA126-R0.pdf?v=1729873836732",
   },
   "PL-HA128": {
