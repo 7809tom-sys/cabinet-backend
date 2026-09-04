@@ -357,3 +357,14 @@ These measurements support a source-measured parametric farmhouse profile with c
 
 65. [Pelican Int’l — PL-HA124 product page](https://buildpelican.com/products/pl-ha124)
 66. [Pelican Int’l — PL-HA124 R0 specification sheet](https://cdn.accentuate.io/7876666294412/1729873733866/PL-HA124-R0.pdf?v=1729873733866)
+
+## Next Verified Standard-Sink Candidate — PL-HA111 R0
+
+Pelican’s current product page and official PL-HA111 R0 specification sheet identify this as a 16-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its exterior measures **27 × 18 × 10 inches** and its interior bowl measures **25 × 16 × 10 inches**. Pelican also offers separate R15 and ADA variants, which remain outside this normal-depth R0 profile until each is independently measured.
+
+The normal-depth source data supports a stainless measured parametric profile for compatible 27-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+67. [Pelican Int’l — PL-HA111 product page](https://buildpelican.com/products/pl-ha111)
+68. [Pelican Int’l — PL-HA111 R0 specification sheet](https://cdn.accentuate.io/7876665802892/1729873006384/PL-HA111-R0.pdf?v=1729873006384)
