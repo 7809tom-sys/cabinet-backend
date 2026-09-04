@@ -807,3 +807,14 @@ The current farmhouse profile deliberately supports only source-measured plain s
 
 132. [Pelican Int’l — PL-GMB144 product page](https://buildpelican.com/products/pl-gmb144)
 133. [Pelican Int’l — PL-GMB144 R10 specification sheet](https://cdn.accentuate.io/8978112446604/1775062193659/PL-GMB144-R10.pdf?v=1775062193659)
+
+## Not Admitted to Exact Physical Placement Yet — PL-125 Crystallite Dual-Mount Sink
+
+Pelican’s active PL-125 page and official drawing identify a single-bowl granite-composite sink with an offset drain and six named finishes: Alpina, Chroma, Concrete, Gunmetal, Onyx, and Sand. The drawing describes dual-mount installation, provides a top-mount cutout, and lists a **32 63⁄64 × 22 1⁄64 × 10-inch** exterior with a **30 33⁄64 × 17 33⁄64 × 10-inch** bowl. It also depicts the formed rim, a 13-millimeter cutout radius, the offset drain, and several preformed rear-deck positions.
+
+The current physical sink workflow supports only source-measured straight-sided undermount or farmhouse profiles with approved material treatment. PL-125’s dual-mount/top-mount rim, formed composite walls, rear deck, offset drain, six finish variants, and its product-page apron-front description require a dedicated source-aligned profile and resolved sink-base role. Treating it as a standard stainless undermount or an ordinary farmhouse sink would erase documented features, while taking color or geometry from the catalog images is prohibited. PL-125 therefore remains outside the physical Designer palette pending a dedicated exact profile and material contract.
+
+### Sources
+
+134. [Pelican Int’l — PL-125 product page](https://buildpelican.com/products/pl-125)
+135. [Pelican Int’l — PL-125 specification sheet](https://cdn.accentuate.io/8978111791244/1772658910634/PL-125.pdf?v=1772664110821)
