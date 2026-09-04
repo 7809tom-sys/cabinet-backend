@@ -1136,3 +1136,11 @@ Pelican’s official PL-HA128 R15 drawing confirms a 16-gauge stainless-steel ap
 ### Source
 
 180. [Pelican Int’l — PL-HA128 R15 technical drawing](https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067)
+
+## Drain-Datum Source Limit — PL-VS3218 Standard Undermount Sink
+
+Pelican’s official PL-VS3218 drawing confirms the existing **32⅛ × 18 × 9-inch** exterior and **30⅛ × 16 × 9-inch** single-bowl dimensions, together with the documented rounded bowl-corner radii. Although the plan depicts the drain opening, it does **not** supply a numerical rear or lateral drain-center datum. No new `drainInset` metadata is introduced from this drawing, and the source must not be used to infer an offset for an exact-plan correction.
+
+### Source
+
+181. [Pelican Int’l — PL-VS3218 technical drawing](https://cdn.accentuate.io/7876668227724/1729876598079/PL-VS3218.pdf?v=1758834311979)
