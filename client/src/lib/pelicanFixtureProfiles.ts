@@ -48,18 +48,6 @@ export type VerifiedPelicanFaucetProfile = {
 };
 
 const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
-  "PL-FC2418SB": {
-    id: "pelican-pl-fc2418sb-fireclay-farmhouse", pelicanCode: "PL-FC2418SB", name: "PL-FC2418SB Fireclay Farmhouse Sink",
-    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
-    exteriorWidthIn: 24, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 22.5, bowlDepthIn: 16.625, bowlHeightIn: 9, minimumCabinetWidthIn: 24,
-    specificationUrl: "https://cdn.accentuate.io/7876648042636/1729870572366/PL-FC2418SB.pdf?v=1729870572366",
-  },
-  "PL-FC3018SB": {
-    id: "pelican-pl-fc3018sb-fireclay-farmhouse", pelicanCode: "PL-FC3018SB", name: "PL-FC3018SB Fireclay Farmhouse Sink",
-    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
-    exteriorWidthIn: 30, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 28.625, bowlDepthIn: 16.625, bowlHeightIn: 9.25, minimumCabinetWidthIn: 30,
-    specificationUrl: "https://cdn.accentuate.io/9682969362572/1786578710369/PL-FC3018SB-Spec.pdf?v=1786578710369",
-  },
   "PL-FC3318SB": {
     id: "pelican-pl-fc3318sb-fireclay-farmhouse", pelicanCode: "PL-FC3318SB", name: "PL-FC3318SB Fireclay Farmhouse Sink",
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,

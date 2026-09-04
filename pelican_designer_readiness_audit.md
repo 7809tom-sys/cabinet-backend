@@ -856,7 +856,7 @@ The current exact farmhouse-sink profile does not model source-defined workstati
 
 Pelican’s active PL-FC3018SB product page and readable official specification sheet identify a **30 × 18 × 10-inch**, single-bowl fireclay farmhouse sink with a **28⅝ × 16⅝ × 9¼-inch** bowl, an apron-front/undermount installation class, a reversible-front design, and White, Matte Grey, and Matte Black variants. The official sheet provides this general dimensional text but no plan/elevation drawing that locates the drain, defines the apron shape, or distinguishes the two selectable front configurations.
 
-The existing farmhouse sink renderer must not infer this missing geometry from catalog images or silently collapse the reversible product to a generic straight-apron model. PL-FC3018SB remains outside the physical Designer palette until a complete official drawing establishes the selected front geometry, drain position, countertop seating, and compatible farmhouse-base requirements.
+The existing farmhouse sink renderer must not infer this missing geometry from catalog images or silently collapse the reversible product to a generic straight-apron model. Its prior physical profile has therefore been withdrawn. PL-FC3018SB remains outside the physical Designer palette until a complete official drawing establishes the selected front geometry, drain position, countertop seating, and compatible farmhouse-base requirements.
 
 ### Sources
 
@@ -867,7 +867,7 @@ The existing farmhouse sink renderer must not infer this missing geometry from c
 
 Pelican’s active PL-FC2418SB product page and readable official specification sheet identify a white, single-bowl **24 × 18 × 10-inch** fireclay farmhouse sink with a **22½ × 16⅝ × 9-inch** bowl, apron-front/undermount installation, and two reversible faces: one designed and one flat. The product page also links a DXF reference. The specification sheet provides this general dimensional text but no plan/elevation drawing that locates the drain, defines the apron profile, or describes the distinct designed front.
 
-The existing farmhouse sink renderer must not infer the missing drain or reversible-apron geometry from product photos, DXF artwork, or a generic sink front. PL-FC2418SB therefore remains outside the physical Designer palette until an official geometry drawing establishes the selected-front, apron, drain, countertop seating, and compatible farmhouse-base requirements.
+The existing farmhouse sink renderer must not infer the missing drain or reversible-apron geometry from product photos, DXF artwork, or a generic sink front. Its prior physical profile has therefore been withdrawn. PL-FC2418SB remains outside the physical Designer palette until an official geometry drawing establishes the selected-front, apron, drain, countertop seating, and compatible farmhouse-base requirements.
 
 ### Sources
 

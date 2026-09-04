@@ -2,20 +2,8 @@ import { describe, expect, it } from "vitest";
 import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
 
 describe("verifiedPelicanSinkProfile", () => {
-  it("uses Pelican’s published dimensions for the PL-FC2418SB measured profile", () => {
-    expect(verifiedPelicanSinkProfile("PL-FC2418SB")).toMatchObject({
-      exteriorWidthIn: 24,
-      exteriorDepthIn: 18,
-      exteriorHeightIn: 10,
-      bowlWidthIn: 22.5,
-      bowlDepthIn: 16.625,
-      bowlHeightIn: 9,
-      installation: "apron-front-undermount",
-    });
-  });
-
   it("recognizes imported Farmhouse Series color variants without treating their abbreviated size fields as authoritative", () => {
-    expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toMatchObject({ exteriorWidthIn: 30, bowlWidthIn: 28.625 });
+    expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toMatchObject({ exteriorWidthIn: 32.625, bowlHeightIn: 9.25 });
     expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toMatchObject({ exteriorDepthIn: 20.875, bowlDepthIn: 19.75 });
     expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toMatchObject({ exteriorWidthIn: 36, bowlWidthIn: 34.5625 });
@@ -581,17 +569,16 @@ describe("verifiedPelicanSinkProfile", () => {
   });
 
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
-    expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(true);
+    expect(hasVerifiedPelicanFixtureProfile("PL-FC3018SB")).toBe(false);
     expect(hasVerifiedPelicanFixtureProfile("PL-8248 MB")).toBe(true);
     expect(hasVerifiedPelicanFixtureProfile("PL-UNMEASURED")).toBe(false);
     expect(hasVerifiedPelicanFixtureProfile(null)).toBe(false);
   });
 
-  it("does not treat an unverified code as a measured Designer profile", () => {
-    const profile = verifiedPelicanSinkProfile("PL-FC2418SB");
+  it("does not treat unverified or source-incomplete codes as measured Designer profiles", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC2418SB")).toBeNull();
+    expect(verifiedPelicanSinkProfile("PL-FC3018SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
-    expect(profile && verifiedPelicanSinkFitsCabinet(profile, 24)).toBe(true);
-    expect(profile && verifiedPelicanSinkFitsCabinet(profile, 18)).toBe(false);
   });
 
   it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {
@@ -602,7 +589,7 @@ describe("verifiedPelicanSinkProfile", () => {
   });
 
   it("keeps farmhouse and standard sink choices in their matching sink bases", () => {
-    const farmhouse = { pelicanCode: "PL-FC2418SB", name: "PL-FC2418SB", description: "Fireclay farmhouse apron-front sink" };
+    const farmhouse = { pelicanCode: "PL-FC3318SB", name: "PL-FC3318SB", description: "Fireclay farmhouse apron-front sink" };
     const standard = { pelicanCode: "PL-SS3018", name: "PL-SS3018", description: "Stainless steel undermount kitchen sink" };
     expect(pelicanSinkBaseKind(farmhouse)).toBe("farmhouse");
     expect(pelicanSinkBaseKind(standard)).toBe("standard");
