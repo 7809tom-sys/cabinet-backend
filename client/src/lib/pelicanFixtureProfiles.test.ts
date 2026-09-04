@@ -178,6 +178,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VS5050 as a source-verified stainless equal double-bowl standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS5050 16g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 32.125,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 9,
+      bowlWidthIn: 14.5,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9,
+      bowlCount: 2,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("maps the PL-HA104 R0 source-verified compact standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA104 R0 16g")).toMatchObject({
       installation: "undermount",
