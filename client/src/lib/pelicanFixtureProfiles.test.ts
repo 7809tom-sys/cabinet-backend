@@ -178,7 +178,7 @@ describe("verifiedPelicanSinkProfile", () => {
   });
 
   it("maps the PL-HA111 R0 source-verified normal-depth standard undermount profile", () => {
-    expect(verifiedPelicanSinkProfile("PL-HA111 R0 16g")).toMatchObject({
+    expect(verifiedPelicanSinkProfile("PL-HA111 R0 18g")).toMatchObject({
       installation: "undermount",
       sinkType: "single",
       apronFront: false,
@@ -188,6 +188,7 @@ describe("verifiedPelicanSinkProfile", () => {
       bowlWidthIn: 25,
       bowlDepthIn: 16,
       bowlHeightIn: 10,
+      drainInsetBackIn: 1,
       minimumCabinetWidthIn: 27,
     });
   });

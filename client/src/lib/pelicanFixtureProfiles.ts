@@ -93,7 +93,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA111": {
     id: "pelican-pl-ha111-r0-stainless-undermount", pelicanCode: "PL-HA111", name: "PL-HA111 R0 Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
-    exteriorWidthIn: 27, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 25, bowlDepthIn: 16, bowlHeightIn: 10, minimumCabinetWidthIn: 27,
+    exteriorWidthIn: 27, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 25, bowlDepthIn: 16, bowlHeightIn: 10, drainInsetBackIn: 1, minimumCabinetWidthIn: 27,
     specificationUrl: "https://cdn.accentuate.io/7876665802892/1729873006384/PL-HA111-R0.pdf?v=1729873006384",
   },
   "PL-HA117": {
