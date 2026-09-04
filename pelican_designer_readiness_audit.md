@@ -976,3 +976,11 @@ Pelican’s current direct PL-8248 product URL returns **404 Not Found**. No act
 ### Source
 
 161. [Pelican Int’l — PL-8248 product URL](https://buildpelican.com/products/pl-8248)
+
+## Retain Exclusion — PL-8538 Flowline Freestanding Bathtub Faucet
+
+Pelican’s active PL-8538 product page identifies this Flowline Series item as a single-handle, floor-mounted freestanding **bathtub faucet** with hand shower. It is designed to operate outside a tub basin for bathroom use, not at a kitchen sink base. It therefore remains absent from the kitchen Designer fixture palette.
+
+### Source
+
+162. [Pelican Int’l — PL-8538 product page](https://buildpelican.com/products/pl-8538)
