@@ -303,6 +303,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VR3118 ADA as a shallow source-measured sink without changing the standard base contract", () => {
+    expect(verifiedPelicanSinkProfile("PL-VR3118 ADA")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 31,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 5.5,
+      bowlWidthIn: 29,
+      bowlDepthIn: 16,
+      bowlHeightIn: 5.5,
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps PL-VS3070 as a source-verified stainless stepped double-bowl profile with independent bowl dimensions", () => {
     expect(verifiedPelicanSinkProfile("PL-VS3070 16g")).toMatchObject({
       installation: "undermount",

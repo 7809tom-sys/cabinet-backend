@@ -1596,3 +1596,13 @@ Pelican’s live product page and official specification establish PL-VR2718 R20
 253. [Pelican Int’l — PL-VR2718 R20 product page](https://buildpelican.com/products/pl-vr2718-r20)
 
 254. [Pelican Int’l — PL-VR2718 R20 technical drawing](https://cdn.accentuate.io/7876650631308/1729875123836/PL-VR2718-R20.pdf?v=1742390450234)
+
+## Source Review — PL-VR3118 ADA Urban Series Shallow Stainless Steel Undermount Sink
+
+Pelican’s live product page and official two-page specification establish PL-VR3118 ADA as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** single-bowl sink. The manufacturer’s sheet documents a 31 × 18 × 5½-inch exterior and a 29 × 16 × 5½-inch interior bowl, rounded R20 corners, and ADA-compliant product status when installed according to the referenced standards. The drawing depicts but does not numerically locate the drain, so no drain offset may be inferred. A fixture profile may represent only its shallow measured sink geometry and the existing standard sink-base fit; it must not alter counter/cabinet heights or claim the complete Designer assembly is ADA compliant.
+
+### Sources
+
+255. [Pelican Int’l — PL-VR3118 ADA product page](https://buildpelican.com/products/pl-vr3118-ada)
+
+256. [Pelican Int’l — PL-VR3118 ADA technical drawing](https://cdn.accentuate.io/7876650729612/1729875276603/PL-VR3118-ADA.pdf?v=1742390573768)
