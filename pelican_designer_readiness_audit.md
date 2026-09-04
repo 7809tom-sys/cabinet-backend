@@ -1586,3 +1586,13 @@ Pelican’s live product page and official two-page specification sheet establis
 251. [Pelican Int’l — PL-VR3118 R20 product page](https://buildpelican.com/products/pl-vr3118-r20)
 
 252. [Pelican Int’l — PL-VR3118 R20 technical drawing](https://cdn.accentuate.io/7876650827916/1729875323884/PL-VR3118-R20.pdf?v=1742390804855)
+
+## Source Review — PL-VR2718 R20 Urban Series Stainless Steel Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VR2718 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** single-bowl kitchen sink with low-radius rounded corners, underside protective coating, and sound-deadening pads. Its source-measured nominal exterior is 27 × 18 × 9 inches and its single interior bowl is 25 × 16 × 9 inches. The sheet confirms single-bowl configuration and undermount installation, but provides no numerical drain-center offset; no drain position may be inferred. A physical admission decision remains limited to whether the existing standard sink-base contract can safely represent the measured geometry with no image-as-geometry use.
+
+### Sources
+
+253. [Pelican Int’l — PL-VR2718 R20 product page](https://buildpelican.com/products/pl-vr2718-r20)
+
+254. [Pelican Int’l — PL-VR2718 R20 technical drawing](https://cdn.accentuate.io/7876650631308/1729875123836/PL-VR2718-R20.pdf?v=1742390450234)

@@ -1555,6 +1555,7 @@
 - [x] Add the source-measured PL-VR6040 R20 stainless stepped double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans
 - [x] Add the source-measured PL-VR2318 R20 compact stainless undermount sink with its exact bowl geometry and standard sink-base compatibility
 - [x] Add PL-VR3118 R20 only if the official measured single-bowl stainless undermount profile fits the existing standard sink-base contract without inferred drain geometry
+- [x] Add PL-VR2718 R20 only if the official measured single-bowl stainless undermount profile fits the existing standard sink-base contract without inferred drain geometry
 - [x] Require a saved kitchen plan and verified customer phone number before a customer can request a plan-locked image
 - [x] Persist qualified image leads, verification status, immutable plan linkage, generation status, and generated image URL for CRM follow-up
 - [x] Deliver qualified plan-image leads to the configured CRM webhook without exposing contact data or service credentials in the client

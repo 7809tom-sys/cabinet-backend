@@ -273,6 +273,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VR2718 R20 as a source-verified stainless standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-VR2718 R20")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 27,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 9,
+      bowlWidthIn: 25,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9,
+      minimumCabinetWidthIn: 27,
+    });
+  });
+
   it("maps PL-VR3118 R20 as a source-verified stainless standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-VR3118 R20")).toMatchObject({
       installation: "undermount",
