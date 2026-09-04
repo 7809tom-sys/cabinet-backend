@@ -226,6 +226,22 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VS3070 as a source-verified stainless stepped double-bowl profile with independent bowl dimensions", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS3070 16g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 31.5,
+      exteriorDepthIn: 20.5,
+      exteriorHeightIn: 9,
+      bowlCount: 2,
+      bowlWidthsIn: [10.625, 17.75],
+      bowlDepthsIn: [16, 18.5],
+      bowlHeightsIn: [7, 9],
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps the PL-HA104 R0 source-verified compact standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA104 R0 16g")).toMatchObject({
       installation: "undermount",

@@ -1520,3 +1520,13 @@ Pelican’s official ADA specification establishes PL-VS5050 ADA as an 18-gauge 
 ### Source
 
 240. [Pelican Int’l — PL-VS5050 ADA technical drawing](https://cdn.accentuate.io/7876668752012/1729876868211/PL-VS5050-ADA.pdf?v=1742393422746)
+
+## Verified Physical Admission — PL-VS3070 Signature Series Stainless Steel Stepped Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VS3070 as a 16- or 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl sink. Its source-measured 31½ × 20½ × 9-inch exterior, 10⅝ × 16 × 7-inch left bowl, and 17¾ × 18½ × 9-inch right bowl map to the existing standard sink-base fixture contract with a 32-inch nominal opening. The physical profile persists each bowl’s independent width, depth, and height; the renderer applies those values through all saved wall orientations. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+241. [Pelican Int’l — PL-VS3070 product page](https://buildpelican.com/products/pl-vs3070)
+
+242. [Pelican Int’l — PL-VS3070 technical drawing](https://cdn.accentuate.io/7876668129420/1729876545002/PL-VS3070.pdf?v=1742392860993)
