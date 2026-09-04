@@ -5067,11 +5067,17 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     return { bowlOffsets: [firstCenter, secondCenter], dividerOffset: firstCenter + firstBowlSpan / 2 + dividerGap / 2 };
   })();
   const bowlOffsets = asymmetricLayout?.bowlOffsets ?? (measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0]);
-  const hasMeasuredDrainInset = Number.isFinite(sink.drainInsetRight) && Number.isFinite(sink.drainInsetBack);
+  const hasMeasuredDrainInset = Number.isFinite(sink.drainInsetRight) || Number.isFinite(sink.drainInsetBack);
   const documentedDrainPosition = (bowlX: number, bowlZ: number) => {
     if (!hasMeasuredDrainInset) return { x: bowlX, z: bowlZ + sourceBowlDepth * INCH * 0.18 };
-    const rightOffset = (sourceBowlWidth / 2 - (sink.drainInsetRight ?? sourceBowlWidth / 2)) * INCH;
-    const backOffset = (sourceBowlDepth / 2 - (sink.drainInsetBack ?? sourceBowlDepth / 2)) * INCH;
+    // A source may specify only one datum.  The omitted axis remains centered;
+    // do not invent a second offset or fall back to the generic drain position.
+    const rightOffset = Number.isFinite(sink.drainInsetRight)
+      ? (sourceBowlWidth / 2 - (sink.drainInsetRight ?? sourceBowlWidth / 2)) * INCH
+      : 0;
+    const backOffset = Number.isFinite(sink.drainInsetBack)
+      ? (sourceBowlDepth / 2 - (sink.drainInsetBack ?? sourceBowlDepth / 2)) * INCH
+      : 0;
     switch (sink.wallSide ?? "top") {
       case "bottom": return { x: bowlX - rightOffset, z: bowlZ + backOffset };
       case "left": return { x: bowlX - backOffset, z: bowlZ - rightOffset };

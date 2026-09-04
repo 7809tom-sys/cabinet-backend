@@ -906,3 +906,14 @@ PL-FC103 remains outside the physical Designer palette until Pelican provides an
 
 150. [Pelican Int’l — current public product feed](https://buildpelican.com/products.json?limit=250)
 151. [Pelican Int’l — PL-FC103 product URL](https://buildpelican.com/products/pl-fc103)
+
+## Admitted Physical Placement — PL-HA109 R0 Standard Undermount Sink
+
+Pelican’s active PL-HA109 product page and official R0 drawing establish a 304 stainless-steel handmade standard undermount sink with a satin-brushed finish, a **30 × 18 × 10-inch** exterior, a **28 × 16 × 10-inch** single bowl, and a drain centered laterally but **1 inch from the bowl’s rear edge**. The revised source-driven renderer preserves the rear-center drain on every saved wall orientation rather than falling back to an inferred generic location.
+
+The normal-depth PL-HA109 remains available only on standard SB-style sink bases with a nominal 30-inch-or-wider opening. Its separate ADA variants retain their existing distinct shallow-depth profile and do not inherit this normal-depth geometry.
+
+### Sources
+
+152. [Pelican Int’l — PL-HA109 product page](https://buildpelican.com/products/pl-ha109)
+153. [Pelican Int’l — PL-HA109 R0 specification sheet](https://cdn.accentuate.io/7876665442444/1729872829476/PL-HA109-R0.pdf?v=1729872829477)

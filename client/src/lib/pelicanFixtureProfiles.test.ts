@@ -42,6 +42,7 @@ describe("verifiedPelicanSinkProfile", () => {
       apronFront: false,
       exteriorHeightIn: 10,
       bowlHeightIn: 10,
+      drainInsetBackIn: 1,
     });
     expect(verifiedPelicanSinkProfile("PL-HA109 ADA R0 18g")).toMatchObject({
       installation: "undermount",
