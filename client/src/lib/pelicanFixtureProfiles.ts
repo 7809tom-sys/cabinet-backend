@@ -177,7 +177,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA144": {
     id: "pelican-pl-ha144-r10-stainless-farmhouse", pelicanCode: "PL-HA144", name: "PL-HA144 R10 Handmade Farmhouse Sink",
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
-    exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 31, bowlDepthIn: 16, bowlHeightIn: 9.75, minimumCabinetWidthIn: 33,
+    exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 31, bowlDepthIn: 16, bowlHeightIn: 9.75, drainInsetBackIn: 120 / 25.4, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/8978112807052/1775059262434/PL-HA144-R10.pdf?v=1775059262434",
   },
   "PL-HA148": {

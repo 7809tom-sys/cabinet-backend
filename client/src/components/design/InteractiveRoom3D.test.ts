@@ -3151,7 +3151,7 @@ describe("interactive 3D room scene helpers", () => {
     const sink = {
       uid: "pelican-pl-ha144-r10", type: "farmhouse", x: 24, y: 48, width: 33, depth: 21,
       sourceWidth: 33, sourceDepth: 21, bowlWidth: 31, bowlDepth: 16, bowlHeight: 9.75,
-      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha144-r10-stainless-farmhouse",
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha144-r10-stainless-farmhouse",
       faucet: false, wallSide: "top",
     } as never;
     addSinkFixture(root, sink);
@@ -3172,6 +3172,31 @@ describe("interactive 3D room scene helpers", () => {
     expect((bowlBounds.max.y - bowlBounds.min.y) * 12).toBeCloseTo(9.75, 5);
     expect(bowlBounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+    expect(drains[0].userData.documentedDrainInset).toBe(true);
+    expect((drains[0].position.x - bowl!.position.x) * 12).toBeCloseTo(0, 5);
+    expect((drains[0].position.z - bowl!.position.z) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+  });
+
+  it("preserves PL-HA144’s documented rear-center drain on a left wall", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha144-r10-left", type: "farmhouse", x: 24, y: 48, width: 21, depth: 33,
+      sourceWidth: 33, sourceDepth: 21, bowlWidth: 31, bowlDepth: 16, bowlHeight: 9.75,
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true,
+      pelicanProfileId: "pelican-pl-ha144-r10-stainless-farmhouse", faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    let bowl: THREE.Object3D | null = null;
+    let drain: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowl = node;
+      if (node.userData.sinkDrain) drain = node;
+    });
+    expect(bowl).not.toBeNull();
+    expect(drain).not.toBeNull();
+    expect(drain?.userData.documentedDrainInset).toBe(true);
+    expect((drain!.position.x - bowl!.position.x) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+    expect((drain!.position.z - bowl!.position.z) * 12).toBeCloseTo(0, 5);
   });
 
   it("renders PL-HA148 R10 as a countertop-seated measured single-bowl farmhouse sink with a visible apron", () => {
