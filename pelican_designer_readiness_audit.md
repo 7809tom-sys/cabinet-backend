@@ -1184,3 +1184,11 @@ Pelican’s official PL-VS2318 drawing confirms the existing **23 × 17¾ × 9-i
 ### Source
 
 186. [Pelican Int’l — PL-VS2318 technical drawing](https://cdn.accentuate.io/7876667474060/1729876113634/PL-VS2318-.pdf?v=1742392230407)
+
+## Retain Exclusion — PL-HA129
+
+Pelican’s current direct PL-HA129 product URL returns **404 Not Found**. No active official product page or technical drawing establishes its intended installation, bowl geometry, drain datum, material treatment, finish set, or sink-base fit. It remains outside the physical Designer palette rather than receiving a generic sink substitute.
+
+### Source
+
+187. [Pelican Int’l — PL-HA129 product URL](https://buildpelican.com/products/pl-ha129)
