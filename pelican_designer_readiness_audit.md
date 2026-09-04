@@ -442,6 +442,17 @@ The published vessel, bowl, drain, countertop seating, and visible apron dimensi
 79. [Pelican Int’l — PL-HA144 product page](https://buildpelican.com/products/pl-ha144)
 80. [Pelican Int’l — PL-HA144 R10 specification sheet](https://cdn.accentuate.io/8978112807052/1775059262434/PL-HA144-R10.pdf?v=1775059262434)
 
+## Next Verified Farmhouse Sink Candidate — PL-HA148 R10
+
+Pelican’s current product page and official PL-HA148 R10 specification sheet identify this as a 16-gauge stainless-steel, single-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **36 × 21 × 10 inches** and its interior bowl measures **34 × 16 × 9¾ inches**. The source identifies an integral front towel bar, but does not provide precise towel-bar geometry.
+
+The measured vessel, bowl, drain, countertop seating, and visible apron are sufficient for a parametric profile; the unmeasured towel bar must not be inferred from product imagery. The sink is eligible only on compatible 36-inch-or-wider farmhouse bases and does not change cabinetry or pricing. Product images remain display-only.
+
+### Sources
+
+81. [Pelican Int’l — PL-HA148 product page](https://buildpelican.com/products/pl-ha148)
+82. [Pelican Int’l — PL-HA148 R10 specification sheet](https://cdn.accentuate.io/8978112938124/1775058900343/PL-HA148-R10.pdf?v=1775058900343)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.

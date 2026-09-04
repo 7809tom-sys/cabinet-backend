@@ -182,6 +182,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 31, bowlDepthIn: 16, bowlHeightIn: 9.75, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/8978112807052/1775059262434/PL-HA144-R10.pdf?v=1775059262434",
   },
+  "PL-HA148": {
+    id: "pelican-pl-ha148-r10-stainless-farmhouse", pelicanCode: "PL-HA148", name: "PL-HA148 R10 Handmade Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 36, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 34, bowlDepthIn: 16, bowlHeightIn: 9.75, minimumCabinetWidthIn: 36,
+    specificationUrl: "https://cdn.accentuate.io/8978112938124/1775058900343/PL-HA148-R10.pdf?v=1775058900343",
+  },
 };
 
 const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
@@ -369,6 +375,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA124\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA124";
   if (/^PL-HA139\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA139";
   if (/^PL-HA144\s+R10(?:\s+16G)?$/.test(normalized)) return "PL-HA144";
+  if (/^PL-HA148\s+R10(?:\s+16G)?$/.test(normalized)) return "PL-HA148";
   return normalized;
 }
 
