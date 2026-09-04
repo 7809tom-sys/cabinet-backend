@@ -818,3 +818,14 @@ The current physical sink workflow supports only source-measured straight-sided 
 
 134. [Pelican Int’l — PL-125 product page](https://buildpelican.com/products/pl-125)
 135. [Pelican Int’l — PL-125 specification sheet](https://cdn.accentuate.io/8978111791244/1772658910634/PL-125.pdf?v=1772664110821)
+
+## Not Admitted to Exact Physical Placement Yet — PL-CI6004 Forge Self-Rimming Sink
+
+Pelican’s active PL-CI6004 page and official drawing identify a white cast-iron, porcelain-enamel, self-rimming kitchen sink with two bowls, four pre-drilled faucet holes on 4-inch centers, and stated compatibility with the PL-8480 bridge faucet. Its drawing lists a **33 × 22 × 8½-inch** exterior, shows a raised rim and four-hole deck, and documents unequal double-bowl/drain geometry.
+
+The current physical sink renderer does not model a cast-iron porcelain material, raised self-rimming deck, four-hole faucet pattern, or the specified bridge faucet; PL-8480 also remains unverified for exact geometry. Converting PL-CI6004 to an undermount or replacing its deck with a single-hole faucet would remove source-defined features. It therefore remains outside the physical Designer palette until the self-rimming, material, multi-hole deck, and compatible faucet contracts can all be faithfully represented without catalog-image-derived substitutes.
+
+### Sources
+
+136. [Pelican Int’l — PL-CI6004 product page](https://buildpelican.com/products/pl-ci6004)
+137. [Pelican Int’l — PL-CI6004 specification sheet](https://cdn.accentuate.io/8980582760588/1776101928435/PL-CI6004-Spec.pdf?v=1776101928436)
