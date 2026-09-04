@@ -1006,3 +1006,11 @@ Pelican’s official PL-HA104 R0 drawing identifies a 16-gauge stainless-steel s
 ### Source
 
 164. [Pelican Int’l — PL-HA104 R0 technical drawing](https://cdn.accentuate.io/7876665278604/1729872420755/PL-HA104-R0.pdf?v=1729872420755)
+
+## Source-Verified Drain Datum — PL-HA108 R0 Standard Undermount Sink
+
+Pelican’s official PL-HA108 R0 drawing identifies a 16- or 18-gauge stainless-steel single-bowl undermount sink with a **23 × 18 × 10-inch** exterior and a **21 × 16 × 10-inch** interior. Its plan drawing places the drain on the bowl centerline and labels the drain center **1 inch from the rear bowl edge**. The physical profile must preserve this rear-center drain datum rather than use the generic sink-drain fallback.
+
+### Source
+
+165. [Pelican Int’l — PL-HA108 R0 technical drawing](https://cdn.accentuate.io/7876665376908/1729872673252/PL-HA108-R0.pdf?v=1729872673252)
