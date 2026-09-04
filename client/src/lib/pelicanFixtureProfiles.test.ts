@@ -293,6 +293,7 @@ describe("verifiedPelicanSinkProfile", () => {
       bowlHeightIn: 10,
       bowlCount: 2,
       bowlWidthsIn: [12, 17],
+      drainInsetBackIn: 120 / 25.4,
       minimumCabinetWidthIn: 33,
     });
   });

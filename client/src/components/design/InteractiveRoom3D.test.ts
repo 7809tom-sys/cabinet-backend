@@ -3355,7 +3355,7 @@ describe("interactive 3D room scene helpers", () => {
     const sink = {
       uid: "pelican-pl-ha139-r15", type: "farmhouse", x: 24, y: 48, width: 33, depth: 21,
       sourceWidth: 33, sourceDepth: 21, bowlWidth: 12, bowlWidths: [12, 17] as const, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
-      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha139-r15-stainless-asymmetric-double-bowl-farmhouse",
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha139-r15-stainless-asymmetric-double-bowl-farmhouse",
       faucet: false, wallSide: "top",
     } as never;
     addSinkFixture(root, sink);
@@ -3378,6 +3378,33 @@ describe("interactive 3D room scene helpers", () => {
       expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
     }
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+    for (const [index, drain] of drains.entries()) {
+      expect(drain.userData.documentedDrainInset).toBe(true);
+      expect((drain.position.z - bowls[index].position.z) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+    }
+  });
+
+  it("preserves PL-HA139’s documented rear-center drains on a left wall", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha139-r15-left", type: "farmhouse", x: 24, y: 48, width: 21, depth: 33,
+      sourceWidth: 33, sourceDepth: 21, bowlWidth: 12, bowlWidths: [12, 17] as const, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true,
+      pelicanProfileId: "pelican-pl-ha139-r15-stainless-asymmetric-double-bowl-farmhouse", faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    for (const [index, drain] of drains.entries()) {
+      expect(drain.userData.documentedDrainInset).toBe(true);
+      expect((drain.position.x - bowls[index].position.x) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+    }
   });
 
   it("renders PL-HA125 with its source-verified asymmetric 19-inch and 13-inch bowls, two drains, countertop seating, and apron", () => {
