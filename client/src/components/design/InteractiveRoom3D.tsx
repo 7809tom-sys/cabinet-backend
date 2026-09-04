@@ -508,6 +508,10 @@ interface Props {
   /** Saved-design identity anchors a manual final render to an auditable record. */
   savedDesignId?: number | null;
   savedDesignRevision?: string | null;
+  /** True only when the active 3D plan matches the persisted Save Plan payload. */
+  isCurrentPlanSaved?: boolean;
+  /** Canonical JSON used by Save Plan; hashed locally only to bind the capture to that same persisted plan. */
+  savedPlanFingerprintPayload?: string | null;
   /** Standard stops at the upper cabinet; full-height continues to the ceiling on the same supported run. */
   backsplashHeightMode?: BacksplashHeightMode;
   /** Optional physical countertop rear upstand; wall tile begins above this strip. */
@@ -6123,7 +6127,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -6169,6 +6173,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [pathTracePreviewBusy, setPathTracePreviewBusy] = useState(false);
   const [pathTracePreviewProgress, setPathTracePreviewProgress] = useState(0);
   const [photoQualityLead, setPhotoQualityLead] = useState({ name: "", email: "", phone: "", followUpConsent: false });
+  const [photoVerificationStatus, setPhotoVerificationStatus] = useState<"idle" | "pending" | "verified" | "provider_unavailable" | "failed">("idle");
+  const [photoVerificationCode, setPhotoVerificationCode] = useState("");
   const [photoRenderDraft, setPhotoRenderDraft] = useState<{
     sceneSignature: string;
     sceneImageDataUrl: string;
@@ -6176,9 +6182,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       contractVersion: "exact-plan-v1";
       designId: number;
       designRevision: string | null;
+      planFingerprint: string;
       geometryLock: string;
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
-      materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
+      materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
       sourceImageHash: string;
       generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1";
     };
@@ -6186,6 +6193,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const { user } = useAuth();
   const isPhotoQualityTest = user?.role === "admin";
   const photoRenderMutation = trpc.designPhotoRenders.create.useMutation();
+  const requestPhotoVerificationMutation = trpc.designPhotoRenders.requestPhoneVerification.useMutation();
+  const confirmPhotoVerificationMutation = trpc.designPhotoRenders.confirmPhoneVerification.useMutation();
   useEffect(() => {
     if (!temporaryPreviewTransitionKey || typeof window === "undefined") { setTemporaryPreviewFading(false); return; }
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -7415,7 +7424,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Finish the current placement preview before creating a high-resolution 3D preview.");
       return;
     }
-    if (!savedDesignId && !isPhotoQualityTest) {
+    if ((!savedDesignId || !isCurrentPlanSaved) && !isPhotoQualityTest) {
       toast.error("Save this design before creating a high-resolution 3D preview so the image remains tied to its exact plan.");
       return;
     }
@@ -7474,11 +7483,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       { role: "countertop" as const, productId: catalogCountertopProductId ?? null, name: catalogCountertopName ?? null, materialImageUrl: approvedMaterialUrl(catalogCountertopImageUrl) },
       { role: "flooring" as const, productId: catalogFlooringProductId ?? null, name: catalogFlooringName ?? null, materialImageUrl: approvedMaterialUrl(catalogFlooringImageUrl) },
       { role: "backsplash" as const, productId: catalogBacksplashProductId ?? null, name: catalogBacksplashName ?? null, materialImageUrl: approvedMaterialUrl(catalogBacksplashImageUrl) },
+      { role: "faucet" as const, productId: sinks.find((sink) => sink.pelicanFaucetProductId != null)?.pelicanFaucetProductId ?? null, name: sinks.find((sink) => sink.pelicanFaucetProductName)?.pelicanFaucetProductName ?? null, materialImageUrl: approvedMaterialUrl(sinks.find((sink) => sink.pelicanFaucetProductImage)?.pelicanFaucetProductImage) },
+      { role: "sink" as const, productId: sinks.find((sink) => sink.pelicanProductId != null)?.pelicanProductId ?? null, name: sinks.find((sink) => sink.pelicanProductName)?.pelicanProductName ?? null, materialImageUrl: approvedMaterialUrl(sinks.find((sink) => sink.pelicanProductImage)?.pelicanProductImage) },
     ];
     const hash = async (value: string) => {
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
       return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
     };
+    const planFingerprint = await hash(savedPlanFingerprintPayload ?? "");
     const hashCaptureBytes = async (dataUrl: string) => {
       const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
       const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
@@ -7495,6 +7507,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       // requests remain saved-design gated above and on the server.
       designId: savedDesignId ?? 0,
       designRevision: savedDesignRevision ?? null,
+      planFingerprint,
       geometryLock,
       camera: cameraSnapshot,
       materials,
@@ -7514,6 +7527,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     setPhotoRenderDraft({ sceneSignature, sceneImageDataUrl: reference, provenance });
     setPhotoRenderReferenceUrl(reference);
     setPhotoRenderError(null);
+    setPhotoVerificationCode("");
+    setPhotoVerificationStatus("idle");
     if (!isPhotoQualityTest) {
       setPhotoQualityLead((current) => ({
         ...current,
@@ -7537,6 +7552,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Review the locked 3D reference before confirming the final image.");
       return;
     }
+    if (!isPhotoQualityTest && photoVerificationStatus !== "verified") {
+      toast.error("Verify your mobile number for this exact saved kitchen plan before creating an image.");
+      return;
+    }
     const normalizedLead = {
       name: photoQualityLead.name.trim(),
       email: photoQualityLead.email.trim(),
@@ -7547,10 +7566,6 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Enter your name, email, mobile number, and consent to follow up before requesting the high-resolution preview.");
       return;
     }
-    const verifiedLead = isPhotoQualityTest ? undefined : {
-      ...normalizedLead,
-      followUpConsent: true as const,
-    };
     setPhotoRenderError(null);
     try {
       const result = await photoRenderMutation.mutateAsync({
@@ -7558,7 +7573,6 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl,
         provenance: photoRenderDraft.provenance,
         confirmation: true,
-        lead: verifiedLead,
       });
       setPhotoRenderUrl(result.imageUrl);
       setPhotoRenderReused(result.reused);
@@ -7566,6 +7580,65 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.success(result.reused ? "Your saved high-resolution preview is ready." : "High-resolution 3D preview created.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "The photo render could not be created. Please try again.";
+      setPhotoRenderError(message);
+      toast.error(message);
+    }
+  };
+
+  const requestPhotoVerification = async () => {
+    if (!photoRenderDraft) {
+      toast.error("Review the locked 3D reference before requesting a verification code.");
+      return;
+    }
+    const normalizedLead = {
+      name: photoQualityLead.name.trim(),
+      email: photoQualityLead.email.trim(),
+      phone: photoQualityLead.phone.trim(),
+      followUpConsent: photoQualityLead.followUpConsent,
+    };
+    if (!normalizedLead.name || !/^\S+@\S+\.\S+$/.test(normalizedLead.email) || normalizedLead.phone.length < 7 || !normalizedLead.followUpConsent) {
+      toast.error("Enter your name, email, mobile number, and consent before requesting a verification code.");
+      return;
+    }
+    setPhotoRenderError(null);
+    try {
+      const result = await requestPhotoVerificationMutation.mutateAsync({
+        sceneSignature: photoRenderDraft.sceneSignature,
+        provenance: photoRenderDraft.provenance,
+        lead: { ...normalizedLead, followUpConsent: true },
+      });
+      setPhotoVerificationStatus(result.verificationStatus);
+      if (result.verificationStatus === "verified") {
+        toast.success("Your mobile number is already verified for this exact saved plan.");
+      } else if (result.verificationStatus === "pending") {
+        toast.success("Verification code sent. Enter it below to unlock the image.");
+      } else {
+        toast.error("Phone verification is not configured yet. Please contact Cabinet Dealz for assistance.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "We could not send a verification code. Please try again.";
+      setPhotoVerificationStatus("failed");
+      setPhotoRenderError(message);
+      toast.error(message);
+    }
+  };
+
+  const confirmPhotoVerification = async () => {
+    if (!photoRenderDraft || !/^\d{4,10}$/.test(photoVerificationCode.trim())) {
+      toast.error("Enter the verification code from your text message.");
+      return;
+    }
+    setPhotoRenderError(null);
+    try {
+      const result = await confirmPhotoVerificationMutation.mutateAsync({
+        sceneSignature: photoRenderDraft.sceneSignature,
+        code: photoVerificationCode.trim(),
+      });
+      setPhotoVerificationStatus(result.verificationStatus);
+      if (result.canCreateImage) toast.success("Mobile number verified. Your locked image is ready to create.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "We could not verify that code. Please try again.";
+      setPhotoVerificationStatus("failed");
       setPhotoRenderError(message);
       toast.error(message);
     }
@@ -7785,12 +7858,21 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Selected door-material input</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">This sample is already applied to the existing 3D cabinet faces after it loads. It does not create a new photorealistic room image.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
 	          {catalogRoomSceneUrl && <div data-testid="photo-quality-room-scene-not-applied" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"><strong>Style room-scene picture:</strong> saved catalog reference only. This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.</div>}
 	          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p><strong>Administrator test preview.</strong> Use the exact high-resolution 3D capture to confirm plan fidelity. No customer lead is created and no customer contact information is required.</p><div className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Production render test — experimental</p><p className="mt-1">Creates a 1920×1080 WebGL2 path trace from a cloned current scene and camera, preserving loaded PBR material maps while adding a clone-only deterministic daylight and interior-light rig. It then applies a conservative final denoise pass. It does not use AI or the room-scene picture, does not save a customer render, and must be visually approved before any Photo Quality claim.</p><Button data-testid="path-trace-production-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void createPathTracePreview()} disabled={pathTracePreviewBusy || !photoRenderDoorReference.ready}>{pathTracePreviewBusy ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{pathTracePreviewBusy ? `Tracing exact scene… ${pathTracePreviewProgress}%` : "Run HD production render test"}</Button>{pathTracePreviewBusy && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-[#1a2744]" style={{ width: `${pathTracePreviewProgress}%` }} /></div>}{pathTracePreviewError && <p role="alert" className="mt-2 text-rose-800">{pathTracePreviewError}</p>}</div></div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Get your high-resolution 3D preview</p><p className="mt-1 text-xs leading-relaxed text-slate-700">Your Cabinet Dealz team will follow up about this locked kitchen design. Your information is sent only with this preview request.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and high-resolution preview request. Mobile-number verification will be added when SMS service is activated.</label></div>}
-	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-28 w-full rounded-md border object-contain sm:h-36" /></div>}
+                  {!isPhotoQualityTest && <section data-testid="photo-quality-phone-verification" className="space-y-3 rounded-lg border border-[#b7c8df] bg-white p-3 text-sm text-[#1a2744]">
+                    <div><p className="font-semibold">Step 1 — Verify your mobile number</p><p className="mt-1 text-xs leading-relaxed text-slate-700">We send a one-time code only after this exact saved kitchen plan and your follow-up consent are confirmed. The code is never stored in this plan.</p></div>
+                    {photoVerificationStatus === "provider_unavailable" && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">Phone verification is being configured. A customer image cannot be created until this service is active.</p>}
+                    {photoVerificationStatus === "verified" && <p role="status" className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900">Mobile number verified for this exact saved plan. Step 2 is ready.</p>}
+                    {photoVerificationStatus !== "verified" && photoVerificationStatus !== "provider_unavailable" && <>
+                      {photoVerificationStatus === "pending" && <label className="block space-y-1 text-xs font-semibold text-slate-700">Verification code<Input value={photoVerificationCode} onChange={(event) => setPhotoVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="one-time-code" placeholder="Enter code from text" disabled={requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending} /></label>}
+                      <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void requestPhotoVerification()} disabled={requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending}>{requestPhotoVerificationMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{photoVerificationStatus === "pending" ? "Send another code" : "Send verification code"}</Button>{photoVerificationStatus === "pending" && <Button type="button" size="sm" onClick={() => void confirmPhotoVerification()} disabled={!/^\d{4,10}$/.test(photoVerificationCode) || requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending}>{confirmPhotoVerificationMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}Verify code</Button>}</div>
+                    </>}
+                  </section>}
+                  {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-28 w-full rounded-md border object-contain sm:h-36" /></div>}
 	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact 3D preview. Your editable Designer plan is unchanged.</div>}
 	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}
 	          <div className="h-3 shrink-0" aria-hidden="true" />
 	          </div>
-	          <div data-testid="photo-quality-mobile-action-footer" className="shrink-0 border-t border-slate-200 bg-background px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4"><div className="flex gap-2"><Button type="button" variant="outline" className="flex-1" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" className="flex-[2]" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create high-resolution 3D preview</Button></div></div>
+	          <div data-testid="photo-quality-mobile-action-footer" className="shrink-0 border-t border-slate-200 bg-background px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4"><div className="flex gap-2"><Button type="button" variant="outline" className="flex-1" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" className="flex-[2]" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft || (!isPhotoQualityTest && photoVerificationStatus !== "verified")} title={!isPhotoQualityTest && photoVerificationStatus !== "verified" ? "Verify the mobile number for this saved kitchen plan first" : undefined}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create high-resolution 3D preview</Button></div></div>
 	        </DialogContent>
 	      </Dialog>
 	      <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) { setPhotoRenderUrl(null); setPhotoRenderReused(false); setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>

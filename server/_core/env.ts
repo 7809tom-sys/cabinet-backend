@@ -28,4 +28,9 @@ export const ENV = {
   // Authorize.Net
   authorizeNetApiLoginId: process.env.AUTHORIZE_NET_API_LOGIN_ID ?? "",
   authorizeNetTransactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY ?? "",
+  // Twilio Verify is used only by server-side image-request procedures. These
+  // values are intentionally absent from all client-side environment exposure.
+  twilioApiKey: process.env.TWILIO_API_KEY ?? "",
+  twilioApiSecret: process.env.TWILIO_API_SECRET ?? "",
+  twilioVerifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? "",
 };

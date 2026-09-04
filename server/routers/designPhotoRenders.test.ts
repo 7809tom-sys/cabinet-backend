@@ -19,6 +19,7 @@ describe("design photo render safeguards", () => {
       contractVersion: "exact-plan-v1",
       designId: 42,
       designRevision: "2026-09-02T08:30:00.000Z",
+      planFingerprint: "c".repeat(64),
       geometryLock: "locked-current-plan-with-placed-cabinets-and-openings",
       camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 1.25 },
       materials: [
@@ -26,6 +27,8 @@ describe("design photo render safeguards", () => {
         { role: "countertop", productId: 21, name: "Calacatta Oro", materialImageUrl: "https://www.cabinetdealz.com/materials/oro.webp" },
         { role: "flooring", productId: 34, name: "Aveline 20mil", materialImageUrl: "https://buildpelican.com/materials/aveline.webp" },
         { role: "backsplash", productId: 55, name: "White tile", materialImageUrl: null },
+        { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
+        { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
       sourceImageHash: "a".repeat(64),
       generationMethod: "manual-final-review-image-service",
@@ -50,6 +53,7 @@ describe("design photo render safeguards", () => {
       contractVersion: "exact-plan-v1",
       designId: 42,
       designRevision: null,
+      planFingerprint: "d".repeat(64),
       geometryLock: "locked-current-plan-with-placed-cabinets-and-openings",
       camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 1.25 },
       materials: [
@@ -57,6 +61,8 @@ describe("design photo render safeguards", () => {
         { role: "countertop", productId: 21, name: "Bedrock 3cm", materialImageUrl: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp" },
         { role: "flooring", productId: 54, name: "Astoria 22mil Vinyl Flooring", materialImageUrl: "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp" },
         { role: "backsplash", productId: 183, name: "Desert Clay", materialImageUrl: "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp" },
+        { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
+        { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
       sourceImageHash: "b".repeat(64),
       generationMethod: "manual-final-review-image-service",
@@ -86,11 +92,11 @@ describe("design photo render safeguards", () => {
     })).toThrow();
   });
 
-  it("creates a CRM follow-up event even when a customer reuses a cached image", () => {
+  it("creates the CRM follow-up event only after the customer phone is verified", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
-    expect(source).toContain('reused: true,');
+    expect(source).toContain('request.verificationStatus === "verified"');
     expect(source).toContain('emitPhotoQualityLead({');
-    expect(source).toContain('reusedPhotoQualityImage: args.reused');
+    expect(source).toContain('phoneVerification: "verified_twilio"');
   });
 
   it("persists a deterministic high-resolution exact-scene render rather than submitting the locked screenshot to an image interpreter", () => {
@@ -113,6 +119,7 @@ describe("design photo render safeguards", () => {
       contractVersion: "exact-plan-v1",
       designId: 0,
       designRevision: null,
+      planFingerprint: "e".repeat(64),
       geometryLock: "locked-current-plan-with-placed-cabinets-and-openings",
       camera: { position: [1, 2, 3], target: [4, 5, 6], zoom: 1.25 },
       materials: [
@@ -120,6 +127,8 @@ describe("design photo render safeguards", () => {
         { role: "countertop", productId: 21, name: "Calacatta Oro", materialImageUrl: null },
         { role: "flooring", productId: 34, name: "Astoria", materialImageUrl: null },
         { role: "backsplash", productId: 55, name: "Desert Clay", materialImageUrl: null },
+        { role: "faucet", productId: 71, name: "Pull-down Faucet", materialImageUrl: null },
+        { role: "sink", productId: 72, name: "Single Bowl Sink", materialImageUrl: null },
       ],
       sourceImageHash: "f".repeat(64),
       generationMethod: "manual-final-review-deterministic-webgl-v1",

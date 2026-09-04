@@ -121,7 +121,7 @@ export type InsertCustomerPreferredProduct = typeof customerPreferredProducts.$i
 
 // ─── Final photo-quality Designer renders ────────────────────────────────────
 export type PhotoRenderMaterialProvenance = {
-  role: "cabinet" | "countertop" | "flooring" | "backsplash";
+  role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink";
   productId: number | null;
   name: string | null;
   materialImageUrl: string | null;
@@ -131,6 +131,8 @@ export type PhotoRenderProvenance = {
   contractVersion: "exact-plan-v1";
   designId: number;
   designRevision: string | null;
+  /** SHA-256 of the canonical persisted plan payload used to prove a current saved view. */
+  planFingerprint: string;
   geometryLock: string;
   camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
   materials: PhotoRenderMaterialProvenance[];
@@ -164,6 +166,43 @@ export const designPhotoRenders = mysqlTable(
 );
 
 export type DesignPhotoRender = typeof designPhotoRenders.$inferSelect;
+
+// ─── Verified customer plan-image requests ──────────────────────────────────
+// This table stores only the minimum lead, verification, locked-plan, and result
+// state needed to control an image request. It never stores an OTP, a provider
+// credential, or raw provider payloads.
+export const designImageRequests = mysqlTable("design_image_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  kitchenDesignId: int("kitchenDesignId").notNull(),
+  designRevision: varchar("designRevision", { length: 64 }).notNull(),
+  planFingerprint: varchar("planFingerprint", { length: 64 }).notNull(),
+  sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
+  provenance: json("provenance").$type<PhotoRenderProvenance>().notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phoneE164: varchar("phoneE164", { length: 32 }).notNull(),
+  phoneHash: varchar("phoneHash", { length: 64 }).notNull(),
+  consentAt: timestamp("consentAt").notNull(),
+  verificationStatus: mysqlEnum("verificationStatus", ["pending", "verified", "expired", "failed", "provider_unavailable"]).notNull().default("pending"),
+  verificationProvider: varchar("verificationProvider", { length: 32 }).notNull().default("twilio_verify"),
+  verificationSid: varchar("verificationSid", { length: 128 }),
+  verificationRequestedAt: timestamp("verificationRequestedAt"),
+  verifiedAt: timestamp("verifiedAt"),
+  generationStatus: mysqlEnum("generationStatus", ["blocked", "ready", "generating", "completed", "failed"]).notNull().default("blocked"),
+  designPhotoRenderId: int("designPhotoRenderId"),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  crmDeliveredAt: timestamp("crmDeliveredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  sceneSignatureUnique: uniqueIndex("design_image_requests_scene_signature_uq").on(t.sceneSignature),
+  designRevisionIndex: index("design_image_requests_design_revision_idx").on(t.kitchenDesignId, t.designRevision),
+  userUpdatedIndex: index("design_image_requests_user_updated_idx").on(t.userId, t.updatedAt),
+  phoneStatusIndex: index("design_image_requests_phone_status_idx").on(t.phoneHash, t.verificationStatus),
+}));
+
+export type DesignImageRequest = typeof designImageRequests.$inferSelect;
 
 // ─── Administrator shared notes ──────────────────────────────────────────────
 // Internal coordination only. Every API path is protected by adminProcedure;

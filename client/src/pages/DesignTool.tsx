@@ -428,9 +428,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Ensures the Surfaces & Fixtures wizard hand-off (cd_surface_selection) is
   // consumed exactly once per session after email verification.
   const surfaceSelectionAppliedRef = useRef(false);
+  const currentSavedDesignId = activeSavedDesignId ?? loadDesignId;
   const { data: savedDesign } = trpc.design.byId.useQuery(
-    { id: loadDesignId ?? 0, affiliateSlug: affiliateSlug ?? undefined },
-    { enabled: loadDesignId != null && verified, retry: 1 }
+    { id: currentSavedDesignId ?? 0, affiliateSlug: affiliateSlug ?? undefined },
+    { enabled: currentSavedDesignId != null && verified, retry: 1 }
   );
 
   // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).
@@ -870,6 +871,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // to door styles within the same supply line (member can still change color,
   // but not jump to another distributor) unless they Unlock to override.
   const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
+  const currentSavedPlanPayload = useMemo(() => JSON.stringify({
+    roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+    placedCabinets: placed,
+    selectedSurfaces,
+    threeDPresentation: threeDPresentationForSave,
+    selectedStyleId: styleId ?? null,
+    selectedDistributorId: lockedDistributorId ?? null,
+  }), [room, openings, sinks, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId]);
+  const isCurrentPlanSaved = useMemo(() => {
+    if (!savedDesign || currentSavedDesignId == null) return false;
+    return currentSavedPlanPayload === JSON.stringify({
+      roomData: savedDesign.roomData ?? null,
+      placedCabinets: savedDesign.placedCabinets ?? [],
+      selectedSurfaces: (savedDesign as { selectedSurfaces?: unknown[] | null }).selectedSurfaces ?? [],
+      threeDPresentation: (savedDesign as { threeDPresentation?: unknown | null }).threeDPresentation ?? null,
+      selectedStyleId: savedDesign.selectedStyleId ?? null,
+      selectedDistributorId: (savedDesign as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
+    });
+  }, [savedDesign, currentSavedDesignId, currentSavedPlanPayload]);
   // When the user explicitly overrides the distributor lock (acknowledging extra
   // shipping), this flag prevents the auto-lock effect from re-engaging.
   const [mixedWarehouseOverride, setMixedWarehouseOverride] = useState(false);
@@ -7188,8 +7208,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	      catalogBacksplashName={threeDSurfaceProductNames.backsplash}
 	      catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}
-	      savedDesignId={activeSavedDesignId ?? loadDesignId ?? null}
+	      savedDesignId={currentSavedDesignId ?? null}
 	      savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
+	      isCurrentPlanSaved={isCurrentPlanSaved}
+	      savedPlanFingerprintPayload={isCurrentPlanSaved ? currentSavedPlanPayload : null}
 	      backsplashHeightMode={backsplashHeightMode}
 	      countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
@@ -8235,6 +8257,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            onReviewPlanFinding={reviewPreSavePlanFinding}
 	            onSaveSuccess={(designName, designId) => {
 	              setActiveSavedDesignId(designId);
+	              void trpcUtils.design.byId.invalidate({ id: designId, affiliateSlug: affiliateSlug ?? undefined });
 	              if (isMobile) {
                 toast.success("Design saved", {
                   description: designName,
@@ -11748,8 +11771,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	                catalogBacksplashName={threeDSurfaceProductNames.backsplash}
 	                catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}
-	                savedDesignId={activeSavedDesignId ?? loadDesignId ?? null}
+	                savedDesignId={currentSavedDesignId ?? null}
 	                savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
+	                isCurrentPlanSaved={isCurrentPlanSaved}
+	                savedPlanFingerprintPayload={isCurrentPlanSaved ? currentSavedPlanPayload : null}
 	                backsplashHeightMode={backsplashHeightMode}
 	                countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}

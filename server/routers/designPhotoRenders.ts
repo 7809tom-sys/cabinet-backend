@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { designPhotoRenders } from "../../drizzle/schema";
+import { designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
+import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -71,7 +72,7 @@ const safeMaterialUrl = z.preprocess(normalizePhotoQualityMaterialUrl, z.string(
 
 const vector3Schema = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]);
 const materialProvenanceSchema = z.object({
-  role: z.enum(["cabinet", "countertop", "flooring", "backsplash"]),
+  role: z.enum(["cabinet", "countertop", "flooring", "backsplash", "faucet", "sink"]),
   productId: z.number().int().positive().nullable(),
   name: z.string().trim().max(255).nullable(),
   materialImageUrl: safeMaterialUrl.nullable(),
@@ -85,12 +86,20 @@ export const photoQualityLeadSchema = z.object({
 export const photoRenderProvenanceSchema = z.object({
   contractVersion: z.literal("exact-plan-v1"),
   // Design ID 0 is reserved for an administrator-only locked-view test. A
-  // customer request must still have a persisted positive saved-design ID.
-  designId: z.number().int().nonnegative(),
-  designRevision: z.string().trim().max(191).nullable(),
-  geometryLock: z.string().min(16).max(400_000),
+	  // customer request must still have a persisted positive saved-design ID.
+	  designId: z.number().int().nonnegative(),
+	  designRevision: z.string().trim().max(191).nullable(),
+	  planFingerprint: z.string().regex(/^[a-f0-9]{64}$/, "A saved plan fingerprint is required."),
+	  geometryLock: z.string().min(16).max(400_000),
   camera: z.object({ position: vector3Schema, target: vector3Schema, zoom: z.number().finite().positive() }),
-  materials: z.array(materialProvenanceSchema).length(4),
+  materials: z.array(materialProvenanceSchema).length(6).superRefine((materials, ctx) => {
+    const expectedRoles = ["cabinet", "countertop", "flooring", "backsplash", "faucet", "sink"] as const;
+    for (const role of expectedRoles) {
+      if (materials.filter((material) => material.role === role).length !== 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Exactly one ${role} input is required.` });
+      }
+    }
+  }),
   sourceImageHash: z.string().regex(/^[a-f0-9]{64}$/i, "A SHA-256 source-image hash is required."),
   generationMethod: z.enum([
     "manual-final-review-image-service",
@@ -100,6 +109,74 @@ export const photoRenderProvenanceSchema = z.object({
 });
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
 type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
+type SavedDesignForPhotoRequest = Pick<
+  typeof kitchenDesigns.$inferSelect,
+  "id" | "userId" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
+>;
+
+const verificationCodeSchema = z.string().trim().regex(/^\d{4,10}$/, "Enter the code from your text message.");
+const PHOTO_VERIFICATION_RESEND_MS = 60_000;
+const PHOTO_VERIFICATION_EXPIRY_MS = 10 * 60_000;
+
+function savedPhotoPlanRevision(design: SavedDesignForPhotoRequest): string {
+  return design.updatedAt.toISOString();
+}
+
+/**
+ * The canonical plan fingerprint is derived only from the persisted saved
+ * design—not from a browser request—so it can identify the exact plan revision
+ * associated with a qualified lead without storing duplicate plan JSON.
+ */
+export function savedPhotoPlanFingerprint(design: SavedDesignForPhotoRequest): string {
+  return createHash("sha256").update(JSON.stringify({
+    roomData: design.roomData ?? null,
+    placedCabinets: design.placedCabinets ?? [],
+    selectedSurfaces: design.selectedSurfaces ?? [],
+    threeDPresentation: design.threeDPresentation ?? null,
+    selectedStyleId: design.selectedStyleId ?? null,
+    selectedDistributorId: design.selectedDistributorId ?? null,
+  })).digest("hex");
+}
+
+function validatePhotoProvenanceAgainstSavedDesign(provenance: PhotoRenderProvenanceInput, design: SavedDesignForPhotoRequest): { revision: string; fingerprint: string } {
+  if (provenance.designId !== design.id) {
+    throw new Error("This image request is not tied to the saved kitchen plan you own.");
+  }
+  const revision = savedPhotoPlanRevision(design);
+  if (provenance.designRevision !== revision) {
+    throw new Error("This kitchen plan changed after the locked preview was prepared. Save the current plan, reopen the preview, and request a new verification code.");
+  }
+  const fingerprint = savedPhotoPlanFingerprint(design);
+  if (provenance.planFingerprint !== fingerprint) {
+    throw new Error("The current 3D view no longer matches the saved kitchen plan. Save the plan, reopen the preview, and request a new verification code.");
+  }
+
+  const materialByRole = new Map(provenance.materials.map((material) => [material.role, material]));
+  const cabinetMaterial = materialByRole.get("cabinet");
+  if (cabinetMaterial?.productId !== (design.selectedStyleId ?? null)) {
+    throw new Error("The selected door style does not match the saved plan. Save the current plan and reopen the preview.");
+  }
+
+  return { revision, fingerprint };
+}
+
+async function loadOwnedSavedDesign(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, userId: number, designId: number): Promise<SavedDesignForPhotoRequest> {
+  const [design] = await db.select({
+    id: kitchenDesigns.id,
+    userId: kitchenDesigns.userId,
+    roomData: kitchenDesigns.roomData,
+    placedCabinets: kitchenDesigns.placedCabinets,
+    selectedSurfaces: kitchenDesigns.selectedSurfaces,
+    threeDPresentation: kitchenDesigns.threeDPresentation,
+    selectedStyleId: kitchenDesigns.selectedStyleId,
+    selectedDistributorId: kitchenDesigns.selectedDistributorId,
+    updatedAt: kitchenDesigns.updatedAt,
+  }).from(kitchenDesigns).where(and(eq(kitchenDesigns.id, designId), eq(kitchenDesigns.userId, userId))).limit(1);
+  if (!design) {
+    throw new Error("Save this kitchen plan to your account before requesting an image.");
+  }
+  return design;
+}
 
 /**
  * The persisted provenance must describe the JPEG that was actually received
@@ -118,36 +195,39 @@ export function canonicalizeDeterministicRenderProvenance(
 }
 
 function photoQualityCrmData(args: {
+  imageRequestId: number;
+  planFingerprint: string;
   sceneSignature: string;
   provenance: PhotoRenderProvenanceInput;
   requestedAt: Date;
-  reused: boolean;
 }) {
   return {
-    source: "photo_quality_render",
+    source: "verified_plan_image_request",
     consentToFollowUp: true,
-    phoneVerification: "pending_sms_provider_activation",
+    phoneVerification: "verified_twilio",
+    imageRequestId: args.imageRequestId,
+    planFingerprint: args.planFingerprint,
     sceneSignature: args.sceneSignature,
     designId: args.provenance.designId,
     designRevision: args.provenance.designRevision,
     selectedProducts: args.provenance.materials.map(({ role, productId, name }) => ({ role, productId, name })),
     requestedAt: args.requestedAt.toISOString(),
-    reusedPhotoQualityImage: args.reused,
   };
 }
 
 function emitPhotoQualityLead(args: {
   userId: number;
   lead: PhotoQualityLeadInput;
+  imageRequestId: number;
+  planFingerprint: string;
   sceneSignature: string;
   provenance: PhotoRenderProvenanceInput;
   originHeader: string | string[] | undefined;
-  reused: boolean;
 }) {
   const origin = typeof args.originHeader === "string" && /^https?:\/\//.test(args.originHeader)
     ? args.originHeader.replace(/\/$/, "")
     : null;
-  void emitCrmEvent({
+  return emitCrmEvent({
     event: "lead",
     contact: {
       userId: args.userId,
@@ -156,10 +236,11 @@ function emitPhotoQualityLead(args: {
       phone: args.lead.phone,
     },
     data: photoQualityCrmData({
+      imageRequestId: args.imageRequestId,
+      planFingerprint: args.planFingerprint,
       sceneSignature: args.sceneSignature,
       provenance: args.provenance,
       requestedAt: new Date(),
-      reused: args.reused,
     }),
     link: origin ? `${origin}/design?load=${args.provenance.designId}` : null,
   });
@@ -182,6 +263,170 @@ export function photoRenderProvenanceSummary(provenance: PhotoRenderProvenanceIn
 }
 
 export const designPhotoRendersRouter = router({
+  getVerificationStatus: protectedProcedure
+    .input(z.object({ sceneSignature: z.string().min(16).max(191) }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [request] = await db.select({
+        verificationStatus: designImageRequests.verificationStatus,
+        verificationRequestedAt: designImageRequests.verificationRequestedAt,
+        verifiedAt: designImageRequests.verifiedAt,
+        generationStatus: designImageRequests.generationStatus,
+        imageUrl: designImageRequests.imageUrl,
+      }).from(designImageRequests).where(and(
+        eq(designImageRequests.userId, ctx.user.id),
+        eq(designImageRequests.sceneSignature, input.sceneSignature),
+      )).limit(1);
+      return request ?? null;
+    }),
+
+  requestPhoneVerification: protectedProcedure
+    .input(z.object({
+      sceneSignature: z.string().min(16).max(191),
+      provenance: photoRenderProvenanceSchema,
+      lead: photoQualityLeadSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Phone verification is temporarily unavailable.");
+      if (ctx.user.role === "admin") throw new Error("Administrator render tests do not require a customer phone verification.");
+
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+      const { revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+      const phoneE164 = normalizePhoneE164(input.lead.phone);
+      const phoneHash = hashPhoneE164(phoneE164);
+      const now = new Date();
+      const [existing] = await db.select().from(designImageRequests).where(and(
+        eq(designImageRequests.userId, ctx.user.id),
+        eq(designImageRequests.sceneSignature, input.sceneSignature),
+      )).limit(1);
+
+      if (existing?.verificationStatus === "verified") {
+        if (existing.phoneHash !== phoneHash || existing.designRevision !== revision || existing.planFingerprint !== fingerprint) {
+          throw new Error("The saved plan or mobile number changed. Reopen the preview to create a new verified request.");
+        }
+        return { verificationStatus: "verified" as const, canCreateImage: true, resendAfterSeconds: 0 };
+      }
+
+      if (existing?.verificationRequestedAt) {
+        const elapsed = now.getTime() - existing.verificationRequestedAt.getTime();
+        if (elapsed < PHOTO_VERIFICATION_RESEND_MS) {
+          throw new Error(`Please wait ${Math.ceil((PHOTO_VERIFICATION_RESEND_MS - elapsed) / 1000)} seconds before requesting another code.`);
+        }
+      }
+      const [recentPhoneRequest] = await db.select({ verificationRequestedAt: designImageRequests.verificationRequestedAt })
+        .from(designImageRequests)
+        .where(and(eq(designImageRequests.userId, ctx.user.id), eq(designImageRequests.phoneHash, phoneHash)))
+        .orderBy(desc(designImageRequests.verificationRequestedAt))
+        .limit(1);
+      if (recentPhoneRequest?.verificationRequestedAt) {
+        const elapsed = now.getTime() - recentPhoneRequest.verificationRequestedAt.getTime();
+        if (elapsed < PHOTO_VERIFICATION_RESEND_MS) {
+          throw new Error(`Please wait ${Math.ceil((PHOTO_VERIFICATION_RESEND_MS - elapsed) / 1000)} seconds before requesting another code.`);
+        }
+      }
+
+      const baseRequest = {
+        userId: ctx.user.id,
+        kitchenDesignId: design.id,
+        designRevision: revision,
+        planFingerprint: fingerprint,
+        sceneSignature: input.sceneSignature,
+        provenance: input.provenance,
+        name: input.lead.name,
+        email: input.lead.email.toLowerCase(),
+        phoneE164,
+        phoneHash,
+        consentAt: now,
+        generationStatus: "blocked" as const,
+      };
+
+      if (!isTwilioVerifyConfigured()) {
+        if (existing) {
+          await db.update(designImageRequests).set({
+            ...baseRequest,
+            verificationStatus: "provider_unavailable",
+            verificationSid: null,
+            verificationRequestedAt: now,
+          }).where(eq(designImageRequests.id, existing.id));
+        } else {
+          await db.insert(designImageRequests).values({ ...baseRequest, verificationStatus: "provider_unavailable", verificationRequestedAt: now });
+        }
+        return { verificationStatus: "provider_unavailable" as const, canCreateImage: false, resendAfterSeconds: 0 };
+      }
+
+      const verification = await sendTwilioVerification(phoneE164);
+      if (existing) {
+        await db.update(designImageRequests).set({
+          ...baseRequest,
+          verificationStatus: "pending",
+          verificationSid: verification.sid,
+          verificationRequestedAt: now,
+          verifiedAt: null,
+        }).where(eq(designImageRequests.id, existing.id));
+      } else {
+        await db.insert(designImageRequests).values({
+          ...baseRequest,
+          verificationStatus: "pending",
+          verificationSid: verification.sid,
+          verificationRequestedAt: now,
+        });
+      }
+
+      return { verificationStatus: "pending" as const, canCreateImage: false, resendAfterSeconds: Math.ceil(PHOTO_VERIFICATION_RESEND_MS / 1000) };
+    }),
+
+  confirmPhoneVerification: protectedProcedure
+    .input(z.object({ sceneSignature: z.string().min(16).max(191), code: verificationCodeSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Phone verification is temporarily unavailable.");
+      const [request] = await db.select().from(designImageRequests).where(and(
+        eq(designImageRequests.userId, ctx.user.id),
+        eq(designImageRequests.sceneSignature, input.sceneSignature),
+      )).limit(1);
+      if (!request) throw new Error("Request a verification code for this saved kitchen plan first.");
+      if (request.verificationStatus === "verified") return { verificationStatus: "verified" as const, canCreateImage: true };
+      if (request.verificationStatus !== "pending" || !request.verificationRequestedAt) {
+        throw new Error("Request a new verification code before confirming your phone number.");
+      }
+      if (Date.now() - request.verificationRequestedAt.getTime() > PHOTO_VERIFICATION_EXPIRY_MS) {
+        await db.update(designImageRequests).set({ verificationStatus: "expired" }).where(eq(designImageRequests.id, request.id));
+        throw new Error("That verification code expired. Request a new code and try again.");
+      }
+
+      const approved = await checkTwilioVerification(request.phoneE164, input.code);
+      if (!approved) {
+        await db.update(designImageRequests).set({ verificationStatus: "failed" }).where(eq(designImageRequests.id, request.id));
+        throw new Error("That verification code was not accepted. Check the code or request a new one.");
+      }
+
+      const verifiedAt = new Date();
+      await db.update(designImageRequests).set({
+        verificationStatus: "verified",
+        verifiedAt,
+        generationStatus: "ready",
+      }).where(eq(designImageRequests.id, request.id));
+
+      if (!request.crmDeliveredAt) {
+        const eventId = await emitPhotoQualityLead({
+          userId: ctx.user.id,
+          lead: { name: request.name, email: request.email, phone: request.phoneE164, followUpConsent: true },
+          imageRequestId: request.id,
+          planFingerprint: request.planFingerprint,
+          sceneSignature: request.sceneSignature,
+          provenance: request.provenance,
+          originHeader: ctx.req.headers.origin,
+        });
+        if (eventId != null) {
+          await db.update(designImageRequests).set({ crmDeliveredAt: verifiedAt }).where(eq(designImageRequests.id, request.id));
+        }
+      }
+
+      return { verificationStatus: "verified" as const, canCreateImage: true };
+    }),
+
   getCached: protectedProcedure
     .input(z.object({ sceneSignature: z.string().min(16).max(191) }))
     .query(async ({ ctx, input }) => {
@@ -208,32 +453,37 @@ export const designPhotoRendersRouter = router({
       sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A PNG, JPEG, or WebP Designer image is required."),
       provenance: photoRenderProvenanceSchema,
       confirmation: z.literal(true),
-      /** Administrators create render tests without creating customer leads. */
-      lead: photoQualityLeadSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Photo rendering is temporarily unavailable.");
       const isAdministratorTest = ctx.user.role === "admin";
-      if (!isAdministratorTest && !input.lead) {
-        throw new Error("Add your name, email, mobile number, and follow-up consent before requesting a Photo Quality image.");
-      }
-      if (!isAdministratorTest && input.provenance.designId === 0) {
-        throw new Error("Save this design before creating a Photo Quality image so your follow-up lead is tied to its exact plan.");
+      let verifiedRequest: typeof designImageRequests.$inferSelect | null = null;
+      if (!isAdministratorTest) {
+        const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+        const { revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+        const [request] = await db.select().from(designImageRequests).where(and(
+          eq(designImageRequests.userId, ctx.user.id),
+          eq(designImageRequests.sceneSignature, input.sceneSignature),
+        )).limit(1);
+        if (!request || request.verificationStatus !== "verified" || request.generationStatus === "blocked") {
+          throw new Error("Verify your mobile number for this exact saved kitchen plan before creating an image.");
+        }
+        if (request.kitchenDesignId !== design.id || request.designRevision !== revision || request.planFingerprint !== fingerprint) {
+          throw new Error("This saved kitchen plan changed after phone verification. Save the plan, request a new code, and try again.");
+        }
+        verifiedRequest = request;
       }
       const [cached] = await db.select().from(designPhotoRenders)
         .where(and(eq(designPhotoRenders.userId, ctx.user.id), eq(designPhotoRenders.sceneSignature, input.sceneSignature)))
         .limit(1);
       if (cached) {
-        if (!isAdministratorTest && input.lead) {
-          emitPhotoQualityLead({
-            userId: ctx.user.id,
-            lead: input.lead,
-            sceneSignature: input.sceneSignature,
-            provenance: input.provenance,
-            originHeader: ctx.req.headers.origin,
-            reused: true,
-          });
+        if (verifiedRequest) {
+          await db.update(designImageRequests).set({
+            generationStatus: "completed",
+            designPhotoRenderId: cached.id,
+            imageUrl: cached.imageUrl,
+          }).where(eq(designImageRequests.id, verifiedRequest.id));
         }
         return {
           imageUrl: cached.imageUrl,
@@ -258,6 +508,9 @@ export const designPhotoRendersRouter = router({
       const dimensions = readJpegDimensions(renderedBytes);
       if (dimensions.width < 1920 || dimensions.height < 1080) {
         throw new Error("Photo Quality requires a minimum 1920×1080 locked render. Reopen Photo Quality and try again.");
+      }
+      if (verifiedRequest) {
+        await db.update(designImageRequests).set({ generationStatus: "generating" }).where(eq(designImageRequests.id, verifiedRequest.id));
       }
       // Persist a canonical hash of the exact decoded JPEG bytes. This keeps
       // the provenance truthful when a browser's client-side digest and the
@@ -296,15 +549,16 @@ export const designPhotoRendersRouter = router({
           updatedAt: confirmedAt,
         },
       });
-      if (!isAdministratorTest && input.lead) {
-        emitPhotoQualityLead({
-          userId: ctx.user.id,
-          lead: input.lead,
-          sceneSignature: input.sceneSignature,
-          provenance: canonicalProvenance,
-          originHeader: ctx.req.headers.origin,
-          reused: false,
-        });
+      if (verifiedRequest) {
+        const [stored] = await db.select({ id: designPhotoRenders.id }).from(designPhotoRenders).where(and(
+          eq(designPhotoRenders.userId, ctx.user.id),
+          eq(designPhotoRenders.sceneSignature, input.sceneSignature),
+        )).limit(1);
+        await db.update(designImageRequests).set({
+          generationStatus: "completed",
+          designPhotoRenderId: stored?.id ?? null,
+          imageUrl: storedRender.url,
+        }).where(eq(designImageRequests.id, verifiedRequest.id));
       }
       return { imageUrl: storedRender.url, provenance: canonicalProvenance, sourceImageHash: canonicalProvenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
     }),
