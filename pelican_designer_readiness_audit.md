@@ -984,3 +984,11 @@ Pelican’s active PL-8538 product page identifies this Flowline Series item as 
 ### Source
 
 162. [Pelican Int’l — PL-8538 product page](https://buildpelican.com/products/pl-8538)
+
+## Retain Exclusion — PL-HA121
+
+Pelican’s current direct PL-HA121 product URL returns **404 Not Found**. No active official product page or technical sheet establishes the model’s installation form, exterior and bowl dimensions, drain geometry, material, finish, or compatible sink-base rule. It remains outside the physical kitchen fixture palette rather than receiving a generic substitute.
+
+### Source
+
+163. [Pelican Int’l — PL-HA121 product URL](https://buildpelican.com/products/pl-ha121)
