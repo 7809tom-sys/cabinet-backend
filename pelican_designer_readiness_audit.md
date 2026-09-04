@@ -1216,3 +1216,11 @@ Pelican’s current direct PL-HA141 product URL returns **404 Not Found**. No ac
 ### Source
 
 190. [Pelican Int’l — PL-HA141 product URL](https://buildpelican.com/products/pl-ha141)
+
+## Source-Verified Profile Audit — PL-HA119 R19 Offset-Drain Standard Undermount Sink
+
+Pelican’s official PL-HA119 R19 drawing confirms the existing physical profile: an **18-gauge stainless-steel**, single-bowl **undermount** sink with a **31¼ × 18 × 10-inch** exterior and **29¼ × 16 × 9½-inch** interior. It identifies a rear-offset drain with its center **5 inches from the bowl’s rear edge** and **5 inches from the bowl’s right edge**. The existing profile retains those source-measured dimensions and drain data; no geometry change is required.
+
+### Source
+
+191. [Pelican Int’l — PL-HA119 R19 technical drawing](https://cdn.accentuate.io/8978112544908/1775067326529/PL-HA119-R15.pdf?v=1775067326529)
