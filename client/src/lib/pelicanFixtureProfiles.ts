@@ -135,7 +135,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA136": {
     id: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse", pelicanCode: "PL-HA136", name: "PL-HA136 R15 Handmade Double-Bowl Farmhouse Sink",
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
-    exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 17, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [17, 12], minimumCabinetWidthIn: 33,
+    exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 17, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [17, 12], drainInsetBackIn: 120 / 25.4, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/7876666949772/1729874053747/PL-HA136-R15.pdf?v=1729874053747",
   },
   "PL-HA139": {
