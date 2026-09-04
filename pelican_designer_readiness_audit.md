@@ -1128,3 +1128,11 @@ Pelican’s official PL-HA126 R0 drawing confirms a 16-gauge stainless-steel dou
 ### Source
 
 179. [Pelican Int’l — PL-HA126 R0 technical drawing](https://cdn.accentuate.io/7876666523788/1729873836731/PL-HA126-R0.pdf?v=1729873836732)
+
+## Source-Verified Drain Datum — PL-HA128 R15 Double-Bowl Farmhouse Sink
+
+Pelican’s official PL-HA128 R15 drawing confirms a 16-gauge stainless-steel apron-front undermount sink with a **33 × 21 × 10-inch** exterior and two **14½ × 16 × 10-inch** bowls. The plan locates both drains on their respective bowl centerlines and **120 mm (4.724 inches) from the rear bowl edge**. The physical profile must retain this shared rear-center datum for both bowls rather than use a generic double-bowl fallback.
+
+### Source
+
+180. [Pelican Int’l — PL-HA128 R15 technical drawing](https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067)

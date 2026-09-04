@@ -254,6 +254,7 @@ describe("verifiedPelicanSinkProfile", () => {
       apronFront: true,
       exteriorWidthIn: 33,
       exteriorDepthIn: 21,
+      drainInsetBackIn: 120 / 25.4,
       exteriorHeightIn: 10,
       bowlWidthIn: 14.5,
       bowlDepthIn: 16,

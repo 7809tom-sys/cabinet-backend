@@ -3287,7 +3287,7 @@ describe("interactive 3D room scene helpers", () => {
     const sink = {
       uid: "pelican-pl-ha128-r15", type: "farmhouse", x: 24, y: 48, width: 33, depth: 21,
       sourceWidth: 33, sourceDepth: 21, bowlWidth: 14.5, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
-      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha128-r15-stainless-double-bowl-farmhouse",
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha128-r15-stainless-double-bowl-farmhouse",
       faucet: false, wallSide: "top",
     } as never;
     addSinkFixture(root, sink);
@@ -3305,14 +3305,41 @@ describe("interactive 3D room scene helpers", () => {
     expect(drains).toHaveLength(2);
     expect(divider).not.toBeNull();
     expect(apron).not.toBeNull();
-    for (const bowl of bowls) {
+    for (const [index, bowl] of bowls.entries()) {
       const bounds = new THREE.Box3().setFromObject(bowl);
       expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(14.5, 6);
       expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(16, 6);
       expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(10, 6);
       expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+      expect(drains[index].userData.documentedDrainInset).toBe(true);
+      expect((drains[index].position.x - bowl.position.x) * 12).toBeCloseTo(0, 5);
+      expect((drains[index].position.z - bowl.position.z) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
     }
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+  });
+
+  it("preserves PL-HA128’s source-verified rear-center drains on a left wall", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha128-r15-left", type: "farmhouse", x: 24, y: 48, width: 21, depth: 33,
+      sourceWidth: 33, sourceDepth: 21, bowlWidth: 14.5, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha128-r15-stainless-double-bowl-farmhouse",
+      faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    for (const [index, bowl] of bowls.entries()) {
+      expect(drains[index].userData.documentedDrainInset).toBe(true);
+      expect((drains[index].position.x - bowl.position.x) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+      expect((drains[index].position.z - bowl.position.z) * 12).toBeCloseTo(0, 5);
+    }
   });
 
   it("renders PL-HA136 with its source-verified asymmetric 17-inch and 12-inch bowls, two drains, countertop seating, and apron", () => {
