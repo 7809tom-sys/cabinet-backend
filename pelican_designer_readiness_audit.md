@@ -1144,3 +1144,11 @@ Pelican’s official PL-VS3218 drawing confirms the existing **32⅛ × 18 × 9-
 ### Source
 
 181. [Pelican Int’l — PL-VS3218 technical drawing](https://cdn.accentuate.io/7876668227724/1729876598079/PL-VS3218.pdf?v=1758834311979)
+
+## Drain-Datum Source Limit — PL-VS3018 Standard Undermount Sink
+
+Pelican’s official PL-VS3018 drawing confirms the existing **30 × 18 × 9-inch** exterior and **28 × 16 × 9-inch** single-bowl dimensions, including documented rounded bowl-corner radii. It does **not** state a numerical rear or lateral drain-center datum. No `drainInset` metadata is introduced from this drawing, and the source must not be used to infer an offset for an exact-plan correction.
+
+### Source
+
+182. [Pelican Int’l — PL-VS3018 technical drawing](https://cdn.accentuate.io/7876667965580/1729876393881/PL-VS3018.pdf?v=1758828574961)
