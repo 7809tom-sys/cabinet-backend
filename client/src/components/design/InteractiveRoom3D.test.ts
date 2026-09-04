@@ -3211,6 +3211,36 @@ describe("interactive 3D room scene helpers", () => {
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
   });
 
+  it("renders PL-HA130 as a countertop-seated double-bowl farmhouse sink with two 16-inch bowls, drains, and a visible apron", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha130-r0", type: "farmhouse", x: 24, y: 48, width: 36, depth: 21,
+      sourceWidth: 36, sourceDepth: 21, bowlWidth: 16, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha130-r0-stainless-double-bowl-farmhouse",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    let apron: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkApronFront) apron = node;
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    expect(apron).not.toBeNull();
+    for (const bowl of bowls) {
+      const bounds = new THREE.Box3().setFromObject(bowl);
+      expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(16, 5);
+      expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(16, 5);
+      expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(10, 5);
+      expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+    expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+  });
+
   it("uses the verified PL-8203 faucet height and spout dimensions instead of generic pull-down proportions", () => {
     const root = new THREE.Group();
     const sink = {

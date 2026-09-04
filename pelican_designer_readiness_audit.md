@@ -265,3 +265,25 @@ An exact profile must preserve those distinct left and right bowl widths rather 
 
 49. [Pelican Int’l — PL-HA136 product page](https://buildpelican.com/products/pl-ha136)
 50. [Pelican Int’l — PL-HA136 R15 specification sheet](https://cdn.accentuate.io/7876666949772/1729874053747/PL-HA136-R15.pdf?v=1729874053747)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA135 R0 Retrofit
+
+Pelican’s official PL-HA135 R0 sheet identifies a 16-gauge stainless-steel, single-bowl **retrofit apron-front undermount** kitchen sink. Its published exterior is **35½ × 21¼ × 9⅜ inches** and its interior bowl is **32½ × 17¼ × 9⅛ inches**. The same source explicitly states that its retrofit apron-front construction is designed for installation into existing standard kitchen cabinets without remodel or custom cabinets.
+
+The measurements are sufficient for a future measured parametric profile. However, the item remains outside the exact kitchen palette because the current owner-approved policy allows apron-front farmhouse sinks only through farmhouse bases and standard SB-style bases only through standard sinks. Enabling this retrofit product requires a separately verified standard-base opening and apron-clearance rule; no generic placement or visual substitute is allowed. Product photos remain display-only.
+
+### Sources
+
+51. [Pelican Int’l — PL-HA135 product page](https://buildpelican.com/products/pl-ha135)
+52. [Pelican Int’l — PL-HA135 R0 specification sheet](https://cdn.accentuate.io/8978112643212/1775067586424/PL-HA135-R0.pdf?v=1775067586424)
+
+## Next Verified Farmhouse Sink Candidate — PL-HA130 R0
+
+Pelican’s current product page and official PL-HA130 R0 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **36 × 21 × 10 inches** and each of its two bowls measures **16 × 16 × 10 inches**. The specification sheet identifies a double-bowl configuration and the drawing shows two drains.
+
+These measurements are sufficient for a source-measured, equal double-bowl parametric profile with countertop seating, two drains, and a visible apron. The sink is eligible only on a compatible farmhouse base at least 36 inches wide; it does not change any cabinet, pricing, or standard sink-base behavior, and product images or DXF files remain display-only.
+
+### Sources
+
+53. [Pelican Int’l — PL-HA130 product page](https://buildpelican.com/products/pl-ha130)
+54. [Pelican Int’l — PL-HA130 R0 specification sheet](https://cdn.accentuate.io/7876666818700/1729873984961/PL-HA130-R0.pdf?v=1729873984961)
