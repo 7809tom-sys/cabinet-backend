@@ -740,3 +740,12 @@ Even though Pelican provides an official sheet, the current parametric profile d
 
 120. [Pelican Int’l — PL-VL5050 product page](https://buildpelican.com/products/pl-vl5050)
 121. [Pelican Int’l — PL-VL5050 specification sheet](https://cdn.accentuate.io/8138474619020/1745954728015/PL-VL5050.pdf?v=1745954728015)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA114 and PL-HA106
+
+Pelican’s direct current product URLs for **PL-HA114** and **PL-HA106** each return a **404 Not Found** page. No current Pelican product page or official specification sheet was recovered for either model. They remain outside the verified physical Designer palette until an authoritative source establishes their active product identity, installation class, exact dimensions, bowl geometry, and compatible sink-base requirement. No third-party dimensions, catalog imagery, or generic substitute geometry is used.
+
+### Sources
+
+122. [Pelican Int’l — PL-HA114 product URL](https://buildpelican.com/products/pl-ha114)
+123. [Pelican Int’l — PL-HA106 product URL](https://buildpelican.com/products/pl-ha106)
