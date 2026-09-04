@@ -1546,3 +1546,13 @@ Pelican’s direct PL-VS3070 ADA product URL currently returns 404. A current of
 ### Source
 
 244. [Pelican Int’l — PL-VS3070 ADA direct product URL](https://buildpelican.com/products/pl-vs3070-ada)
+
+## Verified Physical Admission — PL-VR5050 R20 Urban Series Stainless Steel Equal Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VR5050 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl sink. Its source-measured 31 × 18 × 9-inch exterior and two equal 14 × 16 × 9-inch bowls map directly to the existing standard sink-base fixture contract with a 32-inch nominal opening. The physical profile persists the measured equal bowl geometry for deterministic placement and rendering. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+245. [Pelican Int’l — PL-VR5050 R20 product page](https://buildpelican.com/products/pl-vr5050-r20)
+
+246. [Pelican Int’l — PL-VR5050 R20 technical drawing](https://cdn.accentuate.io/7876651090060/1729875615547/PL-VR5050-R20.pdf?v=1742390973929)

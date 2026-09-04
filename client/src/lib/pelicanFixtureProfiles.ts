@@ -244,6 +244,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 32.125, exteriorDepthIn: 18, exteriorHeightIn: 5.5, bowlWidthIn: 14.5, bowlDepthIn: 16, bowlHeightIn: 5.5, bowlCount: 2, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/7876668752012/1729876868211/PL-VS5050-ADA.pdf?v=1742393422746",
   },
+  "PL-VR5050": {
+    id: "pelican-pl-vr5050-r20-stainless-equal-double-bowl-undermount", pelicanCode: "PL-VR5050", name: "PL-VR5050 R20 Urban Series Stainless Steel Double-Bowl Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 31, exteriorDepthIn: 18, exteriorHeightIn: 9, bowlWidthIn: 14, bowlDepthIn: 16, bowlHeightIn: 9, bowlCount: 2, minimumCabinetWidthIn: 32,
+    specificationUrl: "https://cdn.accentuate.io/7876651090060/1729875615547/PL-VR5050-R20.pdf?v=1742390973929",
+  },
   "PL-VS3070": {
     id: "pelican-pl-vs3070-stainless-stepped-double-bowl-undermount", pelicanCode: "PL-VS3070", name: "PL-VS3070 Signature Series Stainless Steel Double-Bowl Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -459,6 +465,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-VS4040\s+18G$/.test(normalized)) return "PL-VS4040";
   if (/^PL-VS5050\s+(?:16|18)G$/.test(normalized)) return "PL-VS5050";
   if (/^PL-VS5050\s+18G\s+ADA$/.test(normalized)) return "PL-VS5050 ADA";
+  if (/^PL-VR5050\s+R20$/.test(normalized)) return "PL-VR5050";
   if (/^PL-VS3070\s+(?:16|18)G$/.test(normalized)) return "PL-VS3070";
   if (/^PL-VS7030\s+(?:16|18)G$/.test(normalized)) return "PL-VS7030";
   return normalized;

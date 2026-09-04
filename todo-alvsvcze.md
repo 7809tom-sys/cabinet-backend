@@ -1551,3 +1551,4 @@
 - [x] Add the source-measured PL-VS3070 stainless stepped double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans
 - [x] Retain PL-VS3020 outside physical placement because no active official product or technical source establishes its exact sink geometry and base fit
 - [x] Retain PL-VS3070 ADA outside physical placement because no active official product or technical source establishes its shallow bowl geometry and base fit
+- [x] Add the source-measured PL-VR5050 R20 stainless equal double-bowl undermount sink with its exact bowl geometry and standard sink-base compatibility
