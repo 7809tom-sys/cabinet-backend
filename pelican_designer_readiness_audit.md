@@ -1256,3 +1256,11 @@ Pelican’s official drawing identifies PL-FC3620SB as a reversible-front, singl
 ### Source
 
 195. [Pelican Int’l — PL-FC3620SB technical drawing](https://cdn.accentuate.io/7876649746572/1729870771898/PL-FC3620SB.pdf?v=1729870771898)
+
+## Source-Verified Profile Audit — PL-8203 Fountain Series Pull-Down Kitchen Faucet
+
+Pelican’s official PL-8203 drawing confirms the existing physical profile: a **single-hole**, brushed-nickel pull-down kitchen faucet with a **27 3/16-inch** overall height, **9 7/8-inch** spout length, and **4 15/16-inch** spout height. The existing profile retains those source-measured dimensions and the documented finish; no geometry change is required.
+
+### Source
+
+196. [Pelican Int’l — PL-8203 technical drawing](https://cdn.accentuate.io/7876662329484/1729881091715/PL-8203-Spec-Sheet.pdf?v=1734119171551)
