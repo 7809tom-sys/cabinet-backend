@@ -258,6 +258,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA144 R10 source-verified single-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA144 R10 16g")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 33,
+      exteriorDepthIn: 21,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 31,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9.75,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("maps the PL-FC3219SB source-verified single-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toMatchObject({
       installation: "apron-front-undermount",

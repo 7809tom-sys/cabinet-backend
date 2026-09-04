@@ -431,6 +431,17 @@ These measurements support a source-measured parametric farmhouse profile with c
 77. [Pelican Int’l — PL-FC3620SB product page](https://buildpelican.com/products/pl-fc3620sb)
 78. [Pelican Int’l — PL-FC3620SB specification sheet](https://cdn.accentuate.io/7876649746572/1729870771898/PL-FC3620SB.pdf?v=1729870771898)
 
+## Next Verified Farmhouse Sink Candidate — PL-HA144 R10
+
+Pelican’s current product page and official PL-HA144 R10 specification sheet identify this as a 16-gauge stainless-steel, single-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches** and its interior bowl measures **31 × 16 × 9¾ inches**. The source also identifies its integral front towel bar and optional gunmetal-black finish, neither of which may be inferred from catalog photography.
+
+The published vessel, bowl, drain, countertop seating, and visible apron dimensions are sufficient for a source-measured parametric profile. The profile must not claim the unmeasured towel-bar geometry as an exact 3D feature. It is eligible only on compatible 33-inch-or-wider farmhouse bases, including FSB-36, and does not change cabinetry or pricing. Product images remain display-only.
+
+### Sources
+
+79. [Pelican Int’l — PL-HA144 product page](https://buildpelican.com/products/pl-ha144)
+80. [Pelican Int’l — PL-HA144 R10 specification sheet](https://cdn.accentuate.io/8978112807052/1775059262434/PL-HA144-R10.pdf?v=1775059262434)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
