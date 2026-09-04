@@ -945,13 +945,16 @@ Pelican’s active PL-8107 product page identifies this 7⅝-inch ADA-compliant 
 
 157. [Pelican Int’l — PL-8107 product page](https://buildpelican.com/products/pl-8107)
 
-## Retain Exclusion — PL-8206
+## Admitted Physical Placement — PL-8206 Fountain Articulated Kitchen Faucet
 
-Pelican’s current direct PL-8206 product URL returns **404 Not Found**. No active official product page or technical sheet establishes the model’s intended kitchen role, mounting form, spout geometry, finish set, or fit requirements. It remains outside the physical kitchen fixture palette rather than receiving a generic faucet substitute.
+The current direct product URL is unavailable, but Pelican’s accessible official PL-8206 technical sheet identifies an ADA-compliant, single-hole, single-lever **Kitchen Faucet** with a pull-out sprayer and two 360-degree swing joints. It documents a **10½-inch overall height**, **9¾-inch spout length**, and **9¼-inch spout height**, matching the existing source-verified physical profile. Brushed Nickel, Chrome, and Matte Black persist as the available registered finish variants.
 
-### Source
+The profile remains available only through the compatible sink-base fixture workflow. No product image or generic faucet form is used as its 3D model.
+
+### Sources
 
 158. [Pelican Int’l — PL-8206 product URL](https://buildpelican.com/products/pl-8206)
+159. [Pelican Int’l — PL-8206 technical sheet](https://cdn.accentuate.io/8105530654860/1744229984387/PL-8206.pdf?v=1744229984387)
 
 ## Retain Exclusion — PL-8480 Deck-Mounted Bridge Kitchen Faucet
 
@@ -969,13 +972,16 @@ Pelican’s active PL-8515 product page identifies this Flowline Series item as 
 
 160. [Pelican Int’l — PL-8515 product page](https://buildpelican.com/products/pl-8515)
 
-## Retain Exclusion — PL-8248
+## Admitted Physical Placement — PL-8248 Fountain Pull-Out Kitchen Faucet
 
-Pelican’s current direct PL-8248 product URL returns **404 Not Found**. No active official product page or technical sheet establishes the model’s intended kitchen role, mounting form, spout geometry, finish set, or physical fit. It remains outside the kitchen Designer palette rather than receiving a generic faucet substitute.
+The current direct product URL is unavailable, but Pelican’s accessible official PL-8248 technical sheet identifies an ADA-compliant, single-hole, single-lever **Kitchen Faucet** with a pull-out sprayer. It documents a **12⅜-inch overall height**, **10¹⁄₁₆-inch spout length**, and **10⅞-inch spout height**, matching the existing source-verified physical profile. Brushed Nickel, Chrome, and Matte Black persist as the available registered finish variants.
 
-### Source
+The profile remains available only through the compatible sink-base fixture workflow. No product image or generic faucet form is used as its 3D model.
+
+### Sources
 
 161. [Pelican Int’l — PL-8248 product URL](https://buildpelican.com/products/pl-8248)
+162. [Pelican Int’l — PL-8248 technical sheet](https://cdn.accentuate.io/8105530687628/1744289003241/PL-8248.pdf?v=1744289003241)
 
 ## Retain Exclusion — PL-8538 Flowline Freestanding Bathtub Faucet
 
