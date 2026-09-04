@@ -509,6 +509,17 @@ These measurements support a source-measured stainless parametric profile for co
 89. [Pelican Int’l — PL-VS3218 product page](https://buildpelican.com/products/pl-vs3218)
 90. [Pelican Int’l — PL-VS3218 normal-depth specification sheet](https://cdn.accentuate.io/7876668227724/1729876598079/PL-VS3218.pdf?v=1758834311979)
 
+## Next Verified Standard-Sink Candidate — PL-VS3018
+
+Pelican’s active PL-VS3018 product page and official normal-depth specification sheet identify this as a 16- or 18-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its normal-depth exterior measures **30 × 18 × 9 inches** and its interior bowl measures **28 × 16 × 9 inches**. Pelican presents an ADA variant separately, which cannot inherit the normal-depth bowl metadata.
+
+These measurements support a source-measured stainless parametric profile for compatible 30-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and product images and DXF files remain display-only.
+
+### Sources
+
+91. [Pelican Int’l — PL-VS3018 product page](https://buildpelican.com/products/pl-vs3018)
+92. [Pelican Int’l — PL-VS3018 normal-depth specification sheet](https://cdn.accentuate.io/7876667965580/1729876393881/PL-VS3018.pdf?v=1758828574961)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
