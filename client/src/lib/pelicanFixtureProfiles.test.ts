@@ -504,10 +504,11 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanFaucetProfile("PL-8213 CHR")).toBeNull();
   });
 
-  it("maps every active PL-8217 finish to Pelican’s measured pull-down profile", () => {
-    for (const [code, finish] of [["PL-8217 BN", "brushed-nickel"], ["PL-8217 CHR", "chrome"], ["PL-8217 ORB", "oil-rubbed-bronze"]] as const) {
+  it("maps every active-source PL-8217 finish and excludes unsupported chrome", () => {
+    for (const [code, finish] of [["PL-8217 BN", "brushed-nickel"], ["PL-8217 ORB", "oil-rubbed-bronze"]] as const) {
       expect(verifiedPelicanFaucetProfile(code)).toMatchObject({ overallHeightIn: 16.8125, spoutLengthIn: 9.375, spoutHeightIn: 7.5625, profile: "pull-down", finish });
     }
+    expect(verifiedPelicanFaucetProfile("PL-8217 CHR")).toBeNull();
   });
 
   it("maps every active PL-8218 finish to Pelican’s measured pull-down profile", () => {
@@ -551,6 +552,7 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3620SB")).toBeNull();
     expect(verifiedPelicanSinkProfile("PL-UNKNOWN")).toBeNull();
     expect(verifiedPelicanFaucetProfile("PL-8213 CHR")).toBeNull();
+    expect(verifiedPelicanFaucetProfile("PL-8217 CHR")).toBeNull();
   });
 
   it("uses the nominal sink-base face width rather than a rotated plan footprint", () => {

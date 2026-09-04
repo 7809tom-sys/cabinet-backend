@@ -1322,3 +1322,13 @@ Pelican’s live PL-8213 product page and active specification sheet confirm the
 203. [Pelican Int’l — PL-8213 product page](https://buildpelican.com/products/pl-8213)
 
 204. [Pelican Int’l — PL-8213 technical drawing](https://cdn.accentuate.io/7876662886540/1729881310144/PL-8213-Spec-Sheet.pdf?v=1734119293439)
+
+## Source-Verified Profile Audit — PL-8217 Fountain Series Pull-Down Kitchen Faucet
+
+Pelican’s live PL-8217 product page and active specification sheet confirm the existing **single-hole** pull-down geometry: **16 13/16-inch** overall height, **9⅜-inch** spout length, and **7 9/16-inch** spout height. The active source establishes the stored brushed-nickel and oil-rubbed-bronze finishes, but not a chrome PL-8217 finish. The verified profiles remain; the unsubstantiated `PL-8217 CHR` physical profile is withdrawn rather than shown with a generic finish.
+
+### Source
+
+205. [Pelican Int’l — PL-8217 product page](https://buildpelican.com/products/pl-8217)
+
+206. [Pelican Int’l — PL-8217 technical drawing](https://cdn.accentuate.io/7876662952076/1729881335594/PL-8217-Spec-Sheet.pdf?v=1734119313031)

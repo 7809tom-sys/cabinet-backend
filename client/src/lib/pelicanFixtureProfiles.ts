@@ -316,11 +316,6 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 16.8125, spoutLengthIn: 9.375, spoutHeightIn: 7.5625, profile: "pull-down", finish: "brushed-nickel",
     specificationUrl: "https://cdn.accentuate.io/7876662952076/1729881335594/PL-8217-Spec-Sheet.pdf?v=1734119313031",
   },
-  "PL-8217 CHR": {
-    id: "pelican-pl-8217-fountain-pull-down-chrome", pelicanCode: "PL-8217 CHR", name: "PL-8217 Fountain Series Pull-Down Kitchen Faucet — Chrome",
-    installation: "single-hole", overallHeightIn: 16.8125, spoutLengthIn: 9.375, spoutHeightIn: 7.5625, profile: "pull-down", finish: "chrome",
-    specificationUrl: "https://cdn.accentuate.io/7876662952076/1729881335594/PL-8217-Spec-Sheet.pdf?v=1734119313031",
-  },
   "PL-8217 ORB": {
     id: "pelican-pl-8217-fountain-pull-down-oil-rubbed-bronze", pelicanCode: "PL-8217 ORB", name: "PL-8217 Fountain Series Pull-Down Kitchen Faucet — Oil Rubbed Bronze",
     installation: "single-hole", overallHeightIn: 16.8125, spoutLengthIn: 9.375, spoutHeightIn: 7.5625, profile: "pull-down", finish: "oil-rubbed-bronze",
