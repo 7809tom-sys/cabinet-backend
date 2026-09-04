@@ -3513,6 +3513,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(bowlBounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
   });
 
+  it("renders PL-VS2718 as a countertop-seated measured normal-depth standard undermount sink", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-vs2718", type: "single", x: 24, y: 48, width: 27, depth: 18,
+      sourceWidth: 27, sourceDepth: 18, bowlWidth: 25, bowlDepth: 16, bowlHeight: 9,
+      exteriorHeight: 9, apronFront: false, pelicanProfileId: "pelican-pl-vs2718-stainless-undermount",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    let bowl: THREE.Object3D | null = null;
+    let apron: THREE.Object3D | null = null;
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowl = node;
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkApronFront) apron = node;
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowl).not.toBeNull();
+    expect(apron).toBeNull();
+    expect(drains).toHaveLength(1);
+    const bowlBounds = new THREE.Box3().setFromObject(bowl!);
+    expect((bowlBounds.max.x - bowlBounds.min.x) * 12).toBeCloseTo(25, 5);
+    expect((bowlBounds.max.z - bowlBounds.min.z) * 12).toBeCloseTo(16, 5);
+    expect((bowlBounds.max.y - bowlBounds.min.y) * 12).toBeCloseTo(9, 5);
+    expect(bowlBounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+  });
+
   it("renders PL-HA119’s source-verified rear-right drain offset through top and left wall orientations", () => {
     const measuredDrain = (wallSide: "top" | "left") => {
       const root = new THREE.Group();

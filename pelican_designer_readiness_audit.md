@@ -539,6 +539,18 @@ The measured vessel and bowl are sufficient, but the current centered-drain sink
 93. [Pelican Int’l — PL-HA119 product page](https://buildpelican.com/products/pl-ha119)
 94. [Pelican Int’l — PL-HA119 R15 specification sheet](https://cdn.accentuate.io/8978112544908/1775067326529/PL-HA119-R15.pdf?v=1775067326529)
 
+## Not Admitted to Exact Kitchen Placement Yet — PL-VS3618
+
+Pelican’s direct current `products/pl-vs3618` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its product identity, measurements, installation class, and sink-base compatibility can be established. No third-party dimensions, product imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-8205 and PL-8410
+
+Pelican’s direct current `products/pl-8205` URL returns a **404 Not Found** page, so its product identity and dimensions cannot be verified for physical placement. PL-8410 remains active as a double-handle wall-mounted kitchen faucet, but its product page and Pelican’s current documentation library expose no official technical sheet with the wall-mount span, projected reach, outlet height, or other geometry required for a faithful profile. Both products remain outside the verified Designer fixture palette; no third-party dimensions, catalog imagery, or generic faucet substitutes are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-8461
+
+Pelican’s active PL-8461 product page identifies the item as a double-handle wall-mounted kitchen faucet. Its current product page exposes no official technical sheet or exact wall-mount span, spout reach, outlet height, and handle geometry. It remains outside the physical Designer fixture palette until Pelican provides that complete source documentation; no product imagery or generic faucet substitute is used.
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
@@ -549,3 +561,14 @@ An exact profile must preserve the documented left-to-right 12-inch and 17-inch 
 
 73. [Pelican Int’l — PL-HA139 product page](https://buildpelican.com/products/pl-ha139)
 74. [Pelican Int’l — PL-HA139 R15 specification sheet](https://cdn.accentuate.io/7876666982540/1729874196839/PL-HA139-R15.pdf?v=1729874196839)
+
+## Next Verified Standard-Sink Candidate — PL-VS2718
+
+Pelican’s active product page and official normal-depth PL-VS2718 specification sheet identify this as a 16- or 18-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its normal-depth exterior measures **27 × 18 × 9 inches** and its interior bowl measures **25 × 16 × 9 inches**. Pelican identifies the ADA version separately, so that shallow variant cannot inherit this normal-depth bowl profile.
+
+These measurements support a source-measured stainless parametric profile for compatible 27-inch-or-wider standard SB-style sink bases. It has no apron-front geometry, does not change farmhouse-base behavior, cabinetry, or pricing, and product images and DXF files remain display-only.
+
+### Sources
+
+95. [Pelican Int’l — PL-VS2718 product page](https://buildpelican.com/products/pl-vs2718)
+96. [Pelican Int’l — PL-VS2718 normal-depth specification sheet](https://cdn.accentuate.io/7876667900044/1729876262131/PL-VS2718.pdf?v=1742392624082)
