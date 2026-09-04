@@ -1462,3 +1462,13 @@ Pelican’s live product page and official specification establish PL-VS7030 as 
 228. [Pelican Int’l — PL-VS7030 product page](https://buildpelican.com/products/pl-vs7030)
 
 229. [Pelican Int’l — PL-VS7030 technical drawing](https://cdn.accentuate.io/7876669014156/1729877038011/PL-VS7030.pdf?v=1742393657703)
+
+## Retain Exclusion — PL-VS6040 Signature Series Stainless Steel Double-Bowl Sink
+
+Pelican’s live product page establishes PL-VS6040 as a 16- or 18-gauge, 304 stainless-steel, satin-brushed **undermount** sink with a 32⅛ × 20⅝ × 9-inch exterior. Its official specification PDF was listed by Pelican but could not be retrieved through the available official-source access paths, leaving the required individual bowl measurements, bowl heights, numerical drain data, and compatible sink-base opening unverified. PL-VS6040 remains outside physical placement rather than receiving a generic double-bowl model. This decision does not alter its catalog record or price.
+
+### Sources
+
+230. [Pelican Int’l — PL-VS6040 product page](https://buildpelican.com/products/pl-vs6040)
+
+231. [Pelican Int’l — PL-VS6040 specification sheet](https://cdn.accentuate.io/7876668915852/1729876989842/PL-VS6040.pdf?v=1742393559361)
