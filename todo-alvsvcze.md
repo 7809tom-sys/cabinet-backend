@@ -1535,3 +1535,4 @@
 - [x] Retain PL-8257 physical eligibility because Pelican’s accessible official technical drawing establishes its exact faucet geometry and finishes
 - [x] Add the source-measured PL-HA135 R0 retrofit stainless-steel farmhouse sink with its exact profile, sink-base gate, and stainless apron material
 - [x] Add the source-measured PL-GMB135 R0 gunmetal PVD farmhouse sink with its exact profile, sink-base gate, persisted surface finish, and dark PVD fixture materials
+- [x] Retain PL-WS4519 outside physical placement because no active official product or technical source establishes its workstation ledges, accessories, drain, and cabinet fit

@@ -1396,3 +1396,13 @@ Pelican’s live product page and official two-page drawing establish PL-GMB135 
 216. [Pelican Int’l — PL-GMB135 product page](https://buildpelican.com/products/pl-gmb135)
 
 217. [Pelican Int’l — PL-GMB135 R0 technical drawing](https://cdn.accentuate.io/8978112348300/1775067777812/PL-GMB135-R0.pdf?v=1775067777812)
+
+## Retain Exclusion — PL-WS4519 Workstation Kitchen Sink
+
+Pelican’s current plumbing catalog names PL-WS4519, but its direct product URL returns 404 and no accessible current Pelican technical drawing establishes the installation, exterior and bowl measurements, workstation ledge geometry, included accessory configuration, drain datum, material/finish, or compatible sink-base opening. The existing parametric sink renderer does not infer undocumented ledges or accessories. PL-WS4519 therefore remains outside the physical Designer palette until complete official evidence supports a faithful saved-plan profile.
+
+### Sources
+
+218. [Pelican Int’l — 2026 Plumbing Products Catalog](https://flipbook.buildpelican.com/flip-book/201822/2437748)
+
+219. [Pelican Int’l — PL-WS4519 direct product URL](https://buildpelican.com/products/pl-ws4519)
