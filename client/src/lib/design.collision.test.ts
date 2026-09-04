@@ -70,6 +70,30 @@ describe("design placement collision prevention", () => {
     });
   });
 
+  it("preserves source-verified asymmetric double-bowl widths and depths when a standard sink is normalized to its owning base", () => {
+    const topStandardBase = placed({ uid: "sb36", masterCode: "SB36", description: "Sink Base 36", x: 36, y: 0, width: 36, depth: 24 });
+    const installed = makeSinkForCabinet("single", topStandardBase, DEFAULT_ROOM, { width: 31.25, depth: 20.5 });
+    const normalized = normalizeSinkFixturesToBases([{
+      ...installed,
+      pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
+      bowlWidth: 14,
+      bowlWidths: [14, 13.5] as const,
+      bowlDepth: 18,
+      bowlDepths: [18, 16] as const,
+      bowlHeight: 10,
+      bowlCount: 2,
+      exteriorHeight: 10,
+      apronFront: false,
+    }], [topStandardBase], DEFAULT_ROOM);
+    expect(normalized[0]).toMatchObject({
+      cabinetUid: "sb36",
+      pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
+      bowlWidths: [14, 13.5],
+      bowlDepths: [18, 16],
+      bowlCount: 2,
+    });
+  });
+
   it("rejects an appliance overlapping a base cabinet but preserves the sink-over-sink-base exception", () => {
     const b33 = placed({ uid: "b33", masterCode: "B33", x: 0 });
     const range = placed({ uid: "range", masterCode: "RANGE-30", placement: "appliance", x: 4, width: 30 });

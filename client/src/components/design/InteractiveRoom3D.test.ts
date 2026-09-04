@@ -3241,6 +3241,53 @@ describe("interactive 3D room scene helpers", () => {
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
   });
 
+  it("renders PL-HA126 with its source-verified asymmetric bowl widths and depths on a horizontal standard sink base", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha126-r0", type: "single", x: 24, y: 48, width: 31.25, depth: 20.5,
+      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2,
+      exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    for (const [index, [expectedWidth, expectedDepth]] of [[14, 18], [13.5, 16]].entries()) {
+      const bounds = new THREE.Box3().setFromObject(bowls[index]);
+      expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(expectedWidth, 5);
+      expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(expectedDepth, 5);
+      expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+  });
+
+  it("preserves PL-HA126’s asymmetric bowl depths through a rotated standard sink-base orientation", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha126-r0-left", type: "single", x: 24, y: 48, width: 20.5, depth: 31.25,
+      sourceWidth: 31.25, sourceDepth: 20.5, bowlWidth: 14, bowlWidths: [14, 13.5] as const, bowlDepth: 18, bowlDepths: [18, 16] as const, bowlHeight: 10, bowlCount: 2,
+      exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
+      faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    for (const [index, [expectedWidth, expectedDepth]] of [[14, 18], [13.5, 16]].entries()) {
+      const bounds = new THREE.Box3().setFromObject(bowls[index]);
+      expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(expectedDepth, 5);
+      expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(expectedWidth, 5);
+      expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+  });
+
   it("renders PL-HA130 as a countertop-seated double-bowl farmhouse sink with two 16-inch bowls, drains, and a visible apron", () => {
     const root = new THREE.Group();
     const sink = {

@@ -5025,7 +5025,11 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const sourceBowlDepth = sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3;
   const measuredDoubleBowl = sink.bowlCount === 2;
   const bowlPlans = measuredDoubleBowl
-    ? [0, 1].map((bowlIndex) => sinkPlanDimensions(sink.bowlWidths?.[bowlIndex] ?? sourceBowlWidth, sourceBowlDepth, sink.wallSide))
+    ? [0, 1].map((bowlIndex) => sinkPlanDimensions(
+      sink.bowlWidths?.[bowlIndex] ?? sourceBowlWidth,
+      sink.bowlDepths?.[bowlIndex] ?? sourceBowlDepth,
+      sink.wallSide,
+    ))
     : [sinkPlanDimensions(sourceBowlWidth, sourceBowlDepth, sink.wallSide)];
   const bowlDimensions = bowlPlans.map((bowlPlan) => ({
     width: Math.max(0.26, bowlPlan.width * INCH),
@@ -5044,7 +5048,9 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   // A verified two-bowl profile gives the physical dimensions of each bowl.
   // Preserve those two measurements rather than stretching one generic basin.
   const lateralIsX = sink.wallSide !== "left" && sink.wallSide !== "right";
-  const asymmetricDoubleBowl = measuredDoubleBowl && bowlDimensions[0].width !== bowlDimensions[1].width;
+  const asymmetricDoubleBowl = measuredDoubleBowl && (
+    bowlDimensions[0].width !== bowlDimensions[1].width || bowlDimensions[0].depth !== bowlDimensions[1].depth
+  );
   const availableDividerSpan = lateralIsX ? width - innerWidth * 2 : depth - innerDepth * 2;
   const bowlSeparation = measuredDoubleBowl
     ? Math.max((lateralIsX ? innerWidth : innerDepth) / 2 + 0.04, (lateralIsX ? innerWidth : innerDepth) / 2 + availableDividerSpan * 0.25)

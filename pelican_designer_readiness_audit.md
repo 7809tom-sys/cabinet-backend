@@ -368,3 +368,14 @@ The normal-depth source data supports a stainless measured parametric profile fo
 
 67. [Pelican Int’l — PL-HA111 product page](https://buildpelican.com/products/pl-ha111)
 68. [Pelican Int’l — PL-HA111 R0 specification sheet](https://cdn.accentuate.io/7876665802892/1729873006384/PL-HA111-R0.pdf?v=1729873006384)
+
+## Next Verified Standard-Sink Candidate — PL-HA126 R0
+
+Pelican’s current product page and official PL-HA126 R0 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **undermount** kitchen sink. Its exterior measures **31¼ × 20½ × 10 inches**. Its bowls are asymmetric in both width and depth: the left bowl is **14 × 18 × 10 inches** and the right bowl is **13½ × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.
+
+An exact profile cannot reuse the current common-depth double-bowl fields: its persisted fixture metadata and renderer must preserve both the distinct bowl widths and distinct bowl depths. Once that measured asymmetric-bowl support is in place, the sink can be offered for compatible 32-inch-or-wider standard SB-style bases. It has no apron-front geometry, changes no cabinetry or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+69. [Pelican Int’l — PL-HA126 product page](https://buildpelican.com/products/pl-ha126)
+70. [Pelican Int’l — PL-HA126 R0 specification sheet](https://cdn.accentuate.io/7876666523788/1729873836731/PL-HA126-R0.pdf?v=1729873836732)

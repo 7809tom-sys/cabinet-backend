@@ -24,6 +24,8 @@ export type VerifiedPelicanSinkProfile = {
   bowlCount?: 1 | 2;
   /** Individually measured bowl widths for asymmetric two-bowl sink profiles. */
   bowlWidthsIn?: readonly [number, number];
+  /** Individually measured bowl depths for asymmetric two-bowl sink profiles. */
+  bowlDepthsIn?: readonly [number, number];
   minimumCabinetWidthIn: number;
   specificationUrl: string;
 };
@@ -95,6 +97,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     installation: "undermount", sinkType: "single", apronFront: false,
     exteriorWidthIn: 27, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 25, bowlDepthIn: 16, bowlHeightIn: 10, minimumCabinetWidthIn: 27,
     specificationUrl: "https://cdn.accentuate.io/7876665802892/1729873006384/PL-HA111-R0.pdf?v=1729873006384",
+  },
+  "PL-HA126": {
+    id: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount", pelicanCode: "PL-HA126", name: "PL-HA126 R0 Stainless Steel Double-Bowl Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 31.25, exteriorDepthIn: 20.5, exteriorHeightIn: 10, bowlWidthIn: 14, bowlDepthIn: 18, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [14, 13.5], bowlDepthsIn: [18, 16], minimumCabinetWidthIn: 32,
+    specificationUrl: "https://cdn.accentuate.io/7876666523788/1729873836731/PL-HA126-R0.pdf?v=1729873836732",
   },
   "PL-HA128": {
     id: "pelican-pl-ha128-r15-stainless-double-bowl-farmhouse", pelicanCode: "PL-HA128", name: "PL-HA128 R15 Handmade Double-Bowl Farmhouse Sink",
@@ -327,6 +335,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA115\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA115";
   if (/^PL-HA104\s+R(?:0|15)\s+16G$/.test(normalized)) return "PL-HA104";
   if (/^PL-HA111\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA111";
+  if (/^PL-HA126\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA126";
   if (/^PL-HA128\s+R15\s+16G$/.test(normalized)) return "PL-HA128";
   if (/^PL-HA130\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA130";
   if (/^PL-HA122\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA122";

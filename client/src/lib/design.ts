@@ -6032,6 +6032,8 @@ export interface SinkFixture {
   bowlCount?: 1 | 2;
   /** Individually measured bowl widths for asymmetric two-bowl fixture profiles. */
   bowlWidths?: readonly [number, number];
+  /** Individually measured bowl depths for asymmetric two-bowl fixture profiles. */
+  bowlDepths?: readonly [number, number];
   /** Verified outer sink height in inches, used by an apron-front sink face. */
   exteriorHeight?: number;
   /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
@@ -6157,6 +6159,7 @@ export function normalizeSinkFixturesToBases(
       bowlHeight: sink.bowlHeight,
       bowlCount: sink.bowlCount,
       bowlWidths: sink.bowlWidths,
+      bowlDepths: sink.bowlDepths,
       exteriorHeight: sink.exteriorHeight,
       apronFront: sink.apronFront,
       pelicanFaucetProductId: sink.pelicanFaucetProductId,
