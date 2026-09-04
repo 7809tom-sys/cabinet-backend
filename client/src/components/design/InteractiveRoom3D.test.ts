@@ -3211,6 +3211,36 @@ describe("interactive 3D room scene helpers", () => {
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
   });
 
+  it("renders PL-HA125 with its source-verified asymmetric 19-inch and 13-inch bowls, two drains, countertop seating, and apron", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha125-r0", type: "farmhouse", x: 24, y: 48, width: 35.875, depth: 20.75,
+      sourceWidth: 35.875, sourceDepth: 20.75, bowlWidth: 19, bowlWidths: [19, 13] as const, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha125-r0-stainless-asymmetric-double-bowl-farmhouse",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    let apron: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkApronFront) apron = node;
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    expect(apron).not.toBeNull();
+    for (const [index, expectedWidth] of [19, 13].entries()) {
+      const bounds = new THREE.Box3().setFromObject(bowls[index]);
+      expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(expectedWidth, 5);
+      expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(16, 5);
+      expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(10, 5);
+      expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+    expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+  });
+
   it("renders PL-HA130 as a countertop-seated double-bowl farmhouse sink with two 16-inch bowls, drains, and a visible apron", () => {
     const root = new THREE.Group();
     const sink = {
