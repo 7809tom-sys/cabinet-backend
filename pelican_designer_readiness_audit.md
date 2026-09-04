@@ -1482,3 +1482,13 @@ Pelican’s live product page and official specification establish PL-VS4060 as 
 232. [Pelican Int’l — PL-VS4060 product page](https://buildpelican.com/products/pl-vs4060)
 
 233. [Pelican Int’l — PL-VS4060 technical drawing](https://cdn.accentuate.io/7876668522636/1729876762122/PL-VS4060.pdf?v=1742393327883)
+
+## Verified Physical Admission — PL-VS1513 Signature Series Compact Stainless Steel Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VS1513 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** single-bowl sink. Its source-measured 15 × 12¾ × 6¾-inch exterior and 13 × 10¾ × 6¾-inch bowl map to the standard sink-base fixture contract with an 18-inch nominal opening. The profile persists every documented exterior and bowl dimension for deterministic placement and rendering. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+234. [Pelican Int’l — PL-VS1513 product page](https://buildpelican.com/products/pl-vs1513)
+
+235. [Pelican Int’l — PL-VS1513 technical drawing](https://cdn.accentuate.io/7876667211916/1729875794169/PL-VS1513.pdf?v=1742391224100)

@@ -1544,3 +1544,4 @@
 - [x] Add the source-measured PL-VS7030 stainless double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans
 - [x] Retain PL-VS6040 outside physical placement because accessible official evidence cannot establish each bowl and drain geometry for a faithful double-bowl model
 - [x] Add the source-measured PL-VS4060 stainless double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans
+- [x] Add the source-measured PL-VS1513 compact stainless undermount sink with its exact bowl geometry and standard sink-base compatibility
