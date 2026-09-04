@@ -3858,24 +3858,49 @@ describe("interactive 3D room scene helpers", () => {
     const sink = {
       uid: "pelican-pl-ha118-r15", type: "farmhouse", x: 24, y: 48, width: 30, depth: 21,
       sourceWidth: 30, sourceDepth: 21, bowlWidth: 27, bowlDepth: 16, bowlHeight: 10,
-      exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha118-r15-stainless-farmhouse",
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true, pelicanProfileId: "pelican-pl-ha118-r15-stainless-farmhouse",
       faucet: false, wallSide: "top",
     } as never;
     addSinkFixture(root, sink);
     let bowl: THREE.Object3D | null = null;
     let apron: THREE.Object3D | null = null;
+    let drain: THREE.Object3D | null = null;
     root.traverse((node) => {
       if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowl = node;
       if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkApronFront) apron = node;
+      if (node.userData.sinkDrain) drain = node;
     });
     expect(bowl).not.toBeNull();
     expect(apron).not.toBeNull();
+    expect(drain).not.toBeNull();
     const bowlBounds = new THREE.Box3().setFromObject(bowl!);
     expect((bowlBounds.max.x - bowlBounds.min.x) * 12).toBeCloseTo(27, 5);
     expect((bowlBounds.max.z - bowlBounds.min.z) * 12).toBeCloseTo(16, 5);
     expect((bowlBounds.max.y - bowlBounds.min.y) * 12).toBeCloseTo(10, 5);
     expect(bowlBounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
     expect(apron?.position.z).toBeGreaterThan(sinkFixtureTransform(sink).z);
+    expect(drain?.userData.documentedDrainInset).toBe(true);
+    expect((drain!.position.z - bowl!.position.z) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+  });
+
+  it("preserves PL-HA118’s source-verified rear-center drain on a left wall", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha118-r15-left", type: "farmhouse", x: 24, y: 48, width: 21, depth: 30,
+      sourceWidth: 30, sourceDepth: 21, bowlWidth: 27, bowlDepth: 16, bowlHeight: 10,
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: true,
+      pelicanProfileId: "pelican-pl-ha118-r15-stainless-farmhouse", faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    let bowl: THREE.Object3D | null = null;
+    let drain: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowl = node;
+      if (node.userData.sinkDrain) drain = node;
+    });
+    expect(bowl).not.toBeNull();
+    expect(drain?.userData.documentedDrainInset).toBe(true);
+    expect((drain!.position.x - bowl!.position.x) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
   });
 
   it("renders PL-HA124 as a countertop-seated measured single-bowl farmhouse sink with a visible apron", () => {
