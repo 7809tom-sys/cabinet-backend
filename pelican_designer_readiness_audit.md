@@ -829,3 +829,14 @@ The current physical sink renderer does not model a cast-iron porcelain material
 
 136. [Pelican Int’l — PL-CI6004 product page](https://buildpelican.com/products/pl-ci6004)
 137. [Pelican Int’l — PL-CI6004 specification sheet](https://cdn.accentuate.io/8980582760588/1776101928435/PL-CI6004-Spec.pdf?v=1776101928436)
+
+## Not Admitted to Exact Physical Placement Yet — PL-VT6040 Signature Top-Mount Sink
+
+Pelican’s active PL-VT6040 page and official PL-VT6040-1 drawing identify an 18-gauge stainless-steel, top-mount sink with one pre-drilled faucet hole, a formed raised rim, rounded corners, and two unequal bowls. The drawing supplies a **33 × 22 × 9-inch** exterior, a **15¾ × 15⅝ × 9-inch** left bowl, a **12⅜ × 16 × 7-inch** right bowl, two drains, and source-labelled bowl/rim radii.
+
+The current verified physical sink path supports straight-walled undermount and farmhouse sink forms. It does not yet reproduce a source-defined top-mount rim, pre-drilled deck, or the documented drawn-bowl radii. Recasting PL-VT6040 as a rectangular undermount or omitting its formed deck would misstate the selected product, and catalog photos cannot supply the missing geometry. PL-VT6040 therefore remains outside the physical Designer palette until a dedicated source-measured top-mount/drawn-bowl profile can persist and render its actual construction.
+
+### Sources
+
+138. [Pelican Int’l — PL-VT6040 product page](https://buildpelican.com/products/pl-vt6040)
+139. [Pelican Int’l — PL-VT6040-1 specification sheet](https://cdn.accentuate.io/7876669407372/1729877587399/_PL-VT6040-1.pdf?v=1742389522523)
