@@ -71,6 +71,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VS3018 18G ADA as shallow source-measured geometry without changing the standard base contract", () => {
+    expect(verifiedPelicanSinkProfile("PL-VS3018 18G ADA")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 30,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 5.5,
+      bowlWidthIn: 28,
+      bowlDepthIn: 16,
+      bowlHeightIn: 5.5,
+      minimumCabinetWidthIn: 30,
+    });
+  });
+
   it("maps the PL-VS2718 source-verified normal-depth standard undermount profile", () => {
     expect(verifiedPelicanSinkProfile("PL-VS2718 18g")).toMatchObject({
       installation: "undermount",

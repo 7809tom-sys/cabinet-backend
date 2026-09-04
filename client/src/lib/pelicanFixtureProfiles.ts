@@ -190,6 +190,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 30, exteriorDepthIn: 18, exteriorHeightIn: 9, bowlWidthIn: 28, bowlDepthIn: 16, bowlHeightIn: 9, minimumCabinetWidthIn: 30,
     specificationUrl: "https://cdn.accentuate.io/7876667965580/1729876393881/PL-VS3018.pdf?v=1758828574961",
   },
+  "PL-VS3018 ADA": {
+    id: "pelican-pl-vs3018-ada-shallow-stainless-undermount", pelicanCode: "PL-VS3018 ADA", name: "PL-VS3018 ADA Signature Series Shallow Stainless Steel Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 30, exteriorDepthIn: 18, exteriorHeightIn: 5.5, bowlWidthIn: 28, bowlDepthIn: 16, bowlHeightIn: 5.5, minimumCabinetWidthIn: 30,
+    specificationUrl: "https://cdn.accentuate.io/7876667965580/1729876415168/PL-VS3018-ADA.pdf?v=1742392774085",
+  },
   "PL-VS2718": {
     id: "pelican-pl-vs2718-stainless-undermount", pelicanCode: "PL-VS2718", name: "PL-VS2718 Signature Series Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -504,6 +510,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA148\s+R10(?:\s+16G)?$/.test(normalized)) return "PL-HA148";
   if (/^PL-VS3218\s+(?:16|18)G$/.test(normalized)) return "PL-VS3218";
   if (/^PL-VS3018\s+(?:16|18)G$/.test(normalized)) return "PL-VS3018";
+  if (/^PL-VS3018\s+18G\s+ADA$/.test(normalized)) return "PL-VS3018 ADA";
   if (/^PL-VS2718\s+(?:16|18)G$/.test(normalized)) return "PL-VS2718";
   if (/^PL-VS1815\s+18G$/.test(normalized)) return "PL-VS1815";
   if (/^PL-VS1513\s+18G$/.test(normalized)) return "PL-VS1513";

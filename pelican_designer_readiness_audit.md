@@ -1638,3 +1638,13 @@ Pelican’s active product page and manufacturer-linked specification establish 
 261. [Pelican Int’l — PL-VR4060 R20 product page](https://buildpelican.com/products/pl-vr4060-r20)
 
 262. [Pelican Int’l — PL-VR4060 R20 technical drawing](https://cdn.accentuate.io/7876650958988/1742389325891/_PL-VR4060-R20.pdf?v=1742389325891)
+
+## Source Review — PL-VS3018 ADA Signature Series Shallow Stainless Steel Undermount Sink
+
+Pelican’s active PL-VS3018 product page lists ADA as a current variant and links a product-specific manufacturer sheet. The official ADA specification establishes an 18-gauge stainless-steel **undermount** single-bowl sink with a 30 × 18 × 5½-inch nominal exterior and a 28 × 16 × 5½-inch interior bowl. It also states that the product complies with ADA and ICC A117.1 accessibility requirements when installed to those standards. The sheet does not publish a numerical drain-center location. Any physical Designer admission can only persist the measured shallow sink geometry and standard sink-base gate; it may not alter cabinets/countertops or imply the overall Designer assembly is ADA compliant.
+
+### Sources
+
+263. [Pelican Int’l — PL-VS3018 product page](https://buildpelican.com/products/pl-vs3018)
+
+264. [Pelican Int’l — PL-VS3018 ADA technical drawing](https://cdn.accentuate.io/7876667965580/1729876415168/PL-VS3018-ADA.pdf?v=1742392774085)

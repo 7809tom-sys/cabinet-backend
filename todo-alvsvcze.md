@@ -1560,6 +1560,7 @@
 - [x] Review PL-VR2718 ADA only as source-measured shallow sink geometry and exclude it if the technical sheet cannot support a safe standard sink-base profile
 - [x] Add PL-VR1816 R20 only if the official measured single-bowl stainless undermount profile fits the existing standard sink-base contract without inferred drain geometry
 - [x] Add PL-VR4060 R20 only if the official measured stepped double-bowl stainless undermount profile fits the existing standard sink-base contract without inferred drain geometry
+- [x] Add PL-VS3018 ADA only as source-measured shallow sink geometry without implying ADA-compliant cabinetry or inferred drain placement
 - [x] Require a saved kitchen plan and verified customer phone number before a customer can request a plan-locked image
 - [x] Persist qualified image leads, verification status, immutable plan linkage, generation status, and generated image URL for CRM follow-up
 - [x] Deliver qualified plan-image leads to the configured CRM webhook without exposing contact data or service credentials in the client
