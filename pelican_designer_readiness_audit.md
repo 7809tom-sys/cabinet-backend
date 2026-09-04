@@ -1416,3 +1416,13 @@ Pelican’s live PL-WS400 product page and technical drawing document a 33 × 22
 220. [Pelican Int’l — PL-WS400 product page](https://buildpelican.com/products/pl-ws400)
 
 221. [Pelican Int’l — PL-WS400 technical drawing](https://cdn.accentuate.io/7876669440140/1729877896993/PL-WS400.pdf?v=1762354147631)
+
+## Retain Exclusion — PL-WS2819 R0 Performance Series Workstation Sink
+
+Pelican’s live PL-WS2819 R0 16g product page and technical drawing document a 28 × 19 × 10-inch, single-bowl 16-gauge stainless-steel **undermount** workstation sink with a graduated accessory ledge. The product includes a black cutting board, stainless colander, roll-out drying rack, bottom grid, and decorative strainer. The existing physical sink contract cannot persist or faithfully render that ledge or the included accessory configuration, and the technical drawing does not establish a minimum compatible sink-base opening. PL-WS2819 R0 remains excluded rather than being rendered as an ordinary single bowl without its defining workstation behavior.
+
+### Sources
+
+222. [Pelican Int’l — PL-WS2819 R0 16g product page](https://buildpelican.com/products/pl-ws2819-r0-16g)
+
+223. [Pelican Int’l — PL-WS2819 R0 technical drawing](https://cdn.accentuate.io/7876651352204/1729877780749/PL-WS2819-R0.pdf?v=1729877780749)

@@ -1537,3 +1537,4 @@
 - [x] Add the source-measured PL-GMB135 R0 gunmetal PVD farmhouse sink with its exact profile, sink-base gate, persisted surface finish, and dark PVD fixture materials
 - [x] Retain PL-WS4519 outside physical placement because no active official product or technical source establishes its workstation ledges, accessories, drain, and cabinet fit
 - [x] Retain PL-WS400 outside physical placement because its dual-mount installation and included workstation accessories cannot yet be persisted and faithfully rendered
+- [x] Retain PL-WS2819 R0 outside physical placement because its documented ledge and included workstation accessories cannot yet be persisted and faithfully rendered
