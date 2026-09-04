@@ -273,6 +273,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps PL-VR3118 R20 as a source-verified stainless standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-VR3118 R20")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 31,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 9,
+      bowlWidthIn: 29,
+      bowlDepthIn: 16,
+      bowlHeightIn: 9,
+      minimumCabinetWidthIn: 32,
+    });
+  });
+
   it("maps PL-VS3070 as a source-verified stainless stepped double-bowl profile with independent bowl dimensions", () => {
     expect(verifiedPelicanSinkProfile("PL-VS3070 16g")).toMatchObject({
       installation: "undermount",

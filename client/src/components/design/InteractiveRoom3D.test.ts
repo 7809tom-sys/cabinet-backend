@@ -6209,7 +6209,7 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl");
     expect(source).toContain("provenance: photoRenderDraft.provenance");
     expect(source).toContain("if (!photoRenderDraft)");
-    expect(source).toContain("if (!savedDesignId && !isPhotoQualityTest)");
+    expect(source).toContain("if ((!savedDesignId || !isCurrentPlanSaved) && !isPhotoQualityTest)");
     expect(source).toContain("designId: savedDesignId ?? 0");
     expect(source).toContain("Finish the current placement preview before creating a high-resolution 3D preview.");
     expect(source).toContain("Save this design before creating a high-resolution 3D preview");
