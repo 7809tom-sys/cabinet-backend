@@ -51,6 +51,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-FC3219SB source-verified single-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 31.875,
+      exteriorDepthIn: 19.125,
+      exteriorHeightIn: 10.25,
+      bowlWidthIn: 29.125,
+      bowlDepthIn: 16.125,
+      bowlHeightIn: 9.25,
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("uses Pelican’s published PL-8203 dimensions for the matching brushed-nickel faucet", () => {
     expect(verifiedPelicanFaucetProfile("PL-8203 BN")).toMatchObject({
       installation: "single-hole",

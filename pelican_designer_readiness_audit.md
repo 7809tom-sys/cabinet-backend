@@ -225,3 +225,12 @@ Pelican identifies PL-3099 as an 18 × 13-inch porcelain **vanity sink**, not a 
 ### Source
 
 42. [Pelican Int’l — PL-3099 product page](https://buildpelican.com/products/pl-3099)
+
+## Next Verified Farmhouse Sink Candidate — PL-FC3219SB
+
+Pelican’s official Farmhouse Series documentation verifies PL-FC3219SB as a white fireclay, single-bowl sink that can be installed as either drop-in or undermount. Its exterior dimensions are 31⅞ × 19⅛ × 10¼ inches and its interior bowl dimensions are 29⅛ × 16⅛ × 9¼ inches. The design tool may use only a measured parametric profile from those dimensions; product images remain display-only. The sink needs a compatible farmhouse base at least 32 inches wide, which means the current FSB-36 is a valid host.
+
+### Sources
+
+43. [Pelican Int’l — PL-FC3219SB product page](https://buildpelican.com/products/pl-fc3219sb)
+44. [Pelican Int’l — PL-FC3219SB specification sheet](https://cdn.accentuate.io/9687395860620/1786579710979/PL-FC3219SB.pdf?v=1786579710979)

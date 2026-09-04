@@ -1474,5 +1474,6 @@
 - [x] In Island mode only, prompt for no seating overhang, a 10-inch overhang, or a 12-inch overhang when a counter-height shallow wall cabinet joins an opposing base-cabinet face
 - [x] Preserve the selected Island-only seating overhang with the exact island slab and validate it does not alter Wall mode countertop behavior
 - [ ] Identify and repair the reported live Pelican price discrepancy without changing cabinetry or an owner-configured commercial markup unless the intended target is verified
-- [ ] Identify and source-verify the next active Pelican kitchen fixture family for exact 3D palette expansion after PL-HA128
+- [x] Identify and source-verify the next active Pelican kitchen fixture family for exact 3D palette expansion after PL-HA128
+- [x] Add the source-verified PL-FC3219SB single-bowl farmhouse sink with exact countertop seating, visible apron, and farmhouse-base fit support
 - [x] Exclude source-verified PL-3099 bathroom vanity sinks from the kitchen farmhouse sink-base palette while preserving their public Pelican catalog records

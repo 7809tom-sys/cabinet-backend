@@ -82,6 +82,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 14.5, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067",
   },
+  "PL-FC3219SB": {
+    id: "pelican-pl-fc3219sb-fireclay-farmhouse", pelicanCode: "PL-FC3219SB", name: "PL-FC3219SB Fireclay Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 31.875, exteriorDepthIn: 19.125, exteriorHeightIn: 10.25, bowlWidthIn: 29.125, bowlDepthIn: 16.125, bowlHeightIn: 9.25, minimumCabinetWidthIn: 33,
+    specificationUrl: "https://cdn.accentuate.io/9687395860620/1786579710979/PL-FC3219SB.pdf?v=1786579710979",
+  },
 };
 
 const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
