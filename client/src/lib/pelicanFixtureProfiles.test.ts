@@ -50,6 +50,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA104 R0 source-verified compact standard undermount profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA104 R0 16g")).toMatchObject({
+      installation: "undermount",
+      sinkType: "single",
+      apronFront: false,
+      exteriorWidthIn: 17,
+      exteriorDepthIn: 18,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 15,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      minimumCabinetWidthIn: 18,
+    });
+  });
+
   it("maps the PL-HA128 R15 source-verified double-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-HA128 R15 16g")).toMatchObject({
       installation: "apron-front-undermount",

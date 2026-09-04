@@ -309,3 +309,18 @@ The normal-depth source data supports a stainless measured parametric profile fo
 
 57. [Pelican Int’l — PL-HA115 product page](https://buildpelican.com/products/pl-ha115)
 58. [Pelican Int’l — PL-HA115 R0 specification sheet](https://cdn.accentuate.io/7876665966732/1729873248748/PL-HA115-R0.pdf?v=1729873248749)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA120
+
+Pelican’s direct current `products/pl-ha120` URL returns a **404 Not Found** page. Although third-party listings describe a stainless-steel double-bowl kitchen sink, no current Pelican product page or official Pelican specification sheet was recovered. It must remain outside the verified Designer fixture palette until its exact source, measurements, installation class, and sink-base compatibility are established from Pelican documentation. No third-party dimensions, catalog images, or generic substitute geometry are used.
+
+## Next Verified Standard-Sink Candidate — PL-HA104 R0
+
+Pelican’s current product page and official PL-HA104 R0 specification sheet identify this as a 16-gauge stainless-steel, single-bowl **undermount** kitchen sink. Its exterior measures **17 × 18 × 10 inches** and its interior bowl measures **15 × 16 × 10 inches**.
+
+These measurements support a source-measured parametric sink profile for a compatible 18-inch-or-wider standard SB-style sink base. It has no apron-front geometry and therefore does not alter the farmhouse-only base workflow. The profile does not change cabinetry or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+59. [Pelican Int’l — PL-HA104 product page](https://buildpelican.com/products/pl-ha104)
+60. [Pelican Int’l — PL-HA104 R0 specification sheet](https://cdn.accentuate.io/7876665278604/1729872420755/PL-HA104-R0.pdf?v=1729872420755)
