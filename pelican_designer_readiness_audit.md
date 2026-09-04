@@ -770,7 +770,7 @@ Pelican’s active PL-8480 page identifies a deck-mounted, double-handle bridge 
 
 Pelican’s active PL-8369 product page and official specification sheet identify an ADA-compliant, wall-mounted, single-lever kitchen pot filler with dual-jointed swing arms. The technical drawing documents a **24-inch spout length**, **3 5⁄32-inch spout height**, a **26 3⁄16-inch overall reach**, a **13-inch arm span**, and source-labeled 90-millimeter and 28-millimeter components. It is offered in Brushed Gold, Brushed Nickel, Chrome, and Matte Black finishes.
 
-Pelican’s installation instructions confirm wall mounting but do **not** prescribe a fixed countertop-relative or range-relative mounting height. The current verified fixture workflow also places faucets only as sink-associated deck fixtures, while the current 3D renderer has no wall-mounted range host, articulated dual-arm hierarchy, or pot-filler mounting-height persistence. It therefore cannot truthfully auto-place PL-8369 despite complete measured product dimensions. The item remains outside the physical Designer palette until a range-associated wall-faucet workflow preserves an explicit user-chosen mounting height and the documented folded/extended arm geometry. No catalog image or generic sink faucet is substituted.
+Pelican’s installation instructions confirm wall mounting but do **not** prescribe a fixed countertop-relative or range-relative mounting height. The current verified fixture workflow also places faucets only as sink-associated deck fixtures, while the current 3D renderer has no wall-mounted range host, articulated dual-arm hierarchy, or pot-filler mounting-height persistence. A September 2026 source review also confirmed that the drawing does not explicitly dimension the wall-side escutcheon/mounting plate or all visible base proportions, and the installation sheet provides an assembly sequence rather than those missing dimensions. It therefore cannot truthfully auto-place or completely model PL-8369 despite the documented arm envelope. The item remains outside the physical Designer palette until a complete official mounting drawing and a range-associated wall-faucet workflow preserve an explicit user-chosen mounting height and the documented extended arm geometry. No catalog image or generic sink faucet is substituted.
 
 ### Sources
 
@@ -788,3 +788,11 @@ These documented values match the existing verified deck-faucet placement model:
 
 129. [Pelican Int’l — PL-8257 product page](https://buildpelican.com/products/pl-8145)
 130. [Pelican Int’l — PL-8257 specification sheet](https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437)
+
+## Active Kitchen Faucet Collection Check — September 2026
+
+Pelican’s current Kitchen faucet collection displayed **21 products** and mixes fixtures with non-faucet accessories. Visible items included wall-mounted PL-8410 and PL-8461, wall-mounted PL-8369 pot filler, accessories such as Air Switch Assembly and Flanges, and source-verified deck-mounted models PL-8206, PL-8248, PL-8213, and PL-8218. This confirms that only an active, source-documented, sink-mounted faucet of a renderer-supported form should enter the exact Designer palette; wall fixtures and accessories remain excluded until their distinct placement/geometry contracts exist.
+
+### Source
+
+131. [Pelican Int’l — current Kitchen faucet collection](https://buildpelican.com/collections/faucets/Kitchen?system_tags=kitchen)
