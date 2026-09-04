@@ -214,6 +214,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 23, exteriorDepthIn: 17.75, exteriorHeightIn: 9, bowlWidthIn: 21, bowlDepthIn: 15.75, bowlHeightIn: 9, minimumCabinetWidthIn: 24,
     specificationUrl: "https://cdn.accentuate.io/7876667474060/1729876113634/PL-VS2318-.pdf?v=1742392230407",
   },
+  "PL-VS4060": {
+    id: "pelican-pl-vs4060-stainless-stepped-double-bowl-undermount", pelicanCode: "PL-VS4060", name: "PL-VS4060 Signature Series Stainless Steel Double-Bowl Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 32.125, exteriorDepthIn: 20.625, exteriorHeightIn: 9, bowlWidthIn: 13, bowlDepthIn: 16.5, bowlHeightIn: 7, bowlCount: 2, bowlWidthsIn: [13, 15.875], bowlDepthsIn: [16.5, 18.625], bowlHeightsIn: [7, 9], minimumCabinetWidthIn: 33,
+    specificationUrl: "https://cdn.accentuate.io/7876668522636/1729876762122/PL-VS4060.pdf?v=1742393327883",
+  },
   "PL-VS7030": {
     id: "pelican-pl-vs7030-stainless-stepped-double-bowl-undermount", pelicanCode: "PL-VS7030", name: "PL-VS7030 Signature Series Stainless Steel Double-Bowl Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -418,6 +424,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-VS1815\s+18G$/.test(normalized)) return "PL-VS1815";
   if (/^PL-VS2118\s+18G$/.test(normalized)) return "PL-VS2118";
   if (/^PL-VS2318\s+(?:16|18)G$/.test(normalized)) return "PL-VS2318";
+  if (/^PL-VS4060\s+(?:16|18)G$/.test(normalized)) return "PL-VS4060";
   if (/^PL-VS7030\s+(?:16|18)G$/.test(normalized)) return "PL-VS7030";
   return normalized;
 }

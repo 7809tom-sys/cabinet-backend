@@ -1472,3 +1472,13 @@ Pelican’s live product page establishes PL-VS6040 as a 16- or 18-gauge, 304 st
 230. [Pelican Int’l — PL-VS6040 product page](https://buildpelican.com/products/pl-vs6040)
 
 231. [Pelican Int’l — PL-VS6040 specification sheet](https://cdn.accentuate.io/7876668915852/1729876989842/PL-VS6040.pdf?v=1742393559361)
+
+## Verified Physical Admission — PL-VS4060 Signature Series Stainless Steel Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VS4060 as a 16- or 18-gauge, 304 stainless-steel, satin-brushed **undermount** double-bowl sink. Its source-measured 32⅛ × 20⅝ × 9-inch exterior, 13 × 16½ × 7-inch left bowl, and 15⅞ × 18⅝ × 9-inch right bowl map to the existing standard sink-base fixture contract with a 33-inch nominal opening. The physical profile persists each bowl’s independent width, depth, and height; the renderer applies those values in every saved wall orientation. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred.
+
+### Sources
+
+232. [Pelican Int’l — PL-VS4060 product page](https://buildpelican.com/products/pl-vs4060)
+
+233. [Pelican Int’l — PL-VS4060 technical drawing](https://cdn.accentuate.io/7876668522636/1729876762122/PL-VS4060.pdf?v=1742393327883)
