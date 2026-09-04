@@ -4052,6 +4052,21 @@ describe("interactive 3D room scene helpers", () => {
     expect((bounds.max.y - sinkFixtureTransform(sink).countertopTop) * 12).toBeCloseTo(17.6875, 0);
   });
 
+  it("uses the PL-8257 source-verified pull-down height and selected finish in the 3D kitchen", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-8257-mb", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top",
+      pelicanFaucetProfileId: "pelican-pl-8257-fountain-pull-down-matte-black",
+      faucetOverallHeight: 17.75, faucetSpoutLength: 8.25, faucetSpoutHeight: 9.5, faucetFinish: "matte-black", faucetForm: "pull-down",
+    } as never;
+    addSinkFixture(root, sink);
+    let spout: THREE.Mesh | null = null;
+    root.traverse((node) => { if (node.userData.pelicanFaucetProfileId === "pelican-pl-8257-fountain-pull-down-matte-black" && node.userData.sinkFaucetSpout) spout = node as THREE.Mesh; });
+    expect(spout?.userData).toMatchObject({ faucetFinish: "matte-black", faucetForm: "pull-down" });
+    const bounds = new THREE.Box3().setFromObject(spout!);
+    expect((bounds.max.y - sinkFixtureTransform(sink).countertopTop) * 12).toBeCloseTo(17.75, 0);
+  });
+
   it("does not invent a generic faucet for a sink without a verified Pelican faucet profile", () => {
     const root = new THREE.Group();
     addSinkFixture(root, { uid: "unverified-faucet", type: "single", x: 24, y: 48, width: 30, depth: 18, faucet: true, wallSide: "top" } as never);

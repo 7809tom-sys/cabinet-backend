@@ -414,6 +414,21 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
     installation: "single-hole", overallHeightIn: 15.75, spoutLengthIn: 9.375, spoutHeightIn: 6.5, profile: "pull-out", finish: "matte-black",
     specificationUrl: "https://cdn.accentuate.io/7876664230028/1729881462010/PL-8231-Spec-Sheet.pdf?v=1734119435030",
   },
+  "PL-8257 BN": {
+    id: "pelican-pl-8257-fountain-pull-down-brushed-nickel", pelicanCode: "PL-8257 BN", name: "PL-8257 Fountain Series Pull-Down Kitchen Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 17.75, spoutLengthIn: 8.25, spoutHeightIn: 9.5, profile: "pull-down", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437",
+  },
+  "PL-8257 CHR": {
+    id: "pelican-pl-8257-fountain-pull-down-chrome", pelicanCode: "PL-8257 CHR", name: "PL-8257 Fountain Series Pull-Down Kitchen Faucet — Chrome",
+    installation: "single-hole", overallHeightIn: 17.75, spoutLengthIn: 8.25, spoutHeightIn: 9.5, profile: "pull-down", finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437",
+  },
+  "PL-8257 MB": {
+    id: "pelican-pl-8257-fountain-pull-down-matte-black", pelicanCode: "PL-8257 MB", name: "PL-8257 Fountain Series Pull-Down Kitchen Faucet — Matte Black",
+    installation: "single-hole", overallHeightIn: 17.75, spoutLengthIn: 8.25, spoutHeightIn: 9.5, profile: "pull-down", finish: "matte-black",
+    specificationUrl: "https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437",
+  },
 };
 
 function normalizedPelicanCode(value: string | null | undefined): string {

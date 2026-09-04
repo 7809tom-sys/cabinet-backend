@@ -749,3 +749,42 @@ Pelican’s direct current product URLs for **PL-HA114** and **PL-HA106** each r
 
 122. [Pelican Int’l — PL-HA114 product URL](https://buildpelican.com/products/pl-ha114)
 123. [Pelican Int’l — PL-HA106 product URL](https://buildpelican.com/products/pl-ha106)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-8219
+
+Pelican’s direct current `products/pl-8219` URL returns a **404 Not Found** page. No current Pelican product page or official technical specification was recovered. This faucet remains outside the verified physical Designer palette until Pelican documentation establishes its active product identity, kitchen role, overall height, spout reach, outlet height, and compatible fixture-placement geometry. No catalog image, third-party dimension, or generic faucet substitute is used.
+
+### Source
+
+124. [Pelican Int’l — PL-8219 product URL](https://buildpelican.com/products/pl-8219)
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-8480
+
+Pelican’s active PL-8480 page identifies a deck-mounted, double-handle bridge kitchen faucet in Brushed Gold, Brushed Nickel, Chrome, and Matte Black finishes. However, the current product page exposes no official technical specification link, and the official documentation library search did not identify a PL-8480 drawing. Its overall height, spout reach, outlet height, hole spacing, and bridge geometry therefore remain undocumented for exact parametric placement. The item remains outside the verified physical Designer palette; no catalog image, third-party dimensions, or generic pull-down substitute is used.
+
+### Source
+
+125. [Pelican Int’l — PL-8480 product page](https://buildpelican.com/products/pl-8480)
+
+## Not Admitted to Exact Physical Placement Yet — PL-8369 Wall-Mounted Pot Filler
+
+Pelican’s active PL-8369 product page and official specification sheet identify an ADA-compliant, wall-mounted, single-lever kitchen pot filler with dual-jointed swing arms. The technical drawing documents a **24-inch spout length**, **3 5⁄32-inch spout height**, a **26 3⁄16-inch overall reach**, a **13-inch arm span**, and source-labeled 90-millimeter and 28-millimeter components. It is offered in Brushed Gold, Brushed Nickel, Chrome, and Matte Black finishes.
+
+Pelican’s installation instructions confirm wall mounting but do **not** prescribe a fixed countertop-relative or range-relative mounting height. The current verified fixture workflow also places faucets only as sink-associated deck fixtures, while the current 3D renderer has no wall-mounted range host, articulated dual-arm hierarchy, or pot-filler mounting-height persistence. It therefore cannot truthfully auto-place PL-8369 despite complete measured product dimensions. The item remains outside the physical Designer palette until a range-associated wall-faucet workflow preserves an explicit user-chosen mounting height and the documented folded/extended arm geometry. No catalog image or generic sink faucet is substituted.
+
+### Sources
+
+126. [Pelican Int’l — PL-8369 product page](https://buildpelican.com/products/pl-8369)
+127. [Pelican Int’l — PL-8369 specification sheet](https://cdn.accentuate.io/9507678257292/1784297892633/PL-8369-Spec.pdf?v=1784297892633)
+128. [Pelican Int’l — PL-8369 installation instructions](https://cdn.accentuate.io/9507678257292/1784297936129/PL-8369-Installation-Instructions-(2).pdf?v=1784297936130)
+
+## Next Verified Kitchen Faucet Candidate — PL-8257
+
+Pelican’s active PL-8257 product page and official technical sheet identify this as an ADA-compliant, single-hole, single-lever **pull-down** kitchen faucet with a pull-out sprayer. Its source measurements are **17¾ inches overall height**, **8¼ inches spout length**, and **9½ inches spout height**. The sheet identifies Chrome, Brushed Nickel, and Matte Black finishes.
+
+These documented values match the existing verified deck-faucet placement model: the profile can be physically attached only through the compatible sink-base workflow and retains the selected catalog finish. It does not alter cabinetry, pricing, or the sink-base compatibility gate; product images and technical drawings remain source evidence only and are not used as 3D assets.
+
+### Sources
+
+129. [Pelican Int’l — PL-8257 product page](https://buildpelican.com/products/pl-8145)
+130. [Pelican Int’l — PL-8257 specification sheet](https://cdn.accentuate.io/8105530785932/1744290070437/PL-8257.pdf?v=1744290070437)
