@@ -936,3 +936,11 @@ Pelican’s current direct PL-HA127 product URL returns **404 Not Found**. No ac
 ### Source
 
 156. [Pelican Int’l — PL-HA127 product URL](https://buildpelican.com/products/pl-ha127)
+
+## Retain Exclusion — PL-8107 Cascade Vanity Faucet
+
+Pelican’s active PL-8107 product page identifies this 7⅝-inch ADA-compliant Cascade Series product as a **bathroom vanity faucet**, not a kitchen faucet. Although the product has a specification sheet and Brushed Nickel, Chrome, and Matte Black variants, admitting it into a kitchen sink-base flow would misrepresent its documented intended role. It therefore remains absent from the kitchen Designer fixture palette.
+
+### Source
+
+157. [Pelican Int’l — PL-8107 product page](https://buildpelican.com/products/pl-8107)
