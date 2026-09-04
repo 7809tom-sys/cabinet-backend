@@ -3615,6 +3615,33 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("renders PL-VS7030 with source-measured stepped bowl widths, depths, and heights without inferring drain data", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-vs7030", type: "single", x: 24, y: 48, width: 31.5, depth: 20.5,
+      sourceWidth: 31.5, sourceDepth: 20.5, bowlWidth: 17.75, bowlWidths: [17.75, 10.625] as const,
+      bowlDepth: 18.5, bowlDepths: [18.5, 16] as const, bowlHeight: 9, bowlHeights: [9, 7] as const, bowlCount: 2,
+      exteriorHeight: 9, apronFront: false, pelicanProfileId: "pelican-pl-vs7030-stainless-stepped-double-bowl-undermount",
+      faucet: false, wallSide: "top",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    const dimensions = bowls.map((bowl) => {
+      const bounds = new THREE.Box3().setFromObject(bowl);
+      return [bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, bounds.max.y - bounds.min.y]
+        .map((value) => Number((value * 12).toFixed(3)));
+    });
+    expect(dimensions).toEqual([[17.75, 18.5, 9], [10.625, 16, 7]]);
+    expect(drains.every((drain) => drain.userData.documentedDrainInset === false)).toBe(true);
+  });
+
   it("renders PL-HA117 R0 as a countertop-seated double-bowl standard undermount sink with two measured bowls and drains", () => {
     const root = new THREE.Group();
     const sink = {

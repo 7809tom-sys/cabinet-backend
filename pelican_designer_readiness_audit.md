@@ -1452,3 +1452,13 @@ Pelican’s direct PL-HA120 product URL currently returns 404. A targeted offici
 ### Source
 
 227. [Pelican Int’l — PL-HA120 direct product URL](https://buildpelican.com/products/pl-ha120)
+
+## Verified Physical Admission — PL-VS7030 Signature Series Stainless Steel Double-Bowl Undermount Sink
+
+Pelican’s live product page and official specification establish PL-VS7030 as a 16- or 18-gauge stainless-steel **undermount** double-bowl sink. The source-measured 31½ × 20½ × 9-inch exterior, 17¾ × 18½ × 9-inch left bowl, and 10⅝ × 16 × 7-inch right bowl map to the standard sink-base fixture contract with a 32-inch nominal opening. The physical profile now persists each bowl’s distinct width, depth, and height; the renderer applies those measurements independently through all saved wall orientations. Pelican’s sheet does not provide numerical drain-center offsets, so no drain datum is inferred and the pre-existing generic drain behavior remains unchanged.
+
+### Sources
+
+228. [Pelican Int’l — PL-VS7030 product page](https://buildpelican.com/products/pl-vs7030)
+
+229. [Pelican Int’l — PL-VS7030 technical drawing](https://cdn.accentuate.io/7876669014156/1729877038011/PL-VS7030.pdf?v=1742393657703)

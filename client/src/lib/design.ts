@@ -6034,6 +6034,8 @@ export interface SinkFixture {
   bowlWidths?: readonly [number, number];
   /** Individually measured bowl depths for asymmetric two-bowl fixture profiles. */
   bowlDepths?: readonly [number, number];
+  /** Individually measured bowl heights for stepped two-bowl fixture profiles. */
+  bowlHeights?: readonly [number, number];
   /** Source-documented inset from the bowl's right edge to its drain center. */
   drainInsetRight?: number;
   /** Source-documented inset from the bowl's rear edge to its drain center. */
@@ -6166,6 +6168,7 @@ export function normalizeSinkFixturesToBases(
       bowlCount: sink.bowlCount,
       bowlWidths: sink.bowlWidths,
       bowlDepths: sink.bowlDepths,
+      bowlHeights: sink.bowlHeights,
       drainInsetRight: sink.drainInsetRight,
       drainInsetBack: sink.drainInsetBack,
       exteriorHeight: sink.exteriorHeight,

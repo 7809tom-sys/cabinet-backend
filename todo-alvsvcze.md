@@ -1541,3 +1541,4 @@
 - [x] Retain PL-HA137 outside physical placement because no active official product or technical source establishes its exact sink geometry and base fit
 - [x] Retain PL-150 outside physical placement because its seven documented granite-composite finishes cannot yet be selected, persisted, and rendered through approved material swatches
 - [x] Retain PL-HA120 outside physical placement because no active official product or technical source establishes its exact bowls, drains, and base fit
+- [x] Add the source-measured PL-VS7030 stainless double-bowl undermount sink with independent bowl dimensions and heights that persist in saved plans

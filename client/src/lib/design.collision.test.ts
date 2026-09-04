@@ -83,6 +83,7 @@ describe("design placement collision prevention", () => {
       bowlDepth: 18,
       bowlDepths: [18, 16] as const,
       bowlHeight: 10,
+      bowlHeights: [10, 8] as const,
       bowlCount: 2,
       exteriorHeight: 10,
       apronFront: false,
@@ -92,6 +93,33 @@ describe("design placement collision prevention", () => {
       pelicanProfileId: "pelican-pl-ha126-r0-stainless-asymmetric-double-bowl-undermount",
       bowlWidths: [14, 13.5],
       bowlDepths: [18, 16],
+      bowlHeights: [10, 8],
+      bowlCount: 2,
+    });
+  });
+
+  it("preserves source-verified stepped double-bowl dimensions and heights when PL-VS7030 is normalized to its owning base", () => {
+    const topStandardBase = placed({ uid: "sb36", masterCode: "SB36", description: "Sink Base 36", x: 36, y: 0, width: 36, depth: 24 });
+    const installed = makeSinkForCabinet("single", topStandardBase, DEFAULT_ROOM, { width: 31.5, depth: 20.5 });
+    const normalized = normalizeSinkFixturesToBases([{
+      ...installed,
+      pelicanProfileId: "pelican-pl-vs7030-stainless-stepped-double-bowl-undermount",
+      bowlWidth: 17.75,
+      bowlWidths: [17.75, 10.625] as const,
+      bowlDepth: 18.5,
+      bowlDepths: [18.5, 16] as const,
+      bowlHeight: 9,
+      bowlHeights: [9, 7] as const,
+      bowlCount: 2,
+      exteriorHeight: 9,
+      apronFront: false,
+    }], [topStandardBase], DEFAULT_ROOM);
+    expect(normalized[0]).toMatchObject({
+      cabinetUid: "sb36",
+      pelicanProfileId: "pelican-pl-vs7030-stainless-stepped-double-bowl-undermount",
+      bowlWidths: [17.75, 10.625],
+      bowlDepths: [18.5, 16],
+      bowlHeights: [9, 7],
       bowlCount: 2,
     });
   });

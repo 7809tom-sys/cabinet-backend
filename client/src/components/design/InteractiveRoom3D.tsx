@@ -5044,7 +5044,8 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   }));
   const innerWidth = bowlDimensions[0].width;
   const innerDepth = bowlDimensions[0].depth;
-  const bowlHeight = Math.max(0.12, (sink.bowlHeight ?? 10) * INCH);
+  const bowlHeights = bowlDimensions.map((_, bowlIndex) => Math.max(0.12, (sink.bowlHeights?.[bowlIndex] ?? sink.bowlHeight ?? 10) * INCH));
+  const bowlHeight = bowlHeights[0];
   const rim = new THREE.Mesh(
     new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
     steel,
@@ -5098,20 +5099,21 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const bowlDimensionsForIndex = bowlDimensions[bowlIndex] ?? bowlDimensions[0];
     const sourceBowlWidthForIndex = sink.bowlWidths?.[bowlIndex] ?? sourceBowlWidth;
     const sourceBowlDepthForIndex = sink.bowlDepths?.[bowlIndex] ?? sourceBowlDepth;
+    const bowlHeightForIndex = bowlHeights[bowlIndex] ?? bowlHeight;
     const bowlInnerWidth = bowlDimensionsForIndex.width;
     const bowlInnerDepth = bowlDimensionsForIndex.depth;
     const bowl = new THREE.Mesh(
-      new RoundedBoxGeometry(bowlInnerWidth, bowlHeight, bowlInnerDepth, 5, Math.min(0.12, bowlInnerWidth * 0.09, bowlInnerDepth * 0.09)),
+      new RoundedBoxGeometry(bowlInnerWidth, bowlHeightForIndex, bowlInnerDepth, 5, Math.min(0.12, bowlInnerWidth * 0.09, bowlInnerDepth * 0.09)),
       basinInterior,
     );
-    bowl.position.set(bowlX, countertopTop - bowlHeight / 2, bowlZ);
+    bowl.position.set(bowlX, countertopTop - bowlHeightForIndex / 2, bowlZ);
     bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowl);
     const bowlFloor = new THREE.Mesh(
       new RoundedBoxGeometry(bowlInnerWidth * 0.72, 0.025, bowlInnerDepth * 0.68, 3, Math.min(0.08, bowlInnerWidth * 0.06, bowlInnerDepth * 0.06)),
       brushedSteel,
     );
-    bowlFloor.position.set(bowlX, countertopTop - bowlHeight + 0.014, bowlZ);
+    bowlFloor.position.set(bowlX, countertopTop - bowlHeightForIndex + 0.014, bowlZ);
     bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowlFloor);
     const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);

@@ -26,6 +26,8 @@ export type VerifiedPelicanSinkProfile = {
   bowlWidthsIn?: readonly [number, number];
   /** Individually measured bowl depths for asymmetric two-bowl sink profiles. */
   bowlDepthsIn?: readonly [number, number];
+  /** Individually measured bowl heights for stepped two-bowl sink profiles. */
+  bowlHeightsIn?: readonly [number, number];
   /** Source-documented inset from the bowl's right edge to its drain center. */
   drainInsetRightIn?: number;
   /** Source-documented inset from the bowl's rear edge to its drain center. */
@@ -211,6 +213,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     installation: "undermount", sinkType: "single", apronFront: false,
     exteriorWidthIn: 23, exteriorDepthIn: 17.75, exteriorHeightIn: 9, bowlWidthIn: 21, bowlDepthIn: 15.75, bowlHeightIn: 9, minimumCabinetWidthIn: 24,
     specificationUrl: "https://cdn.accentuate.io/7876667474060/1729876113634/PL-VS2318-.pdf?v=1742392230407",
+  },
+  "PL-VS7030": {
+    id: "pelican-pl-vs7030-stainless-stepped-double-bowl-undermount", pelicanCode: "PL-VS7030", name: "PL-VS7030 Signature Series Stainless Steel Double-Bowl Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 31.5, exteriorDepthIn: 20.5, exteriorHeightIn: 9, bowlWidthIn: 17.75, bowlDepthIn: 18.5, bowlHeightIn: 9, bowlCount: 2, bowlWidthsIn: [17.75, 10.625], bowlDepthsIn: [18.5, 16], bowlHeightsIn: [9, 7], minimumCabinetWidthIn: 32,
+    specificationUrl: "https://cdn.accentuate.io/7876669014156/1729877038011/PL-VS7030.pdf?v=1742393657703",
   },
 };
 
@@ -410,6 +418,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-VS1815\s+18G$/.test(normalized)) return "PL-VS1815";
   if (/^PL-VS2118\s+18G$/.test(normalized)) return "PL-VS2118";
   if (/^PL-VS2318\s+(?:16|18)G$/.test(normalized)) return "PL-VS2318";
+  if (/^PL-VS7030\s+(?:16|18)G$/.test(normalized)) return "PL-VS7030";
   return normalized;
 }
 
