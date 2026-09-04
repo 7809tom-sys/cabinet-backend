@@ -391,6 +391,8 @@ export interface PlacedCabinet {
   refrigeratorPanelMode?: RefrigeratorPanelMode | null;
   /** Explicit run on a wall-free island scene; retained through save/restore. */
   islandFace?: IslandFace | null;
+  /** A shallow wall cabinet intentionally used as a counter-height island face. */
+  islandCounterHeightWallCabinet?: boolean;
   /** Left-to-right position in inches along the selected island face. */
   islandOffset?: number | null;
   // Blind corner cabinets install ACROSS the corner with a manufacturer pull
@@ -2744,6 +2746,12 @@ export function elevationBox(
   if (isRefrigeratorEndPanel(p)) {
     return { bottom: 0, height: room?.ceilingHeight ?? 96 };
   }
+  // A shallow wall cabinet used on an island is a counter-height opposing face,
+  // not a room-wall upper. Its top aligns with the adjoining base cabinet box.
+  if (isCounterHeightIslandWallCabinet(p)) {
+    const height = placedHeight(p);
+    return { bottom: Math.max(0, STD.BASE_HEIGHT - height), height };
+  }
   // Island cabinets and compatible parts build from the finished floor rather
   // than inheriting room-wall hanging defaults. A deliberate elevation edit is
   // retained through mountBottomAdjusted, including after save and restore.
@@ -3738,7 +3746,7 @@ export function countertopArea(
     .filter((p) => p.placement === "base")
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
   let squareIn = runInches * COUNTERTOP_DEPTH_IN;
-  const islandSupports = island ? placed.filter((p) => isOnIsland(p, island) && bearsCountertop(p)) : [];
+  const islandSupports = island ? placed.filter((p) => isOnIsland(p, island) && bearsIslandCountertop(p)) : [];
   const hasIsland = islandSupports.length > 0;
   if (hasIsland && island) {
     const footprints = islandSupports.map((item) => ({ item, footprint: placedFootprint(item) }));
@@ -5863,6 +5871,34 @@ export function bearsCountertop(p: {
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (/\bfiller\b|\bscribe\b/.test(hay)) return false;
   return true;
+}
+
+/**
+ * Island-only exception for a shallow wall cabinet such as W-24-30. The marker
+ * is set exclusively by Island-mode placement, leaving ordinary wall cabinets
+ * and Wall mode countertop behavior unchanged.
+ */
+export function isCounterHeightIslandWallCabinet(p: {
+  placement: Placement;
+  islandFace?: IslandFace | null;
+  islandCounterHeightWallCabinet?: boolean | null;
+}): boolean {
+  return p.placement === "wall" && Boolean(p.islandFace) && p.islandCounterHeightWallCabinet === true;
+}
+
+/** Counter-bearing island members include genuine bases and marked shallow opposing wall faces. */
+export function bearsIslandCountertop(p: {
+  placement: Placement;
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+  fillerPieceGroupId?: string | null;
+  fillerTotalWidth?: number | null;
+  fillerPlacementMode?: "left" | "right" | "split" | null;
+  islandFace?: IslandFace | null;
+  islandCounterHeightWallCabinet?: boolean | null;
+}): boolean {
+  return bearsCountertop(p) || isCounterHeightIslandWallCabinet(p);
 }
 
 /**

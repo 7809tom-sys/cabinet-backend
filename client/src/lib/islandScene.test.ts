@@ -6,6 +6,7 @@ import {
   islandCountertopRects,
   islandFaceFitMeasure,
   islandFacePlacement,
+  islandWithFaceSeatingOverhang,
   moveIslandScene,
   nextIslandFacePlacement,
   resizeIslandScene,
@@ -48,6 +49,25 @@ describe("island mini-scene geometry", () => {
     const raised = islandFacePlacement({ ...floorPlaced, mountBottom: 6, mountBottomAdjusted: true }, island, "front", 0);
     expect(raised.mountBottom).toBe(6);
     expect(elevationBox(raised, room)).toEqual({ bottom: 6, height: 42 });
+  });
+
+  it("seats a shallow W-24-30 island face against the opposing base backs at counter height", () => {
+    const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), island, "back", 0);
+    const frontWallCabinet = nextIslandFacePlacement(
+      cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
+      island,
+      "front",
+      [backBase],
+    );
+    expect(frontWallCabinet).toMatchObject({
+      islandFace: "front",
+      islandCounterHeightWallCabinet: true,
+      mountBottom: 4.5,
+      x: backBase.x,
+      y: backBase.y + 24,
+    });
+    expect(elevationBox(frontWallCabinet!, room)).toEqual({ bottom: 4.5, height: 30 });
+    expect(hasCollision(frontWallCabinet!, [backBase])).toBe(false);
   });
 
   it("measures a selected island member along its owning face instead of the outer 144-inch room wall", () => {
@@ -128,6 +148,22 @@ describe("island mini-scene geometry", () => {
       width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
       depth: 48 + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
     });
+  });
+
+  it("extends only the selected shallow-wall island face by the chosen 10-inch or 12-inch seating depth", () => {
+    const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), island, "back", 0);
+    const frontWallCabinet = nextIslandFacePlacement(
+      cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
+      island,
+      "front",
+      [backBase],
+    )!;
+    const tenInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 10);
+    const twelveInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 12);
+    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 47.5 });
+    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 49.5 });
+    expect(twelveInch.countertopWidthAnchoredToZone).toBe(false);
+    expect(twelveInch.countertopDepthAnchoredToZone).toBe(false);
   });
 
   it.each([

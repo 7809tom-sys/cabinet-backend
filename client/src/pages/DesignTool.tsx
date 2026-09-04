@@ -120,7 +120,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { inferredIslandFace, islandCountertopRect, islandFaceFitMeasure, islandFacePlacement, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { inferredIslandFace, islandCountertopRect, islandFaceFitMeasure, islandFacePlacement, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -618,7 +618,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    islandFaceRef.current = islandFace;
 	    islandPlacementModeRef.current = islandPlacementMode;
 	  }, [islandFace, islandPlacementMode]);
-	  const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
+  const [islandAttributesOpen, setIslandAttributesOpen] = useState(false);
+  const [islandSeatingOverhangPrompt, setIslandSeatingOverhangPrompt] = useState<{
+    cabinetCode: string;
+    face: IslandFace;
+  } | null>(null);
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   const [autoDimensions, setAutoDimensions] = useState(false);
@@ -3459,6 +3463,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
 		      if (requestedIslandFace && finalCab.placement === "base") setCountertop(true);
+		      if (requestedIslandFace && finalCab.islandCounterHeightWallCabinet === true) {
+		        setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace });
+		        setCountertop(true);
+		      }
 		      if (!requestedIslandFace && !isAccessory && !isBlindCorner(finalCab.masterCode, finalCab.description) && (finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode))) {
 		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
 		      } else setSmallGapFillerPrompt(null);
@@ -4968,7 +4976,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (uid) { setSelectedUid(null); setSelectedSinkUid(null); setSelectedOpeningUid(null); }
   }, []);
 
-		  const commitIslandScene = useCallback((nextIsland: IslandZone, nextPlaced: PlacedCabinet[]) => {
+	  const commitIslandScene = useCallback((nextIsland: IslandZone, nextPlaced: PlacedCabinet[]) => {
 		    placedRef.current = nextPlaced;
 		    setPlaced(nextPlaced);
 		    setIsland(nextIsland);
@@ -4976,6 +4984,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    setIslandFace(islandFaceRef.current);
 	    setSinks((current) => normalizeSinkFixturesToBases(current, nextPlaced, room));
 	  }, [room]);
+
+	  const applyIslandSeatingOverhang = useCallback((overhangIn: 0 | 10 | 12) => {
+	    const prompt = islandSeatingOverhangPrompt;
+	    setIslandSeatingOverhangPrompt(null);
+	    if (!prompt || !island || overhangIn === 0) return;
+	    const nextIsland = islandWithFaceSeatingOverhang(island, placedRef.current, prompt.face, overhangIn);
+	    const slab = islandCountertopRect(nextIsland, placedRef.current);
+	    if (slab && (slab.x < 0 || slab.y < 0 || slab.x + slab.width > room.width || slab.y + slab.depth > room.depth)) {
+	      toast.error("The selected island seating overhang would extend outside the room.");
+	      return;
+	    }
+	    commitIslandScene(nextIsland, placedRef.current);
+	    toast.success(`${overhangIn}-inch island seating overhang added.`);
+	  }, [commitIslandScene, island, islandSeatingOverhangPrompt, room]);
 
 	  const moveIsland = useCallback((dxIn: number, dyIn: number) => {
 	    if (!island) return;
@@ -10887,6 +10909,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        designId={loadDesignId ?? undefined}
 	        designName={savedDesign?.name ?? null}
 	      />
+	      <AlertDialog open={!!islandSeatingOverhangPrompt} onOpenChange={(open) => { if (!open) setIslandSeatingOverhangPrompt(null); }}>
+	        <AlertDialogContent className="w-[min(94vw,540px)]">
+	          <AlertDialogHeader>
+	            <AlertDialogTitle>Add island seating overhang?</AlertDialogTitle>
+	            <AlertDialogDescription>
+	              {islandSeatingOverhangPrompt?.cabinetCode} is a counter-height shallow cabinet on the {islandSeatingOverhangPrompt?.face} island face. Choose a seating overhang on its outer side, or keep the standard countertop edge.
+	            </AlertDialogDescription>
+	          </AlertDialogHeader>
+	          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+	            <AlertDialogCancel onClick={() => applyIslandSeatingOverhang(0)}>No seating overhang</AlertDialogCancel>
+	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(10)}>Add 10 in. seating</AlertDialogAction>
+	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(12)}>Add 12 in. seating</AlertDialogAction>
+	          </AlertDialogFooter>
+	        </AlertDialogContent>
+	      </AlertDialog>
 		      <IslandAttributesDialog
 		        open={islandAttributesOpen}
 	        onOpenChange={setIslandAttributesOpen}

@@ -1,9 +1,11 @@
 import {
   COLLISION_EPSILON_IN,
   STD,
+  bearsIslandCountertop,
   bearsCountertop,
   clampIslandToRoom,
   hasCollision,
+  isCounterHeightIslandWallCabinet,
   isOnIsland,
   placedFootprint,
   type IslandFace,
@@ -23,10 +25,15 @@ export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, 
   const width = Math.max(0, Number(cabinet.width) || 0);
   const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);
   const along = Math.max(0, Math.min(offset, Math.max(0, islandFaceLength(island, face) - width)));
-  const mountBottom = cabinet.mountBottomAdjusted === true && typeof cabinet.mountBottom === "number" && cabinet.mountBottom >= 0
+  const isCounterHeightWallFace = cabinet.placement === "wall"
+    && depth <= STD.WALL_DEPTH + COLLISION_EPSILON_IN
+    && Math.max(0, Number(cabinet.height) || STD.WALL_HEIGHT) <= STD.BASE_HEIGHT + COLLISION_EPSILON_IN;
+  const mountBottom = isCounterHeightWallFace
+    ? Math.max(0, STD.BASE_HEIGHT - Math.max(0, Number(cabinet.height) || STD.WALL_HEIGHT))
+    : cabinet.mountBottomAdjusted === true && typeof cabinet.mountBottom === "number" && cabinet.mountBottom >= 0
     ? cabinet.mountBottom
     : 0;
-  const local = { ...cabinet, mountBottom };
+  const local = { ...cabinet, mountBottom, islandCounterHeightWallCabinet: isCounterHeightWallFace || undefined };
   if (face === "front") return { ...local, x: island.x + along, y: island.y + island.depth - depth, rotation: 0, islandFace: face, islandOffset: along };
   if (face === "back") return { ...local, x: island.x + along, y: island.y, rotation: 180, islandFace: face, islandOffset: along };
   if (face === "left") return { ...local, x: island.x, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
@@ -137,6 +144,45 @@ export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): 
   return distances[0]?.[0] ?? "front";
 }
 
+const OPPOSITE_ISLAND_FACE: Record<IslandFace, IslandFace> = {
+  front: "back",
+  back: "front",
+  left: "right",
+  right: "left",
+};
+
+/**
+ * A counter-height shallow wall cabinet intentionally forms the opposing island
+ * face. Seat its back against an overlapping base run without moving that run.
+ */
+export function snapCounterHeightIslandWallCabinetToOpposingBase(
+  candidate: PlacedCabinet,
+  island: IslandZone,
+  placed: PlacedCabinet[],
+): PlacedCabinet {
+  if (!isCounterHeightIslandWallCabinet(candidate) || !candidate.islandFace) return candidate;
+  const face = candidate.islandFace;
+  const opposite = OPPOSITE_ISLAND_FACE[face];
+  const footprint = placedFootprint(candidate);
+  const candidateStart = face === "front" || face === "back" ? candidate.x : candidate.y;
+  const candidateEnd = candidateStart + (face === "front" || face === "back" ? footprint.w : footprint.d);
+  const target = placed
+    .filter((item) => bearsCountertop(item) && inferredIslandFace(item, island) === opposite)
+    .map((item) => {
+      const itemFootprint = placedFootprint(item);
+      const start = opposite === "front" || opposite === "back" ? item.x : item.y;
+      const end = start + (opposite === "front" || opposite === "back" ? itemFootprint.w : itemFootprint.d);
+      return { item, footprint: itemFootprint, overlap: Math.min(candidateEnd, end) - Math.max(candidateStart, start) };
+    })
+    .filter(({ overlap }) => overlap > COLLISION_EPSILON_IN)
+    .sort((left, right) => right.overlap - left.overlap)[0];
+  if (!target) return candidate;
+  if (face === "front") return { ...candidate, y: target.item.y + target.footprint.d };
+  if (face === "back") return { ...candidate, y: target.item.y - footprint.d };
+  if (face === "left") return { ...candidate, x: target.item.x - footprint.w };
+  return { ...candidate, x: target.item.x + target.footprint.w };
+}
+
 export function islandOffsetForPlaced(cabinet: PlacedCabinet, island: IslandZone, face = inferredIslandFace(cabinet, island)): number {
   if (cabinet.islandFace === face && Number.isFinite(cabinet.islandOffset)) return Math.max(0, Number(cabinet.islandOffset));
   return face === "front" || face === "back" ? cabinet.x - island.x : cabinet.y - island.y;
@@ -173,7 +219,11 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   for (const start of candidateStarts) {
     if (start + runLength > islandFaceLength(island, face) + COLLISION_EPSILON_IN) continue;
     if (occupied.some((span) => start < span.end - COLLISION_EPSILON_IN && start + runLength > span.start + COLLISION_EPSILON_IN)) continue;
-    const candidate = islandFacePlacement(cabinet, island, face, start);
+    const candidate = snapCounterHeightIslandWallCabinetToOpposingBase(
+      islandFacePlacement(cabinet, island, face, start),
+      island,
+      placed,
+    );
     if (!hasCollision(candidate, placed)) return candidate;
   }
   return null;
@@ -266,6 +316,7 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
 }
 
 export type IslandCountertopRect = { x: number; y: number; width: number; depth: number };
+export type IslandSeatingOverhangIn = 10 | 12;
 
 function islandCountertopSupportBounds(supports: PlacedCabinet[]): IslandCountertopRect | null {
   if (supports.length === 0) return null;
@@ -291,7 +342,7 @@ function countertopSupportsConnect(first: PlacedCabinet, second: PlacedCabinet):
  * A user-entered custom slab remains one intentional physical slab.
  */
 export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
   const allBounds = islandCountertopSupportBounds(supports);
   if (!allBounds) return [];
   const hasIntentionalSlab = island.countertopWidth != null || island.countertopDepth != null;
@@ -335,7 +386,7 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
 export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect | null {
   const slabs = islandCountertopRects(island, placed);
   if (slabs.length === 1) return slabs[0];
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
+  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
   const bounds = islandCountertopSupportBounds(supports);
   return bounds ? {
     x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
@@ -343,4 +394,57 @@ export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]
     width: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
     depth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
   } : null;
+}
+
+/**
+ * Create one intentional island slab with seating projection on a selected
+ * face. The stated 10- or 12-inch value is measured from that cabinet face;
+ * the normal 1.5-inch reveal is retained on the other exposed slab edges.
+ */
+export function islandWithFaceSeatingOverhang(
+  island: IslandZone,
+  placed: PlacedCabinet[],
+  face: IslandFace,
+  overhangIn: IslandSeatingOverhangIn,
+): IslandZone {
+  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
+  const bounds = islandCountertopSupportBounds(supports);
+  if (!bounds) return island;
+  const extra = overhangIn - ISLAND_COUNTERTOP_OVERHANG_IN;
+  if (face === "front") return {
+    ...island,
+    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopOffsetX: 0,
+    countertopOffsetY: extra / 2,
+    countertopWidthAnchoredToZone: false,
+    countertopDepthAnchoredToZone: false,
+  };
+  if (face === "back") return {
+    ...island,
+    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopOffsetX: 0,
+    countertopOffsetY: -extra / 2,
+    countertopWidthAnchoredToZone: false,
+    countertopDepthAnchoredToZone: false,
+  };
+  if (face === "left") return {
+    ...island,
+    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopOffsetX: -extra / 2,
+    countertopOffsetY: 0,
+    countertopWidthAnchoredToZone: false,
+    countertopDepthAnchoredToZone: false,
+  };
+  return {
+    ...island,
+    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopOffsetX: extra / 2,
+    countertopOffsetY: 0,
+    countertopWidthAnchoredToZone: false,
+    countertopDepthAnchoredToZone: false,
+  };
 }

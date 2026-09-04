@@ -19,7 +19,7 @@ import {
   FinishColors, DEFAULT_FINISH_COLORS,
   type DoorPanelKind,
   countertopMaterial,
-  isOnIsland, placedFootprint, bearsCountertop,
+  isOnIsland, placedFootprint, bearsIslandCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
   isRangeOrOven, isStacker, wallCabinetTopLine,
 	  DEFAULT_CEILING_HEIGHT,
@@ -580,11 +580,11 @@ export function IslandElevationView({
               is selected. The per-cabinet fallback was causing an unwanted
               warm/orange stripe at the top of every base cabinet. */}
 
-          {/* Merged countertop spans (for bearsCountertop cabinets) */}
+          {/* Merged countertop spans for bases and intentional counter-height shallow island wall faces. */}
           {countertopMaterialId && (() => {
             const mat = countertopMaterial(countertopMaterialId);
             const isBridgeable = (p: PlacedCabinet) =>
-              bearsCountertop(p) ||
+              bearsIslandCountertop(p) ||
               (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
             const spans = sorted
               .filter(isBridgeable)

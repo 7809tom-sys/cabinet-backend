@@ -1468,3 +1468,9 @@
 - [x] Align fitted fillers flush to the room-facing cabinet front instead of recessed against the back wall
 - [x] Move mobile Walls, Hide Walls, and fitted-filler feedback into compact right-side pop-ups that preserve canvas space
 - [x] Reproduce and repair HOOD-30 placement when it is falsely rejected for overlapping an adjacent wall cabinet instead of mounting above its associated range
+- [x] In Island mode, snap a compatible shallow wall cabinet’s back flush to adjoining base-cabinet backs and align its top to the base countertop height
+- [x] Extend automatic countertop support over counter-height shallow wall cabinets only when they are intentionally placed on an island face
+- [x] Validate opposing-face Island mode placement with a W-24-30 and base cabinets without changing Wall mode behavior
+- [x] In Island mode only, prompt for no seating overhang, a 10-inch overhang, or a 12-inch overhang when a counter-height shallow wall cabinet joins an opposing base-cabinet face
+- [x] Preserve the selected Island-only seating overhang with the exact island slab and validate it does not alter Wall mode countertop behavior
+- [ ] Identify and repair the reported live Pelican price discrepancy without changing cabinetry or an owner-configured commercial markup unless the intended target is verified
