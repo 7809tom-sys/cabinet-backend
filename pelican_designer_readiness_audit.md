@@ -217,3 +217,11 @@ Pelican’s official PL-HA128 documentation verifies a Handmade Series **double-
 
 40. [Pelican Int’l — PL-HA128 product page](https://buildpelican.com/products/pl-ha128)
 41. [Pelican Int’l — PL-HA128 R15 specification sheet](https://cdn.accentuate.io/7876666720396/1729873935066/PL-HA128-R15-%282%29.pdf?v=1729873935067)
+
+## Corrected Kitchen Eligibility — PL-3099
+
+Pelican identifies PL-3099 as an 18 × 13-inch porcelain **vanity sink**, not a kitchen farmhouse sink. A legacy imported display name used the words “Farmhouse Reserve,” which could misleadingly suggest kitchen placement. The public Pelican catalog record remains available for bathroom shoppers, but the product is explicitly excluded from the kitchen Designer palette and from the public **View in Designer Palette** action. No catalog pricing, source record, or ordering identity is changed.
+
+### Source
+
+42. [Pelican Int’l — PL-3099 product page](https://buildpelican.com/products/pl-3099)

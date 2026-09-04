@@ -301,6 +301,7 @@ export function pelicanDisplayName(input: PelicanProductPresentationInput): stri
 }
 
 export type PelicanDesignerPaletteInput = {
+  pelicanCode?: string | null;
   category?: string | null;
   showInDesigner?: boolean | null;
   sellPrice?: number | null;
@@ -313,6 +314,10 @@ export type PelicanDesignerPaletteInput = {
  */
 export function isPelicanDesignerPaletteAvailable(input: PelicanDesignerPaletteInput): boolean {
   const category = input.category ?? "";
+  // Pelican's PL-3099 is a bathroom vanity sink despite one legacy imported
+  // display name describing it as a farmhouse model. It remains orderable in the
+  // public catalog but cannot appear as a kitchen Designer option.
+  if (/^PL-3099(?:\s|$)/i.test(input.pelicanCode?.trim() ?? "")) return false;
   return Boolean(input.showInDesigner)
     && PELICAN_STOREFRONT_CATEGORIES.includes(category as PelicanCategory)
     && typeof input.sellPrice === "number"

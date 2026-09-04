@@ -22,4 +22,13 @@ describe("pelicanFixtureRole", () => {
     expect(pelicanFixtureRole({ name: "Stainless Sink Clip", description: "Mounting clip for undermount sink", subCategory: "Sinks" })).toBeNull();
     expect(pelicanFixtureRole({ name: "Special Order PF-4225FM", description: "Prefabricated countertop with faucet cut-out for sinks", subCategory: "Faucets" })).toBeNull();
   });
+
+  it("excludes the source-verified PL-3099 vanity sink even when a legacy imported name calls it farmhouse", () => {
+    expect(pelicanFixtureRole({
+      pelicanCode: "PL-3099 Bone",
+      name: "StoneCreek Farmhouse Reserve 33\" Farmhouse Apron-Front Single Bowl — Bone White",
+      description: "Porcelain vanity sink",
+      subCategory: "Sinks",
+    })).toBeNull();
+  });
 });

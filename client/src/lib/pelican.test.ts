@@ -97,6 +97,12 @@ describe("pelican storefront helpers", () => {
       showInDesigner: false,
       sellPrice: 72.56,
     })).toBe(false);
+    expect(isPelicanDesignerPaletteAvailable({
+      pelicanCode: "PL-3099 Bone",
+      category: "Sinks & Faucets",
+      showInDesigner: true,
+      sellPrice: 72.56,
+    })).toBe(false);
   });
 });
 

@@ -98,6 +98,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const gradient = CATEGORY_GRADIENT[data.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const preferred = isPreferred(data.id);
   const isDesignerPaletteAvailable = isPelicanDesignerPaletteAvailable({
+    pelicanCode: data.pelicanCode,
     category: data.category,
     showInDesigner: data.showInDesigner,
     sellPrice: data.sellPrice,
