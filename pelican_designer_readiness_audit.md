@@ -1530,3 +1530,11 @@ Pelican’s live product page and official specification establish PL-VS3070 as 
 241. [Pelican Int’l — PL-VS3070 product page](https://buildpelican.com/products/pl-vs3070)
 
 242. [Pelican Int’l — PL-VS3070 technical drawing](https://cdn.accentuate.io/7876668129420/1729876545002/PL-VS3070.pdf?v=1742392860993)
+
+## Retain Exclusion — PL-VS3020 Signature Series Stainless Steel Sink
+
+Pelican’s direct PL-VS3020 product URL currently returns 404. A current official technical drawing establishing installation, exterior and bowl geometry, drain datum, finish, and compatible sink-base opening was not available through the product source. PL-VS3020 remains outside physical placement rather than receiving a generic single- or double-bowl substitute.
+
+### Source
+
+243. [Pelican Int’l — PL-VS3020 direct product URL](https://buildpelican.com/products/pl-vs3020)
