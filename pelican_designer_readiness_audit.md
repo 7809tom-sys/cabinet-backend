@@ -453,6 +453,29 @@ The measured vessel, bowl, drain, countertop seating, and visible apron are suff
 81. [Pelican Int’l — PL-HA148 product page](https://buildpelican.com/products/pl-ha148)
 82. [Pelican Int’l — PL-HA148 R10 specification sheet](https://cdn.accentuate.io/8978112938124/1775058900343/PL-HA148-R10.pdf?v=1775058900343)
 
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA146
+
+Pelican’s direct current `products/pl-ha146` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-FC3221SB
+
+Pelican’s direct current `products/pl-fc3221sb` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA142
+
+Pelican’s direct current `products/pl-ha142` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Next Verified Compact Farmhouse Sink Candidate — PL-FC2522SB
+
+Pelican’s active kitchen-sink product page and official PL-FC2522SB specification sheet identify this white fireclay product as a single-bowl, reversible **apron-front undermount** sink. Pelican describes it as a compact laundry sink for smaller spaces while presenting it within its kitchen-sink catalogue. Its exterior measures **25 × 22 × 11⅝ inches** and its interior bowl measures **19⅞ × 14 × 11 inches**.
+
+These measurements support a source-measured compact parametric farmhouse profile with countertop seating, one drain, and a visible apron. The profile is eligible only on a compatible farmhouse base with a conservative 27-inch-or-wider nominal opening. It does not change cabinetry or pricing, and Pelican product images remain display-only.
+
+### Sources
+
+83. [Pelican Int’l — PL-FC2522SB product page](https://buildpelican.com/products/pl-fc2522sb)
+84. [Pelican Int’l — PL-FC2522SB specification sheet](https://cdn.accentuate.io/8980578369676/1775069308518/PL-FC2522SB.pdf?v=1776100502044)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.

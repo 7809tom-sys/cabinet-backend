@@ -288,6 +288,21 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-FC2522SB source-verified compact single-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC2522SB White")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 25,
+      exteriorDepthIn: 22,
+      exteriorHeightIn: 11.625,
+      bowlWidthIn: 19.875,
+      bowlDepthIn: 14,
+      bowlHeightIn: 11,
+      minimumCabinetWidthIn: 27,
+    });
+  });
+
   it("maps the PL-FC3219SB source-verified single-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toMatchObject({
       installation: "apron-front-undermount",
