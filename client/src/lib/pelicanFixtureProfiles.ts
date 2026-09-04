@@ -99,7 +99,7 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA117": {
     id: "pelican-pl-ha117-r0-stainless-double-bowl-undermount", pelicanCode: "PL-HA117", name: "PL-HA117 R0 Stainless Steel Double-Bowl Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
-    exteriorWidthIn: 32, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 14.5, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, minimumCabinetWidthIn: 32,
+    exteriorWidthIn: 32, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 14.5, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, drainInsetBackIn: 120 / 25.4, minimumCabinetWidthIn: 32,
     specificationUrl: "https://cdn.accentuate.io/7876666130572/1729873362647/PL-HA117-R0.pdf?v=1729873362647",
   },
   "PL-HA119": {

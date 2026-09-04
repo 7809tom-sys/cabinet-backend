@@ -3435,7 +3435,7 @@ describe("interactive 3D room scene helpers", () => {
     const sink = {
       uid: "pelican-pl-ha117-r0", type: "single", x: 24, y: 48, width: 32, depth: 18,
       sourceWidth: 32, sourceDepth: 18, bowlWidth: 14.5, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
-      exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha117-r0-stainless-double-bowl-undermount",
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: false, pelicanProfileId: "pelican-pl-ha117-r0-stainless-double-bowl-undermount",
       faucet: false, wallSide: "top",
     } as never;
     addSinkFixture(root, sink);
@@ -3456,6 +3456,33 @@ describe("interactive 3D room scene helpers", () => {
       expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(16, 5);
       expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(10, 5);
       expect(bounds.max.y).toBeCloseTo(sinkFixtureTransform(sink).countertopTop, 6);
+    }
+    for (const drain of drains) {
+      expect(drain.userData.documentedDrainInset).toBe(true);
+      expect((drain.position.z - bowls[0].position.z) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
+    }
+  });
+
+  it("preserves PL-HA117’s source-verified rear-center drains on a left wall", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "pelican-pl-ha117-r0-left", type: "single", x: 24, y: 48, width: 18, depth: 32,
+      sourceWidth: 32, sourceDepth: 18, bowlWidth: 14.5, bowlDepth: 16, bowlHeight: 10, bowlCount: 2,
+      drainInsetBack: 120 / 25.4, exteriorHeight: 10, apronFront: false,
+      pelicanProfileId: "pelican-pl-ha117-r0-stainless-double-bowl-undermount", faucet: false, wallSide: "left",
+    } as never;
+    addSinkFixture(root, sink);
+    const bowls: THREE.Object3D[] = [];
+    const drains: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.pelicanProfileId === sink.pelicanProfileId && node.userData.sinkBowl) bowls.push(node);
+      if (node.userData.sinkDrain) drains.push(node);
+    });
+    expect(bowls).toHaveLength(2);
+    expect(drains).toHaveLength(2);
+    for (const drain of drains) {
+      expect(drain.userData.documentedDrainInset).toBe(true);
+      expect((drain.position.x - bowls[0].position.x) * 12).toBeCloseTo(-(8 - 120 / 25.4), 5);
     }
   });
 

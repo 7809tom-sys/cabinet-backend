@@ -1022,3 +1022,11 @@ Pelican’s official PL-HA111 R0 drawing identifies a 16-gauge stainless-steel s
 ### Source
 
 166. [Pelican Int’l — PL-HA111 R0 technical drawing](https://cdn.accentuate.io/7876665802892/1729873006384/PL-HA111-R0.pdf?v=1729873006384)
+
+## Source-Verified Drain Datum — PL-HA117 R0 Standard Double-Bowl Undermount Sink
+
+Pelican’s official PL-HA117 R0 drawing confirms a 16- or 18-gauge stainless-steel **double-bowl** undermount sink with a **32 × 18 × 10-inch** exterior and two **14½ × 16 × 10-inch** bowls. It locates each bowl’s drain on its centerline and **120 mm (4.724 inches) from the rear bowl edge**. The physical profile must retain this shared rear-center drain datum for both bowls rather than use a generic double-bowl fallback.
+
+### Source
+
+167. [Pelican Int’l — PL-HA117 R0 technical drawing](https://cdn.accentuate.io/7876666130572/1729873362647/PL-HA117-R0.pdf?v=1729873362647)
