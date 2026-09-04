@@ -895,3 +895,14 @@ PL-FC101 remains outside the physical Designer palette until Pelican provides an
 
 148. [Pelican Int’l — current public product feed](https://buildpelican.com/products.json?limit=250)
 149. [Pelican Int’l — PL-FC101 product URL](https://buildpelican.com/products/pl-fc101)
+
+## Not Admitted to Exact Physical Placement Yet — PL-FC103
+
+Pelican’s public product feed currently contains a PL-FC103 listing, but the direct active `products/pl-fc103` product URL returns **404 Not Found**. No current official product detail page or technical specification was available to establish its exact identity, installation class, bowl or drain geometry, apron form, materials, finish, or compatible sink-base rule.
+
+PL-FC103 remains outside the physical Designer palette until Pelican provides an authoritative current product source and complete technical documentation. No catalog-feed entry, product photograph, or generic sink substitute is used as a physical model.
+
+### Sources
+
+150. [Pelican Int’l — current public product feed](https://buildpelican.com/products.json?limit=250)
+151. [Pelican Int’l — PL-FC103 product URL](https://buildpelican.com/products/pl-fc103)
