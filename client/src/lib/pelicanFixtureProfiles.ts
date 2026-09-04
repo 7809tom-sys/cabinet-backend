@@ -262,6 +262,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 23, exteriorDepthIn: 18, exteriorHeightIn: 9, bowlWidthIn: 21, bowlDepthIn: 16, bowlHeightIn: 9, minimumCabinetWidthIn: 24,
     specificationUrl: "https://cdn.accentuate.io/7876650336396/1729875037735/PL-VR2318-R20.pdf?v=1742390106955",
   },
+  "PL-VR1816": {
+    id: "pelican-pl-vr1816-r20-stainless-compact-undermount", pelicanCode: "PL-VR1816", name: "PL-VR1816 R20 Urban Series Stainless Steel Compact Undermount Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 18, exteriorDepthIn: 16, exteriorHeightIn: 9, bowlWidthIn: 16, bowlDepthIn: 14, bowlHeightIn: 9, minimumCabinetWidthIn: 21,
+    specificationUrl: "https://cdn.accentuate.io/7876649877644/1729874954761/PL-VR1816-R20.pdf?v=1742389823793",
+  },
   "PL-VR2718": {
     id: "pelican-pl-vr2718-r20-stainless-undermount", pelicanCode: "PL-VR2718", name: "PL-VR2718 R20 Urban Series Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -504,6 +510,7 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-VR5050\s+R20$/.test(normalized)) return "PL-VR5050";
   if (/^PL-VR6040\s+R20$/.test(normalized)) return "PL-VR6040";
   if (/^PL-VR2318\s+R20$/.test(normalized)) return "PL-VR2318";
+  if (/^PL-VR1816\s+R20$/.test(normalized)) return "PL-VR1816";
   if (/^PL-VR2718\s+R20$/.test(normalized)) return "PL-VR2718";
   if (/^PL-VR2718\s+ADA$/.test(normalized)) return "PL-VR2718 ADA";
   if (/^PL-VR3118\s+R20$/.test(normalized)) return "PL-VR3118";

@@ -1618,3 +1618,13 @@ The manufacturer’s completed dimensional drawing confirms a 25 × 16 × 5½-in
 257. [Pelican Int’l — PL-VR2718 ADA product page](https://buildpelican.com/products/pl-vr2718-ada)
 
 258. [Pelican Int’l — PL-VR2718 ADA technical drawing](https://cdn.accentuate.io/7876650500236/1729875077545/PL-VR2718-ADA.pdf?v=1742390303513)
+
+## Source Review — PL-VR1816 R20 Urban Series Stainless Steel Undermount Sink
+
+Pelican’s active product page and manufacturer-linked specification establish PL-VR1816 R20 as an 18-gauge, 304 stainless-steel, satin-brushed **undermount** single-bowl kitchen sink. The official sheet documents an 18 × 16 × 9-inch nominal exterior and a 16 × 14 × 9-inch single interior bowl, with rounded low-radius corners and sound-deadening pads. The technical sheet provides no numerical drain-center datum; no drain offset may be inferred. A physical admission decision remains limited to the existing standard sink-base contract and source-measured geometry; catalog imagery and accessories will not provide 3D geometry or textures.
+
+### Sources
+
+259. [Pelican Int’l — PL-VR1816 R20 product page](https://buildpelican.com/products/pl-vr1816-r20)
+
+260. [Pelican Int’l — PL-VR1816 R20 technical drawing](https://cdn.accentuate.io/7876649877644/1729874954761/PL-VR1816-R20.pdf?v=1742389823793)
