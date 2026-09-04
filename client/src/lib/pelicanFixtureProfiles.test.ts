@@ -18,6 +18,22 @@ describe("verifiedPelicanSinkProfile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3018SB Black")).toMatchObject({ exteriorWidthIn: 30, bowlWidthIn: 28.625 });
     expect(verifiedPelicanSinkProfile("PL-FC3318SB Grey")).toMatchObject({ exteriorWidthIn: 32.625, bowlHeightIn: 9.25 });
     expect(verifiedPelicanSinkProfile("PL-FC3321SB White")).toMatchObject({ exteriorDepthIn: 20.875, bowlDepthIn: 19.75 });
+    expect(verifiedPelicanSinkProfile("PL-FC3620SB White")).toMatchObject({ exteriorWidthIn: 36, bowlWidthIn: 34.5625 });
+  });
+
+  it("maps Pelican’s published PL-FC3620SB single-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-FC3620SB")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 36,
+      exteriorDepthIn: 20,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 34.5625,
+      bowlDepthIn: 18.5625,
+      bowlHeightIn: 9,
+      minimumCabinetWidthIn: 36,
+    });
   });
 
   it("distinguishes the measured standard and ADA PL-HA109 undermount depths", () => {

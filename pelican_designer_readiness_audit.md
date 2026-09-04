@@ -399,6 +399,38 @@ Pelican’s direct current `products/pl-ha116` URL returns a **404 Not Found** p
 
 Pelican’s direct current `products/pl-ha112` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
 
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA137
+
+Pelican’s direct current `products/pl-ha137` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-FC3320WS
+
+Pelican’s current `products/pl-fc3320ws` page confirms the product is active, but provides neither technical details nor a linked PDF, DXF, installation document, or specification sheet. Its related product imagery and third-party listings cannot establish source-verified dimensions or be used as model geometry. It remains outside the verified Designer fixture palette until Pelican publishes an authoritative technical source establishing its installation class, exterior and bowl measurements, and compatible sink-base requirement.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-HA140
+
+Pelican’s direct current `products/pl-ha140` URL returns a **404 Not Found** page. No current Pelican product page or official Pelican specification sheet was recovered, so the item remains outside the verified Designer fixture palette until its exact source, dimensions, installation class, and compatible sink-base requirement can be established. No third-party dimensions, catalog imagery, or generic substitute geometry are used.
+
+## Not Admitted to Exact Kitchen Placement Yet — PL-WS4519 R0 16g
+
+Pelican’s current product page and official specification sheet establish a 16-gauge stainless-steel, single-bowl **undermount workstation** sink with a 45 × 19 × 10-inch exterior and a 43 × 17 × 9½-inch bowl. However, its official feature list identifies dual graduated accessory ledges and integral workstation accessories, while the published dimensional drawing does not measure the ledge steps or their positions. A conventional single-bowl model would be a misleading generic substitute. This product remains outside the verified palette until Pelican provides sufficiently detailed workstation-ledge geometry. Its technical drawing, product images, and accessory images remain documentation/display-only rather than 3D model inputs.
+
+### Sources
+
+75. [Pelican Int’l — PL-WS4519 R0 product page](https://buildpelican.com/products/pl-ws4519-r0-16g)
+76. [Pelican Int’l — PL-WS4519 R0 specification sheet](https://cdn.accentuate.io/9816841814156/1788220020311/PL-WS4519-R0.pdf?v=1788220020312)
+
+## Next Verified Farmhouse Sink Candidate — PL-FC3620SB
+
+Pelican’s current product page and official specification sheet identify PL-FC3620SB as a white fireclay, single-bowl, reversible **apron-front undermount** farmhouse kitchen sink. Its exterior measures **36 × 20 × 10 inches** and its interior bowl measures **34 9⁄16 × 18 9⁄16 × 9 inches**. The technical sheet identifies the single-bowl configuration and provides a 90-millimeter drain dimension.
+
+These measurements support a source-measured parametric farmhouse profile with countertop seating, one drain, and a visible apron. The sink is eligible only on compatible 36-inch-or-wider farmhouse bases. It does not change cabinetry or pricing, and Pelican product images and DXF files remain display-only.
+
+### Sources
+
+77. [Pelican Int’l — PL-FC3620SB product page](https://buildpelican.com/products/pl-fc3620sb)
+78. [Pelican Int’l — PL-FC3620SB specification sheet](https://cdn.accentuate.io/7876649746572/1729870771898/PL-FC3620SB.pdf?v=1729870771898)
+
 ## Next Verified Farmhouse Sink Candidate — PL-HA139 R15
 
 Pelican’s current product page and official PL-HA139 R15 specification sheet identify this as a 16-gauge stainless-steel, double-bowl **apron-front undermount** farmhouse kitchen sink. Its exterior measures **33 × 21 × 10 inches**. Its bowls are asymmetric: the left bowl is **12 × 16 × 10 inches** and the right bowl is **17 × 16 × 10 inches**. The technical sheet identifies a double-bowl configuration and shows two drains.

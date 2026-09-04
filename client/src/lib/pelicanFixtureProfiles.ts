@@ -68,6 +68,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     exteriorWidthIn: 33, exteriorDepthIn: 20.875, exteriorHeightIn: 10, bowlWidthIn: 31.625, bowlDepthIn: 19.75, bowlHeightIn: 10, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/8980578599052/1775068792025/PL-FC3321SB.pdf?v=1776100377350",
   },
+  "PL-FC3620SB": {
+    id: "pelican-pl-fc3620sb-fireclay-farmhouse", pelicanCode: "PL-FC3620SB", name: "PL-FC3620SB Fireclay Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 36, exteriorDepthIn: 20, exteriorHeightIn: 10, bowlWidthIn: 34.5625, bowlDepthIn: 18.5625, bowlHeightIn: 9, minimumCabinetWidthIn: 36,
+    specificationUrl: "https://cdn.accentuate.io/7876649746572/1729870771898/PL-FC3620SB.pdf?v=1729870771898",
+  },
   "PL-HA109": {
     id: "pelican-pl-ha109-stainless-undermount", pelicanCode: "PL-HA109", name: "PL-HA109 Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
