@@ -51,6 +51,23 @@ describe("verifiedPelicanSinkProfile", () => {
     });
   });
 
+  it("maps the PL-HA136 R15 source-verified asymmetric double-bowl farmhouse profile", () => {
+    expect(verifiedPelicanSinkProfile("PL-HA136")).toMatchObject({
+      installation: "apron-front-undermount",
+      sinkType: "farmhouse",
+      apronFront: true,
+      exteriorWidthIn: 33,
+      exteriorDepthIn: 21,
+      exteriorHeightIn: 10,
+      bowlWidthIn: 17,
+      bowlDepthIn: 16,
+      bowlHeightIn: 10,
+      bowlCount: 2,
+      bowlWidthsIn: [17, 12],
+      minimumCabinetWidthIn: 33,
+    });
+  });
+
   it("maps the PL-FC3219SB source-verified single-bowl farmhouse profile", () => {
     expect(verifiedPelicanSinkProfile("PL-FC3219SB White")).toMatchObject({
       installation: "apron-front-undermount",

@@ -22,6 +22,8 @@ export type VerifiedPelicanSinkProfile = {
   bowlHeightIn: number;
   /** Number of source-verified interior bowls; omitted profiles are single-bowl. */
   bowlCount?: 1 | 2;
+  /** Individually measured bowl widths for asymmetric two-bowl sink profiles. */
+  bowlWidthsIn?: readonly [number, number];
   minimumCabinetWidthIn: number;
   specificationUrl: string;
 };
@@ -93,6 +95,12 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
     installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
     exteriorWidthIn: 32.625, exteriorDepthIn: 18, exteriorHeightIn: 10, bowlWidthIn: 15.375, bowlDepthIn: 16.5, bowlHeightIn: 9.25, bowlCount: 2, minimumCabinetWidthIn: 33,
     specificationUrl: "https://cdn.accentuate.io/8980578435212/1775069060533/PL-FC3318DB-(2).pdf?v=1776100453253",
+  },
+  "PL-HA136": {
+    id: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse", pelicanCode: "PL-HA136", name: "PL-HA136 R15 Handmade Double-Bowl Farmhouse Sink",
+    installation: "apron-front-undermount", sinkType: "farmhouse", apronFront: true,
+    exteriorWidthIn: 33, exteriorDepthIn: 21, exteriorHeightIn: 10, bowlWidthIn: 17, bowlDepthIn: 16, bowlHeightIn: 10, bowlCount: 2, bowlWidthsIn: [17, 12], minimumCabinetWidthIn: 33,
+    specificationUrl: "https://cdn.accentuate.io/7876666949772/1729874053747/PL-HA136-R15.pdf?v=1729874053747",
   },
 };
 

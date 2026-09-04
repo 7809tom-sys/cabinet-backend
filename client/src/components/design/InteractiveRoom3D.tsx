@@ -5023,11 +5023,17 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const basinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
   const sourceBowlWidth = sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3;
   const sourceBowlDepth = sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3;
-  const bowlPlan = sinkPlanDimensions(sourceBowlWidth, sourceBowlDepth, sink.wallSide);
-  const innerWidth = Math.max(0.26, bowlPlan.width * INCH);
-  const innerDepth = Math.max(0.24, bowlPlan.depth * INCH);
-  const bowlHeight = Math.max(0.12, (sink.bowlHeight ?? 10) * INCH);
   const measuredDoubleBowl = sink.bowlCount === 2;
+  const bowlPlans = measuredDoubleBowl
+    ? [0, 1].map((bowlIndex) => sinkPlanDimensions(sink.bowlWidths?.[bowlIndex] ?? sourceBowlWidth, sourceBowlDepth, sink.wallSide))
+    : [sinkPlanDimensions(sourceBowlWidth, sourceBowlDepth, sink.wallSide)];
+  const bowlDimensions = bowlPlans.map((bowlPlan) => ({
+    width: Math.max(0.26, bowlPlan.width * INCH),
+    depth: Math.max(0.24, bowlPlan.depth * INCH),
+  }));
+  const innerWidth = bowlDimensions[0].width;
+  const innerDepth = bowlDimensions[0].depth;
+  const bowlHeight = Math.max(0.12, (sink.bowlHeight ?? 10) * INCH);
   const rim = new THREE.Mesh(
     new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
     steel,
@@ -5038,30 +5044,45 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   // A verified two-bowl profile gives the physical dimensions of each bowl.
   // Preserve those two measurements rather than stretching one generic basin.
   const lateralIsX = sink.wallSide !== "left" && sink.wallSide !== "right";
+  const asymmetricDoubleBowl = measuredDoubleBowl && bowlDimensions[0].width !== bowlDimensions[1].width;
   const availableDividerSpan = lateralIsX ? width - innerWidth * 2 : depth - innerDepth * 2;
   const bowlSeparation = measuredDoubleBowl
     ? Math.max((lateralIsX ? innerWidth : innerDepth) / 2 + 0.04, (lateralIsX ? innerWidth : innerDepth) / 2 + availableDividerSpan * 0.25)
     : 0;
-  const bowlOffsets = measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0];
+  const asymmetricLayout = (() => {
+    if (!asymmetricDoubleBowl) return null;
+    const lateralSpan = lateralIsX ? width : depth;
+    const firstBowlSpan = lateralIsX ? bowlDimensions[0].width : bowlDimensions[0].depth;
+    const secondBowlSpan = lateralIsX ? bowlDimensions[1].width : bowlDimensions[1].depth;
+    const dividerGap = 0.055;
+    const edgeInset = Math.max(0, (lateralSpan - firstBowlSpan - secondBowlSpan - dividerGap) / 2);
+    const firstCenter = -lateralSpan / 2 + edgeInset + firstBowlSpan / 2;
+    const secondCenter = firstCenter + firstBowlSpan / 2 + dividerGap + secondBowlSpan / 2;
+    return { bowlOffsets: [firstCenter, secondCenter], dividerOffset: firstCenter + firstBowlSpan / 2 + dividerGap / 2 };
+  })();
+  const bowlOffsets = asymmetricLayout?.bowlOffsets ?? (measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0]);
   bowlOffsets.forEach((lateralOffset, bowlIndex) => {
     const bowlX = centerX + (lateralIsX ? lateralOffset : 0);
     const bowlZ = centerZ + (lateralIsX ? 0 : lateralOffset);
+    const bowlDimensionsForIndex = bowlDimensions[bowlIndex] ?? bowlDimensions[0];
+    const bowlInnerWidth = bowlDimensionsForIndex.width;
+    const bowlInnerDepth = bowlDimensionsForIndex.depth;
     const bowl = new THREE.Mesh(
-      new RoundedBoxGeometry(innerWidth, bowlHeight, innerDepth, 5, Math.min(0.12, innerWidth * 0.09, innerDepth * 0.09)),
+      new RoundedBoxGeometry(bowlInnerWidth, bowlHeight, bowlInnerDepth, 5, Math.min(0.12, bowlInnerWidth * 0.09, bowlInnerDepth * 0.09)),
       basinInterior,
     );
     bowl.position.set(bowlX, countertopTop - bowlHeight / 2, bowlZ);
     bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowl);
     const bowlFloor = new THREE.Mesh(
-      new RoundedBoxGeometry(innerWidth * 0.72, 0.025, innerDepth * 0.68, 3, Math.min(0.08, innerWidth * 0.06, innerDepth * 0.06)),
+      new RoundedBoxGeometry(bowlInnerWidth * 0.72, 0.025, bowlInnerDepth * 0.68, 3, Math.min(0.08, bowlInnerWidth * 0.06, bowlInnerDepth * 0.06)),
       brushedSteel,
     );
     bowlFloor.position.set(bowlX, countertopTop - bowlHeight + 0.014, bowlZ);
     bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowlFloor);
     const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
-    drain.position.set(bowlX, countertopTop - 0.235, bowlZ + innerDepth * 0.18);
+    drain.position.set(bowlX, countertopTop - 0.235, bowlZ + bowlInnerDepth * 0.18);
     drain.userData = { sinkDrain: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
     root.add(drain);
     const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
@@ -5108,7 +5129,11 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       ),
       steel,
     );
-    divider.position.set(centerX, countertopTop - 0.11, centerZ);
+    divider.position.set(
+      centerX + (lateralIsX ? (asymmetricLayout?.dividerOffset ?? 0) : 0),
+      countertopTop - 0.11,
+      centerZ + (lateralIsX ? 0 : (asymmetricLayout?.dividerOffset ?? 0)),
+    );
     divider.userData = { sinkBowlDivider: true, fixtureDetail: true };
     root.add(divider);
   }

@@ -48,6 +48,28 @@ describe("design placement collision prevention", () => {
     expect(normalized[0]).toMatchObject({ wallSide: "right", width: 18, depth: 25, cabinetUid: "right-sb36" });
   });
 
+  it("preserves source-verified asymmetric double-bowl widths when a farmhouse sink is normalized to its owning base", () => {
+    const topFarmhouseBase = placed({ uid: "fsb36", masterCode: "FSB-36", description: "Farmhouse Sink Base 36", x: 36, y: 0, width: 36, depth: 24 });
+    const installed = makeSinkForCabinet("farmhouse", topFarmhouseBase, DEFAULT_ROOM, { width: 33, depth: 21 });
+    const normalized = normalizeSinkFixturesToBases([{
+      ...installed,
+      pelicanProfileId: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse",
+      bowlWidth: 17,
+      bowlWidths: [17, 12] as const,
+      bowlDepth: 16,
+      bowlHeight: 10,
+      bowlCount: 2,
+      exteriorHeight: 10,
+      apronFront: true,
+    }], [topFarmhouseBase], DEFAULT_ROOM);
+    expect(normalized[0]).toMatchObject({
+      cabinetUid: "fsb36",
+      pelicanProfileId: "pelican-pl-ha136-r15-stainless-asymmetric-double-bowl-farmhouse",
+      bowlWidths: [17, 12],
+      bowlCount: 2,
+    });
+  });
+
   it("rejects an appliance overlapping a base cabinet but preserves the sink-over-sink-base exception", () => {
     const b33 = placed({ uid: "b33", masterCode: "B33", x: 0 });
     const range = placed({ uid: "range", masterCode: "RANGE-30", placement: "appliance", x: 4, width: 30 });

@@ -10697,6 +10697,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       bowlDepth: verifiedProfile.bowlDepthIn,
                       bowlHeight: verifiedProfile.bowlHeightIn,
                       bowlCount: verifiedProfile.bowlCount ?? 1,
+                      bowlWidths: verifiedProfile.bowlWidthsIn,
                       exteriorHeight: verifiedProfile.exteriorHeightIn,
                       apronFront: verifiedProfile.apronFront,
                     };
@@ -11100,6 +11101,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             bowlDepth: verifiedProfile.bowlDepthIn,
             bowlHeight: verifiedProfile.bowlHeightIn,
             bowlCount: verifiedProfile.bowlCount ?? 1,
+            bowlWidths: verifiedProfile.bowlWidthsIn,
             exteriorHeight: verifiedProfile.exteriorHeightIn,
             apronFront: verifiedProfile.apronFront,
             pelicanFaucetProductId: faucetProduct?.id,
