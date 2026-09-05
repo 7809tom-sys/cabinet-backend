@@ -1,0 +1,2 @@
+ALTER TABLE `design_gemini_image_test_jobs` MODIFY COLUMN `status` enum('queued','pending','completed','failed') NOT NULL DEFAULT 'queued';--> statement-breakpoint
+ALTER TABLE `design_gemini_image_test_jobs` ADD `sourceImageKey` varchar(512);

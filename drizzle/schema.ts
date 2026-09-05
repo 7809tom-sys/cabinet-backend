@@ -184,9 +184,12 @@ export const designGeminiImageTestJobs = mysqlTable(
     planFingerprint: varchar("planFingerprint", { length: 64 }).notNull(),
     sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
     interactionId: varchar("interactionId", { length: 255 }).notNull(),
-    status: mysqlEnum("status", ["pending", "completed", "failed"]).notNull().default("pending"),
+    // A queued job owns a locked JPEG in storage and can be started by the
+    // persistent server after the initiating browser request has returned.
+    status: mysqlEnum("status", ["queued", "pending", "completed", "failed"]).notNull().default("queued"),
     errorMessage: varchar("errorMessage", { length: 255 }),
     imageUrl: varchar("imageUrl", { length: 512 }),
+    sourceImageKey: varchar("sourceImageKey", { length: 512 }),
     provenance: json("provenance").$type<PhotoRenderProvenance>().notNull(),
     promptFingerprint: varchar("promptFingerprint", { length: 64 }).notNull(),
     startedAt: timestamp("startedAt").defaultNow().notNull(),

@@ -120,6 +120,10 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("designGeminiImageTestJobs");
     expect(source).toContain("admin-google-image-tests/");
     expect(source).toContain('generationMethod: "manual-final-review-gemini-nano-banana-v1"');
+    expect(source).toContain("queueGeminiImageTestJob(job.id)");
+    expect(source).toContain("admin-google-image-test-sources/");
+    expect(source).toContain('status: "queued"');
+    expect(source).toContain("sourceImageKey: storedSource.key");
   });
 
   it("persists the administrator Google image test by saved-plan ID and reopens only the current locked plan revision", () => {

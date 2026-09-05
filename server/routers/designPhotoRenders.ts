@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
@@ -6,7 +6,7 @@ import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { storagePut } from "../storage";
+import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 import { isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 
@@ -264,6 +264,47 @@ export function photoRenderProvenanceSummary(provenance: PhotoRenderProvenanceIn
   const material = (role: PhotoRenderProvenanceInput["materials"][number]["role"]) =>
     provenance.materials.find((entry) => entry.role === role)?.name ?? "none";
   return `Saved design #${provenance.designId}${provenance.designRevision ? ` revision ${provenance.designRevision}` : ""}. Cabinet finish: ${material("cabinet")}. Countertop: ${material("countertop")}. Flooring: ${material("flooring")}. Backsplash: ${material("backsplash")}. Faucet: ${material("faucet")}. Sink: ${material("sink")}.`;
+}
+
+const activeGeminiImageTestJobs = new Set<number>();
+
+/**
+ * Runs after the browser receives a queued-job acknowledgment. The durable
+ * source reference is kept in storage, so a queued job can be resumed by a
+ * later status request after an in-process restart.
+ */
+function queueGeminiImageTestJob(jobId: number) {
+  if (activeGeminiImageTestJobs.has(jobId)) return;
+  activeGeminiImageTestJobs.add(jobId);
+  void (async () => {
+    try {
+      const db = await getDb();
+      if (!db) throw new Error("Google image testing is temporarily unavailable.");
+      const [job] = await db.select().from(designGeminiImageTestJobs)
+        .where(eq(designGeminiImageTestJobs.id, jobId)).limit(1);
+      if (!job || job.status !== "queued" || !job.sourceImageKey) return;
+      const sourceResponse = await fetch(await storageGetSignedUrl(job.sourceImageKey));
+      if (!sourceResponse.ok) throw new Error("The locked Google test reference could not be read. Start a fresh test.");
+      const sourceBytes = Buffer.from(await sourceResponse.arrayBuffer());
+      const dimensions = readJpegDimensions(sourceBytes);
+      if (dimensions.width < 1920 || dimensions.height < 1080) throw new Error("The stored Google test reference is below the required 1920×1080 size. Start a fresh test.");
+      const prompt = exactPlanPrompt(photoRenderProvenanceSummary(job.provenance as PhotoRenderProvenanceInput));
+      const started = await startGeminiExactPlanTest({
+        prompt,
+        sourceImageBase64: sourceBytes.toString("base64"),
+        sourceMimeType: "image/jpeg",
+      });
+      await db.update(designGeminiImageTestJobs).set({ interactionId: started.interactionId, status: "pending" })
+        .where(eq(designGeminiImageTestJobs.id, jobId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Google image test could not be started. Please try again.";
+      const db = await getDb();
+      if (db) await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date() })
+        .where(eq(designGeminiImageTestJobs.id, jobId));
+    } finally {
+      activeGeminiImageTestJobs.delete(jobId);
+    }
+  })();
 }
 
 export const designPhotoRendersRouter = router({
@@ -552,11 +593,11 @@ export const designPhotoRendersRouter = router({
           completedAt: new Date(),
         }).where(eq(designGeminiImageTestJobs.id, existingPending.id));
       }
-      const started = await startGeminiExactPlanTest({
-        prompt,
-        sourceImageBase64: input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, ""),
-        sourceMimeType: "image/jpeg",
-      });
+      const storedSource = await storagePut(
+        `admin-google-image-test-sources/${ctx.user.id}/${input.sceneSignature}-${Date.now()}.jpg`,
+        sourceBytes,
+        "image/jpeg",
+      );
       const promptFingerprint = createHash("sha256").update(prompt).digest("hex");
       await db.insert(designGeminiImageTestJobs).values({
         userId: ctx.user.id,
@@ -564,16 +605,22 @@ export const designPhotoRendersRouter = router({
         designRevision: revision,
         planFingerprint: fingerprint,
         sceneSignature: input.sceneSignature,
-        interactionId: started.interactionId,
+        interactionId: `queued-${randomUUID()}`,
+        status: "queued",
+        sourceImageKey: storedSource.key,
         provenance: sourceProvenance,
         promptFingerprint,
       });
       const [job] = await db.select({ id: designGeminiImageTestJobs.id }).from(designGeminiImageTestJobs)
-        .where(eq(designGeminiImageTestJobs.interactionId, started.interactionId)).limit(1);
-      if (!job) throw new Error("Google image test was started but could not be tracked. Please try again.");
+        .where(and(
+          eq(designGeminiImageTestJobs.userId, ctx.user.id),
+          eq(designGeminiImageTestJobs.sceneSignature, input.sceneSignature),
+        )).orderBy(desc(designGeminiImageTestJobs.id)).limit(1);
+      if (!job) throw new Error("Google image test could not be queued. Please try again.");
+      queueGeminiImageTestJob(job.id);
       return {
         jobId: job.id,
-        status: "pending" as const,
+        status: "queued" as const,
         reused: false,
       };
     }),
@@ -590,6 +637,7 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (!job || job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) return null;
+      if (job.status === "queued") queueGeminiImageTestJob(job.id);
       return { jobId: job.id, status: job.status, errorMessage: job.errorMessage, startedAt: job.startedAt };
     }),
 
@@ -606,6 +654,10 @@ export const designPhotoRendersRouter = router({
       if (!job) throw new Error("This Google image test is not available for your account.");
       if (job.status === "completed" && job.imageUrl) return { status: "completed" as const, imageUrl: job.imageUrl };
       if (job.status === "failed") return { status: "failed" as const, message: job.errorMessage ?? "Google image test could not be completed. Please try again." };
+      if (job.status === "queued") {
+        queueGeminiImageTestJob(job.id);
+        return { status: "pending" as const };
+      }
       const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId) : null;
       if (design && (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design))) {
         const message = "This kitchen plan changed while Google was generating the test. Reopen Final preview and start a new test.";

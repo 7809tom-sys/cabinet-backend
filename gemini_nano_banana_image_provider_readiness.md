@@ -20,7 +20,7 @@ CabinetDealz provides a separate administrator-only Google/Gemini image test for
 
 ## Official interaction lifecycle reference
 
-Google’s Gemini Interactions API supports `background: true` for asynchronous interactions and retrieval through `GET /v1beta/interactions/{id}`. Image output may be returned through the SDK convenience image field or a `model_output` step’s image content. The administrator image test uses only the server-side API path and returns sanitized status, never a raw provider response or credential. Source: [Google Gemini Interactions API](https://ai.google.dev/api/interactions-api).
+Google’s Gemini Interactions API supports `background: true` for asynchronous interactions and retrieval through `GET /v1beta/interactions/{id}`. Image output may be returned through the SDK convenience image field or a `model_output` step’s image content. The administrator image test first stores its locked JPEG in project storage and queues a job record; the Reserved CabinetDealz server starts the provider interaction after it returns the short browser acknowledgment and updates the same job record. A later status request resumes a queued job safely if the server restarted. The workflow returns sanitized status only, never a raw provider response or credential. Source: [Google Gemini Interactions API](https://ai.google.dev/api/interactions-api).
 
 ## Security and operations
 

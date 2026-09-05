@@ -1631,3 +1631,5 @@
 - [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
 - [x] Bound the administrator Google image-test JPEG below the live browser gateway limit while retaining the required 1920-by-1080 locked snapshot
 - [x] Bound the administrator Google image-test JPEG below the live browser gateway limit while retaining the required 1920-by-1080 locked snapshot
+- [x] Replace the administrator Google image-test provider timeout with a genuine asynchronous interaction lifecycle
+- [x] Run administrator Google image-test jobs durably on the CabinetDealz server and save completion results to the matching plan
