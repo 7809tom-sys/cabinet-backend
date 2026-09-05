@@ -1635,3 +1635,4 @@
 - [x] Run administrator Google image-test jobs durably on the CabinetDealz server and save completion results to the matching plan
 - [x] Automatically retry transient administrator Google image-test rate limits and timeouts with bounded server-side backoff
 - [x] Open each completed administrator Google image result in a clear comparison popup and retain a reopen control in Final preview
+- [x] Show the true queued automatic-retry countdown instead of a generic generating message in the administrator Google image-test panel

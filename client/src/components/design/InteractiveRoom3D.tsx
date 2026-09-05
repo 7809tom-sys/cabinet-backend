@@ -6282,9 +6282,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const geminiQueuedRetryLabel = geminiQueuedRetrySeconds >= 60
     ? `${Math.floor(geminiQueuedRetrySeconds / 60)}m ${String(geminiQueuedRetrySeconds % 60).padStart(2, "0")}s`
     : `${geminiQueuedRetrySeconds}s`;
+  const geminiAutomaticRetrySeconds = Math.max(geminiQueuedRetrySeconds, geminiCooldownSeconds);
+  const geminiAutomaticRetryLabel = geminiAutomaticRetrySeconds >= 60
+    ? `${Math.floor(geminiAutomaticRetrySeconds / 60)}m ${String(geminiAutomaticRetrySeconds % 60).padStart(2, "0")}s`
+    : `${geminiAutomaticRetrySeconds}s`;
   const geminiImageTestBlockingReason = geminiImageTestJobId
-    ? geminiQueuedRetrySeconds > 0
-      ? `Google will retry this image test automatically in ${geminiQueuedRetryLabel}.`
+    ? geminiAutomaticRetrySeconds > 0
+      ? `Google will retry this image test automatically in ${geminiAutomaticRetryLabel}.`
       : "Google is generating this saved-plan test. Status checks continue automatically."
     : startGeminiImageTestMutation.isPending
       ? "Starting the Google image test for this locked saved plan…"
