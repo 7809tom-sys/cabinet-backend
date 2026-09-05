@@ -506,6 +506,7 @@ export const designPhotoRendersRouter = router({
       sceneSignature: z.string().min(16).max(191),
       sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A locked JPEG Designer image is required."),
       provenance: photoRenderProvenanceSchema,
+      restartPending: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
@@ -533,12 +534,14 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.status, "pending"),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (existingPending && existingPending.designRevision === revision && existingPending.planFingerprint === fingerprint) {
-        if (Date.now() - existingPending.startedAt.getTime() < GEMINI_IMAGE_TEST_STALE_MS) {
+        if (!input.restartPending && Date.now() - existingPending.startedAt.getTime() < GEMINI_IMAGE_TEST_STALE_MS) {
           return { jobId: existingPending.id, status: "pending" as const, reused: true };
         }
         await db.update(designGeminiImageTestJobs).set({
           status: "failed",
-          errorMessage: "The earlier Google image test expired before it completed. You can start a new test.",
+          errorMessage: input.restartPending
+            ? "The earlier Google image test was replaced by a fresh administrator test."
+            : "The earlier Google image test expired before it completed. You can start a new test.",
           completedAt: new Date(),
         }).where(eq(designGeminiImageTestJobs.id, existingPending.id));
       }

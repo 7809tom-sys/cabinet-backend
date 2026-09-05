@@ -7651,7 +7651,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   }, [geminiImageTestJobId, photoRenderReferenceUrl, pollGeminiImageTestMutation, savedDesignId, utils]);
 
   const startGeminiImageTest = async () => {
-    if (!isPhotoQualityTest || !photoRenderDraft) return;
+    if (!isPhotoQualityTest) return;
+    if (!photoRenderDraft) {
+      setGeminiImageTestError("The locked view is still preparing. Close Final preview, reopen it, then start the Google test.");
+      return;
+    }
     if (photoRenderDraft.provenance.designId <= 0) {
       setGeminiImageTestError("Save the current kitchen plan before running a Google image test.");
       return;
@@ -7662,6 +7666,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         sceneSignature: `${photoRenderDraft.sceneSignature}-gemini-test`,
         sceneImageDataUrl: photoRenderDraft.sceneImageDataUrl,
         provenance: photoRenderDraft.provenance,
+        restartPending: Boolean(geminiImageTestJobId),
       });
       setGeminiImageTestJobId(result.jobId);
       await utils.designPhotoRenders.getGeminiImageTestJob.invalidate({ designId: photoRenderDraft.provenance.designId });
@@ -7942,7 +7947,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          <DialogTitle>Create high-resolution 3D preview</DialogTitle>
 	          <DialogDescription>This creates a deterministic capture of the current locked 3D camera, plan geometry, and saved selected materials. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
-          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends the locked saved-plan JPEG and selected-material names to Google Gemini. The browser starts the test quickly, then checks its short server-side status until the illustrative image is ready. It does not change the saved plan, pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={Boolean(geminiImageTestBlockingReason)} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending || geminiImageTestJobId ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiImageTestJobId ? "Google is generating — checking status…" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends the locked saved-plan JPEG and selected-material names to Google Gemini. The browser starts the test quickly, then checks its short server-side status until the illustrative image is ready. It does not change the saved plan, pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
 	          {isPhotoQualityTest && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 	            <p className="font-semibold">This is an exact 3D preview, not a photo-quality rendering.</p>

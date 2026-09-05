@@ -6249,6 +6249,9 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("Save this kitchen plan, then reopen Final preview before running the Google test.");
     expect(source).toContain("The earlier Google image test expired before it completed. You can start a new test.");
     expect(source).toContain("new Date(job.startedAt)");
+    expect(source).toContain("restartPending: Boolean(geminiImageTestJobId)");
+    expect(source).toContain('disabled={startGeminiImageTestMutation.isPending}');
+    expect(source).toContain("Start fresh Google image test");
 	    expect(source).toContain('data-testid="gemini-image-test-result"');
 	    expect(source).toContain('data-testid="open-saved-gemini-image-test"');
     expect(source).toContain("const startGeminiImageTest = async () =>");

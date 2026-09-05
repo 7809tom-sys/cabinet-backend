@@ -138,6 +138,8 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("const GEMINI_IMAGE_TEST_STALE_MS = 5 * 60 * 1000");
     expect(source).toContain("The earlier Google image test expired before it completed. You can start a new test.");
     expect(source).toContain("startedAt: job.startedAt");
+    expect(source).toContain("restartPending: z.boolean().optional()");
+    expect(source).toContain("The earlier Google image test was replaced by a fresh administrator test.");
   });
 
   it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {
