@@ -14,6 +14,17 @@ type GeminiImageTestOutput = {
   mimeType: "image/jpeg" | "image/png";
 };
 
+type GeminiImageOutputBlock = {
+  type?: unknown;
+  data?: unknown;
+  mime_type?: unknown;
+};
+
+type GeminiInteractionImageResponse = {
+  output_image?: GeminiImageOutputBlock;
+  steps?: Array<{ content?: GeminiImageOutputBlock[] }>;
+};
+
 export function isGeminiImageConfigured() {
   return ENV.geminiApiKey.trim().length > 0;
 }
@@ -61,9 +72,15 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
     }),
   });
   if (!response.ok) throw new Error(`Google image test failed with status ${response.status}.`);
-  const payload = await response.json() as { output_image?: { data?: unknown; mime_type?: unknown } };
-  const encodedImage = payload.output_image?.data;
-  const mimeType = payload.output_image?.mime_type;
+  const payload = await response.json() as GeminiInteractionImageResponse;
+  // SDKs may expose `output_image` as a convenience property. The REST
+  // Interactions response records model output in `steps[].content[]`, so
+  // accept that official form too without returning the raw provider payload.
+  const nestedImage = payload.steps?.flatMap((step) => step.content ?? [])
+    .find((content) => content.type === "image" && typeof content.data === "string");
+  const image = payload.output_image?.data ? payload.output_image : nestedImage;
+  const encodedImage = image?.data;
+  const mimeType = image?.mime_type;
   if (typeof encodedImage !== "string" || !encodedImage.length) throw new Error("Google image test did not return an image.");
   if (mimeType !== "image/jpeg" && mimeType !== "image/png") throw new Error("Google image test returned an unsupported image format.");
   const bytes = Buffer.from(encodedImage, "base64");

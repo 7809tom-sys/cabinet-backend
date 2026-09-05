@@ -16,7 +16,7 @@ The API response returns image data that must be processed only on the server, s
 
 ## Administrator-only illustrative test
 
-CabinetDealz provides a separate administrator-only Google/Gemini image test for a saved, locked Designer plan. It validates the selected 1920×1080-or-larger JPEG, current saved-plan revision, server-derived fingerprint, camera, and selected materials before sending the reference image to Gemini. The output is stored server-side as an illustrative comparison and is never used to alter the saved plan, price, customer phone-verification requirement, or CRM workflow. Customer rendering remains on the approved controlled path until separately approved for release.
+CabinetDealz provides a separate administrator-only Google/Gemini image test for a saved, locked Designer plan. It validates the selected 1920×1080-or-larger JPEG, current saved-plan revision, server-derived fingerprint, camera, and selected materials before sending the reference image to Gemini. The server accepts both the SDK convenience image field and the official Interactions REST nested model-output form, then stores only the verified image bytes. The output is an illustrative comparison and is never used to alter the saved plan, price, customer phone-verification requirement, or CRM workflow. Customer rendering remains on the approved controlled path until separately approved for release.
 
 ## Security and operations
 
@@ -26,3 +26,4 @@ The API key must be read server-side from `GEMINI_API_KEY`. It must never be sen
 
 1. [Google AI for Developers — Gemini API image generation](https://ai.google.dev/gemini-api/docs/image-generation)
 2. [Google AI for Developers — Using Gemini API keys](https://ai.google.dev/gemini-api/docs/api-key)
+3. [Google AI for Developers — Gemini Interactions API](https://ai.google.dev/api/interactions-api)

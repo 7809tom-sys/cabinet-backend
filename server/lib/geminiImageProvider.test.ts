@@ -54,6 +54,22 @@ describe("Gemini Nano Banana provider status", () => {
     );
   });
 
+  it("accepts the official nested Interactions API image output without returning the provider response", async () => {
+    const encoded = Buffer.from("nested-google-image").toString("base64");
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      steps: [{ type: "model_output", content: [{ type: "image", data: encoded, mime_type: "image/png" }] }],
+    }), { status: 200 })) as unknown as typeof fetch;
+
+    const result = await generateGeminiExactPlanTest({
+      prompt: "Keep the exact locked plan.",
+      sourceImageBase64: "locked-jpeg-reference",
+      sourceMimeType: "image/jpeg",
+    });
+
+    expect(result).toMatchObject({ mimeType: "image/png" });
+    expect(result.bytes.toString()).toBe("nested-google-image");
+  });
+
   it("rejects a provider response that has no usable image without returning provider payload details", async () => {
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_image: {} }), { status: 200 })) as unknown as typeof fetch;
     await expect(generateGeminiExactPlanTest({
