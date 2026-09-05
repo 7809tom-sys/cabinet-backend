@@ -7637,7 +7637,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 <option value="plan">Plan</option>
                 <option value="elevation">Elevation</option>
                 <option value="threeD" disabled={!canLoadInteractive3d || interactive3dLoading}>3D</option>
-                <option value="split">Split</option>
                 {island && <option value="island">Island elevation</option>}
               </select>
             </label>

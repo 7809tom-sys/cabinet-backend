@@ -33,6 +33,7 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('<option value="plan">Plan</option>');
     expect(source).toContain('<option value="elevation">Elevation</option>');
     expect(source).toContain('<option value="threeD"');
+    expect(source).not.toContain('<option value="split">Split</option>');
   });
 
   it("keeps More and Island Zone visible in the compact toolbar while removing the duplicate 3D shortcut", () => {
