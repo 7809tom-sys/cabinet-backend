@@ -105,4 +105,22 @@ describe("FloatingShelfAttributesDialog", () => {
     );
     expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("shows a live overlap warning and blocks confirmation for a conflicting duplicate height", () => {
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={shelf}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={2}
+        onApply={vi.fn()}
+        onDuplicate={vi.fn()}
+        getDuplicateOverlapWarning={() => "Overlap warning: this duplicate shelf overlaps W2430, a cabinet, by 6 inches."}
+        onRemove={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert").textContent).toMatch(/overlaps W2430/i);
+    expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

@@ -1584,3 +1584,4 @@
 - [x] Make the B15/B18 centered top-door-handle toggle visibly discoverable in cabinet attributes
 - [x] Show a live floating-shelf duplicate placement preview before the customer confirms duplication
 - [x] Let customers drag the duplicate shelf in its popup preview to adjust the proposed bottom height before confirming
+- [x] Show a live visual warning and block confirmation when a dragged duplicate shelf overlaps a cabinet or existing shelf

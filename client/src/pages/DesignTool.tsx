@@ -5782,6 +5782,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      return next;
 	    });
 	  }, [room]);
+	  const duplicateFloatingShelfOverlapWarning = useCallback((uid: string, bottomIn: number): string | null => {
+	    const shelf = placed.find((item) => item.uid === uid);
+	    if (!shelf || !isFloatingShelfItem(shelf)) return null;
+	    const maxBottom = Math.max(0, roomCeiling(room) - Math.max(0.125, placedHeight(shelf)));
+	    const bottom = Math.max(0, Math.min(maxBottom, Math.round(bottomIn * 8) / 8));
+	    const candidate: PlacedCabinet = { ...shelf, uid: `preview-${uid}`, mountBottom: bottom, mountBottomAdjusted: true };
+	    const detail = cabinetCollisionDetail(candidate, placed);
+	    if (!detail) return null;
+	    const conflictKind = isFloatingShelfItem(detail.cabinet) ? "another shelf" : "a cabinet";
+	    return `Overlap warning: this duplicate shelf overlaps ${detail.cabinet.masterCode}, ${conflictKind}, by ${formatEighthInches(detail.penetration)}. Drag it to a clear height before confirming.`;
+	  }, [placed, room]);
 	  const duplicateFloatingShelfAtHeight = useCallback((uid: string, bottomIn: number) => {
 	    const current = placedRef.current;
 	    const shelf = current.find((item) => item.uid === uid);
@@ -11119,6 +11130,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        shelvesOnRun={floatingShelfRunCount}
 	        onApply={applyFloatingShelfAttributes}
 	        onDuplicate={duplicateFloatingShelfAtHeight}
+	        getDuplicateOverlapWarning={duplicateFloatingShelfOverlapWarning}
 	        onRemove={removeFloatingShelf}
 	      />
 	      <WindowAttributesDialog

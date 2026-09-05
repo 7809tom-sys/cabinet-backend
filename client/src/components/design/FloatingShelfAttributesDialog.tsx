@@ -12,12 +12,13 @@ type Props = {
   shelvesOnRun: number;
   onApply: (uid: string, bottomIn: number, lengthIn: number) => void;
   onDuplicate: (uid: string, bottomIn: number) => void;
+  getDuplicateOverlapWarning?: (uid: string, bottomIn: number) => string | null;
   onRemove: (uid: string) => void;
 };
 
 const MIN_SHELF_LENGTH_IN = 6;
 
-export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onDuplicate, onRemove }: Props) {
+export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onDuplicate, getDuplicateOverlapWarning, onRemove }: Props) {
   const maximumLength = useMemo(() => Math.max(MIN_SHELF_LENGTH_IN, Number(shelf?.nominalWidth ?? shelf?.width) || MIN_SHELF_LENGTH_IN), [shelf?.nominalWidth, shelf?.uid, shelf?.width]);
   const maximumBottom = useMemo(() => Math.max(0, ceilingHeight - Math.max(0.125, Number(shelf?.height) || 0.75)), [ceilingHeight, shelf?.height]);
   const [bottomText, setBottomText] = useState("54");
@@ -41,6 +42,8 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
   const originalBottom = Math.max(0, Math.min(maximumBottom, Number(shelf.mountBottom) || 54));
   const verticalPercent = (heightFromFloor: number) => Math.max(2, Math.min(94, 100 - ((heightFromFloor + shelfThickness) / Math.max(1, ceilingHeight)) * 100));
   const previewBottom = validBottom ? bottomIn : originalBottom;
+  const overlapWarning = validBottom ? getDuplicateOverlapWarning?.(shelf.uid, previewBottom) ?? null : null;
+  const canConfirmDuplicate = canDuplicate && !overlapWarning;
   const setPreviewBottom = (nextBottom: number) => {
     const rounded = Math.round(Math.max(0, Math.min(maximumBottom, nextBottom)) * 8) / 8;
     setBottomText(String(rounded));
@@ -98,7 +101,7 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
                 aria-valuemax={maximumBottom}
                 aria-valuenow={previewBottom}
                 aria-valuetext={`${formatEighthInches(previewBottom)} from floor`}
-                className="absolute left-[14%] right-[14%] h-3 cursor-ns-resize touch-none rounded border-2 border-dashed border-amber-600 bg-amber-200/80 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2"
+                className={`absolute left-[14%] right-[14%] h-3 cursor-ns-resize touch-none rounded border-2 border-dashed shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${overlapWarning ? "border-red-700 bg-red-200/90 focus-visible:ring-red-700" : "border-amber-600 bg-amber-200/80 focus-visible:ring-amber-600"}`}
                 style={{ top: `${verticalPercent(previewBottom)}%` }}
                 onPointerDown={(event) => {
                   event.preventDefault();
@@ -123,8 +126,15 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
                   if (event.key === "End") { event.preventDefault(); setPreviewBottom(maximumBottom); }
                 }}
               />
-              <span className="pointer-events-none absolute right-[14%] text-[10px] font-semibold text-amber-800" style={{ top: `calc(${verticalPercent(previewBottom)}% - 17px)` }}>New duplicate · bottom {formatEighthInches(previewBottom)}</span>
+              <span className={`pointer-events-none absolute right-[14%] text-[10px] font-semibold ${overlapWarning ? "text-red-800" : "text-amber-800"}`} style={{ top: `calc(${verticalPercent(previewBottom)}% - 17px)` }}>New duplicate · bottom {formatEighthInches(previewBottom)}</span>
             </div>
+            {overlapWarning ? (
+              <div role="alert" aria-live="polite" className="mt-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
+                {overlapWarning}
+              </div>
+            ) : (
+              <p className="mt-2 text-[11px] font-medium text-emerald-700">Clear height — the duplicate shelf does not overlap another cabinet or shelf.</p>
+            )}
             <p className="mt-2 text-[11px] text-slate-700">Drag the dashed shelf up or down to set its bottom height, or use the arrow keys for ⅛-inch steps (Shift + arrow moves 1 inch). The shelf stays aligned with the current wall span and is not added until you confirm.</p>
           </div>
         </div>
@@ -132,7 +142,7 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
           <Button type="button" variant="destructive" onClick={() => { onRemove(shelf.uid); onOpenChange(false); }}>Remove shelf</Button>
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="button" variant="outline" disabled={!canDuplicate} onClick={() => onDuplicate(shelf.uid, bottomIn)}>Confirm duplicate shelf</Button>
+            <Button type="button" variant="outline" disabled={!canConfirmDuplicate} onClick={() => onDuplicate(shelf.uid, bottomIn)}>Confirm duplicate shelf</Button>
             <Button type="button" disabled={!valid} onClick={() => { onApply(shelf.uid, bottomIn, lengthIn); onOpenChange(false); }}>Apply shelf placement</Button>
           </div>
         </DialogFooter>
