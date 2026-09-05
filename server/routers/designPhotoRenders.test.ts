@@ -197,4 +197,18 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("storing the canonical byte hash");
     expect(source).not.toContain("The locked deterministic render did not match its recorded source hash");
   });
+
+  it("notifies only a verified customer after their exact saved-plan image is completed", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("async function sendCustomerImageReadyEmail");
+    expect(source).toContain('request.generationStatus !== "completed" || !request.imageUrl');
+    expect(source).toContain("request.imageReadyEmailSentAt");
+    expect(source).toContain("https://www.cabinetdealz.com/design?load=${request.kitchenDesignId}&preview=3d");
+    expect(source).toContain("getLatestCustomerReadyImage: protectedProcedure");
+    expect(source).toContain('eq(designImageRequests.kitchenDesignId, input.designId)');
+    expect(source).toContain('eq(designImageRequests.verificationStatus, "verified")');
+    expect(source).toContain('eq(designImageRequests.generationStatus, "completed")');
+    expect(source).toContain("if (result.success)");
+    expect(source).toContain("imageReadyEmailSentAt: new Date()");
+  });
 });

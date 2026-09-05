@@ -231,6 +231,7 @@ export const designImageRequests = mysqlTable("design_image_requests", {
   generationStatus: mysqlEnum("generationStatus", ["blocked", "ready", "generating", "completed", "failed"]).notNull().default("blocked"),
   designPhotoRenderId: int("designPhotoRenderId"),
   imageUrl: varchar("imageUrl", { length: 512 }),
+  imageReadyEmailSentAt: timestamp("imageReadyEmailSentAt"),
   crmDeliveredAt: timestamp("crmDeliveredAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

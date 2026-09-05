@@ -9,6 +9,7 @@ import { TRPCError } from "@trpc/server";
 import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
 import { isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
+import { sendEmail } from "../email";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -22,6 +23,23 @@ function isRetryableGeminiImageTestFailure(message: string) {
 function scheduleGeminiImageTestJob(jobId: number, delayMs = 0) {
   const timer = setTimeout(() => queueGeminiImageTestJob(jobId), Math.max(0, delayMs));
   timer.unref?.();
+}
+
+async function sendCustomerImageReadyEmail(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  request: typeof designImageRequests.$inferSelect,
+) {
+  if (request.imageReadyEmailSentAt || request.generationStatus !== "completed" || !request.imageUrl) return;
+  const planUrl = `https://www.cabinetdealz.com/design?load=${request.kitchenDesignId}&preview=3d`;
+  const result = await sendEmail({
+    to: request.email,
+    subject: "Your CabinetDealz kitchen image is ready",
+    text: `Hello,\n\nYour kitchen image is ready. Open your saved kitchen plan to view it: ${planUrl}\n\nThis image is linked to the verified plan you submitted.`,
+    html: `<p>Hello,</p><p><strong>Your kitchen image is ready.</strong></p><p><a href="${planUrl}">Open your saved kitchen plan and view the image</a></p><p>This image is linked to the verified plan you submitted.</p>`,
+  });
+  if (result.success) {
+    await db.update(designImageRequests).set({ imageReadyEmailSentAt: new Date() }).where(eq(designImageRequests.id, request.id));
+  }
 }
 
 /** Reads JPEG dimensions without accepting a client-declared resolution on trust. */
@@ -382,6 +400,26 @@ export const designPhotoRendersRouter = router({
         eq(designImageRequests.sceneSignature, input.sceneSignature),
       )).limit(1);
       return request ?? null;
+    }),
+
+  getLatestCustomerReadyImage: protectedProcedure
+    .input(z.object({ designId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role === "admin") return null;
+      const db = await getDb();
+      if (!db) return null;
+      const [request] = await db.select({
+        id: designImageRequests.id,
+        kitchenDesignId: designImageRequests.kitchenDesignId,
+        imageUrl: designImageRequests.imageUrl,
+        completedAt: designImageRequests.updatedAt,
+      }).from(designImageRequests).where(and(
+        eq(designImageRequests.userId, ctx.user.id),
+        eq(designImageRequests.kitchenDesignId, input.designId),
+        eq(designImageRequests.verificationStatus, "verified"),
+        eq(designImageRequests.generationStatus, "completed"),
+      )).orderBy(desc(designImageRequests.updatedAt)).limit(1);
+      return request?.imageUrl ? request : null;
     }),
 
   requestPhoneVerification: protectedProcedure
@@ -772,6 +810,8 @@ export const designPhotoRendersRouter = router({
             designPhotoRenderId: cached.id,
             imageUrl: cached.imageUrl,
           }).where(eq(designImageRequests.id, verifiedRequest.id));
+          void sendCustomerImageReadyEmail(db, { ...verifiedRequest, generationStatus: "completed", designPhotoRenderId: cached.id, imageUrl: cached.imageUrl })
+            .catch(() => console.warn("[Photo render] Customer image-ready email delivery could not be completed."));
         }
         return {
           imageUrl: cached.imageUrl,
@@ -847,6 +887,8 @@ export const designPhotoRendersRouter = router({
           designPhotoRenderId: stored?.id ?? null,
           imageUrl: storedRender.url,
         }).where(eq(designImageRequests.id, verifiedRequest.id));
+        void sendCustomerImageReadyEmail(db, { ...verifiedRequest, generationStatus: "completed", designPhotoRenderId: stored?.id ?? null, imageUrl: storedRender.url })
+          .catch(() => console.warn("[Photo render] Customer image-ready email delivery could not be completed."));
       }
       return { imageUrl: storedRender.url, provenance: canonicalProvenance, sourceImageHash: canonicalProvenance.sourceImageHash, reused: false, promptFingerprint, generationMethod: input.provenance.generationMethod, confirmedAt };
     }),

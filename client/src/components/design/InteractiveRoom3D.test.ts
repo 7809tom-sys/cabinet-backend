@@ -6219,7 +6219,7 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("confirmation: true");
 	    expect(source).toContain("Create high-resolution 3D preview");
 	    expect(source).toContain("This is an exact 3D preview, not a photo-quality rendering.");
-    expect(source).toContain("Saving your high-resolution exact 3D preview.");
+    expect(source).toContain("Your kitchen image request was received.");
     expect(source).toContain("Retry same locked view");
     expect(source).toContain("Your editable Designer plan is unchanged.");
     expect(source).toContain("Reused from the same saved plan, materials, and camera");
@@ -6309,5 +6309,16 @@ describe("final high-resolution preview controls", () => {
 	    expect(threeDPhotoRenderDoorReferenceStatus("/manus-storage/door-sample.webp", "failed")).toMatchObject({ ready: false });
 	    expect(threeDPhotoRenderDoorReferenceStatus("/manus-storage/door-sample.webp", "loaded")).toMatchObject({ ready: true });
 	    expect(threeDPhotoRenderDoorReferenceStatus(null, "not-requested")).toMatchObject({ ready: true });
+	  });
+
+	  it("keeps a customer-ready image visible for the current saved plan with a direct popup action", () => {
+	    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+	    expect(source).toContain("getLatestCustomerReadyImage.useQuery(");
+	    expect(source).toContain("{ designId: savedDesignId ?? 0 }");
+	    expect(source).toContain('data-testid="customer-image-ready-notice"');
+	    expect(source).toContain("Your kitchen image is ready");
+	    expect(source).toContain("Open image");
+	    expect(source).toContain("setPhotoRenderUrl(latestCustomerReadyImageQuery.data!.imageUrl!)");
+	    expect(source).toContain("will notify you in the Designer and by email");
 	  });
 });

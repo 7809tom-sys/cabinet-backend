@@ -1636,3 +1636,6 @@
 - [x] Automatically retry transient administrator Google image-test rate limits and timeouts with bounded server-side backoff
 - [x] Open each completed administrator Google image result in a clear comparison popup and retain a reopen control in Final preview
 - [x] Show the true queued automatic-retry countdown instead of a generic generating message in the administrator Google image-test panel
+- [x] Add clear customer image-request confirmation that explains the result will be saved and the customer will be notified when it is ready
+- [x] Add a prominent customer “Your kitchen image is ready” notification with a direct open action for the verified plan image
+- [x] Email verified customers when their longer kitchen-image render is ready with a direct secure link to reopen the saved plan result

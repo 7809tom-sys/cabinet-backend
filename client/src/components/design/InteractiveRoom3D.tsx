@@ -6211,6 +6211,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     { designId: savedDesignId ?? 0 },
     { enabled: isPhotoQualityTest && Boolean(savedDesignId) },
   );
+  const latestCustomerReadyImageQuery = trpc.designPhotoRenders.getLatestCustomerReadyImage.useQuery(
+    { designId: savedDesignId ?? 0 },
+    { enabled: Boolean(user) && !isPhotoQualityTest && Boolean(savedDesignId), refetchInterval: 30_000 },
+  );
   const requestPhotoVerificationMutation = trpc.designPhotoRenders.requestPhoneVerification.useMutation();
   const confirmPhotoVerificationMutation = trpc.designPhotoRenders.confirmPhoneVerification.useMutation();
   useEffect(() => {
@@ -7670,7 +7674,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       setPhotoRenderUrl(result.imageUrl);
       setPhotoRenderReused(result.reused);
       setPhotoRenderOpen(false);
-      toast.success(result.reused ? "Your saved high-resolution preview is ready." : "High-resolution 3D preview created.");
+      toast.success(result.reused ? "Your saved kitchen image is ready to open." : "Your kitchen image is ready and saved to this plan. We will email you a link to return here.");
+      await latestCustomerReadyImageQuery.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The photo render could not be created. Please try again.";
       setPhotoRenderError(message);
@@ -7899,7 +7904,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        <ThreeDViewerNavigationControls onZoom={zoomViewer} onReset={resetViewerNavigation} onShare={shareCurrentView} onPhotoRender={openPhotoRenderDialog} onPan={panViewer} className="absolute bottom-3 right-3 z-20 hidden sm:flex" />
 	        <MobileThreeDViewerNavigation onZoom={zoomViewer} onReset={resetViewerNavigation} onShare={shareCurrentView} onPhotoRender={openPhotoRenderDialog} onPan={panViewer} />
 	      </div>
-	      {selectedCabinet && (() => {
+      {selectedCabinet && (() => {
 	        const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
 	        const description = threeDSelectedCabinetDescription(selectedCabinet);
 	        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
@@ -7970,8 +7975,23 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 		            </div>}
 		          </div>
 		        </div>;
-	      })()}
-	      {!embedded && <>
+      })()}
+      {!isPhotoQualityTest && latestCustomerReadyImageQuery.data && (
+        <div data-testid="customer-image-ready-notice" role="status" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-950">
+          <div>
+            <p className="text-sm font-bold">Your kitchen image is ready</p>
+            <p className="text-xs">It is saved with this verified kitchen plan. We will also email you a link back to this plan.</p>
+          </div>
+          <Button type="button" size="sm" className="shrink-0" onClick={() => {
+            setPhotoRenderReferenceUrl(null);
+            setPhotoRenderReused(true);
+            setPhotoRenderUrl(latestCustomerReadyImageQuery.data!.imageUrl!);
+          }}>
+            <Sparkles className="mr-1.5 h-4 w-4" />Open image
+          </Button>
+        </div>
+      )}
+      {!embedded && <>
         <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
@@ -8055,14 +8075,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
                   {!isPhotoQualityTest && <section data-testid="photo-quality-phone-verification" className="space-y-3 rounded-lg border border-[#b7c8df] bg-white p-3 text-sm text-[#1a2744]">
                     <div><p className="font-semibold">Step 1 — Verify your mobile number</p><p className="mt-1 text-xs leading-relaxed text-slate-700">We send a one-time code only after this exact saved kitchen plan and your follow-up consent are confirmed. The code is never stored in this plan.</p></div>
                     {photoVerificationStatus === "provider_unavailable" && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">Phone verification is being configured. A customer image cannot be created until this service is active.</p>}
-                    {photoVerificationStatus === "verified" && <p role="status" className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900">Mobile number verified for this exact saved plan. Step 2 is ready.</p>}
+                    {photoVerificationStatus === "verified" && <p role="status" className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900">Mobile number verified for this exact saved plan. Create the image and it will be saved here; we will notify you in the Designer and by email when it is ready.</p>}
                     {photoVerificationStatus !== "verified" && photoVerificationStatus !== "provider_unavailable" && <>
                       {photoVerificationStatus === "pending" && <label className="block space-y-1 text-xs font-semibold text-slate-700">Verification code<Input value={photoVerificationCode} onChange={(event) => setPhotoVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="one-time-code" placeholder="Enter code from text" disabled={requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending} /></label>}
                       <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => void requestPhotoVerification()} disabled={requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending}>{requestPhotoVerificationMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}{photoVerificationStatus === "pending" ? "Send another code" : "Send verification code"}</Button>{photoVerificationStatus === "pending" && <Button type="button" size="sm" onClick={() => void confirmPhotoVerification()} disabled={!/^\d{4,10}$/.test(photoVerificationCode) || requestPhotoVerificationMutation.isPending || confirmPhotoVerificationMutation.isPending}>{confirmPhotoVerificationMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}Verify code</Button>}</div>
                     </>}
                   </section>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-28 w-full rounded-md border object-contain sm:h-36" /></div>}
-	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact 3D preview. Your editable Designer plan is unchanged.</div>}
+          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Your kitchen image request was received. We are saving the exact 3D preview to this plan and will notify you in the Designer and by email. Your editable Designer plan is unchanged.</div>}
 	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{isPhotoQualityTest ? "The current 3D view differs from the saved kitchen plan. Save the plan and reopen Final preview before starting Google; no phone verification is required for this administrator test." : photoRenderError}</p>{isPhotoQualityTest ? <Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={saveCurrentPlanForGoogleTest}><Save className="mr-1.5 h-3.5 w-3.5" />Save current plan and refresh</Button> : <Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button>}</div>}
 	          <div className="h-3 shrink-0" aria-hidden="true" />
 	          </div>
