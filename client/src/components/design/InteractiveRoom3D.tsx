@@ -6870,10 +6870,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     }
   };
 
+  const GOOGLE_IMAGE_TEST_MAX_DATA_URL_CHARS = 650_000;
+
   /**
    * The exact 2560×1440 preview remains the on-screen reference. The Google
    * request gets the same camera and rendered scene resampled to its supported
-   * 1K 16:9 input, keeping the start request below browser gateway limits.
+   * 1K 16:9 input. Its transport encoding is progressively compressed until it
+   * stays below the live browser gateway's safe request budget.
    */
   const compactGoogleImageTestInput = (dataUrl: string): Promise<string> => new Promise((resolve, reject) => {
     const image = new Image();
@@ -6884,7 +6887,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       const context = canvas.getContext("2d");
       if (!context) { reject(new Error("The Google test image could not be prepared.")); return; }
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.78));
+      for (const quality of [0.68, 0.58, 0.48, 0.38, 0.3]) {
+        const compact = canvas.toDataURL("image/jpeg", quality);
+        if (compact.length <= GOOGLE_IMAGE_TEST_MAX_DATA_URL_CHARS) {
+          resolve(compact);
+          return;
+        }
+      }
+      reject(new Error("The locked Google test image is too large to send safely. Please try again after simplifying the active 3D view."));
     };
     image.onerror = () => reject(new Error("The locked Google test image could not be prepared."));
     image.src = dataUrl;

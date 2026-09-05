@@ -1629,3 +1629,5 @@
 - [ ] Repair the production Designer delivery mismatch that serves an older Google test dialog after a newer version is published
 - [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
 - [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
+- [x] Bound the administrator Google image-test JPEG below the live browser gateway limit while retaining the required 1920-by-1080 locked snapshot
+- [x] Bound the administrator Google image-test JPEG below the live browser gateway limit while retaining the required 1920-by-1080 locked snapshot

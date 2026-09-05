@@ -6259,11 +6259,13 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("const administratorSnapshot = isPhotoQualityTest && !isCurrentPlanSaved");
     expect(source).toContain("designId: administratorSnapshot ? 0 : savedDesignId ?? 0");
     expect(source).toContain("locked current-design snapshot");
-    expect(source).toContain("const compactGoogleImageTestInput");
-    expect(source).toContain('canvas.width = 1920');
-    expect(source).toContain('canvas.height = 1080');
-    expect(source).toContain('canvas.toDataURL("image/jpeg", 0.78)');
-    expect(source).toContain("sceneImageDataUrl: googleImageInput");
+	    expect(source).toContain("const compactGoogleImageTestInput");
+	    expect(source).toContain('canvas.width = 1920');
+	    expect(source).toContain('canvas.height = 1080');
+	    expect(source).toContain("const GOOGLE_IMAGE_TEST_MAX_DATA_URL_CHARS = 650_000");
+	    expect(source).toContain("for (const quality of [0.68, 0.58, 0.48, 0.38, 0.3])");
+	    expect(source).toContain("compact.length <= GOOGLE_IMAGE_TEST_MAX_DATA_URL_CHARS");
+	    expect(source).toContain("sceneImageDataUrl: googleImageInput");
     expect(source).toContain("The Google test request could not reach the server. Please refresh once and try again.");
     expect(source).toContain("const [geminiRateLimitUntil, setGeminiRateLimitUntil]");
     expect(source).toContain("Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.");
