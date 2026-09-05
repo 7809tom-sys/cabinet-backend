@@ -742,16 +742,18 @@ export function CabinetAttributesDialog({
                 </Button>
               </div>
               {canUseCenteredTopPull && (
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "top-center" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 w-full"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "top-center")}
-                >
-                  Centered top rail
-                </Button>
+                <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
+                  <div>
+                    <Label className="text-sm font-semibold">Top-center door handle</Label>
+                    <p className="text-[11px] text-muted-foreground">B15/B18 only — moves the door handle to the centered top rail.</p>
+                  </div>
+                  <Switch
+                    checked={hardwarePosition === "top-center"}
+                    disabled={noDoor}
+                    aria-label="Move B15/B18 door handle to top center"
+                    onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")}
+                  />
+                </div>
               )}
               {isDouble && (
                 <Button

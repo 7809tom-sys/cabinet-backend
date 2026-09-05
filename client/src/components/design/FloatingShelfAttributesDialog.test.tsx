@@ -58,9 +58,11 @@ describe("FloatingShelfAttributesDialog", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("Shelf bottom height from floor"), { target: { value: "78" } });
-    fireEvent.click(screen.getByRole("button", { name: "Duplicate at this height" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm duplicate shelf" }));
     expect(onDuplicate).toHaveBeenCalledWith("floating-1", 78);
     expect(screen.getByText(/currently installed length of 30/i)).toBeTruthy();
+    expect(screen.getByLabelText("Duplicate shelf placement preview")).toBeTruthy();
+    expect(screen.getByText(/New duplicate · bottom 78/i)).toBeTruthy();
   });
 
   it("keeps duplication unavailable when the current wall span already has four shelves", () => {
@@ -76,6 +78,6 @@ describe("FloatingShelfAttributesDialog", () => {
         onRemove={vi.fn()}
       />,
     );
-    expect((screen.getByRole("button", { name: "Duplicate at this height" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

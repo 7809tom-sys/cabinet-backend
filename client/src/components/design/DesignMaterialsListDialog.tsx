@@ -75,6 +75,20 @@ export function DesignMaterialsListDialog({
       </tr>
       {sectionRows.map((row) => (
         <tr key={`${row.section}:${row.label}:${row.code}:${row.styleColor}`} className="border-b border-slate-200 align-top odd:bg-white even:bg-slate-50/60">
+          <td className="sticky left-0 z-[1] bg-white px-1.5 py-1.5 text-center even:bg-slate-50/60">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-red-700 hover:bg-red-50 hover:text-red-800 disabled:text-slate-300"
+              disabled={!row.sourceUids?.length}
+              aria-label={row.sourceUids?.length ? `Remove ${row.description}` : `${row.description} is not a placed design item`}
+              title={row.sourceUids?.length ? `Remove ${row.description} from this design` : "This quoted material is not a placed design item"}
+              onClick={() => onRemovePlacedItems?.(row.sourceUids ?? [])}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </td>
           <td className="px-2 py-2 text-center font-bold text-[#1a2744]">{row.label}</td>
           <td className="px-2 py-2 font-mono font-semibold">{row.code}</td>
           <td className="px-2 py-2 min-w-[190px]">{row.description}</td>
@@ -86,21 +100,6 @@ export function DesignMaterialsListDialog({
           <td className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${row.unitPrice == null ? "text-amber-700" : ""}`}>{money(row.unitPrice)}</td>
           <td className={`px-2 py-2 text-right whitespace-nowrap font-semibold tabular-nums ${row.lineTotal == null ? "text-amber-700" : ""}`}>{money(row.lineTotal)}</td>
           <td className="px-2 py-2 min-w-[180px] text-slate-600">{row.notes || "—"}</td>
-          <td className="px-2 py-1.5 text-center">
-            {row.sourceUids?.length ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-red-700 hover:bg-red-50 hover:text-red-800"
-                aria-label={`Remove ${row.description}`}
-                title={`Remove ${row.description}`}
-                onClick={() => onRemovePlacedItems?.(row.sourceUids ?? [])}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            ) : <span className="text-slate-400">—</span>}
-          </td>
         </tr>
       ))}
     </>
@@ -116,7 +115,7 @@ export function DesignMaterialsListDialog({
                 <FileSpreadsheet className="h-5 w-5 text-[#a87f33]" /> Complete Materials & Parts List
               </DialogTitle>
               <DialogDescription className="mt-1 text-xs">
-	                Numbered cabinets, panels, fillers, and cabinet trim first; all non-cabinet materials alphabetized below. Pending prices stay visibly pending.
+                Numbered cabinets, panels, fillers, and cabinet trim first; all non-cabinet materials are alphabetized below. Use the red trash button at the left of each placed item to remove it from this design.
               </DialogDescription>
               <p className="mt-1 text-[11px] font-medium text-slate-600">{roomLabel} · {styleName?.trim() || "Cabinet style not selected"}</p>
             </div>
@@ -138,8 +137,8 @@ export function DesignMaterialsListDialog({
             <table className="min-w-[1270px] w-full border-collapse text-[11px]">
               <thead className="sticky top-0 z-10 bg-[#1a2744] text-white shadow-sm">
                 <tr>
-                  {['No.', 'Item code', 'Description', 'Category', 'Distributor', 'Color / style', 'Dimensions', 'Qty', 'Unit price', 'Line total', 'Notes', 'Remove'].map((heading) => (
-                    <th key={heading} className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">{heading}</th>
+                  {['Remove', 'No.', 'Item code', 'Description', 'Category', 'Distributor', 'Color / style', 'Dimensions', 'Qty', 'Unit price', 'Line total', 'Notes'].map((heading, index) => (
+                    <th key={heading} className={`px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide ${index === 0 ? "sticky left-0 z-[1] bg-[#1a2744] text-center" : ""}`}>{heading}</th>
                   ))}
                 </tr>
               </thead>

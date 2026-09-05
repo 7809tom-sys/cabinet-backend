@@ -135,9 +135,19 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     const b15 = { ...wallCabinet, uid: "b15", masterCode: "B15", placement: "base", width: 15, numberOfDoors: 1 } as never;
     renderDialog(vi.fn(), onSetHandleSide, undefined, 0, b15);
     const dialog = screen.getAllByRole("dialog").at(-1)!;
-    const choice = within(dialog).getByRole("button", { name: "Centered top rail" });
+    const choice = within(dialog).getByRole("switch", { name: "Move B15/B18 door handle to top center" });
     fireEvent.click(choice);
     expect(onSetHandleSide).toHaveBeenCalledWith("b15", "top-center");
+  });
+
+  it("exposes the same visible top-center handle toggle for B18", () => {
+    const onSetHandleSide = vi.fn();
+    const b18 = { ...wallCabinet, uid: "b18", masterCode: "B18", placement: "base", width: 18, numberOfDoors: 1 } as never;
+    renderDialog(vi.fn(), onSetHandleSide, undefined, 0, b18);
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    const choice = within(dialog).getByRole("switch", { name: "Move B15/B18 door handle to top center" });
+    fireEvent.click(choice);
+    expect(onSetHandleSide).toHaveBeenCalledWith("b18", "top-center");
   });
 
   it("confirms before applying the selected door hardware position to every eligible cabinet", () => {
