@@ -192,7 +192,10 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   const runLength = Math.max(0, Number(cabinet.width) || 0);
   if (runLength <= 0 || runLength > islandFaceLength(island, face) + COLLISION_EPSILON_IN) return null;
   const occupied = placed
-    .filter((item) => item.islandFace === face)
+    // Earlier saved island plans did not persist islandFace. Infer those members
+    // from their measured island position so a new cabinet (including SB36) can
+    // extend the occupied face instead of being tested at a false overlapping start.
+    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === face)
     .map((item) => ({ start: islandOffsetForPlaced(item, island, face), end: islandOffsetForPlaced(item, island, face) + Math.max(0, Number(item.width) || 0) }))
     .sort((a, b) => a.start - b.start);
   // Same-face end points keep a run flush. Only perpendicular members expose

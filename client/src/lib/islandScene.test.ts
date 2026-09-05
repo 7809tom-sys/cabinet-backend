@@ -100,6 +100,22 @@ describe("island mini-scene geometry", () => {
     expect(hasCollision(second!, [first!])).toBe(false);
   });
 
+  it("places SB36 after a legacy Farm Sink Base on the same island face", () => {
+    const legacyFarmSinkBase = {
+      ...islandFacePlacement(cabinet({ uid: "legacy-fsb36", masterCode: "FSB-36", description: "36 inch Farm Sink Base Cabinet", width: 36 }), island, "front", 0),
+      islandFace: undefined,
+      islandOffset: undefined,
+    };
+    const sinkBase = nextIslandFacePlacement(
+      cabinet({ uid: "sb36", masterCode: "SB36", description: "36 inch Sink Base Cabinet", width: 36 }),
+      island,
+      "front",
+      [legacyFarmSinkBase],
+    );
+    expect(sinkBase).toMatchObject({ islandFace: "front", islandOffset: 36, x: 72, y: 60 });
+    expect(hasCollision(sinkBase!, [legacyFarmSinkBase])).toBe(false);
+  });
+
   it("keeps a sequential face run flush even when another face has members", () => {
     const rightSide = nextIslandFacePlacement(cabinet({ uid: "right-side" }), island, "right", []);
     const first = nextIslandFacePlacement(cabinet({ uid: "front-a" }), island, "front", [rightSide!]);

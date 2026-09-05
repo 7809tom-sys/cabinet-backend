@@ -1609,3 +1609,4 @@
 - [x] Remove only true duplicate top-bar controls in Compact Workspace while retaining one visible route to every essential action
 - [x] Make the Compact Workspace top controls fit the laptop viewport without horizontal overflow or concealed actions
 - [x] Restore a direct Materials palette for flooring, countertops, backsplash, faucets, and sinks in Compact Workspace
+- [x] Repair the newly reported SB36 placement block while preserving true collision, wall-opening, and appliance-clearance rules
