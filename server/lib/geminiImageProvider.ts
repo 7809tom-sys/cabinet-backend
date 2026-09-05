@@ -2,6 +2,7 @@ import { ENV } from "../_core/env";
 
 export const GEMINI_NANO_BANANA_MODEL = "gemini-3.1-flash-image";
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+export const GEMINI_IMAGE_TEST_TIMEOUT_MS = 90_000;
 
 type GeminiImageTestInput = {
   prompt: string;
@@ -23,7 +24,20 @@ type GeminiImageOutputBlock = {
 type GeminiInteractionImageResponse = {
   output_image?: GeminiImageOutputBlock;
   steps?: Array<{ content?: GeminiImageOutputBlock[] }>;
+  status?: unknown;
+  errors?: Array<{ code?: unknown }>;
 };
+
+function safeGeminiFailureMessage(status: number | null, payload: GeminiInteractionImageResponse | null) {
+  const providerCode = typeof payload?.errors?.[0]?.code === "string" ? payload.errors[0].code.toLowerCase() : "";
+  if (status === 408 || status === 504) return "Google image test timed out before an image was returned. Please try again.";
+  if (status === 429 || providerCode.includes("resource_exhausted") || providerCode.includes("rate")) {
+    return "Google image test is temporarily rate-limited. Please wait a few minutes and try again.";
+  }
+  if (status === 401 || status === 403) return "Google image test access was not accepted. Check the secure provider configuration in Operations.";
+  if (status !== null && status >= 500) return "Google image test is temporarily unavailable. Please try again shortly.";
+  return "Google image test could not be completed. Please try again.";
+}
 
 export function isGeminiImageConfigured() {
   return ENV.geminiApiKey.trim().length > 0;
@@ -56,23 +70,37 @@ export async function verifyGeminiImageAccess(): Promise<{ connected: boolean; m
  */
 export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): Promise<GeminiImageTestOutput> {
   if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
-  const response = await fetch(GEMINI_INTERACTIONS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": ENV.geminiApiKey,
-    },
-    body: JSON.stringify({
-      model: GEMINI_NANO_BANANA_MODEL,
-      input: [
-        { type: "text", text: input.prompt },
-        { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },
-      ],
-      response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "16:9", image_size: "2K" },
-    }),
-  });
-  if (!response.ok) throw new Error(`Google image test failed with status ${response.status}.`);
-  const payload = await response.json() as GeminiInteractionImageResponse;
+  let response: Response;
+  try {
+    response = await fetch(GEMINI_INTERACTIONS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": ENV.geminiApiKey,
+      },
+      signal: AbortSignal.timeout(GEMINI_IMAGE_TEST_TIMEOUT_MS),
+      body: JSON.stringify({
+        model: GEMINI_NANO_BANANA_MODEL,
+        input: [
+          { type: "text", text: input.prompt },
+          { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },
+        ],
+        // This is an administrator comparison, not the released customer render.
+        // 1K keeps the provider call bounded while preserving the 16:9 composition.
+        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "16:9", image_size: "1K" },
+      }),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "AbortError" || name === "TimeoutError") {
+      throw new Error("Google image test timed out before an image was returned. Please try again.");
+    }
+    throw new Error("Google image test could not be reached. Please try again.");
+  }
+  const payload = await response.json().catch(() => null) as GeminiInteractionImageResponse | null;
+  if (!response.ok) throw new Error(safeGeminiFailureMessage(response.status, payload));
+  if (payload?.status === "failed" || payload?.status === "cancelled") throw new Error(safeGeminiFailureMessage(null, payload));
+  if (!payload) throw new Error("Google image test did not return an image.");
   // SDKs may expose `output_image` as a convenience property. The REST
   // Interactions response records model output in `steps[].content[]`, so
   // accept that official form too without returning the raw provider payload.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GEMINI_NANO_BANANA_MODEL, generateGeminiExactPlanTest, verifyGeminiImageAccess } from "./geminiImageProvider";
+import { GEMINI_IMAGE_TEST_TIMEOUT_MS, GEMINI_NANO_BANANA_MODEL, generateGeminiExactPlanTest, verifyGeminiImageAccess } from "./geminiImageProvider";
 
 const realFetch = global.fetch;
 
@@ -49,9 +49,11 @@ describe("Gemini Nano Banana provider status", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ "x-goog-api-key": expect.any(String) }),
-        body: expect.stringContaining('"image_size":"2K"'),
+        signal: expect.any(AbortSignal),
+        body: expect.stringContaining('"image_size":"1K"'),
       }),
     );
+    expect(GEMINI_IMAGE_TEST_TIMEOUT_MS).toBe(90_000);
   });
 
   it("accepts the official nested Interactions API image output without returning the provider response", async () => {
@@ -77,5 +79,30 @@ describe("Gemini Nano Banana provider status", () => {
       sourceImageBase64: "locked-jpeg-reference",
       sourceMimeType: "image/jpeg",
     })).rejects.toThrow("did not return an image");
+  });
+
+  it("returns a clear retry message for a rate-limited or failed interaction without exposing provider payloads", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "failed",
+      errors: [{ code: "RESOURCE_EXHAUSTED" }],
+    }), { status: 429 })) as unknown as typeof fetch;
+
+    await expect(generateGeminiExactPlanTest({
+      prompt: "Keep the exact locked plan.",
+      sourceImageBase64: "locked-jpeg-reference",
+      sourceMimeType: "image/jpeg",
+    })).rejects.toThrow("temporarily rate-limited");
+  });
+
+  it("returns a clear retry message when the provider request exceeds the bounded test timeout", async () => {
+    const timeoutError = new Error("timed out");
+    timeoutError.name = "TimeoutError";
+    global.fetch = vi.fn().mockRejectedValue(timeoutError) as unknown as typeof fetch;
+
+    await expect(generateGeminiExactPlanTest({
+      prompt: "Keep the exact locked plan.",
+      sourceImageBase64: "locked-jpeg-reference",
+      sourceMimeType: "image/jpeg",
+    })).rejects.toThrow("timed out before an image was returned");
   });
 });

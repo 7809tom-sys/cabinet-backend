@@ -1617,3 +1617,4 @@
 - [x] Add an administrator-only Google/Gemini image-generation test for the current locked saved plan without exposing credentials or changing the customer phone/CRM workflow
 - [x] Correct the administrator-only Google/Gemini test parser to accept the official nested Interactions API image output shape
 - [x] Persist administrator Google/Gemini image-test results with their saved plan and provide a clear reopen control after page changes
+- [x] Diagnose and repair the delayed Google/Gemini image-test failure after generation is requested, with clear recoverable error handling
