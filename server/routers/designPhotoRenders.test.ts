@@ -133,6 +133,13 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("onDuplicateKeyUpdate({");
   });
 
+  it("expires an abandoned pending Google job so the same saved plan can start a new test", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("const GEMINI_IMAGE_TEST_STALE_MS = 5 * 60 * 1000");
+    expect(source).toContain("The earlier Google image test expired before it completed. You can start a new test.");
+    expect(source).toContain("startedAt: job.startedAt");
+  });
+
   it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {
     // Minimal JPEG with a baseline SOF0 segment declaring a 2560 × 1440 capture.
     const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);

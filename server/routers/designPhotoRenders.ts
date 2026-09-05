@@ -12,6 +12,7 @@ import { isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanT
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
+const GEMINI_IMAGE_TEST_STALE_MS = 5 * 60 * 1000;
 
 /** Reads JPEG dimensions without accepting a client-declared resolution on trust. */
 export function readJpegDimensions(bytes: Buffer) {
@@ -532,7 +533,14 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.status, "pending"),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (existingPending && existingPending.designRevision === revision && existingPending.planFingerprint === fingerprint) {
-        return { jobId: existingPending.id, status: "pending" as const, reused: true };
+        if (Date.now() - existingPending.startedAt.getTime() < GEMINI_IMAGE_TEST_STALE_MS) {
+          return { jobId: existingPending.id, status: "pending" as const, reused: true };
+        }
+        await db.update(designGeminiImageTestJobs).set({
+          status: "failed",
+          errorMessage: "The earlier Google image test expired before it completed. You can start a new test.",
+          completedAt: new Date(),
+        }).where(eq(designGeminiImageTestJobs.id, existingPending.id));
       }
       const started = await startGeminiExactPlanTest({
         prompt,
@@ -572,7 +580,7 @@ export const designPhotoRendersRouter = router({
         eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (!job || job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) return null;
-      return { jobId: job.id, status: job.status, errorMessage: job.errorMessage };
+      return { jobId: job.id, status: job.status, errorMessage: job.errorMessage, startedAt: job.startedAt };
     }),
 
   pollGeminiImageTest: protectedProcedure

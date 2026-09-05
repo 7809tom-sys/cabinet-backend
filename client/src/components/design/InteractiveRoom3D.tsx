@@ -7611,8 +7611,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   };
 
   useEffect(() => {
-    if (geminiImageTestJobQuery.data?.status === "pending") setGeminiImageTestJobId(geminiImageTestJobQuery.data.jobId);
-    if (geminiImageTestJobQuery.data?.status === "failed") setGeminiImageTestError(geminiImageTestJobQuery.data.errorMessage ?? "Google image test could not be completed. Please try again.");
+    const job = geminiImageTestJobQuery.data;
+    if (job?.status === "pending") {
+      const stale = Date.now() - new Date(job.startedAt).getTime() >= 5 * 60 * 1000;
+      if (stale) {
+        setGeminiImageTestJobId(null);
+        setGeminiImageTestError("The earlier Google image test expired before it completed. You can start a new test.");
+        return;
+      }
+      setGeminiImageTestJobId(job.jobId);
+    }
+    if (job?.status === "failed") setGeminiImageTestError(job.errorMessage ?? "Google image test could not be completed. Please try again.");
   }, [geminiImageTestJobQuery.data]);
 
   useEffect(() => {
