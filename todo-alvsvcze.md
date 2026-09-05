@@ -1585,3 +1585,5 @@
 - [x] Show a live floating-shelf duplicate placement preview before the customer confirms duplication
 - [x] Let customers drag the duplicate shelf in its popup preview to adjust the proposed bottom height before confirming
 - [x] Show a live visual warning and block confirmation when a dragged duplicate shelf overlaps a cabinet or existing shelf
+- [x] Automatically snap a dragged duplicate floating shelf to the nearest collision-free height when it overlaps an existing object
+- [x] Confirm and visibly guide placement of up to four floating shelves on one wall span at distinct clear heights

@@ -92,7 +92,7 @@ import {
   resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -5793,6 +5793,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    const conflictKind = isFloatingShelfItem(detail.cabinet) ? "another shelf" : "a cabinet";
 	    return `Overlap warning: this duplicate shelf overlaps ${detail.cabinet.masterCode}, ${conflictKind}, by ${formatEighthInches(detail.penetration)}. Drag it to a clear height before confirming.`;
 	  }, [placed, room]);
+	  const nearestDuplicateFloatingShelfClearHeight = useCallback((uid: string, bottomIn: number): number | null => {
+	    const shelf = placed.find((item) => item.uid === uid);
+	    if (!shelf || !isFloatingShelfItem(shelf)) return null;
+	    const maxBottom = Math.max(0, roomCeiling(room) - Math.max(0.125, placedHeight(shelf)));
+	    const preview: PlacedCabinet = { ...shelf, uid: `preview-${uid}`, mountBottom: bottomIn, mountBottomAdjusted: true };
+	    return nearestCollisionFreeMountBottom(preview, placed, bottomIn, maxBottom);
+	  }, [placed, room]);
 	  const duplicateFloatingShelfAtHeight = useCallback((uid: string, bottomIn: number) => {
 	    const current = placedRef.current;
 	    const shelf = current.find((item) => item.uid === uid);
@@ -11131,6 +11138,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onApply={applyFloatingShelfAttributes}
 	        onDuplicate={duplicateFloatingShelfAtHeight}
 	        getDuplicateOverlapWarning={duplicateFloatingShelfOverlapWarning}
+	        getNearestDuplicateClearHeight={nearestDuplicateFloatingShelfClearHeight}
 	        onRemove={removeFloatingShelf}
 	      />
 	      <WindowAttributesDialog

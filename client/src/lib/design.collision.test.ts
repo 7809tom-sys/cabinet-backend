@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, refrigeratorEndPanelConflict, refrigeratorEndPanelConflictDetail, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, nearestCollisionFreeMountBottom, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, refrigeratorEndPanelConflict, refrigeratorEndPanelConflictDetail, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -37,6 +37,12 @@ describe("design placement collision prevention", () => {
     const overlappingShelf = { ...upperShelf, uid: "shelf-overlap", mountBottom: 54.5 };
     expect(hasCollision(upperShelf, [lowerShelf])).toBe(false);
     expect(hasCollision(overlappingShelf, [lowerShelf])).toBe(true);
+  });
+
+  it("snaps an overlapping floating shelf duplicate to the nearest clear 1/8-inch height", () => {
+    const originalShelf = placed({ uid: "shelf-54", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 54, mountBottomAdjusted: true });
+    const preview = { ...originalShelf, uid: "preview-shelf", mountBottom: 54 };
+    expect(nearestCollisionFreeMountBottom(preview, [originalShelf], 54, 95.25)).toBe(53.25);
   });
 
   it("identifies sinks attached to a sink base while leaving standalone sinks independent", () => {

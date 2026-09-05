@@ -106,6 +106,24 @@ describe("FloatingShelfAttributesDialog", () => {
     expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("allows a fourth shelf on the same wall span when its proposed height is clear", () => {
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={shelf}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={3}
+        onApply={vi.fn()}
+        onDuplicate={vi.fn()}
+        getDuplicateOverlapWarning={() => null}
+        onRemove={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("3 of 4")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("shows a live overlap warning and blocks confirmation for a conflicting duplicate height", () => {
     render(
       <FloatingShelfAttributesDialog
@@ -122,5 +140,28 @@ describe("FloatingShelfAttributesDialog", () => {
     );
     expect(screen.getByRole("alert").textContent).toMatch(/overlaps W2430/i);
     expect((screen.getByRole("button", { name: "Confirm duplicate shelf" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("snaps a dropped duplicate preview to the provided nearest clear height", () => {
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={shelf}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={2}
+        onApply={vi.fn()}
+        onDuplicate={vi.fn()}
+        getDuplicateOverlapWarning={() => null}
+        getNearestDuplicateClearHeight={() => 66}
+        onRemove={vi.fn()}
+      />,
+    );
+    const preview = screen.getByRole("slider", { name: "Duplicate shelf preview height" });
+    Object.defineProperty(preview.parentElement, "getBoundingClientRect", { value: () => ({ bottom: 176, height: 176 }) });
+    fireEvent.pointerDown(preview, { pointerId: 1, clientY: 100 });
+    fireEvent.pointerUp(preview, { pointerId: 1, clientY: 100 });
+    expect((screen.getByLabelText("Shelf bottom height from floor") as HTMLInputElement).value).toBe("66");
+    expect(screen.getByRole("status").textContent).toMatch(/snapped to clear height/i);
   });
 });

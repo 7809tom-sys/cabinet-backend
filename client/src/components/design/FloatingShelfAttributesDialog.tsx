@@ -13,23 +13,27 @@ type Props = {
   onApply: (uid: string, bottomIn: number, lengthIn: number) => void;
   onDuplicate: (uid: string, bottomIn: number) => void;
   getDuplicateOverlapWarning?: (uid: string, bottomIn: number) => string | null;
+  getNearestDuplicateClearHeight?: (uid: string, desiredBottomIn: number) => number | null;
   onRemove: (uid: string) => void;
 };
 
 const MIN_SHELF_LENGTH_IN = 6;
 
-export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onDuplicate, getDuplicateOverlapWarning, onRemove }: Props) {
+export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onDuplicate, getDuplicateOverlapWarning, getNearestDuplicateClearHeight, onRemove }: Props) {
   const maximumLength = useMemo(() => Math.max(MIN_SHELF_LENGTH_IN, Number(shelf?.nominalWidth ?? shelf?.width) || MIN_SHELF_LENGTH_IN), [shelf?.nominalWidth, shelf?.uid, shelf?.width]);
   const maximumBottom = useMemo(() => Math.max(0, ceilingHeight - Math.max(0.125, Number(shelf?.height) || 0.75)), [ceilingHeight, shelf?.height]);
   const [bottomText, setBottomText] = useState("54");
   const [lengthText, setLengthText] = useState(String(maximumLength));
   const previewRef = useRef<HTMLDivElement>(null);
   const previewPointerIdRef = useRef<number | null>(null);
+  const previewBottomRef = useRef(54);
+  const [snapNotice, setSnapNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shelf) return;
     setBottomText(String(Math.round((Number(shelf.mountBottom) || 54) * 8) / 8));
     setLengthText(String(Math.round((Number(shelf.width) || maximumLength) * 8) / 8));
+    setSnapNotice(null);
   }, [maximumLength, open, shelf?.mountBottom, shelf?.uid, shelf?.width]);
 
   if (!shelf) return null;
@@ -44,9 +48,16 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
   const previewBottom = validBottom ? bottomIn : originalBottom;
   const overlapWarning = validBottom ? getDuplicateOverlapWarning?.(shelf.uid, previewBottom) ?? null : null;
   const canConfirmDuplicate = canDuplicate && !overlapWarning;
-  const setPreviewBottom = (nextBottom: number) => {
-    const rounded = Math.round(Math.max(0, Math.min(maximumBottom, nextBottom)) * 8) / 8;
-    setBottomText(String(rounded));
+  previewBottomRef.current = previewBottom;
+  const setPreviewBottom = (nextBottom: number, snapIfBlocked = false) => {
+    const desired = Math.round(Math.max(0, Math.min(maximumBottom, nextBottom)) * 8) / 8;
+    const nearestClear = snapIfBlocked ? getNearestDuplicateClearHeight?.(shelf.uid, desired) : null;
+    const resolved = Math.round(Math.max(0, Math.min(maximumBottom, nearestClear ?? desired)) * 8) / 8;
+    previewBottomRef.current = resolved;
+    setBottomText(String(resolved));
+    setSnapNotice(snapIfBlocked && nearestClear != null && Math.abs(resolved - desired) > 0.0001
+      ? `Snapped to clear height: ${formatEighthInches(resolved)} from floor.`
+      : null);
   };
   const updatePreviewBottomFromPointer = (clientY: number) => {
     const rect = previewRef.current?.getBoundingClientRect();
@@ -71,7 +82,7 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
           </div>
           <label className="grid gap-1.5 text-sm font-medium">
             Bottom height from floor (inches)
-            <Input aria-label="Shelf bottom height from floor" inputMode="decimal" step="0.125" min={0} max={maximumBottom} value={bottomText} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setBottomText(event.target.value)} />
+            <Input aria-label="Shelf bottom height from floor" inputMode="decimal" step="0.125" min={0} max={maximumBottom} value={bottomText} onFocus={(event) => event.currentTarget.select()} onChange={(event) => { setSnapNotice(null); setBottomText(event.target.value); }} />
             <span className="text-xs font-normal text-muted-foreground">0 to {formatEighthInches(maximumBottom)} in 1/8-inch steps.</span>
           </label>
           <label className="grid gap-1.5 text-sm font-medium">
@@ -106,6 +117,7 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
                 onPointerDown={(event) => {
                   event.preventDefault();
                   previewPointerIdRef.current = event.pointerId;
+                  setSnapNotice(null);
                   event.currentTarget.setPointerCapture?.(event.pointerId);
                   updatePreviewBottomFromPointer(event.clientY);
                 }}
@@ -114,7 +126,10 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
                   updatePreviewBottomFromPointer(event.clientY);
                 }}
                 onPointerUp={(event) => {
-                  if (previewPointerIdRef.current === event.pointerId) previewPointerIdRef.current = null;
+                  if (previewPointerIdRef.current === event.pointerId) {
+                    previewPointerIdRef.current = null;
+                    setPreviewBottom(previewBottomRef.current, true);
+                  }
                   if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
                 }}
                 onPointerCancel={() => { previewPointerIdRef.current = null; }}
@@ -135,7 +150,8 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
             ) : (
               <p className="mt-2 text-[11px] font-medium text-emerald-700">Clear height — the duplicate shelf does not overlap another cabinet or shelf.</p>
             )}
-            <p className="mt-2 text-[11px] text-slate-700">Drag the dashed shelf up or down to set its bottom height, or use the arrow keys for ⅛-inch steps (Shift + arrow moves 1 inch). The shelf stays aligned with the current wall span and is not added until you confirm.</p>
+            {snapNotice ? <p role="status" aria-live="polite" className="mt-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800">{snapNotice}</p> : null}
+            <p className="mt-2 text-[11px] text-slate-700">Drag the dashed shelf up or down to set its bottom height, or use the arrow keys for ⅛-inch steps (Shift + arrow moves 1 inch). On release, an overlapping shelf snaps to the nearest clear height. Up to four shelves may share this wall span at distinct clear heights.</p>
           </div>
         </div>
         <DialogFooter className="gap-2 sm:justify-between">

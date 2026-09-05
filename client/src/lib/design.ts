@@ -1713,6 +1713,26 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
 }
 
 /**
+ * Finds the nearest 1/8-inch mounting height that clears every existing item.
+ * The caller supplies a unique preview item, so its source shelf remains a real
+ * peer and prevents a duplicate from snapping into the original shelf.
+ */
+export function nearestCollisionFreeMountBottom(moving: PlacedCabinet, others: PlacedCabinet[], desiredBottom: number, maximumBottom: number): number | null {
+  const maxStep = Math.max(0, Math.round(maximumBottom * 8));
+  const desiredStep = Math.max(0, Math.min(maxStep, Math.round(desiredBottom * 8)));
+  const atStep = (step: number): PlacedCabinet => ({ ...moving, mountBottom: step / 8, mountBottomAdjusted: true });
+  if (!hasCollision(atStep(desiredStep), others)) return desiredStep / 8;
+
+  for (let distance = 1; distance <= maxStep; distance++) {
+    const lower = desiredStep - distance;
+    const upper = desiredStep + distance;
+    if (lower >= 0 && !hasCollision(atStep(lower), others)) return lower / 8;
+    if (upper <= maxStep && !hasCollision(atStep(upper), others)) return upper / 8;
+  }
+  return null;
+}
+
+/**
  * Resolve a near seam (gap or penetration of at most 1/16") to exact edge
  * contact for every same-category base/base and wall/wall pair. This never
  * approves an overlap: it returns coordinates whose saved gap and penetration
