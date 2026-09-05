@@ -5782,6 +5782,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      return next;
 	    });
 	  }, [room]);
+	  const duplicateFloatingShelfAtHeight = useCallback((uid: string, bottomIn: number) => {
+	    const current = placedRef.current;
+	    const shelf = current.find((item) => item.uid === uid);
+	    if (!shelf || !isFloatingShelfItem(shelf)) return;
+	    const wall = cabinetWall(shelf, room);
+	    const footprint = placedFootprint(shelf);
+	    const start = wall === "top" || wall === "bottom" ? shelf.x : shelf.y;
+	    const end = start + (wall === "top" || wall === "bottom" ? footprint.w : footprint.d);
+	    const shelvesOnRun = current.filter((item) => {
+	      if (!isFloatingShelfItem(item) || cabinetWall(item, room) !== wall) return false;
+	      const itemFootprint = placedFootprint(item);
+	      const itemStart = wall === "top" || wall === "bottom" ? item.x : item.y;
+	      const itemEnd = itemStart + (wall === "top" || wall === "bottom" ? itemFootprint.w : itemFootprint.d);
+	      return start < itemEnd && end > itemStart;
+	    }).length;
+	    if (shelvesOnRun >= 4) {
+	      toast.error("A wall span can hold up to four separately mounted floating shelves.");
+	      return;
+	    }
+	    const maxBottom = Math.max(0, roomCeiling(room) - Math.max(0.125, placedHeight(shelf)));
+	    const bottom = Math.max(0, Math.min(maxBottom, Math.round(bottomIn * 8) / 8));
+	    const duplicateUid = makeUid();
+	    const duplicate: PlacedCabinet = { ...shelf, uid: duplicateUid, mountBottom: bottom, mountBottomAdjusted: true };
+	    if (hasCollision(duplicate, current)) {
+	      toast.error("This duplicate shelf would overlap an existing item. Choose a different bottom height.");
+	      return;
+	    }
+	    const next = [...current, duplicate];
+	    placedRef.current = next;
+	    setPlaced(next);
+	    setSelectedUid(duplicateUid);
+	    setFloatingShelfAttrUid(duplicateUid);
+	    toast.success(`Shelf duplicated at ${formatEighthInches(bottom)} from the floor.`);
+	  }, [room]);
 	  const removeFloatingShelf = useCallback((uid: string) => {
 	    setPlaced((current) => {
 	      const next = current.filter((item) => item.uid !== uid);
@@ -11084,6 +11118,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        ceilingHeight={roomCeiling(room)}
 	        shelvesOnRun={floatingShelfRunCount}
 	        onApply={applyFloatingShelfAttributes}
+	        onDuplicate={duplicateFloatingShelfAtHeight}
 	        onRemove={removeFloatingShelf}
 	      />
 	      <WindowAttributesDialog

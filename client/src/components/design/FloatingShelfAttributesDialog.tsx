@@ -11,12 +11,13 @@ type Props = {
   ceilingHeight: number;
   shelvesOnRun: number;
   onApply: (uid: string, bottomIn: number, lengthIn: number) => void;
+  onDuplicate: (uid: string, bottomIn: number) => void;
   onRemove: (uid: string) => void;
 };
 
 const MIN_SHELF_LENGTH_IN = 6;
 
-export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onRemove }: Props) {
+export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceilingHeight, shelvesOnRun, onApply, onDuplicate, onRemove }: Props) {
   const maximumLength = useMemo(() => Math.max(MIN_SHELF_LENGTH_IN, Number(shelf?.nominalWidth ?? shelf?.width) || MIN_SHELF_LENGTH_IN), [shelf?.nominalWidth, shelf?.uid, shelf?.width]);
   const maximumBottom = useMemo(() => Math.max(0, ceilingHeight - Math.max(0.125, Number(shelf?.height) || 0.75)), [ceilingHeight, shelf?.height]);
   const [bottomText, setBottomText] = useState("54");
@@ -31,8 +32,9 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
   if (!shelf) return null;
   const bottomIn = Math.round(Number(bottomText) * 8) / 8;
   const lengthIn = Math.round(Number(lengthText) * 8) / 8;
-  const valid = Number.isFinite(bottomIn) && bottomIn >= 0 && bottomIn <= maximumBottom
-    && Number.isFinite(lengthIn) && lengthIn >= MIN_SHELF_LENGTH_IN && lengthIn <= maximumLength;
+  const validBottom = Number.isFinite(bottomIn) && bottomIn >= 0 && bottomIn <= maximumBottom;
+  const valid = validBottom && Number.isFinite(lengthIn) && lengthIn >= MIN_SHELF_LENGTH_IN && lengthIn <= maximumLength;
+  const canDuplicate = validBottom && shelvesOnRun < 4;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,10 +60,17 @@ export function FloatingShelfAttributesDialog({ shelf, open, onOpenChange, ceili
             <Input aria-label="Shelf length in inches" inputMode="decimal" step="0.125" min={MIN_SHELF_LENGTH_IN} max={maximumLength} value={lengthText} onFocus={(event) => event.currentTarget.select()} onChange={(event) => setLengthText(event.target.value)} />
             <span className="text-xs font-normal text-muted-foreground">{formatEighthInches(MIN_SHELF_LENGTH_IN)} to the catalog maximum of {formatEighthInches(maximumLength)}. The shelf is never enlarged beyond its sellable length.</span>
           </label>
+          <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+            <strong>Duplicate shelf:</strong> uses this shelf’s currently installed length of {formatEighthInches(Number(shelf.width) || maximumLength)} at the bottom height entered above. The original shelf is unchanged.
+          </p>
         </div>
         <DialogFooter className="gap-2 sm:justify-between">
           <Button type="button" variant="destructive" onClick={() => { onRemove(shelf.uid); onOpenChange(false); }}>Remove shelf</Button>
-          <div className="flex gap-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="button" disabled={!valid} onClick={() => { onApply(shelf.uid, bottomIn, lengthIn); onOpenChange(false); }}>Apply shelf placement</Button></div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" disabled={!canDuplicate} onClick={() => onDuplicate(shelf.uid, bottomIn)}>Duplicate at this height</Button>
+            <Button type="button" disabled={!valid} onClick={() => { onApply(shelf.uid, bottomIn, lengthIn); onOpenChange(false); }}>Apply shelf placement</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

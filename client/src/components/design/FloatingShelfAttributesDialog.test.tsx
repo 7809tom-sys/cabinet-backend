@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { FloatingShelfAttributesDialog } from "./FloatingShelfAttributesDialog";
 
 const shelf = {
@@ -20,6 +20,8 @@ const shelf = {
 } as any;
 
 describe("FloatingShelfAttributesDialog", () => {
+  afterEach(() => cleanup());
+
   it("persists a chosen bottom height and a length that does not exceed the catalog shelf", () => {
     const onApply = vi.fn();
     render(
@@ -30,6 +32,7 @@ describe("FloatingShelfAttributesDialog", () => {
         ceilingHeight={96}
         shelvesOnRun={2}
         onApply={onApply}
+        onDuplicate={vi.fn()}
         onRemove={vi.fn()}
       />,
     );
@@ -38,5 +41,41 @@ describe("FloatingShelfAttributesDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply shelf placement" }));
     expect(onApply).toHaveBeenCalledWith("floating-1", 66, 30);
     expect(screen.getByText(/2 of 4/i)).toBeTruthy();
+  });
+
+  it("duplicates the current installed shelf length at the separately entered bottom height", () => {
+    const onDuplicate = vi.fn();
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={{ ...shelf, width: 30 }}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={2}
+        onApply={vi.fn()}
+        onDuplicate={onDuplicate}
+        onRemove={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Shelf bottom height from floor"), { target: { value: "78" } });
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate at this height" }));
+    expect(onDuplicate).toHaveBeenCalledWith("floating-1", 78);
+    expect(screen.getByText(/currently installed length of 30/i)).toBeTruthy();
+  });
+
+  it("keeps duplication unavailable when the current wall span already has four shelves", () => {
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={shelf}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={4}
+        onApply={vi.fn()}
+        onDuplicate={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+    expect((screen.getByRole("button", { name: "Duplicate at this height" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

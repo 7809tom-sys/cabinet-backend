@@ -1579,3 +1579,4 @@
 - [x] Add accessible per-line removal controls to the Materials & Parts list so a selected item can be removed directly
 - [x] Support one to four independently positioned floating shelves on a wall with bottom height and shelf length controls
 - [x] Correct base/sink-base placement to allow SB36 in valid open wall space beside a dishwasher while retaining collision and opening clearances
+- [x] Add a floating-shelf popup action that duplicates the selected shelf at the same length with a separately entered bottom height
