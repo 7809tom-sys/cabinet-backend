@@ -7608,6 +7608,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             >
               <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" /> More
             </Button>
+            <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
+              <span className="mr-1.5 text-muted-foreground">Wall</span>
+              <select
+                data-testid="compact-workspace-wall-selector"
+                aria-label="Placement wall"
+                value={activeWall}
+                onChange={(event) => {
+                  setActiveWall(event.target.value as WallSide);
+                  setDrawMode(false);
+                }}
+                className="max-w-20 bg-transparent text-xs font-semibold outline-none"
+              >
+                {(["top", "right", "bottom", "left"] as WallSide[]).map((wall) => (
+                  <option key={wall} value={wall}>{wallLabel[wall]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
+              <span className="mr-1.5 text-muted-foreground">View</span>
+              <select
+                data-testid="compact-workspace-view-selector"
+                aria-label="Floor plan view"
+                value={viewMode}
+                onChange={(event) => setViewMode(event.target.value as ViewMode)}
+                className="max-w-24 bg-transparent text-xs font-semibold outline-none"
+              >
+                <option value="plan">Plan</option>
+                <option value="elevation">Elevation</option>
+                <option value="threeD" disabled={!canLoadInteractive3d || interactive3dLoading}>3D</option>
+                <option value="split">Split</option>
+                {island && <option value="island">Island elevation</option>}
+              </select>
+            </label>
           </>
         )}
 

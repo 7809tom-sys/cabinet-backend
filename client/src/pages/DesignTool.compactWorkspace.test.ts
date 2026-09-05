@@ -25,6 +25,16 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('setMobilePanel("catalog");');
   });
 
+  it("keeps the active placement wall and every floor-plan view reachable in compact mode", () => {
+    expect(source).toContain('data-testid="compact-workspace-wall-selector"');
+    expect(source).toContain('aria-label="Placement wall"');
+    expect(source).toContain('data-testid="compact-workspace-view-selector"');
+    expect(source).toContain('aria-label="Floor plan view"');
+    expect(source).toContain('<option value="plan">Plan</option>');
+    expect(source).toContain('<option value="elevation">Elevation</option>');
+    expect(source).toContain('<option value="threeD"');
+  });
+
   it("keeps More and Island Zone visible in the compact toolbar while removing the duplicate 3D shortcut", () => {
     expect(source).toContain('data-testid="compact-workspace-more-trigger"');
     expect(source).toContain('data-testid="compact-workspace-island-zone-trigger"');
