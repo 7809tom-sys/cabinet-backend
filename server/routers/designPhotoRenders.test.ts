@@ -130,6 +130,21 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("nextRetryAt: job.nextRetryAt");
   });
 
+  it("recovers queued retries and pending Google interactions without a browser or restart-sensitive timer", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    const serverSource = readFileSync(new URL("../_core/index.ts", import.meta.url), "utf8");
+
+    expect(source).toContain("export async function recoverDueGeminiImageTestJobs()");
+    expect(source).toContain('eq(designGeminiImageTestJobs.status, "queued")');
+    expect(source).toContain('eq(designGeminiImageTestJobs.status, "pending")');
+    expect(source).toContain("await runQueuedGeminiImageTestJob(job.id)");
+    expect(source).toContain("await pollPendingGeminiImageTestJob(db, job)");
+    expect(source).not.toContain("setTimeout(() => queueGeminiImageTestJob");
+    expect(serverSource).toContain('app.post("/api/scheduled/recover-gemini-image-tests"');
+    expect(serverSource).toContain("if (!user.isCron || !user.taskUid)");
+    expect(serverSource).toContain("await recoverDueGeminiImageTestJobs()");
+  });
+
   it("persists the administrator Google image test by saved-plan ID and reopens only the current locked plan revision", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
     expect(source).toContain("getSavedGeminiImageTest: protectedProcedure");

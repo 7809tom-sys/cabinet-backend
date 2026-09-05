@@ -1644,3 +1644,4 @@
 - [x] Add a clear Cabinet Config edit action for each result in the Designer Coverage tab
 - [x] Add a Coverage-tab toggle that displays only cabinets with missing style coverage
 - [x] Audit and safely remove duplicate unused media-library records while preserving active catalog and Designer references
+- [ ] Repair the administrator Google image-test retry worker so overdue queued jobs resume safely and completed results are stored

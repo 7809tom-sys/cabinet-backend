@@ -16,6 +16,8 @@ import { apexRedirectMiddleware } from "../apexRedirect";
 import fs from "fs";
 import path from "path";
 import { registerStripeWebhook } from "../stripeWebhook";
+import { sdk } from "./sdk";
+import { recoverDueGeminiImageTestJobs } from "../routers/designPhotoRenders";
 
 // Resolve the build version once at startup. The framework emits a build stamp
 // at client/public/__manus__/version.json during the build; if present we use
@@ -115,6 +117,20 @@ async function startServer() {
   registerSharedRoomPreviewRoutes(app);
   registerOAuthRoutes(app);
   registerQboRoutes(app);
+  // This project-level callback is invoked by a managed once-per-minute job.
+  // It uses the durable database queue; no browser session or in-process timer
+  // is required for an administrator Google image test to finish.
+  app.post("/api/scheduled/recover-gemini-image-tests", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
+      const result = await recoverDueGeminiImageTestJobs();
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      console.error("[Google image test recovery] Scheduled job failed", error instanceof Error ? error.name : "unknown error");
+      return res.status(500).json({ error: "Google image test recovery failed" });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

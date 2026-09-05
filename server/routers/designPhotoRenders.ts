@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
 import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
 import { getDb } from "../db";
@@ -18,11 +18,6 @@ const GEMINI_IMAGE_TEST_RETRY_DELAYS_MS = [2 * 60 * 1000, 5 * 60 * 1000, 10 * 60
 
 function isRetryableGeminiImageTestFailure(message: string) {
   return /rate[ -]?limit|resource[_ -]?exhausted|temporarily unavailable|service unavailable|timed? out|deadline exceeded/i.test(message);
-}
-
-function scheduleGeminiImageTestJob(jobId: number, delayMs = 0) {
-  const timer = setTimeout(() => queueGeminiImageTestJob(jobId), Math.max(0, delayMs));
-  timer.unref?.();
 }
 
 async function sendCustomerImageReadyEmail(
@@ -301,60 +296,173 @@ const activeGeminiImageTestJobs = new Set<number>();
  * source reference is kept in storage, so a queued job can be resumed by a
  * later status request after an in-process restart.
  */
-function queueGeminiImageTestJob(jobId: number) {
+async function runQueuedGeminiImageTestJob(jobId: number) {
   if (activeGeminiImageTestJobs.has(jobId)) return;
   activeGeminiImageTestJobs.add(jobId);
-  void (async () => {
-    let durableJob: typeof designGeminiImageTestJobs.$inferSelect | null = null;
-    try {
-      const db = await getDb();
-      if (!db) throw new Error("Google image testing is temporarily unavailable.");
-      const [job] = await db.select().from(designGeminiImageTestJobs)
-        .where(eq(designGeminiImageTestJobs.id, jobId)).limit(1);
-      if (!job || job.status !== "queued" || !job.sourceImageKey) return;
-      durableJob = job;
-      if (job.nextRetryAt && job.nextRetryAt.getTime() > Date.now()) {
-        scheduleGeminiImageTestJob(job.id, job.nextRetryAt.getTime() - Date.now());
-        return;
-      }
-      const sourceResponse = await fetch(await storageGetSignedUrl(job.sourceImageKey));
-      if (!sourceResponse.ok) throw new Error("The locked Google test reference could not be read. Start a fresh test.");
-      const sourceBytes = Buffer.from(await sourceResponse.arrayBuffer());
-      const dimensions = readJpegDimensions(sourceBytes);
-      if (dimensions.width < 1920 || dimensions.height < 1080) throw new Error("The stored Google test reference is below the required 1920×1080 size. Start a fresh test.");
-      const prompt = exactPlanPrompt(photoRenderProvenanceSummary(job.provenance as PhotoRenderProvenanceInput));
-      const started = await startGeminiExactPlanTest({
-        prompt,
-        sourceImageBase64: sourceBytes.toString("base64"),
-        sourceMimeType: "image/jpeg",
-      });
-      await db.update(designGeminiImageTestJobs).set({ interactionId: started.interactionId, status: "pending", errorMessage: null, nextRetryAt: null })
+  let durableJob: typeof designGeminiImageTestJobs.$inferSelect | null = null;
+  try {
+    const db = await getDb();
+    if (!db) throw new Error("Google image testing is temporarily unavailable.");
+    const [job] = await db.select().from(designGeminiImageTestJobs)
+      .where(eq(designGeminiImageTestJobs.id, jobId)).limit(1);
+    if (!job || job.status !== "queued" || !job.sourceImageKey) return;
+    durableJob = job;
+    if (job.nextRetryAt && job.nextRetryAt.getTime() > Date.now()) return;
+    const sourceResponse = await fetch(await storageGetSignedUrl(job.sourceImageKey));
+    if (!sourceResponse.ok) throw new Error("The locked Google test reference could not be read. Start a fresh test.");
+    const sourceBytes = Buffer.from(await sourceResponse.arrayBuffer());
+    const dimensions = readJpegDimensions(sourceBytes);
+    if (dimensions.width < 1920 || dimensions.height < 1080) throw new Error("The stored Google test reference is below the required 1920×1080 size. Start a fresh test.");
+    const prompt = exactPlanPrompt(photoRenderProvenanceSummary(job.provenance as PhotoRenderProvenanceInput));
+    const started = await startGeminiExactPlanTest({
+      prompt,
+      sourceImageBase64: sourceBytes.toString("base64"),
+      sourceMimeType: "image/jpeg",
+    });
+    await db.update(designGeminiImageTestJobs).set({ interactionId: started.interactionId, status: "pending", errorMessage: null, nextRetryAt: null })
+      .where(eq(designGeminiImageTestJobs.id, jobId));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google image test could not be started. Please try again.";
+    const db = await getDb();
+    const retryDelayMs = durableJob && isRetryableGeminiImageTestFailure(message)
+      ? GEMINI_IMAGE_TEST_RETRY_DELAYS_MS[durableJob.retryCount]
+      : undefined;
+    if (db && durableJob && retryDelayMs != null) {
+      const retryCount = durableJob.retryCount + 1;
+      const nextRetryAt = new Date(Date.now() + retryDelayMs);
+      await db.update(designGeminiImageTestJobs).set({
+        status: "queued",
+        retryCount,
+        nextRetryAt,
+        errorMessage: `Google is temporarily unavailable. Retrying automatically in ${Math.ceil(retryDelayMs / 60_000)} minute${retryDelayMs >= 2 * 60_000 ? "s" : ""}.`,
+        completedAt: null,
+      }).where(eq(designGeminiImageTestJobs.id, jobId));
+    } else if (db) {
+      await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date(), nextRetryAt: null })
         .where(eq(designGeminiImageTestJobs.id, jobId));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Google image test could not be started. Please try again.";
-      const db = await getDb();
-      const retryDelayMs = durableJob && isRetryableGeminiImageTestFailure(message)
-        ? GEMINI_IMAGE_TEST_RETRY_DELAYS_MS[durableJob.retryCount]
-        : undefined;
-      if (db && durableJob && retryDelayMs != null) {
-        const retryCount = durableJob.retryCount + 1;
-        const nextRetryAt = new Date(Date.now() + retryDelayMs);
-        await db.update(designGeminiImageTestJobs).set({
-          status: "queued",
-          retryCount,
-          nextRetryAt,
-          errorMessage: `Google is temporarily unavailable. Retrying automatically in ${Math.ceil(retryDelayMs / 60_000)} minute${retryDelayMs >= 2 * 60_000 ? "s" : ""}.`,
-          completedAt: null,
-        }).where(eq(designGeminiImageTestJobs.id, jobId));
-        scheduleGeminiImageTestJob(jobId, retryDelayMs);
-      } else if (db) {
-        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date(), nextRetryAt: null })
-          .where(eq(designGeminiImageTestJobs.id, jobId));
-      }
-    } finally {
-      activeGeminiImageTestJobs.delete(jobId);
     }
-  })();
+  } finally {
+    activeGeminiImageTestJobs.delete(jobId);
+  }
+}
+
+function queueGeminiImageTestJob(jobId: number) {
+  void runQueuedGeminiImageTestJob(jobId);
+}
+
+type GeminiImagePollResult =
+  | { status: "pending"; nextRetryAt?: Date | null }
+  | { status: "completed"; imageUrl: string }
+  | { status: "failed"; message: string };
+
+async function deferOrFailGeminiImageTestJob(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  job: typeof designGeminiImageTestJobs.$inferSelect,
+  message: string,
+): Promise<GeminiImagePollResult> {
+  const retryDelayMs = isRetryableGeminiImageTestFailure(message)
+    ? GEMINI_IMAGE_TEST_RETRY_DELAYS_MS[job.retryCount]
+    : undefined;
+  if (retryDelayMs != null) {
+    const nextRetryAt = new Date(Date.now() + retryDelayMs);
+    await db.update(designGeminiImageTestJobs).set({
+      status: "queued",
+      retryCount: job.retryCount + 1,
+      nextRetryAt,
+      errorMessage: `Google is temporarily unavailable. Retrying automatically in ${Math.ceil(retryDelayMs / 60_000)} minute${retryDelayMs >= 2 * 60_000 ? "s" : ""}.`,
+      completedAt: null,
+    }).where(eq(designGeminiImageTestJobs.id, job.id));
+    return { status: "pending", nextRetryAt };
+  }
+
+  await db.update(designGeminiImageTestJobs).set({
+    status: "failed",
+    errorMessage: message,
+    completedAt: new Date(),
+    nextRetryAt: null,
+  }).where(eq(designGeminiImageTestJobs.id, job.id));
+  return { status: "failed", message };
+}
+
+async function pollPendingGeminiImageTestJob(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  job: typeof designGeminiImageTestJobs.$inferSelect,
+): Promise<GeminiImagePollResult> {
+  const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, job.userId, job.kitchenDesignId) : null;
+  if (design && (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design))) {
+    const message = "This kitchen plan changed while Google was generating the test. Reopen Final preview and start a new test.";
+    await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date(), nextRetryAt: null })
+      .where(eq(designGeminiImageTestJobs.id, job.id));
+    return { status: "failed", message };
+  }
+
+  let provider;
+  try {
+    provider = await pollGeminiExactPlanTest(job.interactionId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google image test could not be checked. Please try again.";
+    return deferOrFailGeminiImageTestJob(db, job, message);
+  }
+  if (provider.status === "pending") return provider;
+  if (provider.status === "failed") return deferOrFailGeminiImageTestJob(db, job, provider.message);
+
+  const extension = provider.image.mimeType === "image/png" ? "png" : "jpg";
+  const stored = await storagePut(`admin-google-image-tests/${job.userId}/${job.sceneSignature}-${Date.now()}.${extension}`, provider.image.bytes, provider.image.mimeType);
+  const confirmedAt = new Date();
+  await db.insert(designPhotoRenders).values({
+    userId: job.userId,
+    kitchenDesignId: design?.id ?? null,
+    sceneSignature: job.sceneSignature,
+    imageUrl: stored.url,
+    provenance: job.provenance,
+    sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash,
+    promptFingerprint: job.promptFingerprint,
+    generationMethod: "manual-final-review-gemini-nano-banana-v1",
+    confirmedAt,
+  }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
+  await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt, nextRetryAt: null })
+    .where(eq(designGeminiImageTestJobs.id, job.id));
+  return { status: "completed", imageUrl: stored.url };
+}
+
+/**
+ * Invoked by the authenticated scheduled callback. It recovers queued jobs
+ * after a server restart and polls in-progress provider interactions so the
+ * browser does not need to remain open for a result to be stored.
+ */
+export async function recoverDueGeminiImageTestJobs() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable while recovering Google image tests.");
+  const now = new Date();
+  const jobs = await db.select().from(designGeminiImageTestJobs).where(or(
+    and(
+      eq(designGeminiImageTestJobs.status, "queued"),
+      or(isNull(designGeminiImageTestJobs.nextRetryAt), lte(designGeminiImageTestJobs.nextRetryAt, now)),
+    ),
+    eq(designGeminiImageTestJobs.status, "pending"),
+  )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(25);
+
+  let queuedStarted = 0;
+  let pendingChecked = 0;
+  for (const job of jobs) {
+    if (job.status === "queued") {
+      if (!activeGeminiImageTestJobs.has(job.id)) {
+        queuedStarted += 1;
+        await runQueuedGeminiImageTestJob(job.id);
+      }
+      continue;
+    }
+    if (!activeGeminiImageTestJobs.has(job.id)) {
+      activeGeminiImageTestJobs.add(job.id);
+      try {
+        await pollPendingGeminiImageTestJob(db, job);
+        pendingChecked += 1;
+      } finally {
+        activeGeminiImageTestJobs.delete(job.id);
+      }
+    }
+  }
+  return { queuedStarted, pendingChecked, examined: jobs.length };
 }
 
 export const designPhotoRendersRouter = router({
@@ -728,49 +836,7 @@ export const designPhotoRendersRouter = router({
         queueGeminiImageTestJob(job.id);
         return { status: "pending" as const, nextRetryAt: job.nextRetryAt };
       }
-      const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId) : null;
-      if (design && (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design))) {
-        const message = "This kitchen plan changed while Google was generating the test. Reopen Final preview and start a new test.";
-        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date() }).where(eq(designGeminiImageTestJobs.id, job.id));
-        return { status: "failed" as const, message };
-      }
-      const provider = await pollGeminiExactPlanTest(job.interactionId);
-      if (provider.status === "pending") return provider;
-      if (provider.status === "failed") {
-        const retryDelayMs = isRetryableGeminiImageTestFailure(provider.message)
-          ? GEMINI_IMAGE_TEST_RETRY_DELAYS_MS[job.retryCount]
-          : undefined;
-        if (retryDelayMs != null) {
-          const nextRetryAt = new Date(Date.now() + retryDelayMs);
-          await db.update(designGeminiImageTestJobs).set({
-            status: "queued",
-            retryCount: job.retryCount + 1,
-            nextRetryAt,
-            errorMessage: `Google is temporarily unavailable. Retrying automatically in ${Math.ceil(retryDelayMs / 60_000)} minute${retryDelayMs >= 2 * 60_000 ? "s" : ""}.`,
-            completedAt: null,
-          }).where(eq(designGeminiImageTestJobs.id, job.id));
-          scheduleGeminiImageTestJob(job.id, retryDelayMs);
-          return { status: "pending" as const, nextRetryAt };
-        }
-        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: provider.message, completedAt: new Date(), nextRetryAt: null }).where(eq(designGeminiImageTestJobs.id, job.id));
-        return provider;
-      }
-      const extension = provider.image.mimeType === "image/png" ? "png" : "jpg";
-      const stored = await storagePut(`admin-google-image-tests/${ctx.user.id}/${job.sceneSignature}-${Date.now()}.${extension}`, provider.image.bytes, provider.image.mimeType);
-      const confirmedAt = new Date();
-      await db.insert(designPhotoRenders).values({
-        userId: ctx.user.id,
-        kitchenDesignId: design?.id ?? null,
-        sceneSignature: job.sceneSignature,
-        imageUrl: stored.url,
-        provenance: job.provenance,
-        sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash,
-        promptFingerprint: job.promptFingerprint,
-        generationMethod: "manual-final-review-gemini-nano-banana-v1",
-        confirmedAt,
-      }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
-      await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt }).where(eq(designGeminiImageTestJobs.id, job.id));
-      return { status: "completed" as const, imageUrl: stored.url };
+      return pollPendingGeminiImageTestJob(db, job);
     }),
 
   create: protectedProcedure
