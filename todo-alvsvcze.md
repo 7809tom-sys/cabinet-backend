@@ -1596,5 +1596,8 @@
 - [ ] Add an ElevenLabs Operations entry with purpose, connection status, secure setup guidance, and activation readiness without exposing credentials
 - [ ] Add an administrator-only server-side ElevenLabs connection check that reports configured, connected, or failed without returning the credential
 - [ ] Verify whether ElevenLabs supports the required customer kitchen-image generation workflow before enabling or representing it as an image provider
+- [x] Verify Gemini Nano Banana image capability and server-side model-account connection without exposing credentials
+- [x] Add Gemini image-provider connection status and safe setup guidance to Administration Operations
+- [ ] Integrate Gemini Nano Banana image creation only through an approved server-side image-service contract while retaining exact saved-plan, phone, CRM, and illustrative-output safeguards
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena

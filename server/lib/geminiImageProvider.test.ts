@@ -1,0 +1,31 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GEMINI_NANO_BANANA_MODEL, verifyGeminiImageAccess } from "./geminiImageProvider";
+
+const realFetch = global.fetch;
+
+afterEach(() => {
+  global.fetch = realFetch;
+  vi.restoreAllMocks();
+});
+
+describe("Gemini Nano Banana provider status", () => {
+  it("recognizes an accessible Nano Banana image model using a server-only models request", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      models: [{ name: `models/${GEMINI_NANO_BANANA_MODEL}`, supportedGenerationMethods: ["generateContent"] }],
+    }), { status: 200 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    const result = await verifyGeminiImageAccess();
+
+    expect(result).toEqual({ connected: true, modelAvailable: true });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/models",
+      expect.objectContaining({ headers: expect.objectContaining({ "x-goog-api-key": expect.any(String) }) }),
+    );
+  });
+
+  it("returns a safe unavailable status for rejected or unavailable account access", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response("Unauthorized", { status: 401 })) as unknown as typeof fetch;
+    await expect(verifyGeminiImageAccess()).resolves.toEqual({ connected: false, modelAvailable: false });
+  });
+});

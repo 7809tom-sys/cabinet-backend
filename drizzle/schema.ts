@@ -137,7 +137,7 @@ export type PhotoRenderProvenance = {
   camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
   materials: PhotoRenderMaterialProvenance[];
   sourceImageHash: string;
-  generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1";
+  generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1" | "manual-final-review-gemini-nano-banana-v1";
 };
 
 // A render is created only by an explicit final-review confirmation. The combined

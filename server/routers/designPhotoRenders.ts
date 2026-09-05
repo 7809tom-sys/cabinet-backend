@@ -5,8 +5,10 @@ import { designImageRequests, designPhotoRenders, kitchenDesigns } from "../../d
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
+import { isGeminiImageConfigured, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -105,6 +107,7 @@ export const photoRenderProvenanceSchema = z.object({
     "manual-final-review-image-service",
     "manual-final-review-gpt-image-2-high-v2",
     "manual-final-review-deterministic-webgl-v1",
+    "manual-final-review-gemini-nano-banana-v1",
   ]),
 });
 type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
@@ -259,10 +262,36 @@ function exactPlanPrompt(summary: string) {
 export function photoRenderProvenanceSummary(provenance: PhotoRenderProvenanceInput) {
   const material = (role: PhotoRenderProvenanceInput["materials"][number]["role"]) =>
     provenance.materials.find((entry) => entry.role === role)?.name ?? "none";
-  return `Saved design #${provenance.designId}${provenance.designRevision ? ` revision ${provenance.designRevision}` : ""}. Cabinet finish: ${material("cabinet")}. Countertop: ${material("countertop")}. Flooring: ${material("flooring")}. Backsplash: ${material("backsplash")}.`;
+  return `Saved design #${provenance.designId}${provenance.designRevision ? ` revision ${provenance.designRevision}` : ""}. Cabinet finish: ${material("cabinet")}. Countertop: ${material("countertop")}. Flooring: ${material("flooring")}. Backsplash: ${material("backsplash")}. Faucet: ${material("faucet")}. Sink: ${material("sink")}.`;
 }
 
 export const designPhotoRendersRouter = router({
+  getGeminiProviderStatus: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      if (!isGeminiImageConfigured()) {
+        return { configured: false, connected: false, modelAvailable: false, provider: "Gemini Nano Banana 2" };
+      }
+      const status = await verifyGeminiImageAccess();
+      return { configured: true, ...status, provider: "Gemini Nano Banana 2" };
+    }),
+
+  testGeminiProvider: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      if (!isGeminiImageConfigured()) {
+        return { configured: false, connected: false, modelAvailable: false, message: "Gemini is not configured." };
+      }
+      const status = await verifyGeminiImageAccess();
+      return {
+        configured: true,
+        ...status,
+        message: status.connected && status.modelAvailable
+          ? "Gemini Nano Banana image access is connected."
+          : "Gemini is configured but image-model access could not be confirmed.",
+      };
+    }),
+
   getVerificationStatus: protectedProcedure
     .input(z.object({ sceneSignature: z.string().min(16).max(191) }))
     .query(async ({ ctx, input }) => {

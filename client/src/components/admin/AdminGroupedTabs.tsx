@@ -78,6 +78,7 @@ import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
 import PriceShop10x10 from "@/pages/PriceShop10x10";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 import AdminStickyNotes from "@/components/admin/AdminStickyNotes";
+import GeminiImageProviderAdmin from "@/components/admin/GeminiImageProviderAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -154,6 +155,7 @@ const GROUPS = [
       { value: "shipping", label: "Shipping" },
       { value: "coverage", label: "Designer Coverage" },
       { value: "designer-availability", label: "Designer Availability" },
+      { value: "gemini-image-provider", label: "AI Image Provider" },
       { value: "team-notes", label: "Team Notes" },
     ],
   },
@@ -505,6 +507,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="shipping" className="mt-6"><AdminTabHelp tab="shipping" /><ShippingAdmin /><div className="mt-6"><FreightApiLogsPanel /></div></TabsContent>
         <TabsContent value="coverage" className="mt-6"><AdminTabHelp tab="coverage" /><DesignerCoverageAdmin /></TabsContent>
         <TabsContent value="designer-availability" className="mt-6"><AdminTabHelp tab="designer-availability" /><DesignerAvailabilityAdmin /></TabsContent>
+        <TabsContent value="gemini-image-provider" className="mt-6"><GeminiImageProviderAdmin /></TabsContent>
         <TabsContent value="team-notes" className="mt-6"><AdminStickyNotes /></TabsContent>
 
         {/* Settings */}

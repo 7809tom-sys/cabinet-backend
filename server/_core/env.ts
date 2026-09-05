@@ -33,4 +33,7 @@ export const ENV = {
   twilioApiKey: process.env.TWILIO_API_KEY ?? "",
   twilioApiSecret: process.env.TWILIO_API_SECRET ?? "",
   twilioVerifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? "",
+  // Gemini Nano Banana image generation is server-only. Never expose this key
+  // through Vite or return it from an administrator status endpoint.
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
 };
