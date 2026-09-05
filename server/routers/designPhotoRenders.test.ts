@@ -107,14 +107,14 @@ describe("design photo render safeguards", () => {
     expect(source).not.toContain("generateImage(");
   });
 
-  it("keeps the separately approved Google image test administrator-only, saved-plan locked, and outside the customer CRM flow", () => {
+  it("keeps the separately approved Google image test administrator-only, snapshot-or-saved-plan locked, and outside the customer CRM flow", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
     expect(source).toContain("startGeminiImageTest: protectedProcedure");
     expect(source).toContain("pollGeminiImageTest: protectedProcedure");
     expect(source).toContain("getGeminiImageTestJob: protectedProcedure");
     expect(source).toContain('if (ctx.user.role !== "admin")');
-    expect(source).toContain("Save the current kitchen plan before running a Google image test.");
-    expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design)");
+    expect(source).toContain("const administratorSnapshot = input.provenance.designId === 0");
+    expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design!)");
     expect(source).toContain("startGeminiExactPlanTest({");
     expect(source).toContain("pollGeminiExactPlanTest(job.interactionId)");
     expect(source).toContain("designGeminiImageTestJobs");
@@ -140,6 +140,10 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("startedAt: job.startedAt");
     expect(source).toContain("restartPending: z.boolean().optional()");
     expect(source).toContain("The earlier Google image test was replaced by a fresh administrator test.");
+    expect(source).toContain('const administratorSnapshot = input.provenance.designId === 0');
+    expect(source).toContain('revision = "administrator-current-snapshot"');
+    expect(source).toContain('kitchenDesignId: design?.id ?? 0');
+    expect(source).toContain('kitchenDesignId: design?.id ?? null');
   });
 
   it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {

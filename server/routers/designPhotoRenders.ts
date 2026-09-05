@@ -511,12 +511,19 @@ export const designPhotoRendersRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
-      if (input.provenance.designId <= 0) throw new Error("Save the current kitchen plan before running a Google image test.");
 
       const db = await getDb();
       if (!db) throw new Error("Google image testing is temporarily unavailable.");
-      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
-      const { revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+      const administratorSnapshot = input.provenance.designId === 0;
+      const design = administratorSnapshot ? null : await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+      let revision: string;
+      let fingerprint: string;
+      if (administratorSnapshot) {
+        revision = "administrator-current-snapshot";
+        fingerprint = input.provenance.planFingerprint;
+      } else {
+        ({ revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design!));
+      }
 
       const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
       if (imageKind !== "jpeg") throw new Error("Google image testing requires the locked deterministic JPEG capture.");
@@ -530,7 +537,7 @@ export const designPhotoRendersRouter = router({
       const prompt = exactPlanPrompt(photoRenderProvenanceSummary(sourceProvenance));
       const [existingPending] = await db.select().from(designGeminiImageTestJobs).where(and(
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
-        eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
+        eq(designGeminiImageTestJobs.kitchenDesignId, design?.id ?? 0),
         eq(designGeminiImageTestJobs.status, "pending"),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
       if (existingPending && existingPending.designRevision === revision && existingPending.planFingerprint === fingerprint) {
@@ -553,7 +560,7 @@ export const designPhotoRendersRouter = router({
       const promptFingerprint = createHash("sha256").update(prompt).digest("hex");
       await db.insert(designGeminiImageTestJobs).values({
         userId: ctx.user.id,
-        kitchenDesignId: design.id,
+        kitchenDesignId: design?.id ?? 0,
         designRevision: revision,
         planFingerprint: fingerprint,
         sceneSignature: input.sceneSignature,
@@ -599,8 +606,8 @@ export const designPhotoRendersRouter = router({
       if (!job) throw new Error("This Google image test is not available for your account.");
       if (job.status === "completed" && job.imageUrl) return { status: "completed" as const, imageUrl: job.imageUrl };
       if (job.status === "failed") return { status: "failed" as const, message: job.errorMessage ?? "Google image test could not be completed. Please try again." };
-      const design = await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId);
-      if (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) {
+      const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId) : null;
+      if (design && (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design))) {
         const message = "This kitchen plan changed while Google was generating the test. Reopen Final preview and start a new test.";
         await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date() }).where(eq(designGeminiImageTestJobs.id, job.id));
         return { status: "failed" as const, message };
@@ -616,7 +623,7 @@ export const designPhotoRendersRouter = router({
       const confirmedAt = new Date();
       await db.insert(designPhotoRenders).values({
         userId: ctx.user.id,
-        kitchenDesignId: design.id,
+        kitchenDesignId: design?.id ?? null,
         sceneSignature: job.sceneSignature,
         imageUrl: stored.url,
         provenance: job.provenance,
@@ -624,7 +631,7 @@ export const designPhotoRendersRouter = router({
         promptFingerprint: job.promptFingerprint,
         generationMethod: "manual-final-review-gemini-nano-banana-v1",
         confirmedAt,
-      }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design.id, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
+      }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
       await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt }).where(eq(designGeminiImageTestJobs.id, job.id));
       return { status: "completed" as const, imageUrl: stored.url };
     }),
