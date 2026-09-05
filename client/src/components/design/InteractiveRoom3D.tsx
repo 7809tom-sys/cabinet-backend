@@ -6177,6 +6177,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [geminiImageTest, setGeminiImageTest] = useState<{ referenceUrl: string | null; imageUrl: string } | null>(null);
   const [geminiImageTestError, setGeminiImageTestError] = useState<string | null>(null);
   const [geminiImageTestJobId, setGeminiImageTestJobId] = useState<number | null>(null);
+  const [geminiRateLimitUntil, setGeminiRateLimitUntil] = useState<number | null>(null);
+  const [geminiCooldownNow, setGeminiCooldownNow] = useState(() => Date.now());
   const [photoQualityLead, setPhotoQualityLead] = useState({ name: "", email: "", phone: "", followUpConsent: false });
   const [photoVerificationStatus, setPhotoVerificationStatus] = useState<"idle" | "pending" | "verified" | "provider_unavailable" | "failed">("idle");
   const [photoVerificationCode, setPhotoVerificationCode] = useState("");
@@ -6264,14 +6266,21 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const activeDoorTexture = resolvedThreeDDoorSampleUrl("catalog", catalogDoorSampleUrl, renderExistingDesign);
   const visibleMaterialMode = threeDVisibleMaterialMode(activeDoorTexture, doorTextureState);
   const photoRenderDoorReference = threeDPhotoRenderDoorReferenceStatus(activeDoorTexture, doorTextureState);
+  const geminiCooldownSeconds = geminiRateLimitUntil
+    ? Math.max(0, Math.ceil((geminiRateLimitUntil - geminiCooldownNow) / 1_000))
+    : 0;
+  const geminiCooldownActive = geminiCooldownSeconds > 0;
+  const geminiCooldownLabel = geminiCooldownSeconds >= 60
+    ? `${Math.floor(geminiCooldownSeconds / 60)}m ${String(geminiCooldownSeconds % 60).padStart(2, "0")}s`
+    : `${geminiCooldownSeconds}s`;
   const geminiImageTestBlockingReason = geminiImageTestJobId
     ? "Google is generating this saved-plan test. Status checks continue automatically."
     : startGeminiImageTestMutation.isPending
       ? "Starting the Google image test for this locked saved plan…"
       : !photoRenderDraft
         ? "Open Final preview to prepare the locked saved-plan image for Google."
-        : photoRenderDraft.provenance.designId <= 0
-          ? "Save this kitchen plan, then reopen Final preview before running the Google test."
+        : geminiCooldownActive
+          ? `Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.`
           : null;
   const photoRenderVisualReferences = [
     activeDoorTexture ? {
@@ -7655,8 +7664,24 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       }
       setGeminiImageTestJobId(job.jobId);
     }
-    if (job?.status === "failed") setGeminiImageTestError(job.errorMessage ?? "Google image test could not be completed. Please try again.");
+    if (job?.status === "failed") {
+      const message = job.errorMessage ?? "Google image test could not be completed. Please try again.";
+      setGeminiImageTestError(message);
+      if (message.toLowerCase().includes("rate-limit")) {
+        setGeminiRateLimitUntil(new Date(job.startedAt).getTime() + 2 * 60 * 1_000);
+      }
+    }
   }, [geminiImageTestJobQuery.data]);
+
+  useEffect(() => {
+    if (!geminiRateLimitUntil) return;
+    const interval = window.setInterval(() => setGeminiCooldownNow(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [geminiRateLimitUntil]);
+
+  useEffect(() => {
+    if (geminiRateLimitUntil && geminiCooldownNow >= geminiRateLimitUntil) setGeminiRateLimitUntil(null);
+  }, [geminiCooldownNow, geminiRateLimitUntil]);
 
   useEffect(() => {
     if (!geminiImageTestJobId) return;
@@ -7686,6 +7711,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 
   const startGeminiImageTest = async () => {
     if (!isPhotoQualityTest) return;
+    if (geminiCooldownActive) return;
     if (!photoRenderDraft) {
       setGeminiImageTestError("The locked view is still preparing. Close Final preview, reopen it, then start the Google test.");
       return;
@@ -7703,6 +7729,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       await utils.designPhotoRenders.getGeminiImageTestJob.invalidate({ designId: photoRenderDraft.provenance.designId });
     } catch (error) {
       const message = error instanceof Error ? error.message : "The Google image test could not be created. Please try again.";
+      if (message.toLowerCase().includes("rate-limit")) {
+        setGeminiRateLimitUntil(Date.now() + 2 * 60 * 1_000);
+      }
       setGeminiImageTestError(message === "Failed to fetch"
         ? "The Google test request could not reach the server. Please refresh once and try again."
         : message);
@@ -7981,7 +8010,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          <DialogTitle>Create high-resolution 3D preview</DialogTitle>
 	          <DialogDescription>This creates a deterministic capture of the current locked 3D camera, plan geometry, and saved selected materials. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
-          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
 	          {isPhotoQualityTest && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 	            <p className="font-semibold">This is an exact 3D preview, not a photo-quality rendering.</p>

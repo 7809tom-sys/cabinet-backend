@@ -1627,3 +1627,5 @@
 - [x] Add an administrator-only locked current-design snapshot path for Google tests without customer save or phone-verification blocking
 - [x] Repair the live administrator Google image-test start request that currently reports “Failed to fetch” in the browser
 - [ ] Repair the production Designer delivery mismatch that serves an older Google test dialog after a newer version is published
+- [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
+- [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
