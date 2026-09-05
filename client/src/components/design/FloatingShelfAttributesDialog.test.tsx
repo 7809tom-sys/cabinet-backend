@@ -65,6 +65,31 @@ describe("FloatingShelfAttributesDialog", () => {
     expect(screen.getByText(/New duplicate · bottom 78/i)).toBeTruthy();
   });
 
+  it("lets the customer drag the duplicate preview to update its proposed bottom height", () => {
+    render(
+      <FloatingShelfAttributesDialog
+        shelf={shelf}
+        open
+        onOpenChange={vi.fn()}
+        ceilingHeight={96}
+        shelvesOnRun={2}
+        onApply={vi.fn()}
+        onDuplicate={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+    const preview = screen.getByRole("slider", { name: "Duplicate shelf preview height" });
+    Object.defineProperty(preview.parentElement, "getBoundingClientRect", {
+      value: () => ({ bottom: 176, height: 176 }),
+    });
+    fireEvent.pointerDown(preview, { pointerId: 1, clientY: 100 });
+    fireEvent.pointerMove(preview, { pointerId: 1, clientY: 130 });
+    fireEvent.pointerUp(preview, { pointerId: 1, clientY: 130 });
+    const input = screen.getByLabelText("Shelf bottom height from floor") as HTMLInputElement;
+    expect(Number(input.value)).toBeGreaterThan(20);
+    expect(Number(input.value)).toBeLessThan(30);
+  });
+
   it("keeps duplication unavailable when the current wall span already has four shelves", () => {
     render(
       <FloatingShelfAttributesDialog
