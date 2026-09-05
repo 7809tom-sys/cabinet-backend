@@ -22,6 +22,7 @@ type GeminiImageOutputBlock = {
 };
 
 type GeminiInteractionImageResponse = {
+  id?: unknown;
   output_image?: GeminiImageOutputBlock;
   steps?: Array<{ content?: GeminiImageOutputBlock[] }>;
   status?: unknown;
@@ -37,6 +38,76 @@ function safeGeminiFailureMessage(status: number | null, payload: GeminiInteract
   if (status === 401 || status === 403) return "Google image test access was not accepted. Check the secure provider configuration in Operations.";
   if (status !== null && status >= 500) return "Google image test is temporarily unavailable. Please try again shortly.";
   return "Google image test could not be completed. Please try again.";
+}
+
+function imageFromInteraction(payload: GeminiInteractionImageResponse) {
+  const nestedImage = payload.steps?.flatMap((step) => step.content ?? [])
+    .find((content) => content.type === "image" && typeof content.data === "string");
+  const image = payload.output_image?.data ? payload.output_image : nestedImage;
+  const encodedImage = image?.data;
+  const mimeType = image?.mime_type;
+  if (typeof encodedImage !== "string" || !encodedImage.length) return null;
+  if (mimeType !== "image/jpeg" && mimeType !== "image/png") throw new Error("Google image test returned an unsupported image format.");
+  const bytes = Buffer.from(encodedImage, "base64");
+  if (!bytes.length) throw new Error("Google image test returned an empty image.");
+  return { bytes, mimeType } as GeminiImageTestOutput;
+}
+
+async function parseInteractionResponse(response: Response) {
+  const payload = await response.json().catch(() => null) as GeminiInteractionImageResponse | null;
+  if (!response.ok) throw new Error(safeGeminiFailureMessage(response.status, payload));
+  if (!payload) throw new Error("Google image test could not be completed. Please try again.");
+  return payload;
+}
+
+export type GeminiImageTestJobStatus =
+  | { status: "pending" }
+  | { status: "completed"; image: GeminiImageTestOutput }
+  | { status: "failed"; message: string };
+
+/** Starts a Google interaction quickly; the image is fetched later by the server. */
+export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Promise<{ interactionId: string }> {
+  if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
+  let response: Response;
+  try {
+    response = await fetch(GEMINI_INTERACTIONS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": ENV.geminiApiKey },
+      signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({
+        model: GEMINI_NANO_BANANA_MODEL,
+        background: true,
+        input: [
+          { type: "text", text: input.prompt },
+          { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },
+        ],
+        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "16:9", image_size: "1K" },
+      }),
+    });
+  } catch {
+    throw new Error("Google image test could not be started. Please try again.");
+  }
+  const payload = await parseInteractionResponse(response);
+  if (payload.status === "failed" || payload.status === "cancelled") throw new Error(safeGeminiFailureMessage(null, payload));
+  if (typeof payload.id !== "string" || !payload.id) throw new Error("Google image test did not return a tracking identifier. Please try again.");
+  return { interactionId: payload.id };
+}
+
+/** Retrieves a short status response so browsers never wait for generation itself. */
+export async function pollGeminiExactPlanTest(interactionId: string): Promise<GeminiImageTestJobStatus> {
+  let response: Response;
+  try {
+    response = await fetch(`${GEMINI_INTERACTIONS_URL}/${encodeURIComponent(interactionId)}`, {
+      headers: { "x-goog-api-key": ENV.geminiApiKey },
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    return { status: "pending" };
+  }
+  const payload = await parseInteractionResponse(response);
+  if (payload.status === "failed" || payload.status === "cancelled") return { status: "failed", message: safeGeminiFailureMessage(null, payload) };
+  const image = imageFromInteraction(payload);
+  return image ? { status: "completed", image } : { status: "pending" };
 }
 
 export function isGeminiImageConfigured() {
@@ -97,21 +168,9 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
     }
     throw new Error("Google image test could not be reached. Please try again.");
   }
-  const payload = await response.json().catch(() => null) as GeminiInteractionImageResponse | null;
-  if (!response.ok) throw new Error(safeGeminiFailureMessage(response.status, payload));
-  if (payload?.status === "failed" || payload?.status === "cancelled") throw new Error(safeGeminiFailureMessage(null, payload));
-  if (!payload) throw new Error("Google image test did not return an image.");
-  // SDKs may expose `output_image` as a convenience property. The REST
-  // Interactions response records model output in `steps[].content[]`, so
-  // accept that official form too without returning the raw provider payload.
-  const nestedImage = payload.steps?.flatMap((step) => step.content ?? [])
-    .find((content) => content.type === "image" && typeof content.data === "string");
-  const image = payload.output_image?.data ? payload.output_image : nestedImage;
-  const encodedImage = image?.data;
-  const mimeType = image?.mime_type;
-  if (typeof encodedImage !== "string" || !encodedImage.length) throw new Error("Google image test did not return an image.");
-  if (mimeType !== "image/jpeg" && mimeType !== "image/png") throw new Error("Google image test returned an unsupported image format.");
-  const bytes = Buffer.from(encodedImage, "base64");
-  if (!bytes.length) throw new Error("Google image test returned an empty image.");
-  return { bytes, mimeType };
+  const payload = await parseInteractionResponse(response);
+  if (payload.status === "failed" || payload.status === "cancelled") throw new Error(safeGeminiFailureMessage(null, payload));
+  const image = imageFromInteraction(payload);
+  if (!image) throw new Error("Google image test did not return an image.");
+  return image;
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GEMINI_IMAGE_TEST_TIMEOUT_MS, GEMINI_NANO_BANANA_MODEL, generateGeminiExactPlanTest, verifyGeminiImageAccess } from "./geminiImageProvider";
+import { GEMINI_IMAGE_TEST_TIMEOUT_MS, GEMINI_NANO_BANANA_MODEL, generateGeminiExactPlanTest, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "./geminiImageProvider";
 
 const realFetch = global.fetch;
 
@@ -104,5 +104,38 @@ describe("Gemini Nano Banana provider status", () => {
       sourceImageBase64: "locked-jpeg-reference",
       sourceMimeType: "image/jpeg",
     })).rejects.toThrow("timed out before an image was returned");
+  });
+
+  it("starts a background interaction quickly without returning image bytes to the browser-held request", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "interaction_123", status: "in_progress" }), { status: 200 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    await expect(startGeminiExactPlanTest({
+      prompt: "Keep the exact locked plan.",
+      sourceImageBase64: "locked-jpeg-reference",
+      sourceMimeType: "image/jpeg",
+    })).resolves.toEqual({ interactionId: "interaction_123" });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      expect.objectContaining({ body: expect.stringContaining('"background":true') }),
+    );
+  });
+
+  it("retrieves a completed background interaction through a short status call", async () => {
+    const encoded = Buffer.from("completed-background-image").toString("base64");
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "image", data: encoded, mime_type: "image/jpeg" }] }],
+    }), { status: 200 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    const result = await pollGeminiExactPlanTest("interaction_123");
+
+    expect(result).toMatchObject({ status: "completed", image: { mimeType: "image/jpeg" } });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://generativelanguage.googleapis.com/v1beta/interactions/interaction_123",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 });

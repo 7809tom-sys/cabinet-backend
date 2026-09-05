@@ -170,6 +170,37 @@ export const designPhotoRenders = mysqlTable(
 
 export type DesignPhotoRender = typeof designPhotoRenders.$inferSelect;
 
+// ─── Administrator Google image-test jobs ───────────────────────────────────
+// Stores only the provider interaction identifier and immutable saved-plan
+// provenance needed to resume a browser-safe administrator comparison. Source
+// pixels and raw provider payloads remain outside the database.
+export const designGeminiImageTestJobs = mysqlTable(
+  "design_gemini_image_test_jobs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    kitchenDesignId: int("kitchenDesignId").notNull(),
+    designRevision: varchar("designRevision", { length: 191 }).notNull(),
+    planFingerprint: varchar("planFingerprint", { length: 64 }).notNull(),
+    sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
+    interactionId: varchar("interactionId", { length: 255 }).notNull(),
+    status: mysqlEnum("status", ["pending", "completed", "failed"]).notNull().default("pending"),
+    errorMessage: varchar("errorMessage", { length: 255 }),
+    imageUrl: varchar("imageUrl", { length: 512 }),
+    provenance: json("provenance").$type<PhotoRenderProvenance>().notNull(),
+    promptFingerprint: varchar("promptFingerprint", { length: 64 }).notNull(),
+    startedAt: timestamp("startedAt").defaultNow().notNull(),
+    completedAt: timestamp("completedAt"),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => ({
+    interactionUnique: uniqueIndex("design_gemini_image_test_jobs_interaction_uq").on(t.interactionId),
+    userDesignStatusIndex: index("design_gemini_image_test_jobs_user_design_status_idx").on(t.userId, t.kitchenDesignId, t.status, t.updatedAt),
+  }),
+);
+
+export type DesignGeminiImageTestJob = typeof designGeminiImageTestJobs.$inferSelect;
+
 // ─── Verified customer plan-image requests ──────────────────────────────────
 // This table stores only the minimum lead, verification, locked-plan, and result
 // state needed to control an image request. It never stores an OTP, a provider

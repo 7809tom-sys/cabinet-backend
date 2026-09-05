@@ -1,14 +1,14 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
+import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
-import { generateGeminiExactPlanTest, isGeminiImageConfigured, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
+import { isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -500,7 +500,7 @@ export const designPhotoRendersRouter = router({
       };
     }),
 
-  runGeminiImageTest: protectedProcedure
+  startGeminiImageTest: protectedProcedure
     .input(z.object({
       sceneSignature: z.string().min(16).max(191),
       sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A locked JPEG Designer image is required."),
@@ -514,7 +514,7 @@ export const designPhotoRendersRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Google image testing is temporarily unavailable.");
       const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
-      validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+      const { revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
 
       const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
       if (imageKind !== "jpeg") throw new Error("Google image testing requires the locked deterministic JPEG capture.");
@@ -526,46 +526,96 @@ export const designPhotoRendersRouter = router({
 
       const sourceProvenance = canonicalizeDeterministicRenderProvenance(input.provenance, sourceBytes);
       const prompt = exactPlanPrompt(photoRenderProvenanceSummary(sourceProvenance));
-      const generated = await generateGeminiExactPlanTest({
+      const [existingPending] = await db.select().from(designGeminiImageTestJobs).where(and(
+        eq(designGeminiImageTestJobs.userId, ctx.user.id),
+        eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
+        eq(designGeminiImageTestJobs.status, "pending"),
+      )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
+      if (existingPending && existingPending.designRevision === revision && existingPending.planFingerprint === fingerprint) {
+        return { jobId: existingPending.id, status: "pending" as const, reused: true };
+      }
+      const started = await startGeminiExactPlanTest({
         prompt,
         sourceImageBase64: input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, ""),
         sourceMimeType: "image/jpeg",
       });
-      const extension = generated.mimeType === "image/png" ? "png" : "jpg";
-      const stored = await storagePut(
-        `admin-google-image-tests/${ctx.user.id}/${input.sceneSignature}-${Date.now()}.${extension}`,
-        generated.bytes,
-        generated.mimeType,
-      );
-      const confirmedAt = new Date();
       const promptFingerprint = createHash("sha256").update(prompt).digest("hex");
+      await db.insert(designGeminiImageTestJobs).values({
+        userId: ctx.user.id,
+        kitchenDesignId: design.id,
+        designRevision: revision,
+        planFingerprint: fingerprint,
+        sceneSignature: input.sceneSignature,
+        interactionId: started.interactionId,
+        provenance: sourceProvenance,
+        promptFingerprint,
+      });
+      const [job] = await db.select({ id: designGeminiImageTestJobs.id }).from(designGeminiImageTestJobs)
+        .where(eq(designGeminiImageTestJobs.interactionId, started.interactionId)).limit(1);
+      if (!job) throw new Error("Google image test was started but could not be tracked. Please try again.");
+      return {
+        jobId: job.id,
+        status: "pending" as const,
+        reused: false,
+      };
+    }),
+
+  getGeminiImageTestJob: protectedProcedure
+    .input(z.object({ designId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      const db = await getDb();
+      if (!db) return null;
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
+      const [job] = await db.select().from(designGeminiImageTestJobs).where(and(
+        eq(designGeminiImageTestJobs.userId, ctx.user.id),
+        eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
+      )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
+      if (!job || job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) return null;
+      return { jobId: job.id, status: job.status, errorMessage: job.errorMessage };
+    }),
+
+  pollGeminiImageTest: protectedProcedure
+    .input(z.object({ jobId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      const db = await getDb();
+      if (!db) throw new Error("Google image testing is temporarily unavailable.");
+      const [job] = await db.select().from(designGeminiImageTestJobs).where(and(
+        eq(designGeminiImageTestJobs.id, input.jobId),
+        eq(designGeminiImageTestJobs.userId, ctx.user.id),
+      )).limit(1);
+      if (!job) throw new Error("This Google image test is not available for your account.");
+      if (job.status === "completed" && job.imageUrl) return { status: "completed" as const, imageUrl: job.imageUrl };
+      if (job.status === "failed") return { status: "failed" as const, message: job.errorMessage ?? "Google image test could not be completed. Please try again." };
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, job.kitchenDesignId);
+      if (job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) {
+        const message = "This kitchen plan changed while Google was generating the test. Reopen Final preview and start a new test.";
+        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: message, completedAt: new Date() }).where(eq(designGeminiImageTestJobs.id, job.id));
+        return { status: "failed" as const, message };
+      }
+      const provider = await pollGeminiExactPlanTest(job.interactionId);
+      if (provider.status === "pending") return provider;
+      if (provider.status === "failed") {
+        await db.update(designGeminiImageTestJobs).set({ status: "failed", errorMessage: provider.message, completedAt: new Date() }).where(eq(designGeminiImageTestJobs.id, job.id));
+        return provider;
+      }
+      const extension = provider.image.mimeType === "image/png" ? "png" : "jpg";
+      const stored = await storagePut(`admin-google-image-tests/${ctx.user.id}/${job.sceneSignature}-${Date.now()}.${extension}`, provider.image.bytes, provider.image.mimeType);
+      const confirmedAt = new Date();
       await db.insert(designPhotoRenders).values({
         userId: ctx.user.id,
         kitchenDesignId: design.id,
-        sceneSignature: input.sceneSignature,
+        sceneSignature: job.sceneSignature,
         imageUrl: stored.url,
-        provenance: sourceProvenance,
-        sourceImageHash: sourceProvenance.sourceImageHash,
-        promptFingerprint,
+        provenance: job.provenance,
+        sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash,
+        promptFingerprint: job.promptFingerprint,
         generationMethod: "manual-final-review-gemini-nano-banana-v1",
         confirmedAt,
-      }).onDuplicateKeyUpdate({
-        set: {
-          kitchenDesignId: design.id,
-          imageUrl: stored.url,
-          provenance: sourceProvenance,
-          sourceImageHash: sourceProvenance.sourceImageHash,
-          promptFingerprint,
-          generationMethod: "manual-final-review-gemini-nano-banana-v1",
-          confirmedAt,
-          updatedAt: confirmedAt,
-        },
-      });
-      return {
-        imageUrl: stored.url,
-        generationMethod: "manual-final-review-gemini-nano-banana-v1" as const,
-        confirmedAt,
-      };
+      }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design.id, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
+      await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt }).where(eq(designGeminiImageTestJobs.id, job.id));
+      return { status: "completed" as const, imageUrl: stored.url };
     }),
 
   create: protectedProcedure

@@ -109,11 +109,15 @@ describe("design photo render safeguards", () => {
 
   it("keeps the separately approved Google image test administrator-only, saved-plan locked, and outside the customer CRM flow", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
-    expect(source).toContain("runGeminiImageTest: protectedProcedure");
+    expect(source).toContain("startGeminiImageTest: protectedProcedure");
+    expect(source).toContain("pollGeminiImageTest: protectedProcedure");
+    expect(source).toContain("getGeminiImageTestJob: protectedProcedure");
     expect(source).toContain('if (ctx.user.role !== "admin")');
     expect(source).toContain("Save the current kitchen plan before running a Google image test.");
     expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design)");
-    expect(source).toContain("generateGeminiExactPlanTest({");
+    expect(source).toContain("startGeminiExactPlanTest({");
+    expect(source).toContain("pollGeminiExactPlanTest(job.interactionId)");
+    expect(source).toContain("designGeminiImageTestJobs");
     expect(source).toContain("admin-google-image-tests/");
     expect(source).toContain('generationMethod: "manual-final-review-gemini-nano-banana-v1"');
   });

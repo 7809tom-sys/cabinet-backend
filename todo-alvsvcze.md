@@ -1618,3 +1618,4 @@
 - [x] Correct the administrator-only Google/Gemini test parser to accept the official nested Interactions API image output shape
 - [x] Persist administrator Google/Gemini image-test results with their saved plan and provide a clear reopen control after page changes
 - [x] Diagnose and repair the delayed Google/Gemini image-test failure after generation is requested, with clear recoverable error handling
+- [x] Replace the long-lived Google/Gemini image-test request with a browser-resilient short start-and-poll workflow
