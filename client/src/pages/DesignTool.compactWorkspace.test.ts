@@ -17,6 +17,14 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
+  it("gives a selected movable cabinet an explicit, keyboard-reachable Move entry in compact mode", () => {
+    expect(source).toContain('data-testid="compact-workspace-move-trigger"');
+    expect(source).toContain('aria-controls="compact-workspace-move-controls"');
+    expect(source).toContain('data-testid="compact-workspace-move-controls"');
+    expect(source).toContain('aria-label="Move selected cabinet directions"');
+    expect(source).toContain("canShowCompactMoveControl && compactMoveControlsOpen");
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');

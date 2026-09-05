@@ -1593,6 +1593,7 @@
 - [x] Automatically activate Compact Workspace when the laptop viewport constrains the canvas while retaining manual panel override controls
 - [x] Expand the Compact Workspace Catalog into a tablet-style cabinet picker that leaves enough room to browse and select cabinets
 - [x] Make the bottom cabinet-controls panel fit within small laptop viewports above the operating-system taskbar
+- [x] Restore a visible, keyboard-reachable Move control in Compact Workspace whenever a movable cabinet is selected
 - [ ] Add an ElevenLabs Operations entry with purpose, connection status, secure setup guidance, and activation readiness without exposing credentials
 - [ ] Add an administrator-only server-side ElevenLabs connection check that reports configured, connected, or failed without returning the credential
 - [ ] Verify whether ElevenLabs supports the required customer kitchen-image generation workflow before enabling or representing it as an image provider

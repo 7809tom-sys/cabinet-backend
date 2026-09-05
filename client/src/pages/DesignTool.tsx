@@ -45,6 +45,7 @@ import { trpc } from "@/lib/trpc";
 import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
+import { canShowCompactWorkspaceMoveControl } from "@/lib/compactWorkspaceMove";
 import {
   preventMobileRoomSheetAutoFocus,
   publishDesignerMobileCartCount,
@@ -6936,11 +6937,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    [island, openings, placed, room, selectedCab],
 	  );
   const selectedCabWallFitText = threeDWallFitGuideText(selectedCabWallFit);
+  const canShowCompactMoveControl = canShowCompactWorkspaceMoveControl({
+    isCompactWorkspace,
+    hasSelectedCabinet: selectedCab != null,
+    cabinetsLocked,
+    measureMode,
+  });
 
   // Mobile cabinet-edit bottom sheet: auto-opens when a cabinet is selected on
   // mobile, auto-closes when deselected. On desktop the inline contextual row
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
+  const [compactMoveControlsOpen, setCompactMoveControlsOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [moreToolsPortalElement, setMoreToolsPortalElement] = useState<HTMLDivElement | null>(null);
 
@@ -7153,6 +7161,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setAttrUid(null);
     setAttrOpen(false);
     setCabEditSheetOpen(false);
+    setCompactMoveControlsOpen(false);
     setFridgeDialog(null);
     setOvenDialog(null);
     setSinkBaseDialog(null);
@@ -7215,6 +7224,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       justPlacedRef.current = false;
     }
   }, [isMobile, selectedCab?.uid, selectedOpening?.uid]);
+
+  useEffect(() => {
+    if (!canShowCompactMoveControl) setCompactMoveControlsOpen(false);
+  }, [canShowCompactMoveControl]);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -8599,6 +8612,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
+              {canShowCompactMoveControl && (
+                <Button
+                  type="button"
+                  data-testid="compact-workspace-move-trigger"
+                  variant={compactMoveControlsOpen ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold"
+                  aria-controls="compact-workspace-move-controls"
+                  aria-expanded={compactMoveControlsOpen}
+                  onClick={() => setCompactMoveControlsOpen((open) => !open)}
+                >
+                  <Move className="h-3.5 w-3.5" /> Move
+                </Button>
+              )}
               {(() => {
                 const editConfigHref = isAdmin
                   ? cabinetEditConfigHref(selectedCab.masterCode, selectedCab.cabinetId)
@@ -8791,6 +8818,80 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </span>
           )}
         </div>
+      )}
+
+      {canShowCompactMoveControl && compactMoveControlsOpen && (
+        <section
+          id="compact-workspace-move-controls"
+          data-testid="compact-workspace-move-controls"
+          aria-labelledby="compact-workspace-move-title"
+          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#d4a75a]/40 bg-[#fffaf1] px-4 py-2"
+        >
+          <div className="mr-1 min-w-0">
+            <h2 id="compact-workspace-move-title" className="text-xs font-bold text-[#1a2744]">Move selected cabinet</h2>
+            <p className="text-[10px] text-muted-foreground">Use the arrows for the current step; placement and collision rules stay active.</p>
+          </div>
+          <div role="group" aria-label="Move selected cabinet directions" className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              data-testid="compact-workspace-move-up"
+              onClick={() => nudgeSelected(0, -nudgeStep)}
+              className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"
+              aria-label={`Move selected cabinet up ${nudgeStep === 1 ? "1 inch" : "one quarter inch"}`}
+              title={`Move up ${nudgeStep === 1 ? "1 inch" : "¼ inch"}`}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              data-testid="compact-workspace-move-left"
+              onClick={() => nudgeSelected(-nudgeStep, 0)}
+              className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"
+              aria-label={`Move selected cabinet left ${nudgeStep === 1 ? "1 inch" : "one quarter inch"}`}
+              title={`Move left ${nudgeStep === 1 ? "1 inch" : "¼ inch"}`}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              data-testid="compact-workspace-move-right"
+              onClick={() => nudgeSelected(nudgeStep, 0)}
+              className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"
+              aria-label={`Move selected cabinet right ${nudgeStep === 1 ? "1 inch" : "one quarter inch"}`}
+              title={`Move right ${nudgeStep === 1 ? "1 inch" : "¼ inch"}`}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              data-testid="compact-workspace-move-down"
+              onClick={() => nudgeSelected(0, nudgeStep)}
+              className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"
+              aria-label={`Move selected cabinet down ${nudgeStep === 1 ? "1 inch" : "one quarter inch"}`}
+              title={`Move down ${nudgeStep === 1 ? "1 inch" : "¼ inch"}`}
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            data-testid="compact-workspace-move-step"
+            onClick={() => setNudgeStep((step) => (step === 1 ? 0.25 : 1))}
+            className={`h-8 shrink-0 rounded border px-2 text-xs font-bold shadow-sm transition active:scale-95 ${nudgeStep === 0.25 ? "border-amber-400 bg-amber-100 text-amber-800" : "border-border bg-white text-[#1a2744] hover:bg-muted"}`}
+            title={`Movement step: ${nudgeStep === 1 ? "1 inch" : "¼ inch"}. Select to change.`}
+          >
+            Step {nudgeStep === 1 ? "1\"" : "¼\""}
+          </button>
+          <button
+            type="button"
+            className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-white hover:text-foreground active:scale-95"
+            aria-label="Close Move controls"
+            title="Close Move controls"
+            onClick={() => setCompactMoveControlsOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </section>
       )}
 
       {isMobile && selectedCab && !drawMode && !measureMode && (
