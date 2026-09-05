@@ -6268,8 +6268,11 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain("sceneImageDataUrl: googleImageInput");
     expect(source).toContain("The Google test request could not reach the server. Please refresh once and try again.");
     expect(source).toContain("const [geminiRateLimitUntil, setGeminiRateLimitUntil]");
-    expect(source).toContain("Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.");
-    expect(source).toContain("disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive}");
+	    expect(source).toContain("Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.");
+	    expect(source).toContain("Google will retry this image test automatically in ${geminiQueuedRetryLabel}.");
+	    expect(source).toContain("geminiImageTestJobQuery.data.nextRetryAt");
+	    expect(source).toContain("setGeminiImageTest({ referenceUrl: photoRenderReferenceUrl, imageUrl: result.imageUrl })");
+	    expect(source).toContain("disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive}");
     expect(source).toContain("Try Google again in ${geminiCooldownLabel}");
 	    expect(source).toContain('data-testid="gemini-image-test-result"');
 	    expect(source).toContain('data-testid="open-saved-gemini-image-test"');

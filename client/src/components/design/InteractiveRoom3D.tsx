@@ -6273,8 +6273,19 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const geminiCooldownLabel = geminiCooldownSeconds >= 60
     ? `${Math.floor(geminiCooldownSeconds / 60)}m ${String(geminiCooldownSeconds % 60).padStart(2, "0")}s`
     : `${geminiCooldownSeconds}s`;
+  const geminiQueuedRetryAt = geminiImageTestJobQuery.data?.status === "queued" && geminiImageTestJobQuery.data.nextRetryAt
+    ? new Date(geminiImageTestJobQuery.data.nextRetryAt).getTime()
+    : null;
+  const geminiQueuedRetrySeconds = geminiQueuedRetryAt
+    ? Math.max(0, Math.ceil((geminiQueuedRetryAt - geminiCooldownNow) / 1_000))
+    : 0;
+  const geminiQueuedRetryLabel = geminiQueuedRetrySeconds >= 60
+    ? `${Math.floor(geminiQueuedRetrySeconds / 60)}m ${String(geminiQueuedRetrySeconds % 60).padStart(2, "0")}s`
+    : `${geminiQueuedRetrySeconds}s`;
   const geminiImageTestBlockingReason = geminiImageTestJobId
-    ? "Google is generating this saved-plan test. Status checks continue automatically."
+    ? geminiQueuedRetrySeconds > 0
+      ? `Google will retry this image test automatically in ${geminiQueuedRetryLabel}.`
+      : "Google is generating this saved-plan test. Status checks continue automatically."
     : startGeminiImageTestMutation.isPending
       ? "Starting the Google image test for this locked saved plan…"
       : !photoRenderDraft
@@ -7665,6 +7676,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 
   useEffect(() => {
     const job = geminiImageTestJobQuery.data;
+    if (job?.status === "queued" && job.nextRetryAt) {
+      const retryAt = new Date(job.nextRetryAt).getTime();
+      setGeminiImageTestJobId(job.jobId);
+      setGeminiRateLimitUntil(retryAt);
+      return;
+    }
     if (job?.status === "pending") {
       const stale = Date.now() - new Date(job.startedAt).getTime() >= 5 * 60 * 1000;
       if (stale) {
@@ -7709,6 +7726,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
           setGeminiImageTestError(result.message);
           setGeminiImageTestJobId(null);
           await utils.designPhotoRenders.getGeminiImageTestJob.invalidate({ designId: savedDesignId ?? 0 });
+        } else if ("nextRetryAt" in result && result.nextRetryAt) {
+          setGeminiRateLimitUntil(new Date(result.nextRetryAt).getTime());
         }
       } catch {
         if (active) setGeminiImageTestError("Checking Google image test status again. Your locked plan remains unchanged.");

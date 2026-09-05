@@ -124,6 +124,10 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("admin-google-image-test-sources/");
     expect(source).toContain('status: "queued"');
     expect(source).toContain("sourceImageKey: storedSource.key");
+    expect(source).toContain("GEMINI_IMAGE_TEST_RETRY_DELAYS_MS");
+    expect(source).toContain("isRetryableGeminiImageTestFailure");
+    expect(source).toContain("Retrying automatically in");
+    expect(source).toContain("nextRetryAt: job.nextRetryAt");
   });
 
   it("persists the administrator Google image test by saved-plan ID and reopens only the current locked plan revision", () => {

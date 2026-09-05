@@ -187,6 +187,8 @@ export const designGeminiImageTestJobs = mysqlTable(
     // A queued job owns a locked JPEG in storage and can be started by the
     // persistent server after the initiating browser request has returned.
     status: mysqlEnum("status", ["queued", "pending", "completed", "failed"]).notNull().default("queued"),
+    retryCount: int("retryCount").notNull().default(0),
+    nextRetryAt: timestamp("nextRetryAt"),
     errorMessage: varchar("errorMessage", { length: 255 }),
     imageUrl: varchar("imageUrl", { length: 512 }),
     sourceImageKey: varchar("sourceImageKey", { length: 512 }),
