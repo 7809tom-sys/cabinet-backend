@@ -3,9 +3,9 @@
 
 // Do not cache application HTML or navigation responses. The Designer changes
 // frequently and an old shell can point a phone at obsolete JavaScript chunks.
-// This version advances once to remove the prior v1 navigation cache from every
-// returning client, then keeps the app network-current on future publishes.
-const CACHE_NAME = "cabinet-dealz-v2-network-current";
+// This version advances again to remove stale app shells that were installed
+// before recent Designer publishing. It then keeps future navigations network-current.
+const CACHE_NAME = "cabinet-dealz-v3-network-current";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(Promise.resolve());

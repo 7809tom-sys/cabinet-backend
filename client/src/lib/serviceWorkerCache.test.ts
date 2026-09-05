@@ -5,7 +5,7 @@ const serviceWorkerSource = readFileSync(new URL("../../public/sw.js", import.me
 
 describe("Designer mobile cache freshness", () => {
   it("retires the legacy navigation cache and never caches the application shell", () => {
-    expect(serviceWorkerSource).toContain('const CACHE_NAME = "cabinet-dealz-v2-network-current"');
+    expect(serviceWorkerSource).toContain('const CACHE_NAME = "cabinet-dealz-v3-network-current"');
     expect(serviceWorkerSource).toContain("self.skipWaiting()");
     expect(serviceWorkerSource).toContain("self.clients.claim()");
     expect(serviceWorkerSource).not.toContain("cache.put(event.request");

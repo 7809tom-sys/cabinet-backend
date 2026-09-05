@@ -1626,3 +1626,4 @@
 - [x] Correct the administrator Google test stale-preview handling so it refreshes the saved-plan reference and never shows customer verification guidance
 - [x] Add an administrator-only locked current-design snapshot path for Google tests without customer save or phone-verification blocking
 - [x] Repair the live administrator Google image-test start request that currently reports “Failed to fetch” in the browser
+- [ ] Repair the production Designer delivery mismatch that serves an older Google test dialog after a newer version is published
