@@ -4,8 +4,8 @@ import { buildMaterialsListRows, materialsListCsv, materialsListPricedTotal, mat
 describe("complete Designer materials list", () => {
   const rows = buildMaterialsListRows({
     buildRows: [
-      { code: "W-18", description: "18-inch Wall Cabinet", widthIn: 18, heightIn: 42, depthIn: 12, placement: "wall", color: "Aura Cream", qty: 1, unitPrice: 210 },
-      { code: "B-24", description: "24-inch Base Cabinet", widthIn: 24, heightIn: 34.5, depthIn: 24, placement: "base", color: "Aura Cream", qty: 2, unitPrice: 300 },
+      { sourceUids: ["w18-1"], code: "W-18", description: "18-inch Wall Cabinet", widthIn: 18, heightIn: 42, depthIn: 12, placement: "wall", color: "Aura Cream", qty: 1, unitPrice: 210 },
+      { sourceUids: ["b24-1", "b24-2"], code: "B-24", description: "24-inch Base Cabinet", widthIn: 24, heightIn: 34.5, depthIn: 24, placement: "base", color: "Aura Cream", qty: 2, unitPrice: 300 },
       { code: "DW-24", description: "Dishwasher", widthIn: 24, heightIn: 34.5, depthIn: 24, placement: "appliance", qty: 1, unitPrice: null },
       { code: "BF-3", description: "Base filler cut to 2.5 inches", widthIn: 2.5, heightIn: 34.5, depthIn: 24, placement: "base", color: "Aura Cream", qty: 1, unitPrice: 35 },
       { code: "REP-2496", description: "Refrigerator end panel", widthIn: 0.75, heightIn: 96, depthIn: 24, placement: "tall", color: "Aura Cream", qty: 2, unitPrice: 50 },
@@ -61,6 +61,7 @@ describe("complete Designer materials list", () => {
   it("preserves supplier, style, dimensions, quantities, and exact authoritative prices", () => {
     const base = rows.find((row) => row.code === "B-24")!;
     expect(base).toMatchObject({ supplier: "Ashford", styleColor: "Aura Cream", dimensions: '24\" W × 34.5\" H × 24\" D', qty: 2, unitPrice: 300, lineTotal: 600 });
+    expect(base.sourceUids).toEqual(["b24-1", "b24-2"]);
     expect(rows.find((row) => row.code === "PEL-90")).toMatchObject({ supplier: "Backsplash", qty: 3, unitPrice: 48, lineTotal: 144, notes: "30 sq ft including overage" });
     expect(rows.find((row) => row.code === "PEL-91")).toMatchObject({ unitPrice: null, lineTotal: null, notes: "Price pending / quote required" });
 	    expect(materialsListPricedTotal(rows)).toBe(1589);

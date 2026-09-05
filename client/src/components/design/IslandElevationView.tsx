@@ -212,7 +212,7 @@ export function IslandHardwareOverlay({
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
-  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   faceWidthIn: number;
 }) {
@@ -221,7 +221,10 @@ export function IslandHardwareOverlay({
   const normalizedDoorPosition = normalizeDoorHardwareFramePosition(hardwarePosition);
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
     const requestedSide = isDoor ? normalizedDoorPosition : null;
-    const hSide = requestedSide === "auto" && isDoor && doors === 1
+    const topCenteredDoorPull = Boolean(isDoor && requestedSide === "top-center");
+    const hSide = topCenteredDoorPull
+      ? "center"
+      : requestedSide === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedSide;
     const pairedDoorPull = Boolean(isDoor && doors > 1 && (hSide === "auto" || hSide === "paired"));
@@ -249,10 +252,12 @@ export function IslandHardwareOverlay({
       );
     }
     if (kind === "pull") {
-      const pullStyle = isDoor
+      const pullStyle = topCenteredDoorPull
+        ? { left: "30%", right: "30%", top: `${topPct}%`, height: 3, marginTop: -1.5, background: metal, boxShadow: metalShadow, zIndex: 8 }
+        : isDoor
         ? { left: leftPos, top: `${topPct}%`, width: 3, height: "24%", marginLeft: -1.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 2 }
         : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
-      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={isDoor ? "vertical" : "horizontal"} data-hardware-position={hSide ?? "center"} {...measuredHardwareData} style={pullStyle} />;
+      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={topCenteredDoorPull ? "horizontal" : isDoor ? "vertical" : "horizontal"} data-hardware-position={topCenteredDoorPull ? "top-center" : hSide ?? "center"} {...measuredHardwareData} style={pullStyle} />;
     }
     if (kind === "cup") {
       return (
@@ -265,7 +270,7 @@ export function IslandHardwareOverlay({
   };
   const items: React.ReactNode[] = [];
   if (doors > 0 && doorPiece !== "none") {
-    const topPct = 50;
+    const topPct = normalizedDoorPosition === "top-center" ? 13 : 50;
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;

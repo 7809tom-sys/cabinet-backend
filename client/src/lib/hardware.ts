@@ -318,9 +318,9 @@ export const RAIL_OFFSET_MAX_IN = 3;
  * automatic opening-edge rule instead of leaving a pull in the door panel.
  */
 export function normalizeDoorHardwareFramePosition(
-  position: "auto" | "left" | "center" | "right" | "paired" | null | undefined,
-): "auto" | "left" | "right" | "paired" {
-  return position === "left" || position === "right" || position === "paired" ? position : "auto";
+  position: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null | undefined,
+): "auto" | "left" | "right" | "paired" | "top-center" {
+  return position === "left" || position === "right" || position === "paired" || position === "top-center" ? position : "auto";
 }
 
 /**

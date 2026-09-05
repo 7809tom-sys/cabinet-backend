@@ -78,6 +78,17 @@ export function isPlaceableAccessory(c: {
   return false;
 }
 
+/** A catalog shelf mounted independently on a wall. These pieces may share a
+ * plan span only when their real elevation bands remain separate. */
+export function isFloatingShelfItem(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  return /floating shelf|\bopen shelf\b/.test(hay);
+}
+
 /** True for physical filler strips, including compact catalog codes such as F342. */
 export function isFillerItem(c: {
   masterCode?: string | null;
@@ -323,7 +334,7 @@ export interface DesignCabinet {
 export type DoorSwing = "left" | "right" | "double" | "none";
 export type DecorativeEndTreatment = "none" | "left" | "right" | "both";
 /** Horizontal position of the visible pull or knob on a placed cabinet front. */
-export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "paired";
+export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "paired" | "top-center";
 
 export type RefrigeratorAssemblyRole = "bridge" | "left-panel" | "right-panel";
 export type RefrigeratorPanelMode = "left" | "right" | "both" | "none";
@@ -729,7 +740,8 @@ export function resolveCabinetHardwarePosition(p: {
     p.hardwarePosition === "auto" ||
     p.hardwarePosition === "left" ||
     p.hardwarePosition === "right" ||
-    p.hardwarePosition === "paired"
+    p.hardwarePosition === "paired" ||
+    p.hardwarePosition === "top-center"
   ) {
     return p.hardwarePosition;
   }
@@ -749,6 +761,16 @@ export function cabinetHardwarePositionPatch(
   };
 }
 
+/** The centered horizontal pull on the top rail is a requested option only for
+ * the single-door B15 and B18 bases; it is not a generic door-hardware mode. */
+export function supportsCenteredTopDoorPull(p: {
+  masterCode?: string | null;
+  placement?: Placement | null;
+}): boolean {
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase();
+  return p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code);
+}
+
 /** True when a placed record has a real door front eligible for the requested
  * bulk hardware choice. Drawers, appliances, panels, and open units are never
  * changed. Paired hardware applies only to two-door cabinet fronts. */
@@ -757,6 +779,7 @@ export function isCabinetDoorHardwareEligible(
   side: CabinetHardwarePosition,
 ): boolean {
   if (p.noDoor || p.placement === "appliance" || !hasDoorSwing(p)) return false;
+  if (side === "top-center") return supportsCenteredTopDoorPull(p);
   if (side !== "paired") return true;
   return resolveSwing(p) === "double" || (p.numberOfDoors ?? 0) >= 2;
 }

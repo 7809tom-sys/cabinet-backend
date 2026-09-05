@@ -93,7 +93,7 @@ import {
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
           isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
-		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, fillerWidthRange, alternateWallPlacementRecommendation,
+		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -185,6 +185,7 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { FillerAttributesDialog } from "@/components/design/FillerAttributesDialog";
+import { FloatingShelfAttributesDialog } from "@/components/design/FloatingShelfAttributesDialog";
 import { WindowAttributesDialog } from "@/components/design/WindowAttributesDialog";
 import { IslandAttributesDialog } from "@/components/design/IslandAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
@@ -1992,9 +1993,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
-      if (existing) existing.qty += 1;
+      if (existing) {
+        existing.qty += 1;
+        existing.sourceUids = [...(existing.sourceUids ?? []), p.uid];
+      }
       else
         map.set(key, {
+          sourceUids: [p.uid],
 	          // The base cabinet keeps its canonical SKU. A separately priced glass
 	          // door appears as its own cart/material line instead of replacing it.
 	          code: p.masterCode,
@@ -2950,10 +2955,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // render as a thin board against the run rather than a full 24" box.
       const isAccessory = (forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c);
       const accPlacement = isAccessory ? accessoryPlacement(c) : c.placement;
-      const isFlatPanel = isAccessory && isPanelItem(c);
+	      const isFlatPanel = isAccessory && isPanelItem(c);
+	      const isFillerAccessory = isAccessory && isFillerItem(c);
       const catalogDimensions = resolvedDesignCabinetDimensions(c);
       const width = isAccessory ? dim(c.width, 24) : catalogDimensions.width;
-      const depth = isFlatPanel ? 0.75 : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
+	      // A base filler reserves its complete cabinet-run depth. The 3D renderer
+	      // uses that reserved depth only to place the 3/4-inch board flush at the
+	      // front, so it cannot protrude from the dishwasher-side cabinet run.
+	      const depth = isFlatPanel ? 0.75 : isFillerAccessory ? (accPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
       const height = isAccessory ? dim(c.height, standardHeight(accPlacement)) : catalogDimensions.height;
       // ── Build the new cabinet object OUTSIDE setPlaced so we can run side
       // effects (dialogs, toasts, sink auto-place) exactly once afterward.
@@ -3247,6 +3256,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
 	        ...(rangeHoodPlacement?.ok ? { mountBottom: rangeHoodPlacement.mountBottom } : {}),
 	      };
+	      if (isFloatingShelfItem(newCab)) {
+	        const wall = cabinetWall(newCab, room);
+	        const shelfFootprint = placedFootprint(newCab);
+	        const runStart = wall === "top" || wall === "bottom" ? newCab.x : newCab.y;
+	        const runEnd = runStart + (wall === "top" || wall === "bottom" ? shelfFootprint.w : shelfFootprint.d);
+	        const shelvesOnRun = prev.filter((item) => {
+	          if (!isFloatingShelfItem(item) || cabinetWall(item, room) !== wall) return false;
+	          const footprint = placedFootprint(item);
+	          const itemStart = wall === "top" || wall === "bottom" ? item.x : item.y;
+	          const itemEnd = itemStart + (wall === "top" || wall === "bottom" ? footprint.w : footprint.d);
+	          return runStart < itemEnd && runEnd > itemStart;
+	        });
+	        if (shelvesOnRun.length >= 4) {
+	          const message = "A wall span can hold up to four separately mounted floating shelves. Edit or remove a shelf before adding another.";
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        const defaultBottom = Math.min(Math.max(0, roomCeiling(room) - height), 54 + shelvesOnRun.length * 12);
+	        newCab.mountBottom = Math.round(defaultBottom * 8) / 8;
+	        newCab.mountBottomAdjusted = true;
+	      }
 	      if (requestedIslandFace && island) {
 	        const islandCandidate = nextIslandFacePlacement(newCab, island, requestedIslandFace, prev);
 	        if (!islandCandidate) {
@@ -3300,7 +3331,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             const bCy = (b.side === "top" || b.side === "bottom") ? (b.side === "top" ? 12 : room.depth - 12) : (b.start + b.length / 2);
             return Math.hypot(aCx - fillerCx, aCy - fillerCy) <= Math.hypot(bCx - fillerCx, bCy - fillerCy) ? a : b;
           });
-          const fillerDepth = footprintDepth(c);
+	          const fillerDepth = fillerLayer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
           const snappedSpot = wallPlacementAt(best.start, best.length, fillerDepth, best.side, room);
           const horizontal = best.side === "top" || best.side === "bottom";
           finalCab = {
@@ -3498,6 +3529,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setRangeTopStep("choose");
         setCountertop(true);
         // Close the mobile catalog sheet so it doesn't intercept dialog touch events
+        setMobilePanel(null);
+      }
+      if (isFloatingShelfItem(finalCab)) {
+        setFloatingShelfAttrUid(finalCab.uid);
+        setFloatingShelfAttrOpen(true);
         setMobilePanel(null);
       }
       // Refrigerator dialog
@@ -5180,7 +5216,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-	      const measured = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width);
+	      const measuredAtPointer = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width);
+	      // Palette drops should not fail just because the pointer lands over an
+	      // adjacent narrow trim gap. Recover a normal drop into the closest clear
+	      // measured opening on the selected wall; true cabinet/opening collisions
+	      // remain rejected by the existing fit checks.
+	      const nearestOpenGap = !freehand && (!measuredAtPointer || measuredAtPointer.status !== "valid")
+	        ? gaps.filter((gap) => gap.length >= width).sort((left, right) => Math.abs(left.center - targetAlong) - Math.abs(right.center - targetAlong))[0]
+	        : null;
+	      const measured = nearestOpenGap ? wallGapFitPreview([nearestOpenGap], nearestOpenGap.center, width) : measuredAtPointer;
       if (!measured || measured.status !== "valid") {
         const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
         const message = measured
@@ -5602,9 +5646,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // so the existing selected-based size/swing handlers operate on it.
   const [attrUid, setAttrUid] = useState<string | null>(null);
   const [attrOpen, setAttrOpen] = useState(false);
-  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
-  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
-  const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
+	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
+	  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
+	  const [floatingShelfAttrUid, setFloatingShelfAttrUid] = useState<string | null>(null);
+	  const [floatingShelfAttrOpen, setFloatingShelfAttrOpen] = useState(false);
+	  const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
   const [windowAttrOpen, setWindowAttrOpen] = useState(false);
   const openWindowAttributes = useCallback((uid: string) => {
     const opening = openings.find((candidate) => candidate.uid === uid);
@@ -5616,7 +5662,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setFillerAttrOpen(false);
     setCabEditSheetOpen(false);
   }, [openings, selectOpening]);
-  const openFillerAttributes = useCallback((uid: string) => {
+	  const openFillerAttributes = useCallback((uid: string) => {
     const filler = placed.find((item) => item.uid === uid);
     if (!filler || !isFillerItem(filler)) return false;
     setSelectedUid(uid);
@@ -5624,17 +5670,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setFillerAttrOpen(true);
     setAttrOpen(false);
     setCabEditSheetOpen(false);
-    return true;
-  }, [placed]);
-  const openAttributes = useCallback((uid: string) => {
-    if (openFillerAttributes(uid)) return;
+	    return true;
+	  }, [placed]);
+	  const openFloatingShelfAttributes = useCallback((uid: string) => {
+	    const shelf = placed.find((item) => item.uid === uid);
+	    if (!shelf || !isFloatingShelfItem(shelf)) return false;
+	    setSelectedUid(uid);
+	    setFloatingShelfAttrUid(uid);
+	    setFloatingShelfAttrOpen(true);
+	    setAttrOpen(false);
+	    setFillerAttrOpen(false);
+	    setCabEditSheetOpen(false);
+	    return true;
+	  }, [placed]);
+	  const openAttributes = useCallback((uid: string) => {
+	    if (openFloatingShelfAttributes(uid)) return;
+	    if (openFillerAttributes(uid)) return;
     setSelectedUid(uid);
     setAttrUid(uid);
     setAttrOpen(true);
     // On mobile the editor lives in a bottom sheet (selection no longer auto-opens
     // it), so opening attributes must also open that sheet.
     setCabEditSheetOpen(true);
-  }, [openFillerAttributes]);
+	  }, [openFillerAttributes, openFloatingShelfAttributes]);
   const requestFillerAction = useCallback((uid: string) => {
     if (!openFillerAttributes(uid)) requestSmallGapFiller(uid);
   }, [openFillerAttributes, requestSmallGapFiller]);
@@ -5675,7 +5733,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return next;
     });
   }, []);
-  const removeFillerFromAttributes = useCallback((uid: string) => {
+	  const removeFillerFromAttributes = useCallback((uid: string) => {
     const filler = placed.find((item) => item.uid === uid);
     if (isRequiredBlindCornerFillerGroupId(filler?.fillerPieceGroupId)) {
       toast.info("This filler is required by its blind-corner cabinet and cannot be removed separately.");
@@ -5688,7 +5746,50 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     });
     setSelectedUid((selected) => selected === uid ? null : selected);
     setFillerAttrOpen(false);
-  }, [placed]);
+	  }, [placed]);
+	  const floatingShelfAttrCabinet = floatingShelfAttrUid ? placed.find((item) => item.uid === floatingShelfAttrUid) ?? null : null;
+	  const floatingShelfRunCount = useMemo(() => {
+	    if (!floatingShelfAttrCabinet) return 0;
+	    const wall = cabinetWall(floatingShelfAttrCabinet, room);
+	    const footprint = placedFootprint(floatingShelfAttrCabinet);
+	    const start = wall === "top" || wall === "bottom" ? floatingShelfAttrCabinet.x : floatingShelfAttrCabinet.y;
+	    const end = start + (wall === "top" || wall === "bottom" ? footprint.w : footprint.d);
+	    return placed.filter((item) => {
+	      if (!isFloatingShelfItem(item) || cabinetWall(item, room) !== wall) return false;
+	      const itemFootprint = placedFootprint(item);
+	      const itemStart = wall === "top" || wall === "bottom" ? item.x : item.y;
+	      const itemEnd = itemStart + (wall === "top" || wall === "bottom" ? itemFootprint.w : itemFootprint.d);
+	      return start < itemEnd && end > itemStart;
+	    }).length;
+	  }, [floatingShelfAttrCabinet, placed, room]);
+	  const applyFloatingShelfAttributes = useCallback((uid: string, bottomIn: number, lengthIn: number) => {
+	    setPlaced((current) => {
+	      const shelf = current.find((item) => item.uid === uid);
+	      if (!shelf || !isFloatingShelfItem(shelf)) return current;
+	      const wall = cabinetWall(shelf, room);
+	      const maxBottom = Math.max(0, roomCeiling(room) - Math.max(0.125, placedHeight(shelf)));
+	      const maxLength = Math.max(6, Number(shelf.nominalWidth) || Number(shelf.width) || 6);
+	      const bottom = Math.max(0, Math.min(maxBottom, Math.round(bottomIn * 8) / 8));
+	      const width = Math.max(6, Math.min(maxLength, Math.round(lengthIn * 8) / 8));
+	      const candidate = { ...shelf, width, mountBottom: bottom, mountBottomAdjusted: true };
+	      const peers = current.filter((item) => item.uid !== uid);
+	      if (hasCollision(candidate, peers)) {
+	        toast.error("This shelf length or height overlaps another placed item. Choose a clear height or a shorter length.");
+	        return current;
+	      }
+	      const next = current.map((item) => item.uid === uid ? candidate : item);
+	      placedRef.current = next;
+	      return next;
+	    });
+	  }, [room]);
+	  const removeFloatingShelf = useCallback((uid: string) => {
+	    setPlaced((current) => {
+	      const next = current.filter((item) => item.uid !== uid);
+	      placedRef.current = next;
+	      return next;
+	    });
+	    setSelectedUid((selected) => selected === uid ? null : selected);
+	  }, []);
 
   // Set the door swing to an exact side for a specific cabinet.
   const setSwingFor = useCallback((uid: string, swing: "left" | "right" | "double") => {
@@ -10961,8 +11062,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onRotate={rotateIsland}
 		        onRemove={removeIslandScene}
 		      />
-		      <FillerAttributesDialog
-		        filler={fillerAttrCabinet}
+	      <FillerAttributesDialog
+	        filler={fillerAttrCabinet}
 		        open={fillerAttrOpen}
 		        onOpenChange={(open) => {
 		          setFillerAttrOpen(open);
@@ -10971,9 +11072,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        measuredOpening={fillerAttrOpportunity?.remaining ?? null}
 		        onApply={applyFillerAttributes}
 		        onResizeStandalone={resizeStandaloneFiller}
-		        onRemove={removeFillerFromAttributes}
-		      />
-		      <WindowAttributesDialog
+	        onRemove={removeFillerFromAttributes}
+	      />
+	      <FloatingShelfAttributesDialog
+	        shelf={floatingShelfAttrCabinet}
+	        open={floatingShelfAttrOpen}
+	        onOpenChange={(open) => {
+	          setFloatingShelfAttrOpen(open);
+	          if (!open) setFloatingShelfAttrUid(null);
+	        }}
+	        ceilingHeight={roomCeiling(room)}
+	        shelvesOnRun={floatingShelfRunCount}
+	        onApply={applyFloatingShelfAttributes}
+	        onRemove={removeFloatingShelf}
+	      />
+	      <WindowAttributesDialog
 		        opening={windowAttrUid ? openings.find((opening) => opening.uid === windowAttrUid) ?? null : null}
 		        room={room}
 		        open={windowAttrOpen}
@@ -11814,9 +11927,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        open={materialsListOpen}
 	        onOpenChange={setMaterialsListOpen}
 	        rows={materialsListRows}
-	        roomLabel={`${room.width}\" × ${room.depth}\"`}
+	        roomLabel={`${room.width}" × ${room.depth}"`}
 	        styleName={activeStyleName}
 	        brandName={affiliateBrand?.storeName}
+	        onRemovePlacedItems={(uids) => {
+	          const sources = new Set(uids);
+	          if (sources.size === 0) return;
+	          setPlaced((current) => {
+	            let next = current;
+            for (const uid of Array.from(sources)) next = removePlacedCabinetGroup(next, uid);
+	            placedRef.current = next;
+	            return next;
+	          });
+	          setSinks((current) => current.filter((sink) => !Array.from(sources).some((uid) => {
+	            const cabinet = placed.find((item) => item.uid === uid);
+	            return cabinet ? fixtureIsOnCabinetFootprint(sink, cabinet) : false;
+	          })));
+	          setSelectedUid((selected) => selected && sources.has(selected) ? null : selected);
+	          toast.success("Design item removed from Materials & Parts.");
+	        }}
 	      />
 
 	      {/* Rename design dialog (opened from mobile save success toast) */}

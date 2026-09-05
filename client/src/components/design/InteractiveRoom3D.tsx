@@ -136,7 +136,7 @@ type SceneSku = {
   doorOrientation?: "side-by-side" | "stacked" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   handleSide?: "left" | "right" | null;
-  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null;
   openingType?: string | null;
   openingWidth?: number | null;
   openingHeight?: number | null;
@@ -3354,8 +3354,9 @@ export function addCabinet(
     frontGroup.add(shadow);
   };
   const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null, hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto") => {
-    const pullLength = Math.min(Math.max(0.12, (drawer ? faceWidth : faceHeight) * (drawer ? 0.48 : 0.28)), drawer ? 0.62 : 0.86);
-    const pull = new THREE.Mesh(new THREE.BoxGeometry(drawer ? pullLength : 0.022, drawer ? 0.022 : pullLength, 0.026), hardwareMaterial);
+    const requestedTopCenteredDoorPull = !drawer && hardwarePosition === "top-center";
+    const pullLength = Math.min(Math.max(0.12, ((drawer || requestedTopCenteredDoorPull) ? faceWidth : faceHeight) * ((drawer || requestedTopCenteredDoorPull) ? 0.48 : 0.28)), (drawer || requestedTopCenteredDoorPull) ? 0.62 : 0.86);
+    const pull = new THREE.Mesh(new THREE.BoxGeometry((drawer || requestedTopCenteredDoorPull) ? pullLength : 0.022, (drawer || requestedTopCenteredDoorPull) ? 0.022 : pullLength, 0.026), hardwareMaterial);
     // Doors swing from their outside edge. Pulls therefore sit vertically at
     // the center meeting edge (opposite hinge). Upper doors pull from the
     // lower part; lower/pantry doors pull from the upper part.
@@ -3363,22 +3364,23 @@ export function addCabinet(
     // Drawers are fixed at the horizontal center by CabinetDealz construction
     // rules. Saved hardware choices remain effective only for door pulls.
     const resolvedHardwarePosition = drawer ? "center" : normalizeDoorHardwareFramePosition(hardwarePosition);
-    const explicitSide = resolvedHardwarePosition === "left" ? -1 : resolvedHardwarePosition === "right" ? 1 : resolvedHardwarePosition === "center" ? 0 : automaticSide;
-    const pullX = drawer
+    const topCenteredDoorPull = !drawer && resolvedHardwarePosition === "top-center";
+    const explicitSide = topCenteredDoorPull ? 0 : resolvedHardwarePosition === "left" ? -1 : resolvedHardwarePosition === "right" ? 1 : resolvedHardwarePosition === "center" ? 0 : automaticSide;
+    const pullX = drawer || topCenteredDoorPull
       ? x
       : x + doorHardwareOffsetFromFaceCenterIn(
         faceWidth / INCH,
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
       ) * INCH;
-    const pullY = drawer ? y : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
+    const pullY = drawer ? y : topCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, z);
     pull.userData = {
       cabinetHardware: true,
       cabinetPull: drawer ? "drawer" : "door",
-      verticalPull: !drawer,
+      verticalPull: !drawer && !topCenteredDoorPull,
       pullDoorZone: drawer ? null : doorZone,
-      pullEdge: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
-      ...(hingeSide ? { hingeSide, handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
+      pullEdge: topCenteredDoorPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
+      ...(hingeSide ? { hingeSide, handleSide: topCenteredDoorPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: topCenteredDoorPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
       hardwarePosition: resolvedHardwarePosition,
       ...(drawer || explicitSide === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }),
       dimensionalCabinetDetail: true,
@@ -3387,7 +3389,7 @@ export function addCabinet(
     for (const offset of [-1, 1] as const) {
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
       stem.rotation.x = Math.PI / 2;
-      stem.position.set(drawer ? pull.position.x + offset * pullLength * 0.34 : pull.position.x, drawer ? pull.position.y : pull.position.y + offset * pullLength * 0.34, z - 0.018);
+      stem.position.set((drawer || topCenteredDoorPull) ? pull.position.x + offset * pullLength * 0.34 : pull.position.x, (drawer || topCenteredDoorPull) ? pull.position.y : pull.position.y + offset * pullLength * 0.34, z - 0.018);
       stem.userData = { cabinetHardwareMount: true };
       frontGroup.add(stem);
     }

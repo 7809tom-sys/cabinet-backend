@@ -1574,3 +1574,8 @@
 - [x] Let administrators remove a distributor-product relationship when the distributor does not sell that cabinet without deleting the cabinet or distributor
 - [x] Expand Cabinet Config search to match aliases, master codes, and partial cabinet descriptions consistently
 - [x] Add focused regression coverage for cabinet edits, distributor-product removal, and alias/master/partial search results
+- [x] Align a dishwasher-adjacent filler flush with the front and side of its intended cabinet run instead of allowing it to protrude
+- [x] Add a B15/B18-only cabinet attribute that moves the door handle to a centered top-rail position without changing other cabinet hardware
+- [x] Add accessible per-line removal controls to the Materials & Parts list so a selected item can be removed directly
+- [x] Support one to four independently positioned floating shelves on a wall with bottom height and shelf length controls
+- [x] Correct base/sink-base placement to allow SB36 in valid open wall space beside a dishwasher while retaining collision and opening clearances

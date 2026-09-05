@@ -19,6 +19,8 @@ export type MaterialsListSupplement = {
 };
 
 export type MaterialsListRow = {
+  /** Placed cabinet IDs represented by this row; absent for quote-only items. */
+  sourceUids?: string[];
   label: string;
   section: MaterialsListSection;
   code: string;
@@ -113,6 +115,7 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
     const unitPrice = safePrice(exact?.line.unitPrice ?? build.unitPrice);
     const section = materialsListSectionFor({ code: build.code, description: build.description, category: build.placement, placement: build.placement });
     rows.push({
+      sourceUids: build.sourceUids,
       section,
       code: build.code,
       description: build.description,

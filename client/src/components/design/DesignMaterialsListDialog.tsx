@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,6 +19,7 @@ export function DesignMaterialsListDialog({
   roomLabel,
   styleName,
   brandName,
+  onRemovePlacedItems,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +27,8 @@ export function DesignMaterialsListDialog({
   roomLabel: string;
   styleName: string | null;
   brandName?: string | null;
+  /** Removes the exact placed cabinet/filler entries represented by a row. */
+  onRemovePlacedItems?: (uids: string[]) => void;
 }) {
   const title = `${brandName?.trim() || "Cabinet Dealz"} Materials & Parts List`;
   const cabinetRows = rows.filter((row) => row.section === "cabinet");
@@ -68,7 +71,7 @@ export function DesignMaterialsListDialog({
   const renderRows = (sectionRows: readonly MaterialsListRow[], heading: string) => (
     <>
       <tr className="bg-[#f7f0e3] text-[#6c4f1c]">
-        <th colSpan={11} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide">{heading}</th>
+        <th colSpan={12} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide">{heading}</th>
       </tr>
       {sectionRows.map((row) => (
         <tr key={`${row.section}:${row.label}:${row.code}:${row.styleColor}`} className="border-b border-slate-200 align-top odd:bg-white even:bg-slate-50/60">
@@ -83,6 +86,21 @@ export function DesignMaterialsListDialog({
           <td className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${row.unitPrice == null ? "text-amber-700" : ""}`}>{money(row.unitPrice)}</td>
           <td className={`px-2 py-2 text-right whitespace-nowrap font-semibold tabular-nums ${row.lineTotal == null ? "text-amber-700" : ""}`}>{money(row.lineTotal)}</td>
           <td className="px-2 py-2 min-w-[180px] text-slate-600">{row.notes || "—"}</td>
+          <td className="px-2 py-1.5 text-center">
+            {row.sourceUids?.length ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-red-700 hover:bg-red-50 hover:text-red-800"
+                aria-label={`Remove ${row.description}`}
+                title={`Remove ${row.description}`}
+                onClick={() => onRemovePlacedItems?.(row.sourceUids ?? [])}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : <span className="text-slate-400">—</span>}
+          </td>
         </tr>
       ))}
     </>
@@ -117,10 +135,10 @@ export function DesignMaterialsListDialog({
           {rows.length === 0 ? (
             <div className="flex min-h-[260px] items-center justify-center px-6 text-center text-sm text-muted-foreground">Add layout items before opening the materials list.</div>
           ) : (
-            <table className="min-w-[1220px] w-full border-collapse text-[11px]">
+            <table className="min-w-[1270px] w-full border-collapse text-[11px]">
               <thead className="sticky top-0 z-10 bg-[#1a2744] text-white shadow-sm">
                 <tr>
-                  {['No.', 'Item code', 'Description', 'Category', 'Distributor', 'Color / style', 'Dimensions', 'Qty', 'Unit price', 'Line total', 'Notes'].map((heading) => (
+                  {['No.', 'Item code', 'Description', 'Category', 'Distributor', 'Color / style', 'Dimensions', 'Qty', 'Unit price', 'Line total', 'Notes', 'Remove'].map((heading) => (
                     <th key={heading} className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">{heading}</th>
                   ))}
                 </tr>

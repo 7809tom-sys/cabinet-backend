@@ -40,13 +40,13 @@ const wallCabinet = {
   depth: 12,
   numberOfDoors: 2,
   numberOfDrawers: 0,
-} as never;
+} as any;
 
-function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0) {
+function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0, cabinet = wallCabinet) {
   const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
-      cabinet={wallCabinet}
+      cabinet={cabinet}
       open
       onOpenChange={vi.fn()}
       customFee={0}
@@ -128,6 +128,16 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetHandleSide).toHaveBeenNthCalledWith(2, "w3024", "right");
     expect(onSetHandleSide).toHaveBeenNthCalledWith(3, "w3024", "auto");
     expect(onSetHandleSide).toHaveBeenNthCalledWith(4, "w3024", "paired");
+  });
+
+  it("offers a centered top-rail pull only for the requested B15/B18 base family", () => {
+    const onSetHandleSide = vi.fn();
+    const b15 = { ...wallCabinet, uid: "b15", masterCode: "B15", placement: "base", width: 15, numberOfDoors: 1 } as never;
+    renderDialog(vi.fn(), onSetHandleSide, undefined, 0, b15);
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    const choice = within(dialog).getByRole("button", { name: "Centered top rail" });
+    fireEvent.click(choice);
+    expect(onSetHandleSide).toHaveBeenCalledWith("b15", "top-center");
   });
 
   it("confirms before applying the selected door hardware position to every eligible cabinet", () => {

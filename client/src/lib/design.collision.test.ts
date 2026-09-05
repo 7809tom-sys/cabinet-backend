@@ -31,6 +31,14 @@ describe("design placement collision prevention", () => {
     expect(hasCollision(drawerBase, [b33])).toBe(false);
   });
 
+  it("allows separate floating shelves on the same wall span only when their mounted heights do not overlap", () => {
+    const lowerShelf = placed({ uid: "shelf-54", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 54, mountBottomAdjusted: true });
+    const upperShelf = placed({ uid: "shelf-66", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 66, mountBottomAdjusted: true });
+    const overlappingShelf = { ...upperShelf, uid: "shelf-overlap", mountBottom: 54.5 };
+    expect(hasCollision(upperShelf, [lowerShelf])).toBe(false);
+    expect(hasCollision(overlappingShelf, [lowerShelf])).toBe(true);
+  });
+
   it("identifies sinks attached to a sink base while leaving standalone sinks independent", () => {
     const sinkBase = placed({ uid: "sb36", masterCode: "SB36", description: "Sink Base 36", x: 24, y: 0, width: 36, depth: 24 });
     expect(fixtureIsOnCabinetFootprint({ x: 34, y: 5, width: 20, depth: 18 }, sinkBase)).toBe(true);

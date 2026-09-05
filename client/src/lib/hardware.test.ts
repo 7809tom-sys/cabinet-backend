@@ -206,6 +206,7 @@ describe("hardware placement spec", () => {
     expect(normalizeDoorHardwareFramePosition("left")).toBe("left");
     expect(normalizeDoorHardwareFramePosition("right")).toBe("right");
     expect(normalizeDoorHardwareFramePosition("paired")).toBe("paired");
+    expect(normalizeDoorHardwareFramePosition("top-center")).toBe("top-center");
   });
 
   it("classifies framed vs slab door styles", () => {

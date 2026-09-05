@@ -21,6 +21,8 @@ import type { PreSavePlanReview, PreSavePlanReviewFinding } from "@/lib/preSaveP
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface BuildSheetRow {
+  /** Placed cabinet IDs represented by this bill-of-material line. */
+  sourceUids?: string[];
   code: string;
   description: string;
   widthIn: number;

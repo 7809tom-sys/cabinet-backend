@@ -35,6 +35,7 @@ import {
   hasDoorSwing,
   resolveSwing,
   resolveCabinetHardwarePosition,
+  supportsCenteredTopDoorPull,
   placedHeight,
   isCustomWidth,
   isCustomHeight,
@@ -314,6 +315,7 @@ export function CabinetAttributesDialog({
   const isDouble = swing === "double";
   const noDoor = !!cabinet.noDoor;
   const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
+  const canUseCenteredTopPull = supportsCenteredTopDoorPull(cabinet);
   const isBase = cabinet.placement === "base";
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
@@ -739,6 +741,18 @@ export function CabinetAttributesDialog({
                   {t("dt_ca_right")}
                 </Button>
               </div>
+              {canUseCenteredTopPull && (
+                <Button
+                  type="button"
+                  variant={hardwarePosition === "top-center" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-full"
+                  disabled={noDoor}
+                  onClick={() => onSetHandleSide(uid, "top-center")}
+                >
+                  Centered top rail
+                </Button>
+              )}
               {isDouble && (
                 <Button
                   type="button"

@@ -1944,7 +1944,7 @@ export function HardwareOverlay({
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
-  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | null;
+  hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   isWall?: boolean;
   faceWidthIn: number;
@@ -1960,7 +1960,10 @@ export function HardwareOverlay({
     // Drawer hardware is an authoritative center-only construction rule. Door
     // fronts retain their individual Attributes choice, including paired pulls.
     const requestedPosition = isDoor ? normalizedDoorPosition : "center";
-    const position = requestedPosition === "auto" && isDoor && doors === 1
+    const topCenteredDoorPull = Boolean(isDoor && requestedPosition === "top-center");
+    const position = topCenteredDoorPull
+      ? "center"
+      : requestedPosition === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
       : requestedPosition;
     const pairedDoorPull = Boolean(isDoor && doors > 1 && (position === "auto" || position === "paired"));
@@ -1992,7 +1995,9 @@ export function HardwareOverlay({
     if (kind === "pull") {
       // Door pulls are vertical at the opening edge. Drawer pulls remain
       // horizontal and centered under the authoritative drawer hardware rule.
-      const pullStyle = isDoor
+      const pullStyle = topCenteredDoorPull
+        ? { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+        : isDoor
         ? { left: leftPos, top: `${topPct}%`, width: 5, height: "24%", marginLeft: -2.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
         : { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 };
       return (
@@ -2000,8 +2005,8 @@ export function HardwareOverlay({
           key={key}
           className="absolute"
           data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"}
-          data-hardware-orientation={isDoor ? "vertical" : "horizontal"}
-          data-hardware-position={position}
+          data-hardware-orientation={topCenteredDoorPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}
+          data-hardware-position={topCenteredDoorPull ? "top-center" : position}
           {...measuredHardwareData}
           style={pullStyle as React.CSSProperties}
         />
@@ -2044,7 +2049,9 @@ export function HardwareOverlay({
     // the handle side (opposite of the hinge).
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
-    const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
+    const doorTop = normalizedDoorPosition === "top-center"
+      ? drawerBand + (100 - drawerBand) * 0.13
+      : drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;
