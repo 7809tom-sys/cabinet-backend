@@ -1495,7 +1495,7 @@ export function threeDSelectionFromPlaced(uid: string | null | undefined, placed
 
 /** Keeps selected-cabinet details in document flow below the drawing instead of covering the 3D canvas. */
 export function threeDSelectedCabinetDockClass(): string {
-	return "relative mt-1 w-full rounded-md border bg-background px-2 py-1 text-[11px] shadow-sm";
+	return "relative mt-1 max-h-[min(18dvh,132px)] w-full shrink-0 overflow-y-auto overscroll-contain rounded-md border bg-background px-2 py-1 text-[11px] shadow-sm";
 }
 
 export type ThreeDCabinetHit = {

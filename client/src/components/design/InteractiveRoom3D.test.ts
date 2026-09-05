@@ -861,6 +861,9 @@ describe("interactive 3D room scene helpers", () => {
     const className = threeDSelectedCabinetDockClass();
     expect(className).toContain("mt-1");
     expect(className).toContain("w-full");
+	  expect(className).toContain("max-h-[min(18dvh,132px)]");
+	  expect(className).toContain("overflow-y-auto");
+	  expect(className).toContain("overscroll-contain");
 	    expect(className).toContain("px-2");
      expect(className).toContain("py-1");
 	    expect(className).toContain("text-[11px]");

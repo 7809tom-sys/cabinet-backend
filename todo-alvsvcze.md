@@ -1592,3 +1592,4 @@
 - [x] Add a Compact Workspace mode that collapses catalog and pricing panels to maximize the Designer canvas on small laptop screens
 - [x] Automatically activate Compact Workspace when the laptop viewport constrains the canvas while retaining manual panel override controls
 - [x] Expand the Compact Workspace Catalog into a tablet-style cabinet picker that leaves enough room to browse and select cabinets
+- [x] Make the bottom cabinet-controls panel fit within small laptop viewports above the operating-system taskbar
