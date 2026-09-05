@@ -7467,9 +7467,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
+      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto scrollbar-none"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
-        <div className="hidden lg:flex items-center gap-2">
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (
             <div className="flex items-center gap-2 whitespace-nowrap">
               {affiliateBrand.logoUrl ? <img src={affiliateBrand.logoUrl} alt="" className="h-6 max-w-24 object-contain" /> : null}
@@ -7484,7 +7484,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
-        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -7515,7 +7515,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           />
         </div>
 
-        <Button variant="outline" size="sm" className="hidden lg:inline-flex shrink-0" onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
+        <Button variant="outline" size="sm" className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
         </Button>
         <Button
@@ -7531,17 +7531,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <Button
           variant="outline"
 	          size="sm"
-	          className="hidden lg:inline-flex shrink-0"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
 	          onClick={shareCurrentDesign}
 	          disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
 	          title={(activeSavedDesignId ?? loadDesignId) == null ? "Save this design before sharing" : "Share a read-only remote homeowner view"}
 	        >
 	          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Remote Share
 	        </Button>
-	        <Button
+        <Button
 	          variant="outline"
 	          size="sm"
-	          className="hidden shrink-0 lg:inline-flex"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
 	          disabled={materialsListRows.length === 0}
 	          onClick={() => setMaterialsListOpen(true)}
 	          title="View, print, or export complete materials & parts list"
@@ -7566,6 +7566,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onClick={() => setMobilePanel((panel) => panel === "catalog" ? null : "catalog")}
             >
               <Boxes className="mr-1.5 h-3.5 w-3.5" /> Catalog
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="compact-workspace-materials-trigger"
+              className="hidden lg:inline-flex shrink-0"
+              onClick={() => {
+                setPaletteType("surfaces");
+                setMobilePanel("catalog");
+              }}
+              title="Choose flooring, countertops, backsplash, faucets, and sinks"
+            >
+              <Waves className="mr-1.5 h-3.5 w-3.5" /> Materials
             </Button>
             <Button
               variant="outline"
@@ -7606,16 +7619,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         >
           <SquareDashedMousePointer className="h-4 w-4" />
         </button>
-        <ConsultantRoomControl
-          open={consultOpen}
-          onToggle={() => setConsultOpen((open) => !open)}
-          label={t("dt_sh_consultant_title")}
-        />
+        <div className={isCompactWorkspace ? "hidden" : undefined}>
+          <ConsultantRoomControl
+            open={consultOpen}
+            onToggle={() => setConsultOpen((open) => !open)}
+            label={t("dt_sh_consultant_title")}
+          />
+        </div>
 
         {/* Active wall selector: highlights a wall; new items drop on it and it
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
-        <div className="hidden lg:flex items-center gap-1.5">
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-1.5`}>
           <span className="text-[10px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
           <div className="flex items-center rounded-md border border-border p-0.5 bg-muted/30 overflow-x-auto">
             {isPolygonRoom && room.customWalls ? (
@@ -7694,10 +7709,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
         </div>
 
-        <div className="hidden lg:block h-5 w-px bg-border" />
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} h-5 w-px bg-border`} />
 
         {/* View toggle — grouped pill with subtle background */}
-        <div className="hidden lg:flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5">
+        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5`}>
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
@@ -7745,11 +7760,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </button>
           )}
         </div>
-                <div className="hidden lg:block h-5 w-px bg-border" />
+                <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} h-5 w-px bg-border`} />
         {/* Save Design — desktop only */}
         <button
           type="button"
-          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
           title="Save design"
           onClick={() => setSaveSignal((n) => n + 1)}
         >
@@ -7758,7 +7773,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         {/* Start New / Clear Design — desktop only */}
         <button
           type="button"
-          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10`}
           title="Start new design (clears all cabinets)"
           onClick={clearCurrentDesign}
         >
@@ -7771,7 +7786,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           target="_blank"
           rel="noopener noreferrer"
           title={t("dt_sh_print_title")}
-          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
         >
           <Printer className="h-3.5 w-3.5" />
         </a>
@@ -7779,7 +7794,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <button
           type="button"
           title="Export view as PNG"
-          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
           onClick={async () => {
             const el = canvasExportRef.current;
             if (!el) return;

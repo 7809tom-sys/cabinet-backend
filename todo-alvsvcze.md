@@ -1607,3 +1607,5 @@
 - [x] Restore a clearly visible More area in Compact Workspace without obscuring the Designer drawing
 - [x] Restore a clearly reachable Island Zone control in Compact Workspace while retaining existing island placement rules
 - [x] Remove only true duplicate top-bar controls in Compact Workspace while retaining one visible route to every essential action
+- [x] Make the Compact Workspace top controls fit the laptop viewport without horizontal overflow or concealed actions
+- [x] Restore a direct Materials palette for flooring, countertops, backsplash, faucets, and sinks in Compact Workspace

@@ -17,6 +17,14 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
+  it("fits the compact toolbar without horizontal scrolling and opens the complete materials palette directly", () => {
+    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto scrollbar-none"');
+    expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
+    expect(source).toContain('title="Choose flooring, countertops, backsplash, faucets, and sinks"');
+    expect(source).toContain('setPaletteType("surfaces");');
+    expect(source).toContain('setMobilePanel("catalog");');
+  });
+
   it("keeps More and Island Zone visible in the compact toolbar while removing the duplicate 3D shortcut", () => {
     expect(source).toContain('data-testid="compact-workspace-more-trigger"');
     expect(source).toContain('data-testid="compact-workspace-island-zone-trigger"');
