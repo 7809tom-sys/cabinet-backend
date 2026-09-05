@@ -1620,3 +1620,4 @@
 - [x] Diagnose and repair the delayed Google/Gemini image-test failure after generation is requested, with clear recoverable error handling
 - [x] Replace the long-lived Google/Gemini image-test request with a browser-resilient short start-and-poll workflow
 - [x] Restore the shaded administrator Google image-test control when the saved-plan preview is ready and show any blocking reason visibly
+- [x] Reproduce and remove the false live saved-plan condition that still leaves the administrator Google image-test button shaded

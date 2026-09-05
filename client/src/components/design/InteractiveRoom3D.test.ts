@@ -6244,6 +6244,7 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain('data-testid="path-trace-production-result"');
     expect(source).toContain('data-testid="gemini-image-test"');
     expect(source).toContain('data-testid="gemini-image-test-blocking-reason"');
+    expect(source).toContain("if (!photoRenderDoorReference.ready && !isPhotoQualityTest)");
     expect(source).toContain("Open Final preview to prepare the locked saved-plan image for Google.");
     expect(source).toContain("Save this kitchen plan, then reopen Final preview before running the Google test.");
 	    expect(source).toContain('data-testid="gemini-image-test-result"');

@@ -6272,9 +6272,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         ? "Open Final preview to prepare the locked saved-plan image for Google."
         : photoRenderDraft.provenance.designId <= 0
           ? "Save this kitchen plan, then reopen Final preview before running the Google test."
-          : !photoRenderDoorReference.ready
-            ? photoRenderDoorReference.message
-            : null;
+          : null;
   const photoRenderVisualReferences = [
     activeDoorTexture ? {
       id: "door-sample",
@@ -7455,7 +7453,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       toast.error("Save this design before creating a high-resolution 3D preview so the image remains tied to its exact plan.");
       return;
     }
-    if (!photoRenderDoorReference.ready) {
+    if (!photoRenderDoorReference.ready && !isPhotoQualityTest) {
       toast.error(photoRenderDoorReference.message);
       return;
     }
