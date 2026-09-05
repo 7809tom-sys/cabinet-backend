@@ -16,4 +16,10 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("> Catalog");
     expect(source).toContain("Price &amp; cart");
   });
+
+  it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
+    expect(source).toContain('w-[min(840px,96vw)]');
+    expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');
+    expect(source).toContain("Cabinet catalog — tablet view");
+  });
 });

@@ -9526,7 +9526,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <span className="flex-1 text-left">{group.label}</span>
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
-                  {open && <div id={groupId} data-testid={`catalog-group-content-${groupId}`}>{group.items.length === 0 ? (
+                  {open && <div
+                    id={groupId}
+                    data-testid={`catalog-group-content-${groupId}`}
+                    className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}
+                  >{group.items.length === 0 ? (
                     <div className="rounded-md border border-dashed border-border bg-muted/25 px-3 py-2 text-[10px] text-muted-foreground">
                       {t("dt_pl_no_category")}
                     </div>
@@ -12224,9 +12228,9 @@ function PaletteShell({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className={compact ? "w-[min(360px,88vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}>
+        <SheetContent side="left" className={compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}>
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
-            <SheetTitle className="text-sm">{t("dt_pl_catalog")}</SheetTitle>
+            <SheetTitle className="text-sm">{compact ? "Cabinet catalog — tablet view" : t("dt_pl_catalog")}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
         </SheetContent>
