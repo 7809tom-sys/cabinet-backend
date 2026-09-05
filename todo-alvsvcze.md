@@ -1603,3 +1603,7 @@
 - [x] Replace the empty farmhouse sink popup with a visible selected-base side-panel Sink Selection Guide that lists only compatible verified apron-front sinks
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena
+- [ ] Repair the refrigerator-overhead recommendation so a mispositioned or unsuitable wall cabinet prompts an approval-based compatible placement directly above the refrigerator
+- [x] Restore a clearly visible More area in Compact Workspace without obscuring the Designer drawing
+- [x] Restore a clearly reachable Island Zone control in Compact Workspace while retaining existing island placement rules
+- [x] Remove only true duplicate top-bar controls in Compact Workspace while retaining one visible route to every essential action

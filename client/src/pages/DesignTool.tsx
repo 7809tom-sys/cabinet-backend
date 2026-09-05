@@ -7499,7 +7499,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         <Button
           variant="outline"
           size="sm"
-          className="hidden lg:inline-flex shrink-0"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
           onClick={() => setViewMode("threeD")}
           disabled={!canLoadInteractive3d || interactive3dLoading}
           title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
@@ -7552,6 +7552,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onClick={() => setMobilePanel((panel) => panel === "cart" ? null : "cart")}
             >
               <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Price &amp; cart
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="compact-workspace-island-zone-trigger"
+              className="hidden lg:inline-flex shrink-0"
+              onClick={openOrCreateIsland}
+              title={island ? "Edit island zone and choose the active placement face" : "Add an island zone and choose its placement face"}
+            >
+              <Square className="mr-1.5 h-3.5 w-3.5" /> Island zone
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="compact-workspace-more-trigger"
+              className="hidden lg:inline-flex shrink-0"
+              onClick={() => setMoreSheetOpen(true)}
+              title="Open more Designer tools"
+            >
+              <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" /> More
             </Button>
           </>
         )}
@@ -8347,7 +8367,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
           </Button>
 	          {/* This single desktop menu is rendered beside the cabinet distributor selector. */}
-	          {moreToolsPortalElement && createPortal(
+	          {!isCompactWorkspace && moreToolsPortalElement && createPortal(
 	          <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="relative h-7 w-7" title="More tools">
@@ -9410,7 +9430,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                </Select>
 	              </div>
 	              ) : <div className="min-w-0 flex-1" />}
-	              <div ref={setMoreToolsPortalElement} data-testid="catalog-more-tools-slot" className="hidden shrink-0 lg:block" />
+	              {!isCompactWorkspace && <div ref={setMoreToolsPortalElement} data-testid="catalog-more-tools-slot" className="hidden shrink-0 lg:block" />}
 	            </div>
 	          </div>
 

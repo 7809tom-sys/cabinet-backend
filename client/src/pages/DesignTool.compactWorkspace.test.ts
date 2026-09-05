@@ -17,6 +17,15 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
+  it("keeps More and Island Zone visible in the compact toolbar while removing the duplicate 3D shortcut", () => {
+    expect(source).toContain('data-testid="compact-workspace-more-trigger"');
+    expect(source).toContain('data-testid="compact-workspace-island-zone-trigger"');
+    expect(source).toContain("onClick={openOrCreateIsland}");
+    expect(source).toContain('onClick={() => setMoreSheetOpen(true)}');
+    expect(source).toContain('className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}');
+    expect(source).toContain("!isCompactWorkspace && moreToolsPortalElement");
+  });
+
   it("gives a selected movable cabinet an explicit, keyboard-reachable Move entry in compact mode", () => {
     expect(source).toContain('data-testid="compact-workspace-move-trigger"');
     expect(source).toContain('aria-controls="compact-workspace-move-controls"');
