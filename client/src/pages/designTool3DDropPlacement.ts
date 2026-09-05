@@ -82,13 +82,26 @@ export function nearestFreeWallDropStart(
   targetAlong: number,
   width: number,
   segments: WallFreeSegment[],
+  allowNearestFittingSegment = false,
 ): number | null {
   const fits = segments.filter((segment) => segment.length >= width);
   if (fits.length === 0) return null;
   const containing = fits.find((segment) => targetAlong >= segment.start && targetAlong <= segment.start + segment.length);
   // An explicit 3D drop must honor its actual target. It may not silently move
-  // the cabinet to another open run just because that run happens to fit.
-  if (!containing) return null;
-  const segment = containing;
+  // the cabinet to another open run just because that run happens to fit. A
+  // sink base is the narrow exception: customers routinely aim beside a
+  // dishwasher face instead of at the exposed counter run, so it may recover
+  // to the closest full sink-base opening on that same wall.
+  const segment = containing ?? (allowNearestFittingSegment
+    ? fits.reduce((nearest, candidate) => {
+      const distanceTo = (segment: WallFreeSegment) => targetAlong < segment.start
+        ? segment.start - targetAlong
+        : targetAlong > segment.start + segment.length
+          ? targetAlong - (segment.start + segment.length)
+          : 0;
+      return distanceTo(candidate) < distanceTo(nearest) ? candidate : nearest;
+    })
+    : null);
+  if (!segment) return null;
   return Math.max(segment.start, Math.min(targetAlong - width / 2, segment.start + segment.length - width));
 }

@@ -20,6 +20,16 @@ describe("nearestFreeWallDropStart", () => {
     expect(nearestFreeWallDropStart(60, 60, segments)).toBeNull();
     expect(nearestFreeWallDropStart(28, 24, segments)).toBeNull();
   });
+
+  it("recovers a sink-base drop beside a dishwasher to the nearest full open base run", () => {
+    const dishwasherSideSegments = [{ start: 45, length: 1.5 }, { start: 60, length: 36 }];
+    expect(nearestFreeWallDropStart(46, 36, dishwasherSideSegments, true)).toBe(60);
+  });
+
+  it("keeps ordinary cabinet drops strict when their pointer is outside the fitting run", () => {
+    const dishwasherSideSegments = [{ start: 45, length: 1.5 }, { start: 60, length: 36 }];
+    expect(nearestFreeWallDropStart(46, 36, dishwasherSideSegments)).toBeNull();
+  });
 });
 
 describe("targetedSinkBaseForThreeDDrop", () => {

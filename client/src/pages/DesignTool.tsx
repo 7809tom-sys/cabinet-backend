@@ -3636,7 +3636,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const freehandMeasure = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : null;
 	      const along = freehand
 	        ? freehandMeasure?.status === "valid" ? freehandMeasure.snapStart : null
-	        : nearestFreeWallDropStart(targetAlong, width, segments);
+	        : nearestFreeWallDropStart(targetAlong, width, segments, placement === "base" && isSinkBaseCabinet({ masterCode: cabinet.masterCode, description: cabinet.description }));
 	      if (along == null) {
 	        const measured = freehandMeasure ?? wallGapFitPreview(gaps, targetAlong, width);
         const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";

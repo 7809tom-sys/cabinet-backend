@@ -1587,3 +1587,5 @@
 - [x] Show a live visual warning and block confirmation when a dragged duplicate shelf overlaps a cabinet or existing shelf
 - [x] Automatically snap a dragged duplicate floating shelf to the nearest collision-free height when it overlaps an existing object
 - [x] Confirm and visibly guide placement of up to four floating shelves on one wall span at distinct clear heights
+- [x] Ensure the B15/B18 top-center handle toggle is visible and updates all Designer views
+- [x] Reproduce and correct false SB36 rejection in valid open space beside a dishwasher without relaxing real collision checks
