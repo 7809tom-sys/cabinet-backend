@@ -58,7 +58,7 @@ import {
   type PhysicalRoomMeasurement,
 } from "@/lib/physicalRoomMeasurement";
 import { ConsultantRoomControl } from "@/components/design/ConsultantRoomControl";
-import { buildPreSavePlanReview, type PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
+import { buildPreSavePlanReview, unsuitableWallCabinetAboveRefrigerator, type PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
@@ -2655,7 +2655,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
     if (finding.action.kind === "refrigerator") {
-      setFridgeDialog({ fridgeUid: finding.action.refrigeratorUid });
+      setFridgeDialog({
+        fridgeUid: finding.action.refrigeratorUid,
+        replaceCabinetUid: finding.action.replaceCabinetUid,
+      });
       return;
     }
     setSelectedUid(finding.action.cabinetUid);
@@ -3556,6 +3559,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setFloatingShelfAttrOpen(true);
         setMobilePanel(null);
       }
+      const refrigeratorOverheadIssue = !requestedIslandFace && finalCab.placement === "wall"
+        ? normalizedPrevious
+            .filter(isRefrigerator)
+            .map((refrigerator) => ({ refrigerator, upper: unsuitableWallCabinetAboveRefrigerator(refrigerator, [...normalizedPrevious, finalCab], room) }))
+            .find(({ upper }) => upper?.uid === finalCab.uid) ?? null
+        : null;
+      if (refrigeratorOverheadIssue) {
+        setFridgeDialog({
+          fridgeUid: refrigeratorOverheadIssue.refrigerator.uid,
+          replaceCabinetUid: finalCab.uid,
+        });
+        toast.info(`${finalCab.masterCode} is above the refrigerator. Review a compatible over-refrigerator cabinet before changing this plan.`);
+      }
       // Refrigerator dialog
       if (isRefrigerator(finalCab)) {
         setFridgeDialog({ fridgeUid: finalCab.uid });
@@ -4277,7 +4293,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // bridge, or none), refrigerator END PANELS (left / right / both / none), and
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
-  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string } | null>(null);
+  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
   const [ovenDialog, setOvenDialog] = useState<{ cabinetUid: string } | null>(null);
   // Sink base top dialog: opens when a sink base cabinet is placed.
@@ -4314,6 +4330,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const fridgeForDialog = useMemo(
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
+  );
+  const refrigeratorCabinetToReplace = useMemo(
+    () => (fridgeDialog?.replaceCabinetUid ? placed.find((p) => p.uid === fridgeDialog.replaceCabinetUid) ?? null : null),
+    [fridgeDialog?.replaceCabinetUid, placed],
   );
   const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
     { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
@@ -4618,7 +4638,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           .map((item) => item.uid),
       );
       const configuredPlaced = placed
-        .filter((item) => !existingAssemblyUids.has(item.uid))
+        .filter((item) => !existingAssemblyUids.has(item.uid) && item.uid !== refrigeratorCabinetToReplace?.uid)
         .map((item) => item.uid === fridge.uid ? configuredFridge : item);
       const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
       const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid);
@@ -4633,11 +4653,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const conflicts = previewResult.panelConflicts.map(({ cabinet, overlapIn }) => `${cabinet.masterCode} by ${formatEighthInches(overlapIn)}`);
           toast.error(`Refrigerator panel not added because it would overlap ${conflicts.join(", ")}. The existing cabinet was preserved in its exact position.`);
         }
-        if (previewResult.placed.length > placed.length) toast.success(t("dt_fridge_added_toast"));
+        if (refrigeratorCabinetToReplace) {
+          toast.success(`${refrigeratorCabinetToReplace.masterCode} was replaced with the approved over-refrigerator cabinet.`);
+        } else if (previewResult.placed.length > placed.length) toast.success(t("dt_fridge_added_toast"));
       }
       setFridgeDialog(null);
     },
-    [fridgeForDialog, fridgeSurround, room, t]
+    [fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
   );
 
   // ── One-click "Built-in Refrigerator + Pantry End" preset ──────────────────
@@ -11426,6 +11448,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
+        replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}
         onApply={applyFridgeSurround}
         onSkip={() => setFridgeDialog(null)}
       />

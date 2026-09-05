@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPreSavePlanReview } from "./preSavePlanReview";
+import { buildPreSavePlanReview, unsuitableWallCabinetAboveRefrigerator } from "./preSavePlanReview";
 import type { PlacedCabinet, RoomData } from "./design";
 
 const room = { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
@@ -50,5 +50,20 @@ describe("pre-save plan review", () => {
     const review = buildPreSavePlanReview({ room, placed: [refrigerator, bridge], openings: [], island: null, catalogFillers: [], conflictUids: new Set() });
 
     expect(review.findings).toEqual([]);
+  });
+
+  it("requests approval to replace an ordinary wall cabinet spanning a refrigerator instead of moving it automatically", () => {
+    const refrigerator = cabinet({ uid: "fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 36, width: 36, height: 70 });
+    const ordinaryUpper = cabinet({ uid: "ordinary", masterCode: "W3642", placement: "wall", x: 36, width: 36, depth: 12, height: 42 });
+    const placed = [refrigerator, ordinaryUpper];
+    expect(unsuitableWallCabinetAboveRefrigerator(refrigerator, placed, room)?.uid).toBe("ordinary");
+
+    const review = buildPreSavePlanReview({ room, placed, openings: [], island: null, catalogFillers: [], conflictUids: new Set() });
+    expect(review.findings).toHaveLength(1);
+    expect(review.findings[0]).toMatchObject({
+      actionLabel: "Review compatible replacement",
+      action: { kind: "refrigerator", refrigeratorUid: "fridge", replaceCabinetUid: "ordinary", replaceCabinetCode: "W3642" },
+    });
+    expect(placed.map((item) => item.uid)).toEqual(["fridge", "ordinary"]);
   });
 });

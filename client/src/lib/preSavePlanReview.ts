@@ -1,6 +1,9 @@
 import { catalogFillerForGap, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import {
+  cabinetWall,
   isRefrigerator,
+  isRefrigeratorWallCabinet,
+  placedFootprint,
   refrigeratorAssemblyMemberRole,
   type IslandZone,
   type PlacedCabinet,
@@ -15,7 +18,7 @@ import {
 
 export type PreSavePlanReviewAction =
   | { kind: "filler"; opportunity: SmallGapFillerOpportunity; fillerCode: string }
-  | { kind: "refrigerator"; refrigeratorUid: string }
+  | { kind: "refrigerator"; refrigeratorUid: string; replaceCabinetUid?: string; replaceCabinetCode?: string }
   | { kind: "issue"; cabinetUid: string };
 
 export type PreSavePlanReviewFinding = {
@@ -39,6 +42,33 @@ export type PreSavePlanReviewInput = {
   catalogFillers: readonly CatalogFillerCandidate[];
   conflictUids: ReadonlySet<string>;
 };
+
+/**
+ * Finds an ordinary wall cabinet sitting across a refrigerator's measured wall
+ * span. It deliberately ignores dedicated refrigerator-wall/bridge cabinets:
+ * only the ordinary upper needs an approval-based replacement recommendation.
+ */
+export function unsuitableWallCabinetAboveRefrigerator(
+  refrigerator: PlacedCabinet,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): PlacedCabinet | null {
+  const refrigeratorWall = cabinetWall(refrigerator, room);
+  const refrigeratorFootprint = placedFootprint(refrigerator);
+  const horizontal = refrigeratorWall === "top" || refrigeratorWall === "bottom";
+  const refrigeratorStart = horizontal ? refrigerator.x : refrigerator.y;
+  const refrigeratorSpan = horizontal ? refrigeratorFootprint.w : refrigeratorFootprint.d;
+  const refrigeratorEnd = refrigeratorStart + refrigeratorSpan;
+
+  return placed.find((member) => {
+    if (member.uid === refrigerator.uid || member.placement !== "wall") return false;
+    if (cabinetWall(member, room) !== refrigeratorWall || isRefrigeratorWallCabinet(member)) return false;
+    const memberFootprint = placedFootprint(member);
+    const memberStart = horizontal ? member.x : member.y;
+    const memberSpan = horizontal ? memberFootprint.w : memberFootprint.d;
+    return memberStart < refrigeratorEnd && memberStart + memberSpan > refrigeratorStart;
+  }) ?? null;
+}
 
 /**
  * Builds a pre-save construction review strictly from the existing, measured
@@ -81,13 +111,22 @@ export function buildPreSavePlanReview({
       member.uid !== refrigerator.uid && refrigeratorAssemblyMemberRole(member, refrigerator, room) === "bridge",
     );
     if (hasOverFridgeCabinet) continue;
+    const unsuitableWallCabinet = unsuitableWallCabinetAboveRefrigerator(refrigerator, placed, room);
     findings.push({
       id: `refrigerator:${refrigerator.uid}`,
       severity: "recommendation",
-      title: "Consider a cabinet above the refrigerator",
-      description: `${refrigerator.masterCode} does not yet have a dedicated over-refrigerator cabinet. Review the compatible enclosure options before saving.`,
-      actionLabel: "Review refrigerator options",
-      action: { kind: "refrigerator", refrigeratorUid: refrigerator.uid },
+      title: unsuitableWallCabinet
+        ? `Review ${unsuitableWallCabinet.masterCode} above the refrigerator`
+        : "Consider a cabinet above the refrigerator",
+      description: unsuitableWallCabinet
+        ? `${unsuitableWallCabinet.masterCode} crosses the refrigerator span but is not a dedicated over-refrigerator cabinet. Review a compatible replacement; the current cabinet remains until you approve the change.`
+        : `${refrigerator.masterCode} does not yet have a dedicated over-refrigerator cabinet. Review the compatible enclosure options before saving.`,
+      actionLabel: unsuitableWallCabinet ? "Review compatible replacement" : "Review refrigerator options",
+      action: {
+        kind: "refrigerator",
+        refrigeratorUid: refrigerator.uid,
+        ...(unsuitableWallCabinet ? { replaceCabinetUid: unsuitableWallCabinet.uid, replaceCabinetCode: unsuitableWallCabinet.masterCode } : {}),
+      },
     });
   }
 

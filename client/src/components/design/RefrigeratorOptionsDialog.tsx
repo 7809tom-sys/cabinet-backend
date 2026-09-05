@@ -69,6 +69,8 @@ export interface RefrigeratorOptionsDialogProps {
   endPanels?: SurroundCabinet[];
   /** True when the style has a buyable smooth skin/refrigerator panel. */
   hasSmoothPanel?: boolean;
+  /** Existing ordinary upper offered for customer-approved replacement. */
+  replacementCabinetCode?: string | null;
   /** Apply the chosen surround. */
   onApply: (choice: FridgeSurroundChoice) => void;
   /** Keep just the refrigerator (no surround). */
@@ -200,6 +202,7 @@ export function RefrigeratorOptionsDialog({
   deepAbove = [],
   endPanels = [],
   hasSmoothPanel = false,
+  replacementCabinetCode = null,
   onApply,
   onSkip,
 }: RefrigeratorOptionsDialogProps) {
@@ -329,6 +332,12 @@ export function RefrigeratorOptionsDialog({
   }, [bridgeHeightChoice, above]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApply = () => {
+    // In the repair flow, declining a replacement must preserve the existing
+    // ordinary wall cabinet. The customer can remove it separately if desired.
+    if (replacementCabinetCode && above === "none") {
+      onSkip();
+      return;
+    }
     onApply({
       above,
       bridgeCabinetId: chosenBridge ? chosenBridge.id : null,
@@ -356,6 +365,12 @@ export function RefrigeratorOptionsDialog({
           <DialogTitle>{t("dt_fridge_title")}</DialogTitle>
           <DialogDescription>{t("dt_fridge_desc")}</DialogDescription>
         </DialogHeader>
+
+        {replacementCabinetCode && (
+          <p role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+            <span className="font-semibold">{replacementCabinetCode}</span> overlaps the refrigerator span but is not a dedicated over-refrigerator cabinet. It stays in place unless you select <span className="font-semibold">Apply</span>, which replaces it with the compatible cabinet chosen below.
+          </p>
+        )}
 
         <div className="space-y-4 py-1">
 
@@ -408,7 +423,7 @@ export function RefrigeratorOptionsDialog({
                     label: "Add Cabinet",
                     disabled: !hasBridgeAbove,
                   },
-                  { value: "none", label: "No Cabinet" },
+                  { value: "none", label: replacementCabinetCode ? "Keep Current Cabinet" : "No Cabinet" },
                 ]}
               />
             </div>
