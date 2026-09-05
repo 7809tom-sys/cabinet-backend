@@ -1,3 +1,5 @@
+import { normalizeCode } from "@shared/cabinetCodeMatch";
+
 // Pure, dependency-free helpers for the cabinet palette search box.
 // Kept in their own module so they can be unit-tested without importing the
 // heavy DesignTool page component (which pulls in CSS and other deps).
@@ -28,7 +30,16 @@ export function matchesPaletteSearch(
   const code = c.masterCode.toLowerCase();
   const displayCode = c.displayMasterCode?.toLowerCase() ?? "";
   const desc = c.description.toLowerCase();
-  if (code.includes(q) || displayCode.includes(q) || desc.includes(q)) return true;
+  const normalizedCodeQuery = normalizeCode(q);
+  if (
+    code.includes(q)
+    || displayCode.includes(q)
+    || desc.includes(q)
+    || (normalizedCodeQuery.length > 0 && (
+      normalizeCode(c.masterCode).includes(normalizedCodeQuery)
+      || normalizeCode(c.displayMasterCode ?? "").includes(normalizedCodeQuery)
+    ))
+  ) return true;
   // Width / height token match (whole-number inch search).
   const w = c.width != null ? parseFloat(c.width) : NaN;
   const h = c.height != null ? parseFloat(c.height) : NaN;

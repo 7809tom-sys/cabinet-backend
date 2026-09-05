@@ -18,6 +18,7 @@ import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { normalizeCode } from "@shared/cabinetCodeMatch";
 import {
   resolveStorefrontTier,
   resolveTierPrice,
@@ -389,7 +390,9 @@ export default function Family({ styleCode }: { styleCode: string }) {
       if (!f.match((i.category ?? "").toLowerCase())) return false;
       if (debounced) {
         const hay = `${i.masterCode} ${i.description ?? ""} ${i.subCategory ?? ""}`.toLowerCase();
-        if (!hay.includes(debounced)) return false;
+        const normalizedCodeQuery = normalizeCode(debounced);
+        const matchesNormalizedCode = normalizedCodeQuery.length > 0 && normalizeCode(i.masterCode).includes(normalizedCodeQuery);
+        if (!hay.includes(debounced) && !matchesNormalizedCode) return false;
       }
       return true;
     });

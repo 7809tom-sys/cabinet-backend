@@ -12,6 +12,7 @@ import {
   aiServiceRequests,
 } from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 /**
  * Resolve the supply line this request operates on.
@@ -137,8 +138,11 @@ export const distributorPortalRouter = router({
       const q = input.search?.trim();
       if (q) {
         const like = `%${q}%`;
+        const normalizedCodeSearch = normalizeCode(q);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+        const normalizedPlatformSku = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.platformSku}, '-', ''), ' ', ''), '_', ''))`;
         conds.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.platformSku} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`} OR ${normalizedPlatformSku} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
 

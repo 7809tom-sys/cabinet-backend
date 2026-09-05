@@ -32,6 +32,7 @@ import {
   requiresMandatorySkin,
   type ExposedSides,
 } from "../../shared/skinMatch";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 async function resolveAffiliateDesignOwner(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -46,6 +47,15 @@ async function resolveAffiliateDesignOwner(
     .limit(1);
   if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate storefront not found." });
   return rows[0];
+}
+
+function matchesPartialCabinetSearch(masterCode: string, description: string | null, rawSearch: string) {
+  const query = rawSearch.trim().toLowerCase();
+  if (!query) return true;
+  const normalizedCodeQuery = normalizeCode(query);
+  return masterCode.toLowerCase().includes(query)
+    || (description ?? "").toLowerCase().includes(query)
+    || (normalizedCodeQuery.length > 0 && normalizeCode(masterCode).includes(normalizedCodeQuery));
 }
 
 async function resolveDesignPriceAliases<T extends { masterCode: string }>(
@@ -250,12 +260,7 @@ export const designRouter = router({
             return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
           });
         if (input?.search) {
-          const s = input.search.toLowerCase();
-          accessories = accessories.filter(
-            (r) =>
-              r.masterCode.toLowerCase().includes(s) ||
-              (r.description || "").toLowerCase().includes(s)
-          );
+          accessories = accessories.filter((r) => matchesPartialCabinetSearch(r.masterCode, r.description, input.search!));
         }
         return accessories;
       }
@@ -318,12 +323,7 @@ export const designRouter = router({
         filtered = filtered.filter((r) => r.placement === input.placement);
       }
       if (input?.search) {
-        const s = input.search.toLowerCase();
-        filtered = filtered.filter(
-          (r) =>
-            r.masterCode.toLowerCase().includes(s) ||
-            (r.description || "").toLowerCase().includes(s)
-        );
+        filtered = filtered.filter((r) => matchesPartialCabinetSearch(r.masterCode, r.description, input.search!));
       }
 
       // Order every bucket small -> large by width so the palette reads the way

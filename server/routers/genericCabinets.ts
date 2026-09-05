@@ -14,6 +14,7 @@ import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
 import { cabinets, distributors, distributorSkus, distributorCabinetOverrides } from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 export const genericCabinetsRouter = router({
   /**
@@ -38,16 +39,25 @@ export const genericCabinetsRouter = router({
       const conditions = [];
 
       if (input.search) {
-        const like_ = `%${input.search}%`;
+        const search = input.search.trim();
+        const like_ = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedLike = `%${normalizedCodeSearch}%`;
         conditions.push(
           or(
             like(cabinets.masterCode, like_),
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.description, like_),
             like(cabinets.sku, like_),
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.sku}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.vendorSku, like_),
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.vendorSku}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.altSku1, like_),
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku1}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.altSku2, like_),
-            like(cabinets.altSku3, like_)
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku2}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
+            like(cabinets.altSku3, like_),
+            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku3}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`
           )
         );
       }

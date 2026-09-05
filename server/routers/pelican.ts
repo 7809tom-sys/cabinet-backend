@@ -4,6 +4,7 @@ import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -114,12 +115,16 @@ export const pelicanRouter = router({
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
       if (input.search) {
-        const q = `%${input.search}%`;
+        const search = input.search.trim();
+        const q = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedPelicanCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${pelicanProducts.pelicanCode}, '-', ''), ' ', ''), '_', ''))`;
         conds.push(
           or(
             like(pelicanProducts.name, q),
             like(pelicanProducts.description, q),
-            like(pelicanProducts.pelicanCode, q)
+            like(pelicanProducts.pelicanCode, q),
+            sql`${normalizedPelicanCode} LIKE ${`%${normalizedCodeSearch}%`}`
           ) as any
         );
       }
@@ -225,12 +230,16 @@ export const pelicanRouter = router({
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
       if (input.search) {
-        const q = `%${input.search}%`;
+        const search = input.search.trim();
+        const q = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedPelicanCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${pelicanProducts.pelicanCode}, '-', ''), ' ', ''), '_', ''))`;
         conds.push(
           or(
             like(pelicanProducts.name, q),
             like(pelicanProducts.description, q),
-            like(pelicanProducts.pelicanCode, q)
+            like(pelicanProducts.pelicanCode, q),
+            sql`${normalizedPelicanCode} LIKE ${`%${normalizedCodeSearch}%`}`
           ) as any
         );
       }

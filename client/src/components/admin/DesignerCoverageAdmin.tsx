@@ -12,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Pencil, Search } from "lucide-react";
 import {
   CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES,
+  cabinetConfigQuickEditUrl,
   cabinetDesignerCoverageGapEditUrl,
 } from "@shared/cabinetConfigReview";
 
@@ -233,7 +234,7 @@ export function DesignerCoverageAdmin() {
                         ) : (
                           <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
                         )}
-                        <div>
+                        <div className="min-w-0">
                           <div className="font-mono font-semibold text-xs">
                             {cab.masterCode}
                           </div>
@@ -241,6 +242,15 @@ export function DesignerCoverageAdmin() {
                             {cab.description}
                           </div>
                         </div>
+                        <Button asChild variant="outline" size="sm" className="ml-auto h-7 shrink-0 gap-1 px-2 text-[11px]">
+                          <a
+                            href={cabinetConfigQuickEditUrl(cab.id)}
+                            aria-label={`Edit Cabinet Config for ${cab.masterCode}`}
+                            {...CABINET_ATTENTION_EDITOR_LINK_ATTRIBUTES}
+                          >
+                            <Pencil className="h-3 w-3" />Edit
+                          </a>
+                        </Button>
                       </div>
                     </td>
                     {/* Category */}

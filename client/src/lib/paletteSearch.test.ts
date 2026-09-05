@@ -31,6 +31,10 @@ describe("matchesPaletteSearch", () => {
   it("matches by master code", () => {
     expect(matchesPaletteSearch(cab(), normalizePaletteSearch("db-24"))).toBe(true);
   });
+  it("matches partial codes even when the typed and catalog separators differ", () => {
+    expect(matchesPaletteSearch(cab(), normalizePaletteSearch("db2"))).toBe(true);
+    expect(matchesPaletteSearch(cab(), normalizePaletteSearch("DB 24"))).toBe(true);
+  });
   it("matches by description text", () => {
     expect(matchesPaletteSearch(cab(), normalizePaletteSearch("drawer"))).toBe(true);
   });

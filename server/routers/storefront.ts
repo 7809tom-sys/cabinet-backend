@@ -13,6 +13,7 @@ import {
   affiliateBannerSchedules,
   affiliatePromoDiscounts,
 } from "../../drizzle/schema";
+import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
 // RULE: a shopping/quote session is locked to ONE distributor + ONE cabinet
@@ -410,8 +411,11 @@ export const storefrontRouter = router({
         conditions.push(eq(cabinets.subCategory, input.subCategory));
       }
       if (input.search) {
+        const search = input.search.trim();
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${`%${input.search}%`} OR ${cabinets.description} LIKE ${`%${input.search}%`})`
+          sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
 

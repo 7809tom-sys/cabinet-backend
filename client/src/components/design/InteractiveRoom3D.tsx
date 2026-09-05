@@ -19,6 +19,7 @@ import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDo
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { normalizeCode } from "@shared/cabinetCodeMatch";
 import { toast } from "sonner";
 
 export const THREE_D_PATH_TRACE_PREVIEW = {
@@ -246,10 +247,13 @@ export type ThreeDCatalogGroup = (typeof THREE_D_CATALOG_GROUPS)[number];
 
 export function filteredThreeDCatalogItems(items: InteractiveRoomCatalogItem[], group: ThreeDCatalogGroup, search: string): InteractiveRoomCatalogItem[] {
   const query = search.trim().toLowerCase();
+  const normalizedCodeQuery = normalizeCode(query);
   return items.filter((item) => {
     const itemGroup = item.catalogGroup ?? (item.category === "Appliance" ? "Appliances" : item.category === "Accessory" ? "Accessories" : "Base");
     const groupMatches = group === "All" || itemGroup === group;
-    const searchMatches = !query || `${item.masterCode} ${item.description ?? ""} ${item.category}`.toLowerCase().includes(query);
+    const searchMatches = !query
+      || `${item.masterCode} ${item.description ?? ""} ${item.category}`.toLowerCase().includes(query)
+      || (normalizedCodeQuery.length > 0 && normalizeCode(item.masterCode).includes(normalizedCodeQuery));
     return groupMatches && searchMatches;
   });
 }

@@ -1639,3 +1639,6 @@
 - [x] Add clear customer image-request confirmation that explains the result will be saved and the customer will be notified when it is ready
 - [x] Add a prominent customer “Your kitchen image is ready” notification with a direct open action for the verified plan image
 - [x] Email verified customers when their longer kitchen-image render is ready with a direct secure link to reopen the saved plan result
+- [ ] Add a customer-facing Share action to the saved kitchen-image popup with native sharing and a direct-link fallback
+- [x] Make catalog, product, and Designer search fields return normalized partial product-code matches
+- [x] Add a clear Cabinet Config edit action for each result in the Designer Coverage tab

@@ -922,11 +922,11 @@ export const doorStylesRouter = router({
       const offset = (input.page - 1) * input.pageSize;
 
       const baseWhere = eq(distributorSkus.styleId, input.styleId);
-      const searchFilter = input.search?.trim()
-        ? or(
-            like(cabinets.masterCode, `%${input.search.trim()}%`),
-            like(cabinets.description, `%${input.search.trim()}%`),
-          )
+      const search = input.search?.trim();
+      const normalizedCodeSearch = search ? normalizeCode(search) : "";
+      const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+      const searchFilter = search
+        ? sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         : undefined;
       const whereClause = searchFilter ? and(baseWhere, searchFilter) : baseWhere;
 
@@ -1075,9 +1075,9 @@ export const cabinetsRouter = router({
         // Canonical key: strip everything but alphanumerics so glued user codes
         // (e.g. "w31824", "W2736", "WDC2430R") match dashed master codes
         // ("W-318-24", "W-27-36", "WDC-24-30-R").
-        const canon = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
-        // SQL-side canonicalization of masterCode: remove dashes and spaces.
-        const canonCol = sql`UPPER(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''))`;
+        const canon = normalizeCode(raw);
+        // SQL-side canonicalization of masterCode removes every supported separator.
+        const canonCol = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         const orParts = [
           sql`${cabinets.masterCode} LIKE ${`%${raw}%`}`,
           sql`${cabinets.description} LIKE ${`%${raw}%`}`,
@@ -1139,8 +1139,11 @@ export const cabinetsRouter = router({
       if (input.category) conds.push(eq(cabinets.category, input.category));
       if (input.subCategory) conds.push(eq(cabinets.subCategory, input.subCategory));
       if (input.search) {
+        const search = input.search.trim();
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         conds.push(
-          sql`(${cabinets.masterCode} LIKE ${`%${input.search}%`} OR ${cabinets.description} LIKE ${`%${input.search}%`})`
+          sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
 
@@ -2377,9 +2380,12 @@ export const cabinetsRouter = router({
         );
       }
       if (input.search) {
-        const like = `%${input.search}%`;
+        const search = input.search.trim();
+        const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
       if (input.category) {
@@ -2478,25 +2484,38 @@ export const cabinetsRouter = router({
       const search = input.search?.trim();
       if (search) {
         const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
         conditions.push(sql`(
           ${cabinets.masterCode} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.sku} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.sku}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.vendorSku} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.vendorSku}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.altSku1} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku1}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.altSku2} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku2}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.altSku3} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku3}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
           OR ${cabinets.description} LIKE ${like}
           OR EXISTS (
             SELECT 1
             FROM cabinet_aliases cabinet_config_aliases
             WHERE cabinet_config_aliases.cabinetId = ${cabinets.id}
-              AND cabinet_config_aliases.alias LIKE ${like}
+              AND (
+                cabinet_config_aliases.alias LIKE ${like}
+                OR UPPER(REPLACE(REPLACE(REPLACE(cabinet_config_aliases.alias, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
+              )
           )
           OR EXISTS (
             SELECT 1
             FROM sku_master_aliases cabinet_master_aliases
             WHERE cabinet_master_aliases.masterCode = ${cabinets.masterCode}
-              AND cabinet_master_aliases.aliasCode LIKE ${like}
+              AND (
+                cabinet_master_aliases.aliasCode LIKE ${like}
+                OR UPPER(REPLACE(REPLACE(REPLACE(cabinet_master_aliases.aliasCode, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
+              )
           )
         )`);
       }
@@ -2650,9 +2669,12 @@ export const cabinetsRouter = router({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conditions: any[] = [eq(cabinets.isActive, true)];
       if (input.search) {
-        const like = `%${input.search}%`;
+        const search = input.search.trim();
+        const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
         conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
       if (input.category) {
@@ -2849,8 +2871,11 @@ export const cabinetsRouter = router({
         conds.push(sql`(${cabinets.masterCode} NOT REGEXP '(1RS|2RS|3RS|FH1RS|FH2RS|FH3RS)$')`);
       }
       if (input.search) {
-        const like = `%${input.search}%`;
-        conds.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`);
+        const search = input.search.trim();
+        const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+        conds.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`);
       }
 
       const where = and(...conds);
@@ -2917,12 +2942,20 @@ export const cabinetsRouter = router({
       ];
       if (args.distributorId) conditions.push(eq(distributorSkus.distributorId, args.distributorId));
       if (args.search) {
-        const like = `%${args.search}%`;
+        const search = args.search.trim();
+        const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+        const normalizedSupplierCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.distributorSku}, '-', ''), ' ', ''), '_', ''))`;
+        const normalizedPlatformCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.platformSku}, '-', ''), ' ', ''), '_', ''))`;
         conditions.push(sql`(
           ${cabinets.masterCode} LIKE ${like}
           OR ${cabinets.description} LIKE ${like}
           OR ${distributorSkus.distributorSku} LIKE ${like}
           OR ${distributorSkus.platformSku} LIKE ${like}
+          OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`}
+          OR ${normalizedSupplierCode} LIKE ${`%${normalizedCodeSearch}%`}
+          OR ${normalizedPlatformCode} LIKE ${`%${normalizedCodeSearch}%`}
         )`);
       }
       const where = and(...conditions);

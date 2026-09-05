@@ -794,6 +794,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(filteredThreeDCatalogItems(catalog, "All", "")).toHaveLength(18);
     expect(filteredThreeDCatalogItems(catalog, "Base", "")).toHaveLength(13);
     expect(filteredThreeDCatalogItems(catalog, "Tall", "pantry").map((item) => item.masterCode)).toEqual(["P-24"]);
+    expect(filteredThreeDCatalogItems(catalog, "Base", "b2").map((item) => item.masterCode)).toContain("B-24");
   });
 
   it("resolves independently persisted back, left, right, and front wall heights", () => {
