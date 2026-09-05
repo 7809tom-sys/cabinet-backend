@@ -37,4 +37,11 @@ describe("Designer Coverage partial cabinet-code search", () => {
 
     expect(result.cabinets.some((cabinet) => cabinet.masterCode === "B24")).toBe(true);
   });
+
+  it("returns only cabinets with missing style coverage when the filter is enabled", async () => {
+    const caller = appRouter.createCaller(adminContext());
+    const result = await caller.cabinets.adminDesignerCoverage({ gapsOnly: true });
+
+    expect(result.cabinets.every((cabinet) => cabinet.hasGaps)).toBe(true);
+  });
 });

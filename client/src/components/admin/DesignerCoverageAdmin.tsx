@@ -131,17 +131,25 @@ export function DesignerCoverageAdmin() {
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" aria-describedby="missing-coverage-only-help">
           <Switch
-            id="gaps-only"
+            id="missing-coverage-only"
+            data-testid="coverage-missing-only-toggle"
             checked={gapsOnly}
             onCheckedChange={setGapsOnly}
           />
-          <Label htmlFor="gaps-only" className="text-sm cursor-pointer">
-            Gaps only
+          <Label htmlFor="missing-coverage-only" className="text-sm font-medium cursor-pointer">
+            Missing coverage only
           </Label>
+          <span id="missing-coverage-only-help" className="sr-only">Show only cabinets missing at least one available, published style connection.</span>
         </div>
       </div>
+
+      {gapsOnly && !isLoading && (
+        <p role="status" className="text-sm font-medium text-amber-800 dark:text-amber-300">
+          Showing only cabinets with missing coverage.
+        </p>
+      )}
 
       {/* Table */}
       {isLoading ? (

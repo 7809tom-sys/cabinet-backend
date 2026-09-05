@@ -1642,3 +1642,4 @@
 - [ ] Add a customer-facing Share action to the saved kitchen-image popup with native sharing and a direct-link fallback
 - [x] Make catalog, product, and Designer search fields return normalized partial product-code matches
 - [x] Add a clear Cabinet Config edit action for each result in the Designer Coverage tab
+- [x] Add a Coverage-tab toggle that displays only cabinets with missing style coverage
