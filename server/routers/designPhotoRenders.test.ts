@@ -141,6 +141,7 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("await pollPendingGeminiImageTestJob(db, job)");
     expect(source).not.toContain("setTimeout(() => queueGeminiImageTestJob");
     expect(serverSource).toContain('app.post("/api/scheduled/recover-gemini-image-tests"');
+    expect(serverSource).toContain("sdk.authenticateCronRequest(req)");
     expect(serverSource).toContain("if (!user.isCron || !user.taskUid)");
     expect(serverSource).toContain("await recoverDueGeminiImageTestJobs()");
   });

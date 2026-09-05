@@ -122,7 +122,7 @@ async function startServer() {
   // is required for an administrator Google image test to finish.
   app.post("/api/scheduled/recover-gemini-image-tests", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
+      const user = await sdk.authenticateCronRequest(req);
       if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
       const result = await recoverDueGeminiImageTestJobs();
       return res.json({ ok: true, ...result });

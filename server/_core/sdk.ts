@@ -308,6 +308,23 @@ class SDKServer {
 
     return user;
   }
+
+  /**
+   * Heartbeat callbacks carry a platform-issued cron cookie rather than a JWT
+   * signed by this application. Validate that cookie with the OAuth service and
+   * require a cron identity plus task UID before allowing scheduled work.
+   */
+  async authenticateCronRequest(req: Request): Promise<AuthenticatedUser> {
+    const cookies = this.parseCookies(req.headers.cookie);
+    const sessionCookie = cookies.get(COOKIE_NAME);
+    if (!sessionCookie) throw ForbiddenError("Missing cron cookie");
+
+    const userInfo = await this.getUserInfoWithJwt(sessionCookie);
+    if (!userInfo.openId?.startsWith(CRON_OPEN_ID_PREFIX) || !userInfo.taskUid) {
+      throw ForbiddenError("Cron session missing task_uid");
+    }
+    return buildCronUser(userInfo);
+  }
 }
 
 const CRON_OPEN_ID_PREFIX = "cron_";
