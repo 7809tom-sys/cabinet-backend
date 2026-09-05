@@ -407,11 +407,11 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
       {/* Delete Confirm */}
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Image?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the image from the Media Library. Any cabinets currently using this image URL will lose their spec drawing.
-            </AlertDialogDescription>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Image?</AlertDialogTitle>
+              <AlertDialogDescription>
+              This removes only the Media Library record. Images still used by a cabinet, catalog item, saved design, or other stored content are protected and cannot be deleted.
+              </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

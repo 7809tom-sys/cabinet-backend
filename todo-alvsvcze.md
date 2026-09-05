@@ -1643,3 +1643,4 @@
 - [x] Make catalog, product, and Designer search fields return normalized partial product-code matches
 - [x] Add a clear Cabinet Config edit action for each result in the Designer Coverage tab
 - [x] Add a Coverage-tab toggle that displays only cabinets with missing style coverage
+- [x] Audit and safely remove duplicate unused media-library records while preserving active catalog and Designer references

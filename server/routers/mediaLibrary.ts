@@ -6,6 +6,50 @@ import { mediaImages } from "../../drizzle/schema";
 import { eq, desc, like, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
+type MediaReferenceColumn = { tableName: string; columnName: string };
+
+function sqlIdentifier(identifier: string) {
+  return `\`${identifier.replace(/`/g, "``")}\``;
+}
+
+/**
+ * Find every persistent database field that contains a media URL or storage key.
+ * This includes ordinary image columns as well as JSON/text fields, so deleting a
+ * library row cannot silently leave a saved product, design, or content record
+ * pointing at an absent media-library item.
+ */
+async function findMediaReferences(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  media: { url: string; fileKey: string | null },
+): Promise<Array<MediaReferenceColumn & { referenceCount: number }>> {
+  const [columnRows] = await db.$client.promise().query(`
+    SELECT table_name AS tableName, column_name AS columnName
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name <> 'media_images'
+      AND data_type IN ('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'json')
+  `);
+  const columns = columnRows as unknown as MediaReferenceColumn[];
+  const values = [media.url, media.fileKey].filter((value): value is string => Boolean(value));
+  const usage: Array<MediaReferenceColumn & { referenceCount: number }> = [];
+
+  for (const { tableName, columnName } of columns) {
+    const table = sqlIdentifier(tableName);
+    const column = sqlIdentifier(columnName);
+    const predicates = values.map(() => `(${column} = ? OR ${column} LIKE ?)`);
+    const parameters = values.flatMap((value) => [value, `%${value}%`]);
+    const [referenceRows] = await db.$client.promise().query(
+      `SELECT COUNT(*) AS referenceCount FROM ${table} WHERE ${predicates.join(" OR ")}`,
+      parameters,
+    );
+    const rows = referenceRows as unknown as Array<{ referenceCount: number }>;
+    const referenceCount = Number(rows[0]?.referenceCount ?? 0);
+    if (referenceCount > 0) usage.push({ tableName, columnName, referenceCount });
+  }
+
+  return usage;
+}
+
 export const mediaLibraryRouter = router({
   /**
    * List media library images with optional folder filter, search, and pagination.
@@ -190,6 +234,19 @@ export const mediaLibraryRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [media] = await db.select().from(mediaImages).where(eq(mediaImages.id, input.id)).limit(1);
+      if (!media) throw new TRPCError({ code: "NOT_FOUND", message: "Media item not found" });
+
+      const references = await findMediaReferences(db, media);
+      if (references.length > 0) {
+        const referenceCount = references.reduce((total, reference) => total + reference.referenceCount, 0);
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `This image is still used by ${referenceCount} saved record${referenceCount === 1 ? "" : "s"} and cannot be deleted.`,
+        });
+      }
+
       await db.delete(mediaImages).where(eq(mediaImages.id, input.id));
       return { success: true };
     }),
