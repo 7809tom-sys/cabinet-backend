@@ -1589,3 +1589,5 @@
 - [x] Confirm and visibly guide placement of up to four floating shelves on one wall span at distinct clear heights
 - [x] Ensure the B15/B18 top-center handle toggle is visible and updates all Designer views
 - [x] Reproduce and correct false SB36 rejection in valid open space beside a dishwasher without relaxing real collision checks
+- [x] Add a Compact Workspace mode that collapses catalog and pricing panels to maximize the Designer canvas on small laptop screens
+- [x] Automatically activate Compact Workspace when the laptop viewport constrains the canvas while retaining manual panel override controls

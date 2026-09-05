@@ -441,6 +441,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // the single-column UI with the bottom toolbar + drawers (never the cramped
   // 3-column desktop view).
   const isMobile = useIsMobile(1024);
+  // A 13–14 inch laptop can technically satisfy the desktop breakpoint while
+  // still leaving too little usable space for the canvas after two persistent
+  // sidebars. In Auto mode, Compact Workspace changes those sidebars into
+  // quick-access drawers below this threshold; the toolbar button lets the
+  // customer override Auto at any time.
+  const isSmallLaptop = useIsMobile(1440);
+  const [compactWorkspaceOverride, setCompactWorkspaceOverride] = useState<"auto" | "compact" | "expanded">("auto");
+  const isCompactWorkspace = !isMobile && (
+    compactWorkspaceOverride === "compact"
+    || (compactWorkspaceOverride === "auto" && isSmallLaptop)
+  );
+  const panelDrawerMode = isMobile || isCompactWorkspace;
   const [, navigate] = useLocation();
   const { addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
@@ -7488,9 +7500,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          disabled={materialsListRows.length === 0}
 	          onClick={() => setMaterialsListOpen(true)}
 	          title="View, print, or export complete materials & parts list"
-	        >
-	          <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
-	        </Button>
+        >
+          <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
+        </Button>
+        <Button
+          variant={isCompactWorkspace ? "default" : "outline"}
+          size="sm"
+          className="hidden lg:inline-flex shrink-0"
+          onClick={() => setCompactWorkspaceOverride((mode) => isCompactWorkspace ? "expanded" : "compact")}
+          title={isCompactWorkspace ? "Show Catalog and Price panels beside the canvas" : "Collapse Catalog and Price panels to give the canvas more room"}
+        >
+          <Columns3 className="mr-1.5 h-3.5 w-3.5" /> {isCompactWorkspace ? "Full workspace" : "Compact workspace"}
+        </Button>
+        {isCompactWorkspace && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden lg:inline-flex shrink-0"
+              onClick={() => setMobilePanel((panel) => panel === "catalog" ? null : "catalog")}
+            >
+              <Boxes className="mr-1.5 h-3.5 w-3.5" /> Catalog
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden lg:inline-flex shrink-0"
+              onClick={() => setMobilePanel((panel) => panel === "cart" ? null : "cart")}
+            >
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Price &amp; cart
+            </Button>
+          </>
+        )}
 
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
@@ -9108,7 +9149,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             Mobile wraps the SAME body in a left Sheet; desktop renders it as a
             fixed-width column. The body markup below is shared (no duplication). */}
         <PaletteShell
-          isMobile={isMobile}
+          isMobile={panelDrawerMode}
+          compact={isCompactWorkspace}
           open={mobilePanel === "catalog"}
           onOpenChange={(o) => setMobilePanel(o ? "catalog" : null)}
         >
@@ -10038,7 +10080,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
         {/* Right: pricing + BOM — inline column on desktop; bottom drawer on mobile */}
         <PricingShell
-          isMobile={isMobile}
+          isMobile={panelDrawerMode}
+          compact={isCompactWorkspace}
           open={mobilePanel === "cart"}
           onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
         >
@@ -12169,9 +12212,10 @@ function MobileBarButton({
 // slide-in Sheet on mobile, so the heavy palette / pricing markup is written
 // once and reused for both layouts.
 function PaletteShell({
-  isMobile, open, onOpenChange, children,
+  isMobile, compact = false, open, onOpenChange, children,
 }: {
   isMobile: boolean;
+  compact?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
@@ -12180,7 +12224,7 @@ function PaletteShell({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-[88vw] max-w-sm p-0 gap-0 flex flex-col">
+        <SheetContent side="left" className={compact ? "w-[min(360px,88vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}>
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
             <SheetTitle className="text-sm">{t("dt_pl_catalog")}</SheetTitle>
           </SheetHeader>
@@ -12197,9 +12241,10 @@ function PaletteShell({
 }
 
 function PricingShell({
-  isMobile, open, onOpenChange, children,
+  isMobile, compact = false, open, onOpenChange, children,
 }: {
   isMobile: boolean;
+  compact?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
@@ -12208,7 +12253,7 @@ function PricingShell({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[92vh] p-0 gap-0 flex flex-col rounded-t-2xl">
+        <SheetContent side={compact ? "right" : "bottom"} className={compact ? "w-[min(420px,94vw)] h-full p-0 gap-0 flex flex-col" : "h-[92vh] p-0 gap-0 flex flex-col rounded-t-2xl"}>
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
             <SheetTitle className="text-sm">{t("dt_bs_estimate_build")}</SheetTitle>
           </SheetHeader>
