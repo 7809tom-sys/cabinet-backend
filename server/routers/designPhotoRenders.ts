@@ -8,7 +8,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
-import { isGeminiImageConfigured, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
+import { generateGeminiExactPlanTest, isGeminiImageConfigured, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
 const CABINETDEALZ_MATERIAL_ORIGIN = "https://www.cabinetdealz.com";
@@ -474,6 +474,49 @@ export const designPhotoRendersRouter = router({
         confirmedAt: cached.confirmedAt,
         reused: true,
       } : null;
+    }),
+
+  runGeminiImageTest: protectedProcedure
+    .input(z.object({
+      sceneSignature: z.string().min(16).max(191),
+      sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A locked JPEG Designer image is required."),
+      provenance: photoRenderProvenanceSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
+      if (input.provenance.designId <= 0) throw new Error("Save the current kitchen plan before running a Google image test.");
+
+      const db = await getDb();
+      if (!db) throw new Error("Google image testing is temporarily unavailable.");
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+      validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+
+      const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
+      if (imageKind !== "jpeg") throw new Error("Google image testing requires the locked deterministic JPEG capture.");
+      const sourceBytes = Buffer.from(input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, ""), "base64");
+      const dimensions = readJpegDimensions(sourceBytes);
+      if (dimensions.width < 1920 || dimensions.height < 1080) {
+        throw new Error("Google image testing requires a minimum 1920×1080 locked render. Reopen Final preview and try again.");
+      }
+
+      const sourceProvenance = canonicalizeDeterministicRenderProvenance(input.provenance, sourceBytes);
+      const prompt = exactPlanPrompt(photoRenderProvenanceSummary(sourceProvenance));
+      const generated = await generateGeminiExactPlanTest({
+        prompt,
+        sourceImageBase64: input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, ""),
+        sourceMimeType: "image/jpeg",
+      });
+      const extension = generated.mimeType === "image/png" ? "png" : "jpg";
+      const stored = await storagePut(
+        `admin-google-image-tests/${ctx.user.id}/${input.sceneSignature}-${Date.now()}.${extension}`,
+        generated.bytes,
+        generated.mimeType,
+      );
+      return {
+        imageUrl: stored.url,
+        generationMethod: "manual-final-review-gemini-nano-banana-v1" as const,
+      };
     }),
 
   create: protectedProcedure

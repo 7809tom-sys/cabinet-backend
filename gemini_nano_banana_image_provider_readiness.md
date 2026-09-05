@@ -14,6 +14,10 @@ Google documents Gemini image models under the Nano Banana name. The general-pur
 
 The API response returns image data that must be processed only on the server, stored using the existing storage helper, and referenced by URL in the existing qualified image-request record. Gemini-generated images carry a SynthID watermark and must be presented as an illustrative render, not as an authoritative plan or guaranteed production drawing.
 
+## Administrator-only illustrative test
+
+CabinetDealz provides a separate administrator-only Google/Gemini image test for a saved, locked Designer plan. It validates the selected 1920×1080-or-larger JPEG, current saved-plan revision, server-derived fingerprint, camera, and selected materials before sending the reference image to Gemini. The output is stored server-side as an illustrative comparison and is never used to alter the saved plan, price, customer phone-verification requirement, or CRM workflow. Customer rendering remains on the approved controlled path until separately approved for release.
+
 ## Security and operations
 
 The API key must be read server-side from `GEMINI_API_KEY`. It must never be sent to the browser or committed to source control. An administrator-only connection check may validate provider access but must return only configured/connected/failed status and a safe error message. The Operations panel may describe the provider, its status, required setup, and testing steps without exposing credentials.

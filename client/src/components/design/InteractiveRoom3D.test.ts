@@ -6242,6 +6242,12 @@ describe("final high-resolution preview controls", () => {
 	    expect(source).toContain("if (!photoRenderDoorReference.ready)");
 	    expect(source).toContain('data-testid="path-trace-production-test"');
 	    expect(source).toContain('data-testid="path-trace-production-result"');
+	    expect(source).toContain('data-testid="gemini-image-test"');
+	    expect(source).toContain('data-testid="gemini-image-test-result"');
+	    expect(source).toContain("const runGeminiImageTest = async () =>");
+	    expect(source).toContain("trpc.designPhotoRenders.runGeminiImageTest.useMutation()");
+	    expect(source).toContain("Google/Gemini image test — administrator only");
+	    expect(source).toContain("photoRenderDraft.provenance.designId <= 0");
 	    expect(source).toContain("WebGLPathTracer");
 	    expect(source).toContain("THREE_D_PATH_TRACE_PREVIEW");
 	    expect(source).toContain("width: 1920");
