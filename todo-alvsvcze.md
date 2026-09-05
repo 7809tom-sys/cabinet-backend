@@ -1600,5 +1600,6 @@
 - [x] Verify Gemini Nano Banana image capability and server-side model-account connection without exposing credentials
 - [x] Add Gemini image-provider connection status and safe setup guidance to Administration Operations
 - [ ] Integrate Gemini Nano Banana image creation only through an approved server-side image-service contract while retaining exact saved-plan, phone, CRM, and illustrative-output safeguards
+- [x] Replace the empty farmhouse sink popup with a visible selected-base side-panel Sink Selection Guide that lists only compatible verified apron-front sinks
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena
 - [x] Add named Team Notes author-color labels in the format Color — Name for Tom, Rich, and Selena

@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Plus, ChevronRight, Waves } from "lucide-react";
 import type { SelectedSurface } from "./SurfacesPickerDialog";
 
-type RecItem = {
+export type RecItem = {
   id: number;
   pelicanCode?: string | null;
   slug: string;
@@ -95,6 +95,79 @@ function ProductCard({
         </div>
       </div>
     </button>
+  );
+}
+
+/**
+ * Keep farmhouse/apron-front sink choices isolated from ordinary sink bases.
+ * Only source-verified physical profiles are eligible for the Designer guide.
+ */
+export function compatibleFarmhouseSinkOptions(products: RecItem[], openingWidthIn: number): RecItem[] {
+  return products.filter((product) => {
+    const profile = verifiedPelicanSinkProfile(product.pelicanCode);
+    return Boolean(
+      profile
+      && profile.sinkType === "farmhouse"
+      && profile.minimumCabinetWidthIn <= openingWidthIn,
+    );
+  });
+}
+
+export function FarmhouseSinkSelectionGuide({
+  baseCode,
+  openingWidthIn,
+  products,
+  isLoading,
+  onSelect,
+  onBrowseAll,
+}: {
+  baseCode: string;
+  openingWidthIn: number;
+  products: RecItem[];
+  isLoading: boolean;
+  onSelect: (item: SelectedSurface) => void;
+  onBrowseAll: () => void;
+}) {
+  const items = useMemo(
+    () => compatibleFarmhouseSinkOptions(products, openingWidthIn).slice(0, 6),
+    [products, openingWidthIn],
+  );
+
+  return (
+    <section data-testid="farmhouse-sink-selection-guide" className="mt-4 overflow-hidden rounded-lg border border-[#8fb7d7] bg-[#f4f9fd]">
+      <div className="border-b border-[#c8deef] px-3 py-2.5">
+        <div className="flex items-start gap-2">
+          <Waves className="mt-0.5 h-4 w-4 shrink-0 text-[#276b9b]" />
+          <div className="min-w-0">
+            <h3 className="text-xs font-bold text-[#173a56]">Sink Selection Guide</h3>
+            <p className="mt-0.5 text-[11px] leading-snug text-[#355f7b]">
+              {baseCode} is a farmhouse / apron-front sink base. Only source-verified apron-front sinks that fit this {openingWidthIn}&quot; base opening can be selected.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="p-2.5">
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)}
+          </div>
+        ) : items.length > 0 ? (
+          <>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#4a718a]">Compatible verified farmhouse sinks</p>
+            <div className="grid grid-cols-2 gap-2">
+              {items.map((item) => <ProductCard key={item.id} item={item} isSelected={false} onSelect={onSelect} />)}
+            </div>
+            <p className="mt-2 text-[10px] leading-snug text-[#4a718a]">Choose a sink first, then select a matching faucet or finish without one.</p>
+          </>
+        ) : (
+          <div className="rounded-md border border-dashed border-[#9ec0d8] bg-white/70 px-3 py-3 text-center">
+            <p className="text-[11px] font-semibold text-[#244b67]">No verified farmhouse sinks are currently linked to this base.</p>
+            <p className="mt-1 text-[10px] leading-snug text-[#55758c]">This prevents an unverified or standard sink from being shown on an apron-front base.</p>
+            <button type="button" onClick={onBrowseAll} className="mt-2 text-[11px] font-semibold text-[#276b9b] underline underline-offset-2">Browse sink catalog</button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

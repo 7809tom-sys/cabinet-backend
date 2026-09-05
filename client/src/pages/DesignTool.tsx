@@ -194,7 +194,7 @@ import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
-import { PelicanCountertopPicker, PelicanSinkPicker } from "@/components/design/PelicanProductPickers";
+import { FarmhouseSinkSelectionGuide, PelicanCountertopPicker, PelicanSinkPicker, type RecItem } from "@/components/design/PelicanProductPickers";
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
@@ -3535,14 +3535,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        queueSmallGapFillerOpportunity(committedRun, finalCab.uid);
 		      } else setSmallGapFillerPrompt(null);
 
-      // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
-      // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
-      if (isSinkBaseCabinet(finalCab)) {
-        setSinkBaseDialog({ cabinetUid: finalCab.uid });
-        setRangeTopStep("choose");
-        setCountertop(true);
-        // Close the mobile catalog sheet so it doesn't intercept dialog touch events
-        setMobilePanel(null);
+	      // Farmhouse bases use the visible side-panel guide so an apron-front sink
+	      // is never mistaken for an ordinary sink-base selection. Standard bases
+	      // retain the existing Sink / Range Top chooser.
+	      if (isSinkBaseCabinet(finalCab)) {
+	        setCountertop(true);
+	        if (isFarmSinkBasePaletteItem(finalCab)) {
+	          setSinkBaseDialog(null);
+	          setRangeTopStep("choose");
+	          toast.info("Farm Sink Base added. Choose a verified apron-front sink from the Sink Selection Guide in the side panel.");
+	        } else {
+	          setSinkBaseDialog({ cabinetUid: finalCab.uid });
+	          setRangeTopStep("choose");
+	          // Close the mobile catalog sheet so it doesn't intercept dialog touch events
+	          setMobilePanel(null);
+	        }
       }
       if (isFloatingShelfItem(finalCab)) {
         setFloatingShelfAttrUid(finalCab.uid);
@@ -4290,11 +4297,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { enabled: !!sinkBaseDialog }
   );
   // Recommended sink products fetched from Stone Creek catalog.
+  const selectedFarmSinkBaseForGuide = placed.some(
+    (cabinet) => cabinet.uid === selectedUid && isFarmSinkBasePaletteItem(cabinet),
+  );
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
     // Fetch a broader set only while the sink-base dialog is open so verified
     // compatible products can be prioritized without altering catalog ranking.
     { role: "sink", limit: 24 },
-    { enabled: !!sinkBaseDialog }
+    { enabled: !!sinkBaseDialog || selectedFarmSinkBaseForGuide }
   );
   // Recommended faucet products fetched from Stone Creek catalog.
   const { data: faucetBaseProducts } = trpc.surfaces.recommended.useQuery(
@@ -10978,8 +10988,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   ))}
                 </div>
 
-                                <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
-                <PelicanSinkPicker
+	                {selectedCab && isFarmSinkBasePaletteItem(selectedCab) ? (
+	                  <FarmhouseSinkSelectionGuide
+	                    baseCode={selectedCab.masterCode || "Farm Sink Base"}
+	                    openingWidthIn={sinkBaseOpeningWidthIn(selectedCab)}
+                    products={(sinkBaseProducts ?? []) as RecItem[]}
+                    isLoading={!sinkBaseProducts}
+                    onSelect={(item) => {
+                      setPendingSinkProduct({
+                        id: item.id,
+                        pelicanCode: item.pelicanCode ?? null,
+                        slug: item.slug,
+                        name: item.name,
+                        description: null,
+                        category: item.category,
+                        subCategory: item.subCategory ?? null,
+                        size: item.size ?? null,
+                        imageUrl: item.imageUrl ?? null,
+                        sellPrice: item.sellPrice ?? null,
+                      });
+                      setSinkBaseDialog({ cabinetUid: selectedCab.uid });
+                      setRangeTopStep("faucet");
+                    }}
+	                    onBrowseAll={() => setSurfacesOpen(true)}
+	                  />
+	                ) : (
+	                  <>
+	                    <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
+	                    <PelicanSinkPicker
                   selectedSurfaces={selectedSurfaces}
                   onSelect={(item) => {
                     const owner = selectedCab && isSinkBaseCabinet(selectedCab) ? selectedCab : null;
@@ -11035,7 +11071,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     setCountertop(true);
                   }}
                   onBrowseAll={() => setSurfacesOpen(true)}
-                />
+	                    />
+	                  </>
+	                )}
                 {sinks.length > 0 && (
                   <div className="mt-3 space-y-1.5">
                     {sinks.map((s) => (

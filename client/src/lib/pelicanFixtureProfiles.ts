@@ -497,9 +497,9 @@ function normalizedPelicanCode(value: string | null | undefined): string {
   if (/^PL-HA117\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA117";
   if (/^PL-HA119\s+R(?:15|19)\s+18G$/.test(normalized)) return "PL-HA119";
   if (/^PL-HA126\s+R0\s+(?:16|18)G$/.test(normalized)) return "PL-HA126";
-  if (/^PL-HA128\s+R15\s+16G$/.test(normalized)) return "PL-HA128";
-  if (/^PL-HA135\s+R0\s+16G$/.test(normalized)) return "PL-HA135";
-  if (/^PL-GMB135\s+R0\s+16G$/.test(normalized)) return "PL-GMB135";
+  if (/^PL-HA128\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA128";
+  if (/^PL-HA135\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA135";
+  if (/^PL-GMB135\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-GMB135";
   if (/^PL-HA130\s+R0(?:\s+16G)?$/.test(normalized)) return "PL-HA130";
   if (/^PL-HA122\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA122";
   if (/^PL-HA118\s+R15(?:\s+16G)?$/.test(normalized)) return "PL-HA118";
