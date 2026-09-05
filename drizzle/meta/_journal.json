@@ -911,6 +911,13 @@
       "when": 1788562906788,
       "tag": "0129_cute_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "5",
+      "when": 1788628130439,
+      "tag": "0130_free_madripoor",
+      "breakpoints": true
     }
   ]
 }

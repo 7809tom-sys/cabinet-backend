@@ -476,6 +476,30 @@ export const designPhotoRendersRouter = router({
       } : null;
     }),
 
+  getSavedGeminiImageTest: protectedProcedure
+    .input(z.object({ designId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      const db = await getDb();
+      if (!db) return null;
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
+      const [saved] = await db.select().from(designPhotoRenders).where(and(
+        eq(designPhotoRenders.userId, ctx.user.id),
+        eq(designPhotoRenders.kitchenDesignId, design.id),
+        eq(designPhotoRenders.generationMethod, "manual-final-review-gemini-nano-banana-v1"),
+      )).orderBy(desc(designPhotoRenders.updatedAt)).limit(1);
+      const provenance = saved?.provenance as PhotoRenderProvenanceInput | null | undefined;
+      if (!saved || !provenance) return null;
+      if (provenance.designRevision !== savedPhotoPlanRevision(design) || provenance.planFingerprint !== savedPhotoPlanFingerprint(design)) {
+        return null;
+      }
+      return {
+        imageUrl: saved.imageUrl,
+        confirmedAt: saved.confirmedAt,
+        generationMethod: saved.generationMethod,
+      };
+    }),
+
   runGeminiImageTest: protectedProcedure
     .input(z.object({
       sceneSignature: z.string().min(16).max(191),
@@ -513,9 +537,34 @@ export const designPhotoRendersRouter = router({
         generated.bytes,
         generated.mimeType,
       );
+      const confirmedAt = new Date();
+      const promptFingerprint = createHash("sha256").update(prompt).digest("hex");
+      await db.insert(designPhotoRenders).values({
+        userId: ctx.user.id,
+        kitchenDesignId: design.id,
+        sceneSignature: input.sceneSignature,
+        imageUrl: stored.url,
+        provenance: sourceProvenance,
+        sourceImageHash: sourceProvenance.sourceImageHash,
+        promptFingerprint,
+        generationMethod: "manual-final-review-gemini-nano-banana-v1",
+        confirmedAt,
+      }).onDuplicateKeyUpdate({
+        set: {
+          kitchenDesignId: design.id,
+          imageUrl: stored.url,
+          provenance: sourceProvenance,
+          sourceImageHash: sourceProvenance.sourceImageHash,
+          promptFingerprint,
+          generationMethod: "manual-final-review-gemini-nano-banana-v1",
+          confirmedAt,
+          updatedAt: confirmedAt,
+        },
+      });
       return {
         imageUrl: stored.url,
         generationMethod: "manual-final-review-gemini-nano-banana-v1" as const,
+        confirmedAt,
       };
     }),
 

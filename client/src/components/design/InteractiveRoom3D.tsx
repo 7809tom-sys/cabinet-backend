@@ -6174,7 +6174,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   const [pathTracePreviewError, setPathTracePreviewError] = useState<string | null>(null);
   const [pathTracePreviewBusy, setPathTracePreviewBusy] = useState(false);
   const [pathTracePreviewProgress, setPathTracePreviewProgress] = useState(0);
-  const [geminiImageTest, setGeminiImageTest] = useState<{ referenceUrl: string; imageUrl: string } | null>(null);
+  const [geminiImageTest, setGeminiImageTest] = useState<{ referenceUrl: string | null; imageUrl: string } | null>(null);
   const [geminiImageTestError, setGeminiImageTestError] = useState<string | null>(null);
   const [photoQualityLead, setPhotoQualityLead] = useState({ name: "", email: "", phone: "", followUpConsent: false });
   const [photoVerificationStatus, setPhotoVerificationStatus] = useState<"idle" | "pending" | "verified" | "provider_unavailable" | "failed">("idle");
@@ -6196,8 +6196,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
   } | null>(null);
   const { user } = useAuth();
   const isPhotoQualityTest = user?.role === "admin";
+  const utils = trpc.useUtils();
   const photoRenderMutation = trpc.designPhotoRenders.create.useMutation();
   const geminiImageTestMutation = trpc.designPhotoRenders.runGeminiImageTest.useMutation();
+  const savedGeminiImageTestQuery = trpc.designPhotoRenders.getSavedGeminiImageTest.useQuery(
+    { designId: savedDesignId ?? 0 },
+    { enabled: isPhotoQualityTest && Boolean(savedDesignId) },
+  );
   const requestPhotoVerificationMutation = trpc.designPhotoRenders.requestPhoneVerification.useMutation();
   const confirmPhotoVerificationMutation = trpc.designPhotoRenders.confirmPhoneVerification.useMutation();
   useEffect(() => {
@@ -7604,9 +7609,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
         provenance: photoRenderDraft.provenance,
       });
       setGeminiImageTest({ referenceUrl: photoRenderReferenceUrl ?? photoRenderDraft.sceneImageDataUrl, imageUrl: result.imageUrl });
+      await utils.designPhotoRenders.getSavedGeminiImageTest.invalidate({ designId: photoRenderDraft.provenance.designId });
     } catch (error) {
       setGeminiImageTestError(error instanceof Error ? error.message : "The Google image test could not be created. Please try again.");
     }
+  };
+
+  const openSavedGeminiImageTest = () => {
+    const saved = savedGeminiImageTestQuery.data;
+    if (!saved) return;
+    setGeminiImageTest({ referenceUrl: null, imageUrl: saved.imageUrl });
   };
 
   const requestPhotoVerification = async () => {
@@ -7876,6 +7888,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	          <DialogDescription>This creates a deterministic capture of the current locked 3D camera, plan geometry, and saved selected materials. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
 	          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends the locked saved-plan JPEG and selected-material names to Google Gemini. The result must keep the plan geometry, camera, products, and selected materials. It is illustrative only and does not change the saved plan, pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void runGeminiImageTest()} disabled={geminiImageTestMutation.isPending || !photoRenderDoorReference.ready || !photoRenderDraft || photoRenderDraft.provenance.designId <= 0}>{geminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{geminiImageTestMutation.isPending ? "Creating Google image test…" : "Run Google image test"}</Button>{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+	          {isPhotoQualityTest && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 	          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 	            <p className="font-semibold">This is an exact 3D preview, not a photo-quality rendering.</p>
 	            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, faucet, sink, flooring, backsplash, and camera framing are locked from your saved plan. The saved 2D/3D plan and pricing remain authoritative.</p>
@@ -7907,7 +7920,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        <DialogContent data-testid="path-trace-production-result" className="max-w-5xl"><DialogHeader><DialogTitle>Production render test — exact scene</DialogTitle><DialogDescription>A 1920×1080 WebGL2 path-traced comparison from a cloned locked Three.js scene and the same camera. It preserves loaded PBR maps, adds a clone-only deterministic daylight and interior-light rig, converges to 256 samples, and uses a conservative final denoise pass. It is not yet Photo Quality and is not saved as a customer render.</DialogDescription></DialogHeader>{pathTracePreview && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Current Designer view</figcaption><img src={pathTracePreview.referenceUrl} alt="Current locked Designer view before the path-tracing test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">HD path-traced exact-scene test</figcaption><img src={pathTracePreview.renderUrl} alt="Experimental HD exact-scene path-traced production render test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-950"><strong>What this test uses:</strong> the current exact geometry, camera, and loaded 3D materials, plus clone-only deterministic daylight and interior lighting. It does not use AI, substitute a catalog room scene, change products, or create a customer lead. Approve visual quality only after comparing both images.</div><div className="flex justify-end"><a href={pathTracePreview.renderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open HD image</a></div></>}</DialogContent>
 	      </Dialog>
 	      <Dialog open={geminiImageTest !== null} onOpenChange={(open) => { if (!open) setGeminiImageTest(null); }}>
-	        <DialogContent data-testid="gemini-image-test-result" className="max-w-5xl"><DialogHeader><DialogTitle>Google/Gemini image test — locked saved plan</DialogTitle><DialogDescription>Administrator-only illustrative output from the locked Designer JPEG. The saved plan, price, and customer workflow remain authoritative.</DialogDescription></DialogHeader>{geminiImageTest && <><div className="grid gap-4 md:grid-cols-2"><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption><img src={geminiImageTest.referenceUrl} alt="Locked saved-plan Designer reference sent to Google image test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure><figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Google/Gemini illustrative test</figcaption><img src={geminiImageTest.imageUrl} alt="Google Gemini illustrative image test for the locked saved plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div><div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-950"><strong>Test only.</strong> Check whether Gemini kept the exact plan, camera, and selected materials. This image is illustrative and may carry a provider watermark; it does not alter the saved plan or enable customer generation.</div><div className="flex justify-end"><a href={geminiImageTest.imageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open image</a></div></>}</DialogContent>
+	        <DialogContent data-testid="gemini-image-test-result" className="max-w-5xl"><DialogHeader><DialogTitle>Google/Gemini image test — locked saved plan</DialogTitle><DialogDescription>Administrator-only illustrative output from the locked Designer JPEG. The saved plan, price, and customer workflow remain authoritative.</DialogDescription></DialogHeader>{geminiImageTest && <><div className={`grid gap-4 ${geminiImageTest.referenceUrl ? "md:grid-cols-2" : ""}`}>{geminiImageTest.referenceUrl && <figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Locked Designer reference</figcaption><img src={geminiImageTest.referenceUrl} alt="Locked saved-plan Designer reference sent to Google image test" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure>}<figure className="min-w-0"><figcaption className="mb-1 text-xs font-semibold text-muted-foreground">Google/Gemini illustrative test</figcaption><img src={geminiImageTest.imageUrl} alt="Google Gemini illustrative image test for the locked saved plan" className="max-h-[55dvh] w-full rounded-md border object-contain" /></figure></div>{!geminiImageTest.referenceUrl && <p className="mt-3 text-xs text-muted-foreground">The original in-session Designer capture is no longer open, but this saved Google test remains tied to the same locked plan revision.</p>}<div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-950"><strong>Test only.</strong> Check whether Gemini kept the exact plan, camera, and selected materials. This image is illustrative and may carry a provider watermark; it does not alter the saved plan or enable customer generation.</div><div className="flex justify-end"><a href={geminiImageTest.imageUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />Open image</a></div></>}</DialogContent>
 	      </Dialog>
     </section>
   );

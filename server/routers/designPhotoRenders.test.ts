@@ -118,6 +118,17 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('generationMethod: "manual-final-review-gemini-nano-banana-v1"');
   });
 
+  it("persists the administrator Google image test by saved-plan ID and reopens only the current locked plan revision", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("getSavedGeminiImageTest: protectedProcedure");
+    expect(source).toContain("eq(designPhotoRenders.kitchenDesignId, design.id)");
+    expect(source).toContain('eq(designPhotoRenders.generationMethod, "manual-final-review-gemini-nano-banana-v1")');
+    expect(source).toContain("provenance.designRevision !== savedPhotoPlanRevision(design)");
+    expect(source).toContain("provenance.planFingerprint !== savedPhotoPlanFingerprint(design)");
+    expect(source).toContain("kitchenDesignId: design.id");
+    expect(source).toContain("onDuplicateKeyUpdate({");
+  });
+
   it("reads actual deterministic JPEG dimensions instead of trusting a client resolution claim", () => {
     // Minimal JPEG with a baseline SOF0 segment declaring a 2560 × 1440 capture.
     const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x05, 0xa0, 0x0a, 0x00, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, 0xff, 0xd9]);

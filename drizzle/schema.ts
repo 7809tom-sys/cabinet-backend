@@ -148,6 +148,8 @@ export const designPhotoRenders = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
+    /** Optional saved-plan anchor; required for persisted administrator image-test retrieval. */
+    kitchenDesignId: int("kitchenDesignId"),
     sceneSignature: varchar("sceneSignature", { length: 191 }).notNull(),
     imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
     /** Immutable input audit record for renders created after exact-plan-v1. */
@@ -162,6 +164,7 @@ export const designPhotoRenders = mysqlTable(
   (t) => ({
     userSceneUnique: uniqueIndex("design_photo_renders_user_scene_uq").on(t.userId, t.sceneSignature),
     userUpdatedIndex: index("design_photo_renders_user_updated_idx").on(t.userId, t.updatedAt),
+    userDesignMethodUpdatedIndex: index("design_photo_renders_user_design_method_updated_idx").on(t.userId, t.kitchenDesignId, t.generationMethod, t.updatedAt),
   }),
 );
 
