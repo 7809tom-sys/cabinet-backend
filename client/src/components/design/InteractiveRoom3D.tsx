@@ -7564,6 +7564,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     setPhotoRenderOpen(true);
   };
 
+  const saveCurrentPlanForGoogleTest = () => {
+    if (!onSaveToAccount) {
+      setGeminiImageTestError("Save the current kitchen plan, then reopen Final preview before running the Google test.");
+      return;
+    }
+    onSaveToAccount();
+    setPhotoRenderError(null);
+    setPhotoRenderOpen(false);
+    toast.info("Saving the current kitchen plan. Reopen Final preview after the save completes, then run the Google test.");
+  };
+
   const createPhotoRender = async () => {
     if (!user) {
       toast.error("Sign in to create a high-resolution 3D preview for your saved design.");
@@ -7967,10 +7978,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
                   </section>}
 	          {photoRenderReferenceUrl && <div className="space-y-1"><p className="text-xs font-semibold text-muted-foreground">Locked Designer view to render</p><img src={photoRenderReferenceUrl} alt="Current locked Cabinet Dealz 3D camera view" className="h-28 w-full rounded-md border object-contain sm:h-36" /></div>}
 	          {photoRenderMutation.isPending && <div role="status" className="rounded-md border border-[#b7c8df] bg-[#f2f7fd] px-3 py-2 text-xs text-[#1a2744]"><LoaderCircle className="mr-1.5 inline h-3.5 w-3.5 animate-spin" />Saving your high-resolution exact 3D preview. Your editable Designer plan is unchanged.</div>}
-	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{photoRenderError}</p><Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button></div>}
+	          {photoRenderError && <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"><p>{isPhotoQualityTest ? "The current 3D view differs from the saved kitchen plan. Save the plan and reopen Final preview before starting Google; no phone verification is required for this administrator test." : photoRenderError}</p>{isPhotoQualityTest ? <Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={saveCurrentPlanForGoogleTest}><Save className="mr-1.5 h-3.5 w-3.5" />Save current plan and refresh</Button> : <Button type="button" size="sm" variant="outline" className="mt-2 border-red-300 bg-white text-red-800" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Retry same locked view</Button>}</div>}
 	          <div className="h-3 shrink-0" aria-hidden="true" />
 	          </div>
-	          <div data-testid="photo-quality-mobile-action-footer" className="shrink-0 border-t border-slate-200 bg-background px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4"><div className="flex gap-2"><Button type="button" variant="outline" className="flex-1" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" className="flex-[2]" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft || (!isPhotoQualityTest && photoVerificationStatus !== "verified")} title={!isPhotoQualityTest && photoVerificationStatus !== "verified" ? "Verify the mobile number for this saved kitchen plan first" : undefined}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create high-resolution 3D preview</Button></div></div>
+	          <div data-testid="photo-quality-mobile-action-footer" className="shrink-0 border-t border-slate-200 bg-background px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">{isPhotoQualityTest ? <div className="flex justify-end"><Button type="button" variant="outline" onClick={() => setPhotoRenderOpen(false)}>Close preview</Button></div> : <div className="flex gap-2"><Button type="button" variant="outline" className="flex-1" onClick={() => setPhotoRenderOpen(false)} disabled={photoRenderMutation.isPending}>Cancel</Button><Button type="button" className="flex-[2]" onClick={() => void createPhotoRender()} disabled={photoRenderMutation.isPending || !photoRenderDraft || photoVerificationStatus !== "verified"} title={photoVerificationStatus !== "verified" ? "Verify the mobile number for this saved kitchen plan first" : undefined}>{photoRenderMutation.isPending ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1.5 h-4 w-4" />}Create high-resolution 3D preview</Button></div>}</div>
 	        </DialogContent>
 	      </Dialog>
 	      <Dialog open={photoRenderUrl !== null} onOpenChange={(open) => { if (!open) { setPhotoRenderUrl(null); setPhotoRenderReused(false); setPhotoRenderDraft(null); setPhotoRenderReferenceUrl(null); } }}>

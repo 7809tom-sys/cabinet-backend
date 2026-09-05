@@ -6252,6 +6252,10 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("restartPending: Boolean(geminiImageTestJobId)");
     expect(source).toContain('disabled={startGeminiImageTestMutation.isPending}');
     expect(source).toContain("Start fresh Google image test");
+    expect(source).toContain("saveCurrentPlanForGoogleTest");
+    expect(source).toContain("Save current plan and refresh");
+    expect(source).toContain("no phone verification is required for this administrator test");
+    expect(source).toContain("Close preview");
 	    expect(source).toContain('data-testid="gemini-image-test-result"');
 	    expect(source).toContain('data-testid="open-saved-gemini-image-test"');
     expect(source).toContain("const startGeminiImageTest = async () =>");

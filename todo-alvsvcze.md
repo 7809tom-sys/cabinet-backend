@@ -1623,3 +1623,4 @@
 - [x] Reproduce and remove the false live saved-plan condition that still leaves the administrator Google image-test button shaded
 - [x] Reproduce and repair the persistent live Google image-test button failure with a direct saved-plan start path
 - [x] Replace the disabled preview-dependent Google test control with a direct enabled administrator action for the saved kitchen plan
+- [x] Correct the administrator Google test stale-preview handling so it refreshes the saved-plan reference and never shows customer verification guidance
