@@ -33,6 +33,37 @@ function noteColor(color: string) {
   return NOTE_COLORS.find((option) => option.value === color)?.className ?? NOTE_COLORS[0].className;
 }
 
+const AUTHOR_NOTE_COLORS = {
+  tom: {
+    label: "Blue — Tom",
+    cardClassName: "border-sky-300 bg-sky-100 text-sky-950",
+    badgeClassName: "border-sky-300 bg-sky-700 text-white",
+  },
+  rich: {
+    label: "Green — Rich",
+    cardClassName: "border-emerald-300 bg-emerald-100 text-emerald-950",
+    badgeClassName: "border-emerald-300 bg-emerald-700 text-white",
+  },
+  selena: {
+    label: "Purple — Selena",
+    cardClassName: "border-violet-300 bg-violet-100 text-violet-950",
+    badgeClassName: "border-violet-300 bg-violet-700 text-white",
+  },
+} as const;
+
+function authorNoteColor(authorName: string | null, fallbackColor: string) {
+  const normalizedName = authorName?.trim().toLowerCase() ?? "";
+  const assignment = AUTHOR_NOTE_COLORS[normalizedName as keyof typeof AUTHOR_NOTE_COLORS];
+  if (assignment) return assignment;
+
+  const fallback = NOTE_COLORS.find((option) => option.value === fallbackColor) ?? NOTE_COLORS[0];
+  return {
+    label: `${fallback.label} — ${authorName || "Administrator"}`,
+    cardClassName: fallback.className,
+    badgeClassName: "border-current/30 bg-white/60 text-current",
+  };
+}
+
 function localTimestamp(value: Date) {
   return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
@@ -97,7 +128,8 @@ export default function AdminStickyNotes() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {notes.map((note) => {
           const isEditing = editing?.id === note.id;
-          return <Card key={note.id} className={`min-h-56 border-2 shadow-sm transition-transform duration-150 hover:-translate-y-0.5 ${noteColor(note.color)}`}>
+          const authorColor = authorNoteColor(note.authorName, note.color);
+          return <Card key={note.id} className={`min-h-56 border-2 shadow-sm transition-transform duration-150 hover:-translate-y-0.5 ${authorColor.cardClassName}`}>
             <CardContent className="flex h-full flex-col gap-3 p-4">
               {isEditing ? <>
                 <Input value={editing.title ?? ""} onChange={(event) => setEditing({ ...editing, title: event.target.value || null })} placeholder="Title (optional)" maxLength={120} aria-label="Edit note title" className="bg-white/80" />
@@ -106,7 +138,7 @@ export default function AdminStickyNotes() {
               </> : <>
                 <div className="flex items-start justify-between gap-2">{note.title ? <h3 className="font-semibold leading-snug">{note.title}</h3> : <span />}{note.isPinned && <span className="inline-flex items-center gap-1 rounded-full border border-current/30 bg-white/60 px-2 py-1 text-[10px] font-bold uppercase tracking-wide"><Pin className="h-3 w-3" /> Pinned</span>}</div>
                 <AdminStickyNoteRichText value={note.body} />
-                <div className="mt-auto space-y-3 border-t border-current/15 pt-3"><p className="text-[11px] opacity-80">{note.authorName || "Administrator"} · updated {localTimestamp(note.updatedAt)}</p><div className="flex items-center justify-between"><Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-current hover:bg-white/60" onClick={() => update.mutate({ id: note.id, isPinned: !note.isPinned })}><Pin className="h-3.5 w-3.5" /> {note.isPinned ? "Unpin" : "Pin"}</Button><div className="flex gap-1"><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => setEditing(note)}>Edit</Button><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => { if (window.confirm("Remove this shared note for every administrator?")) remove.mutate({ id: note.id }); }} aria-label={`Remove ${note.title || "shared note"}`}><Trash2 className="h-4 w-4" /></Button></div></div></div>
+                <div className="mt-auto space-y-3 border-t border-current/15 pt-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${authorColor.badgeClassName}`}>{authorColor.label}</span><p className="text-[11px] opacity-80">updated {localTimestamp(note.updatedAt)}</p></div><div className="flex items-center justify-between"><Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-current hover:bg-white/60" onClick={() => update.mutate({ id: note.id, isPinned: !note.isPinned })}><Pin className="h-3.5 w-3.5" /> {note.isPinned ? "Unpin" : "Pin"}</Button><div className="flex gap-1"><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => setEditing(note)}>Edit</Button><Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-current hover:bg-white/60" onClick={() => { if (window.confirm("Remove this shared note for every administrator?")) remove.mutate({ id: note.id }); }} aria-label={`Remove ${note.title || "shared note"}`}><Trash2 className="h-4 w-4" /></Button></div></div></div>
               </>}
             </CardContent>
           </Card>;

@@ -17,6 +17,10 @@ describe("AdminStickyNotes workspace", () => {
     expect(source).toContain("AdminStickyNoteRichText value={note.body}");
     expect(source).not.toContain("dangerouslySetInnerHTML");
     expect(source).toContain("Remove this shared note for every administrator?");
+    expect(source).toContain("Blue — Tom");
+    expect(source).toContain("Green — Rich");
+    expect(source).toContain("Purple — Selena");
+    expect(source).toContain("authorNoteColor(note.authorName, note.color)");
   });
 
   it("registers Team Notes only in the administrator Operations workspace", () => {
