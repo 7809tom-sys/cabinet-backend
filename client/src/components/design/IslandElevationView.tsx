@@ -601,7 +601,7 @@ export function IslandElevationView({
               warm/orange stripe at the top of every base cabinet. */}
 
           {/* Merged countertop spans for bases and intentional counter-height shallow island wall faces. */}
-          {countertopMaterialId && (() => {
+	          {countertopMaterialId && (() => {
             const mat = countertopMaterial(countertopMaterialId);
             const isBridgeable = (p: PlacedCabinet) =>
               bearsIslandCountertop(p) ||
@@ -647,9 +647,42 @@ export function IslandElevationView({
                 ))}
               </>
             );
-          })()}
+	          })()}
 
-          {/* Crown molding */}
+	          {/* Selected waterfall ends: the countertop material falls from the island
+	              slab to the floor at the cabinet end. The user controls these per
+	              end cabinet, so internal cabinets never receive a panel by default. */}
+	          {countertopMaterialId && (() => {
+	            const mat = countertopMaterial(countertopMaterialId);
+	            return sorted
+	              .filter((p) => p.placement === "base" && (p.waterfallLeft || p.waterfallRight))
+	              .flatMap((p) => {
+	                const cabSizeAlong = sizeAlong(p);
+	                const cabPosAlong = posAlong(p);
+	                const waterfallHeight = (STD.BASE_HEIGHT + THICKNESS_IN) * ppi;
+	                const panelWidth = Math.max(2, THICKNESS_IN * ppi);
+	                const commonStyle = {
+	                  bottom: 0,
+	                  height: waterfallHeight,
+	                  width: panelWidth,
+	                  background: `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 78%, #ffffff) 0%, ${mat.fill} 48%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+	                  borderLeft: `1px solid ${mat.edge}`,
+	                  borderRight: `1px solid ${mat.edge}`,
+	                  boxShadow: "inset 1px 0 rgba(255,255,255,0.35), 1px 0 2px rgba(0,0,0,0.2)",
+	                  zIndex: 19,
+	                } as const;
+	                return [
+	                  p.waterfallLeft ? (
+	                    <div key={`waterfall-left-${p.uid}`} className="absolute pointer-events-none" style={{ ...commonStyle, left: (cabPosAlong - OVERHANG_IN) * ppi }} />
+	                  ) : null,
+	                  p.waterfallRight ? (
+	                    <div key={`waterfall-right-${p.uid}`} className="absolute pointer-events-none" style={{ ...commonStyle, left: (cabPosAlong + cabSizeAlong + OVERHANG_IN) * ppi - panelWidth }} />
+	                  ) : null,
+	                ].filter(Boolean);
+	              });
+	          })()}
+
+	          {/* Crown molding */}
           {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
             const cabSizeAlong = sizeAlong(p);
             const cabPosAlong = posAlong(p);

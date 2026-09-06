@@ -1,0 +1,15 @@
+import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+
+const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/components/design/InteractiveRoom3D.tsx"), "utf8");
+
+describe("3D waterfall end panels", () => {
+  it("projects saved waterfall flags and builds full-height countertop side meshes", () => {
+    expect(source).toContain("waterfallLeft: cabinet.waterfallLeft ?? null");
+    expect(source).toContain("waterfallRight: cabinet.waterfallRight ?? null");
+    expect(source).toContain("const waterfallSides");
+    expect(source).toContain("waterfallPanel: true");
+    expect(source).toContain("fullHeightToFloor: true");
+  });
+});

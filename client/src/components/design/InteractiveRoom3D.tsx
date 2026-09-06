@@ -161,6 +161,8 @@ type SceneSku = {
 	  islandFace?: PlacedCabinet["islandFace"];
 	  islandCounterHeightWallCabinet?: boolean | null;
 	  islandWallCabinetBaseTreatment?: "toe-kick" | "base-molding" | null;
+	  waterfallLeft?: boolean | null;
+	  waterfallRight?: boolean | null;
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -4517,6 +4519,34 @@ export function addCabinet(
       if (isFloorDishwasher) counter.userData = { ...counter.userData, dishwasherCountertopSupport: true, floorApplianceSupport: true };
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
+
+      // The selected end continues the exact countertop material vertically to
+      // the floor. It is intentionally authored in cabinet-local coordinates
+      // so it follows every island orientation without changing cabinet bounds.
+      const waterfallSides: Array<-1 | 1> = placement === "base"
+        ? [sku.waterfallLeft ? -1 : null, sku.waterfallRight ? 1 : null].filter((side): side is -1 | 1 => side !== null)
+        : [];
+      const waterfallTop = countertopCenterY + 0.75 * INCH;
+      const panelThickness = 1.5 * INCH;
+      for (const side of waterfallSides) {
+        const panel = new THREE.Mesh(
+          new THREE.BoxGeometry(panelThickness, waterfallTop, countertopDepthIn * INCH),
+          counterMaterial,
+        );
+        panel.position.copy(cabinet.position);
+        panel.rotation.y = rotation;
+        panel.translateX(side * (bodyWidth / 2 - panelThickness / 2));
+        panel.translateZ((COUNTERTOP_FRONT_OVERHANG - rearExtensionIn * INCH) / 2);
+        panel.position.y = waterfallTop / 2;
+        panel.userData = {
+          waterfallPanel: true,
+          waterfallSide: side === -1 ? "left" : "right",
+          selectedSurfaceRole: "countertop",
+          fullHeightToFloor: true,
+        };
+        applyThreeDPlacementIdentity(panel, placementIdentity);
+        root.add(panel);
+      }
     }
   }
 }
@@ -5857,6 +5887,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 	    islandFace: cabinet.islandFace ?? null,
 	    islandCounterHeightWallCabinet: cabinet.islandCounterHeightWallCabinet ?? null,
 	    islandWallCabinetBaseTreatment: cabinet.islandWallCabinetBaseTreatment ?? null,
+	    waterfallLeft: cabinet.waterfallLeft ?? null,
+	    waterfallRight: cabinet.waterfallRight ?? null,
 	  };
 }
 
