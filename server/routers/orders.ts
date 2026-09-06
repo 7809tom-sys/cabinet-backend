@@ -16,6 +16,7 @@ import {
   doorStyles,
   distributors,
   orderRequests,
+  kitchenDesigns,
   affiliates,
   codeAliases,
   emailSettings,
@@ -39,10 +40,43 @@ import { resolveMarkupBps } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
+import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
   t === "Wholesale" ? ("wholesale" as const) : t === "Contractor" ? ("contractor" as const) : ("homeowner" as const);
+
+/**
+ * Accept a saved-plan link only when the caller owns that plan, is an
+ * administrator, or is an authorized team member of the plan's affiliate.
+ * The client-provided value is an association hint, never an authorization
+ * decision or a source of document access on its own.
+ */
+async function resolveAuthorizedKitchenDesignId(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  user: { id: number; email: string | null; role: string } | null | undefined,
+  requestedDesignId: number | undefined,
+): Promise<number | null> {
+  if (!requestedDesignId) return null;
+  if (!user) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in before associating an order with a saved plan." });
+  }
+  const [design] = await db
+    .select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId })
+    .from(kitchenDesigns)
+    .where(eq(kitchenDesigns.id, requestedDesignId))
+    .limit(1);
+  if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved plan not found." });
+  if (user.role === "admin" || design.userId === user.id) return design.id;
+
+  const affiliateAccess = await resolveAffiliateAccess(db, user);
+  const isAuthorizedAffiliateTeam = design.affiliateId != null
+    && affiliateAccess?.affiliateId === design.affiliateId
+    && (affiliateAccess.isOwner || affiliateAccess.accessDesigner || affiliateAccess.accessCrm);
+  if (isAuthorizedAffiliateTeam) return design.id;
+
+  throw new TRPCError({ code: "FORBIDDEN", message: "You cannot associate this order with another customer's saved plan." });
+}
 
 // ─── Shared types surfaced to the client ───────────────────────────────────────
 export type RecAddOn = {
@@ -663,6 +697,8 @@ export const ordersRouter = router({
         taxRate: z.number().min(0).max(0.25).optional(),
         /** Computed tax amount in dollars */
         taxAmount: z.number().min(0).optional(),
+        /** Optional exact saved plan that originated this design order. */
+        kitchenDesignId: z.number().int().positive().optional(),
         submit: z.boolean().default(false),
       })
     )
@@ -717,6 +753,7 @@ export const ordersRouter = router({
         0
       );
       const itemCount = normalizedLines.reduce((sum, l) => sum + l.qty, 0);
+      const kitchenDesignId = await resolveAuthorizedKitchenDesignId(db, ctx.user, input.kitchenDesignId);
 
       // Affiliate attribution: if a referral code was supplied, resolve the
       // active affiliate it belongs to and tag this request.
@@ -801,6 +838,7 @@ export const ordersRouter = router({
       const requestNumber = makeRequestNumber();
       const result = await db.insert(orderRequests).values({
         userId: ctx.user?.id ?? null,
+        kitchenDesignId,
         requestNumber,
         originatorName: input.originatorName ?? ctx.user?.name ?? null,
         originatorEmail: input.originatorEmail ?? ctx.user?.email ?? null,
@@ -842,6 +880,7 @@ export const ordersRouter = router({
             orderId: insertId,
             requestNumber,
             source: input.source,
+            kitchenDesignId,
             tier: input.tier,
             styleName: orderAliasPersistence.crmData.styleName,
             itemCount,

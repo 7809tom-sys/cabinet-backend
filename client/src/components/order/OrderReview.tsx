@@ -75,6 +75,8 @@ interface Props {
   initialStyleId?: number;
   /** Pre-select this pricing tier (from cart item) instead of defaulting to Contractor. */
   initialTier?: string;
+  /** Exact saved Designer plan that synchronized this cart, if the cart was unchanged. */
+  kitchenDesignId?: number;
 }
 
 // Extract the dimension digits from a raw code so the Fix picker can pre-search
@@ -190,7 +192,7 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
   );
 }
 
-export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier }: Props) {
+export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
@@ -590,6 +592,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       taxState: taxState || undefined,
       taxRate: taxInfo?.rate,
       taxAmount: taxAmount > 0 ? taxAmount : undefined,
+      kitchenDesignId,
       submit: true,
       lineItems: pricedLines.map((l) => ({
         cabinetId: l.cabinetId,

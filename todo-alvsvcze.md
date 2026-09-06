@@ -1654,3 +1654,10 @@
 - [x] Send and verify one authorized internal Manual AI Render test email to the configured sales recipient
 - [x] Place verified kitchen-image requests in a dedicated CRM image-review workflow with direct saved-plan and manual-render access
 - [x] Use a Monday-style CRM layout for image review with clear status, ownership, direct saved-plan access, and manual-render actions
+- [x] Suppress dimensions and sizes on customer plan printouts until the exact plan has a qualifying purchase while retaining authorized full internal documentation
+- [x] Suppress price-shopping and supplier-ready detail from pre-purchase customer plan printouts while retaining authorized full purchased-plan documentation
+- [x] Link paid cabinet orders to their exact saved plans and unlock detailed dimensions and itemized pricing only for that paid plan
+- [x] Preserve full plan documents for administrators and authorized same-affiliate teams while enforcing customer and cross-affiliate restrictions
+- [x] Improve Email Settings localization, sending-state clarity, saved-change test-email safeguards, responsive navigation, and credential-security messaging
+- [x] Encrypt any SMTP password saved through Email Settings at rest while retaining secure environment-based mail delivery
+- [x] De-emphasize the utility-bar CTA, strengthen hero secondary actions, tighten B2B hero copy, surface truthful featured-style trade indicators, and convert affiliate benefits to a scannable grid

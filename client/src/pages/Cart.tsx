@@ -27,7 +27,7 @@ export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
 export default function Cart() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
-  const { items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug } = useCart();
+  const { items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug, sourceDesignId } = useCart();
   const currentAffiliateSlug = storefrontSlug
     ?? (typeof window !== "undefined"
       ? affiliateSlugFromPath(window.location.pathname) ?? affiliateSlugFromHostname(window.location.hostname)
@@ -173,6 +173,7 @@ export default function Cart() {
       })),
       styleId: firstItem?.styleId ?? null,
       tier: firstItem?.tier ?? null,
+      kitchenDesignId: sourceDesignId,
     };
     try {
       sessionStorage.setItem(CART_PREFILL_KEY, JSON.stringify(prefill));

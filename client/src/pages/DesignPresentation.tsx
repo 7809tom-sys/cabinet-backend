@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { trpc } from "@/lib/trpc";
@@ -66,7 +66,19 @@ const WALL_LABELS: Record<WallSide, string> = {
 };
 
 export default function DesignPresentation() {
-
+  const [location] = useLocation();
+  const savedDesignId = useMemo(() => {
+    const value = new URLSearchParams(location.split("?")[1] ?? "").get("designId");
+    const designId = Number(value);
+    return Number.isInteger(designId) && designId > 0 ? designId : null;
+  }, [location]);
+  const documentAccess = trpc.design.documentAccess.useQuery(
+    { designId: savedDesignId ?? 1 },
+    { enabled: savedDesignId !== null, retry: false },
+  );
+  // A missing, unpaid, changed, or inaccessible plan identity defaults to the
+  // protected visual proposal. The server remains the authority for full access.
+  const hasFullDocumentAccess = documentAccess.data?.level === "full";
   const [draft, setDraft] = useState<DraftSnapshot | null>(null);
 
   // Load branding
@@ -177,7 +189,9 @@ export default function DesignPresentation() {
           </Link>
         </Button>
         <p className="hidden text-sm text-muted-foreground sm:block">
-          Use your browser's Print (Ctrl+P) to save as PDF
+          {hasFullDocumentAccess
+            ? "Detailed plan documentation is authorized for this saved plan."
+            : "Visual proposal only — detailed measurements and pricing unlock after purchase."}
         </p>
         <Button size="sm" className="gap-1.5" onClick={() => window.print()}>
           <Printer className="h-4 w-4" /> Print / Save PDF
@@ -186,6 +200,12 @@ export default function DesignPresentation() {
 
       {/* Presentation content */}
       <div className="presentation-container">
+        {!hasFullDocumentAccess && (
+          <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 print:border-amber-300">
+            <p className="font-semibold">Customer proposal</p>
+            <p className="mt-1 text-xs leading-relaxed">This printout intentionally excludes exact measurements, cabinet codes, itemized pricing, and supplier-ready details. Detailed documents unlock only after a paid cabinet order is linked to this saved plan.</p>
+          </div>
+        )}
         {/* ─── Page 1: Header + Floor Plan ─── */}
         <div className="presentation-section mb-8">
           {/* Branded header */}
@@ -196,29 +216,33 @@ export default function DesignPresentation() {
               )}
               <div>
                 <h1 className="text-2xl font-bold" style={{ color: primaryColor }}>{siteName}</h1>
-                <p className="text-sm text-muted-foreground">Kitchen Design Presentation</p>
+                <p className="text-sm text-muted-foreground">{hasFullDocumentAccess ? "Kitchen Design Documentation" : "Kitchen Design Proposal"}</p>
               </div>
             </div>
             <div className="text-right text-sm text-muted-foreground">
               <p>{dateStr}</p>
-              <p className="font-medium">{draft.roomType || "Kitchen"} — {draft.room.width}" × {draft.room.depth}"</p>
+              <p className="font-medium">{draft.roomType || "Kitchen"}{hasFullDocumentAccess ? ` — ${draft.room.width}" × ${draft.room.depth}"` : ""}</p>
             </div>
           </div>
 
           {/* Design summary */}
-          <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
+          <div className={`grid ${hasFullDocumentAccess ? "grid-cols-3" : "grid-cols-2"} gap-4 mb-6 text-sm`}>
             <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Cabinets</p>
               <p className="text-lg font-semibold">{draft.placed.length}</p>
             </div>
-            <div className="rounded-lg border p-3">
+            {hasFullDocumentAccess && <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Room Size</p>
               <p className="text-lg font-semibold">{Math.round(draft.room.width / 12)}' × {Math.round(draft.room.depth / 12)}'</p>
-            </div>
-            <div className="rounded-lg border p-3">
+            </div>}
+            {hasFullDocumentAccess && <div className="rounded-lg border p-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Tier</p>
               <p className="text-lg font-semibold">{draft.tier}</p>
-            </div>
+            </div>}
+            {!hasFullDocumentAccess && <div className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Plan status</p>
+              <p className="text-lg font-semibold">Visual proposal</p>
+            </div>}
           </div>
 
           {/* Floor Plan */}
@@ -232,7 +256,7 @@ export default function DesignPresentation() {
                 onSelect={() => {}}
                 onMove={() => {}}
                 showWallLayer={true}
-                autoDimensions={true}
+                autoDimensions={hasFullDocumentAccess}
                 island={draft.island}
                 openings={draft.openings}
                 countertopMaterialId={draft.countertopMaterialId}
@@ -266,13 +290,14 @@ export default function DesignPresentation() {
                 backsplashMaterialId={draft.backsplashMaterialId}
                 hardwareStyleId={draft.hardwareStyleId}
                 hideSwitcher={true}
+                showProductCodes={hasFullDocumentAccess}
               />
             </div>
           </div>
         ))}
 
-        {/* ─── BOM Table ─── */}
-        <div className="presentation-section mb-8 print-page-break">
+        {/* ─── BOM Table (authorized detailed documents only) ─── */}
+        {hasFullDocumentAccess && <div className="presentation-section mb-8 print-page-break">
           <h2 className="text-lg font-semibold mb-3" style={{ color: primaryColor }}>Bill of Materials</h2>
           <table className="w-full text-sm border-collapse">
             <thead>
@@ -310,12 +335,12 @@ export default function DesignPresentation() {
             {draft.countertopMaterialId && <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-stone-500" /> Countertop Selected</div>}
             {draft.edgeProfileId && <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-stone-500" /> Edge Profile: {draft.edgeProfileId}</div>}
           </div>
-        </div>
+        </div>}
 
         {/* Footer */}
         <div className="border-t pt-4 text-center text-xs text-muted-foreground">
           <p>Generated by {siteName} • {dateStr}</p>
-          <p className="mt-1">This is a design proposal. Final pricing and availability subject to confirmation.</p>
+          <p className="mt-1">{hasFullDocumentAccess ? "Detailed documentation for the linked paid plan." : "This is a visual proposal. Final pricing and availability are subject to confirmation."}</p>
         </div>
       </div>
     </div>

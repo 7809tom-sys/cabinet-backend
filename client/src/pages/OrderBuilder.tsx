@@ -43,6 +43,7 @@ export default function OrderBuilder() {
   const prefillConsumed = useRef(false);
   const [initialStyleId, setInitialStyleId] = useState<number | null>(null);
   const [initialTier, setInitialTier] = useState<string | null>(null);
+  const [kitchenDesignId, setKitchenDesignId] = useState<number | null>(null);
 
   // If the user arrived from the cart ("Request this order"), pick up the
   // prefilled {code, qty} pairs, match them, and drop straight into review.
@@ -60,7 +61,7 @@ export default function OrderBuilder() {
     let parsed: CartPrefillItem[] = [];
     try {
       const decoded = JSON.parse(raw) as
-        | { items: CartPrefillItem[]; styleId: number | null; tier: string | null }
+        | { items: CartPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null }
         | CartPrefillItem[]; // legacy format
       if (Array.isArray(decoded)) {
         parsed = decoded;
@@ -68,6 +69,7 @@ export default function OrderBuilder() {
         parsed = decoded.items;
         if (decoded.styleId) setInitialStyleId(decoded.styleId);
         if (decoded.tier) setInitialTier(decoded.tier);
+        if (Number.isInteger(decoded.kitchenDesignId) && decoded.kitchenDesignId! > 0) setKitchenDesignId(decoded.kitchenDesignId!);
       }
     } catch {
       return;
@@ -168,6 +170,7 @@ export default function OrderBuilder() {
             onLinesChange={setLines}
             onReset={() => setLines([])}
             initialStyleId={initialStyleId ?? undefined}
+            kitchenDesignId={kitchenDesignId ?? undefined}
             initialTier={initialTier ?? undefined}
           />
         )}

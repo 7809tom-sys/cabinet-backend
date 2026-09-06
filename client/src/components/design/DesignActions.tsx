@@ -360,9 +360,14 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 export function DesignActions({
   room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onLoad,
 }: Props) {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const utils = trpc.useUtils();
+  const documentAccess = trpc.design.documentAccess.useQuery(
+    { designId: currentDesignId ?? 1 },
+    { enabled: isAuthenticated && currentDesignId != null, retry: false },
+  );
+  const hasFullDocumentAccess = user?.role === "admin" || documentAccess.data?.level === "full";
   const [saveOpen, setSaveOpen] = useState(false);
   const [planCheckOpen, setPlanCheckOpen] = useState(false);
   const [dismissedPlanFindingIds, setDismissedPlanFindingIds] = useState<string[]>([]);
@@ -452,8 +457,31 @@ export function DesignActions({
     });
   };
 
-  const handleExport = () =>
+  const handleExport = () => {
+    if (!hasFullDocumentAccess) {
+      toast.info("Detailed build sheets unlock after purchase", {
+        description: "Save this plan and complete a paid cabinet order linked to it. Administrators and authorized affiliate teams retain full access.",
+      });
+      return;
+    }
     exportBuildSheet({ room, styleName, tier, total, buildRows, extraLines, brandName });
+  };
+
+  const openPresentation = () => {
+    const search = currentDesignId ? `?designId=${encodeURIComponent(String(currentDesignId))}` : "";
+    window.open(`/design/presentation${search}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openFabricatorSheet = () => {
+    if (!hasFullDocumentAccess) {
+      toast.info("Fabricator sheets are available to your project team", {
+        description: "This supplier-ready document is available to administrators and authorized same-affiliate staff.",
+      });
+      return;
+    }
+    const search = currentDesignId ? `?designId=${encodeURIComponent(String(currentDesignId))}` : "";
+    window.open(`/design/fabricator-sheet${search}`, "_blank", "noopener,noreferrer");
+  };
 
   const activePlanFindings = (preSavePlanReview?.findings ?? []).filter((finding) => !dismissedPlanFindingIds.includes(finding.id));
   const openSaveAfterPlanCheck = () => {
@@ -708,15 +736,15 @@ export function DesignActions({
       </Dialog>
 
       {/* Export build sheet */}
-      <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleExport} title={t("dt_act_export_btn")}>
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleExport} title={hasFullDocumentAccess ? t("dt_act_export_btn") : "Detailed build sheet unlocks after paid order"}>
         <Download className="h-3.5 w-3.5" />
       </Button>
       {/* Print Presentation */}
-      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/presentation", "_blank")} title={t("dt_act_presentation_btn")}>
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={openPresentation} title={t("dt_act_presentation_btn")}>
         <Printer className="h-3.5 w-3.5" />
       </Button>
       {/* Fabricator Countertop Sheet */}
-      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/fabricator-sheet", "_blank")} title={t("dt_act_fabricator_btn")}>
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={openFabricatorSheet} title={hasFullDocumentAccess ? t("dt_act_fabricator_btn") : "Fabricator sheet is available to authorized project staff"}>
         <Ruler className="h-3.5 w-3.5" />
       </Button>
     </>

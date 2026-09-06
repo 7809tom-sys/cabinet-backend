@@ -451,15 +451,25 @@ export default function AdminGroupedTabs() {
       </div>
 
       {/* Sub-tabs for the active group */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className={currentGroup.id === "settings" ? "lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-6" : undefined}
+      >
+        <TabsList className={cn(
+          "h-auto w-full gap-y-1",
+          currentGroup.id === "settings"
+            ? "grid grid-cols-2 sm:grid-cols-3 lg:flex lg:w-full lg:flex-col lg:items-stretch lg:justify-start lg:gap-1 lg:bg-muted/50 lg:p-2"
+            : "flex-wrap justify-start",
+        )}>
           {currentGroup.tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
+            <TabsTrigger key={t.value} value={t.value} className={currentGroup.id === "settings" ? "justify-start px-3" : undefined}>
               {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
+        <div className={currentGroup.id === "settings" ? "min-w-0" : undefined}>
         {/* Sales & Orders */}
         <TabsContent value="orders" className="mt-6"><AdminTabHelp tab="orders" /><IncomingOrdersAdmin /></TabsContent>
         <TabsContent value="crm" className="mt-6"><AdminTabHelp tab="crm" /><CrmBoard lang="en" /></TabsContent>
@@ -522,6 +532,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="api-status" className="mt-6"><ApiStatusAdmin /></TabsContent>
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>
+        </div>
       </Tabs>
     </div>
   );

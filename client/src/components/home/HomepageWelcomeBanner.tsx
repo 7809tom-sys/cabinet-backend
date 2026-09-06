@@ -30,7 +30,7 @@ export function HomepageWelcomeBanner({ user }: { user: HomepageWelcomeUser | nu
         </div>
         <div className="flex shrink-0 gap-2 pl-[3.25rem] sm:pl-0">
           <Link href="/design">
-            <Button size="sm" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
+            <Button size="sm" variant="ghost" className="text-[var(--color-navy)] hover:bg-amber-100/80 dark:text-amber-100 dark:hover:bg-amber-950/60">
               Continue designing
             </Button>
           </Link>

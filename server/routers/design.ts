@@ -4,7 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
-import { cabinets, cabinetAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -138,6 +138,47 @@ function verifyRemoteDesignShareToken(token: string): RemoteDesignSharePayload |
 }
 
 export const designRouter = router({
+  /**
+   * Reports whether the current viewer may open detailed documents for one
+   * exact saved plan. Customer access requires a paid order linked to that
+   * plan; administrators and authorized same-affiliate teams retain full
+   * access without weakening tenant isolation.
+   */
+  documentAccess: protectedProcedure
+    .input(z.object({ designId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available." });
+      const [design] = await db
+        .select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId })
+        .from(kitchenDesigns)
+        .where(eq(kitchenDesigns.id, input.designId))
+        .limit(1);
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved plan not found." });
+
+      if (ctx.user.role === "admin") return { level: "full" as const, reason: "administrator" as const };
+
+      const affiliateAccess = await resolveAffiliateAccess(db, ctx.user);
+      const sameAffiliateTeam = design.affiliateId != null
+        && affiliateAccess?.affiliateId === design.affiliateId
+        && (affiliateAccess.isOwner || affiliateAccess.accessDesigner || affiliateAccess.accessCrm);
+      if (sameAffiliateTeam) return { level: "full" as const, reason: "affiliate_team" as const };
+
+      if (design.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can only view documents for your own saved plan." });
+      }
+
+      const [paidOrder] = await db
+        .select({ id: payments.id })
+        .from(orderRequests)
+        .innerJoin(payments, eq(payments.orderRequestId, orderRequests.id))
+        .where(and(eq(orderRequests.kitchenDesignId, design.id), eq(payments.status, "approved")))
+        .limit(1);
+      return paidOrder
+        ? { level: "full" as const, reason: "paid_order" as const }
+        : { level: "protected" as const, reason: "purchase_required" as const };
+    }),
+
   placeableCabinets: publicProcedure
     .input(
       z.object({

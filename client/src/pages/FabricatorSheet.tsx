@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 import {
   type PlacedCabinet, type RoomData, type WallSide,
   type SinkFixture,
@@ -163,6 +164,17 @@ function formatDim(inches: number): string {
 }
 
 export default function FabricatorSheet() {
+  const [location] = useLocation();
+  const savedDesignId = useMemo(() => {
+    const value = new URLSearchParams(location.split("?")[1] ?? "").get("designId");
+    const designId = Number(value);
+    return Number.isInteger(designId) && designId > 0 ? designId : null;
+  }, [location]);
+  const documentAccess = trpc.design.documentAccess.useQuery(
+    { designId: savedDesignId ?? 1 },
+    { enabled: savedDesignId !== null, retry: false },
+  );
+  const hasFullDocumentAccess = documentAccess.data?.level === "full";
   const [draft, setDraft] = useState<DraftSnapshot | null>(null);
 
   useEffect(() => {
@@ -201,6 +213,20 @@ export default function FabricatorSheet() {
     return (
       <div className="flex h-screen items-center justify-center">
         <p className="text-muted-foreground">No design found. Open the Design Tool first.</p>
+      </div>
+    );
+  }
+
+  if (!hasFullDocumentAccess) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+        <div className="max-w-md rounded-xl border border-amber-300 bg-background p-6 text-center shadow-sm">
+          <h1 className="text-lg font-semibold text-foreground">Fabricator sheet protected</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Countertop measurements, seam locations, and supplier-ready specifications are available only to administrators and authorized same-affiliate project teams.</p>
+          <Button className="mt-5" variant="outline" asChild>
+            <Link href="/design"><ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Design</Link>
+          </Button>
+        </div>
       </div>
     );
   }

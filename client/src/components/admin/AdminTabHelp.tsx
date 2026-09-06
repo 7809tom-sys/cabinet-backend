@@ -1,4 +1,5 @@
 import { Info } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string; url: string } }> = {
   orders: {
@@ -130,30 +131,17 @@ interface AdminTabHelpProps {
 
 export function AdminTabHelp({ tab }: AdminTabHelpProps) {
   const help = TAB_HELP[tab];
+  const { lang } = useLanguage();
   if (!help) return null;
+  const isChinese = lang === "zh";
+  const message = isChinese ? help.zh : help.en;
 
   return (
     <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-6 text-sm dark:border-amber-900/40 dark:bg-amber-950/20">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="space-y-1">
         <p className="text-amber-900 dark:text-amber-200 leading-relaxed">
-          {help.en}
-          {help.link && (
-            <>
-              {" "}
-              <a
-                href={help.link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
-              >
-                {help.link.label} ↗
-              </a>
-            </>
-          )}
-        </p>
-        <p className="text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
-          {help.zh}
+          {message}
           {help.link && (
             <>
               {" "}

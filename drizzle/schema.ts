@@ -1062,6 +1062,9 @@ export type OrderLineItem = {
 export const orderRequests = mysqlTable("order_requests", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"), // null for guest/email-only originators
+  // A design-originated order can unlock detailed customer documents only for
+  // this exact saved plan after an approved payment is recorded.
+  kitchenDesignId: int("kitchenDesignId"),
   requestNumber: varchar("requestNumber", { length: 64 }).notNull().unique(),
   originatorName: varchar("originatorName", { length: 256 }),
   originatorEmail: varchar("originatorEmail", { length: 320 }),
@@ -1100,7 +1103,14 @@ export const orderRequests = mysqlTable("order_requests", {
   qboSyncedAt: timestamp("qboSyncedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  kitchenDesignIdx: index("order_requests_kitchen_design_idx").on(t.kitchenDesignId),
+  kitchenDesignFk: foreignKey({
+    name: "order_requests_kitchen_design_fk",
+    columns: [t.kitchenDesignId],
+    foreignColumns: [kitchenDesigns.id],
+  }).onDelete("set null").onUpdate("cascade"),
+}));
 
 export type OrderRequest = typeof orderRequests.$inferSelect;
 export type InsertOrderRequest = typeof orderRequests.$inferInsert;

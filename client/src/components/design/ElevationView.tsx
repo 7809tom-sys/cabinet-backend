@@ -95,6 +95,8 @@ interface Props {
   flooringMaterialId?: string | null;
   // Flooring layout pattern: how planks are arranged.
   flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
+  /** Hide cabinet and appliance master codes in customer-facing protected documents. */
+  showProductCodes?: boolean;
 }
 
 export type ElevationTrimRun = { start: number; end: number; level: number; anchorUid: string };
@@ -247,6 +249,7 @@ export function ElevationView({
   onMove, onMoveVertical, moveLocked = false,
   flooringMaterialId = null,
   flooringPattern = "random-stagger",
+  showProductCodes = true,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -729,7 +732,7 @@ export function ElevationView({
               <div className="absolute" style={{ left: "18%", right: "18%", top: "61%", height: 3, background: "#4d5965", boxShadow: "0 4px 0 #4d5965, 0 8px 0 #4d5965" }} />
             </>
           )}
-          {!applianceVisualUrl && <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
+          {showProductCodes && !applianceVisualUrl && <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
             <span className="text-[8px] font-bold truncate px-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
               {p.masterCode}
             </span>

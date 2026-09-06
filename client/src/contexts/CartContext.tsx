@@ -65,10 +65,12 @@ type CartState = {
   lockedStyleLabel: string | null;
   /** When items were added from an affiliate storefront, stores the slug for white-labeling. */
   storefrontSlug: string | null;
+  /** Exact saved plan whose unchanged design lines replaced this cart, if any. */
+  sourceDesignId: number | null;
   setStorefrontSlug: (slug: string | null) => void;
   addItem: (item: CartItem) => AddItemResult;
   /** Replaces the cart only after an explicit user-requested design synchronization. */
-  replaceWithDesignItems: (items: readonly CartItem[]) => void;
+  replaceWithDesignItems: (items: readonly CartItem[], sourceDesignId?: number | null) => void;
   removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"]) => void;
   setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number) => void;
   clear: () => void;
@@ -82,6 +84,7 @@ const CartContext = createContext<CartState | null>(null);
 const STORAGE_KEY = "cd_cart_v1";
 const ZIP_KEY = "cd_cart_zip_v1";
 const SLUG_KEY = "cd_cart_slug_v1";
+const SOURCE_DESIGN_KEY = "cd_cart_source_design_v1";
 
 function lineKey(
   i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
@@ -114,6 +117,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const [sourceDesignId, setSourceDesignId] = useState<number | null>(() => {
+    try {
+      const value = typeof sessionStorage !== "undefined" ? Number(sessionStorage.getItem(SOURCE_DESIGN_KEY)) : NaN;
+      return Number.isInteger(value) && value > 0 ? value : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     try {
@@ -121,6 +132,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       else localStorage.removeItem(SLUG_KEY);
     } catch { /* ignore */ }
   }, [storefrontSlug]);
+
+  useEffect(() => {
+    try {
+      if (sourceDesignId) sessionStorage.setItem(SOURCE_DESIGN_KEY, String(sourceDesignId));
+      else sessionStorage.removeItem(SOURCE_DESIGN_KEY);
+    } catch { /* ignore */ }
+  }, [sourceDesignId]);
 
   useEffect(() => {
     try {
@@ -178,12 +196,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, item];
       });
+      setSourceDesignId(null);
       return { ok: true };
     };
-    const replaceWithDesignItems = (designItems: readonly CartItem[]) => {
+    const replaceWithDesignItems = (designItems: readonly CartItem[], designId: number | null = null) => {
       setItems(synchronizedDesignCartItems(designItems));
+      setSourceDesignId(Number.isInteger(designId) && designId! > 0 ? designId : null);
     };
     const removeItem: CartState["removeItem"] = (masterCode, styleId, tier) => {
+      setSourceDesignId(null);
       setItems((prev) => {
         const target = prev.find(
           (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
@@ -198,6 +219,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
     };
     const setQty: CartState["setQty"] = (masterCode, styleId, tier, qty) => {
+      setSourceDesignId(null);
       setItems((prev) => {
         const target = prev.find(
           (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
@@ -218,7 +240,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .filter((p) => p.qty > 0);
       });
     };
-    const clear = () => setItems([]);
+    const clear = () => { setItems([]); setSourceDesignId(null); };
     const setZip = (z: string | null) => setZipState(z);
     const setStorefrontSlug = (s: string | null) => setStorefrontSlugState(s);
 
@@ -232,6 +254,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lockedStyleId,
       lockedStyleLabel,
       storefrontSlug,
+      sourceDesignId,
       setStorefrontSlug,
       addItem,
       replaceWithDesignItems,
@@ -242,7 +265,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count,
       subtotal,
     };
-  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug]);
+  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug, sourceDesignId]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
 }

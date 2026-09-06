@@ -66,6 +66,17 @@ export default function EmailSettingsAdmin() {
 
   const hasPassword = data?.hasPassword ?? false;
   const isConfigured = !!(data?.smtpHost && data?.smtpUser && hasPassword);
+  const hasUnsavedChanges = Boolean(
+    data && (
+      form.smtpHost.trim() !== (data.smtpHost ?? "").trim()
+      || (parseInt(form.smtpPort, 10) || 465) !== (data.smtpPort ?? 465)
+      || form.smtpUser.trim() !== (data.smtpUser ?? "").trim()
+      || form.smtpFrom.trim() !== (data.smtpFrom ?? "").trim()
+      || form.enabled !== (data.enabled ?? false)
+      || form.smtpPass.trim().length > 0
+    )
+  );
+  const canSendTest = Boolean(testEmail.trim() && isConfigured && !testing && !hasUnsavedChanges);
 
   function onSave() {
     if (!form) return;
@@ -100,21 +111,25 @@ export default function EmailSettingsAdmin() {
             </Badge>
           </div>
           <CardDescription>
-            Configure your Titan (or any SMTP) email account for outbound mail — order confirmations,
-            quote replies, and test emails. Credentials are stored securely in the database; you never
-            need to touch environment variables.
+            Configure your Titan (or other SMTP) sending account for outbound order confirmations,
+            quote replies, and manual-render notifications. Saved passwords are never returned to this page.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Enable toggle */}
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <p className="font-medium text-sm">Enable email sending</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-medium text-sm">Enable email sending</p>
+                <Badge variant={form.enabled ? "default" : "secondary"} className={form.enabled ? "bg-emerald-700 text-white" : ""}>
+                  {form.enabled ? "On — sending enabled" : "Off — sending paused"}
+                </Badge>
+              </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 When off, no transactional emails are sent even if credentials are saved.
               </p>
             </div>
-            <Switch checked={form.enabled} onCheckedChange={(v) => set({ enabled: v })} />
+            <Switch aria-label="Enable email sending" checked={form.enabled} onCheckedChange={(v) => set({ enabled: v })} />
           </div>
 
           {/* SMTP fields */}
@@ -190,7 +205,7 @@ export default function EmailSettingsAdmin() {
           </div>
           <CardDescription>
             Send a test email using the <strong>saved</strong> credentials to verify the connection works.
-            Save your settings first before testing.
+            Save any changes first; the test button remains unavailable until the saved settings are current.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -204,8 +219,8 @@ export default function EmailSettingsAdmin() {
             />
             <Button
               variant="outline"
-              disabled={!testEmail || testing || !isConfigured}
-              onClick={() => testConnection.mutate({ toEmail: testEmail })}
+              disabled={!canSendTest}
+              onClick={() => testConnection.mutate({ toEmail: testEmail.trim() })}
             >
               {testing ? <Spinner className="h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
               Send Test Email
@@ -217,36 +232,18 @@ export default function EmailSettingsAdmin() {
               Configure and save SMTP credentials above before testing.
             </p>
           )}
-          {isConfigured && (
-            <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Credentials are saved. Enter an email address and click Send Test Email.
+          {isConfigured && hasUnsavedChanges && (
+            <p className="text-xs text-amber-700 mt-2 flex items-center gap-1">
+              <XCircle className="h-3.5 w-3.5" />
+              Save your email-setting changes before sending a test message.
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Titan quick-reference */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4">
-          <p className="text-sm font-medium mb-2">Titan Email SMTP Quick Reference</p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Host</span>
-            <span>smtp.titan.email</span>
-            <span className="font-medium text-foreground">Port (SSL)</span>
-            <span>465</span>
-            <span className="font-medium text-foreground">Port (STARTTLS)</span>
-            <span>587</span>
-            <span className="font-medium text-foreground">Username</span>
-            <span>Your full email address (e.g. sales@cabinetdealz.com)</span>
-            <span className="font-medium text-foreground">Password</span>
-            <span>Your Titan mailbox password</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            These are your Titan Email settings for cabinetdealz.com. Enter the mailbox password for the
-            address above, Save, then use Send Test Email to confirm it works. If you use 587, sending uses
-            STARTTLS; 465 uses SSL.
-          </p>
+          {isConfigured && !hasUnsavedChanges && (
+            <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Saved connection ready. Enter an email address and click Send Test Email.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

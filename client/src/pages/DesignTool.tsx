@@ -2540,9 +2540,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.info("Add a cabinet to the design before synchronizing the cart.");
       return;
     }
-    replaceWithDesignItems(cartableLines);
+    replaceWithDesignItems(cartableLines, currentSavedDesignId ?? null);
     toast.success(`3D design synchronized to cart (${cartableLines.reduce((count, line) => count + line.qty, 0)} items).`);
-  }, [cartableLines, replaceWithDesignItems]);
+  }, [cartableLines, replaceWithDesignItems, currentSavedDesignId]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
   // Every trim that crown/toe kick do is now AUTOMATIC: when the layout warrants

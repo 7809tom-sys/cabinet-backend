@@ -5,6 +5,11 @@ import { emailSettings, brandingSettings, notificationSettings } from "../../dri
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import nodemailer from "nodemailer";
+import {
+  decryptEmailSettingsPassword,
+  encryptEmailSettingsPassword,
+  isEncryptedEmailSettingsPassword,
+} from "../lib/emailSettingsCrypto";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +85,7 @@ export const emailSettingsRouter = router({
       };
       // Only overwrite password when explicitly provided
       if (typeof input.smtpPass === "string" && input.smtpPass.length > 0) {
-        values.smtpPass = input.smtpPass;
+        values.smtpPass = encryptEmailSettingsPassword(input.smtpPass);
       }
       if (existing) {
         await db.update(emailSettings).set(values).where(eq(emailSettings.id, existing.id));
@@ -100,11 +105,12 @@ export const emailSettingsRouter = router({
         return { ok: false, error: "SMTP credentials not configured. Save your settings first." };
       }
       try {
+        const smtpPass = decryptEmailSettingsPassword(row.smtpPass);
         const transport = nodemailer.createTransport({
           host: row.smtpHost,
           port: row.smtpPort,
           secure: row.smtpPort === 465,
-          auth: { user: row.smtpUser, pass: row.smtpPass },
+          auth: { user: row.smtpUser, pass: smtpPass },
         });
         await transport.verify();
         await transport.sendMail({
@@ -114,10 +120,14 @@ export const emailSettingsRouter = router({
           text: "Your SMTP connection is working correctly. This is a test email from Cabinet Dealz.",
           html: "<p>Your SMTP connection is working correctly.</p><p>This is a test email from <strong>Cabinet Dealz</strong>.</p>",
         });
+        if (!isEncryptedEmailSettingsPassword(row.smtpPass)) {
+          await (await getDb())?.update(emailSettings)
+            .set({ smtpPass: encryptEmailSettingsPassword(smtpPass) })
+            .where(eq(emailSettings.id, row.id));
+        }
         return { ok: true };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { ok: false, error: msg };
+      } catch {
+        return { ok: false, error: "The saved SMTP connection could not be verified. Check the host, port, username, and password, then save before retrying." };
       }
     }),
 

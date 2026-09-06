@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -98,7 +98,7 @@ function Hero() {
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              <EditableText pageKey="home" field="hero_subtitle" defaultValue="Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership." multiline>
+              <EditableText pageKey="home" field="hero_subtitle" defaultValue="Source cabinets, surfaces, fixtures, and a complete kitchen plan from one trade-ready platform." multiline>
                 {(v) => <>{v}</>}
               </EditableText>
             </p>
@@ -112,24 +112,24 @@ function Hero() {
                 </Button>
               </Link>
               <Link href="/surfaces">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
                   Surfaces & Fixtures
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/plumbers-choice">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
                   Plumber's Choice
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/design">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
                   Design Your Kitchen
                 </Button>
               </Link>
               <Link href="/bundles">
-                <Button size="lg" className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 font-semibold gap-2 shadow-lg shadow-amber-500/25">
+                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white font-semibold gap-2">
                   <PackageOpen className="h-4 w-4" />
                   Bundle Deals
                   <ArrowRight className="h-4 w-4" />
@@ -165,7 +165,7 @@ function Hero() {
         </div>
 
         {/* Value props row */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
+          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
           {[
             { value: "Cabinets", label: "Full catalog, every door style" },
             { value: "Surfaces", label: "Quartz, tile, flooring & more" },
@@ -173,8 +173,8 @@ function Hero() {
             { value: "Design", label: "2D kitchen planner included" },
           ].map((stat) => (
             <div key={stat.label}>
-              <div className="text-2xl md:text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
-              <div className="text-sm text-white/60 mt-1">{stat.label}</div>
+              <div className="text-3xl md:text-4xl font-bold text-[var(--color-gold)]">{stat.value}</div>
+              <div className="text-sm md:text-base text-white/70 mt-1">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -276,6 +276,9 @@ function FeaturedStyles() {
                 {[(first as { doorStyle?: string | null }).doorStyle, (first as { woodSpecies?: string | null }).woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
               </p>
               <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-100">
+                  <CircleCheck className="h-3.5 w-3.5" /> Active catalog
+                </span>
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
                   Shop this style <ArrowRight className="h-4 w-4" />
                 </span>
@@ -320,6 +323,9 @@ function FeaturedStyles() {
                     )}
                     <div className="font-serif text-sm font-bold text-white leading-tight">
                       {(style as { ourName?: string | null }).ourName ?? (style as { styleCode?: string | null }).styleCode}
+                    </div>
+                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-100">
+                      <CircleCheck className="h-3 w-3" /> Active catalog
                     </div>
                   </div>
                 </Link>
@@ -622,13 +628,13 @@ function AffiliatePromo() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 mb-12">
           {advantages.map((adv) => (
-            <div key={adv.title} className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="inline-flex p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-4">
-                <adv.icon className="h-5 w-5" />
+            <div key={adv.title} className="rounded-xl border border-border bg-card p-5 md:p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-3">
+                <adv.icon className="h-6 w-6" />
               </div>
-              <h3 className="font-serif text-lg font-bold text-foreground mb-2">{adv.title}</h3>
+              <h3 className="font-serif text-xl font-bold text-foreground mb-2">{adv.title}</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">{adv.description}</p>
             </div>
           ))}
