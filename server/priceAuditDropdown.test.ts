@@ -33,7 +33,7 @@ function userCtx(): TrpcContext {
 }
 
 describe("Price Audit cascading dropdowns", () => {
-  it("all four procedures are admin-only (non-admin rejected)", async () => {
+  it("all Price Audit procedures are admin-only (non-admin rejected)", async () => {
     const db = await getDb();
     if (!db) return; // empty DB env — skip
     const caller = appRouter.createCaller(userCtx());
@@ -41,6 +41,7 @@ describe("Price Audit cascading dropdowns", () => {
     await expect(caller.pricing.adminAuditStyles({ distributorId: 1 })).rejects.toThrow();
     await expect(caller.pricing.adminAuditItems({ distributorId: 1, styleId: 1 })).rejects.toThrow();
     await expect(caller.pricing.adminDailyAuditPicks({})).rejects.toThrow();
+    await expect(caller.pricing.adminMissingCustomerPriceQueue({ limit: 1 })).rejects.toThrow();
   });
 
   it("adminAuditDistributors returns labelled distributors with audit counts", async () => {
@@ -114,6 +115,28 @@ describe("Price Audit cascading dropdowns", () => {
     for (const p of a.picks as Array<{ priceVerified: boolean; skus: unknown[] }>) {
       expect(p.priceVerified).toBe(false);
       expect(Array.isArray(p.skus)).toBe(true);
+    }
+  });
+
+  it("returns only active published SKUs without a usable customer price source", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(adminCtx());
+    const result = await caller.pricing.adminMissingCustomerPriceQueue({ limit: 5 });
+    expect(Array.isArray(result.cabinets)).toBe(true);
+    expect(result.cabinets.length).toBeLessThanOrEqual(5);
+    expect(result.remaining).toBeGreaterThanOrEqual(result.cabinets.length);
+
+    for (const cabinet of result.cabinets as Array<{ skus: Array<Record<string, unknown>> }>) {
+      expect(cabinet.skus.length).toBeGreaterThan(0);
+      for (const sku of cabinet.skus) {
+        expect(sku.isAvailable).toBe(true);
+        expect(sku.isPublished).toBe(true);
+        expect(sku.homeownerPrice).toBeNull();
+        expect(sku.yourCost).toBeNull();
+        expect(sku.wholesalePrice).toBeNull();
+        expect(sku.listPrice).toBeNull();
+      }
     }
   });
 });

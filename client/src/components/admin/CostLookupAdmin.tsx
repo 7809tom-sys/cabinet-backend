@@ -389,6 +389,60 @@ function DailyPicks() {
   );
 }
 
+// ─── Missing approved customer prices: priority owner correction queue ────────
+function MissingCustomerPriceQueue() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.pricing.adminMissingCustomerPriceQueue.useQuery({ limit: 25 });
+  const [auditFor, setAuditFor] = useState<string | null>(null);
+  const cabinets = (data?.cabinets ?? []) as CabinetResult[];
+
+  const refetch = () => {
+    utils.pricing.adminMissingCustomerPriceQueue.invalidate();
+    utils.pricing.adminDailyAuditPicks.invalidate();
+    utils.pricing.adminAuditDistributors.invalidate();
+    if (auditFor) utils.pricing.adminCostHistory.invalidate();
+  };
+
+  return (
+    <Card className="border-amber-300 bg-amber-50/40">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-amber-950">
+          <CircleAlert className="size-5 text-amber-700" />
+          Published products needing customer pricing
+        </CardTitle>
+        <p className="text-sm text-amber-900/80">
+          These products are visible but have no approved customer price source. They remain quote-only and cannot be added to cart until you enter an approved price.
+          {typeof data?.remaining === "number" && (
+            <span className="ml-1 font-medium text-amber-950">
+              {data.remaining} cabinet{data.remaining === 1 ? "" : "s"} need attention.
+            </span>
+          )}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="flex justify-center py-6"><Spinner /></div>
+        ) : cabinets.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-5 text-sm text-emerald-800">
+            <BadgeCheck className="size-5" /> Every published product has a usable customer price source.
+          </div>
+        ) : (
+          cabinets.map((cab) => (
+            <CabinetCard
+              key={cab.id}
+              cab={cab}
+              defaultCollapsed
+              auditOpen={auditFor === cab.masterCode}
+              onToggleAudit={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
+              onChanged={refetch}
+            />
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Find by dropdown: Distributor → Door style → Item ───────────────────────
 function DropdownFinder() {
   const utils = trpc.useUtils();
@@ -675,6 +729,8 @@ export default function CostLookupAdmin() {
           </p>
         </CardHeader>
       </Card>
+
+      <MissingCustomerPriceQueue />
 
       <DailyPicks />
 

@@ -4019,6 +4019,91 @@ export const pricingRouter = router({
         picks: matched.map((c) => ({ ...c, skus: (byCab.get(c.id) ?? []) as typeof skuRows })),
       };
     }),
+
+  // Published products without any customer-price source must be corrected in
+  // the owner audit tool before they can become sellable. This data is never
+  // returned through public catalog procedures.
+  adminMissingCustomerPriceQueue: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { cabinets: [] as unknown[], remaining: 0 };
+      const limit = input?.limit ?? 25;
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          priceVerified: cabinets.priceVerified,
+          priceVerifiedAt: cabinets.priceVerifiedAt,
+          priceVerifiedByName: cabinets.priceVerifiedByName,
+          skuId: distributorSkus.id,
+          distributorId: distributorSkus.distributorId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          distributorName: distributors.name,
+          distributorBrandName: distributors.brandName,
+          styleOurName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          styleDistributorName: doorStyles.distributorName,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(
+          and(
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
+            sql`COALESCE(${distributorSkus.homeownerPrice}, ${distributorSkus.yourCost}, ${distributorSkus.wholesalePrice}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice}) IS NULL`,
+          ),
+        )
+        .orderBy(asc(cabinets.masterCode), asc(doorStyles.ourName));
+
+      const grouped = new Map<number, {
+        id: number;
+        masterCode: string;
+        description: string;
+        category: string;
+        subCategory: string | null;
+        priceVerified: boolean;
+        priceVerifiedAt: Date | null;
+        priceVerifiedByName: string | null;
+        skus: typeof rows;
+      }>();
+      for (const row of rows) {
+        const current = grouped.get(row.cabinetId);
+        if (current) {
+          current.skus.push(row);
+        } else {
+          grouped.set(row.cabinetId, {
+            id: row.cabinetId,
+            masterCode: row.masterCode,
+            description: row.description,
+            category: row.category,
+            subCategory: row.subCategory,
+            priceVerified: row.priceVerified,
+            priceVerifiedAt: row.priceVerifiedAt,
+            priceVerifiedByName: row.priceVerifiedByName,
+            skus: [row] as unknown as typeof rows,
+          });
+        }
+      }
+      const all = Array.from(grouped.values());
+      return { cabinets: all.slice(0, limit), remaining: all.length };
+    }),
+
   // Recent audit rows for a SKU or a cabinet number, newest first.
   adminCostHistory: adminProcedure
     .input(

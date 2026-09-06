@@ -1663,3 +1663,4 @@
 - [x] De-emphasize the utility-bar CTA, strengthen hero secondary actions, tighten B2B hero copy, surface truthful featured-style trade indicators, and convert affiliate benefits to a scannable grid
 - [ ] Trace and correct the active cabinet price discrepancy across catalog, Designer, cart, and checkout without exposing supplier costs to customers
 - [x] Prevent published products with no approved customer price from appearing sellable or price-comparable until authoritative pricing is supplied
+- [x] Add an owner-only Price Audit queue for published products that lack an approved customer price source
