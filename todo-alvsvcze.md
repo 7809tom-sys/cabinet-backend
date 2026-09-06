@@ -1709,3 +1709,6 @@
 - [x] Repair the island Back-face span calculation so a valid W-30-30 is not rejected by a stale or incomplete 30-inch opening measurement
 - [x] Correct live island face inference so the visible B-12/range/B-18 run cannot be counted as the empty Back face
 - [x] Use only the current issue screenshot and live state, not older screenshots, when diagnosing and validating the W-30-30 island placement repair
+- [ ] Repair the selected end-island waterfall action so it adds a visible full-height countertop side using the active countertop material and persists through save and reload
+- [x] Correct the live island Front/Back selector mapping so the visible B-12/range/B-18 run occupies only its real face and the empty opposite face accepts a W-30-30
+- [x] When an island face is occupied, offer a one-click placement on the verified empty opposite face without moving the existing B-12/range/B-18 run

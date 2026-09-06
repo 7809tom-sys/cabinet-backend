@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { inferredIslandFace, islandCountertopRect, islandFaceFitMeasure, islandFacePlacement, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { inferredIslandFace, islandCountertopRect, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -541,14 +541,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
-  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
-    cabinet: DesignCabinet;
-    forceAccessory: boolean;
-    side: WallSide;
-    spot: { x: number; y: number; rotation: number };
-    availableLength: number;
-  } | null>(null);
-  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
+	  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
+	    cabinet: DesignCabinet;
+	    forceAccessory: boolean;
+	    side: WallSide;
+	    spot: { x: number; y: number; rotation: number };
+	    availableLength: number;
+	  } | null>(null);
+	  const [alternateIslandFaceRecommendation, setAlternateIslandFaceRecommendation] = useState<{
+	    cabinet: DesignCabinet;
+	    forceAccessory: boolean;
+	    requestedFace: IslandFace;
+	    face: IslandFace;
+	    availableLength: number;
+	  } | null>(null);
+	  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
     hood: PlacedCabinet;
     conflictingUpper: PlacedCabinet;
   } | null>(null);
@@ -2990,7 +2997,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (isAddingRef.current) return;
 	      isAddingRef.current = true;
 	      setTimeout(() => { isAddingRef.current = false; }, 500);
-	      if (!(strictDropTarget && x != null && y != null)) setAlternateWallRecommendation(null);
+	      if (!(strictDropTarget && x != null && y != null)) {
+	        setAlternateWallRecommendation(null);
+	        setAlternateIslandFaceRecommendation(null);
+	      }
       // Placeable accessories (decorative/end panels, skins, appliance garages)
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
@@ -3364,6 +3374,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (requestedIslandFace && island) {
 	        const islandCandidate = nextIslandFacePlacement(newCab, island, requestedIslandFace, prev);
 	        if (!islandCandidate) {
+	          const oppositeFace: IslandFace = requestedIslandFace === "front"
+	            ? "back"
+	            : requestedIslandFace === "back"
+	              ? "front"
+	              : requestedIslandFace === "left"
+	                ? "right"
+	                : "left";
+	          const oppositeCandidate = nextIslandFacePlacement(newCab, island, oppositeFace, prev);
+	          if (oppositeCandidate) {
+	            const message = `${newCab.masterCode} was not added on the ${requestedIslandFace} island face because that run is occupied. A clear ${formatInches(islandFaceLength(island, oppositeFace))} opening is available on the opposite ${oppositeFace} face.`;
+	            setAlternateIslandFaceRecommendation({
+	              cabinet: c,
+	              forceAccessory,
+	              requestedFace: requestedIslandFace,
+	              face: oppositeFace,
+	              availableLength: islandFaceLength(island, oppositeFace),
+	            });
+	            setPlacementWarning(message);
+	            toast.info(message);
+	            return;
+	          }
 	          const message = `${newCab.masterCode} was not added because the ${requestedIslandFace} island face does not have a clear ${formatInches(newCab.width)} opening.`;
 	          setPlacementWarning(message);
 	          toast.error(message);
@@ -3669,6 +3700,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      null,
 	    );
 	  }, [addCabinet, alternateWallRecommendation]);
+	  const placeOnRecommendedIslandFace = useCallback(() => {
+	    const recommendation = alternateIslandFaceRecommendation;
+	    if (!recommendation) return;
+	    isAddingRef.current = false;
+	    setAlternateIslandFaceRecommendation(null);
+	    setPlacementTarget("island", recommendation.face);
+	    addCabinet(
+	      recommendation.cabinet,
+	      undefined,
+	      undefined,
+	      recommendation.forceAccessory,
+	      0,
+	      false,
+	      undefined,
+	      recommendation.face,
+	    );
+	  }, [addCabinet, alternateIslandFaceRecommendation, setPlacementTarget]);
 	  const replaceUpperWithRangeHood = useCallback(() => {
 	    const recommendation = rangeHoodReplacementRecommendation;
 	    if (!recommendation) return;
@@ -12084,6 +12132,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <DialogFooter className="gap-2 sm:gap-0">
 	            <Button variant="outline" onClick={() => setAlternateWallRecommendation(null)}>Keep current wall</Button>
 	            <Button onClick={placeOnRecommendedWall}>Place on {alternateWallRecommendation ? WALL_LABELS[alternateWallRecommendation.side] : "recommended"} wall</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
+
+	      <Dialog open={!!alternateIslandFaceRecommendation} onOpenChange={(open) => { if (!open) setAlternateIslandFaceRecommendation(null); }}>
+	        <DialogContent className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle>Clear opposite island face found</DialogTitle>
+	            <DialogDescription>
+	              The selected island face is occupied. The existing island run will remain unchanged.
+	            </DialogDescription>
+	          </DialogHeader>
+	          {alternateIslandFaceRecommendation && (
+	            <div data-testid="alternate-island-face-placement-recommendation" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
+	              <p className="font-semibold">{alternateIslandFaceRecommendation.cabinet.masterCode} fits on the {alternateIslandFaceRecommendation.face} island face</p>
+	              <p className="mt-1 text-xs leading-relaxed">Place it in the measured {formatInches(alternateIslandFaceRecommendation.availableLength)} opposite-face run with zero overlap. The occupied {alternateIslandFaceRecommendation.requestedFace} run will not move.</p>
+	            </div>
+	          )}
+	          <DialogFooter className="gap-2 sm:gap-0">
+	            <Button variant="outline" onClick={() => setAlternateIslandFaceRecommendation(null)}>Keep current face</Button>
+	            <Button onClick={placeOnRecommendedIslandFace}>Place on {alternateIslandFaceRecommendation ? alternateIslandFaceRecommendation.face : "opposite"} face</Button>
 	          </DialogFooter>
 	        </DialogContent>
 	      </Dialog>

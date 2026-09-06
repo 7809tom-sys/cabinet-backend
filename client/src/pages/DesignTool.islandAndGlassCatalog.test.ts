@@ -30,6 +30,15 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("setIsland((current) => current ? { ...current, activeFace: face } : current)");
 	});
 
+	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
+	  expect(source).toContain("alternateIslandFaceRecommendation");
+	  expect(source).toContain("Clear opposite island face found");
+	  expect(source).toContain("const oppositeCandidate = nextIslandFacePlacement(newCab, island, oppositeFace, prev)");
+	  expect(source).toContain("setAlternateIslandFaceRecommendation({");
+	  expect(source).toContain('setPlacementTarget("island", recommendation.face)');
+	  expect(source).toContain("The existing island run will remain unchanged.");
+	});
+
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {
 	  expect(source).toContain("islandFaceFitMeasure(selectedCab, island, placed)");
 	  expect(source).toContain("island && selectedCab.islandFace");
