@@ -312,7 +312,7 @@
 - [x] Fix the exact saved two-item Slate Echo Ashford mobile preview so its WDC wall corner and selected Shaker faces visibly change in production
 - [x] Fix LS36 from its saved Cabinet Config so 2D plan/elevation and 3D use its correct corner form rather than a borrowed WDC, CDB, or end-return shape
 - [x] Fix the exact persisted LS36 placement that remains unchanged on mobile after the shared catalog rule updates
-- [ ] Correct LS36 authoritative style pricing and synchronize the designer, 3D itemized preview, cart, and order totals
+- [x] Correct LS36 authoritative style pricing and synchronize the designer, 3D itemized preview, cart, and order totals
 - [x] Complete the 3D-only visual parity review of the live LS36 scene and leave all catalog pricing unchanged
 - [x] Restore the previously correct LS36 2D plan footprint and drawing behavior without reverting unrelated 3D fixes
 - [x] Enforce LS36 as an L shape only in both 2D and 3D, with no diagonal or pie-cut fallback
