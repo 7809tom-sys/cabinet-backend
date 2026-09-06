@@ -1664,3 +1664,4 @@
 - [ ] Trace and correct the active cabinet price discrepancy across catalog, Designer, cart, and checkout without exposing supplier costs to customers
 - [x] Prevent published products with no approved customer price from appearing sellable or price-comparable until authoritative pricing is supplied
 - [x] Add an owner-only Price Audit queue for published products that lack an approved customer price source
+- [x] Import only exact active SKU/style matches from the available cabinet pricing source into the owner price ladder with an audit trail
