@@ -65,7 +65,10 @@ export type GeminiImageTestJobStatus =
   | { status: "completed"; image: GeminiImageTestOutput }
   | { status: "failed"; message: string };
 
-/** Starts a Google interaction quickly; the image is fetched later by the server. */
+/**
+ * Starts a direct Google image interaction. The durable server worker reads the
+ * stored interaction afterward, so the browser never receives provider bytes.
+ */
 export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Promise<{ interactionId: string }> {
   if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
   let response: Response;
@@ -76,7 +79,6 @@ export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Pro
       signal: AbortSignal.timeout(30_000),
       body: JSON.stringify({
         model: GEMINI_NANO_BANANA_MODEL,
-        background: true,
         input: [
           { type: "text", text: input.prompt },
           { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },

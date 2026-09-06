@@ -106,7 +106,7 @@ describe("Gemini Nano Banana provider status", () => {
     })).rejects.toThrow("timed out before an image was returned");
   });
 
-  it("starts a background interaction quickly without returning image bytes to the browser-held request", async () => {
+  it("starts a direct image interaction without returning provider image bytes to the browser-held request", async () => {
     const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "interaction_123", status: "in_progress" }), { status: 200 }));
     global.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -118,7 +118,7 @@ describe("Gemini Nano Banana provider status", () => {
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://generativelanguage.googleapis.com/v1beta/interactions",
-      expect.objectContaining({ body: expect.stringContaining('"background":true') }),
+      expect.objectContaining({ body: expect.not.stringContaining('"background":true') }),
     );
   });
 
