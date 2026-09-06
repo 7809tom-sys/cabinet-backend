@@ -232,6 +232,17 @@ export const designImageRequests = mysqlTable("design_image_requests", {
   designPhotoRenderId: int("designPhotoRenderId"),
   imageUrl: varchar("imageUrl", { length: 512 }),
   imageReadyEmailSentAt: timestamp("imageReadyEmailSentAt"),
+  // Manual AI render review: the locked plan reference board and instructions are
+  // prepared only after phone verification and are attached to the same request.
+  // The completed image is accepted only by an administrator after plan-integrity
+  // validation, then reuses imageUrl/designPhotoRenderId for customer delivery.
+  manualHandoffBoardUrl: varchar("manualHandoffBoardUrl", { length: 512 }),
+  manualHandoffPrompt: text("manualHandoffPrompt"),
+  manualHandoffPreparedAt: timestamp("manualHandoffPreparedAt"),
+  manualHandoffEmailSentAt: timestamp("manualHandoffEmailSentAt"),
+  manualHandoffCrmEventId: int("manualHandoffCrmEventId"),
+  manualResultAttachedAt: timestamp("manualResultAttachedAt"),
+  manualResultAttachedBy: int("manualResultAttachedBy"),
   crmDeliveredAt: timestamp("crmDeliveredAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -20,6 +20,19 @@ import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStru
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
+describe("customer manual AI render handoff", () => {
+  it("sends only verified customer requests into manual review while retaining the administrator path", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain("prepareManualAiHandoff.useMutation");
+    expect(source).toContain("manualAiHandoffMutation.mutateAsync");
+    expect(source).toContain("selected CabinetDealz and Pelican product references");
+    expect(source).toContain("Send plan to render team");
+    expect(source).toContain("if (!isPhotoQualityTest)");
+    expect(source).toContain("photoRenderMutation.mutateAsync");
+    expect(source).toContain("Google/Gemini image test — administrator only");
+  });
+});
+
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
   layout: { id: "kitchen_l_standard", name: "Standard L Kitchen" },
@@ -6187,15 +6200,15 @@ describe("interactive 3D room scene helpers", () => {
 });
 
 describe("final high-resolution preview controls", () => {
-	  it("requires a reviewed immutable reference, avoids a photo-quality claim, and exposes a bounded administrator-only path-tracing test", () => {
+	  it("requires a reviewed immutable reference, packages customer requests for manual AI review, and exposes a bounded administrator-only path-tracing test", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="three-d-photo-render"');
 	  expect(source).toContain('>Final preview</Button>');
 	  expect(source).toContain('title="High-resolution exact 3D preview"');
 	  expect(source).toContain('data-testid="photo-quality-admin-test"');
 	  expect(source).toContain('data-testid="photo-quality-contact-lead"');
-	  expect(source).toContain('Mobile-number verification will be added when SMS service is activated.');
-    expect(source).toContain("Create high-resolution 3D preview");
+	  expect(source).toContain("Mobile-number verification protects the exact saved plan and confirmed follow-up information.");
+	  expect(source).toContain("Request your photo-quality kitchen image");
     expect(source).toContain("threeDExactPlanGeometryLock");
     expect(source).toContain("const capturePhotoRenderReference = (): string | null");
     expect(source).toContain("renderer.setSize(2560, 1440, false)");
@@ -6218,8 +6231,8 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("Finish the current placement preview before creating a high-resolution 3D preview.");
     expect(source).toContain("Save this design before creating a high-resolution 3D preview");
     expect(source).toContain("confirmation: true");
-	    expect(source).toContain("Create high-resolution 3D preview");
-	    expect(source).toContain("This is an exact 3D preview, not a photo-quality rendering.");
+	    expect(source).toContain("Send plan to render team");
+	    expect(source).toContain("Your exact plan is protected before a photo-quality image is made.");
     expect(source).toContain("Your kitchen image request was received.");
     expect(source).toContain("Retry same locked view");
     expect(source).toContain("Your editable Designer plan is unchanged.");

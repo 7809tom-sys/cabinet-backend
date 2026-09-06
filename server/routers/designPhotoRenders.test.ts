@@ -227,4 +227,39 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("if (result.success)");
     expect(source).toContain("imageReadyEmailSentAt: new Date()");
   });
+
+  it("prepares a verified customer-only manual AI handoff with the locked plan and every selected Pelican reference", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("prepareManualAiHandoff: protectedProcedure");
+    expect(source).toContain('ctx.user.role === "admin"');
+    expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design)");
+    expect(source).toContain('request.verificationStatus !== "verified"');
+    expect(source).toContain("selectedPelicanIds(design.selectedSurfaces)");
+    expect(source).toContain("manualAiReferences(db, design, canonicalProvenance)");
+    expect(source).toContain("composeManualHandoffBoard(sourceBytes, references)");
+    expect(source).toContain("manual-ai-handoffs/");
+    expect(source).toContain("selectedPelicanReferences");
+    expect(source).toContain("manualHandoffBoardUrl: storedBoard.url");
+    expect(source).not.toContain("const cards = references.slice(0, 6)");
+  });
+
+  it("accepts a staff-returned manual result only for the unchanged verified plan and then reuses customer-ready delivery", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("attachManualAiResult: protectedProcedure");
+    expect(source).toContain("verifiedManualImageUrl(input.imageUrl)");
+    expect(source).toContain("request.manualHandoffPreparedAt");
+    expect(source).toContain("savedPhotoPlanRevision(design) !== request.designRevision");
+    expect(source).toContain("savedPhotoPlanFingerprint(design) !== request.planFingerprint");
+    expect(source).toContain('generationMethod: "manual-final-review-human-ai-v1"');
+    expect(source).toContain("manualResultAttachedAt: completedAt");
+    expect(source).toContain("sendCustomerImageReadyEmail(db, completedRequest)");
+  });
+
+  it("makes manual handoff email delivery configuration explicit instead of silently claiming a package email was sent", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("emailDeliveryConfigured");
+    expect(source).toContain("internalManualHandoffRecipients(notifications.onNewDesignLead).length > 0");
+    expect(source).toContain("manualHandoffEmailSentAt");
+    expect(source).toContain("if (recipients.length > 0 && !request.manualHandoffEmailSentAt)");
+  });
 });

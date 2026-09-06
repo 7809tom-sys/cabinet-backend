@@ -1646,3 +1646,8 @@
 - [x] Audit and safely remove duplicate unused media-library records while preserving active catalog and Designer references
 - [x] Repair the administrator Google image-test retry worker so overdue queued jobs resume safely and completed results are stored
 - [x] Start and verify a fresh administrator Google image test from the current locked Designer plan
+- [x] Create a verified-plan manual AI-render handoff with one exact reference image, selected material swatches, and a ready-to-use rendering instruction package
+- [x] Include every selected Pelican product reference image and available specification in the verified-plan manual AI-render handoff
+- [x] Send the manual AI-render handoff to the CRM email workflow using the verified saved-plan record and no customer-entered replacement data
+- [x] Add an administrator workflow to attach the manually generated finished image back to the exact verified saved plan and notify the customer
+- [ ] Configure the internal New Design Lead notification recipient in Settings → Notifications so each manual AI handoff is emailed in addition to its CRM record

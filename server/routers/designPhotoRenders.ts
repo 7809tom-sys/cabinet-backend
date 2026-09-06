@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "crypto";
-import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
+import sharp from "sharp";
+import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
-import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, kitchenDesigns } from "../../drizzle/schema";
+import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
+import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -140,6 +142,217 @@ type SavedDesignForPhotoRequest = Pick<
   typeof kitchenDesigns.$inferSelect,
   "id" | "userId" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
 >;
+
+type ManualAiReference = {
+  title: string;
+  detail: string;
+  imageUrl: string | null;
+  role: string;
+  productId: number | null;
+  pelicanCode: string | null;
+};
+
+const MANUAL_HANDOFF_BOARD_WIDTH = 1920;
+const MANUAL_HANDOFF_BOARD_MIN_HEIGHT = 1080;
+const MANUAL_HANDOFF_MAX_REFERENCE_BYTES = 8 * 1024 * 1024;
+
+function xmlEscape(value: string) {
+  return value.replace(/[<>&"']/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[character] ?? character);
+}
+
+function selectedPelicanIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value
+    .map((item) => item && typeof item === "object" ? Number((item as { id?: unknown }).id) : Number.NaN)
+    .filter((id) => Number.isInteger(id) && id > 0)));
+}
+
+function verifiedManualImageUrl(value: unknown) {
+  const normalized = normalizePhotoQualityMaterialUrl(value);
+  if (typeof normalized !== "string") return null;
+  try {
+    const url = new URL(normalized);
+    return (url.hostname === "www.cabinetdealz.com" || url.hostname.endsWith(".cabinetdealz.com"))
+      && url.pathname.startsWith("/manus-storage/")
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function signedReferenceUrl(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = normalizePhotoQualityMaterialUrl(value);
+  if (typeof normalized !== "string") return null;
+  try {
+    const url = new URL(normalized);
+    if ((url.hostname === "www.cabinetdealz.com" || url.hostname.endsWith(".cabinetdealz.com")) && url.pathname.startsWith("/manus-storage/")) {
+      return storageGetSignedUrl(url.pathname.replace(/^\/manus-storage\//, ""));
+    }
+    if (url.hostname.endsWith("manuscdn.com") || url.hostname === "buildpelican.com") return url.toString();
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function fetchReferenceImage(url: string | null, width: number, height: number) {
+  if (!url) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+    if (!response.ok || (Number.isFinite(contentLength) && contentLength > MANUAL_HANDOFF_MAX_REFERENCE_BYTES)) return null;
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > MANUAL_HANDOFF_MAX_REFERENCE_BYTES) return null;
+    return sharp(bytes, { failOn: "none" }).rotate().resize(width, height, { fit: "contain", background: "#ffffff" }).jpeg({ quality: 86 }).toBuffer();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function labelSvg(x: number, y: number, width: number, title: string, detail: string, accent = "#c79b4a") {
+  const shortTitle = title.length > 38 ? `${title.slice(0, 35)}…` : title;
+  const shortDetail = detail.length > 54 ? `${detail.slice(0, 51)}…` : detail;
+  return Buffer.from(`<svg width="${width}" height="58" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${width}" height="58" fill="#10243d"/>
+    <rect width="5" height="58" fill="${accent}"/>
+    <text x="16" y="23" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#ffffff">${xmlEscape(shortTitle)}</text>
+    <text x="16" y="44" font-family="Arial, sans-serif" font-size="12" fill="#d6e0eb">${xmlEscape(shortDetail)}</text>
+  </svg>`);
+}
+
+function headingSvg() {
+  return Buffer.from(`<svg width="${MANUAL_HANDOFF_BOARD_WIDTH}" height="76" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${MANUAL_HANDOFF_BOARD_WIDTH}" height="76" fill="#0b1c31"/>
+    <text x="42" y="32" font-family="Arial, sans-serif" font-size="23" font-weight="700" fill="#ffffff">LOCKED CABINETDEALZ KITCHEN PLAN — MANUAL AI REFERENCE</text>
+    <text x="42" y="58" font-family="Arial, sans-serif" font-size="15" fill="#e5bc6e">Keep the large plan image, geometry, camera, and every selected product exactly as shown.</text>
+  </svg>`);
+}
+
+export async function composeManualHandoffBoard(sourceImage: Buffer, references: ManualAiReference[]) {
+  const mainX = 36;
+  const mainY = 102;
+  const mainWidth = 1122;
+  const cardWidth = 334;
+  const cardHeight = 274;
+  const cardX = 1200;
+  const cardY = 102;
+  const rows = Math.max(3, Math.ceil(Math.max(references.length, 1) / 2));
+  const boardHeight = Math.max(MANUAL_HANDOFF_BOARD_MIN_HEIGHT, cardY + rows * (cardHeight + 24) + 18);
+  const mainHeight = boardHeight - mainY - 76;
+  const plan = await sharp(sourceImage, { failOn: "none" }).rotate().resize(mainWidth, mainHeight, { fit: "contain", background: "#f7f4ef" }).jpeg({ quality: 90 }).toBuffer();
+  const composites: Array<{ input: Buffer; left: number; top: number }> = [
+    { input: headingSvg(), left: 0, top: 0 },
+    { input: plan, left: mainX, top: mainY },
+    { input: labelSvg(mainX, mainY + mainHeight, mainWidth, "1. Exact locked kitchen plan", "This is the required layout and camera. Do not move, add, remove, or substitute anything."), left: mainX, top: mainY + mainHeight },
+  ];
+  const cards = references;
+  for (let index = 0; index < cards.length; index += 1) {
+    const reference = cards[index]!;
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const left = cardX + column * (cardWidth + 18);
+    const top = cardY + row * (cardHeight + 24);
+    const image = await fetchReferenceImage(reference.imageUrl, cardWidth, cardHeight - 58);
+    if (image) composites.push({ input: image, left, top });
+    else {
+      composites.push({
+        input: Buffer.from(`<svg width="${cardWidth}" height="${cardHeight - 58}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#f0ebe2"/><text x="${cardWidth / 2}" y="${(cardHeight - 58) / 2}" text-anchor="middle" font-family="Arial" font-size="14" fill="#5b6775">Reference image unavailable</text></svg>`),
+        left,
+        top,
+      });
+    }
+    composites.push({ input: labelSvg(left, top + cardHeight - 58, cardWidth, `${index + 2}. ${reference.title}`, reference.detail, "#c79b4a"), left, top: top + cardHeight - 58 });
+  }
+  for (let index = cards.length; index < Math.max(6, cards.length); index += 1) {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const left = cardX + column * (cardWidth + 18);
+    const top = cardY + row * (cardHeight + 24);
+    composites.push({
+      input: Buffer.from(`<svg width="${cardWidth}" height="${cardHeight}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#e9edf1"/><text x="${cardWidth / 2}" y="${cardHeight / 2}" text-anchor="middle" font-family="Arial" font-size="14" fill="#667789">No additional selected product</text></svg>`),
+      left,
+      top,
+    });
+  }
+  return sharp({
+    create: { width: MANUAL_HANDOFF_BOARD_WIDTH, height: boardHeight, channels: 3, background: "#f7f4ef" },
+  }).composite(composites).jpeg({ quality: 91, chromaSubsampling: "4:4:4" }).toBuffer();
+}
+
+async function manualAiReferences(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  design: SavedDesignForPhotoRequest,
+  provenance: PhotoRenderProvenanceInput,
+) {
+  const selectedIds = selectedPelicanIds(design.selectedSurfaces).slice(0, 40);
+  const [styleRows, productRows] = await Promise.all([
+    design.selectedStyleId
+      ? db.select({ id: doorStyles.id, name: doorStyles.aliasName, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, woodSpecies: doorStyles.woodSpecies, finish: doorStyles.finish, doorSampleImageUrl: doorStyles.doorSampleImageUrl, cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl }).from(doorStyles).where(eq(doorStyles.id, design.selectedStyleId)).limit(1)
+      : Promise.resolve([]),
+    selectedIds.length
+      ? db.select({ id: pelicanProducts.id, pelicanCode: pelicanProducts.pelicanCode, name: pelicanProducts.name, category: pelicanProducts.category, subCategory: pelicanProducts.subCategory, size: pelicanProducts.size, description: pelicanProducts.description, imageUrl: pelicanProducts.imageUrl, materialImageUrl: pelicanProducts.materialImageUrl }).from(pelicanProducts).where(inArray(pelicanProducts.id, selectedIds))
+      : Promise.resolve([]),
+  ]);
+  const references: ManualAiReference[] = [];
+  const style = styleRows[0];
+  const cabinetProvenance = provenance.materials.find((entry) => entry.role === "cabinet");
+  if (style || cabinetProvenance?.materialImageUrl) {
+    references.push({
+      title: style?.name || style?.ourName || cabinetProvenance?.name || "Cabinet door finish",
+      detail: [style?.styleCode, style?.doorStyle, style?.woodSpecies, style?.finish].filter(Boolean).join(" · ") || "Selected cabinet finish",
+      imageUrl: await signedReferenceUrl(style?.doorSampleImageUrl ?? style?.cornerSwatchImageUrl ?? style?.thumbnailImageUrl ?? cabinetProvenance?.materialImageUrl),
+      role: "cabinet",
+      productId: style?.id ?? cabinetProvenance?.productId ?? null,
+      pelicanCode: null,
+    });
+  }
+  for (const product of productRows) {
+    const materialFirst = /floor|tile|mosaic|backsplash|countertop|quartz|slab/i.test(`${product.category} ${product.subCategory ?? ""}`);
+    references.push({
+      title: product.name,
+      detail: [product.pelicanCode, product.category, product.subCategory, product.size, product.description].filter(Boolean).join(" · "),
+      imageUrl: await signedReferenceUrl((materialFirst ? product.materialImageUrl : null) ?? product.imageUrl ?? product.materialImageUrl),
+      role: product.category,
+      productId: product.id,
+      pelicanCode: product.pelicanCode,
+    });
+  }
+  const byRole = new Set(references.map((reference) => reference.role));
+  for (const material of provenance.materials) {
+    if (!byRole.has(material.role) && material.materialImageUrl) {
+      references.push({
+        title: material.name ?? `${material.role} selection`,
+        detail: `Selected ${material.role}`,
+        imageUrl: await signedReferenceUrl(material.materialImageUrl),
+        role: material.role,
+        productId: material.productId,
+        pelicanCode: null,
+      });
+    }
+  }
+  return references;
+}
+
+function manualAiPrompt(provenance: PhotoRenderProvenanceInput, references: ManualAiReference[]) {
+  const selectedReferences = references.map((reference, index) => `${index + 2}. ${reference.title}${reference.detail ? ` — ${reference.detail}` : ""}`).join("\n");
+  return [
+    "Use image 1 as the locked CabinetDealz kitchen plan and camera composition. Do not alter its layout, cabinets, fillers, countertop runs, appliances, fixtures, walls, doors, windows, island, dimensions, or viewpoint.",
+    "The remaining numbered cards are the exact selected CabinetDealz and Pelican product references. Apply each reference only to its matching existing surface or fixture. Do not introduce any product not shown on this board.",
+    "Create a photorealistic architectural interior image with realistic lighting and physically plausible material texture. Return one kitchen image only, without labels, UI, people, text, logos, watermarks, measurements, or extra products.",
+    `Saved-plan summary: ${photoRenderProvenanceSummary(provenance)}`,
+    selectedReferences ? `Reference cards:\n${selectedReferences}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function internalManualHandoffRecipients(value: string | null | undefined) {
+  return Array.from(new Set((value ?? "").split(",").map((email) => email.trim().toLowerCase()).filter((email) => z.string().email().safeParse(email).success)));
+}
 
 const verificationCodeSchema = z.string().trim().regex(/^\d{4,10}$/, "Enter the code from your text message.");
 const PHOTO_VERIFICATION_RESEND_MS = 60_000;
@@ -536,6 +749,200 @@ export const designPhotoRendersRouter = router({
         eq(designImageRequests.generationStatus, "completed"),
       )).orderBy(desc(designImageRequests.updatedAt)).limit(1);
       return request?.imageUrl ? request : null;
+    }),
+
+  prepareManualAiHandoff: protectedProcedure
+    .input(z.object({
+      sceneSignature: z.string().min(16).max(191),
+      sceneImageDataUrl: z.string().min(128).max(8_500_000).regex(DATA_IMAGE_PREFIX, "A locked JPEG Designer image is required."),
+      provenance: photoRenderProvenanceSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role === "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Administrator Google tests remain separate from customer manual render requests." });
+      const db = await getDb();
+      if (!db) throw new Error("Manual image review is temporarily unavailable.");
+      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.provenance.designId);
+      const { revision, fingerprint } = validatePhotoProvenanceAgainstSavedDesign(input.provenance, design);
+      const [request] = await db.select().from(designImageRequests).where(and(
+        eq(designImageRequests.userId, ctx.user.id),
+        eq(designImageRequests.sceneSignature, input.sceneSignature),
+      )).limit(1);
+      if (!request || request.verificationStatus !== "verified") {
+        throw new Error("Verify your mobile number for this exact saved kitchen plan before requesting manual image review.");
+      }
+      if (request.kitchenDesignId !== design.id || request.designRevision !== revision || request.planFingerprint !== fingerprint) {
+        throw new Error("This saved kitchen plan changed after phone verification. Save the plan, request a new code, and try again.");
+      }
+      if (request.generationStatus === "completed" && request.imageUrl) {
+        return { status: "completed" as const, customerMessage: "Your kitchen image is already ready on this saved plan." };
+      }
+      if (request.manualHandoffPreparedAt && request.manualHandoffBoardUrl && request.manualHandoffPrompt) {
+        return { status: "prepared" as const, customerMessage: "Your exact kitchen plan and selected product references are already with the rendering team." };
+      }
+      const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
+      if (imageKind !== "jpeg") throw new Error("Manual image review requires the locked deterministic JPEG capture. Reopen Photo Quality and try again.");
+      const sourceBytes = Buffer.from(input.sceneImageDataUrl.replace(DATA_IMAGE_PREFIX, ""), "base64");
+      const dimensions = readJpegDimensions(sourceBytes);
+      if (dimensions.width < 1920 || dimensions.height < 1080) {
+        throw new Error("Manual image review requires a minimum 1920×1080 locked render. Reopen Photo Quality and try again.");
+      }
+      const canonicalProvenance = canonicalizeDeterministicRenderProvenance(input.provenance, sourceBytes);
+      const references = await manualAiReferences(db, design, canonicalProvenance);
+      const prompt = manualAiPrompt(canonicalProvenance, references);
+      const boardBytes = await composeManualHandoffBoard(sourceBytes, references);
+      const storedBoard = await storagePut(
+        `manual-ai-handoffs/${ctx.user.id}/request-${request.id}-${Date.now()}.jpg`,
+        boardBytes,
+        "image/jpeg",
+      );
+      const preparedAt = new Date();
+      const planUrl = `https://www.cabinetdealz.com/design?load=${design.id}&preview=3d`;
+      const crmEventId = await emitCrmEvent({
+        event: "lead",
+        contact: { userId: ctx.user.id, name: request.name, email: request.email, phone: request.phoneE164 },
+        link: planUrl,
+        data: {
+          ...photoQualityCrmData({
+            imageRequestId: request.id,
+            planFingerprint: request.planFingerprint,
+            sceneSignature: request.sceneSignature,
+            provenance: canonicalProvenance,
+            requestedAt: preparedAt,
+          }),
+          workflow: "manual_ai_render_review",
+          manualHandoffBoardUrl: storedBoard.url,
+          manualPrompt: prompt,
+          selectedPelicanReferences: references.map(({ title, detail, role, productId, pelicanCode, imageUrl }) => ({ title, detail, role, productId, pelicanCode, imageUrl })),
+          instruction: "Use the attached locked-plan reference board as one image in the chosen AI image generator, then upload the finished image to CabinetDealz Operations → Manual AI Renders.",
+        },
+      });
+      await db.update(designImageRequests).set({
+        generationStatus: "generating",
+        manualHandoffBoardUrl: storedBoard.url,
+        manualHandoffPrompt: prompt,
+        manualHandoffPreparedAt: preparedAt,
+        manualHandoffCrmEventId: crmEventId,
+      }).where(eq(designImageRequests.id, request.id));
+
+      const [notifications] = await db.select().from(notificationSettings).limit(1);
+      const recipients = notifications?.enabled ? internalManualHandoffRecipients(notifications.onNewDesignLead) : [];
+      if (recipients.length > 0 && !request.manualHandoffEmailSentAt) {
+        const delivery = await sendEmail({
+          to: recipients[0]!,
+          cc: recipients.slice(1),
+          subject: `Manual AI kitchen render ready — saved plan #${design.id}`,
+          text: `A verified CabinetDealz customer requested a manual AI kitchen render.\n\nSaved plan: ${planUrl}\nReference board: ${storedBoard.url}\n\nUse the attached JPEG as one reference image. Then upload the finished image in Administration → Operations → Manual AI Renders.\n\nAI instruction:\n${prompt}`,
+          html: `<p><strong>A verified CabinetDealz customer requested a manual AI kitchen render.</strong></p><p><a href="${planUrl}">Open the exact saved kitchen plan</a></p><p>The attached reference board contains the locked plan plus the selected CabinetDealz and Pelican product references. Use it as one reference image in the AI generator, then upload the finished image through <strong>Administration → Operations → Manual AI Renders</strong>.</p><p><strong>AI instruction</strong></p><pre style="white-space:pre-wrap;font-family:Arial,sans-serif">${xmlEscape(prompt)}</pre>`,
+          attachments: [
+            { filename: `cabinetdealz-plan-${design.id}-ai-reference.jpg`, content: boardBytes, contentType: "image/jpeg" },
+            { filename: `cabinetdealz-plan-${design.id}-ai-instructions.txt`, content: prompt, contentType: "text/plain" },
+          ],
+        });
+        if (delivery.success) {
+          await db.update(designImageRequests).set({ manualHandoffEmailSentAt: new Date() }).where(eq(designImageRequests.id, request.id));
+        }
+      }
+      return {
+        status: "prepared" as const,
+        customerMessage: "Your kitchen plan, selected Pelican references, and rendering instructions were sent to the review team. We will email you when the finished image is attached to this saved plan.",
+      };
+    }),
+
+  listManualAiHandoffs: protectedProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      const db = await getDb();
+      if (!db) return { handoffs: [], emailDeliveryConfigured: false };
+      const requestsQuery = db.select({
+        id: designImageRequests.id,
+        kitchenDesignId: designImageRequests.kitchenDesignId,
+        name: designImageRequests.name,
+        generationStatus: designImageRequests.generationStatus,
+        manualHandoffBoardUrl: designImageRequests.manualHandoffBoardUrl,
+        manualHandoffPrompt: designImageRequests.manualHandoffPrompt,
+        manualHandoffPreparedAt: designImageRequests.manualHandoffPreparedAt,
+        manualHandoffEmailSentAt: designImageRequests.manualHandoffEmailSentAt,
+        manualResultAttachedAt: designImageRequests.manualResultAttachedAt,
+        imageUrl: designImageRequests.imageUrl,
+      }).from(designImageRequests).where(and(
+        eq(designImageRequests.verificationStatus, "verified"),
+        isNull(designImageRequests.manualResultAttachedAt),
+      )).orderBy(desc(designImageRequests.manualHandoffPreparedAt)).limit(100);
+      const [requests, notificationRows] = await Promise.all([
+        requestsQuery,
+        db.select({ enabled: notificationSettings.enabled, onNewDesignLead: notificationSettings.onNewDesignLead }).from(notificationSettings).limit(1),
+      ]);
+      const notifications = notificationRows[0];
+      return {
+        handoffs: requests.filter((request) => Boolean(request.manualHandoffPreparedAt && request.manualHandoffBoardUrl && request.manualHandoffPrompt)),
+        emailDeliveryConfigured: Boolean(notifications?.enabled && internalManualHandoffRecipients(notifications.onNewDesignLead).length > 0),
+      };
+    }),
+
+  attachManualAiResult: protectedProcedure
+    .input(z.object({
+      requestId: z.number().int().positive(),
+      imageUrl: z.string().url(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
+      const db = await getDb();
+      if (!db) throw new Error("Manual image review is temporarily unavailable.");
+      const [request] = await db.select().from(designImageRequests).where(eq(designImageRequests.id, input.requestId)).limit(1);
+      if (!request || request.verificationStatus !== "verified" || !request.manualHandoffPreparedAt) {
+        throw new Error("This is not an active verified manual image request.");
+      }
+      if (request.manualResultAttachedAt || request.generationStatus === "completed") {
+        throw new Error("A completed image is already attached to this saved plan.");
+      }
+      const storedImageUrl = verifiedManualImageUrl(input.imageUrl);
+      if (!storedImageUrl) throw new Error("Upload the finished image to the CabinetDealz Media Library before attaching it to a customer plan.");
+      const design = await loadOwnedSavedDesign(db, request.userId, request.kitchenDesignId);
+      if (savedPhotoPlanRevision(design) !== request.designRevision || savedPhotoPlanFingerprint(design) !== request.planFingerprint) {
+        throw new Error("This saved kitchen plan changed after the manual handoff. Do not attach the result; prepare a new verified request from the current plan.");
+      }
+      const completedAt = new Date();
+      const promptFingerprint = createHash("sha256").update(request.manualHandoffPrompt ?? "manual-ai-render-handoff").digest("hex");
+      await db.insert(designPhotoRenders).values({
+        userId: request.userId,
+        kitchenDesignId: design.id,
+        sceneSignature: request.sceneSignature,
+        imageUrl: storedImageUrl,
+        provenance: request.provenance,
+        sourceImageHash: (request.provenance as PhotoRenderProvenanceInput).sourceImageHash,
+        promptFingerprint,
+        generationMethod: "manual-final-review-human-ai-v1",
+        confirmedAt: completedAt,
+      }).onDuplicateKeyUpdate({ set: {
+        kitchenDesignId: design.id,
+        imageUrl: storedImageUrl,
+        provenance: request.provenance,
+        sourceImageHash: (request.provenance as PhotoRenderProvenanceInput).sourceImageHash,
+        promptFingerprint,
+        generationMethod: "manual-final-review-human-ai-v1",
+        confirmedAt: completedAt,
+        updatedAt: completedAt,
+      } });
+      const [stored] = await db.select({ id: designPhotoRenders.id }).from(designPhotoRenders).where(and(
+        eq(designPhotoRenders.userId, request.userId),
+        eq(designPhotoRenders.sceneSignature, request.sceneSignature),
+      )).limit(1);
+      const completedRequest = {
+        ...request,
+        generationStatus: "completed" as const,
+        designPhotoRenderId: stored?.id ?? null,
+        imageUrl: storedImageUrl,
+      };
+      await db.update(designImageRequests).set({
+        generationStatus: "completed",
+        designPhotoRenderId: stored?.id ?? null,
+        imageUrl: storedImageUrl,
+        manualResultAttachedAt: completedAt,
+        manualResultAttachedBy: ctx.user.id,
+      }).where(eq(designImageRequests.id, request.id));
+      void sendCustomerImageReadyEmail(db, completedRequest)
+        .catch(() => console.warn("[Manual AI render] Customer image-ready email delivery could not be completed."));
+      return { status: "completed" as const, imageUrl: storedImageUrl };
     }),
 
   requestPhoneVerification: protectedProcedure
