@@ -1694,3 +1694,7 @@
 - [x] Move eligible island wall-cabinet pulls upward on the existing door rail, not to a different top rail
 - [x] Make FS48 and FS60 floating shelves attach to their selected room wall at the chosen height rather than the island or a room-center position
 - [x] Render FS48 and FS60 as thin floating shelves with no cabinet-box carcass, door, or countertop geometry
+- [x] Ensure elevated floating shelves do not consume Right-wall base-run clearance when adding an SB-36
+- [x] Align BBC-36 remaining-clearance display and SB-36 placement feedback with the same Right-wall base-run measurement
+- [x] Exclude every island object from Wall mode clearance and SB-36 fit measurement on all room walls
+- [ ] Repair the Saved Designs dialog so an active signed-in session never receives the anonymous sign-in prompt

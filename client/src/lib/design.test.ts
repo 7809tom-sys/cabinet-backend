@@ -68,6 +68,24 @@ describe("floating-shelf legacy dimension repair", () => {
   });
 });
 
+describe("Wall mode isolation from island faces", () => {
+  it("does not let an island base shorten a right-wall SB-36 opening", () => {
+    const room: RoomData = { width: 144, depth: 120 };
+    const rightWallSb36: PlacedCabinet = {
+      uid: "right-wall-sb36", cabinetId: 36, masterCode: "SB36", description: "36 inch Sink Base",
+      placement: "base", x: 120, y: 0, width: 36, depth: 24, height: 34.5, rotation: 90,
+      numberOfDoors: 2, numberOfDrawers: 0,
+    };
+    const islandBase: PlacedCabinet = {
+      uid: "island-base-near-right-wall", cabinetId: 24, masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", x: 96, y: 40, width: 24, depth: 24, height: 34.5, rotation: 90,
+      islandFace: "right", islandOffset: 0, numberOfDoors: 1, numberOfDrawers: 1,
+    };
+    const fit = wallCabinetFitMeasure(rightWallSb36, room, [islandBase], [], "right", 0);
+    expect(fit).toMatchObject({ availableSpan: 120, requiredSpan: 36, status: "fits" });
+  });
+});
+
 describe("3D same-wall cabinet drag", () => {
   const cabinet = (uid: string, x: number, y: number, width: number, rotation = 0): PlacedCabinet => ({
     uid,

@@ -5005,6 +5005,11 @@ export function freeSegmentsOnWall(
     return pl === "base" || pl === "appliance";
   };
   for (const p of placed) {
+    // Island-face cabinets are attached to the island's own perimeter. Their
+    // plan footprint can be nearer to a room wall than the island's outline,
+    // but they are never members of a room-wall run and must not shorten a
+    // Wall mode opening or its remaining-clearance display.
+    if (p.islandFace) continue;
     if (!blocksThisLayer(p)) continue;
     // Ordinary cabinets belong only to their oriented wall. A true room-corner
     // footprint (lazy Susan/easy reach, diagonal corner, or corner drawer)
@@ -5683,6 +5688,9 @@ export function wallCabinetFitMeasure(
   const requiredSpan = Math.max(0, me.end - me.start);
 	  const peers = others
 	    .filter((other) => other.uid !== moving.uid)
+	    // A room-wall fit must not infer a wall run from a cabinet on an island
+	    // face, even if its island position happens to be closest to this wall.
+	    .filter((other) => !other.islandFace)
 	    .filter((other) => sharesPlanCollisionZone(moving, other))
 	    // Ordinary perpendicular cabinets belong to only one selected-wall run.
 	    // A genuine diagonal/L/corner-drawer cabinet physically reserves both wall
