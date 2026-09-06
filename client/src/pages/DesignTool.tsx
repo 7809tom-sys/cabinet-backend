@@ -286,7 +286,7 @@ function DimStepper({
 
 export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?: string }) {
   const { t, lang } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const isAdmin = (user as any)?.role === "admin";
   const search = useSearch();
   const queryAffiliateSlug = useMemo(() => {
@@ -457,7 +457,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const currentSavedDesignId = activeSavedDesignId ?? loadDesignId;
   const { data: savedDesign } = trpc.design.byId.useQuery(
     { id: currentSavedDesignId ?? 0, affiliateSlug: affiliateSlug ?? undefined },
-    { enabled: currentSavedDesignId != null && verified, retry: 1 }
+    { enabled: currentSavedDesignId != null && verified && isAuthenticated, retry: 1 }
   );
 
   // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).

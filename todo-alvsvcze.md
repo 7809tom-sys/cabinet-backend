@@ -1697,4 +1697,7 @@
 - [x] Ensure elevated floating shelves do not consume Right-wall base-run clearance when adding an SB-36
 - [x] Align BBC-36 remaining-clearance display and SB-36 placement feedback with the same Right-wall base-run measurement
 - [x] Exclude every island object from Wall mode clearance and SB-36 fit measurement on all room walls
-- [ ] Repair the Saved Designs dialog so an active signed-in session never receives the anonymous sign-in prompt
+- [x] Repair the Saved Designs dialog so an active signed-in session never receives the anonymous sign-in prompt
+- [x] Restrict saved-design save, list, and direct-load access to the authenticated owner across customer, affiliate, and contractor roles, with separate authorized-share and administrator-review exceptions
+- [x] Permit administrators to review all saved designs while keeping affiliates and contractors owner-scoped unless a separate authorized-share path is used
+- [x] Reproduce the reported SB-36 attempt: the active Back wall had only a 10-inch clear run; retain real collision protection and direct the user to select the intended wall

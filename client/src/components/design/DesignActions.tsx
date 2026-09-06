@@ -9,6 +9,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PlacedFurniture, PonyWall } from "@/lib/design";
 import { roomWithPersistedEntities } from "@/lib/design";
@@ -360,7 +361,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 export function DesignActions({
   room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onLoad,
 }: Props) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
   const utils = trpc.useUtils();
   const documentAccess = trpc.design.documentAccess.useQuery(
@@ -385,7 +386,13 @@ export function DesignActions({
     setDismissedPlanFindingIds([]);
     setPlanCheckOpen(true);
   }, [openSaveSignal]);
-  useEffect(() => { if (openLoadSignal) setLoadOpen(true); }, [openLoadSignal]);
+  useEffect(() => {
+    if (!openLoadSignal) return;
+    setLoadOpen(true);
+    // Refresh the account check when My Designs opens so a newly returned
+    // first-party session is not mistaken for an anonymous visitor.
+    void refresh();
+  }, [openLoadSignal]);
   // When checked, after saving we create a CRM deal for the design's owner.
   const [requestQuote, setRequestQuote] = useState(false);
 
@@ -628,10 +635,16 @@ export function DesignActions({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaveOpen(false)}>{t("dt_act_cancel")}</Button>
-            <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-1.5">
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t("dt_act_save_design")}
-            </Button>
+            {isAuthenticated ? (
+              <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-1.5">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {t("dt_act_save_design")}
+              </Button>
+            ) : (
+              <Button asChild className="gap-1.5">
+                <a href={getLoginUrl()}>Sign in to save</a>
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -644,10 +657,22 @@ export function DesignActions({
             <DialogDescription>{t("dt_act_my_saved_desc")}</DialogDescription>
           </DialogHeader>
 
-          {!isAuthenticated ? (
+          {isAuthLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 mx-auto mb-2 animate-spin" /> {t("dt_act_loading")}
+            </div>
+          ) : !isAuthenticated ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              {t("dt_act_signin_to_view")}
+              <p>{authError ? "We could not confirm your session for this shop." : t("dt_act_signin_to_view")}</p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => void refresh()}>
+                  Check account again
+                </Button>
+                <Button type="button" size="sm" asChild>
+                  <a href={getLoginUrl()}>Sign in again</a>
+                </Button>
+              </div>
             </div>
           ) : myDesigns.isLoading ? (
             <div className="py-6 text-center text-sm text-muted-foreground">

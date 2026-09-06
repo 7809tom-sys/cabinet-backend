@@ -1094,7 +1094,7 @@ export const designRouter = router({
 	      };
 	    }),
 
-  save: publicProcedure
+  save: protectedProcedure
     .input(
       z.object({
         id: z.number().optional(),
@@ -1117,12 +1117,24 @@ export const designRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database not available");
 
-      const userId = ctx.user?.id ?? null;
+      const userId = ctx.user.id;
       const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
 
       if (input.id) {
+        const existing = await db
+          .select({ id: kitchenDesigns.id })
+          .from(kitchenDesigns)
+          .where(and(
+            eq(kitchenDesigns.id, input.id),
+            eq(kitchenDesigns.userId, userId),
+            affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+          ))
+          .limit(1);
+        if (!existing.length) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+        }
         await db
           .update(kitchenDesigns)
           .set({
@@ -1139,6 +1151,7 @@ export const designRouter = router({
           })
           .where(and(
             eq(kitchenDesigns.id, input.id),
+            eq(kitchenDesigns.userId, userId),
             affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
           ));
         return { id: input.id };
@@ -1246,6 +1259,12 @@ export const designRouter = router({
     if (!db) return [];
     const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug);
     await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
+    if (ctx.user.role === "admin") {
+      // Administrators may review every saved plan, including customer,
+      // affiliate, and contractor-owned designs. Editing and ordinary sharing
+      // remain creator-scoped below.
+      return db.select().from(kitchenDesigns);
+    }
     return db
       .select()
       .from(kitchenDesigns)
@@ -1255,17 +1274,22 @@ export const designRouter = router({
       ));
     }),
 
-  byId: publicProcedure
+  byId: protectedProcedure
     .input(z.object({ id: z.number(), affiliateSlug: z.string().max(255).optional() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
       const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
+      const ownerScope = ctx.user.role === "admin"
+        ? undefined
+        : eq(kitchenDesigns.userId, ctx.user.id);
       const rows = await db
         .select()
         .from(kitchenDesigns)
         .where(and(
           eq(kitchenDesigns.id, input.id),
+          ownerScope,
           affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
         ))
         .limit(1);
@@ -1296,7 +1320,7 @@ export const designRouter = router({
         .limit(1);
       const design = rows[0];
       if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
-      if (ctx.user.role !== "admin" && affiliateId == null && design.userId !== ctx.user.id) {
+      if (design.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You can only share your own saved design." });
       }
 

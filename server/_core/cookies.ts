@@ -31,10 +31,19 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
+function cabinetDealzCookieDomain(hostname: string | undefined) {
+  const host = (hostname ?? "").trim().toLowerCase();
+  if (host === "cabinetdealz.com" || host.endsWith(".cabinetdealz.com")) {
+    return ".cabinetdealz.com";
+  }
+  return undefined;
+}
+
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
   return {
+    domain: cabinetDealzCookieDomain(req.hostname),
     httpOnly: true,
     path: "/",
     sameSite: "none",
