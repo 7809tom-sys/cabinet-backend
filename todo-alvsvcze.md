@@ -1665,3 +1665,4 @@
 - [x] Prevent published products with no approved customer price from appearing sellable or price-comparable until authoritative pricing is supplied
 - [x] Add an owner-only Price Audit queue for published products that lack an approved customer price source
 - [x] Import only exact active SKU/style matches from the available cabinet pricing source into the owner price ladder with an audit trail
+- [x] Import only unambiguous shared source costs for active default-style cabinets after verifying the source cost is identical across all matching styles
