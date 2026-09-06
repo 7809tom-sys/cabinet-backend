@@ -4,18 +4,28 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PackageOpen, Wand2, LayoutGrid, ChevronRight } from "lucide-react";
+import { PackageOpen, Wand2, LayoutGrid, ChevronRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BundleDeals() {
   const [, navigate] = useLocation();
   const bundles = trpc.priceShop.listPublishedBundles.useQuery();
   const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [failedFloorPlans, setFailedFloorPlans] = useState<Set<number>>(() => new Set());
 
   const handleLoadBundle = (id: number) => {
     setLoadingId(id);
     navigate(`/design?bundleId=${id}`);
     toast.success("Loading bundle into designer…");
+  };
+
+  const markFloorPlanUnavailable = (id: number) => {
+    setFailedFloorPlans((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -84,12 +94,13 @@ export default function BundleDeals() {
                 >
                   {/* Hero image or placeholder */}
                   <div className="relative h-48 bg-gradient-to-br from-muted to-muted/50 overflow-hidden">
-                    {bundle.floorPlanImageUrl ? (
+                    {bundle.floorPlanImageUrl && !failedFloorPlans.has(bundle.id) ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-white p-4">
                         <img
                           src={bundle.floorPlanImageUrl}
                           alt={`${bundle.name} floor plan`}
                           className="max-w-full max-h-full object-contain"
+                          onError={() => markFloorPlanUnavailable(bundle.id)}
                         />
                       </div>
                     ) : bundle.heroImageUrl ? (
@@ -99,9 +110,10 @@ export default function BundleDeals() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                        <LayoutGrid className="h-12 w-12 opacity-20" />
-                        <span className="text-xs opacity-40">No preview image</span>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+                        <LayoutGrid className="h-10 w-10 opacity-30" aria-hidden="true" />
+                        <span className="text-xs font-medium">Floor-plan preview unavailable</span>
+                        <span className="text-[11px] leading-snug opacity-75">Open this package in the Designer to review its layout.</span>
                       </div>
                     )}
                     <div className="absolute top-3 left-3 flex gap-1.5">
@@ -160,4 +172,3 @@ export default function BundleDeals() {
     </div>
   );
 }
-import { MapPin } from "lucide-react";

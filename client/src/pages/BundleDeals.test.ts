@@ -9,4 +9,11 @@ describe("Bundle Deals card pricing", () => {
     expect(bundleDealsSource).not.toContain("Current pricing needs review");
     expect(bundleDealsSource).not.toMatch(/>Current</);
   });
+
+  it("replaces a broken floor-plan image with a clear non-image state instead of leaving a broken preview", () => {
+    expect(bundleDealsSource).toContain("failedFloorPlans");
+    expect(bundleDealsSource).toContain("onError={() => markFloorPlanUnavailable(bundle.id)}");
+    expect(bundleDealsSource).toContain("Floor-plan preview unavailable");
+    expect(bundleDealsSource).toContain("Open this package in the Designer to review its layout.");
+  });
 });

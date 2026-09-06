@@ -60,6 +60,7 @@ const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
 const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
 const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
+const About = lazy(() => import("@/pages/About"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
@@ -191,8 +192,11 @@ export default function App() {
     setVersionNotifier(({ onReload }) => {
       toast("A new version is available", {
         description: "Refresh to get the latest cabinets and fixes.",
-        duration: Infinity,
-        action: { label: "Refresh", onClick: onReload },
+        // A deployment notice must never become a permanent overlay that
+        // prevents someone from reaching navigation or a primary action.
+        duration: 10_000,
+        action: { label: "Refresh now", onClick: onReload },
+        cancel: { label: "Dismiss", onClick: () => undefined },
       });
     });
     startVersionWatcher();
@@ -577,6 +581,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Contact />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/about">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <About />
             </Suspense>
           </AppLayout>
         </Route>

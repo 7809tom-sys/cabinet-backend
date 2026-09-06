@@ -1668,3 +1668,7 @@
 - [x] Import only unambiguous shared source costs for active default-style cabinets after verifying the source cost is identical across all matching styles
 - [x] Import only style-independent supplier costs for remaining active quote-only cabinet records after proving the source cost is identical across every source style
 - [x] Add an owner-only unresolved-price export from Price Audit to obtain authoritative supplier pricing for quote-only products
+- [x] Eliminate horizontal overflow on internal pages at standard desktop and mobile viewports
+- [x] Make the new-version update notice dismissible or non-blocking so it cannot cover navigation or calls to action
+- [x] Repair the missing Onyx Shadow bundle floor-plan asset without using an invalid placeholder
+- [x] Replace the broken About route with a credible CabinetDealz trade-platform page or remove every live link to it

@@ -174,15 +174,17 @@ export function TopNav() {
         )}
 
         {/* Chat trigger — right after logo, out of the way */}
-        <ChatTrigger />
+        <div className="hidden 2xl:block">
+          <ChatTrigger />
+        </div>
 
         {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-0.5">
+        <nav className="hidden xl:flex items-center gap-0">
           {PRIMARY_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`px-2.5 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+              className={`px-1 py-2 2xl:px-2.5 rounded-md xl:text-[13px] 2xl:text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
                 isActive(link.href)
                   ? "bg-primary/10 text-primary"
                   : "text-foreground/70 hover:text-foreground hover:bg-muted"
@@ -196,7 +198,7 @@ export function TopNav() {
           <div className="relative">
             <button
               onClick={() => setMoreOpen(!moreOpen)}
-              className={`flex items-center gap-1 px-2.5 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+              className={`flex items-center gap-1 px-1 py-2 2xl:px-2.5 rounded-md xl:text-[13px] 2xl:text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
                 moreActive
                   ? "bg-primary/10 text-primary"
                   : "text-foreground/70 hover:text-foreground hover:bg-muted"
@@ -248,7 +250,7 @@ export function TopNav() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Language toggle (desktop) */}
           <LangToggle className="hidden sm:flex" />
 
@@ -283,7 +285,7 @@ export function TopNav() {
           )}
 
           {user ? (
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden xl:flex items-center gap-2">
               <span className="hidden xl:inline text-sm text-muted-foreground max-w-[140px] truncate">{user.name || user.email}</span>
               {(user.role === "admin" || user.role === "designer") && (
                 <Link href="/admin">
@@ -324,7 +326,7 @@ export function TopNav() {
             <Link href="/signin">
               <Button
                 size="sm"
-                className="hidden lg:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+                className="hidden xl:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
               >
                 {t("nav_sign_in")}
               </Button>
@@ -335,7 +337,7 @@ export function TopNav() {
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="xl:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -346,7 +348,7 @@ export function TopNav() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-border bg-background slide-up">
+        <div className="xl:hidden border-t border-border bg-background slide-up">
           <nav className="container py-4 flex flex-col gap-1">
             {ALL_LINKS.map((link) => (
               <Link

@@ -74,6 +74,7 @@ export function SiteFooter() {
                 { label: t("nav_supplier_portal"), href: "/distributor" },
                 { label: t("home_aud_affiliates_cta"), href: "/affiliate" },
                 { label: t("nav_admin"), href: "/admin" },
+                { label: "About Cabinet Dealz", href: "/about" },
                 { label: "Contact Us", href: "/contact" },
               ].map((item) => (
                 <li key={item.label}>
