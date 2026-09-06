@@ -132,7 +132,6 @@ export function islandFaceFitMeasure(
 }
 
 export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): IslandFace {
-  if (cabinet.islandFace) return cabinet.islandFace;
   const footprint = placedFootprint(cabinet);
   const distances: Array<[IslandFace, number]> = [
     ["back", Math.abs(cabinet.y - island.y)],
@@ -141,7 +140,17 @@ export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): 
     ["right", Math.abs(island.x + island.width - (cabinet.x + footprint.w))],
   ];
   distances.sort((a, b) => a[1] - b[1]);
-  return distances[0]?.[0] ?? "front";
+  const nearestFace = distances[0]?.[0] ?? "front";
+  const nearestDistance = distances[0]?.[1] ?? Number.POSITIVE_INFINITY;
+  const declaredFace = cabinet.islandFace ?? null;
+  if (!declaredFace) return nearestFace;
+
+  const declaredDistance = distances.find(([face]) => face === declaredFace)?.[1] ?? Number.POSITIVE_INFINITY;
+  // Older saved plans can retain an islandFace label after a cabinet was moved
+  // onto another physical side of the island. Trust the persisted face only
+  // when it still matches that edge; otherwise it must not reserve a run that
+  // is visibly empty in the current island layout.
+  return declaredDistance <= nearestDistance + 1 ? declaredFace : nearestFace;
 }
 
 const OPPOSITE_ISLAND_FACE: Record<IslandFace, IslandFace> = {

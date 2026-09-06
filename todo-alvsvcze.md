@@ -1706,3 +1706,6 @@
 - [x] Restore a persistent Materials & Parts toolbar action that opens the complete current-plan materials list
 - [x] Snap a palette-added SB-36 to the nearest valid selected-wall base opening instead of rejecting a valid Back-wall placement because of an imprecise click or drop point
 - [x] Keep all existing cabinets in place when snapping an SB-36 into a valid selected-wall opening; never require removal of a neighboring run for a non-overlapping placement
+- [x] Repair the island Back-face span calculation so a valid W-30-30 is not rejected by a stale or incomplete 30-inch opening measurement
+- [x] Correct live island face inference so the visible B-12/range/B-18 run cannot be counted as the empty Back face
+- [x] Use only the current issue screenshot and live state, not older screenshots, when diagnosing and validating the W-30-30 island placement repair

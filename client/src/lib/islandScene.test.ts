@@ -7,6 +7,7 @@ import {
   islandFaceFitMeasure,
   islandFacePlacement,
   islandWithFaceSeatingOverhang,
+  inferredIslandFace,
   moveIslandScene,
   nextIslandFacePlacement,
   resizeIslandScene,
@@ -136,6 +137,23 @@ describe("island mini-scene geometry", () => {
     const back = nextIslandFacePlacement(cabinet({ uid: "back-a" }), island, "back", [front!]);
     expect(back).toMatchObject({ islandFace: "back", islandOffset: 0, x: front!.x });
     expect(hasCollision(back!, [front!])).toBe(false);
+  });
+
+  it("uses actual edge geometry when legacy front-run members carry stale Back-face labels", () => {
+    const frontB12 = { ...islandFacePlacement(cabinet({ uid: "front-b12", masterCode: "B-12", width: 12 }), island, "front", 0), islandFace: "back", islandOffset: 0 };
+    const frontRange = { ...islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), island, "front", 12), islandFace: "back", islandOffset: 12 };
+    const frontB18 = { ...islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "B-18", width: 18 }), island, "front", 42), islandFace: "back", islandOffset: 42 };
+    const existing = [frontB12, frontRange, frontB18];
+
+    expect(existing.map((item) => inferredIslandFace(item, island))).toEqual(["front", "front", "front"]);
+    const backWallCabinet = nextIslandFacePlacement(
+      cabinet({ uid: "back-w3030", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 }),
+      island,
+      "back",
+      existing,
+    );
+    expect(backWallCabinet).toMatchObject({ islandFace: "back", islandOffset: 0, x: island.x, y: island.y + 24 - 12 });
+    expect(hasCollision(backWallCabinet!, existing)).toBe(false);
   });
 
 	it("snaps opposing front and back runs beside a usable end cabinet and fits one slab to the combined shape", () => {
