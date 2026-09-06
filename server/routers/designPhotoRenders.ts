@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "crypto";
 import sharp from "sharp";
 import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
-import { designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
+import { crmActivities, crmDealDesigns, crmDeals, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, doorStyles, kitchenDesigns, notificationSettings } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { getDb } from "../db";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -140,7 +140,7 @@ type PhotoRenderProvenanceInput = z.infer<typeof photoRenderProvenanceSchema>;
 type PhotoQualityLeadInput = z.infer<typeof photoQualityLeadSchema>;
 type SavedDesignForPhotoRequest = Pick<
   typeof kitchenDesigns.$inferSelect,
-  "id" | "userId" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
+  "id" | "userId" | "name" | "roomData" | "placedCabinets" | "selectedSurfaces" | "threeDPresentation" | "selectedStyleId" | "selectedDistributorId" | "updatedAt"
 >;
 
 type ManualAiReference = {
@@ -404,6 +404,7 @@ async function loadOwnedSavedDesign(db: NonNullable<Awaited<ReturnType<typeof ge
   const [design] = await db.select({
     id: kitchenDesigns.id,
     userId: kitchenDesigns.userId,
+    name: kitchenDesigns.name,
     roomData: kitchenDesigns.roomData,
     placedCabinets: kitchenDesigns.placedCabinets,
     selectedSurfaces: kitchenDesigns.selectedSurfaces,
@@ -416,6 +417,46 @@ async function loadOwnedSavedDesign(db: NonNullable<Awaited<ReturnType<typeof ge
     throw new Error("Save this kitchen plan to your account before requesting an image.");
   }
   return design;
+}
+
+/**
+ * Creates one house-scoped CRM review item for a verified manual image request.
+ * Its contact and saved-plan values are read only from the already verified
+ * request. A request keeps its own deal ID, making this operation idempotent.
+ */
+async function ensureManualAiReviewCrmDeal(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  request: typeof designImageRequests.$inferSelect,
+  design: SavedDesignForPhotoRequest,
+) {
+  if (request.crmDealId) return request.crmDealId;
+  const result = await db.insert(crmDeals).values({
+    affiliateId: null,
+    ownerUserId: null,
+    title: `Image review — ${request.name}`.slice(0, 256),
+    stage: "image_review",
+    priority: "high",
+    contactName: request.name,
+    contactEmail: request.email,
+    contactPhone: request.phoneE164,
+    source: "verified_plan_image_request",
+    notes: `Verified photo-quality image request. Saved plan #${design.id}: ${design.name}. The plan geometry and selected products are locked for manual AI review.`,
+  });
+  const dealId = (result as unknown as [{ insertId: number }])[0].insertId;
+  await db.insert(crmDealDesigns).values({
+    dealId,
+    designId: design.id,
+    designName: design.name,
+    linkedByUserId: request.userId,
+  });
+  await db.insert(crmActivities).values({
+    dealId,
+    authorUserId: null,
+    kind: "task",
+    body: "Verified kitchen image request received. Prepare the locked reference board and upload the finished result from Operations → Manual AI Renders.",
+  });
+  await db.update(designImageRequests).set({ crmDealId: dealId }).where(eq(designImageRequests.id, request.id));
+  return dealId;
 }
 
 /**
@@ -777,7 +818,8 @@ export const designPhotoRendersRouter = router({
         return { status: "completed" as const, customerMessage: "Your kitchen image is already ready on this saved plan." };
       }
       if (request.manualHandoffPreparedAt && request.manualHandoffBoardUrl && request.manualHandoffPrompt) {
-        return { status: "prepared" as const, customerMessage: "Your exact kitchen plan and selected product references are already with the rendering team." };
+        const crmDealId = await ensureManualAiReviewCrmDeal(db, request, design);
+        return { status: "prepared" as const, crmDealId, customerMessage: "Your exact kitchen plan and selected product references are already with the rendering team." };
       }
       const imageKind = input.sceneImageDataUrl.match(DATA_IMAGE_PREFIX)?.[1] ?? "jpeg";
       if (imageKind !== "jpeg") throw new Error("Manual image review requires the locked deterministic JPEG capture. Reopen Photo Quality and try again.");
@@ -797,6 +839,7 @@ export const designPhotoRendersRouter = router({
       );
       const preparedAt = new Date();
       const planUrl = `https://www.cabinetdealz.com/design?load=${design.id}&preview=3d`;
+      const crmDealId = await ensureManualAiReviewCrmDeal(db, request, design);
       const crmEventId = await emitCrmEvent({
         event: "lead",
         contact: { userId: ctx.user.id, name: request.name, email: request.email, phone: request.phoneE164 },
@@ -810,6 +853,8 @@ export const designPhotoRendersRouter = router({
             requestedAt: preparedAt,
           }),
           workflow: "manual_ai_render_review",
+          crmDealId,
+          crmReviewUrl: `https://www.cabinetdealz.com/admin?tab=crm&deal=${crmDealId}`,
           manualHandoffBoardUrl: storedBoard.url,
           manualPrompt: prompt,
           selectedPelicanReferences: references.map(({ title, detail, role, productId, pelicanCode, imageUrl }) => ({ title, detail, role, productId, pelicanCode, imageUrl })),
@@ -822,6 +867,7 @@ export const designPhotoRendersRouter = router({
         manualHandoffPrompt: prompt,
         manualHandoffPreparedAt: preparedAt,
         manualHandoffCrmEventId: crmEventId,
+        crmDealId,
       }).where(eq(designImageRequests.id, request.id));
 
       const [notifications] = await db.select().from(notificationSettings).limit(1);
@@ -844,6 +890,7 @@ export const designPhotoRendersRouter = router({
       }
       return {
         status: "prepared" as const,
+        crmDealId,
         customerMessage: "Your kitchen plan, selected Pelican references, and rendering instructions were sent to the review team. We will email you when the finished image is attached to this saved plan.",
       };
     }),
@@ -864,6 +911,7 @@ export const designPhotoRendersRouter = router({
         manualHandoffEmailSentAt: designImageRequests.manualHandoffEmailSentAt,
         manualResultAttachedAt: designImageRequests.manualResultAttachedAt,
         imageUrl: designImageRequests.imageUrl,
+        crmDealId: designImageRequests.crmDealId,
       }).from(designImageRequests).where(and(
         eq(designImageRequests.verificationStatus, "verified"),
         isNull(designImageRequests.manualResultAttachedAt),
@@ -940,6 +988,15 @@ export const designPhotoRendersRouter = router({
         manualResultAttachedAt: completedAt,
         manualResultAttachedBy: ctx.user.id,
       }).where(eq(designImageRequests.id, request.id));
+      if (request.crmDealId) {
+        await db.insert(crmActivities).values({
+          dealId: request.crmDealId,
+          authorUserId: ctx.user.id,
+          kind: "task",
+          body: "Finished manual AI kitchen image attached to the unchanged saved plan. The customer-ready notice and email were triggered.",
+        });
+        await db.update(crmDeals).set({ updatedAt: completedAt }).where(eq(crmDeals.id, request.crmDealId));
+      }
       void sendCustomerImageReadyEmail(db, completedRequest)
         .catch(() => console.warn("[Manual AI render] Customer image-ready email delivery could not be completed."));
       return { status: "completed" as const, imageUrl: storedImageUrl };

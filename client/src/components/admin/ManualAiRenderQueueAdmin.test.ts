@@ -12,5 +12,7 @@ describe("manual AI render queue", () => {
     expect(source).toContain("Upload finished image");
     expect(source).toContain("exact saved plan");
     expect(source).toContain("internal email needs a recipient");
+    expect(source).toContain("Open CRM review");
+    expect(source).toContain("handoff.crmDealId");
   });
 });

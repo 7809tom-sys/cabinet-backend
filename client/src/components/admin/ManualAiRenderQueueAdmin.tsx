@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CheckCircle2, ClipboardCopy, ExternalLink, ImagePlus, Loader2, Upload } from "lucide-react";
+import { CheckCircle2, ClipboardCopy, ClipboardList, ExternalLink, ImagePlus, Loader2, Upload } from "lucide-react";
 
 async function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -94,6 +94,7 @@ export function ManualAiRenderQueueAdmin() {
             </CardHeader>
             <CardContent className="space-y-4 pt-5">
               <div className="flex flex-wrap gap-2">
+                {handoff.crmDealId && <Button asChild size="sm" variant="outline"><a href={`/admin?tab=crm&deal=${handoff.crmDealId}`}><ClipboardList className="mr-1.5 h-4 w-4" /> Open CRM review</a></Button>}
                 <Button asChild size="sm" variant="outline"><a href={planUrl} target="_blank" rel="noreferrer"><ExternalLink className="mr-1.5 h-4 w-4" /> Open saved plan</a></Button>
                 <Button asChild size="sm" variant="outline"><a href={handoff.manualHandoffBoardUrl!} target="_blank" rel="noreferrer"><ImagePlus className="mr-1.5 h-4 w-4" /> Open single reference board</a></Button>
                 <Button size="sm" variant="outline" onClick={() => copyInstructions(handoff.manualHandoffPrompt!)}><ClipboardCopy className="mr-1.5 h-4 w-4" /> Copy AI instruction</Button>

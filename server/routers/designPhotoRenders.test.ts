@@ -243,6 +243,19 @@ describe("design photo render safeguards", () => {
     expect(source).not.toContain("const cards = references.slice(0, 6)");
   });
 
+  it("creates one high-priority CRM Image Review item linked to the verified request and exact saved plan", () => {
+    const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
+    expect(source).toContain("async function ensureManualAiReviewCrmDeal");
+    expect(source).toContain('stage: "image_review"');
+    expect(source).toContain('source: "verified_plan_image_request"');
+    expect(source).toContain("crmDealId: dealId");
+    expect(source).toContain("crmDealDesigns");
+    expect(source).toContain("Verified kitchen image request received.");
+    expect(source).toContain("const crmDealId = await ensureManualAiReviewCrmDeal(db, request, design)");
+    expect(source).toContain("crmReviewUrl: `https://www.cabinetdealz.com/admin?tab=crm&deal=${crmDealId}`");
+    expect(source).toContain("Finished manual AI kitchen image attached to the unchanged saved plan.");
+  });
+
   it("accepts a staff-returned manual result only for the unchanged verified plan and then reuses customer-ready delivery", () => {
     const source = readFileSync(new URL("./designPhotoRenders.ts", import.meta.url), "utf8");
     expect(source).toContain("attachManualAiResult: protectedProcedure");

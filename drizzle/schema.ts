@@ -241,6 +241,10 @@ export const designImageRequests = mysqlTable("design_image_requests", {
   manualHandoffPreparedAt: timestamp("manualHandoffPreparedAt"),
   manualHandoffEmailSentAt: timestamp("manualHandoffEmailSentAt"),
   manualHandoffCrmEventId: int("manualHandoffCrmEventId"),
+  // Dedicated CRM record for internal manual image review. This connects the
+  // verified request to the Image Review lane without deriving a deal from
+  // customer-entered data after verification.
+  crmDealId: int("crmDealId"),
   manualResultAttachedAt: timestamp("manualResultAttachedAt"),
   manualResultAttachedBy: int("manualResultAttachedBy"),
   crmDeliveredAt: timestamp("crmDeliveredAt"),
@@ -251,6 +255,7 @@ export const designImageRequests = mysqlTable("design_image_requests", {
   designRevisionIndex: index("design_image_requests_design_revision_idx").on(t.kitchenDesignId, t.designRevision),
   userUpdatedIndex: index("design_image_requests_user_updated_idx").on(t.userId, t.updatedAt),
   phoneStatusIndex: index("design_image_requests_phone_status_idx").on(t.phoneHash, t.verificationStatus),
+  crmDealIndex: index("design_image_requests_crm_deal_idx").on(t.crmDealId),
 }));
 
 export type DesignImageRequest = typeof designImageRequests.$inferSelect;
@@ -1264,6 +1269,7 @@ export const crmDeals = mysqlTable("crm_deals", {
     "new",
     "contacted",
     "qualified",
+    "image_review",
     "quoted",
     "won",
     "lost",
@@ -1285,6 +1291,7 @@ export const crmDeals = mysqlTable("crm_deals", {
     "pro_application",
     "storefront",
     "referral",
+    "verified_plan_image_request",
   ]).default("manual").notNull(),
   orderRequestId: int("orderRequestId"),
   proApplicationId: int("proApplicationId"),

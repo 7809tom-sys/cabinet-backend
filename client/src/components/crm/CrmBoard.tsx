@@ -26,7 +26,7 @@ import {
 } from "@shared/crm";
 import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
-  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload, Download,
+  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2, FileText, Upload, Download, Image,
 } from "lucide-react";
 import { CRM_CUSTOMER_LIST_TEMPLATE, crmCustomerFileReadProgress, parseCrmCustomerListCsv, type CrmCustomerImportRow, type CrmCustomerImportSkippedRow } from "@shared/crmCustomerListImport";
 import { affiliateCardColor, type CrmAffiliateBrand } from "@/lib/crmAffiliateBrand";
@@ -110,7 +110,10 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
   const { data, isLoading, error } = trpc.crm.board.useQuery(
     boardInput,
   );
-  const [openDealId, setOpenDealId] = useState<number | null>(null);
+  const [openDealId, setOpenDealId] = useState<number | null>(() => {
+    const requested = Number(new URLSearchParams(window.location.search).get("deal"));
+    return Number.isInteger(requested) && requested > 0 ? requested : null;
+  });
   const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
   const deals = (data?.deals ?? []) as DealRow[];
@@ -124,7 +127,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
 
   const byStage = useMemo(() => {
     const map: Record<CrmStage, DealRow[]> = {
-      new: [], contacted: [], qualified: [], quoted: [], won: [], lost: [],
+      new: [], contacted: [], qualified: [], image_review: [], quoted: [], won: [], lost: [],
     };
     for (const d of deals) map[d.stage]?.push(d);
     return map;
@@ -219,8 +222,8 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
       </div>
 
       {isLoading ? (
-        <div className="grid md:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-64 rounded-lg" />)}
+        <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-4">
+          {[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-64 rounded-lg" />)}
         </div>
       ) : (
         <>
@@ -247,7 +250,7 @@ export function CrmBoard({ lang = "en", affiliateId }: { lang?: Lang; affiliateI
             </div>
           </div>
           {/* Desktop: all columns */}
-          <div className="hidden md:grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="hidden md:grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {CRM_PIPELINE_STAGES.map((stage) => (
               <div
                 key={stage}
@@ -340,6 +343,9 @@ function DealCard({ deal, lang, onOpen, affiliateName, affiliateBrand }: { deal:
       )}
       {deal.needsHelpClosing && (
         <div className="text-[10px] font-medium text-red-600 bg-red-50 rounded px-1.5 py-0.5 inline-block mb-1">Needs Help Closing</div>
+      )}
+      {deal.source === "verified_plan_image_request" && (
+        <div className="text-[10px] font-medium text-sky-800 bg-sky-50 rounded px-1.5 py-0.5 inline-flex items-center gap-1 mb-1"><Image className="h-3 w-3" />Manual AI image review</div>
       )}
       {deal.company && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground"><Building2 className="h-3 w-3" />{deal.company}</div>
@@ -678,6 +684,14 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 {deal.notes && <p className="text-xs text-muted-foreground pt-1 whitespace-pre-wrap">{deal.notes}</p>}
               </div>
 
+              {deal.source === "verified_plan_image_request" && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 space-y-2">
+                  <div className="font-semibold flex items-center gap-1.5"><Image className="h-4 w-4" />Manual AI Image Review</div>
+                  <p className="text-xs">This verified request belongs in Image Review. Open the locked saved plan below, then use Operations → Manual AI Renders to attach the finished image.</p>
+                  <a href="/admin?tab=manual-ai-renders" className="inline-flex text-xs font-semibold underline">Open Manual AI Renders</a>
+                </div>
+              )}
+
               {/* Activity timeline */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">{lang === "es" ? "Actividad" : "Activity"}</p>
@@ -718,7 +732,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                     <p className="text-xs text-muted-foreground">{lang === "es" ? "Ning\u00fan dise\u00f1o vinculado." : "No designs linked yet."}</p>
                   ) : linkedDesigns.map((l) => (
                     <div key={l.id} className="flex items-center justify-between text-sm border border-border rounded-md px-3 py-1.5">
-                      <a href={`/designer?load=${l.designId}`} className="text-primary hover:underline truncate">{l.designName}</a>
+                      <a href={`/design?load=${l.designId}&preview=3d`} className="text-primary hover:underline truncate">{l.designName}</a>
                       <button className="text-muted-foreground hover:text-red-600 shrink-0 ml-2" onClick={() => unlinkDesign.mutate({ dealId: deal.id, linkId: l.id })} aria-label="Unlink design"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   ))}

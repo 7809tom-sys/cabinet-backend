@@ -1651,3 +1651,6 @@
 - [x] Send the manual AI-render handoff to the CRM email workflow using the verified saved-plan record and no customer-entered replacement data
 - [x] Add an administrator workflow to attach the manually generated finished image back to the exact verified saved plan and notify the customer
 - [x] Configure the internal New Design Lead notification recipient in Settings → Notifications so each manual AI handoff is emailed in addition to its CRM record
+- [x] Send and verify one authorized internal Manual AI Render test email to the configured sales recipient
+- [x] Place verified kitchen-image requests in a dedicated CRM image-review workflow with direct saved-plan and manual-render access
+- [x] Use a Monday-style CRM layout for image review with clear status, ownership, direct saved-plan access, and manual-render actions
