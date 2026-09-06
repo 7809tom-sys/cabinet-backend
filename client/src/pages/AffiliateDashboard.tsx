@@ -861,7 +861,12 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
 
 type AffiliateRow = {
   id: number;
+  slug: string;
+  referralCode: string;
   storeName: string;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
   updatedAt?: Date | string | null;
   tagline: string | null;
   taglineEs: string | null;
@@ -869,6 +874,9 @@ type AffiliateRow = {
   aboutTextEs: string | null;
   primaryColor: string | null;
   accentColor: string | null;
+  publicEmail: string | null;
+  publicPhone: string | null;
+  publicAddress: string | null;
   logoUrl: string | null;
   heroImageUrl: string | null;
   serviceArea: string | null;
@@ -944,6 +952,9 @@ function CustomizeTab({
     aboutTextEs: a.aboutTextEs ?? "",
     primaryColor: a.primaryColor ?? "",
     accentColor: a.accentColor ?? "",
+    publicEmail: a.publicEmail ?? a.email ?? "",
+    publicPhone: a.publicPhone ?? a.phone ?? "",
+    publicAddress: a.publicAddress ?? a.location ?? "",
     logoUrl: a.logoUrl ?? "",
     heroImageUrl: a.heroImageUrl ?? "",
     serviceArea: a.serviceArea ?? "",
@@ -963,6 +974,9 @@ function CustomizeTab({
     aboutTextEs: affiliate.aboutTextEs ?? "",
     primaryColor: affiliate.primaryColor ?? "",
     accentColor: affiliate.accentColor ?? "",
+    publicEmail: affiliate.publicEmail ?? affiliate.email ?? "",
+    publicPhone: affiliate.publicPhone ?? affiliate.phone ?? "",
+    publicAddress: affiliate.publicAddress ?? affiliate.location ?? "",
     logoUrl: affiliate.logoUrl ?? "",
     heroImageUrl: affiliate.heroImageUrl ?? "",
     serviceArea: affiliate.serviceArea ?? "",
@@ -974,6 +988,7 @@ function CustomizeTab({
     headingFont: affiliate.headingFont ?? "",
     buttonRadius: affiliate.buttonRadius ?? "0.375rem",
   });
+  const [showLaunchSuccess, setShowLaunchSuccess] = useState(false);
 
   // Re-sync the form whenever a different affiliate is loaded, or fresh data
   // arrives from the server after a save. Without this, the fields keep showing
@@ -1004,6 +1019,7 @@ function CustomizeTab({
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    setShowLaunchSuccess(false);
   }
 
   const uploadHeroImage = trpc.affiliates.uploadHeroImage.useMutation({
@@ -1087,8 +1103,8 @@ function CustomizeTab({
     e.target.value = "";
   }
 
-  function handleSave() {
-    save.mutate({
+  function storefrontPayload(storefrontEnabled = form.storefrontEnabled) {
+    return {
       // Admins must target the affiliate they are actually viewing, otherwise the
       // server falls back to the first affiliate row and the edit lands on the
       // wrong store.
@@ -1099,18 +1115,41 @@ function CustomizeTab({
       aboutText: form.aboutText || null,
       aboutTextEs: form.aboutTextEs || null,
       primaryColor: form.primaryColor || null,
-    accentColor: form.accentColor || null,
-    logoUrl: form.logoUrl || null,
-    heroImageUrl: form.heroImageUrl || null,
-    serviceArea: form.serviceArea || null,
-    facebookUrl: form.facebookUrl || null,
-    instagramUrl: form.instagramUrl || null,
-    storefrontEnabled: form.storefrontEnabled,
-    template: form.template,
-    fontFamily: form.fontFamily || null,
-    headingFont: form.headingFont || null,
-    buttonRadius: form.buttonRadius || null,
-  });
+      accentColor: form.accentColor || null,
+      publicEmail: form.publicEmail.trim() || null,
+      publicPhone: form.publicPhone.trim() || null,
+      publicAddress: form.publicAddress.trim() || null,
+      logoUrl: form.logoUrl || null,
+      heroImageUrl: form.heroImageUrl || null,
+      serviceArea: form.serviceArea || null,
+      facebookUrl: form.facebookUrl || null,
+      instagramUrl: form.instagramUrl || null,
+      storefrontEnabled,
+      template: form.template,
+      fontFamily: form.fontFamily || null,
+      headingFont: form.headingFont || null,
+      buttonRadius: form.buttonRadius || null,
+    };
+  }
+
+  function handleSave() {
+    save.mutate(storefrontPayload());
+  }
+
+  const { storefrontUrl } = affiliateDashboardLinks(affiliate);
+  const designerUrl = `${storefrontUrl.replace(/\/$/, "")}/design`;
+
+  function copyStorefrontLink() {
+    navigator.clipboard.writeText(storefrontUrl).then(
+      () => toast.success("Storefront link copied"),
+      () => toast.error("Could not copy the storefront link"),
+    );
+  }
+
+  function handlePublish() {
+    save.mutate(storefrontPayload(true), {
+      onSuccess: () => setShowLaunchSuccess(true),
+    });
   }
 
   // Detect which scene key is currently active (if heroImageUrl matches one)
@@ -1120,6 +1159,104 @@ function CustomizeTab({
 
   return (
     <div className="space-y-6">
+      <section data-testid="affiliate-launch-setup" className="rounded-xl border border-primary/30 bg-primary/[0.04] p-5 sm:p-6 space-y-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <Badge variant="outline" className="mb-2 border-primary/30 bg-background text-primary">First launch</Badge>
+            <h2 className="font-serif text-2xl font-bold">Set up your storefront</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Start with your business details and brand. Your current pricing defaults are ready to use, so pricing changes never hold up a launch.
+            </p>
+          </div>
+          <a href={storefrontUrl} target="_blank" rel="noreferrer" className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-muted">
+            <Eye className="h-4 w-4" /> Preview storefront
+          </a>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-store-name">Business name <span className="text-destructive">*</span></Label>
+            <Input id="quick-store-name" value={form.storeName} onChange={(event) => set("storeName", event.target.value)} placeholder="Your cabinet business" autoComplete="organization" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-public-email">Business email <span className="font-normal text-muted-foreground">(recommended)</span></Label>
+            <Input id="quick-public-email" type="email" value={form.publicEmail} onChange={(event) => set("publicEmail", event.target.value)} placeholder="hello@yourbusiness.com" autoComplete="email" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-public-phone">Business phone <span className="font-normal text-muted-foreground">(recommended)</span></Label>
+            <Input id="quick-public-phone" type="tel" value={form.publicPhone} onChange={(event) => set("publicPhone", event.target.value)} placeholder="(555) 555-5555" autoComplete="tel" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-public-address">Address or service area <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input id="quick-public-address" value={form.publicAddress} onChange={(event) => set("publicAddress", event.target.value)} placeholder="City, state or service area" autoComplete="street-address" />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-primary">Primary color</Label>
+            <div className="flex gap-2">
+              <Input id="quick-primary" value={form.primaryColor} onChange={(event) => set("primaryColor", event.target.value)} placeholder="#1a2b4a" className="font-mono" />
+              <input type="color" aria-label="Pick setup primary color" value={/^#[0-9a-fA-F]{6}$/.test(form.primaryColor) ? form.primaryColor : "#1a2b4a"} onChange={(event) => set("primaryColor", event.target.value)} className="h-9 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="quick-accent">Accent color <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <div className="flex gap-2">
+              <Input id="quick-accent" value={form.accentColor} onChange={(event) => set("accentColor", event.target.value)} placeholder="#c9a227" className="font-mono" />
+              <input type="color" aria-label="Pick setup accent color" value={/^#[0-9a-fA-F]{6}$/.test(form.accentColor) ? form.accentColor : "#c9a227"} onChange={(event) => set("accentColor", event.target.value)} className="h-9 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0" />
+            </div>
+          </div>
+          <label className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted ${logoUploading || uploadLogo.isPending ? "pointer-events-none opacity-60" : ""}`}>
+            {logoUploading || uploadLogo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {logoUploading || uploadLogo.isPending ? "Uploading…" : "Upload logo"}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" className="sr-only" onChange={onLogoFile} disabled={logoUploading || uploadLogo.isPending} />
+          </label>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Mini homepage preview</div>
+            <div className="rounded-md p-5 text-white" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }}>
+              <div className="flex items-center gap-2">
+                {form.logoUrl ? <img src={form.logoUrl} alt="Store logo preview" className="h-8 max-w-[120px] object-contain" /> : <span className="rounded bg-white/15 px-2 py-1 text-xs font-semibold">{form.storeName.slice(0, 2).toUpperCase() || "CD"}</span>}
+                <span className="font-semibold">{form.storeName || "Your storefront"}</span>
+              </div>
+              <p className="mt-5 font-serif text-xl font-bold">Kitchen design starts here.</p>
+              <p className="mt-1 text-sm text-white/75">Customers can shop and open your branded Designer.</p>
+              <span className="mt-4 inline-flex rounded px-3 py-2 text-xs font-semibold" style={{ backgroundColor: form.accentColor || "#c9a227" }}>Open Designer</span>
+            </div>
+          </div>
+          <div className="rounded-lg border border-dashed border-border bg-background p-4 text-sm leading-relaxed text-muted-foreground">
+            <p className="font-semibold text-foreground">Launch with your defaults</p>
+            <p className="mt-1">Your storefront starts with the pricing already assigned to your account. You can fine-tune prices later without taking the site offline.</p>
+            <a href={`${isAdmin ? `${affiliateDashboardPath(affiliate.id)}&` : "/affiliate?"}section=pricing`} className="mt-3 inline-flex items-center gap-1 font-medium text-primary hover:underline">Adjust pricing later <ChevronRight className="h-4 w-4" /></a>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <Button type="button" onClick={handlePublish} disabled={save.isPending || !form.storeName.trim()} className="gap-2 bg-primary text-primary-foreground">
+            {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+            {save.isPending ? "Publishing…" : "Publish storefront"}
+          </Button>
+          <span className="text-xs text-muted-foreground">Preview the brand above, then publish when you’re ready. Only the business name is required.</span>
+        </div>
+
+        {showLaunchSuccess && (
+          <div data-testid="affiliate-publish-success" className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-50">
+            <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">Your site is live</p><p className="mt-0.5 text-sm">Share your customer storefront, or open the Designer exactly as a customer will see it.</p></div></div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={copyStorefrontLink} className="gap-1.5"><Copy className="h-3.5 w-3.5" /> Copy link</Button>
+              <a href={storefrontUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><ExternalLink className="h-3.5 w-3.5" /> Open storefront</a>
+              <a href={designerUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><PencilRuler className="h-3.5 w-3.5" /> Open Designer as a customer</a>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <details className="rounded-xl border border-border bg-card p-5">
+        <summary className="cursor-pointer font-semibold">More storefront options <span className="ml-2 text-sm font-normal text-muted-foreground">Templates, hero imagery, detailed copy, typography, and visibility controls</span></summary>
+        <div className="space-y-6 pt-5">
 
       {/* ── Storefront on/off ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
@@ -1544,6 +1681,9 @@ function CustomizeTab({
         {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Save storefront
       </Button>
+
+        </div>
+      </details>
 
       {/* ── AI Concierge upsell card ──────────────────────────────────────── */}
       <AiConciergeCard />

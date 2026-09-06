@@ -1175,6 +1175,11 @@ export const affiliates = mysqlTable("affiliates", {
   logoUrl: varchar("logoUrl", { length: 512 }),
   primaryColor: varchar("primaryColor", { length: 16 }), // hex, e.g. "#0f2a4a"
   accentColor: varchar("accentColor", { length: 16 }), // hex, e.g. "#c79a4b"
+  // Public storefront contact details are distinct from the affiliate owner's
+  // account email so brand setup cannot affect sign-in or account ownership.
+  publicEmail: varchar("publicEmail", { length: 320 }),
+  publicPhone: varchar("publicPhone", { length: 32 }),
+  publicAddress: varchar("publicAddress", { length: 256 }),
   heroImageUrl: varchar("heroImageUrl", { length: 512 }),
   tagline: varchar("tagline", { length: 256 }), // hero subheading
   // Typography & shape

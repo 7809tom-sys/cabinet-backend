@@ -138,6 +138,11 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
   const ref = data.referralCode;
   const withRef = (path: string) => `${path}${path.includes("?") ? "&" : "?"}ref=${encodeURIComponent(ref)}`;
   const heroImg = data.heroImageUrl || KITCHEN_SCENES["shaker-white"];
+  // New storefront-specific fields take precedence, while existing affiliates
+  // retain their already-published contact information without a forced update.
+  const storefrontPhone = data.publicPhone || data.phone;
+  const storefrontEmail = data.publicEmail || data.email;
+  const storefrontLocation = data.publicAddress || data.serviceArea || data.location;
 
   const valueProps = [
     { icon: Ruler, title: t("value_free_design"), sub: t("value_free_design_sub") },
@@ -370,22 +375,22 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
             <div>
               <div className="font-semibold text-white mb-3">{t("footer_contact")}</div>
               <ul className="space-y-2 text-sm">
-                {data.phone && (
+                {storefrontPhone && (
                   <li className="flex items-center gap-2">
                     <Phone className="h-4 w-4 shrink-0" />
-                    <a href={`tel:${data.phone}`} className="hover:text-white">{data.phone}</a>
+                    <a href={`tel:${storefrontPhone}`} className="hover:text-white">{storefrontPhone}</a>
                   </li>
                 )}
-                {data.email && (
+                {storefrontEmail && (
                   <li className="flex items-center gap-2">
                     <Mail className="h-4 w-4 shrink-0" />
-                    <a href={`mailto:${data.email}`} className="hover:text-white break-all">{data.email}</a>
+                    <a href={`mailto:${storefrontEmail}`} className="hover:text-white break-all">{storefrontEmail}</a>
                   </li>
                 )}
-                {(data.location || data.serviceArea) && (
+                {storefrontLocation && (
                   <li className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 shrink-0" />
-                    <span>{data.serviceArea || data.location}</span>
+                    <span>{storefrontLocation}</span>
                   </li>
                 )}
                 {data.website && (

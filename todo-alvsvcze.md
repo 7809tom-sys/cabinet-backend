@@ -1675,3 +1675,6 @@
 - [x] Require a clearly labeled valid email only to launch the Design Tool while keeping name and phone optional at launch
 - [x] Add a low-pressure optional name-and-phone follow-up prompt after launch or first save, without blocking design work
 - [x] Preserve the existing saved-plan and verified-phone requirement for all customer kitchen-image requests
+- [x] Streamline affiliate setup around business identity, logo/contact branding, colors, preview, and one safe publish action
+- [x] Ensure an affiliate can launch with existing default pricing and defer price-book changes without blocking publication
+- [x] Provide clear post-publish URL, copy-link, and customer-view Designer actions while preserving storefront isolation

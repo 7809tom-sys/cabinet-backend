@@ -216,6 +216,44 @@ describe("affiliate storefront save persistence", () => {
     }
   });
 
+  it("persists storefront-only contact fields without changing the affiliate account email", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(partnerCtx());
+    const mine = await caller.affiliates.myAffiliate();
+    if (!mine) return;
+    const before = await readRow(mine.id);
+    if (!before) return;
+
+    try {
+      await caller.affiliates.updateMyStorefront({
+        publicEmail: "storefront-contact@example.com",
+        publicPhone: "555-010-2222",
+        publicAddress: "123 Example Lane",
+      });
+      const after = await readRow(mine.id);
+      expect(after!.publicEmail).toBe("storefront-contact@example.com");
+      expect(after!.publicPhone).toBe("555-010-2222");
+      expect(after!.publicAddress).toBe("123 Example Lane");
+      // The original account identity remains the same; setup never changes it.
+      expect(after!.email).toBe(before.email);
+
+      const pub = await caller.affiliates.bySlug({ slug: before.slug });
+      expect(pub!.publicEmail).toBe("storefront-contact@example.com");
+      expect(pub!.publicPhone).toBe("555-010-2222");
+      expect(pub!.publicAddress).toBe("123 Example Lane");
+    } finally {
+      await db
+        .update(affiliates)
+        .set({
+          publicEmail: before.publicEmail,
+          publicPhone: before.publicPhone,
+          publicAddress: before.publicAddress,
+        })
+        .where(eq(affiliates.id, mine.id));
+    }
+  });
+
   it("saved colors surface on the PUBLIC storefront payload (bySlug)", async () => {
     const db = await getDb();
     if (!db) return;
