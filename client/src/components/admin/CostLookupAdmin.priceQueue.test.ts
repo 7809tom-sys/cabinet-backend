@@ -14,4 +14,11 @@ describe("Price Audit missing customer price queue", () => {
     expect(source).toContain("<CabinetCard");
     expect(source).toContain("onChanged={refetch}");
   });
+
+  it("provides a correction CSV without supplier cost fields", () => {
+    expect(source).toContain("Download correction CSV");
+    expect(source).toContain("cabinetdealz-missing-customer-prices.csv");
+    expect(source).toContain("Quote required — approved customer price missing");
+    expect(source).not.toContain('"Your Cost", "List Price", "Wholesale"');
+  });
 });

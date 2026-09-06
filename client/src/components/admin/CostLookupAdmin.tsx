@@ -13,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert, CalendarClock, ListFilter, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert, CalendarClock, ListFilter, ChevronUp, ChevronDown, Download } from "lucide-react";
 
 // Editable price-ladder fields, in display order.
 const FIELDS = [
@@ -393,8 +393,39 @@ function DailyPicks() {
 function MissingCustomerPriceQueue() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.pricing.adminMissingCustomerPriceQueue.useQuery({ limit: 25 });
+  const { data: exportData, isLoading: isExportLoading } = trpc.pricing.adminMissingCustomerPriceQueue.useQuery({ limit: 500 });
   const [auditFor, setAuditFor] = useState<string | null>(null);
   const cabinets = (data?.cabinets ?? []) as CabinetResult[];
+
+  const exportCorrectionCsv = () => {
+    const rows = ((exportData?.cabinets ?? []) as CabinetResult[]).flatMap((cab) =>
+      cab.skus.map((sku) => [
+        cab.masterCode,
+        cab.description,
+        cab.category,
+        cab.subCategory ?? "",
+        sku.styleOurName ?? sku.styleCode ?? "",
+        sku.styleCode ?? "",
+        sku.distributorName ?? sku.distributorBrandName ?? "",
+        sku.platformSku,
+        sku.distributorSku,
+        "Quote required — approved customer price missing",
+      ]),
+    );
+    const quote = (value: string) => `"${String(value).replaceAll('"', '""')}"`;
+    const content = [
+      ["Master code", "Description", "Category", "Subcategory", "Door style", "Style code", "Distributor", "Platform SKU", "Supplier SKU", "Status"],
+      ...rows,
+    ].map((row) => row.map(quote).join(",")).join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = "cabinetdealz-missing-customer-prices.csv";
+    link.click();
+    URL.revokeObjectURL(href);
+    toast.success(`Downloaded ${rows.length} quote-only SKU${rows.length === 1 ? "" : "s"} for price correction`);
+  };
 
   const refetch = () => {
     utils.pricing.adminMissingCustomerPriceQueue.invalidate();
@@ -405,11 +436,12 @@ function MissingCustomerPriceQueue() {
 
   return (
     <Card className="border-amber-300 bg-amber-50/40">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-amber-950">
-          <CircleAlert className="size-5 text-amber-700" />
-          Published products needing customer pricing
-        </CardTitle>
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-amber-950">
+            <CircleAlert className="size-5 text-amber-700" />
+            Published products needing customer pricing
+          </CardTitle>
         <p className="text-sm text-amber-900/80">
           These products are visible but have no approved customer price source. They remain quote-only and cannot be added to cart until you enter an approved price.
           {typeof data?.remaining === "number" && (
@@ -418,6 +450,16 @@ function MissingCustomerPriceQueue() {
             </span>
           )}
         </p>
+        </div>
+        <Button
+          variant="outline"
+          className="border-amber-400 bg-background text-amber-950 hover:bg-amber-100"
+          onClick={exportCorrectionCsv}
+          disabled={isExportLoading || !exportData}
+        >
+          {isExportLoading ? <Spinner className="size-4" /> : <Download className="size-4" />}
+          <span className="ml-1">Download correction CSV</span>
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (

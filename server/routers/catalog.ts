@@ -4024,7 +4024,7 @@ export const pricingRouter = router({
   // the owner audit tool before they can become sellable. This data is never
   // returned through public catalog procedures.
   adminMissingCustomerPriceQueue: adminProcedure
-    .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+    .input(z.object({ limit: z.number().int().min(1).max(500).optional() }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { cabinets: [] as unknown[], remaining: 0 };

@@ -1667,3 +1667,4 @@
 - [x] Import only exact active SKU/style matches from the available cabinet pricing source into the owner price ladder with an audit trail
 - [x] Import only unambiguous shared source costs for active default-style cabinets after verifying the source cost is identical across all matching styles
 - [x] Import only style-independent supplier costs for remaining active quote-only cabinet records after proving the source cost is identical across every source style
+- [x] Add an owner-only unresolved-price export from Price Audit to obtain authoritative supplier pricing for quote-only products
