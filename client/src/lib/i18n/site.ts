@@ -579,7 +579,7 @@ export const SITE_STRINGS = {
 
     // --- Design Tool: Email Gate ---
     dt_gate_title: "Start Your Kitchen Design",
-    dt_gate_sub: "Tell us where to send your design. Your email launches the designer and saves your bill of materials — add your name and phone so a Cabinet Dealz rep can help if you'd like.",
+    dt_gate_sub: "We’ll use your email to save your design and materials list.",
     dt_gate_name_ph: "Full name (optional)",
     dt_gate_email_ph: "you@example.com",
     dt_gate_phone_ph: "Phone (optional)",
@@ -1899,7 +1899,7 @@ export const SITE_STRINGS = {
 
     // --- Herramienta de Diseño: Acceso por Correo ---
     dt_gate_title: "Comienza el Diseño de tu Cocina",
-    dt_gate_sub: "Dinos a dónde enviar tu diseño. Tu correo abre el diseñador y guarda tu lista de materiales — agrega tu nombre y teléfono para que un representante de Cabinet Dealz pueda ayudarte si lo deseas.",
+    dt_gate_sub: "Usaremos tu correo para guardar tu diseño y lista de materiales.",
     dt_gate_name_ph: "Nombre completo (opcional)",
     dt_gate_email_ph: "tu@ejemplo.com",
     dt_gate_phone_ph: "Teléfono (opcional)",
@@ -3390,7 +3390,7 @@ export const SITE_STRINGS = {
     pay_enter_shipping_cta: "请输入运费以继续",
     pay_loading_form: "正在加载安全支付表单…",
     dt_gate_title: "开始您的厨房设计",
-    dt_gate_sub: "告诉我们您的设计发送到哪里。您的电子邮件将启动设计器并保存您的材料清单 — 添加您的姓名和电话，如果需要，Cabinet Dealz 代表可以提供帮助。",
+    dt_gate_sub: "我们将使用您的电子邮箱保存设计和材料清单。",
     dt_gate_name_ph: "全名（可选）",
     dt_gate_phone_ph: "电话（可选）",
     dt_gate_invalid_email: "请输入有效的电子邮件地址。",

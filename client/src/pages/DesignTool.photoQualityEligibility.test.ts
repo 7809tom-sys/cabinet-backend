@@ -12,7 +12,8 @@ describe("Photo Quality saved-plan eligibility", () => {
   });
 
   it("passes the retained saved-plan ID to both 3D render entry points", () => {
-    expect(source.match(/savedDesignId=\{activeSavedDesignId \?\? loadDesignId \?\? null\}/g)).toHaveLength(2);
+    expect(source).toContain("const currentSavedDesignId = activeSavedDesignId ?? loadDesignId;");
+    expect(source.match(/savedDesignId=\{currentSavedDesignId \?\? null\}/g)).toHaveLength(2);
   });
 
   it("never turns a missing save response ID into the unusable zero plan reference", () => {

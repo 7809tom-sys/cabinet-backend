@@ -1353,7 +1353,8 @@ export const designRouter = router({
   // or requests a quote, so reps always have someone to follow up with. Email is
   // required; name + phone are optional. Repeat launches by the same email (per
   // user, or per email for guests) bump launchCount instead of inserting a new
-  // row, keeping the leads list clean.
+  // row, keeping the leads list clean. A later optional-contact update enriches
+  // the same lead and CRM deal without being counted as another launch.
   captureLead: publicProcedure
     .input(
       z.object({
@@ -1362,6 +1363,7 @@ export const designRouter = router({
         phone: z.string().max(32).optional(),
         roomType: z.string().max(32).optional(),
         affiliateSlug: z.string().max(255).optional(),
+        interaction: z.enum(["launch", "contact_update"]).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -1380,7 +1382,7 @@ export const designRouter = router({
       // De-dupe: look for an existing lead for this email (scoped to the same
       // user when logged in). Update + bump the counter if found.
       const existing = await db
-        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone })
+        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone, dealId: designLeads.dealId })
         .from(designLeads)
         .where(
           userId
@@ -1400,16 +1402,24 @@ export const designRouter = router({
         await db
           .update(designLeads)
           .set({
-            // Only overwrite name/phone when the new launch provides them, so we
+            // Only overwrite name/phone when the update provides them, so we
             // never erase contact info captured on an earlier visit.
             name: name ?? existing[0].name,
             phone: phone ?? existing[0].phone,
             roomType: roomType ?? undefined,
             userId: userId ?? undefined,
-            launchCount: sql`${designLeads.launchCount} + 1`,
-            lastLaunchAt: new Date(),
+            ...(input.interaction === "contact_update" ? {} : {
+              launchCount: sql`${designLeads.launchCount} + 1`,
+              lastLaunchAt: new Date(),
+            }),
           })
           .where(eq(designLeads.id, existing[0].id));
+        if (existing[0].dealId && (name || phone)) {
+          await db.update(crmDeals).set({
+            contactName: name ?? existing[0].name,
+            contactPhone: phone ?? existing[0].phone,
+          }).where(eq(crmDeals.id, existing[0].dealId));
+        }
         return { ok: true as const, id: existing[0].id, deduped: true as const };
       }
 

@@ -48,7 +48,7 @@ export function EmailGate({ onVerified, brandName, primaryColor, accentColor }: 
   const primary = primaryColor || "#1a2744";
   const accent = accentColor || "#d4a75a";
   const subtitle = brandName
-    ? "Tell us where to send your design. Your email launches the designer and saves your bill of materials — add your name and phone so your design team can help if you'd like."
+    ? "We'll use your email to save this design and materials list."
     : t("dt_gate_sub");
 
   const submit = () => {
@@ -73,23 +73,10 @@ export function EmailGate({ onVerified, brandName, primaryColor, accentColor }: 
           {subtitle}
         </p>
 
-        <div className="space-y-3">
-          {/* Name (optional) */}
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              autoComplete="name"
-              placeholder={t("dt_gate_name_ph")}
-              className="pl-9"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            />
-          </div>
-
-          {/* Email (required) */}
-          <div className="relative">
+        <div className="space-y-4">
+          <label className="block space-y-1.5 text-sm font-semibold" style={{ color: primary }}>
+            Email address <span className="font-normal text-muted-foreground">(required)</span>
+            <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="email"
@@ -101,20 +88,44 @@ export function EmailGate({ onVerified, brandName, primaryColor, accentColor }: 
               onBlur={() => setTouched(true)}
               onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             />
-          </div>
+            </div>
+          </label>
 
-          {/* Phone (optional) */}
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="tel"
-              autoComplete="tel"
-              placeholder={t("dt_gate_phone_ph")}
-              className="pl-9"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            />
+          <div className="border-t border-border pt-4">
+            <p className="text-xs font-semibold text-foreground">Optional design help</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Add these details if you’d like a designer to help with your plan. They are not required to open the Designer.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Name (optional)
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    autoComplete="name"
+                    placeholder={t("dt_gate_name_ph")}
+                    className="pl-9"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+                  />
+                </div>
+              </label>
+              <label className="space-y-1 text-xs font-medium text-muted-foreground">
+                Phone (optional)
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder={t("dt_gate_phone_ph")}
+                    className="pl-9"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+                  />
+                </div>
+              </label>
+            </div>
           </div>
 
           {touched && !valid && (
@@ -131,7 +142,7 @@ export function EmailGate({ onVerified, brandName, primaryColor, accentColor }: 
         </div>
 
         <p className="text-[11px] text-muted-foreground text-center mt-5">
-          {t("dt_gate_consent")}
+          We’ll use this to save your design and materials list.
         </p>
       </div>
     </div>

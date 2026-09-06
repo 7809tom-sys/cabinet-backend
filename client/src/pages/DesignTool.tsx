@@ -156,6 +156,7 @@ import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/PlanImageImportDialog";
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
+import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
@@ -344,6 +345,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [verifiedEmail, setVerifiedEmail] = useState("");
   const [verifiedName, setVerifiedName] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [showOptionalContactNudge, setShowOptionalContactNudge] = useState(false);
+  const [optionalContactDismissed, setOptionalContactDismissed] = useState(false);
   const captureLead = trpc.design.captureLead.useMutation();
   const trpcUtils = trpc.useUtils();
   const saveMasterCabinetConfig = trpc.masterSku.propagateCabinetConfig.useMutation({
@@ -374,6 +377,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       affiliateSlug: affiliateSlug ?? undefined,
     });
   }, [captureLead, affiliateSlug]);
+  const addOptionalContact = useCallback((contact: Pick<LeadContact, "name" | "phone">) => {
+    if (!verifiedEmail || (!contact.name && !contact.phone)) return;
+    setVerifiedName(contact.name ?? "");
+    setVerifiedPhone(contact.phone ?? "");
+    setShowOptionalContactNudge(false);
+    captureLead.mutate({
+      email: verifiedEmail,
+      name: contact.name,
+      phone: contact.phone,
+      affiliateSlug: affiliateSlug ?? undefined,
+      interaction: "contact_update",
+    }, {
+      onSuccess: () => toast.success("Contact details saved"),
+      onError: () => toast.error("Your design is still available, but we could not save those contact details."),
+    });
+  }, [affiliateSlug, captureLead, verifiedEmail]);
+  useEffect(() => {
+    if (!verified || verifiedName || verifiedPhone || optionalContactDismissed) return;
+    const timer = window.setTimeout(() => setShowOptionalContactNudge(true), 90_000);
+    return () => window.clearTimeout(timer);
+  }, [optionalContactDismissed, verified, verifiedName, verifiedPhone]);
   // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
   // "Linked Designs" list. Loads the saved room + placed cabinets + style.
   const loadDesignId = useMemo(() => {
@@ -8564,6 +8588,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            onSaveSuccess={(designName, designId) => {
 	              setActiveSavedDesignId(designId);
 	              void trpcUtils.design.byId.invalidate({ id: designId, affiliateSlug: affiliateSlug ?? undefined });
+	              if (!verifiedName && !verifiedPhone && !optionalContactDismissed) {
+	                setShowOptionalContactNudge(true);
+	              }
 	              if (isMobile) {
                 toast.success("Design saved", {
                   description: designName,
@@ -8656,6 +8683,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <DesignHelp />
         </div>
       </div>
+
+      {showOptionalContactNudge && !verifiedName && !verifiedPhone && (
+        <OptionalContactNudge
+          onAdd={addOptionalContact}
+          onDismiss={() => {
+            setOptionalContactDismissed(true);
+            setShowOptionalContactNudge(false);
+          }}
+          isSaving={captureLead.isPending}
+        />
+      )}
 
       {/* Contextual row: keep desktop cabinet editing inline, but free up mobile
           canvas space by moving cabinet editing into a bottom sheet. */}

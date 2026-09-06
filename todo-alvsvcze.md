@@ -1672,3 +1672,6 @@
 - [x] Make the new-version update notice dismissible or non-blocking so it cannot cover navigation or calls to action
 - [x] Repair the missing Onyx Shadow bundle floor-plan asset without using an invalid placeholder
 - [x] Replace the broken About route with a credible CabinetDealz trade-platform page or remove every live link to it
+- [x] Require a clearly labeled valid email only to launch the Design Tool while keeping name and phone optional at launch
+- [x] Add a low-pressure optional name-and-phone follow-up prompt after launch or first save, without blocking design work
+- [x] Preserve the existing saved-plan and verified-phone requirement for all customer kitchen-image requests

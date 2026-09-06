@@ -140,6 +140,29 @@ describe("design.captureLead — launch lead capture", () => {
     expect(deals.length).toBe(1);
   });
 
+  it("enriches the existing CRM lead with optional contact details without counting another launch", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(guestCtx());
+
+    const res = await caller.design.captureLead({
+      email: TEST_EMAIL,
+      name: "Jordan Follow-up",
+      phone: "941-555-0199",
+      interaction: "contact_update",
+    });
+    expect(res.ok).toBe(true);
+
+    const [lead] = await db.select().from(designLeads).where(eq(designLeads.email, TEST_EMAIL));
+    expect(lead?.launchCount).toBe(2);
+    expect(lead?.name).toBe("Jordan Follow-up");
+    expect(lead?.phone).toBe("941-555-0199");
+
+    const [deal] = await db.select().from(crmDeals).where(eq(crmDeals.id, lead?.dealId ?? 0));
+    expect(deal?.contactName).toBe("Jordan Follow-up");
+    expect(deal?.contactPhone).toBe("941-555-0199");
+  });
+
   it("listLeads is admin-only and includes captured leads", async () => {
     const db = await getDb();
     if (!db) return;
