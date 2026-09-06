@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { getDb } from "../db";
+import { verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
 
 // Public procedure — a minimal unauthenticated context is enough.
 function publicCtx(): TrpcContext {
@@ -14,6 +15,7 @@ function publicCtx(): TrpcContext {
 
 type Rec = {
   id: number;
+  pelicanCode?: string | null;
   slug: string;
   name: string;
   category: string;
@@ -87,6 +89,14 @@ describe("surfaces.recommended", () => {
       expect(r.subCategory).toBe("Faucets");
       expect(ACCESSORY.test(r.name)).toBe(false);
     }
+  });
+
+  it("prioritizes source-verified sink profiles so a standard SB-36 has selectable fixtures", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const sinks = (await caller.surfaces.recommended({ role: "sink", limit: 24 })) as Rec[];
+    expect(sinks.some((sink) => Boolean(verifiedPelicanSinkProfile(sink.pelicanCode)))).toBe(true);
   });
 
   it("honors the requested limit", async () => {

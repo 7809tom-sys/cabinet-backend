@@ -151,17 +151,19 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetHandleSide).toHaveBeenCalledWith("b18", "top-center");
   });
 
-  it("offers toe-kick or furniture base molding choices and a top handle for a wall cabinet placed at island counter height", () => {
+  it("offers visible floor-treatment previews and a raised-on-rail handle for a wall cabinet placed at island counter height", () => {
     const onSetHandleSide = vi.fn();
     const onSetIslandWallBaseTreatment = vi.fn();
     const islandWall = { ...wallCabinet, uid: "island-wall", masterCode: "W2430", height: 30, numberOfDoors: 2, islandFace: "front", islandCounterHeightWallCabinet: true } as never;
     renderDialog(vi.fn(), onSetHandleSide, undefined, 0, islandWall, onSetIslandWallBaseTreatment);
     const dialog = screen.getAllByRole("dialog").at(-1)!;
     expect(within(dialog).getByTestId("island-wall-cabinet-base-treatment")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("combobox", { name: "Island wall cabinet base finish" }));
-    fireEvent.click(screen.getByRole("option", { name: /base molding/i }));
+    expect(within(dialog).getByTestId("island-base-preview-toe-kick")).toBeTruthy();
+    expect(within(dialog).getByTestId("island-base-preview-base-molding")).toBeTruthy();
+    expect(within(dialog).getByLabelText("Learn about island base finishes")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /base molding/i }));
     expect(onSetIslandWallBaseTreatment).toHaveBeenCalledWith("island-wall", "base-molding");
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Move island wall cabinet door handle to top center" }));
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Move island wall cabinet door handle higher on its door rail" }));
     expect(onSetHandleSide).toHaveBeenCalledWith("island-wall", "top-center");
   });
 

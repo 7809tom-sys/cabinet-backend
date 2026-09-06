@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { existingCabinetSku } from "./InteractiveRoom3D";
 
 const source = fs.readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+const elevationSource = fs.readFileSync(new URL("./ElevationView.tsx", import.meta.url), "utf8");
 
 describe("InteractiveRoom3D island wall cabinet base treatment", () => {
   it("preserves the selected base-molding option from the saved placement into the 3D SKU", () => {
@@ -20,5 +21,14 @@ describe("InteractiveRoom3D island wall cabinet base treatment", () => {
     expect(source).toContain("islandWallCabinetBaseMolding: true");
     expect(source).toContain("islandCounterHeightWallCabinet");
     expect(source).toContain("isFloorStandingCabinet && !isCounterHeightIslandWallCabinet");
+  });
+
+  it("keeps an island wall cabinet pull vertical on its existing door rail when raised", () => {
+    expect(source).toContain("const raisedIslandWallDoorPull = requestedTopCenteredDoorPull && sku.islandCounterHeightWallCabinet === true;");
+    expect(source).toContain("const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedIslandWallDoorPull;");
+    expect(source).toContain('pullEdge: raisedIslandWallDoorPull ? "raised-door-rail"');
+    expect(source).toContain("verticalPull: !drawer && !horizontalTopRailPull");
+    expect(elevationSource).toContain("const raisedWallDoorPull = Boolean(topCenteredDoorPull && isWall);");
+    expect(elevationSource).toContain('data-hardware-orientation={horizontalTopRailPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}');
   });
 });

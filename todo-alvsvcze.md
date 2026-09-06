@@ -1686,4 +1686,11 @@
 - [x] Add a server-reviewed website-brand import that drafts public contact details and original business copy from an affiliate-provided domain for explicit affiliate approval
 - [x] Keep imported testimonials unpublished until the affiliate explicitly selects and approves them; never generate or fabricate review content
 - [x] Place the website URL input, draft preview, and explicit apply action directly in the affiliate administration setup screen
-- [ ] Repair SB-36 placement on the selected Right wall beside a BBC-36 when the measured adjacent opening is sufficient
+- [x] Confirm SB-36 right-wall placement beside a BBC-36 remains available when a true 36-inch adjacent run is clear; do not weaken real collision protection
+- [x] Diagnose the reported SB-36 drop: the intended opening is on the Back wall, not the island face
+- [x] Confirm the reported Back-wall drop was rejected because the targeted gap is below SB-36’s required 36-inch width; retain real collision protection
+- [x] Restore a usable compatible-sink choice when an SB-36 is added, while retaining verified cabinet-fit filtering
+- [x] Add clear Cabinet Attributes guidance and visual thumbnails for island wall-cabinet recessed toe-kick versus base-molding treatments
+- [x] Move eligible island wall-cabinet pulls upward on the existing door rail, not to a different top rail
+- [ ] Make FS48 and FS60 floating shelves attach to their selected room wall at the chosen height rather than the island or a room-center position
+- [ ] Render FS48 and FS60 as thin floating shelves with no cabinet-box carcass, door, or countertop geometry

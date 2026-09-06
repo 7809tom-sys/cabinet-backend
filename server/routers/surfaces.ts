@@ -7,6 +7,7 @@ import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
 import { pelicanFixtureRole } from "../lib/pelicanFixtureRole";
+import { verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -126,7 +127,7 @@ export const surfacesRouter = router({
         // Sink/faucet source labels need post-query classification; request
         // sufficient candidates so misplaced fixtures do not get starved.
         .limit(input.role === "sink" || input.role === "faucet" ? 480 : input.limit + 12);
-      return rows
+      const recommendations = rows
         .map((r) => ({
           id: r.id,
           pelicanCode: r.pelicanCode,
@@ -141,8 +142,20 @@ export const surfacesRouter = router({
           sellPrice: sellPriceOf(r, map),
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
-        .filter((r) => input.role !== "sink" && input.role !== "faucet" || pelicanFixtureRole(r) === input.role)
-        .slice(0, input.limit);
+        .filter((r) => input.role !== "sink" && input.role !== "faucet" || pelicanFixtureRole(r) === input.role);
+
+      // A sink base can only receive fixtures with a measured, verified profile.
+      // Keep those real, priced, and imaged sink records at the front of the
+      // limited response so the Designer does not fill its 24-item window with
+      // unrelated utility sinks and leave an SB-36 with no selectable fixture.
+      if (input.role === "sink") {
+        recommendations.sort(
+          (left, right) =>
+            Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) -
+            Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))),
+        );
+      }
+      return recommendations.slice(0, input.limit);
     }),
 
   // Fetch full product records (with sell price) for a set of ids — used by the wizard summary.

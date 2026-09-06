@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Minus, Plus, DoorOpen, DoorClosed, Droplets, GitMerge, Link2, AlertTriangle } from "lucide-react";
+import { Minus, Plus, DoorOpen, DoorClosed, Droplets, GitMerge, Link2, AlertTriangle, CircleHelp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   PlacedCabinet,
@@ -469,17 +470,48 @@ export function CabinetAttributesDialog({
 
           {isIslandWallCabinet && (
             <section className="space-y-2 border-t border-border pt-4" data-testid="island-wall-cabinet-base-treatment">
-              <div>
-                <h4 className="text-sm font-semibold">Island base finish</h4>
-                <p className="text-[11px] text-muted-foreground">Choose the floor detail for this wall cabinet used at counter height on the island.</p>
+              <div className="flex items-start gap-1.5">
+                <div>
+                  <h4 className="text-sm font-semibold">Island base finish</h4>
+                  <p className="text-[11px] text-muted-foreground">Choose the floor detail for this counter-height wall cabinet. The preview matches the island’s visible cabinet support.</p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label="Learn about island base finishes" className="mt-0.5 shrink-0 rounded-sm text-amber-700 outline-none hover:text-amber-900 focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-300">
+                      <CircleHelp className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-56">Use a recessed toe kick to match base cabinets, or a full-depth base molding for a built-in furniture look.</TooltipContent>
+                </Tooltip>
               </div>
-              <Select value={islandBaseTreatment} onValueChange={(value) => onSetIslandWallBaseTreatment(uid, value as IslandWallCabinetBaseTreatment)}>
-                <SelectTrigger className="h-9 bg-background text-sm" aria-label="Island wall cabinet base finish"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="toe-kick">Recessed toe kick — matches base cabinets</SelectItem>
-                  <SelectItem value="base-molding">Base molding — full-depth furniture finish</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Island wall cabinet base finish">
+                <button
+                  type="button"
+                  aria-pressed={islandBaseTreatment === "toe-kick"}
+                  className={cn("rounded-md border p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", islandBaseTreatment === "toe-kick" ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20" : "border-border hover:border-amber-400")}
+                  onClick={() => onSetIslandWallBaseTreatment(uid, "toe-kick")}
+                >
+                  <span data-testid="island-base-preview-toe-kick" aria-hidden="true" className="relative mb-2 block h-10 overflow-hidden rounded-sm border border-stone-300 bg-stone-100 dark:border-stone-700 dark:bg-stone-900">
+                    <span className="absolute inset-x-1.5 top-1 h-6 rounded-sm bg-[#6f7e70]" />
+                    <span className="absolute inset-x-3 bottom-0 h-2 bg-[#4c584d]" />
+                  </span>
+                  <span className="block text-xs font-semibold">Recessed toe kick</span>
+                  <span className="block text-[10px] text-muted-foreground">Inset base-cabinet support</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={islandBaseTreatment === "base-molding"}
+                  className={cn("rounded-md border p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", islandBaseTreatment === "base-molding" ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20" : "border-border hover:border-amber-400")}
+                  onClick={() => onSetIslandWallBaseTreatment(uid, "base-molding")}
+                >
+                  <span data-testid="island-base-preview-base-molding" aria-hidden="true" className="relative mb-2 block h-10 overflow-hidden rounded-sm border border-stone-300 bg-stone-100 dark:border-stone-700 dark:bg-stone-900">
+                    <span className="absolute inset-x-1.5 top-1 h-6 rounded-sm bg-[#6f7e70]" />
+                    <span className="absolute inset-x-0 bottom-0 h-2 bg-[#4c584d]" />
+                  </span>
+                  <span className="block text-xs font-semibold">Base molding</span>
+                  <span className="block text-[10px] text-muted-foreground">Full-depth furniture plinth</span>
+                </button>
+              </div>
             </section>
           )}
 
@@ -768,13 +800,13 @@ export function CabinetAttributesDialog({
               {canUseCenteredTopPull && (
                 <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
                   <div>
-                    <Label className="text-sm font-semibold">Top-center door handle</Label>
-                    <p className="text-[11px] text-muted-foreground">{isIslandWallCabinet ? "Island wall cabinet — moves the door handle to the centered top rail." : "B15/B18 only — moves the door handle to the centered top rail."}</p>
+                    <Label className="text-sm font-semibold">Raise door handle on its rail</Label>
+                    <p className="text-[11px] text-muted-foreground">{isIslandWallCabinet ? "Island wall cabinet — moves the vertical pull upward on its existing door rail." : "B15/B18 only — moves the door handle to the centered top rail."}</p>
                   </div>
                   <Switch
                     checked={hardwarePosition === "top-center"}
                     disabled={noDoor}
-                    aria-label={isIslandWallCabinet ? "Move island wall cabinet door handle to top center" : "Move B15/B18 door handle to top center"}
+                    aria-label={isIslandWallCabinet ? "Move island wall cabinet door handle higher on its door rail" : "Move B15/B18 door handle to top center"}
                     onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")}
                   />
                 </div>

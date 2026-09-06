@@ -1964,7 +1964,9 @@ export function HardwareOverlay({
     // fronts retain their individual Attributes choice, including paired pulls.
     const requestedPosition = isDoor ? normalizedDoorPosition : "center";
     const topCenteredDoorPull = Boolean(isDoor && requestedPosition === "top-center");
-    const position = topCenteredDoorPull
+    const raisedWallDoorPull = Boolean(topCenteredDoorPull && isWall);
+    const horizontalTopRailPull = Boolean(topCenteredDoorPull && !raisedWallDoorPull);
+    const position = horizontalTopRailPull
       ? "center"
       : requestedPosition === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
@@ -1998,7 +2000,7 @@ export function HardwareOverlay({
     if (kind === "pull") {
       // Door pulls are vertical at the opening edge. Drawer pulls remain
       // horizontal and centered under the authoritative drawer hardware rule.
-      const pullStyle = topCenteredDoorPull
+      const pullStyle = horizontalTopRailPull
         ? { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
         : isDoor
         ? { left: leftPos, top: `${topPct}%`, width: 5, height: "24%", marginLeft: -2.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
@@ -2008,7 +2010,7 @@ export function HardwareOverlay({
           key={key}
           className="absolute"
           data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"}
-          data-hardware-orientation={topCenteredDoorPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}
+          data-hardware-orientation={horizontalTopRailPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}
           data-hardware-position={topCenteredDoorPull ? "top-center" : position}
           {...measuredHardwareData}
           style={pullStyle as React.CSSProperties}
