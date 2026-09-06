@@ -159,6 +159,8 @@ type SceneSku = {
 	  fillerPlacementMode?: "left" | "right" | "split" | null;
 	  countertopRearExtensionIn?: number | null;
 	  islandFace?: PlacedCabinet["islandFace"];
+	  islandCounterHeightWallCabinet?: boolean | null;
+	  islandWallCabinetBaseTreatment?: "toe-kick" | "base-molding" | null;
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
@@ -2765,13 +2767,15 @@ export function addCabinet(
   // A cabinet that physically stands on the floor always has a recessed 4½in
   // kick. This includes tall cabinets and a wall profile deliberately dropped
   // to floor level; wall cabinets mounted above the floor are excluded.
+  const isCounterHeightIslandWallCabinet = isWall && Boolean(sku.islandFace) && sku.islandCounterHeightWallCabinet === true;
+  const hasFurnitureBaseMolding = isCounterHeightIslandWallCabinet && sku.islandWallCabinetBaseTreatment === "base-molding";
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
-    && (isBaseCabinet || isTall || (isWall && requestedMountBottom <= 0.001));
+    && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
   // toe kick. Build only the upper carcass over that kick so every floor run
   // keeps its measured top while exposing the proper floor recess in 3D.
-  const heightIn = isFloorStandingCabinet
+  const heightIn = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
     ? Math.max(0.1, resolvedHeightIn - THREE_D_TOE_KICK)
     : isFloorDishwasher
       ? 34.5
@@ -2805,7 +2809,7 @@ export function addCabinet(
   const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
   const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
-  const bottom = isFloorStandingCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
+  const bottom = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
   const countertopCenterY = (bottom + heightIn + 0.75) * INCH;
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);
@@ -2816,7 +2820,7 @@ export function addCabinet(
     masterCode: sku.masterCode,
     label: sku.description ?? sku.masterCode,
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
-    ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK } : {}),
+    ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK, islandWallCabinetBaseTreatment: isCounterHeightIslandWallCabinet ? (hasFurnitureBaseMolding ? "base-molding" : "toe-kick") : null } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,
@@ -2848,6 +2852,22 @@ export function addCabinet(
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
     const toeKickMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.64, metalness: 0.01 });
     structuralFinishMaterials.push(toeKickMaterial);
+    if (hasFurnitureBaseMolding) {
+      const baseMolding = new THREE.Mesh(
+        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, Math.max(0.12, bodyDepth - 0.04)),
+        toeKickMaterial,
+      );
+      baseMolding.position.set(0, -bodyHeight / 2 - toeKickHeight / 2, 0);
+      baseMolding.userData = {
+        islandWallCabinetBaseMolding: true,
+        furnitureBaseFinish: true,
+        floorStandingBaseTreatment: true,
+        baseMoldingHeightIn: THREE_D_TOE_KICK,
+        baseMoldingDepthIn: bodyDepth / INCH,
+      };
+      cabinet.add(baseMolding);
+      bodyMeshes.push(baseMolding);
+    } else {
     const lCornerKind = specialty.kind === "corner-drawer" || specialty.kind === "l-corner";
     if (lCornerKind) {
       // ERB/BER/LSB and corner-drawer bases have two exposed room-facing legs.
@@ -2957,6 +2977,7 @@ export function addCabinet(
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
+    }
     }
   }
   if (isFloorDishwasher) {
@@ -5813,6 +5834,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 	    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
 	    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
 	    islandFace: cabinet.islandFace ?? null,
+	    islandCounterHeightWallCabinet: cabinet.islandCounterHeightWallCabinet ?? null,
+	    islandWallCabinetBaseTreatment: cabinet.islandWallCabinetBaseTreatment ?? null,
 	  };
 }
 

@@ -339,6 +339,8 @@ export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "pa
 export type RefrigeratorAssemblyRole = "bridge" | "left-panel" | "right-panel";
 export type RefrigeratorPanelMode = "left" | "right" | "both" | "none";
 export type IslandFace = "front" | "back" | "left" | "right";
+/** Floor treatment for a shallow wall cabinet intentionally used as an island face. */
+export type IslandWallCabinetBaseTreatment = "toe-kick" | "base-molding";
 
 export interface PlacedCabinet {
   uid: string;
@@ -404,6 +406,8 @@ export interface PlacedCabinet {
   islandFace?: IslandFace | null;
   /** A shallow wall cabinet intentionally used as a counter-height island face. */
   islandCounterHeightWallCabinet?: boolean;
+  /** Island-only floor finish: recessed kick or a full-depth furniture plinth. */
+  islandWallCabinetBaseTreatment?: IslandWallCabinetBaseTreatment | null;
   /** Left-to-right position in inches along the selected island face. */
   islandOffset?: number | null;
   // Blind corner cabinets install ACROSS the corner with a manufacturer pull
@@ -761,14 +765,16 @@ export function cabinetHardwarePositionPatch(
   };
 }
 
-/** The centered horizontal pull on the top rail is a requested option only for
- * the single-door B15 and B18 bases; it is not a generic door-hardware mode. */
+/** The centered horizontal pull on the top rail is available for B15/B18 bases
+ * and counter-height wall cabinets intentionally placed on an island. */
 export function supportsCenteredTopDoorPull(p: {
   masterCode?: string | null;
   placement?: Placement | null;
+  islandFace?: IslandFace | null;
+  islandCounterHeightWallCabinet?: boolean | null;
 }): boolean {
   const code = `${p.masterCode ?? ""}`.trim().toUpperCase();
-  return p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code);
+  return (p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code)) || isCounterHeightIslandWallCabinet(p);
 }
 
 /** True when a placed record has a real door front eligible for the requested
@@ -5922,11 +5928,19 @@ export function bearsCountertop(p: {
  * and Wall mode countertop behavior unchanged.
  */
 export function isCounterHeightIslandWallCabinet(p: {
-  placement: Placement;
+  placement?: Placement | null;
   islandFace?: IslandFace | null;
   islandCounterHeightWallCabinet?: boolean | null;
 }): boolean {
   return p.placement === "wall" && Boolean(p.islandFace) && p.islandCounterHeightWallCabinet === true;
+}
+
+/** Older island plans did not store a treatment; retain the familiar recessed
+ * toe kick as their backwards-compatible default. */
+export function islandWallCabinetBaseTreatment(p: {
+  islandWallCabinetBaseTreatment?: IslandWallCabinetBaseTreatment | null;
+}): IslandWallCabinetBaseTreatment {
+  return p.islandWallCabinetBaseTreatment === "base-molding" ? "base-molding" : "toe-kick";
 }
 
 /** Counter-bearing island members include genuine bases and marked shallow opposing wall faces. */

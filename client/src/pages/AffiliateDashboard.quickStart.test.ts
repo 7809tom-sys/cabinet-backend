@@ -20,8 +20,22 @@ describe("affiliate quick storefront setup", () => {
   it("provides the post-publish share, customer storefront, and customer Designer actions", () => {
     expect(source).toContain('data-testid="affiliate-publish-success"');
     expect(source).toContain("Copy link");
+    expect(source).toContain("Share storefront on Facebook");
+    expect(source).toContain("Share storefront on LinkedIn");
+    expect(source).toContain("Your Cabinet Dealz storefront is available immediately");
+    expect(source).toContain("custom domain can be connected separately later");
     expect(source).toContain("Open storefront");
     expect(source).toContain("Open Designer as a customer");
     expect(source).toContain("storefrontPayload(true)");
+  });
+
+  it("offers an explicit website import draft with review-first testimonial publishing and mini-preview guidance", () => {
+    expect(source).toContain('data-testid="affiliate-website-import"');
+    expect(source).toContain("Import from your website");
+    expect(source).toContain("Create draft");
+    expect(source).toContain("Apply selected website details");
+    expect(source).toContain("Only selected quotes will be published");
+    expect(source).toContain("About the mini homepage preview");
+    expect(source).toContain("About the customer Designer button");
   });
 });

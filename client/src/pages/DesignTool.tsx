@@ -11523,6 +11523,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         } : undefined}
         savingMasterConfig={saveMasterCabinetConfig.isPending}
         onSetOvenType={(uid, ovenType) => setCabAttr(uid, { ovenType })}
+        onSetIslandWallBaseTreatment={(uid, treatment) => setCabAttr(uid, { islandWallCabinetBaseTreatment: treatment })}
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}

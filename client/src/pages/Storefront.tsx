@@ -236,6 +236,28 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           </div>
         </section>
 
+        {data.testimonials.length > 0 && (
+          <section aria-labelledby="storefront-testimonials" className="border-b border-border bg-muted/30 py-14 md:py-16">
+            <div className="container">
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: brand.accent }}>Customer voices</p>
+                <h2 id="storefront-testimonials" className={`${headlineFont} mt-2 text-3xl font-bold tracking-tight text-foreground`}>What customers say about {data.storeName}</h2>
+              </div>
+              <div className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {data.testimonials.map((testimonial) => (
+                  <figure key={testimonial.id} className="flex min-w-0 flex-col rounded-lg border border-border bg-background p-5">
+                    <blockquote className="text-sm leading-relaxed text-foreground">“{testimonial.quote}”</blockquote>
+                    <figcaption className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>{testimonial.author ? `— ${testimonial.author}` : "Published customer testimonial"}</span>
+                      <a href={testimonial.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-4 hover:underline">Source</a>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ─── Family-locked shop (shared across templates) ─────────────── */}
         <div id="shop">
           <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />

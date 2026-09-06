@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -24,6 +24,7 @@ import {
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
 import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
+import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
@@ -242,7 +243,13 @@ export const affiliatesRouter = router({
         .limit(1);
       const a = rows[0];
       if (!a || !a.storefrontEnabled || a.status === "inactive") return null;
-      return toPublicStorefront(a);
+      const testimonials = await db
+        .select({ id: affiliateTestimonials.id, quote: affiliateTestimonials.quote, author: affiliateTestimonials.author, sourceUrl: affiliateTestimonials.sourceUrl })
+        .from(affiliateTestimonials)
+        .where(and(eq(affiliateTestimonials.affiliateId, a.id), eq(affiliateTestimonials.isPublished, true)))
+        .orderBy(desc(affiliateTestimonials.createdAt))
+        .limit(6);
+      return { ...toPublicStorefront(a), testimonials };
     }),
 
   // ─── Public: resolve a referral code (for attribution / validation) ────────
@@ -313,9 +320,10 @@ export const affiliatesRouter = router({
       headingFont: null,
       buttonRadius: null,
       // Template previews never run third-party embeds.
-      embedCode: null,
-      embedEnabled: false,
-    };
+        embedCode: null,
+        embedEnabled: false,
+        testimonials: [],
+      };
   }),
 
   // ─── Public: list active storefronts (directory) ───────────────────────────
@@ -592,6 +600,70 @@ export const affiliatesRouter = router({
         await db.update(affiliates).set(set).where(eq(affiliates.id, targetId));
       }
       return { id: targetId };
+    }),
+
+  // The provided site is read server-side as a bounded, public HTML document.
+  // Nothing is saved by this step: the dashboard shows a draft for the
+  // affiliate to explicitly review and apply.
+  importWebsiteBrand: partnerProcedure
+    .input(z.object({ websiteUrl: z.string().min(3).max(512), affiliateId: z.number().int().positive().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      await resolveTargetAffiliateId(ctx, input.affiliateId);
+      try {
+        return await importAffiliateWebsiteDraft(input.websiteUrl);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Could not read that public website.",
+        });
+      }
+    }),
+
+  // Applying a website draft is intentionally explicit. Only the values chosen
+  // by the affiliate are persisted; testimonials are published records only
+  // after selection, never merely because they appeared in imported markup.
+  applyWebsiteBrandImport: partnerProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive().optional(),
+      website: z.string().url().max(512).nullable().optional(),
+      storeName: z.string().min(1).max(256).optional(),
+      logoUrl: z.string().url().max(512).nullable().optional(),
+      primaryColor: z.string().regex(/^#[0-9a-f]{3,8}$/i).nullable().optional(),
+      publicEmail: z.string().email().max(320).nullable().optional(),
+      publicPhone: z.string().max(32).nullable().optional(),
+      publicAddress: z.string().max(256).nullable().optional(),
+      aboutText: z.string().max(4000).nullable().optional(),
+      facebookUrl: z.string().url().max(512).nullable().optional(),
+      instagramUrl: z.string().url().max(512).nullable().optional(),
+      testimonials: z.array(z.object({
+        quote: z.string().min(12).max(1000),
+        author: z.string().max(160).nullable(),
+        sourceUrl: z.string().url().max(512),
+      })).max(6).default([]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const { affiliateId, testimonials, ...fields } = input;
+      const targetId = await resolveTargetAffiliateId(ctx, affiliateId);
+      const patch = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined));
+      if (Object.keys(patch).length > 0) await db.update(affiliates).set(patch).where(eq(affiliates.id, targetId));
+
+      const existing = await db.select({ quote: affiliateTestimonials.quote, sourceUrl: affiliateTestimonials.sourceUrl })
+        .from(affiliateTestimonials)
+        .where(eq(affiliateTestimonials.affiliateId, targetId));
+      const known = new Set(existing.map((item) => `${item.sourceUrl}\n${item.quote}`));
+      const approved = testimonials.filter((item) => !known.has(`${item.sourceUrl}\n${item.quote}`));
+      if (approved.length > 0) {
+        await db.insert(affiliateTestimonials).values(approved.map((item) => ({
+          affiliateId: targetId,
+          quote: item.quote,
+          author: item.author,
+          sourceUrl: item.sourceUrl,
+          isPublished: true,
+        })));
+      }
+      return { id: targetId, testimonialsPublished: approved.length };
     }),
 
   // ─── Partner: publish / unpublish the third-party widget embed ──────────────

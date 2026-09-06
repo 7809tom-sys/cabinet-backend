@@ -1678,3 +1678,12 @@
 - [x] Streamline affiliate setup around business identity, logo/contact branding, colors, preview, and one safe publish action
 - [x] Ensure an affiliate can launch with existing default pricing and defer price-book changes without blocking publication
 - [x] Provide clear post-publish URL, copy-link, and customer-view Designer actions while preserving storefront isolation
+- [x] Add accessible social sharing actions beside the published affiliate storefront link without exposing affiliate account details
+- [x] Add concise tooltips to the mini storefront preview so new affiliates understand preview, branding, and Designer entry points
+- [x] Let wall cabinets placed in an island choose either a matching recessed toe kick or a base-molding furniture finish at floor level
+- [x] Let island wall cabinets choose top-mounted door handles while retaining existing base and wall cabinet handle rules
+- [x] Make affiliate publish confirmation state that the Cabinet Dealz branded subdomain is live immediately and present custom-domain DNS setup as a separate follow-up
+- [x] Add a server-reviewed website-brand import that drafts public contact details and original business copy from an affiliate-provided domain for explicit affiliate approval
+- [x] Keep imported testimonials unpublished until the affiliate explicitly selects and approves them; never generate or fabricate review content
+- [x] Place the website URL input, draft preview, and explicit apply action directly in the affiliate administration setup screen
+- [ ] Repair SB-36 placement on the selected Right wall beside a BBC-36 when the measured adjacent opening is sufficient

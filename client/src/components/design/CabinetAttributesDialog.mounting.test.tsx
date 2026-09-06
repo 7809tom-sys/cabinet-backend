@@ -42,7 +42,7 @@ const wallCabinet = {
   numberOfDrawers: 0,
 } as any;
 
-function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0, cabinet = wallCabinet) {
+function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0, cabinet = wallCabinet, onSetIslandWallBaseTreatment = vi.fn()) {
   const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
@@ -76,9 +76,10 @@ function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onA
       onSetCategory={vi.fn()}
       onSetCustomProfile={vi.fn()}
       onSetOvenType={vi.fn()}
+      onSetIslandWallBaseTreatment={onSetIslandWallBaseTreatment}
     />
   );
-  return { onSetMountBottom, onMoveInOut, onSetHandleSide };
+  return { onSetMountBottom, onMoveInOut, onSetHandleSide, onSetIslandWallBaseTreatment };
 }
 
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
@@ -106,7 +107,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
 	      onSetNoDoor: vi.fn(), onSetHandleSide: vi.fn(), designStyleId: null, distributorId: null, pricingTier: "homeowner" as const,
       onSetRolloutQty: vi.fn(), onSetGlassDoor: vi.fn(), onSetDecorativeEnd: vi.fn(), glassDoorAvailable: false,
       onAddGlassDoorToCart: vi.fn(), onSetBlindPull: vi.fn(), onSetWaterfall: vi.fn(), onSetCategory: vi.fn(),
-      onSetCustomProfile: vi.fn(), onSetOvenType: vi.fn(),
+      onSetCustomProfile: vi.fn(), onSetOvenType: vi.fn(), onSetIslandWallBaseTreatment: vi.fn(),
     };
     const { rerender } = render(<CabinetAttributesDialog cabinet={null} open={false} {...props} />);
 
@@ -148,6 +149,20 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     const choice = within(dialog).getByRole("switch", { name: "Move B15/B18 door handle to top center" });
     fireEvent.click(choice);
     expect(onSetHandleSide).toHaveBeenCalledWith("b18", "top-center");
+  });
+
+  it("offers toe-kick or furniture base molding choices and a top handle for a wall cabinet placed at island counter height", () => {
+    const onSetHandleSide = vi.fn();
+    const onSetIslandWallBaseTreatment = vi.fn();
+    const islandWall = { ...wallCabinet, uid: "island-wall", masterCode: "W2430", height: 30, numberOfDoors: 2, islandFace: "front", islandCounterHeightWallCabinet: true } as never;
+    renderDialog(vi.fn(), onSetHandleSide, undefined, 0, islandWall, onSetIslandWallBaseTreatment);
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    expect(within(dialog).getByTestId("island-wall-cabinet-base-treatment")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Island wall cabinet base finish" }));
+    fireEvent.click(screen.getByRole("option", { name: /base molding/i }));
+    expect(onSetIslandWallBaseTreatment).toHaveBeenCalledWith("island-wall", "base-molding");
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Move island wall cabinet door handle to top center" }));
+    expect(onSetHandleSide).toHaveBeenCalledWith("island-wall", "top-center");
   });
 
   it("confirms before applying the selected door hardware position to every eligible cabinet", () => {

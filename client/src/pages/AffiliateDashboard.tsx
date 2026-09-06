@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -33,7 +34,7 @@ import {
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
   Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
-  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone, Wrench,
+  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone, Wrench, Share2, Facebook, Linkedin, Info,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -865,6 +866,7 @@ type AffiliateRow = {
   referralCode: string;
   storeName: string;
   email: string | null;
+  website: string | null;
   phone: string | null;
   location: string | null;
   updatedAt?: Date | string | null;
@@ -923,6 +925,20 @@ const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: s
 ];
 
 type KitchenSceneKey = "shaker-white" | "shaker-gray" | "shaker-espresso" | "raised-cherry" | "slab-natural";
+
+type WebsiteBrandImportDraft = {
+  sourceUrl: string;
+  storeName: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  publicEmail: string | null;
+  publicPhone: string | null;
+  publicAddress: string | null;
+  aboutText: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  testimonials: Array<{ quote: string; author: string | null; sourceUrl: string }>;
+};
 
 const SCENE_LABELS: Record<KitchenSceneKey, { name: string; desc: string }> = {
   "shaker-white": { name: "White Shaker", desc: "Bright, timeless, and universally loved." },
@@ -989,6 +1005,9 @@ function CustomizeTab({
     buttonRadius: affiliate.buttonRadius ?? "0.375rem",
   });
   const [showLaunchSuccess, setShowLaunchSuccess] = useState(false);
+  const [websiteImportUrl, setWebsiteImportUrl] = useState(affiliate.website ?? "");
+  const [websiteImportDraft, setWebsiteImportDraft] = useState<WebsiteBrandImportDraft | null>(null);
+  const [selectedImportedTestimonialQuotes, setSelectedImportedTestimonialQuotes] = useState<string[]>([]);
 
   // Re-sync the form whenever a different affiliate is loaded, or fresh data
   // arrives from the server after a save. Without this, the fields keep showing
@@ -1000,6 +1019,9 @@ function CustomizeTab({
     if (lastSyncRef.current !== syncKey) {
       lastSyncRef.current = syncKey;
       setForm(formFromAffiliate(affiliate));
+      setWebsiteImportUrl(affiliate.website ?? "");
+      setWebsiteImportDraft(null);
+      setSelectedImportedTestimonialQuotes([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncKey]);
@@ -1015,6 +1037,45 @@ function CustomizeTab({
       onSaved();
     },
     onError: (e) => toast.error("Could not save", { description: e.message }),
+  });
+
+  const websiteImport = trpc.affiliates.importWebsiteBrand.useMutation({
+    onSuccess: (draft) => {
+      setWebsiteImportDraft(draft as WebsiteBrandImportDraft);
+      setSelectedImportedTestimonialQuotes(draft.testimonials.map((item) => item.quote));
+      toast.success("Website draft ready", { description: "Review the detected details, then choose Apply." });
+    },
+    onError: (error) => toast.error("Could not import that website", { description: error.message }),
+  });
+
+  const applyWebsiteImport = trpc.affiliates.applyWebsiteBrandImport.useMutation({
+    onSuccess: (_result, input) => {
+      const draft = websiteImportDraft;
+      if (draft) {
+        setForm((current) => ({
+          ...current,
+          storeName: draft.storeName ?? current.storeName,
+          logoUrl: draft.logoUrl ?? current.logoUrl,
+          primaryColor: draft.primaryColor ?? current.primaryColor,
+          publicEmail: draft.publicEmail ?? current.publicEmail,
+          publicPhone: draft.publicPhone ?? current.publicPhone,
+          publicAddress: draft.publicAddress ?? current.publicAddress,
+          aboutText: draft.aboutText ?? current.aboutText,
+          facebookUrl: draft.facebookUrl ?? current.facebookUrl,
+          instagramUrl: draft.instagramUrl ?? current.instagramUrl,
+        }));
+      }
+      setWebsiteImportUrl(input.website ?? websiteImportUrl);
+      setWebsiteImportDraft(null);
+      setSelectedImportedTestimonialQuotes([]);
+      toast.success("Website details applied", { description: "Your selected testimonials are now published to your storefront." });
+      utils.affiliates.bySlug.invalidate();
+      utils.affiliates.myReferrals.invalidate();
+      utils.affiliates.adminReferrals.invalidate();
+      utils.affiliates.adminList.invalidate();
+      onSaved();
+    },
+    onError: (error) => toast.error("Could not apply the website draft", { description: error.message }),
   });
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -1138,12 +1199,53 @@ function CustomizeTab({
 
   const { storefrontUrl } = affiliateDashboardLinks(affiliate);
   const designerUrl = `${storefrontUrl.replace(/\/$/, "")}/design`;
+  const shareText = `${form.storeName || affiliate.storeName} — design your kitchen online`;
+  const facebookShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(storefrontUrl)}`;
+  const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(storefrontUrl)}`;
 
   function copyStorefrontLink() {
     navigator.clipboard.writeText(storefrontUrl).then(
       () => toast.success("Storefront link copied"),
       () => toast.error("Could not copy the storefront link"),
     );
+  }
+
+  async function shareStorefrontLink() {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: form.storeName || affiliate.storeName, text: shareText, url: storefrontUrl });
+        return;
+      } catch (error) {
+        if ((error as DOMException | undefined)?.name === "AbortError") return;
+      }
+    }
+    copyStorefrontLink();
+  }
+
+  function previewWebsiteImport() {
+    if (!websiteImportUrl.trim()) {
+      toast.error("Paste the public website URL first.");
+      return;
+    }
+    websiteImport.mutate({ websiteUrl: websiteImportUrl.trim(), ...(isAdmin ? { affiliateId: affiliate.id } : {}) });
+  }
+
+  function applyWebsiteImportDraft() {
+    if (!websiteImportDraft) return;
+    applyWebsiteImport.mutate({
+      ...(isAdmin ? { affiliateId: affiliate.id } : {}),
+      website: websiteImportDraft.sourceUrl,
+      storeName: websiteImportDraft.storeName ?? undefined,
+      logoUrl: websiteImportDraft.logoUrl,
+      primaryColor: websiteImportDraft.primaryColor,
+      publicEmail: websiteImportDraft.publicEmail,
+      publicPhone: websiteImportDraft.publicPhone,
+      publicAddress: websiteImportDraft.publicAddress,
+      aboutText: websiteImportDraft.aboutText,
+      facebookUrl: websiteImportDraft.facebookUrl,
+      instagramUrl: websiteImportDraft.instagramUrl,
+      testimonials: websiteImportDraft.testimonials.filter((item) => selectedImportedTestimonialQuotes.includes(item.quote)),
+    });
   }
 
   function handlePublish() {
@@ -1192,6 +1294,45 @@ function CustomizeTab({
           </div>
         </div>
 
+        <div data-testid="affiliate-website-import" className="rounded-lg border border-dashed border-primary/40 bg-background/70 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Label htmlFor="affiliate-website-import-url" className="flex items-center gap-1.5">Import from your website <Badge variant="secondary" className="font-normal">optional</Badge></Label>
+              <Input id="affiliate-website-import-url" type="url" inputMode="url" value={websiteImportUrl} onChange={(event) => setWebsiteImportUrl(event.target.value)} placeholder="https://yourbusiness.com" autoComplete="url" />
+            </div>
+            <Button type="button" variant="outline" onClick={previewWebsiteImport} disabled={websiteImport.isPending} className="gap-2">
+              {websiteImport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              {websiteImport.isPending ? "Reading website…" : "Create draft"}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Paste a public website or subdomain. Cabinet Dealz creates a private draft of visible business details and source-attributed testimonials; nothing changes on your storefront until you apply it.</p>
+
+          {websiteImportDraft && (
+            <div className="mt-4 space-y-3 rounded-md border border-border bg-card p-3" data-testid="affiliate-website-import-draft">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div><p className="font-medium">Review website draft</p><a href={websiteImportDraft.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline-offset-4 hover:underline">{websiteImportDraft.sourceUrl}</a></div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setWebsiteImportDraft(null); setSelectedImportedTestimonialQuotes([]); }}>Discard draft</Button>
+              </div>
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <p><span className="font-medium">Business:</span> {websiteImportDraft.storeName ?? "No name found"}</p>
+                <p><span className="font-medium">Contact:</span> {[websiteImportDraft.publicEmail, websiteImportDraft.publicPhone].filter(Boolean).join(" · ") || "No contact found"}</p>
+                <p className="sm:col-span-2"><span className="font-medium">About:</span> {websiteImportDraft.aboutText ?? "No public introduction found"}</p>
+              </div>
+              {websiteImportDraft.testimonials.length > 0 && (
+                <fieldset className="space-y-2 border-t border-border pt-3">
+                  <legend className="px-1 text-sm font-medium">Testimonials to publish</legend>
+                  <p className="text-xs text-muted-foreground">Only selected quotes will be published. These remain attributed to the imported website; Cabinet Dealz does not generate reviews.</p>
+                  {websiteImportDraft.testimonials.map((item, index) => {
+                    const checked = selectedImportedTestimonialQuotes.includes(item.quote);
+                    return <label key={`${item.sourceUrl}-${index}`} className="flex cursor-pointer items-start gap-2 rounded border border-border p-2 text-sm"><input type="checkbox" className="mt-1" checked={checked} onChange={(event) => setSelectedImportedTestimonialQuotes((current) => event.target.checked ? [...current, item.quote] : current.filter((quote) => quote !== item.quote))} /><span><span className="block">“{item.quote}”</span>{item.author && <span className="mt-1 block text-xs text-muted-foreground">— {item.author}</span>}</span></label>;
+                  })}
+                </fieldset>
+              )}
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3"><Button type="button" onClick={applyWebsiteImportDraft} disabled={applyWebsiteImport.isPending} className="gap-2">{applyWebsiteImport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Apply selected website details</Button><span className="text-xs text-muted-foreground">You can adjust every imported field afterward.</span></div>
+            </div>
+          )}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <div className="space-y-1.5">
             <Label htmlFor="quick-primary">Primary color</Label>
@@ -1216,15 +1357,16 @@ function CustomizeTab({
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="rounded-lg border border-border bg-background p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Mini homepage preview</div>
+            <div className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Mini homepage preview <Tooltip><TooltipTrigger asChild><button type="button" aria-label="About the mini homepage preview" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"><Info className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent side="right">This updates as you enter your name, logo, and colors. It is not public until you publish.</TooltipContent></Tooltip></div>
             <div className="rounded-md p-5 text-white" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }}>
               <div className="flex items-center gap-2">
                 {form.logoUrl ? <img src={form.logoUrl} alt="Store logo preview" className="h-8 max-w-[120px] object-contain" /> : <span className="rounded bg-white/15 px-2 py-1 text-xs font-semibold">{form.storeName.slice(0, 2).toUpperCase() || "CD"}</span>}
                 <span className="font-semibold">{form.storeName || "Your storefront"}</span>
+                <Tooltip><TooltipTrigger asChild><button type="button" aria-label="About your brand preview" className="ml-auto rounded p-0.5 text-white/80 hover:bg-white/15"><Info className="h-3.5 w-3.5" /></button></TooltipTrigger><TooltipContent side="left">Your logo and brand colors appear here, then on your published customer storefront.</TooltipContent></Tooltip>
               </div>
               <p className="mt-5 font-serif text-xl font-bold">Kitchen design starts here.</p>
               <p className="mt-1 text-sm text-white/75">Customers can shop and open your branded Designer.</p>
-              <span className="mt-4 inline-flex rounded px-3 py-2 text-xs font-semibold" style={{ backgroundColor: form.accentColor || "#c9a227" }}>Open Designer</span>
+              <span className="mt-4 inline-flex items-center gap-1 rounded px-3 py-2 text-xs font-semibold" style={{ backgroundColor: form.accentColor || "#c9a227" }}>Open Designer <Tooltip><TooltipTrigger asChild><button type="button" aria-label="About the customer Designer button" className="rounded p-0.5 hover:bg-black/15"><Info className="h-3 w-3" /></button></TooltipTrigger><TooltipContent side="bottom">Customers enter your branded Designer from this action.</TooltipContent></Tooltip></span>
             </div>
           </div>
           <div className="rounded-lg border border-dashed border-border bg-background p-4 text-sm leading-relaxed text-muted-foreground">
@@ -1244,9 +1386,12 @@ function CustomizeTab({
 
         {showLaunchSuccess && (
           <div data-testid="affiliate-publish-success" className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-50">
-            <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">Your site is live</p><p className="mt-0.5 text-sm">Share your customer storefront, or open the Designer exactly as a customer will see it.</p></div></div>
+            <div className="flex gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">Your site is live now</p><p className="mt-0.5 text-sm">Your Cabinet Dealz storefront is available immediately at <a href={storefrontUrl} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">{storefrontUrl}</a>.</p><p className="mt-1 text-xs text-emerald-900/80 dark:text-emerald-100/80">A custom domain can be connected separately later, without delaying this launch.</p></div></div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={copyStorefrontLink} className="gap-1.5"><Copy className="h-3.5 w-3.5" /> Copy link</Button>
+              <Button type="button" variant="outline" size="sm" onClick={shareStorefrontLink} className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Share</Button>
+              <a href={facebookShareUrl} target="_blank" rel="noopener noreferrer" aria-label="Share storefront on Facebook" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><Facebook className="h-3.5 w-3.5" /> Facebook</a>
+              <a href={linkedInShareUrl} target="_blank" rel="noopener noreferrer" aria-label="Share storefront on LinkedIn" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</a>
               <a href={storefrontUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><ExternalLink className="h-3.5 w-3.5" /> Open storefront</a>
               <a href={designerUrl} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium hover:bg-muted"><PencilRuler className="h-3.5 w-3.5" /> Open Designer as a customer</a>
             </div>

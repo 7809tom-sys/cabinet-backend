@@ -36,6 +36,9 @@ import {
   resolveSwing,
   resolveCabinetHardwarePosition,
   supportsCenteredTopDoorPull,
+  isCounterHeightIslandWallCabinet,
+  islandWallCabinetBaseTreatment,
+  type IslandWallCabinetBaseTreatment,
   placedHeight,
   isCustomWidth,
   isCustomHeight,
@@ -243,6 +246,8 @@ export interface CabinetAttributesDialogProps {
   savingMasterConfig?: boolean;
   // Oven type: single or double — only shown for oven-tall cabinets
   onSetOvenType: (uid: string, ovenType: "single" | "double") => void;
+  // Floor finish for a shallow wall cabinet used as a counter-height island face.
+  onSetIslandWallBaseTreatment: (uid: string, treatment: IslandWallCabinetBaseTreatment) => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -283,6 +288,7 @@ export function CabinetAttributesDialog({
   onSaveMasterConfig,
   savingMasterConfig,
   onSetOvenType,
+  onSetIslandWallBaseTreatment,
 }: CabinetAttributesDialogProps) {
 	  const { t } = useLanguage();
 	  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
@@ -316,6 +322,8 @@ export function CabinetAttributesDialog({
   const noDoor = !!cabinet.noDoor;
   const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
   const canUseCenteredTopPull = supportsCenteredTopDoorPull(cabinet);
+  const isIslandWallCabinet = isCounterHeightIslandWallCabinet(cabinet);
+  const islandBaseTreatment = islandWallCabinetBaseTreatment(cabinet);
   const isBase = cabinet.placement === "base";
   const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
@@ -449,15 +457,31 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-	          {canMoveInOut && (
-	            <section className="space-y-2 border-t border-border pt-4">
-	              <div>
-	                <h4 className="text-sm font-semibold">Depth position</h4>
-	                <p className="text-[11px] text-muted-foreground">Choose an exact distance, then move this cabinet toward the wall or into the room.</p>
-	              </div>
-	              <CabinetDepthMoveControls onMove={(direction, distanceIn) => onMoveInOut?.(uid, direction, distanceIn)} />
-	            </section>
-	          )}
+          {canMoveInOut && (
+            <section className="space-y-2 border-t border-border pt-4">
+              <div>
+                <h4 className="text-sm font-semibold">Depth position</h4>
+                <p className="text-[11px] text-muted-foreground">Choose an exact distance, then move this cabinet toward the wall or into the room.</p>
+              </div>
+              <CabinetDepthMoveControls onMove={(direction, distanceIn) => onMoveInOut?.(uid, direction, distanceIn)} />
+            </section>
+          )}
+
+          {isIslandWallCabinet && (
+            <section className="space-y-2 border-t border-border pt-4" data-testid="island-wall-cabinet-base-treatment">
+              <div>
+                <h4 className="text-sm font-semibold">Island base finish</h4>
+                <p className="text-[11px] text-muted-foreground">Choose the floor detail for this wall cabinet used at counter height on the island.</p>
+              </div>
+              <Select value={islandBaseTreatment} onValueChange={(value) => onSetIslandWallBaseTreatment(uid, value as IslandWallCabinetBaseTreatment)}>
+                <SelectTrigger className="h-9 bg-background text-sm" aria-label="Island wall cabinet base finish"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="toe-kick">Recessed toe kick — matches base cabinets</SelectItem>
+                  <SelectItem value="base-molding">Base molding — full-depth furniture finish</SelectItem>
+                </SelectContent>
+              </Select>
+            </section>
+          )}
 
           {/* Oven Type — only for oven-tall cabinets */}
           {cabinetDrawingType(cabinet) === "oven-tall" && (
@@ -745,12 +769,12 @@ export function CabinetAttributesDialog({
                 <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
                   <div>
                     <Label className="text-sm font-semibold">Top-center door handle</Label>
-                    <p className="text-[11px] text-muted-foreground">B15/B18 only — moves the door handle to the centered top rail.</p>
+                    <p className="text-[11px] text-muted-foreground">{isIslandWallCabinet ? "Island wall cabinet — moves the door handle to the centered top rail." : "B15/B18 only — moves the door handle to the centered top rail."}</p>
                   </div>
                   <Switch
                     checked={hardwarePosition === "top-center"}
                     disabled={noDoor}
-                    aria-label="Move B15/B18 door handle to top center"
+                    aria-label={isIslandWallCabinet ? "Move island wall cabinet door handle to top center" : "Move B15/B18 door handle to top center"}
                     onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")}
                   />
                 </div>

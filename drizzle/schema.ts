@@ -1243,6 +1243,24 @@ export const affiliates = mysqlTable("affiliates", {
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
 
+// ─── Affiliate-approved imported testimonials ────────────────────────────────
+// These are never created by Cabinet Dealz. Each row is copied from an
+// affiliate-provided public website, retains its source URL, and remains hidden
+// until the affiliate explicitly approves it for their storefront.
+export const affiliateTestimonials = mysqlTable("affiliate_testimonials", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  quote: text("quote").notNull(),
+  author: varchar("author", { length: 160 }),
+  sourceUrl: varchar("sourceUrl", { length: 512 }).notNull(),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AffiliateTestimonial = typeof affiliateTestimonials.$inferSelect;
+export type InsertAffiliateTestimonial = typeof affiliateTestimonials.$inferInsert;
+
 // ─── Affiliate white-label per-door-style overrides ────────────────────────────
 // One row per (affiliate, door style) the affiliate has customized. brandName
 // renames the style on their storefront; markupBps (nullable) overrides their

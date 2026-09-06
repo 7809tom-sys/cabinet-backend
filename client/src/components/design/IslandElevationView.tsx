@@ -21,7 +21,7 @@ import {
   countertopMaterial,
   isOnIsland, placedFootprint, bearsIslandCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
-  isRangeOrOven, isStacker, wallCabinetTopLine,
+  isRangeOrOven, isStacker, wallCabinetTopLine, isCounterHeightIslandWallCabinet, islandWallCabinetBaseTreatment,
 	  DEFAULT_CEILING_HEIGHT,
 	  type IslandZone, type IslandFace,
 } from "@/lib/design";
@@ -532,9 +532,14 @@ export function IslandElevationView({
         >
           <div className="absolute left-0 right-0 bottom-0 border-b-[3px] border-[#1a2744]" />
 
-          {/* Toe kick overlay on base cabinets */}
-          {toeKick && sorted
-            .filter((p) => (p.placement === "base" || p.placement === "tall") && p.cabinetId !== 0)
+          {/* Recessed support for ordinary bases and island wall cabinets set
+              to the matching toe-kick treatment. */}
+          {sorted
+            .filter((p) => {
+              if (p.cabinetId === 0) return false;
+              const islandWall = isCounterHeightIslandWallCabinet(p);
+              return (toeKick && (p.placement === "base" || p.placement === "tall")) || (islandWall && islandWallCabinetBaseTreatment(p) === "toe-kick");
+            })
             .map((p) => {
               const cabSizeAlong = sizeAlong(p);
               const cabPosAlong = posAlong(p);
@@ -555,9 +560,19 @@ export function IslandElevationView({
               );
             })}
 
+          {/* Full-depth furniture plinth selected for a counter-height island wall cabinet. */}
+          {sorted
+            .filter((p) => p.cabinetId !== 0 && isCounterHeightIslandWallCabinet(p) && islandWallCabinetBaseTreatment(p) === "base-molding")
+            .map((p) => {
+              const cabSizeAlong = sizeAlong(p);
+              const cabPosAlong = posAlong(p);
+              const cabFinish = finishFor ? finishFor(p) : finish;
+              return <div key={`base-molding-${p.uid}`} data-island-wall-base-molding="true" className="absolute" style={{ left: cabPosAlong * ppi, width: cabSizeAlong * ppi, bottom: 0, height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi), background: `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 70%, ${cabFinish.edge} 100%)`, borderTop: `1px solid color-mix(in srgb, ${cabFinish.face} 70%, #ffffff)`, zIndex: 4 }} />;
+            })}
+
           {/* Floor contact shadows */}
           {sorted
-            .filter((p) => (p.placement === "base" || p.placement === "tall" || p.placement === "appliance") && p.cabinetId !== 0)
+            .filter((p) => (p.placement === "base" || p.placement === "tall" || p.placement === "appliance" || isCounterHeightIslandWallCabinet(p)) && p.cabinetId !== 0)
             .map((p) => {
               const cabSizeAlong = sizeAlong(p);
               const cabPosAlong = posAlong(p);
