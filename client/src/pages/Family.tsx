@@ -223,13 +223,14 @@ function FamilyCabinetCard({
                 </div>
               </>
             ) : (
-              <Link
-                href={`/catalog/${item.masterCode}?style=${styleId}`}
-                className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
-              >
-                {lang === "es" ? "Ver precio" : "View pricing"}
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+              <div className="text-xs leading-snug text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {lang === "es" ? "Cotización requerida" : "Quote required"}
+                </span>
+                <span className="block">
+                  {lang === "es" ? "Pida a su equipo la disponibilidad y el precio." : "Ask your Cabinet Dealz team for current availability and pricing."}
+                </span>
+              </div>
             )}
           </div>
 

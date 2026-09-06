@@ -54,6 +54,11 @@ describe("resolveTierPrice", () => {
     expect(resolveTierPrice("homeowner", { listPrice: 220 })).toBe(220);
   });
 
+  it("does not expose contractor or wholesale values when no approved customer price exists", () => {
+    expect(resolveTierPrice("homeowner", { contractorPrice: 120 })).toBeNull();
+    expect(resolveTierPrice("homeowner", { wholesalePrice: 100 })).toBeNull();
+  });
+
   it("wholesale falls back to contractor when wholesale missing", () => {
     expect(resolveTierPrice("wholesale", { contractorPrice: 120 })).toBe(120);
   });

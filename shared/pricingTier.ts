@@ -65,7 +65,10 @@ function num(v: number | string | null | undefined): number | null {
  * Resolution rules:
  *  - wholesale  → wholesalePrice, else contractorPrice, else homeowner/adjusted/list
  *  - contractor → contractorPrice, else wholesalePrice, else homeowner/adjusted/list
- *  - homeowner  → homeownerPrice, else adjustedListPrice, else listPrice, else contractor
+ *  - homeowner  → homeownerPrice, else adjustedListPrice, else listPrice
+ *
+ * A homeowner view never falls back to contractor or wholesale values. Those
+ * are restricted business tiers, not a customer-price source.
  *
  * Returns null when no usable price exists.
  */
@@ -86,7 +89,7 @@ export function resolveTierPrice(
       return contractor ?? wholesale ?? homeowner ?? adjusted ?? list;
     case "homeowner":
     default:
-      return homeowner ?? adjusted ?? list ?? contractor ?? wholesale;
+      return homeowner ?? adjusted ?? list;
   }
 }
 
