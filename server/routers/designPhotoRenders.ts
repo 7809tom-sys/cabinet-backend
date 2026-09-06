@@ -8,7 +8,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { storageGetSignedUrl, storagePut } from "../storage";
 import { checkTwilioVerification, hashPhoneE164, isTwilioVerifyConfigured, normalizePhoneE164, sendTwilioVerification } from "../lib/twilioVerify";
-import { isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
+import { generateGeminiExactPlanTest, isGeminiImageConfigured, pollGeminiExactPlanTest, startGeminiExactPlanTest, verifyGeminiImageAccess } from "../lib/geminiImageProvider";
 import { sendEmail } from "../email";
 
 const DATA_IMAGE_PREFIX = /^data:image\/(png|jpeg|webp);base64,/;
@@ -314,13 +314,12 @@ async function runQueuedGeminiImageTestJob(jobId: number) {
     const dimensions = readJpegDimensions(sourceBytes);
     if (dimensions.width < 1920 || dimensions.height < 1080) throw new Error("The stored Google test reference is below the required 1920×1080 size. Start a fresh test.");
     const prompt = exactPlanPrompt(photoRenderProvenanceSummary(job.provenance as PhotoRenderProvenanceInput));
-    const started = await startGeminiExactPlanTest({
+    const image = await generateGeminiExactPlanTest({
       prompt,
       sourceImageBase64: sourceBytes.toString("base64"),
       sourceMimeType: "image/jpeg",
     });
-    await db.update(designGeminiImageTestJobs).set({ interactionId: started.interactionId, status: "pending", errorMessage: null, nextRetryAt: null })
-      .where(eq(designGeminiImageTestJobs.id, jobId));
+    await persistGeminiImageTestResult(db, job, image);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Google image test could not be started. Please try again.";
     const db = await getDb();
@@ -384,6 +383,31 @@ async function deferOrFailGeminiImageTestJob(
   return { status: "failed", message };
 }
 
+async function persistGeminiImageTestResult(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  job: typeof designGeminiImageTestJobs.$inferSelect,
+  image: { bytes: Buffer; mimeType: "image/jpeg" | "image/png" },
+): Promise<{ status: "completed"; imageUrl: string }> {
+  const extension = image.mimeType === "image/png" ? "png" : "jpg";
+  const stored = await storagePut(`admin-google-image-tests/${job.userId}/${job.sceneSignature}-${Date.now()}.${extension}`, image.bytes, image.mimeType);
+  const design = job.kitchenDesignId > 0 ? await loadOwnedSavedDesign(db, job.userId, job.kitchenDesignId) : null;
+  const confirmedAt = new Date();
+  await db.insert(designPhotoRenders).values({
+    userId: job.userId,
+    kitchenDesignId: design?.id ?? null,
+    sceneSignature: job.sceneSignature,
+    imageUrl: stored.url,
+    provenance: job.provenance,
+    sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash,
+    promptFingerprint: job.promptFingerprint,
+    generationMethod: "manual-final-review-gemini-nano-banana-v1",
+    confirmedAt,
+  }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
+  await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt, nextRetryAt: null })
+    .where(eq(designGeminiImageTestJobs.id, job.id));
+  return { status: "completed", imageUrl: stored.url };
+}
+
 async function pollPendingGeminiImageTestJob(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   job: typeof designGeminiImageTestJobs.$inferSelect,
@@ -406,23 +430,7 @@ async function pollPendingGeminiImageTestJob(
   if (provider.status === "pending") return provider;
   if (provider.status === "failed") return deferOrFailGeminiImageTestJob(db, job, provider.message);
 
-  const extension = provider.image.mimeType === "image/png" ? "png" : "jpg";
-  const stored = await storagePut(`admin-google-image-tests/${job.userId}/${job.sceneSignature}-${Date.now()}.${extension}`, provider.image.bytes, provider.image.mimeType);
-  const confirmedAt = new Date();
-  await db.insert(designPhotoRenders).values({
-    userId: job.userId,
-    kitchenDesignId: design?.id ?? null,
-    sceneSignature: job.sceneSignature,
-    imageUrl: stored.url,
-    provenance: job.provenance,
-    sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash,
-    promptFingerprint: job.promptFingerprint,
-    generationMethod: "manual-final-review-gemini-nano-banana-v1",
-    confirmedAt,
-  }).onDuplicateKeyUpdate({ set: { kitchenDesignId: design?.id ?? null, imageUrl: stored.url, provenance: job.provenance, sourceImageHash: (job.provenance as PhotoRenderProvenanceInput).sourceImageHash, promptFingerprint: job.promptFingerprint, generationMethod: "manual-final-review-gemini-nano-banana-v1", confirmedAt, updatedAt: confirmedAt } });
-  await db.update(designGeminiImageTestJobs).set({ status: "completed", imageUrl: stored.url, errorMessage: null, completedAt: confirmedAt, nextRetryAt: null })
-    .where(eq(designGeminiImageTestJobs.id, job.id));
-  return { status: "completed", imageUrl: stored.url };
+  return persistGeminiImageTestResult(db, job, provider.image);
 }
 
 /**

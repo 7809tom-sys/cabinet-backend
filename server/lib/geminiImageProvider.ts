@@ -2,6 +2,7 @@ import { ENV } from "../_core/env";
 
 export const GEMINI_NANO_BANANA_MODEL = "gemini-3.1-flash-image";
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GEMINI_GENERATE_CONTENT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_NANO_BANANA_MODEL}:generateContent`;
 export const GEMINI_IMAGE_TEST_TIMEOUT_MS = 90_000;
 
 type GeminiImageTestInput = {
@@ -15,22 +16,30 @@ type GeminiImageTestOutput = {
   mimeType: "image/jpeg" | "image/png";
 };
 
-type GeminiImageOutputBlock = {
-  type?: unknown;
-  data?: unknown;
-  mime_type?: unknown;
-};
-
 type GeminiInteractionImageResponse = {
   id?: unknown;
-  output_image?: GeminiImageOutputBlock;
-  steps?: Array<{ content?: GeminiImageOutputBlock[] }>;
+  output_image?: { data?: unknown; mime_type?: unknown };
+  steps?: Array<{ content?: Array<{ type?: unknown; data?: unknown; mime_type?: unknown }> }>;
   status?: unknown;
   errors?: Array<{ code?: unknown }>;
 };
 
-function safeGeminiFailureMessage(status: number | null, payload: GeminiInteractionImageResponse | null) {
-  const providerCode = typeof payload?.errors?.[0]?.code === "string" ? payload.errors[0].code.toLowerCase() : "";
+type GeminiGenerateContentResponse = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ inlineData?: { data?: unknown; mimeType?: unknown } }> };
+  }>;
+  error?: { code?: unknown; status?: unknown };
+  errors?: Array<{ code?: unknown }>;
+};
+
+function safeGeminiFailureMessage(
+  status: number | null,
+  payload: GeminiInteractionImageResponse | GeminiGenerateContentResponse | null,
+) {
+  const providerCode = [
+    payload?.errors?.[0]?.code,
+    payload && "error" in payload ? payload.error?.status : undefined,
+  ].find((value): value is string => typeof value === "string")?.toLowerCase() ?? "";
   if (status === 408 || status === 504) return "Google image test timed out before an image was returned. Please try again.";
   if (status === 429 || providerCode.includes("resource_exhausted") || providerCode.includes("rate")) {
     return "Google image test is temporarily rate-limited. Please wait a few minutes and try again.";
@@ -40,12 +49,7 @@ function safeGeminiFailureMessage(status: number | null, payload: GeminiInteract
   return "Google image test could not be completed. Please try again.";
 }
 
-function imageFromInteraction(payload: GeminiInteractionImageResponse) {
-  const nestedImage = payload.steps?.flatMap((step) => step.content ?? [])
-    .find((content) => content.type === "image" && typeof content.data === "string");
-  const image = payload.output_image?.data ? payload.output_image : nestedImage;
-  const encodedImage = image?.data;
-  const mimeType = image?.mime_type;
+function toImageOutput(encodedImage: unknown, mimeType: unknown) {
   if (typeof encodedImage !== "string" || !encodedImage.length) return null;
   if (mimeType !== "image/jpeg" && mimeType !== "image/png") throw new Error("Google image test returned an unsupported image format.");
   const bytes = Buffer.from(encodedImage, "base64");
@@ -53,8 +57,29 @@ function imageFromInteraction(payload: GeminiInteractionImageResponse) {
   return { bytes, mimeType } as GeminiImageTestOutput;
 }
 
+function imageFromInteraction(payload: GeminiInteractionImageResponse) {
+  const nestedImage = payload.steps?.flatMap((step) => step.content ?? [])
+    .find((content) => content.type === "image" && typeof content.data === "string");
+  const image = payload.output_image?.data ? payload.output_image : nestedImage;
+  return toImageOutput(image?.data, image?.mime_type);
+}
+
+function imageFromGenerateContent(payload: GeminiGenerateContentResponse) {
+  const image = payload.candidates?.flatMap((candidate) => candidate.content?.parts ?? [])
+    .map((part) => part.inlineData)
+    .find((inlineData) => typeof inlineData?.data === "string");
+  return toImageOutput(image?.data, image?.mimeType);
+}
+
 async function parseInteractionResponse(response: Response) {
   const payload = await response.json().catch(() => null) as GeminiInteractionImageResponse | null;
+  if (!response.ok) throw new Error(safeGeminiFailureMessage(response.status, payload));
+  if (!payload) throw new Error("Google image test could not be completed. Please try again.");
+  return payload;
+}
+
+async function parseGenerateContentResponse(response: Response) {
+  const payload = await response.json().catch(() => null) as GeminiGenerateContentResponse | null;
   if (!response.ok) throw new Error(safeGeminiFailureMessage(response.status, payload));
   if (!payload) throw new Error("Google image test could not be completed. Please try again.");
   return payload;
@@ -65,10 +90,7 @@ export type GeminiImageTestJobStatus =
   | { status: "completed"; image: GeminiImageTestOutput }
   | { status: "failed"; message: string };
 
-/**
- * Starts a direct Google image interaction. The durable server worker reads the
- * stored interaction afterward, so the browser never receives provider bytes.
- */
+/** Retained to recover interactions that were created by an earlier app version. */
 export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Promise<{ interactionId: string }> {
   if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
   let response: Response;
@@ -95,7 +117,7 @@ export async function startGeminiExactPlanTest(input: GeminiImageTestInput): Pro
   return { interactionId: payload.id };
 }
 
-/** Retrieves a short status response so browsers never wait for generation itself. */
+/** Retrieves a short status response for legacy background interactions. */
 export async function pollGeminiExactPlanTest(interactionId: string): Promise<GeminiImageTestJobStatus> {
   let response: Response;
   try {
@@ -138,14 +160,13 @@ export async function verifyGeminiImageAccess(): Promise<{ connected: boolean; m
 
 /**
  * Creates an administrator-only illustrative test image from the supplied locked
- * Designer JPEG. The key and the provider payload remain server-side; callers
- * receive only generated image bytes and a verified content type.
+ * Designer JPEG. The key and raw provider payload remain server-side.
  */
 export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): Promise<GeminiImageTestOutput> {
   if (!isGeminiImageConfigured()) throw new Error("Google image testing is not configured.");
   let response: Response;
   try {
-    response = await fetch(GEMINI_INTERACTIONS_URL, {
+    response = await fetch(GEMINI_GENERATE_CONTENT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -153,14 +174,14 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
       },
       signal: AbortSignal.timeout(GEMINI_IMAGE_TEST_TIMEOUT_MS),
       body: JSON.stringify({
-        model: GEMINI_NANO_BANANA_MODEL,
-        input: [
-          { type: "text", text: input.prompt },
-          { type: "image", mime_type: input.sourceMimeType, data: input.sourceImageBase64 },
-        ],
-        // This is an administrator comparison, not the released customer render.
-        // 1K keeps the provider call bounded while preserving the 16:9 composition.
-        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "16:9", image_size: "1K" },
+        contents: [{ parts: [
+          { text: input.prompt },
+          { inlineData: { mimeType: input.sourceMimeType, data: input.sourceImageBase64 } },
+        ] }],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          imageConfig: { aspectRatio: "16:9", imageSize: "1K" },
+        },
       }),
     });
   } catch (error) {
@@ -170,9 +191,8 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
     }
     throw new Error("Google image test could not be reached. Please try again.");
   }
-  const payload = await parseInteractionResponse(response);
-  if (payload.status === "failed" || payload.status === "cancelled") throw new Error(safeGeminiFailureMessage(null, payload));
-  const image = imageFromInteraction(payload);
+  const payload = await parseGenerateContentResponse(response);
+  const image = imageFromGenerateContent(payload);
   if (!image) throw new Error("Google image test did not return an image.");
   return image;
 }

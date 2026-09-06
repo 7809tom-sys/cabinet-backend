@@ -32,7 +32,7 @@ describe("Gemini Nano Banana provider status", () => {
   it("submits a locked JPEG reference only through the server and returns decoded image bytes", async () => {
     const encoded = Buffer.from("generated-google-image").toString("base64");
     const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      output_image: { data: encoded, mime_type: "image/jpeg" },
+      candidates: [{ content: { parts: [{ inlineData: { data: encoded, mimeType: "image/jpeg" } }] } }],
     }), { status: 200 }));
     global.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -45,21 +45,21 @@ describe("Gemini Nano Banana provider status", () => {
     expect(result).toMatchObject({ mimeType: "image/jpeg" });
     expect(result.bytes.toString()).toBe("generated-google-image");
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ "x-goog-api-key": expect.any(String) }),
         signal: expect.any(AbortSignal),
-        body: expect.stringContaining('"image_size":"1K"'),
+        body: expect.stringContaining('"responseModalities":["IMAGE"]'),
       }),
     );
     expect(GEMINI_IMAGE_TEST_TIMEOUT_MS).toBe(90_000);
   });
 
-  it("accepts the official nested Interactions API image output without returning the provider response", async () => {
+  it("accepts the official generateContent image output without returning the provider response", async () => {
     const encoded = Buffer.from("nested-google-image").toString("base64");
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      steps: [{ type: "model_output", content: [{ type: "image", data: encoded, mime_type: "image/png" }] }],
+      candidates: [{ content: { parts: [{ inlineData: { data: encoded, mimeType: "image/png" } }] } }],
     }), { status: 200 })) as unknown as typeof fetch;
 
     const result = await generateGeminiExactPlanTest({

@@ -115,7 +115,7 @@ describe("design photo render safeguards", () => {
     expect(source).toContain('if (ctx.user.role !== "admin")');
     expect(source).toContain("const administratorSnapshot = input.provenance.designId === 0");
     expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design!)");
-    expect(source).toContain("startGeminiExactPlanTest({");
+    expect(source).toContain("generateGeminiExactPlanTest({");
     expect(source).toContain("pollGeminiExactPlanTest(job.interactionId)");
     expect(source).toContain("designGeminiImageTestJobs");
     expect(source).toContain("admin-google-image-tests/");
