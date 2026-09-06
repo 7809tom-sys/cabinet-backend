@@ -26,6 +26,11 @@ describe("nearestFreeWallDropStart", () => {
     expect(nearestFreeWallDropStart(46, 36, dishwasherSideSegments, true)).toBe(60);
   });
 
+  it("keeps every existing cabinet in place while snapping an SB-36 out of a narrow pointer gap into a full selected-wall opening", () => {
+    const backWallSegments = [{ start: 27, length: 19.5 }, { start: 46.5, length: 36 }];
+    expect(nearestFreeWallDropStart(36, 36, backWallSegments, true)).toBe(46.5);
+  });
+
   it("keeps ordinary cabinet drops strict when their pointer is outside the fitting run", () => {
     const dishwasherSideSegments = [{ start: 45, length: 1.5 }, { start: 60, length: 36 }];
     expect(nearestFreeWallDropStart(46, 36, dishwasherSideSegments)).toBeNull();

@@ -723,6 +723,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
+  const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
   // A kitchen has one active installed floor. When a customer chooses another
   // flooring product, it replaces the prior active flooring pick rather than
@@ -6338,7 +6339,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
     deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === uid));
-	    setPlaced((prev) => removePlacedCabinetWithRequiredBlindCornerFiller(prev, uid));
+    setPlaced((prev) => {
+      const next = removePlacedCabinetWithRequiredBlindCornerFiller(prev, uid);
+      // Palette and 3D-drop placement read this committed reference between
+      // renders. Keep it synchronized so a just-deleted SB-36 cannot remain
+      // as a phantom wall-run blocker during an immediate re-add.
+      placedRef.current = next;
+      return next;
+    });
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, [placed, deleteAttachedSinkFixtures]);
 
@@ -7606,12 +7614,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Remote Share
 	        </Button>
         <Button
-	          variant="outline"
-	          size="sm"
+          variant="outline"
+          size="sm"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-	          disabled={materialsListRows.length === 0}
-	          onClick={() => setMaterialsListOpen(true)}
-	          title="View, print, or export complete materials & parts list"
+          disabled={materialsListRows.length === 0}
+          onClick={() => setMaterialsListOpen(true)}
+          title="View, print, or export complete materials & parts list"
         >
           <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
         </Button>
@@ -7639,13 +7647,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               size="sm"
               data-testid="compact-workspace-materials-trigger"
               className="hidden lg:inline-flex shrink-0"
+              disabled={materialsListRows.length === 0}
+              onClick={() => setMaterialsListOpen(true)}
+              title="View every cabinet, material, fixture, and part in this design"
+            >
+              <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="compact-workspace-surfaces-trigger"
+              className="hidden lg:inline-flex shrink-0"
               onClick={() => {
                 setPaletteType("surfaces");
                 setMobilePanel("catalog");
               }}
               title="Choose flooring, countertops, backsplash, faucets, and sinks"
             >
-              <Waves className="mr-1.5 h-3.5 w-3.5" /> Materials
+              <Waves className="mr-1.5 h-3.5 w-3.5" /> Surfaces
             </Button>
             <Button
               variant="outline"
@@ -11075,88 +11094,84 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {t("dt_dist_surcharge_body")}
               </div>
             )}
-            {/* PRIMARY action: turn the design into a real, orderable cart. */}
-            <Button
-              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"
-              disabled={cartableLines.length === 0}
-              onClick={() => {
-                if (hasConflicts && !window.confirm(
-                  t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
-                )) return;
-                addAllToCart();
-              }}
-            >
-              <ShoppingCart className="h-4 w-4" /> {t("dt_cart_add_all")}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
-              onClick={() => setSurfacesOpen(true)}
-            >
-              <Waves className="h-4 w-4" /> Surfaces & Fixtures
-              {selectedSurfaces.length > 0 ? ` (${selectedSurfaces.length})` : ""}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
-              onClick={() => setProDesignerOpen(true)}
-            >
-              <UserRound className="h-4 w-4" /> {t("dt_bs_get_pro")}
-            </Button>
-            {countertop && counter && counter.squareFeet > 0 && (
-              <Button
-                variant="outline"
-                className="w-full mt-2 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50"
-                onClick={() => setQuoteOpen(true)}
-              >
-                <Square className="h-4 w-4" /> {t("dt_bs_request_ct_quote")}
-              </Button>
-            )}
+            <div data-testid="price-panel-quick-actions" className="mt-3 grid grid-cols-4 gap-1.5">
+              <Popover>
+                <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild>
+                  <Button aria-label="Cart actions" className="aspect-square min-h-12 w-full bg-[#a87f33] p-0 text-white hover:bg-[#a87f33]/90" disabled={cartableLines.length === 0}>
+                    <ShoppingCart className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger></TooltipTrigger><TooltipContent>Add this design to cart</TooltipContent></Tooltip>
+                <PopoverContent align="start" className="w-64 space-y-2">
+                  <p className="text-sm font-semibold">Add design to cart</p>
+                  <p className="text-xs text-muted-foreground">{cartableLines.length} orderable item{cartableLines.length === 1 ? "" : "s"} are ready.</p>
+                  <Button className="w-full bg-[#a87f33] text-white hover:bg-[#a87f33]/90" onClick={() => {
+                    if (hasConflicts && !window.confirm(t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" }))) return;
+                    addAllToCart();
+                  }}>
+                    <ShoppingCart className="mr-1.5 h-4 w-4" /> {t("dt_cart_add_all")}
+                  </Button>
+                </PopoverContent>
+              </Popover>
+              <Tooltip><TooltipTrigger asChild>
+                <Button aria-label="Surfaces and fixtures" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => setSurfacesOpen(true)}>
+                  <Waves className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger><TooltipContent>Surfaces &amp; Fixtures{selectedSurfaces.length > 0 ? ` (${selectedSurfaces.length})` : ""}</TooltipContent></Tooltip>
+              {countertop && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button aria-label="Sink and faucet options" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => setSinkOptionsOpen(true)}>
+                    <Droplets className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger><TooltipContent>Sink &amp; faucet options</TooltipContent></Tooltip>
+              )}
+              <Tooltip><TooltipTrigger asChild>
+                <Button aria-label="Professional designer" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => setProDesignerOpen(true)}>
+                  <UserRound className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger><TooltipContent>{t("dt_bs_get_pro")}</TooltipContent></Tooltip>
+              {countertop && counter && counter.squareFeet > 0 && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button aria-label="Request countertop quote" variant="outline" className="aspect-square min-h-12 w-full border-amber-500 p-0 text-amber-700 hover:bg-amber-50" onClick={() => setQuoteOpen(true)}>
+                    <Square className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger><TooltipContent>{t("dt_bs_request_ct_quote")}</TooltipContent></Tooltip>
+              )}
+              {countertop && (
+                <Popover>
+                  <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild>
+                    <Button aria-label="Countertop material and edge profile" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10">
+                      <Palette className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger></TooltipTrigger><TooltipContent>Countertop material &amp; edge</TooltipContent></Tooltip>
+                  <PopoverContent align="start" className="w-72 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{t("dt_bs_countertop_material")}</p>
+                      <button type="button" className="flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline" title="Remove the countertop and any sinks on it" onClick={() => {
+                        setCountertop(false); setSinks([]); setSelectedSinkUid(null); toast.success("Countertop removed");
+                      }}><X className="h-3 w-3" /> Remove</button>
+                    </div>
+                    <PelicanCountertopPicker selectedSurfaces={selectedSurfaces} onSelect={(item) => addRecommendedSurface(item, "countertop")} onBrowseAll={() => setSurfacesOpen(true)} />
+                    <p className="text-xs font-semibold text-foreground">{t("dt_bs_edge_profile")}</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {EDGE_PROFILES.map((ep) => (
+                        <button key={ep.id} type="button" onClick={() => setEdgeProfileId(ep.id)} className={`flex flex-col items-center gap-0.5 rounded-md border p-1.5 text-[10px] transition-colors ${edgeProfileId === ep.id ? "border-[#1a2744] bg-[#1a2744]/8 font-semibold" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/30"}`}>
+                          <svg viewBox="0 0 24 16" className="h-4 w-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={ep.svgPath} /></svg>
+                          <span className="leading-tight">{ep.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
 
             {countertop && (
-              <div className="mt-4 rounded-lg border border-border p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-foreground">{t("dt_bs_countertop_material")}</p>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline"
-                    title="Remove the countertop and any sinks on it"
-                    onClick={() => {
-                      setCountertop(false);
-                      setSinks([]);
-                      setSelectedSinkUid(null);
-                      toast.success("Countertop removed");
-                    }}
-                  >
-                    <X className="h-3 w-3" /> Remove
-                  </button>
-                </div>
-                <PelicanCountertopPicker
-                  selectedSurfaces={selectedSurfaces}
-                  onSelect={(item) => addRecommendedSurface(item, "countertop")}
-                  onBrowseAll={() => setSurfacesOpen(true)}
-                />
-
-                <p className="text-xs font-semibold text-foreground mt-3 mb-1">{t("dt_bs_edge_profile")}</p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {EDGE_PROFILES.map((ep) => (
-                    <button
-                      key={ep.id}
-                      type="button"
-                      onClick={() => setEdgeProfileId(ep.id)}
-                      className={`flex flex-col items-center gap-0.5 rounded-md border p-1.5 text-[10px] transition-colors ${
-                        edgeProfileId === ep.id
-                          ? "border-[#1a2744] bg-[#1a2744]/8 font-semibold"
-                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/30"
-                      }`}
-                    >
-                      <svg viewBox="0 0 24 16" className="h-4 w-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d={ep.svgPath} />
-                      </svg>
-                      <span className="leading-tight">{ep.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <Dialog open={sinkOptionsOpen} onOpenChange={setSinkOptionsOpen}>
+                <DialogContent className="max-h-[min(720px,88vh)] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Sink &amp; faucet options</DialogTitle>
+                    <DialogDescription>Select a compatible sink for the selected sink base, then add or remove its faucet.</DialogDescription>
+                  </DialogHeader>
 
 	                {selectedCab && isFarmSinkBasePaletteItem(selectedCab) ? (
 	                  <FarmhouseSinkSelectionGuide
@@ -11263,7 +11278,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-2">{t("dt_bs_sink_tip")}</p>
-              </div>
+                </DialogContent>
+              </Dialog>
             )}
 
             {/* Backsplash & Flooring pickers moved to the ··· More dropdown menu */}

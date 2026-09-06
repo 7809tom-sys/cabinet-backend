@@ -1702,3 +1702,7 @@
 - [x] Permit administrators to review all saved designs while keeping affiliates and contractors owner-scoped unless a separate authorized-share path is used
 - [x] Reproduce the reported SB-36 attempt: the active Back wall had only a 10-inch clear run; retain real collision protection and direct the user to select the intended wall
 - [x] Ensure administrator direct-load review covers affiliate-scoped saved designs as well as house and contractor designs
+- [x] Replace the cluttered Designer cart stack below price with compact accessible action buttons that open focused panels or dialogs
+- [x] Restore a persistent Materials & Parts toolbar action that opens the complete current-plan materials list
+- [x] Snap a palette-added SB-36 to the nearest valid selected-wall base opening instead of rejecting a valid Back-wall placement because of an imprecise click or drop point
+- [x] Keep all existing cabinets in place when snapping an SB-36 into a valid selected-wall opening; never require removal of a neighboring run for a non-overlapping placement

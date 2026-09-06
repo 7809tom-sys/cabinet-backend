@@ -17,10 +17,13 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
-  it("fits the compact toolbar without horizontal scrolling and opens the complete materials palette directly", () => {
+  it("fits the compact toolbar without horizontal scrolling and keeps both materials list and surfaces access direct", () => {
     expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto scrollbar-none"');
     expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
+    expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
+    expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');
     expect(source).toContain('title="Choose flooring, countertops, backsplash, faucets, and sinks"');
+    expect(source).toContain('onClick={() => setMaterialsListOpen(true)}');
     expect(source).toContain('setPaletteType("surfaces");');
     expect(source).toContain('setMobilePanel("catalog");');
   });

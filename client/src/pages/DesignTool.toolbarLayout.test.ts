@@ -70,8 +70,7 @@ describe("designer toolbar layout", () => {
   });
 
   it("keeps Materials & Parts as direct toolbar actions and removes every More-menu duplicate", () => {
-    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(2);
-	    expect(source).toContain('label="Materials"');
+    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(3);
     expect(source).toContain("Materials &amp; Parts");
     expect(source).not.toContain("Materials &amp; Parts List");
   });
