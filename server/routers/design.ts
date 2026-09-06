@@ -1284,13 +1284,16 @@ export const designRouter = router({
       const ownerScope = ctx.user.role === "admin"
         ? undefined
         : eq(kitchenDesigns.userId, ctx.user.id);
+      const affiliateScope = ctx.user.role === "admin"
+        ? undefined
+        : affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId);
       const rows = await db
         .select()
         .from(kitchenDesigns)
         .where(and(
           eq(kitchenDesigns.id, input.id),
           ownerScope,
-          affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
+          affiliateScope,
         ))
         .limit(1);
       return rows[0] ?? null;

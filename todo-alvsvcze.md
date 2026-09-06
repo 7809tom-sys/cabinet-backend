@@ -1701,3 +1701,4 @@
 - [x] Restrict saved-design save, list, and direct-load access to the authenticated owner across customer, affiliate, and contractor roles, with separate authorized-share and administrator-review exceptions
 - [x] Permit administrators to review all saved designs while keeping affiliates and contractors owner-scoped unless a separate authorized-share path is used
 - [x] Reproduce the reported SB-36 attempt: the active Back wall had only a 10-inch clear run; retain real collision protection and direct the user to select the intended wall
+- [x] Ensure administrator direct-load review covers affiliate-scoped saved designs as well as house and contractor designs
