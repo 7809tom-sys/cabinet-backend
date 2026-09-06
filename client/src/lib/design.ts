@@ -89,6 +89,31 @@ export function isFloatingShelfItem(c: {
   return /floating shelf|\bopen shelf\b/.test(hay);
 }
 
+/**
+ * Repairs legacy FS catalog rows that were imported with a base-cabinet body.
+ * The source shelf series is consistently a 12-inch-deep, 2.06-inch-thick wall
+ * shelf; its code supplies the authoritative nominal width. This normalizer is
+ * deliberately limited to FS-width shelf codes so no other accessory changes.
+ */
+export function normalizeFloatingShelfPlacement(cabinet: PlacedCabinet): PlacedCabinet {
+  if (!isFloatingShelfItem(cabinet)) return cabinet;
+  const widthMatch = /^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(cabinet.masterCode ?? "");
+  const width = Number(widthMatch?.[1]);
+  if (!Number.isFinite(width) || width <= 0) return cabinet;
+  return {
+    ...cabinet,
+    placement: "wall",
+    width,
+    nominalWidth: width,
+    depth: STD.WALL_DEPTH,
+    nominalDepth: STD.WALL_DEPTH,
+    height: 2.06,
+    nominalHeight: 2.06,
+    numberOfDoors: 0,
+    numberOfDrawers: 0,
+  };
+}
+
 /** True for physical filler strips, including compact catalog codes such as F342. */
 export function isFillerItem(c: {
   masterCode?: string | null;

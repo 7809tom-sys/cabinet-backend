@@ -2751,10 +2751,14 @@ export function addCabinet(
   const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
+  const isFloatingShelf = /floating\s*shelf|open\s*shelf/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`);
+  const floatingShelfWidth = Number(/^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(sku.masterCode ?? "")?.[1]);
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
-  const widthIn = numberValue(sku.width, 24);
-  const depthIn = numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
-  const configuredHeightIn = numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
+  const widthIn = isFloatingShelf && Number.isFinite(floatingShelfWidth) && floatingShelfWidth > 0
+    ? floatingShelfWidth
+    : numberValue(sku.width, 24);
+  const depthIn = isFloatingShelf ? WALL_DEPTH : numberValue(sku.depth, isWall ? WALL_DEPTH : BASE_DEPTH);
+  const configuredHeightIn = isFloatingShelf ? 2.06 : numberValue(sku.height, isWall ? 30 : isTall ? 84 : 34.5);
   const resolvedHeightIn = isFreestandingRange
     ? Math.max(STD.RANGE_COOKING_SURFACE_HEIGHT, configuredHeightIn)
     : configuredHeightIn;
@@ -3088,7 +3092,20 @@ export function addCabinet(
     toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
     toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
     cabinet.add(toeRecess);
-		  } else if (!isPlacedHood) {
+  } else if (isFloatingShelf) {
+    const shelfBody = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth, Math.max(0.05, bodyHeight), bodyDepth),
+      bodyMaterial,
+    );
+    shelfBody.userData = {
+      floatingShelf: true,
+      thinWallShelf: true,
+      noCabinetCarcass: true,
+      selectedStyleSideSkin: true,
+    };
+    cabinet.add(shelfBody);
+    bodyMeshes.push(shelfBody);
+  } else if (!isPlacedHood) {
 		    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
 		    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
 	    body.userData = {
@@ -3423,7 +3440,9 @@ export function addCabinet(
   };
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
-  if (isRefrigeratorEndPanel) {
+  if (isFloatingShelf) {
+    frontGroup.userData = { ...frontGroup.userData, floatingShelf: true, noCabinetFronts: true };
+  } else if (isRefrigeratorEndPanel) {
     // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
     // toe kicks. They are plain floor-to-ceiling architectural skins matching
     // the selected cabinet finish on both sides of the refrigerator.

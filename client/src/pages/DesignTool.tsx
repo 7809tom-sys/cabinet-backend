@@ -90,7 +90,7 @@ import { cn } from "@/lib/utils";
 import {
 	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
 	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions,
+	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
           isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
@@ -1971,11 +1971,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // stored placement:"tall" for FRIDGE-* or RANGE-* items. Correct them here
       // so the elevation view renders them as plain steel boxes (no door lines).
       const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
-      const normalizedPlaced = rawPlaced.map((p) =>
-        isApplianceCode(p.masterCode ?? "") && p.placement !== "appliance"
-          ? { ...p, placement: "appliance" as const }
-          : p
-      );
+	      const normalizedPlaced = rawPlaced.map((p) => {
+	        const shelf = normalizeFloatingShelfPlacement(p);
+	        return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
+	          ? { ...shelf, placement: "appliance" as const }
+	          : shelf;
+	      });
       setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), d.room ?? DEFAULT_ROOM)).placed);
       const restoredStyle = restoredSavedDesignStyle(d);
       setStyleId(restoredStyle.styleId);
@@ -2993,17 +2994,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
       // render as a thin board against the run rather than a full 24" box.
-      const isAccessory = (forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c);
-      const accPlacement = isAccessory ? accessoryPlacement(c) : c.placement;
-	      const isFlatPanel = isAccessory && isPanelItem(c);
-	      const isFillerAccessory = isAccessory && isFillerItem(c);
+      const isFloatingShelf = isFloatingShelfItem(c);
+      // Floating shelves remain wall-mounted accessories even when a catalog
+      // filter surfaces them from the Base tab. They must never inherit a base
+      // run, an island face, or a room-center fallback from that filter state.
+      const isAccessory = ((forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c)) || isFloatingShelf;
+      const accPlacement = isFloatingShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
+      const isFlatPanel = isAccessory && isPanelItem(c);
+      const isFillerAccessory = isAccessory && isFillerItem(c);
       const catalogDimensions = resolvedDesignCabinetDimensions(c);
-      const width = isAccessory ? dim(c.width, 24) : catalogDimensions.width;
+      const shelfWidthFromCode = isFloatingShelf ? Number(/^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(c.masterCode)?.[1]) : NaN;
+      const width = isFloatingShelf && Number.isFinite(shelfWidthFromCode) && shelfWidthFromCode > 0
+        ? shelfWidthFromCode
+        : isAccessory ? dim(c.width, 24) : catalogDimensions.width;
 	      // A base filler reserves its complete cabinet-run depth. The 3D renderer
 	      // uses that reserved depth only to place the 3/4-inch board flush at the
 	      // front, so it cannot protrude from the dishwasher-side cabinet run.
-	      const depth = isFlatPanel ? 0.75 : isFillerAccessory ? (accPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
-      const height = isAccessory ? dim(c.height, standardHeight(accPlacement)) : catalogDimensions.height;
+      const depth = isFloatingShelf ? STD.WALL_DEPTH : isFlatPanel ? 0.75 : isFillerAccessory ? (accPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
+      const height = isFloatingShelf ? 2.06 : isAccessory ? dim(c.height, standardHeight(accPlacement)) : catalogDimensions.height;
       // ── Build the new cabinet object OUTSIDE setPlaced so we can run side
       // effects (dialogs, toasts, sink auto-place) exactly once afterward.
       // setPlaced updaters can be called multiple times by React in concurrent
@@ -3019,7 +3027,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      let spot: { x: number; y: number; rotation: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
-	      const requestedIslandFace = island && (targetIslandFace ?? (islandPlacementModeRef.current ? islandFaceRef.current : null));
+      const requestedIslandFace = isFloatingShelf ? null : island && (targetIslandFace ?? (islandPlacementModeRef.current ? islandFaceRef.current : null));
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -3028,13 +3036,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const selectedLowerTarget = selectedPlacementTarget?.placement === "base" || selectedPlacementTarget?.placement === "appliance"
         ? selectedPlacementTarget
         : null;
-      const selectedSinkSpot = accPlacement === "wall"
+      const selectedSinkSpot = accPlacement === "wall" && !isFloatingShelf
         ? selectedSinkBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
         : null;
-      const selectedLowerSpot = accPlacement === "wall" && !selectedSinkSpot
+      const selectedLowerSpot = accPlacement === "wall" && !isFloatingShelf && !selectedSinkSpot
         ? selectedLowerCabinetWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
         : null;
-	      const automaticLowerMatch = accPlacement === "wall" && !selectedLowerTarget && x == null && y == null
+      const automaticLowerMatch = accPlacement === "wall" && !isFloatingShelf && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
 	      // A prior cabinet commonly remains selected after editing an existing
@@ -3058,14 +3066,48 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            { masterCode: c.masterCode, width, depth, mountBottom: (c as any).mountBottom ?? null },
 	          )
 	        : null;
-	      if (rangeHoodPlacement && !rangeHoodPlacement.ok) {
-	        setPlacementWarning(rangeHoodPlacement.message);
-	        toast.error(rangeHoodPlacement.message);
-	        return;
-	      }
-	      if (requestedIslandFace && island) {
-	        spot = { x: island.x, y: island.y, rotation: 0 };
-	        preserveResolvedPlacement = true;
+      if (rangeHoodPlacement && !rangeHoodPlacement.ok) {
+        setPlacementWarning(rangeHoodPlacement.message);
+        toast.error(rangeHoodPlacement.message);
+        return;
+      }
+      let floatingShelfMountBottom: number | undefined;
+      if (isFloatingShelf) {
+        const sameWallShelfCount = prev.filter((item) => isFloatingShelfItem(item) && cabinetWall(item, room) === activeWall).length;
+        const mountBottom = Math.min(Math.max(0, roomCeiling(room) - height), 54 + sameWallShelfCount * 12);
+        const previewSpot = wallPlacementAt(0, width, depth, activeWall, room);
+        const candidate = {
+          uid: "floating-shelf-preview",
+          cabinetId: c.id,
+          masterCode: c.masterCode,
+          description: c.description,
+          placement: "wall" as const,
+          x: previewSpot.x,
+          y: previewSpot.y,
+          width,
+          depth,
+          height,
+          mountBottom,
+          rotation: previewSpot.rotation,
+        } as PlacedCabinet;
+        const segments = freeSegmentsOnWall(activeWall, room, prev, openings, width, WALL_OPENING_CLEARANCE_IN, "wall", false, candidate);
+        const targetSegment = segments.find((segment) => segment.length + 0.01 >= width);
+        if (!targetSegment) {
+          const message = `${c.masterCode} was not added because the selected ${WALL_LABELS[activeWall]} wall has no clear ${formatInches(width)} shelf span at the selected mounting height. The shelf was not moved to the island or room center.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        const requestedAlong = activeWall === "top" || activeWall === "bottom" ? x : y;
+        const start = requestedAlong == null
+          ? targetSegment.start
+          : Math.max(targetSegment.start, Math.min(targetSegment.start + targetSegment.length - width, requestedAlong));
+        spot = wallPlacementAt(start, width, depth, activeWall, room);
+        floatingShelfMountBottom = Math.round(mountBottom * 8) / 8;
+        preserveResolvedPlacement = true;
+      } else if (requestedIslandFace && island) {
+        spot = { x: island.x, y: island.y, rotation: 0 };
+        preserveResolvedPlacement = true;
 	      } else if (rangeHoodPlacement?.ok) {
 	        spot = rangeHoodPlacement.spot;
 	        preserveResolvedPlacement = true;
@@ -3314,7 +3356,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          toast.error(message);
 	          return;
 	        }
-	        const defaultBottom = Math.min(Math.max(0, roomCeiling(room) - height), 54 + shelvesOnRun.length * 12);
+        const defaultBottom = floatingShelfMountBottom ?? Math.min(Math.max(0, roomCeiling(room) - height), 54 + shelvesOnRun.length * 12);
 	        newCab.mountBottom = Math.round(defaultBottom * 8) / 8;
 	        newCab.mountBottomAdjusted = true;
 	      }
@@ -6647,11 +6689,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           if (d.room) setRoom(d.room);
           if (Array.isArray(d.placed)) {
             // Normalize appliance placement (same fix as loadSavedDesign)
-            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) =>
-              isApplianceCode(p.masterCode ?? "") && p.placement !== "appliance"
-                ? { ...p, placement: "appliance" as const }
-                : p
-            );
+	            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) => {
+	              const shelf = normalizeFloatingShelfPlacement(p);
+	              return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
+	                ? { ...shelf, placement: "appliance" as const }
+	                : shelf;
+	            });
             setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedDraft), d.room ?? DEFAULT_ROOM)).placed);
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);

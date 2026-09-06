@@ -30,7 +30,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
 	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange,
+  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -53,6 +53,18 @@ describe("wall cabinet flush mounting", () => {
     };
     const snapped = snapWallCabinetToOwningWall(floating, ROOM_12x10);
     expect(snapped).toMatchObject({ x: 0, y: 54 });
+  });
+});
+
+describe("floating-shelf legacy dimension repair", () => {
+  it("normalizes an incorrectly imported FS48 or FS60 into a thin 12-inch-deep wall shelf", () => {
+    const staleFs48: PlacedCabinet = {
+      uid: "stale-fs48", cabinetId: 48, masterCode: "FS48", description: "48 inch Floating Shelf",
+      placement: "base", x: 24, y: 0, width: 48, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0,
+    };
+    const normalized = normalizeFloatingShelfPlacement(staleFs48);
+    expect(normalized).toMatchObject({ placement: "wall", width: 48, depth: 12, height: 2.06, numberOfDoors: 0, numberOfDrawers: 0 });
   });
 });
 

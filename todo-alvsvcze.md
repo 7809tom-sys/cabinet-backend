@@ -1692,5 +1692,5 @@
 - [x] Restore a usable compatible-sink choice when an SB-36 is added, while retaining verified cabinet-fit filtering
 - [x] Add clear Cabinet Attributes guidance and visual thumbnails for island wall-cabinet recessed toe-kick versus base-molding treatments
 - [x] Move eligible island wall-cabinet pulls upward on the existing door rail, not to a different top rail
-- [ ] Make FS48 and FS60 floating shelves attach to their selected room wall at the chosen height rather than the island or a room-center position
-- [ ] Render FS48 and FS60 as thin floating shelves with no cabinet-box carcass, door, or countertop geometry
+- [x] Make FS48 and FS60 floating shelves attach to their selected room wall at the chosen height rather than the island or a room-center position
+- [x] Render FS48 and FS60 as thin floating shelves with no cabinet-box carcass, door, or countertop geometry
