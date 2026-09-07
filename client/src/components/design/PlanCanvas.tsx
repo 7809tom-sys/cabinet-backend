@@ -869,11 +869,20 @@ export function PlanCanvas({
           })(),
         }}
       >
-        {catalogDragFit && (() => {
-          const { gap } = catalogDragFit;
-          const horizontal = gap.side === "top" || gap.side === "bottom";
-          const depthIn = gap.layer === "wall" ? 12 : 24;
-          const valid = catalogDragFit.status === "valid";
+	        {catalogDragFit && (() => {
+	          const { gap } = catalogDragFit;
+	          const horizontal = gap.side === "top" || gap.side === "bottom";
+	          const depthIn = gap.layer === "wall" ? 12 : 24;
+	          const valid = catalogDragFit.status === "valid";
+	          const tooLarge = !valid && catalogDragFit.shortage > 0;
+	          const layerCandidates = smartGapCandidates.filter((cabinet) => {
+	            const dimensions = resolvedDesignCabinetDimensions(cabinet);
+	            return (gap.layer === "wall" ? cabinet.placement === "wall" : cabinet.placement !== "wall") && dimensions.height > 0;
+	          });
+	          const exactFits = layerCandidates
+	            .filter((cabinet) => Math.abs(resolvedDesignCabinetDimensions(cabinet).width - gap.length) <= 0.01)
+	            .sort((left, right) => left.masterCode.localeCompare(right.masterCode));
+	          const suggestedFit = exactFits[0] ? { cabinet: exactFits[0], remaining: 0 } : bestFitCatalogOption(gap, layerCandidates);
           const gapStyle: React.CSSProperties = horizontal
             ? { left: gap.start * ppi, top: gap.side === "top" ? 0 : roomPxH - depthIn * ppi, width: gap.length * ppi, height: depthIn * ppi }
             : { left: gap.side === "left" ? 0 : roomPxW - depthIn * ppi, top: gap.start * ppi, width: depthIn * ppi, height: gap.length * ppi };
@@ -887,10 +896,16 @@ export function PlanCanvas({
 	            { key: "before", inches: catalogDragFit.before, offset: 0 },
 	            { key: "after", inches: catalogDragFit.after, offset: catalogDragFit.snapEnd - gap.start },
 	          ].filter((segment) => segment.inches > 0.01);
-	          return <div data-testid="catalog-drag-gap-highlight" aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-600 bg-rose-300/25"}`} style={gapStyle}>
+	          return <div data-testid="catalog-drag-gap-highlight" data-too-large={tooLarge ? "true" : "false"} aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-700 bg-rose-300/35"}`} style={gapStyle}>
 	            <span data-testid="catalog-drag-clear-span" className="absolute z-20 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow" style={spanLabelStyle}>
 	              Clear span · {formatEighthInches(gap.length)}
 	            </span>
+	            {suggestedFit && <span data-testid="catalog-drag-best-fit" className={`absolute z-20 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow ${tooLarge ? "bg-rose-800" : "bg-emerald-800"}`} style={{ ...spanLabelStyle, ...(horizontal ? { top: 23 } : { left: 23 }) }}>
+	              {suggestedFit.remaining <= 0.01 ? `Perfect fit · ${suggestedFit.cabinet.masterCode}` : `Largest fit · ${suggestedFit.cabinet.masterCode}`}
+	            </span>}
+	            {tooLarge && <span data-testid="catalog-drag-too-large" className="absolute z-20 whitespace-nowrap rounded bg-rose-800 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow" style={{ ...spanLabelStyle, ...(horizontal ? { top: 42 } : { left: 42 }) }}>
+	              Too small · short {formatEighthInches(catalogDragFit.shortage)}
+	            </span>}
 	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
 	            {valid && remainingSegments.map((segment) => {
 	              const lineStyle: React.CSSProperties = horizontal

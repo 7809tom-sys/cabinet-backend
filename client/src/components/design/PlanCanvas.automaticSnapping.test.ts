@@ -12,7 +12,14 @@ describe("PlanCanvas automatic replacement placement", () => {
   });
 
   it("labels the entire highlighted opening with its clear measured span", () => {
-    expect(source).toContain('data-testid="catalog-drag-clear-span"');
-    expect(source).toContain("Clear span · {formatEighthInches(gap.length)}");
-  });
+	    expect(source).toContain('data-testid="catalog-drag-clear-span"');
+	    expect(source).toContain("Clear span · {formatEighthInches(gap.length)}");
+	  });
+
+	  it("recommends the largest compatible exact catalog fit and makes an undersized opening visibly red", () => {
+	    expect(source).toContain('data-testid="catalog-drag-best-fit"');
+	    expect(source).toContain("Perfect fit · ${suggestedFit.cabinet.masterCode}");
+	    expect(source).toContain('data-testid="catalog-drag-too-large"');
+	    expect(source).toContain('data-too-large={tooLarge ? "true" : "false"}');
+	  });
 });

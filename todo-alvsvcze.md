@@ -1767,3 +1767,6 @@
 - [x] Allow both SB36 and B12 to enter the same verified 36-inch Back-wall opening through normal replacement placement
 - [x] Highlight the full exact available wall span, such as a verified 36-inch opening, while a cabinet is hovered for placement
 - [x] Audit and test automatic snapping across standard cabinet sizes and remaining valid wall gaps
+- [x] Recommend the largest active catalog cabinet that fits exactly within the highlighted clear span
+- [x] Use a red clear-span highlight whenever the dragged cabinet is too large for the opening
+- [x] Explain the available span, required cabinet width, and shortage when placement is blocked by a smaller gap

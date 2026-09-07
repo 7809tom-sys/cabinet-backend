@@ -68,6 +68,12 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("must not turn a verified 36-inch opening into a tiny local sliver");
 	});
 
+	it("explains a normal smaller-gap block with the cabinet width, largest clear opening, and shortage", () => {
+	  expect(source).toContain("const largestClearGap = gaps.reduce<WallGap | null>");
+	  expect(source).toContain("the largest clear opening is");
+	  expect(source).toContain("too small.");
+	});
+
 	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Clear opposite island face found");

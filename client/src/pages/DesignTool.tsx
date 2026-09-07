@@ -5440,12 +5440,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        ? gaps.filter((gap) => gap.length >= width).sort((left, right) => Math.abs(left.center - targetAlong) - Math.abs(right.center - targetAlong))[0]
 	        : null;
 	      const measured = nearestOpenGap ? wallGapFitPreview([nearestOpenGap], nearestOpenGap.center, width) : measuredAtPointer;
-      if (!measured || measured.status !== "valid") {
-        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
-        const message = measured
-          ? !measured.containsTarget
-            ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
-            : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`
+	      if (!measured || measured.status !== "valid") {
+	        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
+	        const largestClearGap = gaps.reduce<WallGap | null>((largest, gap) => !largest || gap.length > largest.length ? gap : largest, null);
+	        const automaticGapFailure = useAutomaticSnapping && largestClearGap
+	          ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it requires ${formatEighthInches(width)}, but the largest clear opening is ${formatEighthInches(largestClearGap.length)} at ${formatEighthInches(largestClearGap.start)}–${formatEighthInches(largestClearGap.start + largestClearGap.length)} and is ${formatEighthInches(Math.max(0, width - largestClearGap.length))} too small.`
+	          : null;
+	        const message = measured
+	          ? automaticGapFailure ?? (!measured.containsTarget
+	            ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
+	            : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`)
 	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
         setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
       }
