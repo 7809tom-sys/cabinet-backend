@@ -1791,3 +1791,5 @@
 - [x] Treat verified functional equivalents, such as LS36-to-ER36 where appropriate, as labeled approved alternatives for unpriced cabinet review without changing a plan automatically
 - [x] Allow a 30-inch wall cabinet to place on an island with normal snapping, collision, rotation, and invoice/material updates, without a wall-type or 30-inch exclusion
 - [x] Immediately release a deleted cabinet’s full physical void so same-size or smaller fitting replacements are allowed without phantom cabinet, sink, or selection reservations
+- [x] Allow a W30 to fit exactly into a verified 30-inch island-face opening without floating-point or tolerance rejection, while preserving true oversize and collision safeguards
+- [x] Recover an empty Back island face from an oversized stale island depth so a W30 can be offered behind a full Front run without colliding with unrelated room-wall cabinets

@@ -17,6 +17,17 @@ import {
 
 export const ISLAND_COUNTERTOP_OVERHANG_IN = 1.5;
 
+/**
+ * Persisted islandFace is authoritative for current plans. Center-point
+ * inference remains a fallback only for legacy plans where no cabinet has an
+ * explicit face, so an oversized island zone cannot absorb room-wall cabinets.
+ */
+export function isIslandAssemblyMember(item: PlacedCabinet, island: IslandZone, placed: PlacedCabinet[]): boolean {
+  if (item.islandFace) return true;
+  if (placed.some((candidate) => candidate.islandFace != null)) return false;
+  return isOnIsland(item, island);
+}
+
 export function islandFaceLength(island: IslandZone, face: IslandFace): number {
   return face === "front" || face === "back" ? island.width : island.depth;
 }
@@ -29,7 +40,7 @@ export function islandFaceLength(island: IslandZone, face: IslandFace): number {
 export function islandFaceCapacity(island: IslandZone, face: IslandFace, placed: PlacedCabinet[]) {
   const length = islandFaceLength(island, face);
   const spans = placed
-    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === face)
+    .filter((item) => isIslandAssemblyMember(item, island, placed) && inferredIslandFace(item, island) === face)
     .map((item) => {
       const start = Math.max(0, islandOffsetForPlaced(item, island, face));
       const end = Math.min(length, start + Math.max(0, Number(item.width) || 0));
@@ -205,7 +216,7 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
     // Earlier saved island plans did not persist islandFace. Infer those members
     // from their measured island position so a new cabinet (including SB36) can
     // extend the occupied face instead of being tested at a false overlapping start.
-    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === face)
+    .filter((item) => isIslandAssemblyMember(item, island, placed) && inferredIslandFace(item, island) === face)
     .map((item) => ({ start: islandOffsetForPlaced(item, island, face), end: islandOffsetForPlaced(item, island, face) + Math.max(0, Number(item.width) || 0) }))
     .sort((a, b) => a.start - b.start);
   // Same-face end points keep a run flush. Only perpendicular members expose
@@ -214,7 +225,7 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   // the Front run (or vice versa), which would leave a visible open island gap.
   const crossFaceEdges = placed
     .filter((item) => {
-      if (!isOnIsland(item, island)) return false;
+      if (!isIslandAssemblyMember(item, island, placed)) return false;
       const itemFace = inferredIslandFace(item, island);
       const faceUsesHorizontalRun = face === "front" || face === "back";
       const itemUsesHorizontalRun = itemFace === "front" || itemFace === "back";
@@ -323,22 +334,24 @@ export function resizeIslandScene(island: IslandZone, placed: PlacedCabinet[], r
  * members are rebuilt against the expanded work zone and checked for collisions.
  */
 export function autoAdjustIslandDepthForBackFace(island: IslandZone, placed: PlacedCabinet[], room: RoomData, incomingBackDepth: number): IslandSceneEditResult {
-  const members = placed.filter((item) => isOnIsland(item, island));
+  const members = placed.filter((item) => isIslandAssemblyMember(item, island, placed));
   const frontDepth = members
     .filter((item) => inferredIslandFace(item, island) === "front")
     .reduce((largest, item) => Math.max(largest, Math.max(0, Number(item.depth) || 0)), 0);
-  const requiredDepth = Math.max(island.depth, frontDepth + Math.max(0, incomingBackDepth));
-  if (requiredDepth <= island.depth + COLLISION_EPSILON_IN) return { ok: true, island, placed };
+  const onlyFrontMembers = members.every((item) => inferredIslandFace(item, island) === "front");
+  const exactRequiredDepth = Math.max(12, frontDepth + Math.max(0, incomingBackDepth));
+  const requiredDepth = onlyFrontMembers ? exactRequiredDepth : Math.max(island.depth, exactRequiredDepth);
+  if (Math.abs(requiredDepth - island.depth) <= COLLISION_EPSILON_IN) return { ok: true, island, placed };
 
-  const growth = requiredDepth - island.depth;
+  const depthDelta = requiredDepth - island.depth;
   const requested = {
     ...island,
-    y: island.y - growth,
+    y: island.y - depthDelta,
     depth: requiredDepth,
     // A zone-anchored explicit slab expands only toward the Back with the new
     // work zone, retaining its original Front edge and user-selected offset.
-    countertopDepth: island.countertopDepth != null && island.countertopDepthAnchoredToZone === true
-      ? island.countertopDepth + growth
+    countertopDepth: depthDelta > 0 && island.countertopDepth != null && island.countertopDepthAnchoredToZone === true
+      ? island.countertopDepth + depthDelta
       : island.countertopDepth,
   };
   const nextIsland = clampIslandToRoom(requested, room)!;

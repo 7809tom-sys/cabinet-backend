@@ -104,6 +104,18 @@ describe("island mini-scene geometry", () => {
 	  expect(hasCollision(second!, [first!])).toBe(false);
 	});
 
+	it("accepts a W30 as an exact fit in a measured 30-inch island-face opening", () => {
+	  const exactIsland: IslandZone = { x: 36, y: 36, width: 60, depth: 36, activeFace: "front" };
+	  const existing = islandFacePlacement(cabinet({ uid: "front-b30", masterCode: "B-30", width: 30 }), exactIsland, "front", 0);
+	  const incoming = cabinet({ uid: "front-w3030", masterCode: "W-30-30", placement: "wall", width: 30, depth: 12, height: 30 });
+	  expect(islandFaceCapacity(exactIsland, "front", [existing])).toMatchObject({ largestOpenSpan: 30 });
+	  expect(nextIslandFacePlacement(incoming, exactIsland, "front", [existing])).toMatchObject({
+	    islandFace: "front",
+	    islandOffset: 30,
+	    width: 30,
+	  });
+	});
+
 		it("reports a chosen Front length as full while leaving the opposing Back run available", () => {
 		  const frontA = islandFacePlacement(cabinet({ uid: "front-a", width: 36 }), island, "front", 0);
 		  const frontB = islandFacePlacement(cabinet({ uid: "front-b", width: 36 }), island, "front", 36);
@@ -370,12 +382,39 @@ describe("island mini-scene geometry", () => {
     expect(adjustment.ok).toBe(true);
     if (!adjustment.ok) return;
     expect(adjustment.island).toMatchObject({ depth: 36, x: compactIsland.x, y: compactIsland.y - 12 });
-    expect(nextIslandFacePlacement(incoming, adjustment.island, "back", adjustment.placed)).toMatchObject({
-      islandFace: "back",
-      islandOffset: 0,
-      x: compactIsland.x,
-      y: compactIsland.y - 12,
-    });
+	    expect(nextIslandFacePlacement(incoming, adjustment.island, "back", adjustment.placed)).toMatchObject({
+	      islandFace: "back",
+	      islandOffset: 0,
+	      x: compactIsland.x,
+	      y: compactIsland.y - 12,
+	    });
+	  });
+
+	  it("trims an empty oversized Back side before adding W30 and leaves room-wall cabinets outside the island assembly", () => {
+	    const staleIsland: IslandZone = { x: 24, y: 0, width: 66, depth: 96, activeFace: "front", autoAdjustDepthForBackFace: true };
+	    const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "3-DB18", width: 18 }), staleIsland, "front", 0);
+	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), staleIsland, "front", 18);
+	    const frontDb12 = islandFacePlacement(cabinet({ uid: "front-db12", masterCode: "3-DB12", width: 12 }), staleIsland, "front", 48);
+	    const roomWallB24 = cabinet({ uid: "room-wall-b24", masterCode: "B-24", x: 24, y: 0, width: 24, depth: 24 });
+	    const roomWallErb36 = cabinet({ uid: "room-wall-erb36", masterCode: "ERB36", x: 48, y: 0, width: 36, depth: 24 });
+	    const existing = [frontB18, frontRange, frontDb12, roomWallB24, roomWallErb36];
+	    const incoming = cabinet({ uid: "back-w3030", masterCode: "W-30-30", placement: "wall", width: 30, depth: 12, height: 30 });
+
+	    expect(islandFaceCapacity(staleIsland, "front", existing).largestOpenSpan).toBe(6);
+	    expect(nextIslandFacePlacement(incoming, staleIsland, "back", existing)).toBeNull();
+	    const adjustment = autoAdjustIslandDepthForBackFace(staleIsland, existing, room, incoming.depth);
+	    expect(adjustment.ok).toBe(true);
+	    if (!adjustment.ok) return;
+	    expect(adjustment.island).toMatchObject({ x: 24, y: 60, width: 66, depth: 36 });
+	    expect(adjustment.placed.find((item) => item.uid === roomWallB24.uid)).toEqual(roomWallB24);
+	    expect(adjustment.placed.find((item) => item.uid === roomWallErb36.uid)).toEqual(roomWallErb36);
+	    expect(islandFaceCapacity(adjustment.island, "back", adjustment.placed).largestOpenSpan).toBe(66);
+	    expect(nextIslandFacePlacement(incoming, adjustment.island, "back", adjustment.placed)).toMatchObject({
+	      islandFace: "back",
+	      islandOffset: 0,
+	      x: 24,
+	      y: 60,
+	    });
 	  });
 
 	  it("preserves island face ownership and exact slab metadata through design save and restore", () => {

@@ -87,6 +87,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain('if (requestedIslandFace === "front" && island)');
 	  expect(source).toContain("The Front island run has reached its chosen");
 	  expect(source).toContain('face: "back"');
+	  expect(source).toContain("Math.abs(backDepthAdjustment.island.depth - islandForPlacement.depth) > COLLISION_EPSILON_IN");
 	});
 
 	it("switches to a Back-facing 3D island view after acceptance and exposes a safe selected-cabinet transfer action", () => {
@@ -116,21 +117,21 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH)");
 	  expect(source).toContain("island.autoAdjustDepthForBackFace === true");
 	  expect(source).toContain("automatic Back-face depth adjustment is blocked");
-	  expect(source).toContain("Island expanded toward Back:");
+	  expect(source).toContain("Island depth adjusted for Back:");
 	});
 
-	it("turns a Front-face remainder dead end into an immediate Back-face depth-expansion choice for the same cabinet", () => {
+	it("turns a Front-face remainder dead end into an immediate Back-face depth-adjustment choice for the same cabinet", () => {
 	  expect(source).toContain("const backDepthAdjustment = autoAdjustIslandDepthForBackFace");
 	  expect(source).toContain("requiresBackDepthAdjustment: true");
 	  expect(source).toContain("forceBackDepthAdjustment = false");
-	  expect(source).toContain("Yes — add to Back and expand depth");
+	  expect(source).toContain("Yes — add to Back and adjust depth");
 	  expect(source).toContain("addCabinet(recommendation.cabinet, undefined, undefined, recommendation.forceAccessory, 0, false, undefined, recommendation.face, true)");
 	});
 
 	it("emits a visible before-and-after island depth transition when Back-face auto-adjustment succeeds", () => {
 	  expect(source).toContain("setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth");
 	  expect(source).toContain("islandDepthTransition={islandDepthTransition}");
-	  expect(source).toContain("Island expanded toward Back:");
+	  expect(source).toContain("Island depth adjusted for Back:");
 	});
 
 	it("keeps a verified normal wall opening and redirects a shallow island wall cabinet only when Back needs depth", () => {

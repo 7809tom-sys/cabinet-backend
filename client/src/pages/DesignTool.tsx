@@ -555,8 +555,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    face: IslandFace;
 		  availableLength: number;
 		  selectedFaceLength: number;
-		  selectedFaceIsFull: boolean;
+		    selectedFaceIsFull: boolean;
 	    requiresBackDepthAdjustment?: boolean;
+	    currentIslandDepth?: number;
 	    requiredIslandDepth?: number;
 	  } | null>(null);
 	  const [islandDepthTransition, setIslandDepthTransition] = useState<{ fromDepth: number; toDepth: number; key: number } | null>(null);
@@ -3479,7 +3480,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          }
 	          islandForPlacement = adjustment.island;
 	          islandPlacementPrevious = adjustment.placed;
-	          if (adjustment.island.depth > island.depth + COLLISION_EPSILON_IN) autoAdjustedIsland = adjustment.island;
+	          if (Math.abs(adjustment.island.depth - island.depth) > COLLISION_EPSILON_IN) autoAdjustedIsland = adjustment.island;
 	        }
 	        const islandCandidate = nextIslandFacePlacement(newCab, islandForPlacement, requestedIslandFace, islandPlacementPrevious);
 	        if (!islandCandidate) {
@@ -3517,8 +3518,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            const adjustedBackCandidate = backDepthAdjustment.ok
 	              ? nextIslandFacePlacement(newCab, backDepthAdjustment.island, "back", backDepthAdjustment.placed)
 	              : null;
-	            if (adjustedBackCandidate && backDepthAdjustment.island.depth > islandForPlacement.depth + COLLISION_EPSILON_IN) {
-	              const message = `${newCab.masterCode} cannot fit in the remaining ${formatInches(selectedFaceCapacity.largestOpenSpan)} on the ${requestedIslandFace} run, but it can be added to Back by expanding the island depth to ${formatInches(backDepthAdjustment.island.depth)}. The current run and all treatments remain unchanged.`;
+	            if (adjustedBackCandidate && Math.abs(backDepthAdjustment.island.depth - islandForPlacement.depth) > COLLISION_EPSILON_IN) {
+	              const message = `${newCab.masterCode} cannot fit in the remaining ${formatInches(selectedFaceCapacity.largestOpenSpan)} on the ${requestedIslandFace} run, but it can be added to Back by adjusting the island depth from ${formatInches(islandForPlacement.depth)} to ${formatInches(backDepthAdjustment.island.depth)}. The current run and all treatments remain unchanged.`;
 	              setAlternateIslandFaceRecommendation({
 	                cabinet: c,
 	                forceAccessory,
@@ -3528,6 +3529,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                selectedFaceLength: selectedFaceCapacity.length,
 	                selectedFaceIsFull: selectedFaceCapacity.isFull,
 	                requiresBackDepthAdjustment: true,
+	                currentIslandDepth: islandForPlacement.depth,
 	                requiredIslandDepth: backDepthAdjustment.island.depth,
 	              });
 	              setPlacementWarning(message);
@@ -3773,7 +3775,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (autoAdjustedIsland) {
 	        setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth, key: Date.now() });
 	        setIsland(autoAdjustedIsland);
-	        toast.success(`Island expanded toward Back: ${formatInches(island?.depth ?? autoAdjustedIsland.depth)} → ${formatInches(autoAdjustedIsland.depth)} for the Back cabinet.`);
+	        toast.success(`Island depth adjusted for Back: ${formatInches(island?.depth ?? autoAdjustedIsland.depth)} → ${formatInches(autoAdjustedIsland.depth)}.`);
 	      }
 	      // As soon as the user completes the chosen Front island length, offer
 	      // the Back face for the next selection. This changes only the active
@@ -12512,13 +12514,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          </DialogHeader>
 	          {alternateIslandFaceRecommendation && (
 	            <div data-testid="alternate-island-face-placement-recommendation" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
-	              <p className="font-semibold">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on Back after the island expands to ${formatInches(alternateIslandFaceRecommendation.requiredIslandDepth ?? 0)}` : alternateIslandFaceRecommendation.selectedFaceIsFull ? `The ${alternateIslandFaceRecommendation.requestedFace} run is full at ${formatInches(alternateIslandFaceRecommendation.selectedFaceLength)}` : `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on the ${alternateIslandFaceRecommendation.face} island face`}</p>
+	              <p className="font-semibold">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on Back after the island depth adjusts from ${formatInches(alternateIslandFaceRecommendation.currentIslandDepth ?? 0)} to ${formatInches(alternateIslandFaceRecommendation.requiredIslandDepth ?? 0)}` : alternateIslandFaceRecommendation.selectedFaceIsFull ? `The ${alternateIslandFaceRecommendation.requestedFace} run is full at ${formatInches(alternateIslandFaceRecommendation.selectedFaceLength)}` : `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on the ${alternateIslandFaceRecommendation.face} island face`}</p>
 	              <p className="mt-1 text-xs leading-relaxed">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `Yes will add this ${alternateIslandFaceRecommendation.cabinet.masterCode} to Back now. The ${alternateIslandFaceRecommendation.requestedFace} run, toe kick, base molding, waterfall, seating, and countertop settings will not move.` : `Select ${alternateIslandFaceRecommendation.face} now, then choose the next cabinet for its measured ${formatInches(alternateIslandFaceRecommendation.availableLength)} run. The ${alternateIslandFaceRecommendation.requestedFace} run will not move.`}</p>
 	            </div>
 	          )}
 	          <DialogFooter className="gap-2 sm:gap-0">
 	            <Button variant="outline" onClick={() => setAlternateIslandFaceRecommendation(null)}>Keep current face</Button>
-	            <Button onClick={placeOnRecommendedIslandFace}>{alternateIslandFaceRecommendation?.requiresBackDepthAdjustment ? `Yes — add to Back and expand depth` : `Yes — choose next cabinet for ${alternateIslandFaceRecommendation ? alternateIslandFaceRecommendation.face : "opposite"}`}</Button>
+	            <Button onClick={placeOnRecommendedIslandFace}>{alternateIslandFaceRecommendation?.requiresBackDepthAdjustment ? `Yes — add to Back and adjust depth` : `Yes — choose next cabinet for ${alternateIslandFaceRecommendation ? alternateIslandFaceRecommendation.face : "opposite"}`}</Button>
 	          </DialogFooter>
 	        </DialogContent>
 	      </Dialog>
