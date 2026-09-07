@@ -11,5 +11,7 @@ describe("3D waterfall end panels", () => {
     expect(source).toContain("const waterfallSides");
     expect(source).toContain("waterfallPanel: true");
     expect(source).toContain("fullHeightToFloor: true");
+	  expect(source).toContain("islandWaterfall: Boolean(sku.islandFace)");
+	  expect(source.indexOf("const waterfallSides")).toBeGreaterThan(source.indexOf("if (shouldRenderCountertopOverSceneItem"));
   });
 });

@@ -93,7 +93,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -3372,6 +3372,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        newCab.mountBottomAdjusted = true;
 	      }
 	      if (requestedIslandFace && island) {
+	        const isShallowIslandWallCabinet = newCab.placement === "wall"
+	          && Number(newCab.depth) <= STD.WALL_DEPTH + COLLISION_EPSILON_IN
+	          && Number(newCab.height) <= STD.BASE_HEIGHT + COLLISION_EPSILON_IN;
+	        const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH);
+	        if (isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth) {
+	          const message = `${newCab.masterCode} needs a ${formatInches(minimumOpposingIslandDepth)}-deep island to sit opposite the existing 24-inch base run. The current island is ${formatInches(island.depth)} deep. Open Island setup to use at least ${formatInches(minimumOpposingIslandDepth)}${minimumOpposingIslandDepth < 48 ? " (48 inches if you want a 12-inch seating overhang)" : ""}.`;
+	          setPlacementWarning(message);
+	          toast.info(message);
+	          setIslandAttributesOpen(true);
+	          return;
+	        }
 	        const islandCandidate = nextIslandFacePlacement(newCab, island, requestedIslandFace, prev);
 	        if (!islandCandidate) {
 	          const oppositeFace: IslandFace = requestedIslandFace === "front"

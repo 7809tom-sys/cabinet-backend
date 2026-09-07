@@ -39,6 +39,13 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("The existing island run will remain unchanged.");
 	});
 
+	it("opens Island setup with an accurate depth requirement before placing a shallow opposing wall cabinet", () => {
+	  expect(source).toContain("const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH)");
+	  expect(source).toContain("isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth");
+	  expect(source).toContain("setIslandAttributesOpen(true)");
+	  expect(source).toContain("48 inches if you want a 12-inch seating overhang");
+	});
+
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {
 	  expect(source).toContain("islandFaceFitMeasure(selectedCab, island, placed)");
 	  expect(source).toContain("island && selectedCab.islandFace");

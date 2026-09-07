@@ -1712,3 +1712,6 @@
 - [x] Repair the selected end-island waterfall action so it adds a visible full-height countertop side using the active countertop material and persists through save and reload
 - [x] Correct the live island Front/Back selector mapping so the visible B-12/range/B-18 run occupies only its real face and the empty opposite face accepts a W-30-30
 - [x] When an island face is occupied, offer a one-click placement on the verified empty opposite face without moving the existing B-12/range/B-18 run
+- [x] Correct the island-specific 3D waterfall render path so persisted selected end panels are not skipped by the island countertop exclusion
+- [x] Diagnose the current W-30-30 Front-face rejection as a real physical-depth limit rather than move the visible B-12/range/B-18 base run
+- [x] Explain and offer safe island-depth recovery when a 24-inch base-only island cannot physically accept an opposing 12-inch W-30-30 face

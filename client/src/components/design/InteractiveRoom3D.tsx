@@ -4520,35 +4520,57 @@ export function addCabinet(
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
 
-      // The selected end continues the exact countertop material vertically to
-      // the floor. It is intentionally authored in cabinet-local coordinates
-      // so it follows every island orientation without changing cabinet bounds.
-      const waterfallSides: Array<-1 | 1> = placement === "base"
-        ? [sku.waterfallLeft ? -1 : null, sku.waterfallRight ? 1 : null].filter((side): side is -1 | 1 => side !== null)
-        : [];
-      const waterfallTop = countertopCenterY + 0.75 * INCH;
-      const panelThickness = 1.5 * INCH;
-      for (const side of waterfallSides) {
-        const panel = new THREE.Mesh(
-          new THREE.BoxGeometry(panelThickness, waterfallTop, countertopDepthIn * INCH),
-          counterMaterial,
-        );
-        panel.position.copy(cabinet.position);
-        panel.rotation.y = rotation;
-        panel.translateX(side * (bodyWidth / 2 - panelThickness / 2));
-        panel.translateZ((COUNTERTOP_FRONT_OVERHANG - rearExtensionIn * INCH) / 2);
-        panel.position.y = waterfallTop / 2;
-        panel.userData = {
-          waterfallPanel: true,
-          waterfallSide: side === -1 ? "left" : "right",
-          selectedSurfaceRole: "countertop",
-          fullHeightToFloor: true,
-        };
-        applyThreeDPlacementIdentity(panel, placementIdentity);
-        root.add(panel);
-      }
-    }
-  }
+	    }
+	  }
+
+	  // Island tops are assembled as merged spans elsewhere, so they are excluded
+	  // from the normal per-cabinet countertop branch above. Waterfall end panels
+	  // are cabinet-owned and must therefore be built independently for every
+	  // selected base, including an island end.
+	  const waterfallSides: Array<-1 | 1> = placement === "base"
+	    ? [sku.waterfallLeft ? -1 : null, sku.waterfallRight ? 1 : null].filter((side): side is -1 | 1 => side !== null)
+	    : [];
+	  if (waterfallSides.length > 0) {
+	    const countertopTexture = surfaceTextures?.countertop ?? null;
+	    const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture, {
+	      centerXIn: x,
+	      centerZIn: z,
+	      localWidthIn: bodyWidth / INCH,
+	      localDepthIn: bodyDepth / INCH,
+	      rotation,
+	      slabWidthIn: Number(countertopTexture?.userData?.physicalWidthIn) || 138,
+	      slabDepthIn: Number(countertopTexture?.userData?.physicalDepthIn) || 79,
+	    });
+	    const waterfallMaterial = new THREE.MeshPhysicalMaterial({
+	      color: mappedCountertopTexture ? "#ffffff" : counterColor,
+	      map: mappedCountertopTexture,
+	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedCountertopTexture)),
+	    });
+	    const rearExtensionIn = Math.max(0, Number(sku.countertopRearExtensionIn) || 0);
+	    const waterfallDepthIn = threeDSceneCountertopDepthIn(sku, bodyDepth / INCH) + rearExtensionIn;
+	    const waterfallTop = countertopCenterY + 0.75 * INCH;
+	    const panelThickness = 1.5 * INCH;
+	    for (const side of waterfallSides) {
+	      const panel = new THREE.Mesh(
+	        new THREE.BoxGeometry(panelThickness, waterfallTop, waterfallDepthIn * INCH),
+	        waterfallMaterial,
+	      );
+	      panel.position.copy(cabinet.position);
+	      panel.rotation.y = rotation;
+	      panel.translateX(side * (bodyWidth / 2 - panelThickness / 2));
+	      panel.translateZ((COUNTERTOP_FRONT_OVERHANG - rearExtensionIn * INCH) / 2);
+	      panel.position.y = waterfallTop / 2;
+	      panel.userData = {
+	        waterfallPanel: true,
+	        waterfallSide: side === -1 ? "left" : "right",
+	        selectedSurfaceRole: "countertop",
+	        fullHeightToFloor: true,
+	        islandWaterfall: Boolean(sku.islandFace),
+	      };
+	      applyThreeDPlacementIdentity(panel, placementIdentity);
+	      root.add(panel);
+	    }
+	  }
 }
 
 export type ThreeDPlacedWall = "back" | "front" | "left" | "right";
