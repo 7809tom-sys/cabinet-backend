@@ -1786,3 +1786,6 @@
 - [x] Restore cabinet editing on desktop and phone by making the nested Media Library dialog viewport-safe, selectable, closable, and return users to the editor without losing changes
 - [x] Compare and restore the Media Library interaction that worked yesterday without removing needed draggable-popup behavior
 - [x] Make the Cabinet Config editor itself fit laptop and phone viewports with reachable distributor settings and save actions through internal scrolling
+- [x] On Designer plan or finish changes, identify placed cabinets without authorized customer pricing and offer compliant priced alternatives only after explicit user review
+- [x] Treat verified functional equivalents, including compatible door-count alternatives such as a two-door base to a three-door base, as labeled priced suggestions without changing a plan automatically
+- [x] Treat verified functional equivalents, such as LS36-to-ER36 where appropriate, as labeled approved alternatives for unpriced cabinet review without changing a plan automatically

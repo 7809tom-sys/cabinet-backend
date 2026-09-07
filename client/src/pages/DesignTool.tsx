@@ -922,6 +922,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const styleBRef = useRef<number | null>(null);
   // Default to Homeowner for guests; overridden by user.pricingTier on login.
   const [tier, setTier] = useState<PricingTier>("Homeowner");
+  const [pendingPlanStyleSwitch, setPendingPlanStyleSwitch] = useState<{
+    slot: "A" | "B";
+    newStyleId: number;
+    distributorId: number | null;
+    requiresDistributorOverride: boolean;
+  } | null>(null);
+  const [planSwitchAlternativeChoices, setPlanSwitchAlternativeChoices] = useState<Record<string, number>>({});
   // Distributor lock: once the base cabinet's finish is chosen the member can
   // "Lock" the design to that style's supply line. While locked, the palette
   // only offers cabinets from that distributor and the finish picker is scoped
@@ -1710,6 +1717,42 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: pricePairs.length > 0 && !!styleId }
+  );
+
+  // Before a plan changes to a new style, ask the server to verify every
+  // affected cabinet has an authorized price in that line. The procedure
+  // returns only customer-safe prices and approved same-fit alternatives.
+  const planSwitchReviewCabinets = useMemo(() => {
+    if (!pendingPlanStyleSwitch) return [];
+    const formerStyleId = pendingPlanStyleSwitch.slot === "A" ? (styleA ?? styleId) : styleB;
+    if (formerStyleId == null) return [];
+    return placed
+      .filter((cabinet) => cabinet.cabinetId > 0 && !isClosetPart(cabinet.masterCode))
+      .filter((cabinet) => effectiveStyleId(cabinet, styleId) === formerStyleId)
+      .map((cabinet) => ({
+        uid: cabinet.uid,
+        cabinetId: pricingCabinetIdFor(cabinet),
+        masterCode: cabinet.masterCode,
+        description: cabinet.description ?? null,
+        category: cabinet.category ?? null,
+        subCategory: cabinet.subCategory ?? null,
+        placementType: cabinet.placement ?? null,
+        width: cabinet.width,
+        height: placedHeight(cabinet),
+        depth: cabinet.depth,
+        numberOfDoors: cabinet.numberOfDoors ?? null,
+        numberOfDrawers: cabinet.numberOfDrawers ?? null,
+        isCornerCabinet: isCornerCabinet(cabinet.masterCode),
+      }));
+  }, [pendingPlanStyleSwitch, styleA, styleB, styleId, placed, pricingCabinetIdFor]);
+  const planSwitchPricingReview = trpc.design.planSwitchPricingReview.useQuery(
+    {
+      targetStyleId: pendingPlanStyleSwitch?.newStyleId ?? 0,
+      distributorId: pendingPlanStyleSwitch?.distributorId ?? undefined,
+      tier: DESIGN_TIER_TO_SHARED[tier],
+      cabinets: planSwitchReviewCabinets,
+    },
+    { enabled: pendingPlanStyleSwitch != null && planSwitchReviewCabinets.length > 0 },
   );
 
   // Price map keyed on `cabinetId:styleId` so a cabinet can resolve to a
@@ -6468,21 +6511,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
   }, [styleA, styleB, doorStyles]);
 
-  // Assign a door style to a slot (from the picker). Setting the active slot's
-  // style also updates styleId. Slot B is the two-tone second color.
-  const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
+  const commitPlanStyleSwitch = useCallback((slot: "A" | "B", newStyleId: number, requiresDistributorOverride: boolean) => {
     const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
     const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
-
-    // Distributor override: if the design is locked to a distributor (cabinets
-    // already placed) and the user picks a style from a DIFFERENT distributor,
-    // ask them to acknowledge extra shipping costs. If they confirm, unlock the
-    // distributor so they can mix supply lines.
-    if (lockedDistributorId != null && distNew != null && distNew !== lockedDistributorId) {
-      const ok = window.confirm(t("dt_dist_override_body"));
-      if (!ok) return;
-      // Unlock: clear the distributor lock so the palette shows all cabinets.
-      // Set the override flag so the auto-lock effect doesn't re-engage.
+    if (requiresDistributorOverride) {
       setLockedDistributorId(null);
       setMixedWarehouseOverride(true);
       toast.success(t("dt_dist_unlocked"));
@@ -6510,13 +6542,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const noStyleYet = styleId == null;
     if (slot === "A") {
       const formerDefaultStyleId = styleA ?? styleId;
-      setPlaced((previous) => rebaseFormerDefaultStyleOverrides(previous, formerDefaultStyleId, newStyleId, styleB != null));
+      setPlaced((previous) => {
+        const rebased = rebaseFormerDefaultStyleOverrides(previous, formerDefaultStyleId, newStyleId, styleB != null);
+        return styleB != null && formerDefaultStyleId != null
+          ? rebased.map((cabinet) => cabinet.styleId === formerDefaultStyleId ? { ...cabinet, styleId: newStyleId } : cabinet)
+          : rebased;
+      });
       setStyleA(newStyleId);
       if (activeSlot === "A" || noStyleYet) {
         if (noStyleYet) setActiveSlot("A");
         setStyleId(newStyleId);
       }
     } else {
+      const formerSlotStyleId = styleB;
+      if (formerSlotStyleId != null) {
+        setPlaced((previous) => previous.map((cabinet) => cabinet.styleId === formerSlotStyleId ? { ...cabinet, styleId: newStyleId } : cabinet));
+      }
       setStyleB(newStyleId);
       if (activeSlot === "B" || noStyleYet) {
         if (noStyleYet) setActiveSlot("B");
@@ -6526,7 +6567,77 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
     setMobilePanel("catalog");
-  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, selectedUid, placed, setCabinetStyle, t]);
+  }, [activeSlot, styleId, styleA, styleB, doorStyles, t]);
+
+  const approvePlanSwitch = useCallback(() => {
+    if (!pendingPlanStyleSwitch || !planSwitchPricingReview.data) return;
+    const unresolved = planSwitchPricingReview.data.items.filter((item) => item.status === "no_priced_alternative");
+    if (unresolved.length > 0) {
+      toast.error("This plan cannot switch yet because one or more cabinets have no authorized priced alternative.");
+      return;
+    }
+    const selectable = planSwitchPricingReview.data.items.filter((item) => item.status === "alternative_available");
+    const missingChoice = selectable.find((item) => planSwitchAlternativeChoices[item.uid] == null);
+    if (missingChoice) {
+      toast.info("Choose a priced alternative for every unpriced cabinet before switching the plan.");
+      return;
+    }
+    const selectedByUid = new Map(
+      selectable.flatMap((item) => {
+        const selectedId = planSwitchAlternativeChoices[item.uid];
+        const candidate = item.alternatives.find((alternative) => alternative.cabinetId === selectedId);
+        return candidate ? [[item.uid, candidate] as const] : [];
+      }),
+    );
+    if (selectedByUid.size > 0) {
+      setPlaced((previous) => previous.map((cabinet) => {
+        const alternative = selectedByUid.get(cabinet.uid);
+        if (!alternative) return cabinet;
+        return {
+          ...cabinet,
+          cabinetId: alternative.cabinetId,
+          masterCode: alternative.masterCode,
+          description: alternative.description ?? cabinet.description,
+          category: alternative.category,
+          subCategory: alternative.subCategory,
+          width: alternative.width,
+          nominalWidth: alternative.width,
+          height: alternative.height,
+          nominalHeight: alternative.height,
+          depth: alternative.depth,
+          nominalDepth: alternative.depth,
+          numberOfDoors: alternative.numberOfDoors,
+          numberOfDrawers: alternative.numberOfDrawers,
+        };
+      }));
+    }
+    const pending = pendingPlanStyleSwitch;
+    setPendingPlanStyleSwitch(null);
+    setPlanSwitchAlternativeChoices({});
+    commitPlanStyleSwitch(pending.slot, pending.newStyleId, pending.requiresDistributorOverride);
+  }, [pendingPlanStyleSwitch, planSwitchPricingReview.data, planSwitchAlternativeChoices, commitPlanStyleSwitch]);
+
+  // Assign a door style to a slot (from the picker). Existing cabinet boxes
+  // first pass a server-enforced priced-alternative review; a plan never changes
+  // silently into an unpriced configuration.
+  const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
+    const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
+    const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
+    const requiresDistributorOverride = lockedDistributorId != null && distNew != null && distNew !== lockedDistributorId;
+    if (slot === "B" && styleA != null) {
+      const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
+      if (distA != null && distNew != null && distA !== distNew) {
+        toast.error("Color 2 must be from the same supplier as Color 1. Please choose a style from the same line.");
+        return;
+      }
+    }
+    if (placed.some((cabinet) => cabinet.cabinetId > 0 && !isClosetPart(cabinet.masterCode))) {
+      setPlanSwitchAlternativeChoices({});
+      setPendingPlanStyleSwitch({ slot, newStyleId, distributorId: distNew, requiresDistributorOverride });
+      return;
+    }
+    commitPlanStyleSwitch(slot, newStyleId, requiresDistributorOverride);
+  }, [doorStyles, lockedDistributorId, styleA, placed, commitPlanStyleSwitch]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
@@ -12395,6 +12506,56 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          </DialogFooter>
 	        </DialogContent>
 	      </Dialog>
+
+      <Dialog open={pendingPlanStyleSwitch != null} onOpenChange={(open) => {
+        if (!open) {
+          setPendingPlanStyleSwitch(null);
+          setPlanSwitchAlternativeChoices({});
+        }
+      }}>
+        <DialogContent className="max-h-[min(84vh,760px)] max-w-2xl overflow-hidden p-0">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle className="font-serif text-xl">Review priced cabinet alternatives</DialogTitle>
+            <DialogDescription>
+              This plan will change only after every cabinet has an authorized price in the selected line or you approve a verified functional alternative.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] space-y-3 overflow-y-auto px-5 py-4">
+            {planSwitchPricingReview.isLoading ? (
+              <p className="text-sm text-muted-foreground">Checking cabinet pricing and compatible alternatives…</p>
+            ) : planSwitchPricingReview.data?.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No placed cabinet pricing needs review.</p>
+            ) : (
+              planSwitchPricingReview.data?.items.map((item) => item.status === "priced" ? null : (
+                <div key={item.uid} className={cn("rounded-lg border p-3", item.status === "no_priced_alternative" ? "border-destructive/50 bg-destructive/5" : "border-amber-400/60 bg-amber-50/50")}>
+                  {item.status === "no_priced_alternative" ? (
+                    <p className="text-sm font-medium text-destructive">No authorized priced alternative was found for this cabinet. Keep the current plan or update this item manually before switching.</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-foreground">Choose a priced functional alternative</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Door and drawer configuration differences are shown before you approve the change.</p>
+                      <Select value={String(planSwitchAlternativeChoices[item.uid] ?? "")} onValueChange={(value) => setPlanSwitchAlternativeChoices((current) => ({ ...current, [item.uid]: Number(value) }))}>
+                        <SelectTrigger className="mt-2 h-auto min-h-10 text-left"><SelectValue placeholder="Choose an approved alternative" /></SelectTrigger>
+                        <SelectContent>
+                          {item.alternatives.map((alternative) => (
+                            <SelectItem key={alternative.cabinetId} value={String(alternative.cabinetId)}>
+                              {alternative.masterCode} — {alternative.explanation} — ${alternative.customerPrice.toFixed(2)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter className="border-t px-5 py-4">
+            <Button variant="outline" onClick={() => { setPendingPlanStyleSwitch(null); setPlanSwitchAlternativeChoices({}); }}>Keep current plan</Button>
+            <Button onClick={approvePlanSwitch} disabled={planSwitchPricingReview.isLoading || !planSwitchPricingReview.data}>Apply reviewed plan change</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
 	      <AlertDialog open={!!rangeHoodReplacementRecommendation} onOpenChange={(open) => { if (!open) setRangeHoodReplacementRecommendation(null); }}>
 	        <AlertDialogContent>

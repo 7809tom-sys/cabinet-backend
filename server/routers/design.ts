@@ -33,6 +33,11 @@ import {
   type ExposedSides,
 } from "../../shared/skinMatch";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import {
+  pricedFunctionalAlternatives,
+  type PlanSwitchSourceCabinet,
+  type PricedPlanSwitchCandidate,
+} from "../lib/planSwitchPricingAlternatives";
 
 async function resolveAffiliateDesignOwner(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -801,6 +806,130 @@ export const designRouter = router({
         contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
         homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
       }));
+    }),
+
+  /**
+   * Reviews every placed cabinet against the target door style before a plan
+   * switch is committed. It exposes only sell prices and product facts; source
+   * costs and supplier identity never leave the server.
+   */
+  planSwitchPricingReview: publicProcedure
+    .input(z.object({
+      targetStyleId: z.number().int().positive(),
+      distributorId: z.number().int().positive().optional(),
+      tier: z.enum(["homeowner", "contractor", "wholesale"]),
+      cabinets: z.array(z.object({
+        uid: z.string().min(1).max(160),
+        cabinetId: z.number().int().nonnegative(),
+        masterCode: z.string().min(1).max(120),
+        description: z.string().nullable(),
+        category: z.string().nullable(),
+        subCategory: z.string().nullable(),
+        placementType: z.string().nullable(),
+        width: z.number().positive(),
+        height: z.number().positive(),
+        depth: z.number().positive(),
+        numberOfDoors: z.number().int().nonnegative().nullable(),
+        numberOfDrawers: z.number().int().nonnegative().nullable(),
+        isCornerCabinet: z.boolean(),
+      })).max(300),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.cabinets.length === 0) return { items: [] };
+
+      const conditions = [
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        eq(cabinets.showInDesigner, true),
+        eq(distributorSkus.styleId, input.targetStyleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ];
+      if (input.distributorId) conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          placementType: cabinets.placementType,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          isCornerCabinet: cabinets.isCornerCabinet,
+          listPrice: distributorSkus.listPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          yourCost: distributorSkus.yourCost,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...conditions));
+
+      const pricingSettings = await getPricingSettings();
+      const bestCandidateByCabinetId = new Map<number, PricedPlanSwitchCandidate>();
+      for (const row of rows) {
+        const customerPrice = sellPriceForTier(row, pricingSettings, input.tier);
+        if (customerPrice == null || customerPrice <= 0) continue;
+        const candidate: PricedPlanSwitchCandidate = {
+          cabinetId: row.cabinetId,
+          masterCode: row.masterCode,
+          description: row.description,
+          category: row.category,
+          subCategory: row.subCategory,
+          placementType: row.placementType,
+          width: Number(row.width),
+          height: Number(row.height),
+          depth: Number(row.depth),
+          numberOfDoors: row.numberOfDoors,
+          numberOfDrawers: row.numberOfDrawers,
+          isCornerCabinet: Boolean(row.isCornerCabinet),
+          customerPrice,
+        };
+        const current = bestCandidateByCabinetId.get(candidate.cabinetId);
+        if (!current || candidate.customerPrice < current.customerPrice) bestCandidateByCabinetId.set(candidate.cabinetId, candidate);
+      }
+      const pricedCandidates = Array.from(bestCandidateByCabinetId.values());
+
+      return {
+        items: input.cabinets.map((cabinet) => {
+          const current = bestCandidateByCabinetId.get(cabinet.cabinetId);
+          if (current) {
+            return { uid: cabinet.uid, status: "priced" as const, customerPrice: current.customerPrice, alternatives: [] };
+          }
+          const source: PlanSwitchSourceCabinet = cabinet;
+          const alternatives = pricedFunctionalAlternatives(source, pricedCandidates).map((alternative) => ({
+            cabinetId: alternative.cabinetId,
+            masterCode: alternative.masterCode,
+            description: alternative.description,
+            category: alternative.category,
+            subCategory: alternative.subCategory,
+            placementType: alternative.placementType,
+            width: alternative.width,
+            height: alternative.height,
+            depth: alternative.depth,
+            numberOfDoors: alternative.numberOfDoors,
+            numberOfDrawers: alternative.numberOfDrawers,
+            isCornerCabinet: alternative.isCornerCabinet,
+            customerPrice: alternative.customerPrice,
+            matchKind: alternative.matchKind,
+            doorCountChanged: alternative.doorCountChanged,
+            drawerCountChanged: alternative.drawerCountChanged,
+            explanation: alternative.explanation,
+          }));
+          return {
+            uid: cabinet.uid,
+            status: alternatives.length > 0 ? "alternative_available" as const : "no_priced_alternative" as const,
+            customerPrice: null,
+            alternatives,
+          };
+        }),
+      };
     }),
 
   // Batched roll-out shelf availability per door style, used by the BOM/cart to
