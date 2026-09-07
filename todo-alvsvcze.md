@@ -1761,3 +1761,4 @@
 - [x] Let users drag Designer popups by holding their visible top header, without interfering with popup controls
 - [x] Add a toolbar toggle that turns automatic cabinet snapping on or off for placement and dragging
 - [x] Show a concise inline tooltip when a door or window clearance blocks cabinet placement
+- [x] Keep the Door Style editor fully within the viewport with a visible header and close control plus internal content scrolling

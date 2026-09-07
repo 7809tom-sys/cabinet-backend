@@ -378,7 +378,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg flex flex-col max-h-[90dvh]">
+      <DialogContent className="!flex h-[min(90dvh,800px)] max-h-[calc(100dvh-2rem)] w-[min(42rem,calc(100vw-2rem))] flex-col overflow-hidden p-5 sm:max-w-none">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-4 w-4 text-amber-600" />
@@ -387,7 +387,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2 pr-2 [scrollbar-gutter:stable]">
 
           {/* Alias Name (CD_STANDARDS white-label) */}
           <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-3 space-y-1.5">

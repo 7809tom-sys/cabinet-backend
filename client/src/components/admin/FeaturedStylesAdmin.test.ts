@@ -30,10 +30,17 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
     expect(adminSource).toContain("Rail and stile measurements must be positive values in inches");
   });
 
-  it("shows the curated room-scene list whether each style has a complete Designer frame entry", () => {
-    expect(adminSource).toContain('"Designer frame ready"');
-    expect(adminSource).toContain('"Designer frame partial"');
-    expect(adminSource).toContain('"Designer frame blank"');
-    expect(adminSource).toContain("Verified rail and stile values will drive the Designer frame");
-  });
+	it("shows the curated room-scene list whether each style has a complete Designer frame entry", () => {
+	  expect(adminSource).toContain('"Designer frame ready"');
+	  expect(adminSource).toContain('"Designer frame partial"');
+	  expect(adminSource).toContain('"Designer frame blank"');
+	  expect(adminSource).toContain("Verified rail and stile values will drive the Designer frame");
+	});
+
+	it("keeps the Door Style editor within the viewport while its contents scroll internally", () => {
+	  expect(adminSource).toContain('h-[min(90dvh,800px)]');
+	  expect(adminSource).toContain('max-h-[calc(100dvh-2rem)]');
+	  expect(adminSource).toContain('overflow-hidden p-5');
+	  expect(adminSource).toContain('min-h-0 flex-1 space-y-4 overflow-y-auto');
+	});
 });
