@@ -1725,3 +1725,4 @@
 - [x] Support up to six curated room-scene images in Featured Door Styles with accurate style links and accessible image descriptions
 - [x] Randomly select one Featured Door Styles room scene at the start of each signed-in session while keeping it stable during that session
 - [x] Preserve verified room-scene-to-distributor attribution for authorized internal users while keeping distributor names hidden from public shoppers
+- [x] Display verified distributor attribution and curated six-scene selection status in the authorized Featured Door Styles administration view without exposing it publicly

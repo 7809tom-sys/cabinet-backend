@@ -268,9 +268,9 @@ export const doorStylesRouter = router({
       return out.map(scrubDoorStyle);
     }),
 
-  // ── Featured door styles (admin-curated 80/20 merchandising) ────────────────
-  // Public: the curated set pushed on the storefront, ordered by rank, hard
-  // capped at 30 so the affiliate/homeowner sees a focused selection.
+  // ── Featured door styles (admin-curated homepage room scenes) ───────────────
+  // Public: the intentionally small, style-matched room-scene set pushed on the
+  // homepage. The admin controls its order; source attribution stays internal.
   featured: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
@@ -279,7 +279,7 @@ export const doorStylesRouter = router({
       .from(doorStyles)
       .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)))
       .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName))
-      .limit(30);
+      .limit(6);
     return rows.map(scrubDoorStyle);
   }),
 
@@ -337,35 +337,43 @@ export const doorStylesRouter = router({
     return rows; // admin sees ALL rows (incl. inactive + real supplier names) intentionally
   }),
 
-  // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
+  // Admin: toggle a style into the curated homepage set. A featured style must
+  // have its own room scene, and the six-scene cap is enforced server-side.
   setFeatured: adminProcedure
     .input(z.object({ id: z.number(), featured: z.boolean() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (input.featured) {
-        const [{ cnt }] = await db
-          .select({ cnt: sql<number>`count(*)` })
-          .from(doorStyles)
-          .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)));
-        // Allow re-featuring an already-featured row without tripping the cap.
-        const already = await db
-          .select({ isFeatured: doorStyles.isFeatured })
+        const target = await db
+          .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured, roomSceneImageUrl: doorStyles.roomSceneImageUrl })
           .from(doorStyles)
           .where(eq(doorStyles.id, input.id))
           .limit(1);
-        const isAlready = already[0]?.isFeatured === true;
-        if (!isAlready && Number(cnt) >= 30) {
+        const style = target[0];
+        if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "Door style not found." });
+        if (!style.roomSceneImageUrl?.trim()) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "You can feature up to 30 door styles. Remove one before adding another.",
+            message: "Add a style-matched room scene before adding this style to the homepage set.",
+          });
+        }
+        const [{ cnt }] = await db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(doorStyles)
+          .where(eq(doorStyles.isFeatured, true));
+        // Allow re-featuring an already-featured row without tripping the cap.
+        if (!style.isFeatured && Number(cnt) >= 6) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You can curate up to 6 homepage room scenes. Remove one before adding another.",
           });
         }
         // New featured items go to the end of the order by default.
         const [{ maxRank }] = await db
           .select({ maxRank: sql<number>`coalesce(max(featuredRank), 0)` })
           .from(doorStyles)
-          .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)));
+          .where(eq(doorStyles.isFeatured, true));
         await db
           .update(doorStyles)
           .set({ isFeatured: true, featuredRank: Number(maxRank) + 10 })
@@ -443,13 +451,30 @@ export const doorStylesRouter = router({
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
+      const needsCurrentStyle =
+        (fields.roomSceneImageUrl !== undefined && !fields.roomSceneImageUrl?.trim()) ||
+        fields.isActive === false;
+      if (needsCurrentStyle) {
+        const current = await db
+          .select({ isFeatured: doorStyles.isFeatured })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, id))
+          .limit(1);
+        if (fields.roomSceneImageUrl !== undefined && !fields.roomSceneImageUrl?.trim() && current[0]?.isFeatured) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Remove this style from the curated homepage scenes before clearing its room scene.",
+          });
+        }
+        if (fields.isActive === false && current[0]?.isFeatured) patch.isFeatured = false;
+      }
       await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
       return { ok: true };
     }),
 
-  // Admin: persist a new order for the featured styles (array of ids, in order).
+  // Admin: persist a new order for the curated homepage scenes (array of ids, in order).
   reorderFeatured: adminProcedure
-    .input(z.object({ orderedIds: z.array(z.number()).max(30) }))
+    .input(z.object({ orderedIds: z.array(z.number()).max(6) }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });

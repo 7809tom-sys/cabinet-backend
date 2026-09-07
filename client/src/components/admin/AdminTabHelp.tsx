@@ -55,8 +55,8 @@ const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string;
     zh: "審查客戶提交的檯面報價請求。回覆定價及交貨時間。",
   },
   featured: {
-    en: "Control which door styles appear as featured on the public Door Styles page. Set alias names and promotional order. To edit or crop door/drawer sample images before uploading, use the free browser-based image editor:",
-    zh: "控制哪些門板樣式在公開的門板樣式頁面上顯示為精選。設定別名及推廣順序。上傳前可使用免費線上圖片編輯器裁切或調整門板/抽屜樣品圖片：",
+    en: "Curate up to six style-matched room scenes for the public homepage. Their order controls the rotation priority for signed-in shoppers. This authorized view shows the internal source record for each scene, but source names never appear publicly. Set alias names and edit/crop door or drawer images before uploading with:",
+    zh: "為公開首頁精選最多六張與門板樣式相符的房間場景。排序決定已登入訪客的輪播優先順序。此授權檢視會顯示每張場景的內部來源記錄，但來源名稱不會公開顯示。設定別名，以及在上傳前使用以下工具編輯或裁切門板／抽屜圖片：",
     link: { label: "Photopea — Free Online Image Editor", url: "https://www.photopea.com" },
   },
   "door-corrections": {

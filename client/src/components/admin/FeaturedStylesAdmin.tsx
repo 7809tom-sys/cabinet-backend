@@ -28,7 +28,9 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const MAX_FEATURED = 30;
+// Featured is the deliberately small, ordered pool of style-matched room scenes
+// available to the public homepage. Keep this aligned with the public procedure.
+const MAX_FEATURED = 6;
 
 interface AdminStyle {
   id: number;
@@ -201,6 +203,23 @@ function CatalogPreviewModal({
 
 function thumb(s: AdminStyle): string | null {
   return s.roomSceneImageUrl || s.doorSampleImageUrl || s.thumbnailImageUrl || null;
+}
+
+function SourceAttribution({ style }: { style: AdminStyle }) {
+  const source = style.supplierBrandName?.trim() || style.supplierName?.trim() || null;
+  const supplierStyle = style.distributorName?.trim() || null;
+
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-1 text-[10px] font-medium text-amber-800"
+      title="Verified distributor attribution. It is visible only to authorized staff and is never shown to public shoppers."
+    >
+      <Building2 className="h-2.5 w-2.5 shrink-0" />
+      <span className="shrink-0">Verified distributor:</span>
+      <span className="truncate">{source ?? `Source record #${style.distributorId}`}</span>
+      {supplierStyle && <span className="truncate text-muted-foreground">· Source style: {supplierStyle}</span>}
+    </span>
+  );
 }
 
 // ── Reusable image field: uses MediaPicker for library + upload + URL paste ──
@@ -821,7 +840,10 @@ export default function FeaturedStylesAdmin() {
     const map = new Map<number, string>();
     for (const s of styles) {
       if (!map.has(s.distributorId)) {
-        map.set(s.distributorId, s.distributorName?.trim() || `Distributor #${s.distributorId}`);
+        map.set(
+          s.distributorId,
+          s.supplierBrandName?.trim() || s.supplierName?.trim() || `Distributor #${s.distributorId}`,
+        );
       }
     }
     return Array.from(map.entries())
@@ -837,7 +859,7 @@ export default function FeaturedStylesAdmin() {
       .filter((s) => (distId === null ? true : s.distributorId === distId))
       .filter((s) =>
         q
-          ? `${s.ourName} ${s.doorStyle ?? ""} ${s.color ?? ""} ${s.finish ?? ""} ${s.distributorName ?? ""}`
+          ? `${s.ourName} ${s.doorStyle ?? ""} ${s.color ?? ""} ${s.finish ?? ""} ${s.distributorName ?? ""} ${s.supplierBrandName ?? ""} ${s.supplierName ?? ""}`
               .toLowerCase()
               .includes(q)
           : true,
@@ -907,7 +929,7 @@ export default function FeaturedStylesAdmin() {
   });
 
   const atCap = featured.length >= MAX_FEATURED;
-  const unverifiedCount = useMemo(
+  const unverifiedDoorSampleCount = useMemo(
     () => featured.filter((s) => !s.doorSampleVerified).length,
     [featured],
   );
@@ -915,6 +937,10 @@ export default function FeaturedStylesAdmin() {
   function add(s: AdminStyle) {
     if (atCap) {
       toast.error(`You can feature up to ${MAX_FEATURED} door styles. Remove one first.`);
+      return;
+    }
+    if (!s.roomSceneImageUrl?.trim()) {
+      toast.error("Add a style-matched room scene before adding this style to the homepage set.");
       return;
     }
     setFeatured.mutate({ id: s.id, featured: true });
@@ -983,10 +1009,9 @@ export default function FeaturedStylesAdmin() {
             <Star className="h-5 w-5 text-primary" /> Featured Door Styles
           </h2>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
-            Choose the door styles to push at the top of the Door Styles page, and edit any door
-            style here. Click the <Pencil className="inline h-3.5 w-3.5" /> pencil on any style
-            (featured or not, in the list below) to change its name, color, finish, and its
-            room-scene / door photos — uploads apply everywhere that style appears on the site.
+            Curate up to six style-matched room scenes for the homepage. The order below is the
+            rotation priority, and signed-in shoppers receive one of these scenes per session.
+            Each row includes its internal source record, which remains unavailable on public pages.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
@@ -994,14 +1019,14 @@ export default function FeaturedStylesAdmin() {
             <Plus className="h-4 w-4" />
             New Style
           </Button>
-          {unverifiedCount > 0 && (
+          {unverifiedDoorSampleCount > 0 && (
             <Badge variant="outline" className="text-sm border-amber-500 text-amber-600 bg-amber-50">
               <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-              {unverifiedCount} need correct photo
+              {unverifiedDoorSampleCount} door sample{unverifiedDoorSampleCount === 1 ? "" : "s"} need review
             </Badge>
           )}
           <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
-            {featured.length} / {MAX_FEATURED} featured
+            {featured.length} / {MAX_FEATURED} curated homepage scenes
           </Badge>
         </div>
       </div>
@@ -1009,11 +1034,11 @@ export default function FeaturedStylesAdmin() {
       {/* Featured list */}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          Featured now ({featured.length})
+          Curated homepage scenes ({featured.length} of {MAX_FEATURED})
         </h3>
         {featured.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-            No featured styles yet. Add some from the list below.
+            No curated homepage scenes yet. Add a room-scene-ready style from the list below.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -1058,15 +1083,14 @@ export default function FeaturedStylesAdmin() {
                       </>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {(s.supplierBrandName || s.supplierName) && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-700 shrink-0">
-                        <Building2 className="h-2.5 w-2.5" />{s.supplierBrandName || s.supplierName}
-                      </span>
-                    )}
-                    {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700">
+                      <ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}</span>
                     <SkuBadge style={s} />
-                  </p>
+                  </div>
+                  <div className="mt-1 min-w-0"><SourceAttribution style={s} /></div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Quick-edit button */}
@@ -1188,14 +1212,12 @@ export default function FeaturedStylesAdmin() {
                 >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {(s.supplierBrandName || s.supplierName) && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-700 shrink-0">
-                        <Building2 className="h-2.5 w-2.5" />{s.supplierBrandName || s.supplierName}
-                      </span>
-                    )}
+                    {s.roomSceneImageUrl ? "Room scene ready" : "Room scene required"}
+                    {[s.doorStyle, s.color].filter(Boolean).length > 0 && " · "}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                     <SkuBadge style={s} />
                   </p>
+                  <span className="mt-1 block min-w-0"><SourceAttribution style={s} /></span>
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
@@ -1213,9 +1235,9 @@ export default function FeaturedStylesAdmin() {
                     variant="ghost"
                     className="h-8 w-8"
                     onClick={() => add(s)}
-                    disabled={atCap || setFeatured.isPending}
+                    disabled={atCap || setFeatured.isPending || !s.roomSceneImageUrl?.trim()}
                     aria-label="Feature this style"
-                    title={atCap ? `At ${MAX_FEATURED}-style limit` : "Add to featured"}
+                    title={atCap ? `At ${MAX_FEATURED}-scene limit` : !s.roomSceneImageUrl?.trim() ? "Add a room scene before featuring" : "Add to curated homepage scenes"}
                   >
                     <Star className="h-4 w-4 text-muted-foreground/60" />
                   </Button>
@@ -1237,7 +1259,7 @@ export default function FeaturedStylesAdmin() {
         )}
         {atCap && (
           <p className="text-xs text-destructive mt-3">
-            You've reached the {MAX_FEATURED}-style limit. Remove one above to add another.
+            You’ve reached the {MAX_FEATURED}-scene homepage limit. Remove one above to add another.
           </p>
         )}
       </div>
