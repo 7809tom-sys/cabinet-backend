@@ -185,7 +185,7 @@ function Hero() {
 
 // ─── Featured Door Styles (from DB) ─────────────────────────────────────────
 
-const MAX_FEATURED_ROOM_SCENES = 6;
+const MAX_FEATURED_STYLES = 6;
 
 type FeaturedDoorStyle = {
   id: number;
@@ -194,14 +194,14 @@ type FeaturedDoorStyle = {
   featuredLabel?: string | null;
   doorStyle?: string | null;
   woodSpecies?: string | null;
-  roomSceneImageUrl?: string | null;
+  roomScenes?: Array<{ id: number; imageUrl: string; sortOrder: number }>;
   cornerSwatchImageUrl?: string | null;
 };
 
 function FeaturedStyles() {
   const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
   const { user } = useAuth();
-  const [sessionSceneIndex, setSessionSceneIndex] = useState<number | null>(null);
+  const [sessionSceneIds, setSessionSceneIds] = useState<Record<number, number>>({});
 
   // Keep only verified, style-matched room scenes. A style never borrows another
   // supplier's kitchen photo as a fallback, which keeps the scene trustworthy.
@@ -210,12 +210,12 @@ function FeaturedStyles() {
     const seen = new Set<string>();
     return featured.filter((entry) => {
       const s = entry as FeaturedDoorStyle;
-      if (!s.roomSceneImageUrl) return false;
+      if (!s.roomScenes?.length) return false;
       const code = s.styleCode ?? String(s.id);
       if (seen.has(code)) return false;
       seen.add(code);
       return true;
-    }).slice(0, MAX_FEATURED_ROOM_SCENES) as FeaturedDoorStyle[];
+    }).slice(0, MAX_FEATURED_STYLES) as FeaturedDoorStyle[];
   }, [featured]);
 
   // A signed-in visitor receives one randomized primary scene per sign-in
@@ -227,33 +227,36 @@ function FeaturedStyles() {
 
   useEffect(() => {
     if (!signedInSceneSessionKey || featuredRoomScenes.length === 0) {
-      setSessionSceneIndex(null);
+      setSessionSceneIds({});
       return;
     }
 
     try {
-      const saved = Number.parseInt(sessionStorage.getItem(signedInSceneSessionKey) ?? "", 10);
-      const nextIndex = Number.isInteger(saved) && saved >= 0 && saved < featuredRoomScenes.length
-        ? saved
-        : Math.floor(Math.random() * featuredRoomScenes.length);
-      sessionStorage.setItem(signedInSceneSessionKey, String(nextIndex));
-      setSessionSceneIndex(nextIndex);
+      const saved = JSON.parse(sessionStorage.getItem(signedInSceneSessionKey) ?? "{}") as Record<number, number>;
+      const next = Object.fromEntries(featuredRoomScenes.map((style) => {
+        const scenes = style.roomScenes ?? [];
+        const savedId = saved[style.id];
+        const selectedId = scenes.some((scene) => scene.id === savedId)
+          ? savedId
+          : scenes[Math.floor(Math.random() * scenes.length)]?.id;
+        return [style.id, selectedId];
+      }));
+      sessionStorage.setItem(signedInSceneSessionKey, JSON.stringify(next));
+      setSessionSceneIds(next);
     } catch {
-      // Privacy modes can block sessionStorage. The randomized view remains
-      // available for the current render without persisting browser data.
-      setSessionSceneIndex(Math.floor(Math.random() * featuredRoomScenes.length));
+      const fallback: Record<number, number> = {};
+      for (const style of featuredRoomScenes) {
+        const scene = style.roomScenes?.[Math.floor(Math.random() * (style.roomScenes?.length ?? 1))];
+        if (scene) fallback[style.id] = scene.id;
+      }
+      setSessionSceneIds(fallback);
     }
-  }, [featuredRoomScenes.length, signedInSceneSessionKey]);
+  }, [featuredRoomScenes, signedInSceneSessionKey]);
 
-  const visibleScenes = useMemo(() => {
-    if (featuredRoomScenes.length === 0) return [];
-    if (sessionSceneIndex === null) return featuredRoomScenes;
-    const selected = sessionSceneIndex % featuredRoomScenes.length;
-    return [
-      ...featuredRoomScenes.slice(selected),
-      ...featuredRoomScenes.slice(0, selected),
-    ];
-  }, [featuredRoomScenes, sessionSceneIndex]);
+  const visibleScenes = useMemo(() => featuredRoomScenes.map((style) => ({
+    ...style,
+    roomSceneImageUrl: (style.roomScenes ?? []).find((scene) => scene.id === sessionSceneIds[style.id])?.imageUrl ?? style.roomScenes?.[0]?.imageUrl,
+  })).filter((style) => Boolean(style.roomSceneImageUrl)), [featuredRoomScenes, sessionSceneIds]);
 
   if (isLoading) {
     return (
@@ -351,7 +354,7 @@ function FeaturedStyles() {
 
           {/* Remaining featured styles — smaller cards */}
           <div className="grid grid-cols-2 gap-4 md:gap-6">
-            {rest.slice(0, MAX_FEATURED_ROOM_SCENES - 1).map((style) => (
+            {rest.slice(0, MAX_FEATURED_STYLES - 1).map((style) => (
               <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300">
                 <Link href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}>
                   <img

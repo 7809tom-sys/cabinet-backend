@@ -2317,6 +2317,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     },
     [displayStyleIdForCab, frameInsetById]
   );
+  const frameMetricsById = useMemo(() => {
+    const m = new Map<number, { stileInches?: number | null; railInches?: number | null }>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; stileWidth?: string | number | null; railWidth?: string | number | null };
+      const stile = Number(s.stileWidth);
+      const rail = Number(s.railWidth);
+      const metrics = {
+        ...(Number.isFinite(stile) && stile > 0 ? { stileInches: stile } : {}),
+        ...(Number.isFinite(rail) && rail > 0 ? { railInches: rail } : {}),
+      };
+      if (Object.keys(metrics).length > 0) m.set(s.id, metrics);
+    });
+    return m;
+  }, [doorStyles]);
+  const frameMetricsForCab = useCallback(
+    (cab: PlacedCabinet) => {
+      const sid = displayStyleIdForCab(cab);
+      return sid != null ? frameMetricsById.get(sid) ?? null : null;
+    },
+    [displayStyleIdForCab, frameMetricsById],
+  );
   // Default fallback images shown when no door style is selected yet — gives the
   // elevation view a realistic look even before the user picks a finish.
   const DEFAULT_DOOR_SAMPLE_URL = "/manus-storage/default-door-sample_9a6c9607.png";
@@ -7410,9 +7431,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
       const assignedStyle = doorStyles?.find((style) => style.id === assignedStyleId) ?? null;
       if (!assignedStyle) return [];
+      const frameStyle = assignedStyle as typeof assignedStyle & { railWidth?: string | number | null; stileWidth?: string | number | null };
       return [[cabinet.uid, {
         doorStyle: assignedStyle.doorStyle ?? null,
         doorPanelType: assignedStyle.doorPanelType ?? null,
+        railWidth: frameStyle.railWidth ?? null,
+        stileWidth: frameStyle.stileWidth ?? null,
       }]];
     })),
     [placed, styleId, doorStyles],
@@ -7543,7 +7567,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
-	      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null } : null}
+      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null, railWidth: (activeStyle as typeof activeStyle & { railWidth?: string | number | null }).railWidth ?? null, stileWidth: (activeStyle as typeof activeStyle & { stileWidth?: string | number | null }).stileWidth ?? null } : null}
 	      catalogFinishName={activeStyleName}
 	      catalogFinishProductId={styleId ?? null}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
@@ -10224,6 +10248,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               doorSampleUrlFor={doorSampleForCab}
               drawerSampleUrlFor={drawerSampleForCab}
               frameInsetFor={frameInsetForCab}
+              frameMetricsFor={frameMetricsForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
               onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
@@ -12404,6 +12429,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                catalogDoorProfile={activeStyle ? {
 	                  doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
 	                  doorPanelType: activeStyle.doorPanelType ?? null,
+	                  railWidth: (activeStyle as typeof activeStyle & { railWidth?: string | number | null }).railWidth ?? null,
+	                  stileWidth: (activeStyle as typeof activeStyle & { stileWidth?: string | number | null }).stileWidth ?? null,
 	                } : null}
 	                catalogFinishName={activeStyleName}
 	                catalogFinishProductId={styleId ?? null}

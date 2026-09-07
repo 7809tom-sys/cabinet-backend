@@ -12,15 +12,17 @@ export interface ShakerFacePanelGeometry {
 }
 
 /**
- * Physical Shaker face geometry. The stiles and rails are always 3 inches, so
- * the center panel is the actual face dimension minus six inches. For example,
- * 12in -> 6in panel and 21in -> 15in panel, independent of screen zoom.
+ * Physical Shaker face geometry. Verified stile and rail values may be supplied
+ * by the authorized Door Style record; absent values retain the neutral 3-inch
+ * profile. The center panel remains independent of screen zoom.
  */
-export function shakerFacePanelGeometry(faceWidthInches: number, faceHeightInches: number): ShakerFacePanelGeometry {
+export function shakerFacePanelGeometry(faceWidthInches: number, faceHeightInches: number, verified?: { stileInches?: number | null; railInches?: number | null }): ShakerFacePanelGeometry {
   const width = Math.max(0.1, faceWidthInches);
   const height = Math.max(0.1, faceHeightInches);
-  const stile = Math.min(SHAKER_FACE_FRAME_INCHES, width / 2);
-  const rail = Math.min(SHAKER_FACE_FRAME_INCHES, height / 2);
+  const requestedStile = Number(verified?.stileInches);
+  const requestedRail = Number(verified?.railInches);
+  const stile = Math.min(Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile : SHAKER_FACE_FRAME_INCHES, width / 2);
+  const rail = Math.min(Number.isFinite(requestedRail) && requestedRail > 0 ? requestedRail : SHAKER_FACE_FRAME_INCHES, height / 2);
   return {
     stileInches: stile,
     railInches: rail,
@@ -53,13 +55,12 @@ export function frameInsetPxFromInches(value: string | number | null | undefined
 }
 
 /**
- * Every Shaker-classified face follows the global elevation standard: 3-inch
- * rails and stiles with square 90-degree corners. Other styles may retain
- * their authored elevation inset.
+ * Every framed face uses a verified authored stile inset when present; the
+ * neutral three-inch Shaker inset remains the fallback for blank fields.
  */
 export function elevationFrameInsetPx(kind: string, authoredInset?: number | null): number | null {
   if (isFlatPanelElevationStyle(kind)) return null;
-  return isShakerElevationStyle(kind) ? SHAKER_FACE_FRAME_PX : authoredInset ?? null;
+  return authoredInset ?? (isShakerElevationStyle(kind) ? SHAKER_FACE_FRAME_PX : null);
 }
 
 /**
@@ -67,6 +68,6 @@ export function elevationFrameInsetPx(kind: string, authoredInset?: number | nul
  * while keeping enough visible recessed-panel area for the elevation drawing.
  */
 export function drawerPanelInsetPx(frameInsetPx: number | null | undefined, isShaker = false): number {
-  if (isShaker) return SHAKER_FACE_FRAME_PX;
+  if (isShaker) return frameInsetPx ?? SHAKER_FACE_FRAME_PX;
   return Math.min(10, Math.max(3, Math.round(frameInsetPx ?? 3)));
 }

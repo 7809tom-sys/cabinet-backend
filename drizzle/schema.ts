@@ -394,6 +394,28 @@ export const doorStyles = mysqlTable("door_styles", {
 
 export type DoorStyle = typeof doorStyles.$inferSelect;
 
+// ─── Door Style Room Scenes ─────────────────────────────────────────────────
+// Images remain in S3. This table retains only a scene's durable storage
+// reference, ordering, and private verification/source details.
+export const doorStyleRoomScenes = mysqlTable("door_style_room_scenes", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
+  fileKey: varchar("fileKey", { length: 512 }),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isVerified: boolean("isVerified").default(false).notNull(),
+  sourceNote: varchar("sourceNote", { length: 512 }),
+  sourceDistributorId: int("sourceDistributorId"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  index("door_style_room_scenes_style_idx").on(table.styleId, table.sortOrder),
+]);
+
+export type DoorStyleRoomScene = typeof doorStyleRoomScenes.$inferSelect;
+export type InsertDoorStyleRoomScene = typeof doorStyleRoomScenes.$inferInsert;
+
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
 
 export const cabinets = mysqlTable("cabinets", {

@@ -28,9 +28,7 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Featured is the deliberately small, ordered pool of style-matched room scenes
-// available to the public homepage. Keep this aligned with the public procedure.
-const MAX_FEATURED = 6;
+const MAX_SCENES_PER_STYLE = 6;
 
 interface AdminStyle {
   id: number;
@@ -45,6 +43,7 @@ interface AdminStyle {
   doorSampleImageUrl: string | null;
   drawerSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
+  roomScenes?: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; sourceNote: string | null; sourceDistributorId: number | null; isActive: boolean }>;
   doorSampleVerified: boolean;
   isFeatured: boolean;
   featuredRank: number;
@@ -277,6 +276,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
   const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
+  const [newSceneUrl, setNewSceneUrl] = useState("");
+  const [newSceneSourceNote, setNewSceneSourceNote] = useState("");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -308,9 +309,36 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     onError: (e) => toast.error(e.message),
   });
 
+  const addRoomScene = trpc.doorStyles.addRoomScene.useMutation({
+    onSuccess: () => { toast.success("Room scene added to this Door Style library"); setNewSceneUrl(""); setNewSceneSourceNote(""); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteRoomScene = trpc.doorStyles.deleteRoomScene.useMutation({
+    onSuccess: () => { toast.success("Room scene removed"); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const parsedMeasurement = (value: string) => {
+    const parsed = Number.parseFloat(value.trim());
+    return Number.isFinite(parsed) && parsed > 0 && parsed <= 99 ? parsed : null;
+  };
+  const enteredRail = parsedMeasurement(railWidth);
+  const enteredStile = parsedMeasurement(stileWidth);
+  const hasRailText = railWidth.trim().length > 0;
+  const hasStileText = stileWidth.trim().length > 0;
+  const frameEntryStatus = enteredRail != null && enteredStile != null
+    ? "complete"
+    : hasRailText || hasStileText
+      ? "partial"
+      : "blank";
+
   function handleSave() {
     if (!ourName.trim()) {
       toast.error("Internal name is required");
+      return;
+    }
+    if ((hasRailText && enteredRail == null) || (hasStileText && enteredStile == null)) {
+      toast.error("Rail and stile measurements must be positive values in inches");
       return;
     }
     // For image URL fields: only send the field if the user actually changed it
@@ -336,8 +364,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       roomSceneImageUrl: imgField(roomSceneImageUrl, orig.roomSceneImageUrl),
       thumbnailImageUrl: imgField(thumbnailImageUrl, orig.thumbnailImageUrl),
       cornerSwatchImageUrl: imgField(cornerSwatchImageUrl, orig.cornerSwatchImageUrl),
-      railWidth: railWidth.trim() ? parseFloat(railWidth) : null,
-      stileWidth: stileWidth.trim() ? parseFloat(stileWidth) : null,
+      railWidth: enteredRail,
+      stileWidth: enteredStile,
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
@@ -456,6 +484,13 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               <span className="text-xs font-semibold text-emerald-800">Frame Profile Measurements</span>
               <p className="text-xs text-muted-foreground mt-0.5">Enter widths in inches (e.g. <code>0.5</code> = 1/2", <code>3</code> = 3"). Applies to all door style types — Shaker, Slim Shaker, Double Shaker, Raised Panel, Beaded, Inset, Slab, etc.</p>
             </div>
+            <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-background/70 px-2.5 py-2 text-xs">
+              {frameEntryStatus === "complete" ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" /> : <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />}
+              <div>
+                <span className="font-semibold text-foreground">{frameEntryStatus === "complete" ? "Ready for Designer" : frameEntryStatus === "partial" ? "Partial frame entry" : "No frame measurement entered"}</span>
+                <p className="mt-0.5 text-muted-foreground">{frameEntryStatus === "complete" ? "The saved rail and stile values are the Designer’s rendered frame dimensions for this style." : frameEntryStatus === "partial" ? "Enter both rail and stile widths to record a complete verified frame. A blank dimension keeps the neutral fallback." : "Leave blank only when a verified source measurement is unavailable; the Designer retains its neutral fallback."}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="ed-rail">Rail Width (in)</Label>
@@ -559,6 +594,24 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               big
               slot="room-scene"
             />
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-emerald-900">Room Scene Library ({style.roomScenes?.length ?? 0}/{MAX_SCENES_PER_STYLE})</p>
+                <p className="text-xs text-muted-foreground">Add only verified scenes that match this Door Style. These central scenes are shared with every affiliate; private source notes never appear publicly.</p>
+              </div>
+              {(style.roomScenes?.length ?? 0) > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {style.roomScenes?.map((scene) => <div key={scene.id} className="relative overflow-hidden rounded border border-border bg-background">
+                  <img src={scene.imageUrl} alt={`Verified room scene for ${style.ourName}`} className="h-20 w-full object-cover" />
+                  <p className="truncate p-1.5 text-[10px] text-muted-foreground">{scene.isVerified ? "Verified" : "Unverified"}{scene.sourceNote ? ` · ${scene.sourceNote}` : ""}</p>
+                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-6 w-6 bg-background/90 text-destructive" onClick={() => deleteRoomScene.mutate({ id: scene.id })} aria-label="Remove room scene"><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>)}
+              </div>}
+              {(style.roomScenes?.length ?? 0) < MAX_SCENES_PER_STYLE && <div className="space-y-2 border-t border-emerald-200 pt-3">
+                <MediaPicker value={newSceneUrl} onChange={setNewSceneUrl} label="Add verified matching scene" />
+                <Input value={newSceneSourceNote} onChange={(e) => setNewSceneSourceNote(e.target.value)} placeholder="Private source verification note (optional)" className="h-8 text-xs" />
+                <Button type="button" size="sm" disabled={!newSceneUrl.trim() || addRoomScene.isPending} onClick={() => addRoomScene.mutate({ styleId: style.id, imageUrl: newSceneUrl, sourceNote: newSceneSourceNote || null, sourceDistributorId: style.distributorId, isVerified: true })}><Plus className="mr-1 h-3.5 w-3.5" />{addRoomScene.isPending ? "Adding…" : "Add to library"}</Button>
+              </div>}
+            </div>
             {/* Door Sample + Drawer Sample side-by-side */}
             <div className="rounded-lg border border-blue-200 bg-blue-50/40 px-3 py-3 space-y-3">
               <div className="flex items-center gap-2">
@@ -928,18 +981,13 @@ export default function FeaturedStylesAdmin() {
     },
   });
 
-  const atCap = featured.length >= MAX_FEATURED;
   const unverifiedDoorSampleCount = useMemo(
     () => featured.filter((s) => !s.doorSampleVerified).length,
     [featured],
   );
 
   function add(s: AdminStyle) {
-    if (atCap) {
-      toast.error(`You can feature up to ${MAX_FEATURED} door styles. Remove one first.`);
-      return;
-    }
-    if (!s.roomSceneImageUrl?.trim()) {
+    if (!(s.roomScenes?.some((scene) => scene.isActive && scene.isVerified) ?? false)) {
       toast.error("Add a style-matched room scene before adding this style to the homepage set.");
       return;
     }
@@ -1025,8 +1073,8 @@ export default function FeaturedStylesAdmin() {
               {unverifiedDoorSampleCount} door sample{unverifiedDoorSampleCount === 1 ? "" : "s"} need review
             </Badge>
           )}
-          <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
-            {featured.length} / {MAX_FEATURED} curated homepage scenes
+          <Badge variant="secondary" className="text-sm">
+            {featured.length} featured Door Styles
           </Badge>
         </div>
       </div>
@@ -1034,7 +1082,7 @@ export default function FeaturedStylesAdmin() {
       {/* Featured list */}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          Curated homepage scenes ({featured.length} of {MAX_FEATURED})
+          Featured Door Styles ({featured.length})
         </h3>
         {featured.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
@@ -1087,6 +1135,26 @@ export default function FeaturedStylesAdmin() {
                     <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700">
                       <ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready
                     </Badge>
+                    {(() => {
+                      const hasRail = Number(s.railWidth) > 0;
+                      const hasStile = Number(s.stileWidth) > 0;
+                      const complete = hasRail && hasStile;
+                      return (
+                        <Badge
+                          variant="outline"
+                          className={complete
+                            ? "border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] text-sky-700"
+                            : "border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700"}
+                          title={complete
+                            ? "Verified rail and stile values will drive the Designer frame for this style."
+                            : hasRail || hasStile
+                              ? "Only one frame dimension is entered; the Designer retains a neutral fallback for the other."
+                              : "No verified rail-and-stile entry is recorded; the Designer retains its neutral fallback."}
+                        >
+                          {complete ? "Designer frame ready" : hasRail || hasStile ? "Designer frame partial" : "Designer frame blank"}
+                        </Badge>
+                      );
+                    })()}
                     <span className="text-xs text-muted-foreground">{[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}</span>
                     <SkuBadge style={s} />
                   </div>
@@ -1212,7 +1280,7 @@ export default function FeaturedStylesAdmin() {
                 >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {s.roomSceneImageUrl ? "Room scene ready" : "Room scene required"}
+                    {(s.roomScenes?.length ?? 0) > 0 ? `${s.roomScenes?.length}/${MAX_SCENES_PER_STYLE} room scenes` : "Room scene required"}
                     {[s.doorStyle, s.color].filter(Boolean).length > 0 && " · "}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                     <SkuBadge style={s} />
@@ -1235,9 +1303,9 @@ export default function FeaturedStylesAdmin() {
                     variant="ghost"
                     className="h-8 w-8"
                     onClick={() => add(s)}
-                    disabled={atCap || setFeatured.isPending || !s.roomSceneImageUrl?.trim()}
+                    disabled={setFeatured.isPending || !(s.roomScenes?.some((scene) => scene.isActive && scene.isVerified) ?? false)}
                     aria-label="Feature this style"
-                    title={atCap ? `At ${MAX_FEATURED}-scene limit` : !s.roomSceneImageUrl?.trim() ? "Add a room scene before featuring" : "Add to curated homepage scenes"}
+                    title={!(s.roomScenes?.some((scene) => scene.isActive && scene.isVerified) ?? false) ? "Add a verified matching room scene before featuring" : "Add to curated homepage styles"}
                   >
                     <Star className="h-4 w-4 text-muted-foreground/60" />
                   </Button>
@@ -1256,11 +1324,6 @@ export default function FeaturedStylesAdmin() {
               </div>
             ))}
           </div>
-        )}
-        {atCap && (
-          <p className="text-xs text-destructive mt-3">
-            You’ve reached the {MAX_FEATURED}-scene homepage limit. Remove one above to add another.
-          </p>
         )}
       </div>
 

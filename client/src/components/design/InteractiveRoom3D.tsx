@@ -489,7 +489,7 @@ interface Props {
   /** Exact resolved 2D finish color for each placed cabinet, keyed by placement UID. */
   cabinetFinishOverrides?: Record<string, string>;
   /** Exact saved 2D door profile for each placed cabinet, keyed by placement UID. */
-  cabinetDoorProfiles?: Record<string, { doorStyle: string | null; doorPanelType: string | null }>;
+  cabinetDoorProfiles?: Record<string, { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null }>;
   /** Exact admin door-sample URL for each placed cabinet's effective saved style. */
   cabinetDoorSampleUrls?: Record<string, string>;
   /** Live Cabinet Config product visual for each placed cabinet, keyed by placement UID. */
@@ -499,7 +499,7 @@ interface Props {
   /** Administration room scene is a visual target reference only; it never replaces saved plan geometry. */
   catalogRoomSceneUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
-  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null;
+  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null } | null;
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   /** Exact selected catalog identities retained with a final render for audit. */
@@ -2562,8 +2562,10 @@ export function doorProfileKind(doorStyle: string | null | undefined, doorPanelT
 }
 
 /** Three-inch physical Shaker rail/stile, reduced only when a very narrow face cannot accommodate it. */
-export function threeDShakerRailThickness(faceWidth: number, faceHeight: number) {
-  return Math.max(0, Math.min(3 * INCH, faceWidth / 2 - 0.01, faceHeight / 2 - 0.01));
+export function threeDShakerRailThickness(faceWidth: number, faceHeight: number, verifiedInches?: string | number | null) {
+  const requested = Number(verifiedInches);
+  const thickness = Number.isFinite(requested) && requested > 0 ? requested * INCH : 3 * INCH;
+  return Math.max(0, Math.min(thickness, faceWidth / 2 - 0.01, faceHeight / 2 - 0.01));
 }
 
 /** The physical Shaker frame must share the exact pose of its door face. */
@@ -2734,7 +2736,7 @@ export function addCabinet(
   roomDepth: number,
   color: string,
   counterColor: string,
-  doorProfile?: { doorStyle: string | null; doorPanelType: string | null },
+  doorProfile?: { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null },
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
@@ -3358,8 +3360,9 @@ export function addCabinet(
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
 	  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0, forceGlassFrame = false) => {
 	    if (!forceGlassFrame && !threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
-    const rail = threeDShakerRailThickness(faceWidth, faceHeight);
-    if (!rail) return;
+    const rail = threeDShakerRailThickness(faceWidth, faceHeight, doorProfile?.railWidth);
+    const stile = threeDShakerRailThickness(faceWidth, faceHeight, doorProfile?.stileWidth);
+    if (!rail || !stile) return;
     const frameGroup = new THREE.Group();
     const pose = threeDShakerFramePose(x, y, z, rotationY);
     frameGroup.position.set(pose.x, pose.y, pose.z);
@@ -3368,8 +3371,8 @@ export function addCabinet(
     const pieces = [
       [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
       [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
-      [rail, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + rail / 2, 0],
-      [rail, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - rail / 2, 0],
+      [stile, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + stile / 2, 0],
+      [stile, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - stile / 2, 0],
     ] as const;
     for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
       const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);

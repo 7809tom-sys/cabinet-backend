@@ -1741,3 +1741,10 @@
 - [x] Correct active unambiguous standard base, vanity, wall, and tall cabinet dimensions to the owner-authorized code and family-depth rules while preserving specialty constructions
 - [x] Exclude specialty, appliance, corner, refrigerator, panel, filler, and table-top cabinet constructions from the owner-authorized standard measurement correction set
 - [x] Audit active plain standard cabinet records for missing dimensions and fill only owner-rule values that are unambiguous
+- [ ] Verify Skyline Cabinetry door stile-and-rail dimensions from official sources and enforce only exact internal door-style matches in Featured Door Styles and Designer rendering
+- [x] Make authorized Door Style rail-and-stile entries the single source of truth for Featured Door Styles readiness and Designer rendering, with a neutral fallback for blank fields
+- [x] Show authorized staff whether a Door Style’s rail-and-stile entry is complete, partial, or blank before it is used for Designer rendering
+- [x] Show the private rail-and-stile completion state beside each curated Featured Door Style room-scene row
+- [x] Support up to six verified matching room-scene images for each door style and rotate a session-stable selection across the main and affiliate storefronts
+- [ ] Audit and correct catalog price fields only where an authorized source or approved pricing rule identifies a verified error
+- [ ] Present missing or unverified customer prices as quote-only without inferring a public price from internal fields

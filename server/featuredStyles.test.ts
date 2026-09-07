@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { doorStyles } from "../drizzle/schema";
+import { doorStyles, doorStyleRoomScenes } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 // Admin-controlled Featured Door Styles. The admin curates up to six room-scene
@@ -47,16 +47,16 @@ describe("doorStyles featured — admin management + public row", () => {
     ).rejects.toThrow();
   });
 
-  it("public featured query returns at most six rows, ordered by rank", async () => {
+  it("public featured query returns only safe scene identifiers and image URLs", async () => {
     const db = await getDb();
     if (!db) return; // skip when DB not configured
     const caller = appRouter.createCaller(adminCtx());
     const featured = await caller.doorStyles.featured();
     expect(Array.isArray(featured)).toBe(true);
-    expect(featured.length).toBeLessThanOrEqual(6);
     // Supplier identity must never leak on the public row.
     for (const row of featured) {
       expect("distributorName" in row).toBe(false);
+      expect(row.roomScenes.every((scene) => !("sourceNote" in scene) && !("sourceDistributorId" in scene))).toBe(true);
     }
   });
 
@@ -80,7 +80,7 @@ describe("doorStyles featured — admin management + public row", () => {
     // even when the curated six-scene set is already at its cap.
     const all = await caller.doorStyles.listForAdmin();
     expect(Array.isArray(all)).toBe(true);
-    const target = all.find((s) => s.isFeatured && s.roomSceneImageUrl);
+    const target = all.find((s) => s.isFeatured && s.roomScenes?.some((scene) => scene.isActive && scene.isVerified));
     if (!target) return;
 
     // Remember original state to restore afterwards.
@@ -123,7 +123,7 @@ describe("doorStyles featured — admin management + public row", () => {
     if (!db) return;
     const caller = appRouter.createCaller(adminCtx());
     const all = await caller.doorStyles.listForAdmin();
-    const missingScene = all.find((s) => s.isActive && !s.isFeatured && !s.roomSceneImageUrl);
+    const missingScene = all.find((s) => s.isActive && !s.isFeatured && !s.roomScenes?.some((scene) => scene.isActive && scene.isVerified));
     if (!missingScene) return;
 
     await expect(caller.doorStyles.setFeatured({ id: missingScene.id, featured: true })).rejects.toThrow(
@@ -131,25 +131,18 @@ describe("doorStyles featured — admin management + public row", () => {
     );
   });
 
-  it("enforces the six-scene curation cap server-side", async () => {
-    const db = await getDb();
-    if (!db) return;
+  it("limits each Door Style library to six scenes", async () => {
     const caller = appRouter.createCaller(adminCtx());
     const all = await caller.doorStyles.listForAdmin();
-    const curatedCount = all.filter((s) => s.isFeatured).length;
-    const nextScene = all.find((s) => s.isActive && !s.isFeatured && s.roomSceneImageUrl);
-    if (curatedCount < 6 || !nextScene) return;
-
-    await expect(caller.doorStyles.setFeatured({ id: nextScene.id, featured: true })).rejects.toThrow(
-      "You can curate up to 6 homepage room scenes",
-    );
+    const target = all[0];
+    if (!target) return;
+    const scenes = target.roomScenes ?? [];
+    if (scenes.length < 6) return;
+    await expect(caller.doorStyles.addRoomScene({ styleId: target.id, imageUrl: "https://example.invalid/scene.jpg" })).rejects.toThrow("up to 6 room scenes");
   });
 
-  it("reorderFeatured rejects more than six ids (input guard)", async () => {
+  it("keeps scene-management procedures unavailable to non-admins", async () => {
     const caller = appRouter.createCaller(adminCtx());
-    const tooMany = Array.from({ length: 7 }, (_, i) => i + 1);
-    await expect(
-      caller.doorStyles.reorderFeatured({ orderedIds: tooMany }),
-    ).rejects.toThrow();
+    await expect(appRouter.createCaller(userCtx()).doorStyles.addRoomScene({ styleId: 1, imageUrl: "https://example.invalid/scene.jpg" })).rejects.toThrow();
   });
 });

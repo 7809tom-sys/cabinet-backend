@@ -67,6 +67,8 @@ interface Props {
   // edge to the recessed panel, derived from the style's stileWidth in inches.
   // When omitted, each door style uses its built-in default inset.
   frameInsetFor?: (cab: PlacedCabinet) => number | null;
+  /** Verified per-style frame dimensions in inches. Blank fields retain the neutral profile. */
+  frameMetricsFor?: (cab: PlacedCabinet) => { stileInches?: number | null; railInches?: number | null } | null;
   // When this elevation is rendered inside a horizontally-mirrored container
   // (the left half of CornerView), set `mirror` so text labels are counter-
   // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
@@ -126,6 +128,7 @@ const ShakerFaceMetricsContext = createContext({
   drawerHeightIn: 6,
   doorCount: 1,
   drawerCount: 1,
+  frameMetrics: null as { stileInches?: number | null; railInches?: number | null } | null,
 });
 
 const GlassDoorRenderContext = createContext({
@@ -245,7 +248,7 @@ export function ElevationView({
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
-  frameInsetFor,
+  frameInsetFor, frameMetricsFor,
   onMove, onMoveVertical, moveLocked = false,
   flooringMaterialId = null,
   flooringPattern = "random-stagger",
@@ -406,6 +409,7 @@ export function ElevationView({
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     // Resolve per-style frame inset (px) for this cabinet.
     const cabFrameInset = !isAppliance && frameInsetFor ? frameInsetFor(p) : null;
+    const cabFrameMetrics = !isAppliance && frameMetricsFor ? frameMetricsFor(p) : null;
     const customProfile = p.customProfile ?? null;
     const facePresentation = resolveElevationFacePresentation(p, customProfile, p.genericDrawingUrl, isAppliance);
     const cabType: CabinetDrawingType | null = facePresentation.cabinetType;
@@ -561,6 +565,7 @@ export function ElevationView({
 	              shelfCount={visibleGlassShelfCount}
 	              glassDoor={isGlassDoor}
               frameInsetPx={cabFrameInset ?? undefined}
+              frameMetrics={cabFrameMetrics ?? undefined}
             />
           )}
           {showProfileFallback && (
@@ -2263,7 +2268,7 @@ export function CustomProfileFace({
   );
 }
 
-export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, glassDoor, frameInsetPx }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number }) {
+export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, cabinetWidthIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec, drawerLayout, masterCode, facePattern, shelfCount, glassDoor, frameInsetPx, frameMetrics }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; cabinetWidthIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null; drawerLayout?: string | null; masterCode?: string | null; facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null; shelfCount?: number | null; glassDoor?: boolean; frameInsetPx?: number; frameMetrics?: { stileInches?: number | null; railInches?: number | null } }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2293,7 +2298,7 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
   // This keeps the outer cabinet container transparent (no visible box).
   const withFace = (children: React.ReactNode) => (
     <div className="absolute inset-0" style={{ background: faceBackground }}>
-      <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorHeightIn: inheritedDoorHeightIn, drawerHeightIn: inheritedDrawerHeightIn, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount) }}>
+      <ShakerFaceMetricsContext.Provider value={{ widthIn: faceWidth, heightIn: faceHeight, doorHeightIn: inheritedDoorHeightIn, drawerHeightIn: inheritedDrawerHeightIn, doorCount: Math.max(1, doorCount), drawerCount: Math.max(1, drawerCount), frameMetrics: frameMetrics ?? null }}>
         <GlassDoorRenderContext.Provider value={{ enabled: Boolean(glassDoor), face, shelfCount: Math.max(0, Math.round(shelfCount ?? 0)) }}>
           {children}
         </GlassDoorRenderContext.Provider>
@@ -3363,7 +3368,7 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
   // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
   // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
   const resolvedInset = (fi: number) => elevationFrameInsetPx(kind, frameInsetPx) ?? fi;
-  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn);
+  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn, inheritedFace.frameMetrics ?? undefined);
 	if (glassDoor.enabled) {
 	  const paneLeft = `${shakerGeometry.horizontalInsetPercent}%`;
 	  const paneTop = `${shakerGeometry.verticalInsetPercent}%`;

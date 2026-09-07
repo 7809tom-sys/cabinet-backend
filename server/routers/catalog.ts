@@ -11,6 +11,7 @@ import {
   affiliates,
   distributors,
   doorStyles,
+  doorStyleRoomScenes,
   distributorSkus,
   cabinetDistributorEligibility,
   costChangeLog,
@@ -268,9 +269,9 @@ export const doorStylesRouter = router({
       return out.map(scrubDoorStyle);
     }),
 
-  // ── Featured door styles (admin-curated homepage room scenes) ───────────────
-  // Public: the intentionally small, style-matched room-scene set pushed on the
-  // homepage. The admin controls its order; source attribution stays internal.
+  // ── Featured door styles ────────────────────────────────────────────────────
+  // Public scenes are centrally curated per Door Style and shared by every
+  // storefront. Supplier/source information is deliberately never selected here.
   featured: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
@@ -278,9 +279,17 @@ export const doorStylesRouter = router({
       .select()
       .from(doorStyles)
       .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)))
-      .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName))
-      .limit(6);
-    return rows.map(scrubDoorStyle);
+      .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName));
+    const ids = rows.map((row) => row.id);
+    const scenes = ids.length === 0 ? [] : await db
+      .select({ id: doorStyleRoomScenes.id, styleId: doorStyleRoomScenes.styleId, imageUrl: doorStyleRoomScenes.imageUrl, sortOrder: doorStyleRoomScenes.sortOrder })
+      .from(doorStyleRoomScenes)
+      .where(and(inArray(doorStyleRoomScenes.styleId, ids), eq(doorStyleRoomScenes.isActive, true), eq(doorStyleRoomScenes.isVerified, true)))
+      .orderBy(asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+    return rows.map((row) => ({
+      ...scrubDoorStyle(row),
+      roomScenes: scenes.filter((scene) => scene.styleId === row.id).slice(0, 6),
+    }));
   }),
 
   // Admin: every style (active + inactive) with its featured flag/rank, for the manager UI.
@@ -334,11 +343,15 @@ export const doorStylesRouter = router({
       .from(doorStyles)
       .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .orderBy(asc(doorStyles.ourName));
-    return rows; // admin sees ALL rows (incl. inactive + real supplier names) intentionally
+    const ids = rows.map((row) => row.id);
+    const scenes = ids.length === 0 ? [] : await db.select().from(doorStyleRoomScenes)
+      .where(inArray(doorStyleRoomScenes.styleId, ids))
+      .orderBy(asc(doorStyleRoomScenes.sortOrder), asc(doorStyleRoomScenes.id));
+    return rows.map((row) => ({ ...row, roomScenes: scenes.filter((scene) => scene.styleId === row.id) }));
   }),
 
-  // Admin: toggle a style into the curated homepage set. A featured style must
-  // have its own room scene, and the six-scene cap is enforced server-side.
+  // Admin: toggle a style into the featured homepage set. Each style has its own
+  // independently ordered library of up to six matching verified scenes.
   setFeatured: adminProcedure
     .input(z.object({ id: z.number(), featured: z.boolean() }))
     .mutation(async ({ input }) => {
@@ -346,27 +359,18 @@ export const doorStylesRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (input.featured) {
         const target = await db
-          .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured, roomSceneImageUrl: doorStyles.roomSceneImageUrl })
+          .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured })
           .from(doorStyles)
           .where(eq(doorStyles.id, input.id))
           .limit(1);
         const style = target[0];
         if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "Door style not found." });
-        if (!style.roomSceneImageUrl?.trim()) {
+        const [{ cnt }] = await db.select({ cnt: sql<number>`count(*)` }).from(doorStyleRoomScenes)
+          .where(and(eq(doorStyleRoomScenes.styleId, input.id), eq(doorStyleRoomScenes.isActive, true), eq(doorStyleRoomScenes.isVerified, true)));
+        if (Number(cnt) === 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Add a style-matched room scene before adding this style to the homepage set.",
-          });
-        }
-        const [{ cnt }] = await db
-          .select({ cnt: sql<number>`count(*)` })
-          .from(doorStyles)
-          .where(eq(doorStyles.isFeatured, true));
-        // Allow re-featuring an already-featured row without tripping the cap.
-        if (!style.isFeatured && Number(cnt) >= 6) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "You can curate up to 6 homepage room scenes. Remove one before adding another.",
           });
         }
         // New featured items go to the end of the order by default.
@@ -472,9 +476,49 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
+  // Admin: add one scene to a Door Style's shared library. The cap is per style,
+  // not a global storefront cap.
+  addRoomScene: adminProcedure
+    .input(z.object({ styleId: z.number(), imageUrl: z.string().min(1).max(512), fileKey: z.string().max(512).nullable().optional(), sourceNote: z.string().max(512).nullable().optional(), sourceDistributorId: z.number().nullable().optional(), isVerified: z.boolean().default(true) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [{ cnt }] = await db.select({ cnt: sql<number>`count(*)` }).from(doorStyleRoomScenes).where(eq(doorStyleRoomScenes.styleId, input.styleId));
+      if (Number(cnt) >= 6) throw new TRPCError({ code: "BAD_REQUEST", message: "Each Door Style can have up to 6 room scenes." });
+      const [{ maxRank }] = await db.select({ maxRank: sql<number>`coalesce(max(sortOrder), 0)` }).from(doorStyleRoomScenes).where(eq(doorStyleRoomScenes.styleId, input.styleId));
+      const result = await db.insert(doorStyleRoomScenes).values({ ...input, imageUrl: input.imageUrl.trim(), fileKey: input.fileKey?.trim() || null, sourceNote: input.sourceNote?.trim() || null, sortOrder: Number(maxRank) + 10 });
+      return { ok: true, id: Number((result as { insertId?: number }).insertId) };
+    }),
+
+  updateRoomScene: adminProcedure
+    .input(z.object({ id: z.number(), imageUrl: z.string().min(1).max(512).optional(), fileKey: z.string().max(512).nullable().optional(), sourceNote: z.string().max(512).nullable().optional(), sourceDistributorId: z.number().nullable().optional(), isVerified: z.boolean().optional(), isActive: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { id, ...fields } = input;
+      await db.update(doorStyleRoomScenes).set({ ...fields, imageUrl: fields.imageUrl?.trim(), fileKey: fields.fileKey?.trim() || null, sourceNote: fields.sourceNote?.trim() || null }).where(eq(doorStyleRoomScenes.id, id));
+      return { ok: true };
+    }),
+
+  deleteRoomScene: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.delete(doorStyleRoomScenes).where(eq(doorStyleRoomScenes.id, input.id));
+    return { ok: true };
+  }),
+
+  reorderRoomScenes: adminProcedure.input(z.object({ styleId: z.number(), orderedIds: z.array(z.number()).min(1).max(6) })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const owned = await db.select({ id: doorStyleRoomScenes.id }).from(doorStyleRoomScenes).where(eq(doorStyleRoomScenes.styleId, input.styleId));
+    if (owned.length !== input.orderedIds.length || new Set(input.orderedIds).size !== input.orderedIds.length || !input.orderedIds.every((id) => owned.some((scene) => scene.id === id))) throw new TRPCError({ code: "BAD_REQUEST", message: "Room-scene order must contain every scene for this Door Style exactly once." });
+    await Promise.all(input.orderedIds.map((id, index) => db.update(doorStyleRoomScenes).set({ sortOrder: (index + 1) * 10 }).where(eq(doorStyleRoomScenes.id, id))));
+    return { ok: true };
+  }),
+
   // Admin: persist a new order for the curated homepage scenes (array of ids, in order).
   reorderFeatured: adminProcedure
-    .input(z.object({ orderedIds: z.array(z.number()).max(6) }))
+    .input(z.object({ orderedIds: z.array(z.number()) }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });

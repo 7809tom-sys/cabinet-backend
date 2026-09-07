@@ -789,6 +789,11 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDUsesPhysicalShakerRails("flat", true)).toBe(false);
   });
 
+  it("uses a verified selected Door Style frame width for the 3D physical-frame fallback", () => {
+    expect(threeDShakerRailThickness(24 / 12, 30 / 12, 1)).toBeCloseTo(1 / 12, 12);
+    expect(threeDShakerRailThickness(24 / 12, 30 / 12, null)).toBeCloseTo(3 / 12, 12);
+  });
+
   it("uses an exact unlit material for supplied CabinetDealz door samples", () => {
     expect(threeDUsesExactDoorSampleMaterial(true)).toBe(true);
     expect(threeDUsesExactDoorSampleMaterial(false)).toBe(false);

@@ -14,12 +14,12 @@ describe("elevation face-frame geometry", () => {
     expect(frameInsetPxFromInches("3.00")).toBe(12);
   });
 
-  it("applies the 3-inch square Shaker rule to both door and drawer faces", () => {
+  it("uses an entered verified Shaker stile for both door and drawer faces", () => {
     expect(isShakerElevationStyle("shaker")).toBe(true);
     expect(isShakerElevationStyle("slim-shaker")).toBe(true);
     expect(isShakerElevationStyle("raised")).toBe(false);
-    expect(elevationFrameInsetPx("shaker", 6)).toBe(SHAKER_FACE_FRAME_PX);
-    expect(drawerPanelInsetPx(6, true)).toBe(SHAKER_FACE_FRAME_PX);
+    expect(elevationFrameInsetPx("shaker", 6)).toBe(6);
+    expect(drawerPanelInsetPx(6, true)).toBe(6);
   });
 
   it("uses real door width for the Shaker center panel: 12-inch yields 6-inch and 21-inch yields 15-inch", () => {
@@ -37,6 +37,16 @@ describe("elevation face-frame geometry", () => {
       centerPanelHeightInches: 24,
     });
     expect(shakerFacePanelGeometry(21, 30).horizontalInsetPercent).toBeCloseTo(14.285714, 5);
+  });
+
+  it("uses verified independent stile and rail measurements when the authorized Door Style record supplies them", () => {
+    expect(shakerFacePanelGeometry(21, 30, { stileInches: 1, railInches: 1.5 })).toMatchObject({
+      stileInches: 1,
+      railInches: 1.5,
+      centerPanelWidthInches: 19,
+      centerPanelHeightInches: 27,
+    });
+    expect(elevationFrameInsetPx("slim-shaker", 4)).toBe(4);
   });
 
   it("uses real partial face height for 3-inch top and bottom rails", () => {
