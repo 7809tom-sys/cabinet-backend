@@ -1762,3 +1762,6 @@
 - [x] Add a toolbar toggle that turns automatic cabinet snapping on or off for placement and dragging
 - [x] Show a concise inline tooltip when a door or window clearance blocks cabinet placement
 - [x] Keep the Door Style editor fully within the viewport with a visible header and close control plus internal content scrolling
+- [x] Automatically place same-size or smaller replacement cabinets into the nearest valid opening after a cabinet is removed, without requiring a precise pointer drop
+- [x] Ensure an SB36 recognizes and fills the full verified 36-inch back-wall opening instead of evaluating a pointer-local sliver
+- [x] Allow both SB36 and B12 to enter the same verified 36-inch Back-wall opening through normal replacement placement

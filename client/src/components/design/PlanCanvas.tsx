@@ -127,6 +127,8 @@ interface Props {
   // Right-click a cabinet to open its per-cabinet attributes dialog.
   onOpenAttributes?: (uid: string) => void;
 	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean) => void;
+	  /** Toolbar-controlled choice between nearest-valid placement and exact manual placement. */
+	  automaticSnapping?: boolean;
   showWallLayer: boolean;
   measureMode?: boolean;
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
@@ -248,8 +250,9 @@ export function PlanCanvas({
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
-  flooringPattern = "random-stagger",
-  cabinetsLocked = false,
+	  flooringPattern = "random-stagger",
+	  cabinetsLocked = false,
+	  automaticSnapping = true,
   gapFillCandidates,
   catalogFillerCandidates = [],
   smartGapCandidates = [],
@@ -725,15 +728,15 @@ export function PlanCanvas({
         const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
 	        const targetAlong = side === "top" || side === "bottom" ? point.x : point.y;
 	        const gaps = wallGaps(room, cabinets, openings, 0.5).filter((gap) => gap.side === side && gap.layer === placement);
-	        setCatalogDragFreehand(e.shiftKey);
-	        setCatalogDragFit(e.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width));
+	        setCatalogDragFreehand(!automaticSnapping);
+	        setCatalogDragFit(automaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width));
 	      }}
 	      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setCatalogDragFit(null); setCatalogDragFreehand(false); } }}
       onDrop={(e) => {
         e.preventDefault();
         const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
         if (roomEl && onDropNew) {
-	          onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, e.shiftKey);
+	          onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, !automaticSnapping);
 	        }
 	        setCatalogDragFit(null);
 	        setCatalogDragFreehand(false);

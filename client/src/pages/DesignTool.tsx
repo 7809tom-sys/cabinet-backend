@@ -5427,7 +5427,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
       const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-	      const useAutomaticSnapping = automaticSnapping && !freehand;
+	      // A catalog drop is a normal replacement unless the user has explicitly
+	      // switched automatic snapping off. Modifier keys and a 3D pointer position
+	      // must not turn a verified 36-inch opening into a tiny local sliver.
+	      const useAutomaticSnapping = automaticSnapping || !freehand;
 	      const measuredAtPointer = useAutomaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width);
 	      // Palette drops should not fail just because the pointer lands over an
 	      // adjacent narrow trim gap. Recover a normal drop into the closest clear
@@ -10200,6 +10203,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            <PlanCanvas onPreviewGap={previewSmartGap}
 	              room={room}
 	              catalogDragCabinet={catalogDragPreview}
+	              automaticSnapping={automaticSnapping}
 	              smartGapCandidates={smartGapCatalogCandidates}
 	              smartGapCandidatePrices={smartGapCandidatePrices}
               cabinets={placed}
@@ -10361,6 +10365,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                <PlanCanvas onPreviewGap={previewSmartGap}
 	                  room={room}
 	                  catalogDragCabinet={catalogDragPreview}
+	                  automaticSnapping={automaticSnapping}
 	                  smartGapCandidates={smartGapCatalogCandidates}
 	                  smartGapCandidatePrices={smartGapCandidatePrices}
                   cabinets={placed}

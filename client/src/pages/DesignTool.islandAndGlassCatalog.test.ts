@@ -62,6 +62,12 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("clearance blocks placement — keep 3 in. clear.");
 	});
 
+	it("treats a catalog replacement as automatic unless the user explicitly turns snapping off", () => {
+	  expect(source).toContain("const useAutomaticSnapping = automaticSnapping || !freehand;");
+	  expect(source.match(/automaticSnapping=\{automaticSnapping\}/g)).toHaveLength(2);
+	  expect(source).toContain("must not turn a verified 36-inch opening into a tiny local sliver");
+	});
+
 	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Clear opposite island face found");
