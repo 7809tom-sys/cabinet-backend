@@ -1781,3 +1781,7 @@
 - [x] Add an opt-in island auto-depth adjustment for mixed-depth Back-face cabinets while preserving existing treatments
 - [x] When a cabinet cannot fit in an active island face remainder, offer Back-face placement plus any required depth expansion instead of a dead-end error
 - [x] Animate the opt-in Back-face island depth expansion and show its before-and-after depth without changing collision safeguards or treatments
+- [x] Make SB36 use the full intended Back-wall run rather than an incorrect 24-inch sub-opening in the active design
+- [x] Make a W30 blocked by a 2′6″ Front island remainder offer and complete Back-face placement rather than ending with a face-capacity error
+- [x] Restore cabinet editing on desktop and phone by making the nested Media Library dialog viewport-safe, selectable, closable, and return users to the editor without losing changes
+- [x] Compare and restore the Media Library interaction that worked yesterday without removing needed draggable-popup behavior

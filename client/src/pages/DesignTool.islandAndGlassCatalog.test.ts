@@ -106,7 +106,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 
 	it("opens Island setup with an accurate depth requirement before placing a shallow opposing wall cabinet", () => {
 	  expect(source).toContain("const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH)");
-	  expect(source).toContain("isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth");
+	  expect(source).toContain('isShallowIslandWallCabinet && requestedIslandFace === "back" && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth');
 	  expect(source).toContain("setIslandAttributesOpen(true)");
 	  expect(source).toContain("48 inches if you want a 12-inch seating overhang");
 	});
@@ -130,6 +130,12 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth");
 	  expect(source).toContain("islandDepthTransition={islandDepthTransition}");
 	  expect(source).toContain("Island expanded toward Back:");
+	});
+
+	it("keeps a verified normal wall opening and redirects a shallow island wall cabinet only when Back needs depth", () => {
+	  expect(source).toContain('requestedIslandFace === "back" && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth');
+	  expect(source).toContain('!requestedIslandFace && !strictDropTarget) finalCab = snapCabinetSeamOverlap');
+	  expect(source).toContain('const dropWall = strictPointerPlacement ? (dropTarget.wall ?? activeWall) : activeWall');
 	});
 
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {

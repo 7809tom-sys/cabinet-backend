@@ -3411,8 +3411,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          && Number(newCab.depth) <= STD.WALL_DEPTH + COLLISION_EPSILON_IN
 	          && Number(newCab.height) <= STD.BASE_HEIGHT + COLLISION_EPSILON_IN;
 	        const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH);
-	        if (isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth) {
-	          if (!(requestedIslandFace === "back" && (island.autoAdjustDepthForBackFace === true || forceBackDepthAdjustment))) {
+	        if (isShallowIslandWallCabinet && requestedIslandFace === "back" && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth) {
+	          if (!(island.autoAdjustDepthForBackFace === true || forceBackDepthAdjustment)) {
 	            const message = `${newCab.masterCode} needs a ${formatInches(minimumOpposingIslandDepth)}-deep island to sit opposite the existing 24-inch base run. The current island is ${formatInches(island.depth)} deep. Open Island setup to use at least ${formatInches(minimumOpposingIslandDepth)}${minimumOpposingIslandDepth < 48 ? " (48 inches if you want a 12-inch seating overhang)" : ""}.`;
 	            setPlacementWarning(message);
 	            toast.info(message);
@@ -3602,7 +3602,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 	      let normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
-	      if (automaticSnapping && !requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      // A 2D or 3D resolver may already have seated this cabinet in a verified
+	      // full wall opening. Do not run the generic seam snap again: it can pull
+	      // the cabinet from that opening into a neighboring narrow sub-gap.
+	      if (automaticSnapping && !requestedIslandFace && !strictDropTarget) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
 	      normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
@@ -3897,7 +3900,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedLowerCabinet.uid);
 	        return;
 	      }
-	      const dropWall = dropTarget.wall ?? activeWall;
+	      // The active wall is an explicit user decision. A normal 3D drag must
+	      // honor it instead of letting its screen coordinate silently choose a
+	      // shorter neighboring wall segment. Exact manual placement retains the
+	      // physical drop target when the magnet is intentionally off.
+	      const strictPointerPlacement = freehand && !automaticSnapping;
+	      const dropWall = strictPointerPlacement ? (dropTarget.wall ?? activeWall) : activeWall;
 	      // The island is a freestanding assembly, not a room-wall cabinet run.
 	      // Its cabinets must never turn a verified Back-wall opening into a
 	      // pointer-local sliver in the 3D placement path.
@@ -3908,7 +3916,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // Turning snapping on makes every ordinary 3D catalog drop resolve from
 	      // the complete closest valid opening. Exact pointer placement remains an
 	      // intentional manual mode only when snapping is explicitly off.
-	      const strictPointerPlacement = freehand && !automaticSnapping;
 	      const freehandMeasure = strictPointerPlacement ? wallGapFreehandPreview(gaps, targetAlong, width) : null;
 	      const along = strictPointerPlacement
 	        ? freehandMeasure?.status === "valid" ? freehandMeasure.snapStart : null

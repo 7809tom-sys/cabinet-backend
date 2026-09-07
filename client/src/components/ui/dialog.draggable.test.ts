@@ -9,7 +9,8 @@ describe("movable popup headers", () => {
   it("uses an explicit header-only drag handle for standard dialogs", () => {
     expect(dialogSource).toContain('data-dialog-drag-handle="true"');
     expect(dialogSource).toContain("event.currentTarget.setPointerCapture(event.pointerId)");
-    expect(dialogSource).toContain("translate: `${dragOffset.x}px ${dragOffset.y}px`");
+	    expect(dialogSource).toContain("calc(-50% + ${dragOffset.x}px) calc(-50% + ${dragOffset.y}px)");
+	    expect(dialogSource).toContain("Tailwind v4 implements the centering utilities");
   });
 
   it("gives confirmation dialogs the same header-only drag behavior", () => {

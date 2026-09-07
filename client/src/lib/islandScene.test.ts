@@ -185,7 +185,7 @@ describe("island mini-scene geometry", () => {
     expect(hasCollision(backWallCabinet!, existing)).toBe(false);
   });
 
-  it("protects an occupied front island run while preserving the empty Back face for a W-30-30", () => {
+	  it("protects an occupied front island run while preserving the empty Back face for a W-30-30", () => {
     const frontB12 = islandFacePlacement(cabinet({ uid: "front-b12", masterCode: "B-12", width: 12 }), island, "front", 0);
     const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), island, "front", 12);
     const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "B-18", width: 18 }), island, "front", 42);
@@ -330,6 +330,28 @@ describe("island mini-scene geometry", () => {
 	      y: workZone.y - 12,
 	      depth: 48,
 	    });
+	  });
+
+	  it("recovers a W-30-30 from a 6-inch Front remainder by expanding only toward Back", () => {
+	    const compactIsland: IslandZone = { x: 36, y: 48, width: 66, depth: 24, activeFace: "front", autoAdjustDepthForBackFace: true };
+	    const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "B-18", width: 18 }), compactIsland, "front", 0);
+	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), compactIsland, "front", 18);
+	    const frontDb12 = islandFacePlacement(cabinet({ uid: "front-db12", masterCode: "3-DB12", width: 12 }), compactIsland, "front", 48);
+	    const existing = [frontB18, frontRange, frontDb12];
+	    const incoming = cabinet({ uid: "back-w3030", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 });
+
+	    expect(islandFaceCapacity(compactIsland, "front", existing).largestOpenSpan).toBe(6);
+	    expect(nextIslandFacePlacement(incoming, compactIsland, "front", existing)).toBeNull();
+    const adjustment = autoAdjustIslandDepthForBackFace(compactIsland, existing, room, incoming.depth);
+    expect(adjustment.ok).toBe(true);
+    if (!adjustment.ok) return;
+    expect(adjustment.island).toMatchObject({ depth: 36, x: compactIsland.x, y: compactIsland.y - 12 });
+    expect(nextIslandFacePlacement(incoming, adjustment.island, "back", adjustment.placed)).toMatchObject({
+      islandFace: "back",
+      islandOffset: 0,
+      x: compactIsland.x,
+      y: compactIsland.y - 12,
+    });
 	  });
 
 	  it("preserves island face ownership and exact slab metadata through design save and restore", () => {

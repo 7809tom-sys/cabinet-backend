@@ -171,8 +171,8 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
       </div>
 
       {/* Library Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl flex flex-col max-h-[90dvh]">
+	      <Dialog open={open} onOpenChange={setOpen}>
+	        <DialogContent className="!flex h-[min(88dvh,44rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col overflow-hidden p-4 sm:h-[min(88dvh,44rem)] sm:w-[min(56rem,calc(100vw-2rem))] sm:max-w-none sm:p-6">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-muted-foreground" />
@@ -182,16 +182,16 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
           </DialogHeader>
 
           {/* Search + Upload */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex gap-1.5 flex-1">
+	          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+	            <div className="flex min-w-0 flex-1 gap-1.5">
               <Input
                 placeholder="Search by filename…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="h-8 text-sm"
+	              className="h-9 min-w-0 text-sm"
               />
-              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={handleSearch}>
+	              <Button size="sm" variant="outline" className="h-9 shrink-0 gap-1.5" onClick={handleSearch}>
                 <Search className="w-3.5 h-3.5" />
                 Search
               </Button>
@@ -209,7 +209,7 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
               type="button"
               variant="default"
               size="sm"
-              className="h-8 gap-1.5 shrink-0"
+	              className="h-9 w-full shrink-0 gap-1.5 sm:w-auto"
               disabled={uploading}
               onClick={() => fileRef2.current?.click()}
             >
@@ -232,7 +232,7 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 p-1">
+	              <div className="grid grid-cols-2 gap-2 p-1 min-[420px]:grid-cols-3 sm:grid-cols-5 md:grid-cols-6">
                 {items.map((item) => {
                   const isSelected = value === item.url;
                   return (
@@ -299,8 +299,8 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
             </div>
           )}
 
-          <DialogFooter className="shrink-0">
-            <Button variant="outline" onClick={() => setOpen(false)}>
+	          <DialogFooter className="shrink-0 border-t border-border pt-2">
+	            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </DialogFooter>
