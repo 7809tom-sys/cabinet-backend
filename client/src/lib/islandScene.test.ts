@@ -6,8 +6,9 @@ import {
 	  islandCountertopRects,
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
-  islandFacePlacement,
-  islandWithFaceSeatingOverhang,
+	  islandFacePlacement,
+	  islandFaceTransferOption,
+	  islandWithFaceSeatingOverhang,
   inferredIslandFace,
   moveIslandScene,
   nextIslandFacePlacement,
@@ -102,15 +103,33 @@ describe("island mini-scene geometry", () => {
 	  expect(hasCollision(second!, [first!])).toBe(false);
 	});
 
-	it("reports a chosen Front length as full while leaving the opposing Back run available", () => {
-	  const frontA = islandFacePlacement(cabinet({ uid: "front-a", width: 36 }), island, "front", 0);
-	  const frontB = islandFacePlacement(cabinet({ uid: "front-b", width: 36 }), island, "front", 36);
-	  const capacity = islandFaceCapacity(island, "front", [frontA, frontB]);
-	  expect(capacity).toMatchObject({ length: 72, occupiedSpan: 72, largestOpenSpan: 0, isFull: true });
-	  expect(nextIslandFacePlacement(cabinet({ uid: "back-next", width: 30 }), island, "back", [frontA, frontB])).toMatchObject({ islandFace: "back", islandOffset: 0 });
-	});
+		it("reports a chosen Front length as full while leaving the opposing Back run available", () => {
+		  const frontA = islandFacePlacement(cabinet({ uid: "front-a", width: 36 }), island, "front", 0);
+		  const frontB = islandFacePlacement(cabinet({ uid: "front-b", width: 36 }), island, "front", 36);
+		  const capacity = islandFaceCapacity(island, "front", [frontA, frontB]);
+		  expect(capacity).toMatchObject({ length: 72, occupiedSpan: 72, largestOpenSpan: 0, isFull: true });
+		  expect(nextIslandFacePlacement(cabinet({ uid: "back-next", width: 30 }), island, "back", [frontA, frontB])).toMatchObject({ islandFace: "back", islandOffset: 0 });
+		});
 
-  it("places SB36 after a legacy Farm Sink Base on the same island face", () => {
+		it("moves an island cabinet to the opposite face when that face has a clear run", () => {
+		  const front = islandFacePlacement(cabinet({ uid: "front", width: 30 }), island, "front", 0);
+		  expect(islandFaceTransferOption(front, island, [front])).toMatchObject({
+		    targetFace: "back",
+		    moved: { uid: "front", islandFace: "back", islandOffset: 0 },
+		  });
+		});
+
+		it("swaps the nearest opposite-face cabinet when neither face has an open transfer run", () => {
+		  const front = islandFacePlacement(cabinet({ uid: "front", width: 72 }), island, "front", 0);
+		  const back = islandFacePlacement(cabinet({ uid: "back", width: 72 }), island, "back", 0);
+		  expect(islandFaceTransferOption(front, island, [front, back])).toMatchObject({
+		    targetFace: "back",
+		    moved: { uid: "front", islandFace: "back" },
+		    swapped: { uid: "back", islandFace: "front" },
+		  });
+		});
+
+	  it("places SB36 after a legacy Farm Sink Base on the same island face", () => {
     const legacyFarmSinkBase = {
       ...islandFacePlacement(cabinet({ uid: "legacy-fsb36", masterCode: "FSB-36", description: "36 inch Farm Sink Base Cabinet", width: 36 }), island, "front", 0),
       islandFace: undefined,

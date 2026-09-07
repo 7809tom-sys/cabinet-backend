@@ -88,6 +88,15 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain('face: "back"');
 	});
 
+	it("switches to a Back-facing 3D island view after acceptance and exposes a safe selected-cabinet transfer action", () => {
+	  expect(source).toContain("setIslandCameraFocusRequest");
+	  expect(source).toContain('setViewMode("threeD")');
+	  expect(source).toContain("islandFaceTransferOption(selectedCab, island, placed)");
+	  expect(source).toContain('data-testid="selected-island-face-transfer"');
+	  expect(source).toContain("Swap to");
+	  expect(source).toContain("Move to");
+	});
+
 	it("opens Island setup with an accurate depth requirement before placing a shallow opposing wall cabinet", () => {
 	  expect(source).toContain("const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH)");
 	  expect(source).toContain("isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth");

@@ -1099,10 +1099,13 @@ export function PlanCanvas({
             }}
 	            title={t("dt_pc_island_zone")}
 	          >
-	            <div className={`absolute left-0 right-0 top-0 h-1 ${activeIslandFace === "back" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
-	            <div className={`absolute left-0 right-0 bottom-0 h-1 ${activeIslandFace === "front" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
-	            <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeIslandFace === "left" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
-	            <div className={`absolute right-0 top-0 bottom-0 w-1 ${activeIslandFace === "right" ? "bg-[#d4a75a]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 right-0 top-0 h-1.5 ${activeIslandFace === "back" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 right-0 bottom-0 h-1.5 ${activeIslandFace === "front" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "left" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute right-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "right" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <span data-testid="active-island-face-indicator" className={`pointer-events-none absolute z-10 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white shadow ${activeIslandFace === "front" ? "bottom-1 left-1/2 -translate-x-1/2" : activeIslandFace === "back" ? "top-1 left-1/2 -translate-x-1/2" : activeIslandFace === "left" ? "left-1 top-1/2 -translate-y-1/2" : "right-1 top-1/2 -translate-y-1/2"}`}>
+	              {activeIslandFace.toUpperCase()} · ACTIVE PLACEMENT
+	            </span>
             <span className="absolute left-1 top-1 text-[9px] font-bold tracking-wide text-[#a87f33] bg-white/70 px-1 rounded pointer-events-none">
               ISLAND {Math.round(island.width)}″×{Math.round(island.depth)}″
             </span>

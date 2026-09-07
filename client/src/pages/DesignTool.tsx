@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, Magnet, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
+	  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { inferredIslandFace, islandCountertopRect, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { inferredIslandFace, islandCountertopRect, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -657,6 +657,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [corner, setCorner] = useState<CornerId>("top-left");
 	  // Active island run for placement and Island elevation.
 	  const [islandFace, setIslandFace] = useState<IslandFace>("front");
+	  const [islandCameraFocusRequest, setIslandCameraFocusRequest] = useState<{ face: "front" | "back"; key: number } | null>(null);
 	  const [islandPlacementMode, setIslandPlacementMode] = useState(false);
 	  const [islandPlacementPanelExpanded, setIslandPlacementPanelExpanded] = useState(false);
 	  // Catalog clicks may follow a target-mode click before React recreates the
@@ -3770,6 +3771,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    if (!recommendation) return;
 	    setAlternateIslandFaceRecommendation(null);
 	    setPlacementTarget("island", recommendation.face);
+	    const cameraFace = recommendation.face === "back" || recommendation.face === "front" ? recommendation.face : null;
+	    if (cameraFace) {
+	      setIslandCameraFocusRequest((current) => ({ face: cameraFace, key: (current?.key ?? 0) + 1 }));
+	      setViewMode("threeD");
+	    }
 	    toast.success(`${recommendation.face[0]!.toUpperCase()}${recommendation.face.slice(1)} island face selected. Choose the next cabinet to add there.`);
 	  }, [alternateIslandFaceRecommendation, setPlacementTarget]);
 	  const replaceUpperWithRangeHood = useCallback(() => {
@@ -7162,7 +7168,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(`${placedFromPlan.length} approved cabinet${placedFromPlan.length === 1 ? "" : "s"} replaced the current layout.${roomNote}${unmatchedNote}${applianceNote}`);
   }, [appliancePalette, autoFillCabinets, clearDraft, layoutLocked, room, t, tallCabPool, wallCabPool]);
 
-  const selectedCab = placed.find((p) => p.uid === selectedUid);
+	  const selectedCab = placed.find((p) => p.uid === selectedUid);
+	  const selectedIslandTransfer = useMemo(() => selectedCab && island && isOnIsland(selectedCab, island)
+	    ? islandFaceTransferOption(selectedCab, island, placed)
+	    : null, [island, placed, selectedCab]);
+	  const applySelectedIslandTransfer = useCallback(() => {
+	    if (!selectedCab || !island || !selectedIslandTransfer) return;
+	    const next = placedRef.current.map((cabinet) => {
+	      if (cabinet.uid === selectedCab.uid) return selectedIslandTransfer.moved;
+	      if (selectedIslandTransfer.swapped && cabinet.uid === selectedIslandTransfer.swapped.uid) return selectedIslandTransfer.swapped;
+	      return cabinet;
+	    });
+	    placedRef.current = next;
+	    setPlaced(next);
+	    setPlacementTarget("island", selectedIslandTransfer.targetFace);
+	    setSelectedUid(selectedCab.uid);
+	    setPlacementWarning(null);
+	    toast.success(selectedIslandTransfer.swapped ? `${selectedCab.masterCode} swapped to the ${selectedIslandTransfer.targetFace} island face.` : `${selectedCab.masterCode} moved to the ${selectedIslandTransfer.targetFace} island face.`);
+	  }, [island, selectedCab, selectedIslandTransfer, setPlacementTarget]);
   const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
   const selectedCabWallFit = useMemo(
 	    () => selectedCab && (selectedCab.placement === "base" || selectedCab.placement === "wall")
@@ -7579,11 +7602,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      hybridPlanUnderlay={hybridPlanUnderlay}
 		      catalogDragItem={interactive3dCatalogDragItem}
 	      className="h-full min-h-0"
-	      scene={resolvedInteractive3dScene}
-	      placed={threeDPlaced}
-	      crown={crown}
-	      catalogDropWall={activeWall}
-      roomOverride={room}
+		      scene={resolvedInteractive3dScene}
+		      placed={threeDPlaced}
+		      crown={crown}
+		      catalogDropWall={activeWall}
+		      islandFocusRequest={islandCameraFocusRequest}
+	      roomOverride={room}
       openings={openings}
       sinks={sinks}
       island={island}
@@ -8953,10 +8977,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </span>
                 </div>
               )}
-              <span className="text-[11px] text-muted-foreground">
-                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
-                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
-              </span>
+	              <span className="text-[11px] text-muted-foreground">
+	                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
+	                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
+	              </span>
+	              {selectedIslandTransfer && (
+	                <div data-testid="selected-island-face-transfer" className="flex shrink-0 items-center gap-1 rounded-md border border-[#d4a75a]/60 bg-[#fffaf1] px-1.5 py-1">
+	                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#765416]">Island · {inferredIslandFace(selectedCab, island!)}</span>
+	                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 border-[#a87f33]/60 bg-white px-2 text-[10px] font-semibold text-[#1a2744]" onClick={applySelectedIslandTransfer} title={selectedIslandTransfer.swapped ? `Swap with the nearest ${selectedIslandTransfer.targetFace} cabinet` : `Move this cabinet to the ${selectedIslandTransfer.targetFace} face`}>
+	                    <ArrowRightLeft className="h-3.5 w-3.5" /> {selectedIslandTransfer.swapped ? `Swap to ${selectedIslandTransfer.targetFace}` : `Move to ${selectedIslandTransfer.targetFace}`}
+	                  </Button>
+	                </div>
+	              )}
               {canShowCompactMoveControl && (
                 <Button
                   type="button"
@@ -12472,6 +12504,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                placed={threeDPlaced}
 		                crown={crown}
 		                catalogDropWall={activeWall}
+		                islandFocusRequest={islandCameraFocusRequest}
 		                catalogDragItem={interactive3dCatalogDragItem}
                 roomOverride={room}
                 openings={openings}

@@ -241,6 +241,40 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   return null;
 }
 
+export type IslandFaceTransferOption = {
+  targetFace: IslandFace;
+  moved: PlacedCabinet;
+  swapped?: PlacedCabinet;
+};
+
+/**
+ * Builds a collision-safe move or swap from one island face to its opposite.
+ * The island zone itself is never changed, so its countertop, waterfall,
+ * seating, toe-kick, and base-molding choices stay intact.
+ */
+export function islandFaceTransferOption(selected: PlacedCabinet, island: IslandZone, placed: PlacedCabinet[]): IslandFaceTransferOption | null {
+  if (!isOnIsland(selected, island)) return null;
+  const sourceFace = inferredIslandFace(selected, island);
+  const targetFace: IslandFace = sourceFace === "front" ? "back" : sourceFace === "back" ? "front" : sourceFace === "left" ? "right" : "left";
+  const withoutSelected = placed.filter((item) => item.uid !== selected.uid);
+  const move = nextIslandFacePlacement(selected, island, targetFace, withoutSelected);
+  if (move) return { targetFace, moved: move };
+
+  const sourceOffset = islandOffsetForPlaced(selected, island, sourceFace);
+  const swapCandidates = withoutSelected
+    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === targetFace)
+    .sort((left, right) => Math.abs(islandOffsetForPlaced(left, island, targetFace) - sourceOffset) - Math.abs(islandOffsetForPlaced(right, island, targetFace) - sourceOffset));
+  for (const oppositeCabinet of swapCandidates) {
+    const remaining = withoutSelected.filter((item) => item.uid !== oppositeCabinet.uid);
+    const moved = islandFacePlacement(selected, island, targetFace, islandOffsetForPlaced(oppositeCabinet, island, targetFace));
+    const swapped = islandFacePlacement(oppositeCabinet, island, sourceFace, sourceOffset);
+    if (!hasCollision(moved, [...remaining, swapped]) && !hasCollision(swapped, [...remaining, moved])) {
+      return { targetFace, moved, swapped };
+    }
+  }
+  return null;
+}
+
 export type IslandSceneEditResult =
   | { ok: true; island: IslandZone; placed: PlacedCabinet[] }
   | { ok: false; reason: string; island: IslandZone; placed: PlacedCabinet[] };

@@ -22,4 +22,11 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain('data-testid="catalog-drag-too-large"');
 	    expect(source).toContain('data-too-large={tooLarge ? "true" : "false"}');
 	  });
+
+	  it("marks the active island face with an explicit visible placement label", () => {
+	    expect(source).toContain('data-testid="active-island-face-indicator"');
+	    expect(source).toContain("ACTIVE PLACEMENT");
+	    expect(source).toContain('activeIslandFace === "back"');
+	    expect(source).toContain('activeIslandFace === "front"');
+	  });
 });

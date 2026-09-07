@@ -1772,3 +1772,7 @@
 - [x] Explain the available span, required cabinet width, and shortage when placement is blocked by a smaller gap
 - [x] When an island face reaches its chosen length, explain that it is full and offer to place the next cabinet on the opposite face
 - [x] If the user accepts the full-face prompt, route the next selected cabinet to the Back face without changing toe-kick, base-molding, waterfall, or other island options
+- [x] Show a clear visual indicator on the island for the currently active Front or Back placement face
+- [x] Let users safely move or swap a selected island cabinet between the Front and Back faces without changing island treatments
+- [x] Shift the Designer view toward the Back side of the island after the user chooses Back for the next cabinet
+- [x] Review the current island placement flow for the next concrete usability obstacle and preserve all physical collision safeguards
