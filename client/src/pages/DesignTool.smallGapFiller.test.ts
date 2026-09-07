@@ -24,16 +24,26 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(placementSource).toContain("queueSmallGapFillerOpportunity(committedRun, finalCab.uid)");
   });
 
-  it("offers leave-open, split, left, and right outcomes", () => {
+	  it("offers leave-open, split, left, and right outcomes", () => {
 	  expect(source).toContain('data-testid="small-gap-filler-auto"');
 	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt))");
 	  expect(source).toContain("Auto-fill {smallGapFillerDefinition?.masterCode");
     expect(source).toContain("Fill the remaining");
     expect(source).toContain("Split left / right");
-    expect(source).toContain("All on left");
-    expect(source).toContain("All on right");
-    expect(source).toContain("Leave space open");
-  });
+	    expect(source).toContain("Filler on left");
+	    expect(source).toContain("Filler on right");
+	    expect(source).toContain("Leave space open");
+	  });
+
+	  it("rechecks the committed run before applying a filler so an exact-fit replacement cannot use a stale prompt", () => {
+	    const applyStart = source.indexOf("const applySmallGapFiller = useCallback");
+	    const applyEnd = source.indexOf("const previewSmartGap", applyStart);
+	    const applySource = source.slice(applyStart, applyEnd);
+	    expect(applySource).toContain("const committedPlaced = placedRef.current");
+	    expect(applySource).toContain("findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
+	    expect(applySource).toContain("now fills its committed opening. No filler is needed.");
+	    expect(applySource).toContain("placedRef.current = result.placed");
+	  });
 
   it("opens the same catalog-backed filler dialog from a manual selected-cabinet action", () => {
     expect(source).toContain("const requestSmallGapFiller = useCallback");
@@ -58,6 +68,6 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
 	    expect(source).toContain("fillerForCabinetUid: cabinet.uid");
 	    expect(source).toContain("opportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");
-		    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid)");
-	  });
+		    expect(source).toContain("removeCabinetAndReleaseVoid(selectedUid)");
+		  });
 });

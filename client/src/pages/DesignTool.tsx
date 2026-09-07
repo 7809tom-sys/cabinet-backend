@@ -4414,15 +4414,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  );
 
 	const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode, overrideOpportunity?: SmallGapFillerOpportunity) => {
-	  const opportunity = overrideOpportunity ?? smallGapFillerPrompt;
-	  const fillerDef = overrideOpportunity
-	    ? catalogFillerForGap(catalogFillers, overrideOpportunity.remaining, overrideOpportunity.layer)
-	    : smallGapFillerDefinition;
-    if (!opportunity || !fillerDef) {
-      toast.error("The selected catalog filler is no longer available for this opening.");
-      setSmallGapFillerPrompt(null);
-      return;
-    }
+	  const requestedOpportunity = overrideOpportunity ?? smallGapFillerPrompt;
+	  const committedPlaced = placedRef.current;
+	  const requestedCabinet = requestedOpportunity
+	    ? committedPlaced.find((item) => item.uid === requestedOpportunity.cabinetUid)
+	    : null;
+	  // A prompt can remain open while the run changes. Re-measure normal prompt
+	  // actions against the committed design so an exact-fit replacement never
+	  // consumes a stale filler opening from the previously deleted cabinet.
+	  const opportunity = overrideOpportunity ?? (requestedCabinet
+	    ? requestedCabinet.islandFace && island
+	      ? findIslandSmallGapFillerOpportunity(island, committedPlaced, requestedCabinet.uid)
+	      : findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)
+	    : null);
+	  const fillerDef = opportunity
+	    ? catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)
+	    : null;
+	    if (!opportunity || !fillerDef) {
+	      toast.info(requestedCabinet
+	        ? `${requestedCabinet.masterCode} now fills its committed opening. No filler is needed.`
+	        : "The selected cabinet opening is no longer available for filler placement.");
+	      setSmallGapFillerPrompt(null);
+	      return;
+	    }
     if (cabinetsLocked) {
       toast.info(t("dt_gap_locked"));
       return;
@@ -4431,9 +4445,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.error("This opening is too narrow to split into two installable filler pieces.");
       return;
     }
-    const workingPlaced = opportunity.replacingFillerGroupId
-      ? placed.filter((item) => item.fillerPieceGroupId !== opportunity.replacingFillerGroupId)
-      : placed;
+	    const workingPlaced = opportunity.replacingFillerGroupId
+	      ? committedPlaced.filter((item) => item.fillerPieceGroupId !== opportunity.replacingFillerGroupId)
+	      : committedPlaced;
     const cabinet = workingPlaced.find((item) => item.uid === opportunity.cabinetUid);
     if (!cabinet) {
       setSmallGapFillerPrompt(null);
@@ -4509,11 +4523,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         ? { ...sink, x: sink.x + dx, y: sink.y + dy }
         : sink));
     }
-    setPlaced(result.placed);
+	    placedRef.current = result.placed;
+	    setPlaced(result.placed);
     setSelectedUid(movedCabinet.uid);
     setSmallGapFillerPrompt(null);
     toast.success(`${fillerDef.masterCode} added as one catalog filler with ${formatInches(opportunity.remaining)} installed ${mode === "split" ? "equally left and right" : `on the ${mode}`}.`);
-	}, [cabinetsLocked, catalogFillers, island, placed, room, setSinks, smallGapFillerDefinition, smallGapFillerPrompt, t]);
+	}, [cabinetsLocked, catalogFillers, island, openings, room, setSinks, smallGapFillerPrompt, t]);
 
 		  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
 	    const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
@@ -12623,8 +12638,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             >
               Split left / right
             </Button>
-            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")}>All on left</Button>
-            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")}>All on right</Button>
+            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")}>Filler on left</Button>
+            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")}>Filler on right</Button>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSmallGapFillerPrompt(null)}>Leave space open</Button>

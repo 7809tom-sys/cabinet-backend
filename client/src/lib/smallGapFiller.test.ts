@@ -116,6 +116,18 @@ describe("small-gap filler placement", () => {
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
   });
 
+	  it("prompts for DB18 in a 21-inch opening but suppresses the prompt after an exact-fit DB21 replacement", () => {
+	    const room = { ...DEFAULT_ROOM, width: 21 };
+	    const db18 = { ...cabinet, uid: "db18", masterCode: "3-DB18", width: 18 };
+	    const db21 = { ...cabinet, uid: "db21", masterCode: "3-DB21", width: 21 };
+	    expect(findSmallGapFillerOpportunity(room, [db18], [], db18.uid)).toMatchObject({
+	      cabinetUid: db18.uid,
+	      openingLength: 21,
+	      remaining: 3,
+	    });
+	    expect(findSmallGapFillerOpportunity(room, [db21], [], db21.uid)).toBeNull();
+	  });
+
   it("converts a fitted right-drag opening into the same catalog filler choices for cabinets, panels, fillers, and appliances", () => {
     const preview = {
       wall: "top" as const,
