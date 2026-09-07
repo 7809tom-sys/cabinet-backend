@@ -1758,3 +1758,6 @@
 - [x] Reorganize all Designer toolbar control groups so no buttons overlap at the reported desktop and compact widths
 - [x] Debounce repeated island-resize collision warnings while retaining the valid resize block and clear reason
 - [x] Snap normal cabinet additions and drags to the nearest valid wall run or adjacent cabinet edge without relaxing collision or opening safeguards
+- [x] Let users drag Designer popups by holding their visible top header, without interfering with popup controls
+- [x] Add a toolbar toggle that turns automatic cabinet snapping on or off for placement and dragging
+- [x] Show a concise inline tooltip when a door or window clearance blocks cabinet placement

@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, Magnet, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -852,6 +852,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Explicit temporary override for intentional custom overlaps. Normal
   // collision-safe snapping is restored immediately when this is disabled.
   const [customPlacementMode, setCustomPlacementMode] = useState(false);
+  // Alignment assistance is independent from custom-overlap mode. Disabling it
+  // leaves every physical collision and opening-clearance check in force.
+  const [automaticSnapping, setAutomaticSnapping] = useState(true);
   // D-pad nudge step size: 1" (normal) or 0.25" (fine)
   const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
   // Accordion: which palette group headers the user has explicitly collapsed.
@@ -3539,13 +3542,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
-      } else if (!strictDropTarget && !preserveResolvedPlacement) {
+      } else if (automaticSnapping && !strictDropTarget && !preserveResolvedPlacement) {
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
 	      let normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
-	      if (!requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      if (automaticSnapping && !requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
 	      normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
@@ -3596,7 +3599,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           requestedAlong,
           finalCab.width,
         );
-        if (nearestAlong != null) {
+        if (automaticSnapping && nearestAlong != null) {
           const recoveredSpot = wallPlacementAt(nearestAlong, finalCab.width, finalCab.depth, side, room);
           const recoveredCab = { ...finalCab, ...recoveredSpot };
           const recoveredRun = normalizeRefrigeratorBayUppers([...prev, recoveredCab], room);
@@ -5424,12 +5427,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
       const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-	      const measuredAtPointer = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width);
+	      const useAutomaticSnapping = automaticSnapping && !freehand;
+	      const measuredAtPointer = useAutomaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width);
 	      // Palette drops should not fail just because the pointer lands over an
 	      // adjacent narrow trim gap. Recover a normal drop into the closest clear
 	      // measured opening on the selected wall; true cabinet/opening collisions
 	      // remain rejected by the existing fit checks.
-	      const nearestOpenGap = !freehand && (!measuredAtPointer || measuredAtPointer.status !== "valid")
+	      const nearestOpenGap = useAutomaticSnapping && (!measuredAtPointer || measuredAtPointer.status !== "valid")
 	        ? gaps.filter((gap) => gap.length >= width).sort((left, right) => Math.abs(left.center - targetAlong) - Math.abs(right.center - targetAlong))[0]
 	        : null;
 	      const measured = nearestOpenGap ? wallGapFitPreview([nearestOpenGap], nearestOpenGap.center, width) : measuredAtPointer;
@@ -5447,7 +5451,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       dragDataRef.current = null;
       setCatalogDragPreview(null);
     },
-    [addCabinet, openings, paletteType, placed, room]
+	    [addCabinet, automaticSnapping, openings, paletteType, placed, room]
   );
 
 			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
@@ -5461,11 +5465,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
 		      const requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
 	      const peers = workingPrev.filter((p) => p.uid !== uid);
-	      const edgeSnap = customPlacementMode || exactWallDrag ? requestedCabinet : snapPosition(requestedCabinet, room, peers, island);
-		      const movedCabinet = {
-		        ...snapCabinetSeamOverlap({ ...requestedCabinet, x: edgeSnap.x, y: edgeSnap.y }, peers),
-		        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
-		      };
+	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag;
+	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
+	      const alignedCabinet: PlacedCabinet = snappedPosition
+	        ? snapCabinetSeamOverlap({ ...requestedCabinet, x: snappedPosition.x, y: snappedPosition.y }, peers)
+	        : requestedCabinet;
+	      const movedCabinet: PlacedCabinet = {
+	        ...alignedCabinet,
+	        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
+	      };
       if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)) {
         const message = wallCabinetPlacementReason(movedCabinet, room, peers, openings) ?? collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
@@ -5526,7 +5534,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      placedRef.current = nextPlaced;
 	      return nextPlaced;
 	    });
-	  }, [catalogFillers, setSinks, room, island, customPlacementMode]);
+	  }, [catalogFillers, setSinks, room, island, customPlacementMode, automaticSnapping]);
 
 		  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
 		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
@@ -7391,6 +7399,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setLayoutLocked(false);
     setLockedWalls(new Set());
     setCustomPlacementMode(false);
+	  setAutomaticSnapping(true);
     setMeasureMode(false);
     setDrawMode(false);
     setConsultMessages([]);
@@ -8552,7 +8561,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             <Redo2 className="h-3.5 w-3.5" />
           </Button>
           <div className="h-5 w-px bg-border mx-0.5" />
-          {/* Measure / Dimensions */}
+	          {/* Automatic snapping */}
+	          <Button
+	            variant="outline"
+	            size="icon"
+	            data-testid="automatic-snapping-toggle"
+	            aria-pressed={automaticSnapping}
+	            onClick={() => setAutomaticSnapping((enabled) => !enabled)}
+	            title={automaticSnapping ? "Automatic snapping is on — click to place and drag freely" : "Automatic snapping is off — click to snap cabinets to walls and adjacent units"}
+	            className={`h-7 w-7 ${automaticSnapping ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+	          >
+	            <Magnet className="h-3.5 w-3.5" />
+	            <span className="sr-only">Automatic snapping {automaticSnapping ? "on" : "off"}</span>
+	          </Button>
+	          {/* Measure / Dimensions */}
           <Button
             variant="outline"
             size="icon"
@@ -10037,11 +10059,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </div>
         </PaletteShell>
 
-        {/* Canvas */}
+	        {/* Canvas */}
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
-		              <div className="flex items-start gap-2">
+	              {/(?:\bdoor\b|\bwindow\b)/i.test(placementWarning) && (
+	                <div
+	                  data-testid="opening-clearance-block-tooltip"
+	                  className="mb-2 inline-flex items-center gap-1.5 rounded-md bg-amber-200/80 px-2 py-1 text-xs font-semibold text-amber-950"
+	                >
+	                  <TriangleAlert className="h-3.5 w-3.5" />
+	                  {/(?:\bwindow\b)/i.test(placementWarning) ? "Window" : "Door"} clearance blocks placement — keep 3 in. clear.
+	                </div>
+	              )}
+	              <div className="flex items-start gap-2">
 		                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
 		                <p className="min-w-0 flex-1">{placementWarning}</p>
 		                {failedWallFit && <Tooltip>

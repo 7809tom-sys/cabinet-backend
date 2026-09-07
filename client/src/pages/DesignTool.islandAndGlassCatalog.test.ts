@@ -55,6 +55,13 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0");
 	});
 
+	it("provides a user-controlled automatic snapping toggle and a concise door or window clearance notice", () => {
+	  expect(source).toContain('data-testid="automatic-snapping-toggle"');
+	  expect(source).toContain("const [automaticSnapping, setAutomaticSnapping] = useState(true);");
+	  expect(source).toContain('data-testid="opening-clearance-block-tooltip"');
+	  expect(source).toContain("clearance blocks placement — keep 3 in. clear.");
+	});
+
 	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Clear opposite island face found");

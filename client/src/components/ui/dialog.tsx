@@ -94,11 +94,17 @@ function DialogContent({
   children,
   showCloseButton = true,
   onEscapeKeyDown,
+  style,
+  onPointerDownCapture,
+  onPointerMove,
+  onPointerUp,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
   const { isComposing } = useDialogComposition();
+  const dragOriginRef = React.useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
+  const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
 
   const handleEscapeKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
@@ -118,6 +124,29 @@ function DialogContent({
     [isComposing, onEscapeKeyDown]
   );
 
+  const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerDownCapture?.(event);
+    if (event.defaultPrevented || event.button !== 0 || !(event.target instanceof HTMLElement)) return;
+    const handle = event.target.closest("[data-dialog-drag-handle]");
+    const interactive = event.target.closest("button, a, input, textarea, select, [role='button']");
+    if (!handle || interactive) return;
+    dragOriginRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, startX: dragOffset.x, startY: dragOffset.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }, [dragOffset.x, dragOffset.y, onPointerDownCapture]);
+
+  const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerMove?.(event);
+    const origin = dragOriginRef.current;
+    if (!origin || origin.pointerId !== event.pointerId) return;
+    setDragOffset({ x: origin.startX + event.clientX - origin.x, y: origin.startY + event.clientY - origin.y });
+  }, [onPointerMove]);
+
+  const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    onPointerUp?.(event);
+    if (dragOriginRef.current?.pointerId === event.pointerId) dragOriginRef.current = null;
+  }, [onPointerUp]);
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -127,7 +156,11 @@ function DialogContent({
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
           className
         )}
+        style={{ ...style, translate: `${dragOffset.x}px ${dragOffset.y}px` }}
         onEscapeKeyDown={handleEscapeKeyDown}
+        onPointerDownCapture={handlePointerDownCapture}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         {...props}
       >
         {children}
@@ -149,7 +182,9 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      data-dialog-drag-handle="true"
+      title="Drag this popup"
+      className={cn("flex cursor-grab flex-col gap-2 select-none text-center active:cursor-grabbing sm:text-left", className)}
       {...props}
     />
   );
@@ -206,4 +241,3 @@ export {
   DialogTitle,
   DialogTrigger
 };
-
