@@ -3433,19 +3433,31 @@ describe("filler identity", () => {
 describe("snapPosition overlap prevention (drag butts against neighbors)", () => {
   const ROOM: RoomData = { width: 200, depth: 120 };
 
-  it("pushes a dragged cabinet out so it butts flush to the right of a neighbor", () => {
-    // Neighbor occupies x:0..24 along the back wall. Drop a 24" cabinet mostly
-    // on top of it (x:10) but slightly to its right → should snap to x:24.
-    const neighbor = cab({ uid: "n1", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
-    const moving = cab({ uid: "m1", placement: "base", x: 10, y: 0, width: 24, depth: 24 });
-    const res = snapPosition(moving, ROOM, [neighbor, moving]);
-    expect(res.x).toBe(24);
-    expect(res.y).toBe(0);
-    // No residual overlap.
-    expect(hasCollision({ ...moving, x: res.x, y: res.y }, [neighbor])).toBe(false);
-  });
+	it("pushes a dragged cabinet out so it butts flush to the right of a neighbor", () => {
+	    // Neighbor occupies x:0..24 along the back wall. Drop a 24" cabinet mostly
+	    // on top of it (x:10) but slightly to its right → should snap to x:24.
+	    const neighbor = cab({ uid: "n1", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
+	    const moving = cab({ uid: "m1", placement: "base", x: 10, y: 0, width: 24, depth: 24 });
+	    const res = snapPosition(moving, ROOM, [neighbor, moving]);
+	    expect(res.x).toBe(24);
+	    expect(res.y).toBe(0);
+	    // No residual overlap.
+	    expect(hasCollision({ ...moving, x: res.x, y: res.y }, [neighbor])).toBe(false);
+	  });
 
-  it("pushes a dragged cabinet to the left when its center is left of the neighbor", () => {
+	  it("prefers the nearest adjacent unit edge rather than the first saved unit edge", () => {
+	    const farther = cab({ uid: "farther", placement: "base", x: 0, y: 0, width: 12, depth: 24 });
+	    const nearer = cab({ uid: "nearer", placement: "base", x: 45, y: 0, width: 24, depth: 24 });
+	    // The 24-inch cabinet is 3 inches from the nearer unit's left edge and 5
+	    // inches from the farther unit's right edge; it must butt to the nearer unit.
+	    const moving = cab({ uid: "moving", placement: "base", x: 18, y: 0, width: 24, depth: 24 });
+	    const result = snapPosition(moving, ROOM, [farther, nearer]);
+	    expect(result.x).toBe(21);
+	    expect(result.snappedCabinet).toBe(true);
+	    expect(hasCollision({ ...moving, x: result.x, y: result.y }, [farther, nearer])).toBe(false);
+	  });
+
+	it("pushes a dragged cabinet to the left when its center is left of the neighbor", () => {
     const neighbor = cab({ uid: "n2", placement: "base", x: 50, y: 0, width: 24, depth: 24 });
     // Moving cabinet center is left of the neighbor's center → push left to 26.
     const moving = cab({ uid: "m2", placement: "base", x: 40, y: 0, width: 24, depth: 24 });

@@ -1757,3 +1757,4 @@
 - [x] Fill the open void below the countertop behind W30-30 island back-face cabinets using their selected island floor treatment
 - [x] Reorganize all Designer toolbar control groups so no buttons overlap at the reported desktop and compact widths
 - [x] Debounce repeated island-resize collision warnings while retaining the valid resize block and clear reason
+- [x] Snap normal cabinet additions and drags to the nearest valid wall run or adjacent cabinet edge without relaxing collision or opening safeguards

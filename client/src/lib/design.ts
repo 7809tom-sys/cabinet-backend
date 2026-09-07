@@ -1575,28 +1575,55 @@ export function snapPosition(
     }
   }
 
-  if (Math.abs(x - 0) <= T) { x = 0; snappedWall = true; }
-  if (Math.abs(x + w - room.width) <= T) { x = room.width - w; snappedWall = true; }
-  if (Math.abs(y - 0) <= T) { y = 0; snappedWall = true; }
-  if (Math.abs(y + d - room.depth) <= T) { y = room.depth - d; snappedWall = true; }
+	  // Collect every nearby edge before moving the candidate. Applying edges in
+	  // iteration order can snap toward a farther unit merely because it occurs
+	  // first in saved-plan order. Per axis, the closest valid edge wins.
+	  type SnapCandidate = { value: number; distance: number; source: "wall" | "cabinet" };
+	  const nearest = (candidates: SnapCandidate[]): SnapCandidate | null => candidates
+	    .filter((candidate) => candidate.distance <= T + COLLISION_EPSILON_IN)
+	    .sort((left, right) => left.distance - right.distance || left.value - right.value)[0] ?? null;
 
-  for (const o of others) {
-    if (o.uid === moving.uid) continue;
-    if (!sharesPlanCollisionZone(moving, o)) continue;
-    const os = placedFootprint(o);
+	  const xCandidates: SnapCandidate[] = [
+	    { value: 0, distance: Math.abs(x), source: "wall" },
+	    { value: room.width - w, distance: Math.abs(x + w - room.width), source: "wall" },
+	  ];
+	  const yCandidates: SnapCandidate[] = [
+	    { value: 0, distance: Math.abs(y), source: "wall" },
+	    { value: room.depth - d, distance: Math.abs(y + d - room.depth), source: "wall" },
+	  ];
 
-    const yOverlap = y < o.y + os.d && y + d > o.y;
-    if (yOverlap) {
-      if (Math.abs(x + w - o.x) <= T) { x = o.x - w; snappedCabinet = true; }
-      if (Math.abs(x - (o.x + os.w)) <= T) { x = o.x + os.w; snappedCabinet = true; }
-    }
+	  for (const o of others) {
+	    if (o.uid === moving.uid) continue;
+	    if (!sharesPlanCollisionZone(moving, o)) continue;
+	    const os = placedFootprint(o);
+	    const yOverlap = y < o.y + os.d && y + d > o.y;
+	    if (yOverlap) {
+	      xCandidates.push(
+	        { value: o.x - w, distance: Math.abs(x + w - o.x), source: "cabinet" },
+	        { value: o.x + os.w, distance: Math.abs(x - (o.x + os.w)), source: "cabinet" },
+	      );
+	    }
+	    const xOverlap = x < o.x + os.w && x + w > o.x;
+	    if (xOverlap) {
+	      yCandidates.push(
+	        { value: o.y - d, distance: Math.abs(y + d - o.y), source: "cabinet" },
+	        { value: o.y + os.d, distance: Math.abs(y - (o.y + os.d)), source: "cabinet" },
+	      );
+	    }
+	  }
 
-    const xOverlap = x < o.x + os.w && x + w > o.x;
-    if (xOverlap) {
-      if (Math.abs(y + d - o.y) <= T) { y = o.y - d; snappedCabinet = true; }
-      if (Math.abs(y - (o.y + os.d)) <= T) { y = o.y + os.d; snappedCabinet = true; }
-    }
-  }
+	  const xSnap = nearest(xCandidates);
+	  if (xSnap) {
+	    x = xSnap.value;
+	    snappedWall ||= xSnap.source === "wall";
+	    snappedCabinet ||= xSnap.source === "cabinet";
+	  }
+	  const ySnap = nearest(yCandidates);
+	  if (ySnap) {
+	    y = ySnap.value;
+	    snappedWall ||= ySnap.source === "wall";
+	    snappedCabinet ||= ySnap.source === "cabinet";
+	  }
 
   // Overlap prevention: even after edge-snapping, a fast drag can still land the
   // cabinet ON TOP of a neighbor. Push it back out so it BUTTS flush against the
