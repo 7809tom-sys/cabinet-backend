@@ -1734,3 +1734,5 @@
 - [x] Add a source-backed stile-and-rail specification for door styles without inferring unverified dimensions
 - [x] Include the complete verified door description and frame specification in the safeguarded customer image-handoff record
 - [x] Add a saved handoff reference package with the locked kitchen image, selected product thumbnails, verified specifications, and an explicit do-not-change-the-plan instruction
+- [x] Audit active cabinet codes with explicit width-by-height patterns against stored dimensions and present only verified exceptions for approval
+- [x] Apply verified selected door-style stile and rail dimensions to eligible 2D and 3D cabinet faces without inferring missing measurements
