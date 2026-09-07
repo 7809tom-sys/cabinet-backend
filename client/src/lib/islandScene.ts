@@ -21,6 +21,46 @@ export function islandFaceLength(island: IslandZone, face: IslandFace): number {
   return face === "front" || face === "back" ? island.width : island.depth;
 }
 
+/**
+ * Measured free capacity on one physical island face. This intentionally uses
+ * inferred physical faces so legacy saved plans with stale face labels cannot
+ * make an occupied Front run appear available.
+ */
+export function islandFaceCapacity(island: IslandZone, face: IslandFace, placed: PlacedCabinet[]) {
+  const length = islandFaceLength(island, face);
+  const spans = placed
+    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === face)
+    .map((item) => {
+      const start = Math.max(0, islandOffsetForPlaced(item, island, face));
+      const end = Math.min(length, start + Math.max(0, Number(item.width) || 0));
+      return { start, end };
+    })
+    .filter((span) => span.end > span.start + COLLISION_EPSILON_IN)
+    .sort((left, right) => left.start - right.start);
+
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const span of spans) {
+    const previous = merged[merged.length - 1];
+    if (previous && span.start <= previous.end + COLLISION_EPSILON_IN) previous.end = Math.max(previous.end, span.end);
+    else merged.push({ ...span });
+  }
+
+  let cursor = 0;
+  let largestOpenSpan = 0;
+  for (const span of merged) {
+    largestOpenSpan = Math.max(largestOpenSpan, Math.max(0, span.start - cursor));
+    cursor = Math.max(cursor, span.end);
+  }
+  largestOpenSpan = Math.max(largestOpenSpan, Math.max(0, length - cursor));
+  const occupiedSpan = merged.reduce((total, span) => total + Math.max(0, span.end - span.start), 0);
+  return {
+    length,
+    occupiedSpan,
+    largestOpenSpan,
+    isFull: largestOpenSpan <= COLLISION_EPSILON_IN,
+  };
+}
+
 export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, face: IslandFace, offset: number): PlacedCabinet {
   const width = Math.max(0, Number(cabinet.width) || 0);
   const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);

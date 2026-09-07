@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { elevationBox, hasCollision, makeSinkForCabinet, type IslandZone, type PlacedCabinet, type RoomData } from "./design";
 import {
   ISLAND_COUNTERTOP_OVERHANG_IN,
-  islandCountertopRect,
-  islandCountertopRects,
-  islandFaceFitMeasure,
+	  islandCountertopRect,
+	  islandCountertopRects,
+	  islandFaceCapacity,
+	  islandFaceFitMeasure,
   islandFacePlacement,
   islandWithFaceSeatingOverhang,
   inferredIslandFace,
@@ -93,13 +94,21 @@ describe("island mini-scene geometry", () => {
     expect(measurement?.wallLen).not.toBe(room.width);
   });
 
-  it("adds same-face cabinets left-to-right with edge contact and zero overlap", () => {
-    const first = nextIslandFacePlacement(cabinet({ uid: "a" }), island, "front", []);
-    const second = nextIslandFacePlacement(cabinet({ uid: "b" }), island, "front", [first!]);
-    expect(first).toMatchObject({ x: 36, islandOffset: 0 });
-    expect(second).toMatchObject({ x: 60, islandOffset: 24 });
-    expect(hasCollision(second!, [first!])).toBe(false);
-  });
+	it("adds same-face cabinets left-to-right with edge contact and zero overlap", () => {
+	  const first = nextIslandFacePlacement(cabinet({ uid: "a" }), island, "front", []);
+	  const second = nextIslandFacePlacement(cabinet({ uid: "b" }), island, "front", [first!]);
+	  expect(first).toMatchObject({ x: 36, islandOffset: 0 });
+	  expect(second).toMatchObject({ x: 60, islandOffset: 24 });
+	  expect(hasCollision(second!, [first!])).toBe(false);
+	});
+
+	it("reports a chosen Front length as full while leaving the opposing Back run available", () => {
+	  const frontA = islandFacePlacement(cabinet({ uid: "front-a", width: 36 }), island, "front", 0);
+	  const frontB = islandFacePlacement(cabinet({ uid: "front-b", width: 36 }), island, "front", 36);
+	  const capacity = islandFaceCapacity(island, "front", [frontA, frontB]);
+	  expect(capacity).toMatchObject({ length: 72, occupiedSpan: 72, largestOpenSpan: 0, isFull: true });
+	  expect(nextIslandFacePlacement(cabinet({ uid: "back-next", width: 30 }), island, "back", [frontA, frontB])).toMatchObject({ islandFace: "back", islandOffset: 0 });
+	});
 
   it("places SB36 after a legacy Farm Sink Base on the same island face", () => {
     const legacyFarmSinkBase = {

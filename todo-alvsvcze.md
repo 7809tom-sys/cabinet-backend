@@ -1770,3 +1770,5 @@
 - [x] Recommend the largest active catalog cabinet that fits exactly within the highlighted clear span
 - [x] Use a red clear-span highlight whenever the dragged cabinet is too large for the opening
 - [x] Explain the available span, required cabinet width, and shortage when placement is blocked by a smaller gap
+- [x] When an island face reaches its chosen length, explain that it is full and offer to place the next cabinet on the opposite face
+- [x] If the user accepts the full-face prompt, route the next selected cabinet to the Back face without changing toe-kick, base-molding, waterfall, or other island options

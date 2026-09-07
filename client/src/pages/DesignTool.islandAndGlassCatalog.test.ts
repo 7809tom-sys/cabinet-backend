@@ -74,13 +74,18 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("too small.");
 	});
 
-	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
+	it("offers the Back face for the next cabinet when the chosen Front run reaches its configured island length without changing island treatments", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
-	  expect(source).toContain("Clear opposite island face found");
+	  expect(source).toContain("Chosen island length reached");
 	  expect(source).toContain("const oppositeCandidate = nextIslandFacePlacement(newCab, island, oppositeFace, prev)");
+	  expect(source).toContain("const selectedFaceCapacity = islandFaceCapacity(island, requestedIslandFace, prev)");
 	  expect(source).toContain("setAlternateIslandFaceRecommendation({");
 	  expect(source).toContain('setPlacementTarget("island", recommendation.face)');
-	  expect(source).toContain("The existing island run will remain unchanged.");
+	  expect(source).toContain("Choose the next cabinet to add there.");
+	  expect(source).toContain("toe-kick, base-molding, waterfall");
+	  expect(source).toContain('if (requestedIslandFace === "front" && island)');
+	  expect(source).toContain("The Front island run has reached its chosen");
+	  expect(source).toContain('face: "back"');
 	});
 
 	it("opens Island setup with an accurate depth requirement before placing a shallow opposing wall cabinet", () => {
