@@ -136,11 +136,21 @@ describe("3D same-wall cabinet drag", () => {
 	    expect(collision.fit.status).toBe("invalid");
 	  });
 
-	  it("computes a catalog freehand drop at the pointer without moving it to the opening edge", () => {
-	    const gaps = [{ side: "top", layer: "base", start: 30, length: 30, center: 45, isStandardSize: true, isFillerSize: false }] as const;
-	    expect(wallGapFreehandPreview([...gaps], 46.5, 12)).toMatchObject({ status: "valid", snapStart: 40.5, snapEnd: 52.5, before: 10.5, after: 7.5 });
-	    expect(wallGapFreehandPreview([...gaps], 58, 12)).toMatchObject({ status: "invalid", snapStart: 52, snapEnd: 64 });
+	it("computes a catalog freehand drop at the pointer without moving it to the opening edge", () => {
+	  const gaps = [{ side: "top", layer: "base", start: 30, length: 30, center: 45, isStandardSize: true, isFillerSize: false }] as const;
+	  expect(wallGapFreehandPreview([...gaps], 46.5, 12)).toMatchObject({ status: "valid", snapStart: 40.5, snapEnd: 52.5, before: 10.5, after: 7.5 });
+	  expect(wallGapFreehandPreview([...gaps], 58, 12)).toMatchObject({ status: "invalid", snapStart: 52, snapEnd: 64 });
+	});
+
+	it("recognizes every standard cabinet width through a full 36-inch clear opening", () => {
+	  const gaps = [{ side: "top", layer: "base", start: 45, length: 36, center: 63, isStandardSize: true, isFillerSize: false }] as const;
+	  [9, 12, 15, 18, 21, 24, 27, 30, 33, 36].forEach((width) => {
+	    const preview = wallGapFitPreview([...gaps], 63, width)!;
+	    expect(preview).toMatchObject({ status: "valid", availableSpan: 36, requiredSpan: width });
+	    expect(preview.snapStart).toBeGreaterThanOrEqual(45);
+	    expect(preview.snapEnd).toBeLessThanOrEqual(81);
 	  });
+	});
 
   it("fits B-12 between two objects and leaves the measured three-inch remainder for the filler workflow", () => {
     const moving = cabinet("bounded-b12", 90, 0, 12);

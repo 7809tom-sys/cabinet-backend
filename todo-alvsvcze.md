@@ -1765,3 +1765,5 @@
 - [x] Automatically place same-size or smaller replacement cabinets into the nearest valid opening after a cabinet is removed, without requiring a precise pointer drop
 - [x] Ensure an SB36 recognizes and fills the full verified 36-inch back-wall opening instead of evaluating a pointer-local sliver
 - [x] Allow both SB36 and B12 to enter the same verified 36-inch Back-wall opening through normal replacement placement
+- [x] Highlight the full exact available wall span, such as a verified 36-inch opening, while a cabinet is hovered for placement
+- [x] Audit and test automatic snapping across standard cabinet sizes and remaining valid wall gaps

@@ -10,4 +10,9 @@ describe("PlanCanvas automatic replacement placement", () => {
     expect(source).toContain("setCatalogDragFreehand(!automaticSnapping)");
     expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, !automaticSnapping)");
   });
+
+  it("labels the entire highlighted opening with its clear measured span", () => {
+    expect(source).toContain('data-testid="catalog-drag-clear-span"');
+    expect(source).toContain("Clear span · {formatEighthInches(gap.length)}");
+  });
 });

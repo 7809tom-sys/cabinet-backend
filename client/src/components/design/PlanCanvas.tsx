@@ -880,12 +880,18 @@ export function PlanCanvas({
 	          const snapStyle: React.CSSProperties = horizontal
 	            ? { left: (catalogDragFit.snapStart - gap.start) * ppi, top: 0, width: catalogDragFit.requiredSpan * ppi, height: depthIn * ppi }
 	            : { left: 0, top: (catalogDragFit.snapStart - gap.start) * ppi, width: depthIn * ppi, height: catalogDragFit.requiredSpan * ppi };
+	          const spanLabelStyle: React.CSSProperties = horizontal
+	            ? { left: "50%", top: 4, transform: "translateX(-50%)" }
+	            : { left: 4, top: "50%", transform: "translateY(-50%)" };
 	          const remainingSegments = [
 	            { key: "before", inches: catalogDragFit.before, offset: 0 },
 	            { key: "after", inches: catalogDragFit.after, offset: catalogDragFit.snapEnd - gap.start },
 	          ].filter((segment) => segment.inches > 0.01);
 	          return <div data-testid="catalog-drag-gap-highlight" aria-hidden="true" className={`pointer-events-none absolute z-[18] border-2 ${valid ? "border-emerald-600 bg-emerald-300/25" : "border-rose-600 bg-rose-300/25"}`} style={gapStyle}>
-		            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
+	            <span data-testid="catalog-drag-clear-span" className="absolute z-20 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow" style={spanLabelStyle}>
+	              Clear span · {formatEighthInches(gap.length)}
+	            </span>
+	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
 	            {valid && remainingSegments.map((segment) => {
 	              const lineStyle: React.CSSProperties = horizontal
 	                ? { left: segment.offset * ppi, top: "50%", width: segment.inches * ppi }
