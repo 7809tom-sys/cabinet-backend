@@ -1740,3 +1740,4 @@
 - [x] Audit unverified cabinet dimensions using the owner-defined first-two-digit width, second-two-digit height, and 12-inch wall, 21-inch vanity, or 24-inch base depth rules
 - [x] Correct active unambiguous standard base, vanity, wall, and tall cabinet dimensions to the owner-authorized code and family-depth rules while preserving specialty constructions
 - [x] Exclude specialty, appliance, corner, refrigerator, panel, filler, and table-top cabinet constructions from the owner-authorized standard measurement correction set
+- [x] Audit active plain standard cabinet records for missing dimensions and fill only owner-rule values that are unambiguous
