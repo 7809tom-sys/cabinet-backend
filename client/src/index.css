@@ -215,6 +215,15 @@
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  .island-depth-expansion-cue {
+    animation: islandDepthExpand 620ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  }
+
+  @keyframes islandDepthExpand {
+    from { opacity: 0.18; transform: scaleY(0.08); }
+    to   { opacity: 1; transform: scaleY(1); }
+  }
 }
 
 /* Thin scrollbar for the design tool toolbar row */

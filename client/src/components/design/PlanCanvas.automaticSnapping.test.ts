@@ -37,4 +37,11 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain("cabinet needs");
 	    expect(source).toContain("bg-rose-700");
 	  });
+
+	  it("shows a reduced-motion-aware Back-face depth expansion cue with before-and-after depth", () => {
+	    expect(source).toContain("islandDepthTransition?: { fromDepth: number; toDepth: number; key: number } | null");
+	    expect(source).toContain('data-testid="island-depth-expansion-animation"');
+	    expect(source).toContain("BACK EXPANDS");
+	    expect(source).toContain("island-depth-expansion-cue");
+	  });
 });

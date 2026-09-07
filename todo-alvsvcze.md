@@ -1780,3 +1780,4 @@
 - [x] Warn when the selected cabinet exceeds remaining space on the active island face
 - [x] Add an opt-in island auto-depth adjustment for mixed-depth Back-face cabinets while preserving existing treatments
 - [x] When a cabinet cannot fit in an active island face remainder, offer Back-face placement plus any required depth expansion instead of a dead-end error
+- [x] Animate the opt-in Back-face island depth expansion and show its before-and-after depth without changing collision safeguards or treatments

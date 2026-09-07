@@ -135,6 +135,8 @@ interface Props {
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
   autoDimensions?: boolean;
   island?: IslandZone | null;
+  /** A short-lived cue emitted after a safe Back-face island depth expansion. */
+  islandDepthTransition?: { fromDepth: number; toDepth: number; key: number } | null;
   onIslandChange?: (zone: IslandZone) => void;
   // Incremental island move (inches). When provided, moving the island also
   // carries the cabinets sitting on it. Resize still uses onIslandChange.
@@ -241,6 +243,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
 	  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+	  islandDepthTransition = null,
 	  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
@@ -266,6 +269,20 @@ export function PlanCanvas({
   ponyWalls = [], selectedPonyWallUid = null, onSelectPonyWall, onPonyWallChange, onDeletePonyWall,
 }: Props) {
   const { t } = useLanguage();
+  const [islandDepthTransitionVisible, setIslandDepthTransitionVisible] = useState(false);
+  useEffect(() => {
+    if (!islandDepthTransition) {
+      setIslandDepthTransitionVisible(false);
+      return;
+    }
+    setIslandDepthTransitionVisible(false);
+    const frame = requestAnimationFrame(() => setIslandDepthTransitionVisible(true));
+    const timeout = window.setTimeout(() => setIslandDepthTransitionVisible(false), 1400);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [islandDepthTransition?.key]);
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
@@ -1108,6 +1125,18 @@ export function PlanCanvas({
             }}
 	            title={t("dt_pc_island_zone")}
 	          >
+	            {islandDepthTransition && islandDepthTransitionVisible && islandDepthTransition.toDepth > islandDepthTransition.fromDepth && (
+	              <div
+	                data-testid="island-depth-expansion-animation"
+	                aria-live="polite"
+	                className="island-depth-expansion-cue pointer-events-none absolute left-0 right-0 top-0 z-30 origin-bottom border-b-2 border-dashed border-emerald-700 bg-emerald-400/35"
+	                style={{ height: Math.max(0, islandDepthTransition.toDepth - islandDepthTransition.fromDepth) * ppi, transform: "scaleY(1)", opacity: 1 }}
+	              >
+	                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-emerald-800 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white shadow">
+	                  BACK EXPANDS · {Math.round(islandDepthTransition.fromDepth)}″ → {Math.round(islandDepthTransition.toDepth)}″
+	                </span>
+	              </div>
+	            )}
 	            <div className={`absolute left-0 right-0 top-0 h-1.5 ${activeIslandFace === "back" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
 	            <div className={`absolute left-0 right-0 bottom-0 h-1.5 ${activeIslandFace === "front" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
 	            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "left" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />

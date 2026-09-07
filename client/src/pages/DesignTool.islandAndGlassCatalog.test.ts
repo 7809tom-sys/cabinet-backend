@@ -115,7 +115,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH)");
 	  expect(source).toContain("island.autoAdjustDepthForBackFace === true");
 	  expect(source).toContain("automatic Back-face depth adjustment is blocked");
-	  expect(source).toContain("Island depth adjusted to");
+	  expect(source).toContain("Island expanded toward Back:");
 	});
 
 	it("turns a Front-face remainder dead end into an immediate Back-face depth-expansion choice for the same cabinet", () => {
@@ -124,6 +124,12 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("forceBackDepthAdjustment = false");
 	  expect(source).toContain("Yes — add to Back and expand depth");
 	  expect(source).toContain("addCabinet(recommendation.cabinet, undefined, undefined, recommendation.forceAccessory, 0, false, undefined, recommendation.face, true)");
+	});
+
+	it("emits a visible before-and-after island depth transition when Back-face auto-adjustment succeeds", () => {
+	  expect(source).toContain("setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth");
+	  expect(source).toContain("islandDepthTransition={islandDepthTransition}");
+	  expect(source).toContain("Island expanded toward Back:");
 	});
 
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {

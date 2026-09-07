@@ -556,9 +556,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		  availableLength: number;
 		  selectedFaceLength: number;
 		  selectedFaceIsFull: boolean;
-		  requiresBackDepthAdjustment?: boolean;
-		  requiredIslandDepth?: number;
-		} | null>(null);
+	    requiresBackDepthAdjustment?: boolean;
+	    requiredIslandDepth?: number;
+	  } | null>(null);
+	  const [islandDepthTransition, setIslandDepthTransition] = useState<{ fromDepth: number; toDepth: number; key: number } | null>(null);
 	  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
     hood: PlacedCabinet;
     conflictingUpper: PlacedCabinet;
@@ -3718,8 +3719,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
 	      if (autoAdjustedIsland) {
+	        setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth, key: Date.now() });
 	        setIsland(autoAdjustedIsland);
-	        toast.success(`Island depth adjusted to ${formatInches(autoAdjustedIsland.depth)} for the Back cabinet.`);
+	        toast.success(`Island expanded toward Back: ${formatInches(island?.depth ?? autoAdjustedIsland.depth)} → ${formatInches(autoAdjustedIsland.depth)} for the Back cabinet.`);
 	      }
 	      // As soon as the user completes the chosen Front island length, offer
 	      // the Back face for the next selection. This changes only the active
@@ -10337,6 +10339,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               measureMode={measureMode}
               autoDimensions={autoDimensions}
               island={island}
+	              islandDepthTransition={islandDepthTransition}
               onIslandChange={applyIslandAttributes}
               onIslandMove={moveIsland}
               activeIslandFace={islandFace}
@@ -10499,6 +10502,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   measureMode={measureMode}
               autoDimensions={autoDimensions}
                   island={island}
+	                  islandDepthTransition={islandDepthTransition}
                   onIslandChange={applyIslandAttributes}
                   onIslandMove={moveIsland}
                   activeIslandFace={islandFace}
