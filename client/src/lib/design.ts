@@ -5396,7 +5396,7 @@ export interface IslandZone {
   depth: number;
   activeFace?: IslandFace;
 	  /** Optional continuous countertop panel at the physical left or right island end. */
-	  waterfallEnd?: "none" | "left" | "right";
+	  waterfallEnd?: "none" | "left" | "right" | "both";
   /** One required continuous slab. Values are initialized from the cabinet assembly. */
   countertopWidth?: number | null;
   countertopDepth?: number | null;

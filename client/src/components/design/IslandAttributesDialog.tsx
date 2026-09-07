@@ -98,27 +98,28 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
         </div>
 		<div data-testid="island-waterfall-prompt" className="space-y-1 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
 		  <Label className="text-xs font-semibold text-[#1a2744]">Add a waterfall?</Label>
-		  <Select value={draft.waterfallEnd ?? "none"} onValueChange={(value) => setDraft({ ...draft, waterfallEnd: value as "none" | "left" | "right" })}>
+		  <Select value={draft.waterfallEnd ?? "none"} onValueChange={(value) => setDraft({ ...draft, waterfallEnd: value as "none" | "left" | "right" | "both" })}>
 		    <SelectTrigger aria-label="Island waterfall end"><SelectValue /></SelectTrigger>
 		    <SelectContent>
 		      <SelectItem value="none">No waterfall</SelectItem>
 		      <SelectItem value="left">Yes — left end</SelectItem>
 		      <SelectItem value="right">Yes — right end</SelectItem>
+		      <SelectItem value="both">Yes — both ends</SelectItem>
 		    </SelectContent>
 		  </Select>
 		  <p className="text-[11px] text-muted-foreground">A full-height countertop panel is added to this physical island end using the active countertop material.</p>
 		  <div data-testid="island-waterfall-live-preview" role="status" aria-live="polite" className="mt-3 border border-[#d9c196] bg-white p-3">
 		    <div className="mb-2 flex items-center justify-between gap-3">
 		      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Live island preview</span>
-		      <span className="text-[11px] text-muted-foreground">{draft.waterfallEnd === "left" ? "Waterfall: left end" : draft.waterfallEnd === "right" ? "Waterfall: right end" : "No waterfall"}</span>
+		      <span className="text-[11px] text-muted-foreground">{draft.waterfallEnd === "left" ? "Waterfall: left end" : draft.waterfallEnd === "right" ? "Waterfall: right end" : draft.waterfallEnd === "both" ? "Waterfall: both ends" : "No waterfall"}</span>
 		    </div>
 		    <div className="mx-auto flex max-w-[260px] flex-col items-center gap-1">
 		      <span className="text-[10px] font-medium text-muted-foreground">Back</span>
 		      <div className="relative h-[82px] w-[220px] border-[3px] border-[#d8d1c4] bg-[#f7f4ed]" aria-label="Top-down island preview">
 		        <div className="absolute inset-x-2 top-2 h-3 border border-[#d8d1c4] bg-[#e7e0d4]" aria-hidden="true" />
 		        <div className="absolute inset-x-2 bottom-2 h-10 border border-[#c9c0b2] bg-[#d7d1c6]" aria-hidden="true" />
-		        {draft.waterfallEnd === "left" && <div aria-label="Left waterfall edge" className="absolute inset-y-[-3px] left-[-3px] w-3 bg-[#a87f33]" />}
-		        {draft.waterfallEnd === "right" && <div aria-label="Right waterfall edge" className="absolute inset-y-[-3px] right-[-3px] w-3 bg-[#a87f33]" />}
+		        {(draft.waterfallEnd === "left" || draft.waterfallEnd === "both") && <div aria-label="Left waterfall edge" className="absolute inset-y-[-3px] left-[-3px] w-3 bg-[#a87f33]" />}
+		        {(draft.waterfallEnd === "right" || draft.waterfallEnd === "both") && <div aria-label="Right waterfall edge" className="absolute inset-y-[-3px] right-[-3px] w-3 bg-[#a87f33]" />}
 		        <span className="absolute -left-10 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground">Left</span>
 		        <span className="absolute -right-11 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground">Right</span>
 		      </div>

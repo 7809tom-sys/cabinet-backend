@@ -5472,7 +5472,8 @@ function addIslandZone(
 	    group.add(counter);
 	  });
 	  const waterfallEnd = island.waterfallEnd;
-	  if ((waterfallEnd === "left" || waterfallEnd === "right") && slabs.length > 0) {
+	  const waterfallEnds = waterfallEnd === "both" ? (["left", "right"] as const) : waterfallEnd === "left" || waterfallEnd === "right" ? [waterfallEnd] : [];
+	  if (waterfallEnds.length > 0 && slabs.length > 0) {
 	    const slabLeft = Math.min(...slabs.map((slab) => slab.x));
 	    const slabRight = Math.max(...slabs.map((slab) => slab.x + slab.width));
 	    const slabBack = Math.min(...slabs.map((slab) => slab.y));
@@ -5485,14 +5486,16 @@ function addIslandZone(
 	      map: countertopTexture ?? null,
 	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
 	    });
-	    const panel = new THREE.Mesh(
-	      new THREE.BoxGeometry(panelThickness, panelHeight, slabDepth * INCH),
-	      panelMaterial,
-	    );
-	    const endX = waterfallEnd === "left" ? slabLeft : slabRight;
-	    panel.position.set(endX * INCH - transform.x, panelHeight / 2, (slabBack + slabDepth / 2) * INCH - transform.z);
-	    panel.userData = { islandWaterfall: true, waterfallEnd, fullHeightToFloor: true, usesActiveCountertopMaterial: true };
-	    group.add(panel);
+	    waterfallEnds.forEach((end) => {
+	      const panel = new THREE.Mesh(
+	        new THREE.BoxGeometry(panelThickness, panelHeight, slabDepth * INCH),
+	        panelMaterial.clone(),
+	      );
+	      const endX = end === "left" ? slabLeft : slabRight;
+	      panel.position.set(endX * INCH - transform.x, panelHeight / 2, (slabBack + slabDepth / 2) * INCH - transform.z);
+	      panel.userData = { islandWaterfall: true, waterfallEnd: end, fullHeightToFloor: true, usesActiveCountertopMaterial: true };
+	      group.add(panel);
+	    });
 	  }
 	  root.add(group);
 }
