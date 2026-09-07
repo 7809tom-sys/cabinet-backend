@@ -1736,3 +1736,7 @@
 - [x] Add a saved handoff reference package with the locked kitchen image, selected product thumbnails, verified specifications, and an explicit do-not-change-the-plan instruction
 - [x] Audit active cabinet codes with explicit width-by-height patterns against stored dimensions and present only verified exceptions for approval
 - [x] Apply verified selected door-style stile and rail dimensions to eligible 2D and 3D cabinet faces without inferring missing measurements
+- [x] Audit the newly identified unverified Plath/“Thaker” cabinet measurements against exact active catalog identities and retain unresolved records in conflict status (resolved as a word-to-text error; superseded by the completed standard-family measurement audit)
+- [x] Audit unverified cabinet dimensions using the owner-defined first-two-digit width, second-two-digit height, and 12-inch wall, 21-inch vanity, or 24-inch base depth rules
+- [x] Correct active unambiguous standard base, vanity, wall, and tall cabinet dimensions to the owner-authorized code and family-depth rules while preserving specialty constructions
+- [x] Exclude specialty, appliance, corner, refrigerator, panel, filler, and table-top cabinet constructions from the owner-authorized standard measurement correction set
