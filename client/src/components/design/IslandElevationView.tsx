@@ -354,8 +354,17 @@ export function IslandElevationView({
     // Back view: reverse x order so it reads naturally from the back
 	    const aOffset = islandOffsetForPlaced(a, island, face);
 	    const bOffset = islandOffsetForPlaced(b, island, face);
-	    return reverseFace ? bOffset - aOffset : aOffset - bOffset;
-	  });
+		    return reverseFace ? bOffset - aOffset : aOffset - bOffset;
+		  });
+
+	  // Island setup owns the current waterfall choice. Legacy per-cabinet flags
+	  // are still respected below only when no island-level choice has been made.
+	  const zoneWaterfallEnd = island.waterfallEnd ?? "none";
+	  const zoneWaterfallEnds = zoneWaterfallEnd === "both"
+	    ? (["left", "right"] as const)
+	    : zoneWaterfallEnd === "left" || zoneWaterfallEnd === "right"
+	      ? [zoneWaterfallEnd]
+	      : [];
 
   // posAlong: offset from the island's left edge.
   // For back view, mirror: posAlong = island.right - cabinet.right
@@ -649,28 +658,74 @@ export function IslandElevationView({
             );
 	          })()}
 
-	          {/* Selected waterfall ends: the countertop material falls from the island
-	              slab to the floor at the cabinet end. The user controls these per
-	              end cabinet, so internal cabinets never receive a panel by default. */}
+	          {/* Island-level waterfall ends use the same saved choice as Island setup
+	              and 3D. Legacy per-cabinet flags remain a fallback for older plans. */}
 	          {countertopMaterialId && (() => {
 	            const mat = countertopMaterial(countertopMaterialId);
+	            const waterfallHeight = (STD.BASE_HEIGHT + THICKNESS_IN) * ppi;
+	            const panelWidth = Math.max(2, THICKNESS_IN * ppi);
+	            const commonStyle = {
+	              bottom: 0,
+	              height: waterfallHeight,
+	              width: panelWidth,
+	              background: `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 78%, #ffffff) 0%, ${mat.fill} 48%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+	              borderLeft: `1px solid ${mat.edge}`,
+	              borderRight: `1px solid ${mat.edge}`,
+	              boxShadow: "inset 1px 0 rgba(255,255,255,0.35), 1px 0 2px rgba(0,0,0,0.2)",
+	              zIndex: 19,
+	            } as const;
+
+	            if (zoneWaterfallEnds.length > 0) {
+	              if (face === "front" || face === "back") {
+	                return zoneWaterfallEnds.map((physicalEnd) => {
+	                  // Looking at the back reverses the apparent left/right edge.
+	                  const displayedEnd = face === "back"
+	                    ? (physicalEnd === "left" ? "right" : "left")
+	                    : physicalEnd;
+	                  return (
+	                    <div
+	                      key={`zone-waterfall-${physicalEnd}-${face}`}
+	                      data-testid={`zone-waterfall-${physicalEnd}-${face}`}
+	                      className="absolute pointer-events-none"
+	                      style={{
+	                        ...commonStyle,
+	                        left: displayedEnd === "left"
+	                          ? -OVERHANG_IN * ppi
+	                          : planSpan * ppi + OVERHANG_IN * ppi - panelWidth,
+	                      }}
+	                    />
+	                  );
+	                });
+	              }
+
+	              // On an end elevation, the selected end is a full exposed vertical
+	              // countertop face rather than a thin edge in the long elevation.
+	              const endMatchesFace = zoneWaterfallEnds.includes(face);
+	              return endMatchesFace ? (
+	                <div
+	                  key={`zone-waterfall-${face}-elevation`}
+	                  data-testid={`zone-waterfall-${face}-elevation`}
+	                  className="absolute pointer-events-none"
+	                  style={{
+	                    bottom: 0,
+	                    left: -OVERHANG_IN * ppi,
+	                    width: planSpan * ppi + OVERHANG_IN * 2 * ppi,
+	                    height: waterfallHeight,
+	                    background: `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 78%, #ffffff) 0%, ${mat.fill} 48%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+	                    borderLeft: `1px solid ${mat.edge}`,
+	                    borderRight: `1px solid ${mat.edge}`,
+	                    boxShadow: "inset 1px 0 rgba(255,255,255,0.35), 1px 0 2px rgba(0,0,0,0.2)",
+	                    zIndex: 19,
+	                  }}
+	                />
+	              ) : null;
+	            }
+
 	            return sorted
 	              .filter((p) => p.placement === "base" && (p.waterfallLeft || p.waterfallRight))
 	              .flatMap((p) => {
 	                const cabSizeAlong = sizeAlong(p);
 	                const cabPosAlong = posAlong(p);
-	                const waterfallHeight = (STD.BASE_HEIGHT + THICKNESS_IN) * ppi;
-	                const panelWidth = Math.max(2, THICKNESS_IN * ppi);
-	                const commonStyle = {
-	                  bottom: 0,
-	                  height: waterfallHeight,
-	                  width: panelWidth,
-	                  background: `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 78%, #ffffff) 0%, ${mat.fill} 48%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
-	                  borderLeft: `1px solid ${mat.edge}`,
-	                  borderRight: `1px solid ${mat.edge}`,
-	                  boxShadow: "inset 1px 0 rgba(255,255,255,0.35), 1px 0 2px rgba(0,0,0,0.2)",
-	                  zIndex: 19,
-	                } as const;
 	                return [
 	                  p.waterfallLeft ? (
 	                    <div key={`waterfall-left-${p.uid}`} className="absolute pointer-events-none" style={{ ...commonStyle, left: (cabPosAlong - OVERHANG_IN) * ppi }} />

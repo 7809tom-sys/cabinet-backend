@@ -11,4 +11,12 @@ describe("island elevation waterfall ends", () => {
     expect(source).toContain("STD.BASE_HEIGHT + THICKNESS_IN");
     expect(source).toContain("p.waterfallLeft || p.waterfallRight");
   });
+
+  it("uses the Island setup choice for left, right, and both-end elevation panels", () => {
+    expect(source).toContain("const zoneWaterfallEnd = island.waterfallEnd ?? \"none\"");
+    expect(source).toContain('zoneWaterfallEnd === "both"');
+    expect(source).toContain("zone-waterfall-${physicalEnd}-${face}");
+    expect(source).toContain("zoneWaterfallEnds.includes(face)");
+    expect(source).toContain("Legacy per-cabinet flags remain a fallback for older plans");
+  });
 });

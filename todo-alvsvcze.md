@@ -1719,3 +1719,4 @@
 - [x] Prompt for an optional island waterfall and its Left or Right end when an island zone is created or edited, then apply it to the physical island end panel
 - [x] Show a real-time left, right, or no-waterfall island-edge preview inside Island setup before the user applies the selection
 - [x] Add a Both ends waterfall choice that highlights and renders matching countertop panels on both physical island ends
+- [x] Make Island Elevation render the same no-waterfall, left, right, and both-ends choices stored by Island setup
