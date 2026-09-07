@@ -656,6 +656,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  // Active island run for placement and Island elevation.
 	  const [islandFace, setIslandFace] = useState<IslandFace>("front");
 	  const [islandPlacementMode, setIslandPlacementMode] = useState(false);
+	  const [islandPlacementPanelExpanded, setIslandPlacementPanelExpanded] = useState(false);
 	  // Catalog clicks may follow a target-mode click before React recreates the
 	  // add callback. These refs make the owner-selected island target immediate.
 	  const islandFaceRef = useRef<IslandFace>("front");
@@ -10043,35 +10044,55 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            </div>
 	          )}
 	          {island && !customPlacementMode && (
-	            <div
-	              role="status"
-	              aria-live="polite"
-	              data-testid="island-placement-active-indicator"
-	              className="absolute left-3 right-3 top-3 z-40 flex flex-wrap items-center gap-1.5 rounded-lg border border-[#b98d3e]/45 bg-white/95 px-2.5 py-2 text-xs font-semibold text-[#1a2744] shadow-lg backdrop-blur sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
-	            >
-	              <span className="mr-1 whitespace-nowrap">Placement:</span>
-		      <button
-		        type="button"
-		        data-testid="wall-placement-mode"
-		        aria-pressed={!islandPlacementMode}
-		        onClick={() => { setPlacementTarget("wall"); setPlacementWarning(null); }}
-		        className={`rounded px-2 py-1 ${!islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-	              >Wall mode</button>
-		      <button
-		        type="button"
-		        data-testid="island-placement-mode"
-		        aria-pressed={islandPlacementMode}
-		        onClick={() => { setPlacementTarget("island"); setViewMode("plan"); setPlacementWarning(null); }}
-		        className={`rounded px-2 py-1 ${islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
-	              >Island mode</button>
-	              {islandPlacementMode && <>
-		        <span className="ml-1 whitespace-nowrap text-muted-foreground">Add to:</span>
-		        {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
-		          <button key={face} type="button" onClick={() => setPlacementTarget("island", face)} className={`rounded px-2 py-1 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
-	                ))}
-	              </>}
-	              <button type="button" onClick={() => setIslandAttributesOpen(true)} className="rounded border border-[#b98d3e] px-2 py-1 text-[#7b5a20]">Island setup</button>
-	            </div>
+	            <aside className="absolute right-3 top-3 z-40 flex flex-col items-end gap-2" aria-label="Island placement controls">
+	              <button
+	                type="button"
+	                data-testid="island-placement-panel-toggle"
+	                aria-expanded={islandPlacementPanelExpanded}
+	                aria-controls="island-placement-side-panel"
+	                onClick={() => setIslandPlacementPanelExpanded((expanded) => !expanded)}
+	                className="rounded-lg border border-[#b98d3e]/55 bg-white/95 px-3 py-2 text-xs font-bold text-[#1a2744] shadow-lg backdrop-blur transition hover:bg-[#fffaf0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-[0.99]"
+	              >
+	                {islandPlacementPanelExpanded ? "Hide placement" : "Placement"}
+	              </button>
+	              {islandPlacementPanelExpanded && (
+	                <div
+	                  id="island-placement-side-panel"
+	                  data-testid="island-placement-side-panel"
+	                  className="w-52 max-w-[calc(100vw-1.5rem)] rounded-lg border border-[#b98d3e]/45 bg-white/95 p-2.5 text-xs font-semibold text-[#1a2744] shadow-lg backdrop-blur"
+	                >
+	                  <div className="mb-2 flex items-center justify-between gap-2">
+	                    <span>Placement controls</span>
+	                    <button type="button" onClick={() => setIslandPlacementPanelExpanded(false)} className="rounded px-1.5 py-0.5 text-[#7b5a20] hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]" aria-label="Collapse placement controls">Hide</button>
+	                  </div>
+	                  <div className="grid grid-cols-2 gap-1.5">
+	                    <button
+	                      type="button"
+	                      data-testid="wall-placement-mode"
+	                      aria-pressed={!islandPlacementMode}
+	                      onClick={() => { setPlacementTarget("wall"); setPlacementWarning(null); }}
+	                      className={`rounded px-2 py-1.5 ${!islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+	                    >Wall mode</button>
+	                    <button
+	                      type="button"
+	                      data-testid="island-placement-mode"
+	                      aria-pressed={islandPlacementMode}
+	                      onClick={() => { setPlacementTarget("island"); setViewMode("plan"); setPlacementWarning(null); }}
+	                      className={`rounded px-2 py-1.5 ${islandPlacementMode ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
+	                    >Island mode</button>
+	                  </div>
+	                  {islandPlacementMode && <div className="mt-2 border-t border-[#dfcfae] pt-2">
+	                    <span className="mb-1 block text-[11px] text-muted-foreground">Add to island face</span>
+	                    <div className="grid grid-cols-2 gap-1.5">
+	                      {(["front", "back", "left", "right"] as IslandFace[]).map((face) => (
+	                        <button key={face} type="button" onClick={() => setPlacementTarget("island", face)} className={`rounded px-2 py-1.5 capitalize ${islandFace === face ? "bg-[#1a2744] text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}>{face}</button>
+	                      ))}
+	                    </div>
+	                  </div>}
+	                  <button type="button" onClick={() => setIslandAttributesOpen(true)} className="mt-2 w-full rounded border border-[#b98d3e] px-2 py-1.5 text-[#7b5a20] hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]">Island setup</button>
+	                </div>
+	              )}
+	            </aside>
 	          )}
 	          {customPlacementMode && (
             <div

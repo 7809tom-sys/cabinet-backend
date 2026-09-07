@@ -1720,3 +1720,5 @@
 - [x] Show a real-time left, right, or no-waterfall island-edge preview inside Island setup before the user applies the selection
 - [x] Add a Both ends waterfall choice that highlights and renders matching countertop panels on both physical island ends
 - [x] Make Island Elevation render the same no-waterfall, left, right, and both-ends choices stored by Island setup
+- [x] Move the in-canvas placement bar to an expandable side panel so it does not cover the kitchen design while retaining all placement controls
+- [x] Recover from a stale or deleted saved-design identifier by creating a new owner-scoped design instead of showing “Saved design not found”

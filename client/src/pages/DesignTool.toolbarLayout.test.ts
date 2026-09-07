@@ -74,4 +74,13 @@ describe("designer toolbar layout", () => {
     expect(source).toContain("Materials &amp; Parts");
     expect(source).not.toContain("Materials &amp; Parts List");
   });
+
+  it("keeps island placement controls in a collapsed side panel instead of over the canvas", () => {
+    expect(source).toContain("const [islandPlacementPanelExpanded, setIslandPlacementPanelExpanded]");
+    expect(source).toContain('data-testid="island-placement-panel-toggle"');
+    expect(source).toContain('aria-controls="island-placement-side-panel"');
+    expect(source).toContain('data-testid="island-placement-side-panel"');
+    expect(source).toContain('className="absolute right-3 top-3 z-40 flex flex-col items-end gap-2"');
+    expect(source).not.toContain('sm:left-1/2 sm:right-auto sm:-translate-x-1/2');
+  });
 });

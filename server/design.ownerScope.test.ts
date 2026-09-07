@@ -3,7 +3,7 @@ import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
 import { affiliates, kitchenDesigns } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 function userContext(id: number, role: "user" | "contractor" = "user"): TrpcContext {
   return {
@@ -57,6 +57,15 @@ describe("saved design owner scope", () => {
       expect((await admin.design.byId({ id: saved.id }))?.name).toBe("Owner-scoped kitchen");
       expect((await admin.design.myDesigns()).some((design) => design.id === affiliateDesignId)).toBe(true);
       expect((await admin.design.byId({ id: affiliateDesignId }))?.name).toBe("Affiliate customer kitchen");
+      const recreated = await owner.design.save({
+        id: 999999999,
+        name: "Recovered stale plan",
+        roomData: { width: 120, depth: 120 },
+        placedCabinets: [],
+      });
+      expect(recreated.id).not.toBe(999999999);
+      expect(recreated.recoveredFromStaleId).toBe(true);
+      expect((await owner.design.byId({ id: recreated.id }))?.name).toBe("Recovered stale plan");
       await expect(contractor.design.save({
         id: saved.id,
         name: "Attempted overwrite",
@@ -71,6 +80,8 @@ describe("saved design owner scope", () => {
       })).rejects.toThrow("Saved design not found");
       await expect(contractor.design.createRemoteShareLink({ designId: saved.id })).rejects.toThrow("You can only share your own saved design");
     } finally {
+      const recovered = await db.select({ id: kitchenDesigns.id }).from(kitchenDesigns).where(and(eq(kitchenDesigns.userId, 998801), eq(kitchenDesigns.name, "Recovered stale plan"))).limit(1);
+      if (recovered[0]) await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, recovered[0].id));
       await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, affiliateDesignId));
       await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, saved.id));
       await db.delete(affiliates).where(eq(affiliates.id, affiliateId));

@@ -1122,40 +1122,48 @@ export const designRouter = router({
       const affiliateId = affiliate?.id ?? null;
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
 
-      if (input.id) {
-        const existing = await db
+	      if (input.id) {
+	        const existing = await db
           .select({ id: kitchenDesigns.id })
           .from(kitchenDesigns)
           .where(and(
             eq(kitchenDesigns.id, input.id),
             eq(kitchenDesigns.userId, userId),
             affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
-          ))
-          .limit(1);
+	          ))
+	          .limit(1);
         if (!existing.length) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
-        }
-        await db
-          .update(kitchenDesigns)
-          .set({
-            name: input.name,
-            roomData: input.roomData,
-            placedCabinets: input.placedCabinets,
-            selectedSurfaces: input.selectedSurfaces ?? null,
-            threeDPresentation: input.threeDPresentation ?? null,
-            selectedStyleId: input.selectedStyleId,
-            selectedDistributorId: input.selectedDistributorId,
-            projectName: input.projectName ?? null,
-            roomLabel: input.roomLabel ?? null,
-            roomType: input.roomType ?? null,
-          })
-          .where(and(
-            eq(kitchenDesigns.id, input.id),
-            eq(kitchenDesigns.userId, userId),
-            affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
-          ));
-        return { id: input.id };
-      }
+          const anyExistingDesign = await db
+            .select({ id: kitchenDesigns.id })
+            .from(kitchenDesigns)
+            .where(eq(kitchenDesigns.id, input.id))
+            .limit(1);
+          if (anyExistingDesign.length) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+          }
+	        } else {
+	          await db
+	            .update(kitchenDesigns)
+	            .set({
+	              name: input.name,
+	              roomData: input.roomData,
+	              placedCabinets: input.placedCabinets,
+	              selectedSurfaces: input.selectedSurfaces ?? null,
+	              threeDPresentation: input.threeDPresentation ?? null,
+	              selectedStyleId: input.selectedStyleId,
+	              selectedDistributorId: input.selectedDistributorId,
+	              projectName: input.projectName ?? null,
+	              roomLabel: input.roomLabel ?? null,
+	              roomType: input.roomType ?? null,
+	            })
+	            .where(and(
+	              eq(kitchenDesigns.id, input.id),
+	              eq(kitchenDesigns.userId, userId),
+	              affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+	            ));
+	          return { id: input.id, recoveredFromStaleId: false };
+	        }
+	      }
 
       const result = await db.insert(kitchenDesigns).values({
         userId,
@@ -1228,11 +1236,11 @@ export const designRouter = router({
           dealId,
         },
         affiliateId,
-        referralCode: affiliate?.referralCode ?? null,
-        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
-      });
+	        referralCode: affiliate?.referralCode ?? null,
+	        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
+	      });
 
-      return { id: insertId };
+	      return { id: insertId, recoveredFromStaleId: Boolean(input.id) };
     }),
 
   rename: protectedProcedure

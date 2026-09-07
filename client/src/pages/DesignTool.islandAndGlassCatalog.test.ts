@@ -17,7 +17,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		  expect(source).toContain("const prev = placedRef.current;");
 		  expect(source).toContain("const islandPlacementModeRef = useRef(false);");
 	    expect(source).toContain("setCountertop(true)");
-	    expect(source).toContain('data-testid="island-placement-active-indicator"');
+	    expect(source).toContain('data-testid="island-placement-panel-toggle"');
+	    expect(source).toContain('data-testid="island-placement-side-panel"');
 	    expect(source).toContain('data-testid="wall-placement-mode"');
 	    expect(source).toContain('data-testid="island-placement-mode"');
 	    expect(source).toContain(">Wall mode<");
