@@ -676,6 +676,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  // Island zone: an optional rectangular guide (inches) marking where island
 	  // cabinets go. Null when disabled.
 	  const [island, setIsland] = useState<IslandZone | null>(null);
+	  const islandResizeWarningRef = useRef<{ message: string; at: number } | null>(null);
 	  const setPlacementTarget = useCallback((mode: "wall" | "island", face?: IslandFace) => {
 	    islandPlacementModeRef.current = mode === "island";
 	    setIslandPlacementMode(mode === "island");
@@ -5257,10 +5258,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 	  const applyIslandAttributes = useCallback((draft: IslandZone) => {
 	    if (!island) return;
+	    const reportResizeBlock = (message: string) => {
+	      const now = Date.now();
+	      const previous = islandResizeWarningRef.current;
+	      if (!previous || previous.message !== message || now - previous.at >= 1200) {
+	        islandResizeWarningRef.current = { message, at: now };
+	        toast.error(message);
+	      }
+	    };
 	    const moved = moveIslandScene(island, placedRef.current, room, draft.x - island.x, draft.y - island.y);
 	    if (!moved.ok) { toast.error(moved.reason); return; }
 	    const resized = resizeIslandScene(moved.island, moved.placed, room, draft.width, draft.depth);
-	    if (!resized.ok) { toast.error(resized.reason); return; }
+	    if (!resized.ok) { reportResizeBlock(resized.reason); return; }
 		    const nextIsland: IslandZone = {
 		      ...resized.island,
 		      activeFace: draft.activeFace ?? islandFace,
@@ -5274,7 +5283,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    };
 	    const slab = islandCountertopRect(nextIsland, resized.placed);
 	    if (slab && (slab.x < 0 || slab.y < 0 || slab.x + slab.width > room.width || slab.y + slab.depth > room.depth)) {
-	      toast.error("The island countertop would extend outside the room.");
+	      reportResizeBlock("The island countertop would extend outside the room.");
 	      return;
 	    }
 		    commitIslandScene(nextIsland, resized.placed);
@@ -7632,7 +7641,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto scrollbar-none"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
+      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
         <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (

@@ -45,6 +45,16 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain('freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement)');
 	});
 
+	it("reports a blocked island resize once per brief repeated drag sequence while preserving the collision block", () => {
+	  expect(source).toContain("islandResizeWarningRef");
+	  expect(source).toContain("now - previous.at >= 1200");
+	  expect(source).toContain("if (!resized.ok) { reportResizeBlock(resized.reason); return; }");
+	});
+
+	it("keeps full Designer toolbar controls at their usable width and scrolls them instead of allowing overlap", () => {
+	  expect(source).toContain("overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0");
+	});
+
 	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Clear opposite island face found");

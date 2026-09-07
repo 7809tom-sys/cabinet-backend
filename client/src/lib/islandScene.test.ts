@@ -52,7 +52,7 @@ describe("island mini-scene geometry", () => {
     expect(elevationBox(raised, room)).toEqual({ bottom: 6, height: 42 });
   });
 
-  it("seats a shallow W-24-30 island face against the opposing base backs at counter height", () => {
+	it("keeps a shallow W-24-30 island face flush with the exterior edge at counter height", () => {
     const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), island, "back", 0);
     const frontWallCabinet = nextIslandFacePlacement(
       cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
@@ -65,7 +65,7 @@ describe("island mini-scene geometry", () => {
       islandCounterHeightWallCabinet: true,
       mountBottom: 4.5,
       x: backBase.x,
-      y: backBase.y + 24,
+	      y: island.y + island.depth - 12,
     });
     expect(elevationBox(frontWallCabinet!, room)).toEqual({ bottom: 4.5, height: 30 });
     expect(hasCollision(frontWallCabinet!, [backBase])).toBe(false);
@@ -152,7 +152,7 @@ describe("island mini-scene geometry", () => {
       "back",
       existing,
     );
-    expect(backWallCabinet).toMatchObject({ islandFace: "back", islandOffset: 0, x: island.x, y: island.y + 24 - 12 });
+	    expect(backWallCabinet).toMatchObject({ islandFace: "back", islandOffset: 0, x: island.x, y: island.y });
     expect(hasCollision(backWallCabinet!, existing)).toBe(false);
   });
 
@@ -168,7 +168,7 @@ describe("island mini-scene geometry", () => {
       islandFace: "back",
       islandOffset: 0,
       x: island.x,
-      y: island.y + 24 - 12,
+	      y: island.y,
     });
   });
 
@@ -210,8 +210,8 @@ describe("island mini-scene geometry", () => {
     )!;
     const tenInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 10);
     const twelveInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 12);
-    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 47.5 });
-    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 49.5 });
+	    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 59.5 });
+	    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 61.5 });
     expect(twelveInch.countertopWidthAnchoredToZone).toBe(false);
     expect(twelveInch.countertopDepthAnchoredToZone).toBe(false);
   });

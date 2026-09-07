@@ -153,45 +153,6 @@ export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): 
   return declaredDistance <= nearestDistance + 1 ? declaredFace : nearestFace;
 }
 
-const OPPOSITE_ISLAND_FACE: Record<IslandFace, IslandFace> = {
-  front: "back",
-  back: "front",
-  left: "right",
-  right: "left",
-};
-
-/**
- * A counter-height shallow wall cabinet intentionally forms the opposing island
- * face. Seat its back against an overlapping base run without moving that run.
- */
-export function snapCounterHeightIslandWallCabinetToOpposingBase(
-  candidate: PlacedCabinet,
-  island: IslandZone,
-  placed: PlacedCabinet[],
-): PlacedCabinet {
-  if (!isCounterHeightIslandWallCabinet(candidate) || !candidate.islandFace) return candidate;
-  const face = candidate.islandFace;
-  const opposite = OPPOSITE_ISLAND_FACE[face];
-  const footprint = placedFootprint(candidate);
-  const candidateStart = face === "front" || face === "back" ? candidate.x : candidate.y;
-  const candidateEnd = candidateStart + (face === "front" || face === "back" ? footprint.w : footprint.d);
-  const target = placed
-    .filter((item) => bearsCountertop(item) && inferredIslandFace(item, island) === opposite)
-    .map((item) => {
-      const itemFootprint = placedFootprint(item);
-      const start = opposite === "front" || opposite === "back" ? item.x : item.y;
-      const end = start + (opposite === "front" || opposite === "back" ? itemFootprint.w : itemFootprint.d);
-      return { item, footprint: itemFootprint, overlap: Math.min(candidateEnd, end) - Math.max(candidateStart, start) };
-    })
-    .filter(({ overlap }) => overlap > COLLISION_EPSILON_IN)
-    .sort((left, right) => right.overlap - left.overlap)[0];
-  if (!target) return candidate;
-  if (face === "front") return { ...candidate, y: target.item.y + target.footprint.d };
-  if (face === "back") return { ...candidate, y: target.item.y - footprint.d };
-  if (face === "left") return { ...candidate, x: target.item.x - footprint.w };
-  return { ...candidate, x: target.item.x + target.footprint.w };
-}
-
 export function islandOffsetForPlaced(cabinet: PlacedCabinet, island: IslandZone, face = inferredIslandFace(cabinet, island)): number {
   if (cabinet.islandFace === face && Number.isFinite(cabinet.islandOffset)) return Math.max(0, Number(cabinet.islandOffset));
   return face === "front" || face === "back" ? cabinet.x - island.x : cabinet.y - island.y;
@@ -231,11 +192,10 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   for (const start of candidateStarts) {
     if (start + runLength > islandFaceLength(island, face) + COLLISION_EPSILON_IN) continue;
     if (occupied.some((span) => start < span.end - COLLISION_EPSILON_IN && start + runLength > span.start + COLLISION_EPSILON_IN)) continue;
-    const candidate = snapCounterHeightIslandWallCabinetToOpposingBase(
-      islandFacePlacement(cabinet, island, face, start),
-      island,
-      placed,
-    );
+    // A shallow wall cabinet selected for an island face must remain flush to
+    // that exterior face. Pulling it inward to meet the opposing base run
+    // leaves a visible void below the shared countertop.
+    const candidate = islandFacePlacement(cabinet, island, face, start);
     if (!hasCollision(candidate, placed)) return candidate;
   }
   return null;
