@@ -118,6 +118,14 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("Island depth adjusted to");
 	});
 
+	it("turns a Front-face remainder dead end into an immediate Back-face depth-expansion choice for the same cabinet", () => {
+	  expect(source).toContain("const backDepthAdjustment = autoAdjustIslandDepthForBackFace");
+	  expect(source).toContain("requiresBackDepthAdjustment: true");
+	  expect(source).toContain("forceBackDepthAdjustment = false");
+	  expect(source).toContain("Yes — add to Back and expand depth");
+	  expect(source).toContain("addCabinet(recommendation.cabinet, undefined, undefined, recommendation.forceAccessory, 0, false, undefined, recommendation.face, true)");
+	});
+
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {
 	  expect(source).toContain("islandFaceFitMeasure(selectedCab, island, placed)");
 	  expect(source).toContain("island && selectedCab.islandFace");

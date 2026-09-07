@@ -1779,3 +1779,4 @@
 - [x] Fix normal Back-wall SB30 and SB36 placement so the full verified opening is used instead of a pointer-local sliver
 - [x] Warn when the selected cabinet exceeds remaining space on the active island face
 - [x] Add an opt-in island auto-depth adjustment for mixed-depth Back-face cabinets while preserving existing treatments
+- [x] When a cabinet cannot fit in an active island face remainder, offer Back-face placement plus any required depth expansion instead of a dead-end error
