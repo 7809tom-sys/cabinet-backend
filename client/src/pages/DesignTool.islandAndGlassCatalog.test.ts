@@ -36,6 +36,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain('onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}');
 	  expect(source).toContain('"Wall / Island mode"');
 	  expect(source).toContain('"Choose Wall mode or Island mode"');
+	  expect(source).toContain('right-3 top-14 z-40 flex flex-col items-end gap-2 sm:top-16');
+	  expect(source).toContain('px-2.5 py-1.5 text-[11px]');
 	});
 
 	it("excludes the full island assembly from a back-wall opening measurement, including legacy members without an island-face field", () => {

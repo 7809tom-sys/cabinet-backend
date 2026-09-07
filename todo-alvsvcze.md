@@ -1752,3 +1752,4 @@
 - [x] Restore SB36 and B18 placement after removal by correcting the false back-wall clearance rejection without changing valid cabinet runs
 - [x] Make normal back-wall catalog placement resolve the valid 36-inch opening instead of a stale pointer-sized 1½-inch gap
 - [x] Make the Placement panel’s Island mode control visible and self-explanatory from the collapsed Designer toolbar
+- [x] Prevent the floating Placement control from overlapping adjacent Designer buttons at desktop and compact widths
