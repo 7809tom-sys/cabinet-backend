@@ -21,6 +21,14 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain("Perfect fit · ${suggestedFit.cabinet.masterCode}");
 	    expect(source).toContain('data-testid="catalog-drag-too-large"');
 	    expect(source).toContain('data-too-large={tooLarge ? "true" : "false"}');
+	    expect(source).toContain("needs {formatEighthInches(catalogDragFit.requiredSpan)} · opening {formatEighthInches(catalogDragFit.availableSpan)} · short {formatEighthInches(catalogDragFit.shortage)}");
+	  });
+
+	  it("shows a labeled green cabinet ghost over a released opening and distinguishes an exact fit", () => {
+	    expect(source).toContain('data-testid="catalog-drag-snap-ghost"');
+	    expect(source).toContain('data-testid="catalog-drag-ghost-label"');
+	    expect(source).toContain('data-perfect-fit={Math.abs(catalogDragFit.availableSpan - catalogDragFit.requiredSpan) <= 0.01 ? "true" : "false"}');
+	    expect(source).toContain('? "Perfect fit" : "Fits here"');
 	  });
 
 	  it("marks the active island face with an explicit visible placement label", () => {

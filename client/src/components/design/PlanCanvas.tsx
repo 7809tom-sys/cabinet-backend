@@ -929,10 +929,14 @@ export function PlanCanvas({
 	            {suggestedFit && <span data-testid="catalog-drag-best-fit" className={`absolute z-20 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow ${tooLarge ? "bg-rose-800" : "bg-emerald-800"}`} style={{ ...spanLabelStyle, ...(horizontal ? { top: 23 } : { left: 23 }) }}>
 	              {suggestedFit.remaining <= 0.01 ? `Perfect fit · ${suggestedFit.cabinet.masterCode}` : `Largest fit · ${suggestedFit.cabinet.masterCode}`}
 	            </span>}
-	            {tooLarge && <span data-testid="catalog-drag-too-large" className="absolute z-20 whitespace-nowrap rounded bg-rose-800 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow" style={{ ...spanLabelStyle, ...(horizontal ? { top: 42 } : { left: 42 }) }}>
-	              Too small · short {formatEighthInches(catalogDragFit.shortage)}
+	            {tooLarge && <span data-testid="catalog-drag-too-large" className="absolute z-20 whitespace-nowrap rounded bg-rose-800 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow" style={{ ...spanLabelStyle, ...(horizontal ? { top: 42 } : { left: 42 }) }}>
+	              {catalogDragCabinet?.masterCode ?? "Cabinet"} needs {formatEighthInches(catalogDragFit.requiredSpan)} · opening {formatEighthInches(catalogDragFit.availableSpan)} · short {formatEighthInches(catalogDragFit.shortage)}
 	            </span>}
-	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} className="absolute border-2 border-dashed border-emerald-800 bg-emerald-400/20 shadow-[0_0_0_2px_rgba(255,255,255,0.75)]" style={snapStyle} />}
+	            {valid && <div data-testid="catalog-drag-snap-ghost" data-freehand={catalogDragFreehand ? "true" : "false"} data-perfect-fit={Math.abs(catalogDragFit.availableSpan - catalogDragFit.requiredSpan) <= 0.01 ? "true" : "false"} className="absolute flex items-center justify-center border-2 border-dashed border-emerald-800 bg-emerald-400/35 shadow-[0_0_0_2px_rgba(255,255,255,0.85),0_0_18px_rgba(5,150,105,0.55)]" style={snapStyle}>
+	              <span data-testid="catalog-drag-ghost-label" className="max-w-full truncate rounded bg-emerald-900/90 px-1.5 py-1 text-[9px] font-bold leading-none text-white shadow">
+	                {Math.abs(catalogDragFit.availableSpan - catalogDragFit.requiredSpan) <= 0.01 ? "Perfect fit" : "Fits here"} · {catalogDragCabinet?.masterCode ?? formatEighthInches(catalogDragFit.requiredSpan)}
+	              </span>
+	            </div>}
 	            {valid && remainingSegments.map((segment) => {
 	              const lineStyle: React.CSSProperties = horizontal
 	                ? { left: segment.offset * ppi, top: "50%", width: segment.inches * ppi }

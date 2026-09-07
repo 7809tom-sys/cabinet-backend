@@ -1794,3 +1794,4 @@
 - [x] Allow a W30 to fit exactly into a verified 30-inch island-face opening without floating-point or tolerance rejection, while preserving true oversize and collision safeguards
 - [x] Recover an empty Back island face from an oversized stale island depth so a W30 can be offered behind a full Front run without colliding with unrelated room-wall cabinets
 - [x] After deleting an SB36, make its released 36-inch Back-wall span authoritative for the immediate same-size or smaller replacement instead of selecting a nearby 24-inch opening
+- [x] Show a green cabinet ghost with a Perfect fit label over a newly released opening, and a red tooltip with required, available, and shortage measurements when the dragged cabinet is too large
