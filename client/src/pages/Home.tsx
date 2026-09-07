@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -185,20 +185,75 @@ function Hero() {
 
 // ─── Featured Door Styles (from DB) ─────────────────────────────────────────
 
+const MAX_FEATURED_ROOM_SCENES = 6;
+
+type FeaturedDoorStyle = {
+  id: number;
+  styleCode?: string | null;
+  ourName?: string | null;
+  featuredLabel?: string | null;
+  doorStyle?: string | null;
+  woodSpecies?: string | null;
+  roomSceneImageUrl?: string | null;
+  cornerSwatchImageUrl?: string | null;
+};
+
 function FeaturedStyles() {
   const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
+  const { user } = useAuth();
+  const [sessionSceneIndex, setSessionSceneIndex] = useState<number | null>(null);
 
-  // Deduplicate by styleCode (keep first/lowest id per code)
-  const uniqueFeatured = useMemo(() => {
+  // Keep only verified, style-matched room scenes. A style never borrows another
+  // supplier's kitchen photo as a fallback, which keeps the scene trustworthy.
+  const featuredRoomScenes = useMemo((): FeaturedDoorStyle[] => {
     if (!featured) return [];
     const seen = new Set<string>();
-    return featured.filter((s) => {
-      const code = (s as { styleCode?: string | null }).styleCode ?? String(s.id);
+    return featured.filter((entry) => {
+      const s = entry as FeaturedDoorStyle;
+      if (!s.roomSceneImageUrl) return false;
+      const code = s.styleCode ?? String(s.id);
       if (seen.has(code)) return false;
       seen.add(code);
       return true;
-    });
+    }).slice(0, MAX_FEATURED_ROOM_SCENES) as FeaturedDoorStyle[];
   }, [featured]);
+
+  // A signed-in visitor receives one randomized primary scene per sign-in
+  // session. The session key includes lastSignedIn, so a later login can select
+  // a fresh scene while navigation and page refreshes keep the same selection.
+  const signedInSceneSessionKey = user
+    ? `cabinetdealz:featured-room-scene:${user.id}:${new Date(user.lastSignedIn).getTime()}`
+    : null;
+
+  useEffect(() => {
+    if (!signedInSceneSessionKey || featuredRoomScenes.length === 0) {
+      setSessionSceneIndex(null);
+      return;
+    }
+
+    try {
+      const saved = Number.parseInt(sessionStorage.getItem(signedInSceneSessionKey) ?? "", 10);
+      const nextIndex = Number.isInteger(saved) && saved >= 0 && saved < featuredRoomScenes.length
+        ? saved
+        : Math.floor(Math.random() * featuredRoomScenes.length);
+      sessionStorage.setItem(signedInSceneSessionKey, String(nextIndex));
+      setSessionSceneIndex(nextIndex);
+    } catch {
+      // Privacy modes can block sessionStorage. The randomized view remains
+      // available for the current render without persisting browser data.
+      setSessionSceneIndex(Math.floor(Math.random() * featuredRoomScenes.length));
+    }
+  }, [featuredRoomScenes.length, signedInSceneSessionKey]);
+
+  const visibleScenes = useMemo(() => {
+    if (featuredRoomScenes.length === 0) return [];
+    if (sessionSceneIndex === null) return featuredRoomScenes;
+    const selected = sessionSceneIndex % featuredRoomScenes.length;
+    return [
+      ...featuredRoomScenes.slice(selected),
+      ...featuredRoomScenes.slice(0, selected),
+    ];
+  }, [featuredRoomScenes, sessionSceneIndex]);
 
   if (isLoading) {
     return (
@@ -214,9 +269,9 @@ function FeaturedStyles() {
     );
   }
 
-  if (!uniqueFeatured.length) return null;
+  if (!visibleScenes.length) return null;
 
-  const [first, ...rest] = uniqueFeatured;
+  const [first, ...rest] = visibleScenes;
 
   return (
     <section className="py-10 md:py-20">
@@ -244,36 +299,36 @@ function FeaturedStyles() {
         <div className="grid md:grid-cols-2 gap-4 md:gap-6">
           {/* Hero style — large card */}
           <Link
-            href={`/family/${encodeURIComponent((first as { styleCode?: string | null }).styleCode ?? String(first.id))}`}
+            href={`/family/${encodeURIComponent(first.styleCode ?? String(first.id))}`}
             className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 md:row-span-2 mt-2 md:mt-0"
           >
             <img
-              src={(first as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
-              alt={(first as { ourName?: string | null }).ourName ?? "Featured Style"}
+              src={first.roomSceneImageUrl!}
+              alt={`${first.ourName ?? first.styleCode ?? "Featured style"} kitchen room scene`}
               className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48 md:h-full"
             />
             {/* Corner Swatch — shows door profile, grain, and color */}
-            {(first as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl && (
+            {first.cornerSwatchImageUrl && (
               <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
                 <img
-                  src={(first as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl!}
-                  alt={`${(first as { ourName?: string | null }).ourName ?? "Style"} door profile`}
+                  src={first.cornerSwatchImageUrl}
+                  alt={`${first.ourName ?? first.styleCode ?? "Style"} door profile`}
                   className="w-16 h-16 md:w-20 md:h-20 rounded-lg shadow-lg border-2 border-white/30 object-cover ring-1 ring-black/10"
                 />
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
-              {(first as { featuredLabel?: string | null }).featuredLabel && (
+              {first.featuredLabel && (
                 <span className="inline-block text-xs font-bold uppercase tracking-wider text-[var(--color-gold)] bg-[var(--color-gold)]/15 border border-[var(--color-gold)]/30 rounded-full px-3 py-0.5 mb-2">
-                  {(first as { featuredLabel?: string | null }).featuredLabel}
+                  {first.featuredLabel}
                 </span>
               )}
               <h3 className="font-serif text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1">
-                {(first as { ourName?: string | null }).ourName ?? (first as { styleCode?: string | null }).styleCode}
+                {first.ourName ?? first.styleCode}
               </h3>
               <p className="text-xs md:text-sm text-white/75 mb-2 md:mb-4">
-                {[(first as { doorStyle?: string | null }).doorStyle, (first as { woodSpecies?: string | null }).woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
+                {[first.doorStyle, first.woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-100">
@@ -296,33 +351,33 @@ function FeaturedStyles() {
 
           {/* Remaining featured styles — smaller cards */}
           <div className="grid grid-cols-2 gap-4 md:gap-6">
-            {rest.slice(0, 4).map((style) => (
+            {rest.slice(0, MAX_FEATURED_ROOM_SCENES - 1).map((style) => (
               <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300">
-                <Link href={`/family/${encodeURIComponent((style as { styleCode?: string | null }).styleCode ?? String(style.id))}`}>
+                <Link href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}>
                   <img
-                    src={(style as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
-                    alt={(style as { ourName?: string | null }).ourName ?? "Style"}
+                    src={style.roomSceneImageUrl!}
+                    alt={`${style.ourName ?? style.styleCode ?? "Style"} kitchen room scene`}
                     className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
                   />
                   {/* Corner Swatch */}
-                  {(style as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl && (
+                  {style.cornerSwatchImageUrl && (
                     <div className="absolute top-2 left-2 z-10">
                       <img
-                        src={(style as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl!}
-                        alt={`${(style as { ourName?: string | null }).ourName ?? "Style"} door profile`}
+                        src={style.cornerSwatchImageUrl}
+                        alt={`${style.ourName ?? style.styleCode ?? "Style"} door profile`}
                         className="w-12 h-12 rounded-md shadow-md border-2 border-white/30 object-cover ring-1 ring-black/10"
                       />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-3">
-                    {(style as { featuredLabel?: string | null }).featuredLabel && (
+                    {style.featuredLabel && (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-gold)] block mb-0.5">
-                        {(style as { featuredLabel?: string | null }).featuredLabel}
+                        {style.featuredLabel}
                       </span>
                     )}
                     <div className="font-serif text-sm font-bold text-white leading-tight">
-                      {(style as { ourName?: string | null }).ourName ?? (style as { styleCode?: string | null }).styleCode}
+                      {style.ourName ?? style.styleCode}
                     </div>
                     <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-100">
                       <CircleCheck className="h-3 w-3" /> Active catalog

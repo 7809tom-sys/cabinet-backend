@@ -1722,3 +1722,6 @@
 - [x] Make Island Elevation render the same no-waterfall, left, right, and both-ends choices stored by Island setup
 - [x] Move the in-canvas placement bar to an expandable side panel so it does not cover the kitchen design while retaining all placement controls
 - [x] Recover from a stale or deleted saved-design identifier by creating a new owner-scoped design instead of showing “Saved design not found”
+- [x] Support up to six curated room-scene images in Featured Door Styles with accurate style links and accessible image descriptions
+- [x] Randomly select one Featured Door Styles room scene at the start of each signed-in session while keeping it stable during that session
+- [x] Preserve verified room-scene-to-distributor attribution for authorized internal users while keeping distributor names hidden from public shoppers

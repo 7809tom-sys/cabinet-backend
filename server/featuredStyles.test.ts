@@ -60,6 +60,17 @@ describe("doorStyles featured — admin management + public row", () => {
     }
   });
 
+  it("retains source attribution for administrators while stripping it from the public featured payload", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(adminCtx());
+    const managed = await caller.doorStyles.listForAdmin();
+    expect(managed.every((row) => "distributorName" in row)).toBe(true);
+
+    const publicRows = await caller.doorStyles.featured();
+    expect(publicRows.every((row) => !("distributorName" in row))).toBe(true);
+  });
+
   it("admin can toggle a style featured/unfeatured and it surfaces in the public row", async () => {
     const db = await getDb();
     if (!db) return;

@@ -29,4 +29,16 @@ describe("B2B homepage hierarchy", () => {
     expect(homeSource).not.toContain('In Stock');
     expect(homeSource).not.toContain('Ships in');
   });
+
+  it("uses up to six verified room scenes and stabilizes a signed-in visitor’s randomized primary scene for the active session", () => {
+    expect(homeSource).toContain('const MAX_FEATURED_ROOM_SCENES = 6');
+    expect(homeSource).toContain('if (!s.roomSceneImageUrl) return false;');
+    expect(homeSource).toContain('cabinetdealz:featured-room-scene:');
+    expect(homeSource).toContain('sessionStorage.setItem');
+    expect(homeSource).toContain('rest.slice(0, MAX_FEATURED_ROOM_SCENES - 1)');
+  });
+
+  it("keeps public featured room scenes free of distributor identity", () => {
+    expect(homeSource).not.toContain('distributorName');
+  });
 });
