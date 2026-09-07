@@ -5751,22 +5751,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Catalog placement reads placedRef between renders, so leaving it stale after
   // a keyboard or toolbar delete falsely keeps the removed cabinet (or its sink
   // relationship) inside the next placement collision and gap calculations.
-  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
-    const removed = placedRef.current.find((cabinet) => cabinet.uid === uid);
-    deleteAttachedSinkFixtures(removed);
-    setPlaced((current) => {
-      const next = removePlacedCabinetWithRequiredBlindCornerFiller(current, uid);
-      placedRef.current = next;
-      return next;
-    });
-    setSelectedUid((current) => current === uid ? null : current);
-    setSelectedSinkUid(null);
-    setFailedWallFit(null);
-    setPlacementWarning(null);
-    setAlternateWallRecommendation(null);
-    setAlternateIslandFaceRecommendation(null);
-    setSmallGapFillerPrompt(null);
-  }, [deleteAttachedSinkFixtures]);
+	  const removeCabinetsAndReleaseVoid = useCallback((uids: string[], removeSharedFillerGroups = false) => {
+	    const uidSet = new Set(uids);
+	    const committed = placedRef.current;
+	    const removed = committed.filter((cabinet) => uidSet.has(cabinet.uid));
+	    removed.forEach((cabinet) => deleteAttachedSinkFixtures(cabinet));
+	    const fillerGroups = new Set(
+	      removed
+	        .map((cabinet) => cabinet.fillerPieceGroupId)
+	        .filter((groupId): groupId is string => !!groupId),
+	    );
+	    let next = uids.reduce(
+	      (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
+	      committed,
+	    );
+	    if (removeSharedFillerGroups && fillerGroups.size > 0) {
+	      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
+	    }
+	    // Placement can run before React commits a render. Update the authoritative
+	    // reference first so the newly released span is immediately measurable.
+	    placedRef.current = next;
+	    setPlaced(next);
+	    setSelectedUid((current) => current && uidSet.has(current) ? null : current);
+	    setSelectedSinkUid(null);
+	    setFailedWallFit(null);
+	    setPlacementWarning(null);
+	    setAlternateWallRecommendation(null);
+	    setAlternateIslandFaceRecommendation(null);
+	    setSmallGapFillerPrompt(null);
+	  }, [deleteAttachedSinkFixtures]);
+
+	  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
+	    removeCabinetsAndReleaseVoid([uid]);
+	  }, [removeCabinetsAndReleaseVoid]);
 
   const deleteSelected = () => {
     // Cabinet selection takes priority; otherwise delete a selected sink,
@@ -6782,24 +6799,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // Remove ALL instances in a panel group (the whole line item).
 	  const deleteWholeGroup = useCallback((uids: string[]) => {
-	    setPlaced((prev) => {
-	      const withRequiredBlindCornerAssembliesRemoved = uids.reduce(
-	        (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
-	        prev,
-	      );
-	      const fillerGroups = new Set(
-	        withRequiredBlindCornerAssembliesRemoved
-	          .filter((item) => uids.includes(item.uid))
-          .map((item) => item.fillerPieceGroupId)
-          .filter((groupId): groupId is string => !!groupId),
-      );
-	      return withRequiredBlindCornerAssembliesRemoved.filter((item) =>
-        !uids.includes(item.uid) &&
-        (!item.fillerPieceGroupId || !fillerGroups.has(item.fillerPieceGroupId)),
-      );
-    });
-    setSelectedUid((prev) => (prev && uids.includes(prev) ? null : prev));
-  }, []);
+	    removeCabinetsAndReleaseVoid(uids, true);
+	  }, [removeCabinetsAndReleaseVoid]);
 
   // Move a BOM line item up or down within its section list.
   const moveBomItem = useCallback(

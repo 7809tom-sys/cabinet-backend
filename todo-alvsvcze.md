@@ -1793,3 +1793,4 @@
 - [x] Immediately release a deleted cabinet’s full physical void so same-size or smaller fitting replacements are allowed without phantom cabinet, sink, or selection reservations
 - [x] Allow a W30 to fit exactly into a verified 30-inch island-face opening without floating-point or tolerance rejection, while preserving true oversize and collision safeguards
 - [x] Recover an empty Back island face from an oversized stale island depth so a W30 can be offered behind a full Front run without colliding with unrelated room-wall cabinets
+- [x] After deleting an SB36, make its released 36-inch Back-wall span authoritative for the immediate same-size or smaller replacement instead of selecting a nearby 24-inch opening
