@@ -5409,7 +5409,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setCatalogDragPreview(null);
         return;
       }
-      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
+      // The island is a separate assembly, not part of a room-wall run. Some
+      // legacy island cabinets predate islandFace metadata, so exclude all
+      // island members by geometry before measuring a back-wall opening.
+      const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
+      const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
 	      const measuredAtPointer = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width);
 	      // Palette drops should not fail just because the pointer lands over an
@@ -8111,7 +8115,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     room.customWalls.map((cw) => (
                       <button
                         key={cw.id}
-                        onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
+                        onClick={() => { setActiveWall(cw.id as any); setPlacementTarget("wall"); setDrawMode(false); }}
                         className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
                           activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
                         }`}
@@ -8125,7 +8129,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       return (
                         <button
                           key={w}
-                          onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                        onClick={() => { setActiveWall(w); setPlacementTarget("wall"); setDrawMode(false); }}
                           title={wallLabel[w]}
                           aria-label={wallLabel[w]}
                           className={`inline-flex items-center justify-center rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
@@ -10073,11 +10077,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                type="button"
 	                data-testid="island-placement-panel-toggle"
 	                aria-expanded={islandPlacementPanelExpanded}
-	                aria-controls="island-placement-side-panel"
+                aria-controls="island-placement-side-panel"
+                title={islandPlacementPanelExpanded ? "Hide Wall and Island placement controls" : "Choose Wall mode or Island mode"}
 	                onClick={() => setIslandPlacementPanelExpanded((expanded) => !expanded)}
 	                className="rounded-lg border border-[#b98d3e]/55 bg-white/95 px-3 py-2 text-xs font-bold text-[#1a2744] shadow-lg backdrop-blur transition hover:bg-[#fffaf0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744] active:scale-[0.99]"
 	              >
-	                {islandPlacementPanelExpanded ? "Hide placement" : "Placement"}
+                {islandPlacementPanelExpanded ? "Hide Wall / Island" : "Wall / Island mode"}
 	              </button>
 	              {islandPlacementPanelExpanded && (
 	                <div
@@ -10146,7 +10151,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   setRoom((prev) => ({ ...prev, vertices, customWalls, width, depth }));
                 }}
                 activeWallId={activeWall}
-                onSelectWall={(wallId) => setActiveWall(wallId as any)}
+                onSelectWall={(wallId) => { setActiveWall(wallId as any); setPlacementTarget("wall"); }}
                 locked={layoutLocked}
               />
             </div>
@@ -10183,7 +10188,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               drawMode={drawMode}
               onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
               activeWall={activeWall}
-              onSelectWall={setActiveWall}
+              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               onResizeWall={resizeWall}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
@@ -10230,7 +10235,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               selectedUid={selectedUid}
               onSelect={selectCabinet}
               wall={activeWall}
-              onSelectWall={setActiveWall}
+              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               countertopMaterialId={countertop ? countertopMaterialId : null}
               backsplashMaterialId={backsplashMaterialId}
               flooringMaterialId={flooringMaterialId}

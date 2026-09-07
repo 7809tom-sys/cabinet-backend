@@ -31,6 +31,18 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("setIsland((current) => current ? { ...current, activeFace: face } : current)");
 	});
 
+	it("exits island mode when the user explicitly selects a wall, so back-wall cabinet additions cannot use a stale island face", () => {
+	  expect(source).toContain('onClick={() => { setActiveWall(w); setPlacementTarget("wall"); setDrawMode(false); }}');
+	  expect(source).toContain('onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}');
+	  expect(source).toContain('"Wall / Island mode"');
+	  expect(source).toContain('"Choose Wall mode or Island mode"');
+	});
+
+	it("excludes the full island assembly from a back-wall opening measurement, including legacy members without an island-face field", () => {
+	  expect(source).toContain('const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;');
+	  expect(source).toContain('freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement)');
+	});
+
 	it("offers an empty opposite island face instead of moving an occupied run when a selected face cannot fit a cabinet", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Clear opposite island face found");

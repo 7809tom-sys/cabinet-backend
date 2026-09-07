@@ -1748,3 +1748,7 @@
 - [x] Support up to six verified matching room-scene images for each door style and rotate a session-stable selection across the main and affiliate storefronts
 - [ ] Audit and correct catalog price fields only where an authorized source or approved pricing rule identifies a verified error
 - [ ] Present missing or unverified customer prices as quote-only without inferring a public price from internal fields
+- [x] Restore SB36 and B18 placement after removal by correcting the false island-face clearance rejection without changing valid cabinet runs
+- [x] Restore SB36 and B18 placement after removal by correcting the false back-wall clearance rejection without changing valid cabinet runs
+- [x] Make normal back-wall catalog placement resolve the valid 36-inch opening instead of a stale pointer-sized 1½-inch gap
+- [x] Make the Placement panel’s Island mode control visible and self-explanatory from the collapsed Designer toolbar
