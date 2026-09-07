@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { inferredIslandFace, islandCountertopRect, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopRect, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -3057,9 +3057,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // setPlaced updaters can be called multiple times by React in concurrent
       // mode — any side effects inside them fire twice, causing double placement.
       // The palette can be tapped again before React has recreated this callback.
-      // Read the committed ref so every island addition sees the preceding cabinet
-      // and extends the same face flush rather than rebuilding from a stale run.
-      const prev = placedRef.current;
+	      // Read the committed ref so every island addition sees the preceding cabinet
+	      // and extends the same face flush rather than rebuilding from a stale run.
+	      const prev = placedRef.current;
+	      let islandPlacementPrevious = prev;
+	      let autoAdjustedIsland: IslandZone | null = null;
 
       // Explicit drag-and-drop coordinates win. A normal catalog selection uses
       // the active wall's deterministic left-to-right sequence: floor cabinets
@@ -3401,20 +3403,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        newCab.mountBottomAdjusted = true;
 	      }
 	      if (requestedIslandFace && island) {
+	        let islandForPlacement = island;
 	        const isShallowIslandWallCabinet = newCab.placement === "wall"
 	          && Number(newCab.depth) <= STD.WALL_DEPTH + COLLISION_EPSILON_IN
 	          && Number(newCab.height) <= STD.BASE_HEIGHT + COLLISION_EPSILON_IN;
 	        const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH);
 	        if (isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth) {
-	          const message = `${newCab.masterCode} needs a ${formatInches(minimumOpposingIslandDepth)}-deep island to sit opposite the existing 24-inch base run. The current island is ${formatInches(island.depth)} deep. Open Island setup to use at least ${formatInches(minimumOpposingIslandDepth)}${minimumOpposingIslandDepth < 48 ? " (48 inches if you want a 12-inch seating overhang)" : ""}.`;
-	          setPlacementWarning(message);
-	          toast.info(message);
-	          setIslandAttributesOpen(true);
-	          return;
+	          if (!(requestedIslandFace === "back" && island.autoAdjustDepthForBackFace === true)) {
+	            const message = `${newCab.masterCode} needs a ${formatInches(minimumOpposingIslandDepth)}-deep island to sit opposite the existing 24-inch base run. The current island is ${formatInches(island.depth)} deep. Open Island setup to use at least ${formatInches(minimumOpposingIslandDepth)}${minimumOpposingIslandDepth < 48 ? " (48 inches if you want a 12-inch seating overhang)" : ""}.`;
+	            setPlacementWarning(message);
+	            toast.info(message);
+	            setIslandAttributesOpen(true);
+	            return;
+	          }
 	        }
-	        const islandCandidate = nextIslandFacePlacement(newCab, island, requestedIslandFace, prev);
+	        if (requestedIslandFace === "back" && island.autoAdjustDepthForBackFace === true) {
+	          const adjustment = autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH);
+	          if (!adjustment.ok) {
+	            const message = `${newCab.masterCode} was not added because automatic Back-face depth adjustment is blocked: ${adjustment.reason}`;
+	            setPlacementWarning(message);
+	            toast.error(message);
+	            return;
+	          }
+	          islandForPlacement = adjustment.island;
+	          islandPlacementPrevious = adjustment.placed;
+	          if (adjustment.island.depth > island.depth + COLLISION_EPSILON_IN) autoAdjustedIsland = adjustment.island;
+	        }
+	        const islandCandidate = nextIslandFacePlacement(newCab, islandForPlacement, requestedIslandFace, islandPlacementPrevious);
 	        if (!islandCandidate) {
-	          const selectedFaceCapacity = islandFaceCapacity(island, requestedIslandFace, prev);
+	          const selectedFaceCapacity = islandFaceCapacity(islandForPlacement, requestedIslandFace, islandPlacementPrevious);
 	          const oppositeFace: IslandFace = requestedIslandFace === "front"
 	            ? "back"
 	            : requestedIslandFace === "back"
@@ -3422,17 +3439,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              : requestedIslandFace === "left"
 	                ? "right"
 	                : "left";
-	          const oppositeCandidate = nextIslandFacePlacement(newCab, island, oppositeFace, prev);
+	          const oppositeCandidate = nextIslandFacePlacement(newCab, islandForPlacement, oppositeFace, islandPlacementPrevious);
 	          if (oppositeCandidate) {
 	            const message = selectedFaceCapacity.isFull
 	              ? `The ${requestedIslandFace} island run has reached its chosen ${formatInches(selectedFaceCapacity.length)} length. Would you like the next cabinet to be added to the ${oppositeFace} side of the island?`
-	              : `${newCab.masterCode} cannot fit in the remaining ${formatInches(selectedFaceCapacity.largestOpenSpan)} on the ${requestedIslandFace} island run. A clear ${formatInches(islandFaceLength(island, oppositeFace))} opening is available on the opposite ${oppositeFace} face.`;
+	              : `${newCab.masterCode} cannot fit in the remaining ${formatInches(selectedFaceCapacity.largestOpenSpan)} on the ${requestedIslandFace} island run. A clear ${formatInches(islandFaceLength(islandForPlacement, oppositeFace))} opening is available on the opposite ${oppositeFace} face.`;
 	            setAlternateIslandFaceRecommendation({
 	              cabinet: c,
 	              forceAccessory,
 	              requestedFace: requestedIslandFace,
 	              face: oppositeFace,
-	              availableLength: islandFaceLength(island, oppositeFace),
+	              availableLength: islandFaceLength(islandForPlacement, oppositeFace),
 	              selectedFaceLength: selectedFaceCapacity.length,
 	              selectedFaceIsFull: selectedFaceCapacity.isFull,
 	            });
@@ -3541,7 +3558,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // several items quickly. Reject a true footprint collision rather than
       // silently rendering a drawer base, appliance, panel, or accessory over
       // an existing item. Edge-to-edge cabinet runs remain valid.
-      const normalizedPrevious = normalizeRefrigeratorBayUppers(prev, room);
+	      const normalizedPrevious = normalizeRefrigeratorBayUppers(islandPlacementPrevious, room);
       // The generic snap pass resolves overlapping plan footprints. An OTR
       // microwave intentionally projects over its range, so retain the exact
       // wall/run center calculated above instead of allowing snapPosition to
@@ -3554,10 +3571,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
-	      let normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+	      let normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      finalCab = normalizedRun.find((cabinet) => cabinet.uid === finalCab.uid) ?? finalCab;
 	      if (automaticSnapping && !requestedIslandFace) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
-	      normalizedRun = requestedIslandFace ? [...prev, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
+	      normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
 	        ? cabinetCollisionDetail(finalCab, normalizedPrevious)
@@ -3672,6 +3689,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setSelectedUid(finalCab.uid);
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
+	      if (autoAdjustedIsland) {
+	        setIsland(autoAdjustedIsland);
+	        toast.success(`Island depth adjusted to ${formatInches(autoAdjustedIsland.depth)} for the Back cabinet.`);
+	      }
 	      // As soon as the user completes the chosen Front island length, offer
 	      // the Back face for the next selection. This changes only the active
 	      // placement face; the completed run and every island treatment remain
@@ -3837,25 +3858,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const targetedLowerCabinet = !freehand && !forceAccessory && placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, dropTarget, room)
         : null;
-      if (targetedLowerCabinet) {
-        addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedLowerCabinet.uid);
-        return;
-      }
-      const dropWall = dropTarget.wall ?? activeWall;
-	      const segments = freeSegmentsOnWall(dropWall, room, placed, openings, 0.5, 0, placement);
+	      if (targetedLowerCabinet) {
+	        addCabinet(cabinet, dropTarget.x, dropTarget.y, false, 0, true, targetedLowerCabinet.uid);
+	        return;
+	      }
+	      const dropWall = dropTarget.wall ?? activeWall;
+	      // The island is a freestanding assembly, not a room-wall cabinet run.
+	      // Its cabinets must never turn a verified Back-wall opening into a
+	      // pointer-local sliver in the 3D placement path.
+	      const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
+	      const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
 	      const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
 	      const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
-	      const freehandMeasure = freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : null;
-	      const along = freehand
+	      // Turning snapping on makes every ordinary 3D catalog drop resolve from
+	      // the complete closest valid opening. Exact pointer placement remains an
+	      // intentional manual mode only when snapping is explicitly off.
+	      const strictPointerPlacement = freehand && !automaticSnapping;
+	      const freehandMeasure = strictPointerPlacement ? wallGapFreehandPreview(gaps, targetAlong, width) : null;
+	      const along = strictPointerPlacement
 	        ? freehandMeasure?.status === "valid" ? freehandMeasure.snapStart : null
 	        : nearestFreeWallDropStart(targetAlong, width, segments, placement === "base" && isSinkBaseCabinet({ masterCode: cabinet.masterCode, description: cabinet.description }));
 	      if (along == null) {
-	        const measured = freehandMeasure ?? wallGapFitPreview(gaps, targetAlong, width);
-        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
-        const message = measured
-          ? !measured.containsTarget
-            ? `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the selected point is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}. Move the pointer into that opening and release again.`
-            : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} from ${formatEighthInches(measured.gap.start)} to ${formatEighthInches(measured.gap.start + measured.gap.length)}. The opening is ${formatEighthInches(measured.shortage)} too small. Choose a smaller matching cabinet or select a wider opening.`
+	        const widestGap = [...gaps].sort((left, right) => right.length - left.length)[0] ?? null;
+	        const measured = freehandMeasure ?? (widestGap && !strictPointerPlacement
+	          ? wallGapFitPreview([widestGap], widestGap.center, width)
+	          : wallGapFitPreview(gaps, targetAlong, width));
+	        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
+	        const message = measured
+	          ? strictPointerPlacement && !measured.containsTarget
+	            ? `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the selected point is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}. Move the pointer into that opening and release again.`
+	            : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} from ${formatEighthInches(measured.gap.start)} to ${formatEighthInches(measured.gap.start + measured.gap.length)}. The opening is ${formatEighthInches(measured.shortage)} too small. Choose a smaller matching cabinet or select a wider opening.`
           : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but there is no clear opening at the selected point. Choose another measured opening or move a blocking item.`;
         setPlacementWarning(message);
         toast.error(message);

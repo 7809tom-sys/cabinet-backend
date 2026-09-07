@@ -29,4 +29,12 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain('activeIslandFace === "back"');
 	    expect(source).toContain('activeIslandFace === "front"');
 	  });
+
+	  it("turns the active island edge red and explains the remaining face capacity before an oversized cabinet is dropped", () => {
+	    expect(source).toContain("const activeIslandFaceCapacityWarning = (() => {");
+	    expect(source).toContain("islandFaceCapacity(island, activeIslandFace, cabinets)");
+	    expect(source).toContain('data-testid="active-island-face-too-small"');
+	    expect(source).toContain("cabinet needs");
+	    expect(source).toContain("bg-rose-700");
+	  });
 });

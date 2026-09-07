@@ -317,6 +317,49 @@ export function resizeIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
 }
 
+/**
+ * Grows an island only toward its Back side for an incoming Back-face cabinet.
+ * Existing Front cabinet faces stay visually fixed, while all current island
+ * members are rebuilt against the expanded work zone and checked for collisions.
+ */
+export function autoAdjustIslandDepthForBackFace(island: IslandZone, placed: PlacedCabinet[], room: RoomData, incomingBackDepth: number): IslandSceneEditResult {
+  const members = placed.filter((item) => isOnIsland(item, island));
+  const frontDepth = members
+    .filter((item) => inferredIslandFace(item, island) === "front")
+    .reduce((largest, item) => Math.max(largest, Math.max(0, Number(item.depth) || 0)), 0);
+  const requiredDepth = Math.max(island.depth, frontDepth + Math.max(0, incomingBackDepth));
+  if (requiredDepth <= island.depth + COLLISION_EPSILON_IN) return { ok: true, island, placed };
+
+  const growth = requiredDepth - island.depth;
+  const requested = {
+    ...island,
+    y: island.y - growth,
+    depth: requiredDepth,
+    // A zone-anchored explicit slab expands only toward the Back with the new
+    // work zone, retaining its original Front edge and user-selected offset.
+    countertopDepth: island.countertopDepth != null && island.countertopDepthAnchoredToZone === true
+      ? island.countertopDepth + growth
+      : island.countertopDepth,
+  };
+  const nextIsland = clampIslandToRoom(requested, room)!;
+  if (Math.abs(nextIsland.y - requested.y) > COLLISION_EPSILON_IN || Math.abs(nextIsland.depth - requiredDepth) > COLLISION_EPSILON_IN) {
+    return { ok: false, reason: `The island cannot grow to ${requiredDepth}\" deep toward the Back side without leaving the room.`, island, placed };
+  }
+
+  const memberIds = new Set(members.map((item) => item.uid));
+  const others = placed.filter((item) => !memberIds.has(item.uid));
+  const rebuilt = members.map((item) => {
+    const face = inferredIslandFace(item, island);
+    return islandFacePlacement(item, nextIsland, face, islandOffsetForPlaced(item, island, face));
+  });
+  if (rebuilt.some((item, index) => hasCollision(item, [...others, ...rebuilt.filter((_, otherIndex) => otherIndex !== index)]))) {
+    return { ok: false, reason: "The deeper island would overlap another room object.", island, placed };
+  }
+
+  const byId = new Map(rebuilt.map((item) => [item.uid, item]));
+  return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
+}
+
 export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], room: RoomData): IslandSceneEditResult {
   const centerX = island.x + island.width / 2;
   const centerY = island.y + island.depth / 2;

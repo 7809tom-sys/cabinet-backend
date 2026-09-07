@@ -1776,3 +1776,6 @@
 - [x] Let users safely move or swap a selected island cabinet between the Front and Back faces without changing island treatments
 - [x] Shift the Designer view toward the Back side of the island after the user chooses Back for the next cabinet
 - [x] Review the current island placement flow for the next concrete usability obstacle and preserve all physical collision safeguards
+- [x] Fix normal Back-wall SB30 and SB36 placement so the full verified opening is used instead of a pointer-local sliver
+- [x] Warn when the selected cabinet exceeds remaining space on the active island face
+- [x] Add an opt-in island auto-depth adjustment for mixed-depth Back-face cabinets while preserving existing treatments

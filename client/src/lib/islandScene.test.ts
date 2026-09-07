@@ -8,6 +8,7 @@ import {
 	  islandFaceFitMeasure,
 	  islandFacePlacement,
 	  islandFaceTransferOption,
+	  autoAdjustIslandDepthForBackFace,
 	  islandWithFaceSeatingOverhang,
   inferredIslandFace,
   moveIslandScene,
@@ -274,12 +275,23 @@ describe("island mini-scene geometry", () => {
     }
   });
 
-  it("rejects a resize that makes an occupied face too short", () => {
-    const attached = islandFacePlacement(cabinet({ width: 36 }), island, "front", 36);
-    expect(resizeIslandScene(island, [attached], room, 60, 48).ok).toBe(false);
-  });
+	  it("rejects a resize that makes an occupied face too short", () => {
+	    const attached = islandFacePlacement(cabinet({ width: 36 }), island, "front", 36);
+	    expect(resizeIslandScene(island, [attached], room, 60, 48).ok).toBe(false);
+	  });
 
-  it("automatically creates one continuous slab with standard overhang over the assembly", () => {
+	  it("grows only toward the Back for an incoming deeper Back cabinet while keeping the Front face fixed", () => {
+	    const compactIsland = { ...island, depth: 36, y: 48, waterfallEnd: "both" as const, countertopDepth: 48, countertopDepthAnchoredToZone: true };
+	    const front = islandFacePlacement(cabinet({ uid: "front", depth: 24, width: 30 }), compactIsland, "front", 0);
+	    const result = autoAdjustIslandDepthForBackFace(compactIsland, [front], room, 24);
+	    expect(result.ok).toBe(true);
+	    if (result.ok) {
+	      expect(result.island).toMatchObject({ depth: 48, y: 36, waterfallEnd: "both", countertopDepth: 60, countertopDepthAnchoredToZone: true });
+	      expect(result.placed.find((item) => item.uid === "front")).toMatchObject({ x: front.x, y: front.y, islandFace: "front" });
+	    }
+	  });
+
+	  it("automatically creates one continuous slab with standard overhang over the assembly", () => {
     const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
     const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 24);
     expect(islandCountertopRect(island, [left, right])).toEqual({

@@ -38,7 +38,7 @@ describe("IslandAttributesDialog", () => {
     expect(screen.getByText(/four independent runs/i)).toBeTruthy();
   });
 
-  it("explains the 24, 36, 48, and 60 inch depth rules and exposes a 12-inch rear seating overhang", () => {
+	it("explains the 24, 36, 48, and 60 inch depth rules and exposes a 12-inch rear seating overhang", () => {
     render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
     const guidance = screen.getByTestId("island-depth-guidance").textContent ?? "";
     expect(guidance).toContain("24 in.");
@@ -46,6 +46,15 @@ describe("IslandAttributesDialog", () => {
     expect(guidance).toContain("48 in.");
     expect(guidance).toContain("60 in.");
     expect(screen.getByTestId("island-seating-overhang")).toBeTruthy();
-    expect(screen.getByText(/rear seating countertop overhang/i)).toBeTruthy();
-  });
+	  expect(screen.getByText(/rear seating countertop overhang/i)).toBeTruthy();
+	});
+
+	it("lets the user opt into a Back-face-only depth adjustment without changing other island choices", () => {
+	  const onApply = vi.fn();
+	  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
+	  fireEvent.click(screen.getByRole("switch", { name: /auto-adjust depth for Back cabinets/i }));
+	  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ autoAdjustDepthForBackFace: true, activeFace: "front", depth: 48 }));
+	  expect(screen.getByTestId("island-auto-depth-option")).toBeTruthy();
+	});
 });

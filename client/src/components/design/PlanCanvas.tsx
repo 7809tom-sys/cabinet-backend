@@ -20,6 +20,7 @@ import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { islandFaceCapacity } from "@/lib/islandScene";
 
 export type PlanMeasurePoint = { x: number; y: number };
 
@@ -676,8 +677,8 @@ export function PlanCanvas({
   // cabinet is simply selected (idle) so the designer can read the clearance to
   // each neighbor/wall without nudging it. Drag takes priority.
   const tapeUid = dragUid ?? (measureMode ? null : selectedUid);
-  const dragTape = (() => {
-    if (!tapeUid) return null;
+	  const dragTape = (() => {
+	    if (!tapeUid) return null;
     const p = cabinets.find((c) => c.uid === tapeUid);
     if (!p) return null;
     const side = cabinetWall(p, room);
@@ -692,8 +693,16 @@ export function PlanCanvas({
     else if (side === "bottom") crossPx = p.y * ppi - band;
     else if (side === "left") crossPx = (p.x + w) * ppi + band;
     else crossPx = p.x * ppi - band;
-    return { side, m, horizontal, crossPx, startPx: m.start * ppi, endPx: m.end * ppi };
-  })();
+	    return { side, m, horizontal, crossPx, startPx: m.start * ppi, endPx: m.end * ppi };
+	  })();
+
+	  const activeIslandFaceCapacityWarning = (() => {
+	    if (!catalogDragCabinet || !island || !catalogDragFit) return null;
+	    const requiredWidth = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
+	    const capacity = islandFaceCapacity(island, activeIslandFace, cabinets);
+	    if (requiredWidth <= capacity.largestOpenSpan + 0.01) return null;
+	    return { requiredWidth, remaining: capacity.largestOpenSpan, shortage: requiredWidth - capacity.largestOpenSpan };
+	  })();
 
   // Compute the point-to-point tape in the same inch coordinate system used by
   // all placed cabinets, walls, openings, and clearances.
@@ -1099,13 +1108,16 @@ export function PlanCanvas({
             }}
 	            title={t("dt_pc_island_zone")}
 	          >
-	            <div className={`absolute left-0 right-0 top-0 h-1.5 ${activeIslandFace === "back" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
-	            <div className={`absolute left-0 right-0 bottom-0 h-1.5 ${activeIslandFace === "front" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
-	            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "left" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
-	            <div className={`absolute right-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "right" ? "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 right-0 top-0 h-1.5 ${activeIslandFace === "back" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 right-0 bottom-0 h-1.5 ${activeIslandFace === "front" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "left" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
+	            <div className={`absolute right-0 top-0 bottom-0 w-1.5 ${activeIslandFace === "right" ? activeIslandFaceCapacityWarning ? "bg-rose-700 shadow-[0_0_0_2px_rgba(190,24,93,0.75)]" : "bg-[#1a2744] shadow-[0_0_0_2px_rgba(212,167,90,0.85)]" : "bg-transparent"}`} />
 	            <span data-testid="active-island-face-indicator" className={`pointer-events-none absolute z-10 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white shadow ${activeIslandFace === "front" ? "bottom-1 left-1/2 -translate-x-1/2" : activeIslandFace === "back" ? "top-1 left-1/2 -translate-x-1/2" : activeIslandFace === "left" ? "left-1 top-1/2 -translate-y-1/2" : "right-1 top-1/2 -translate-y-1/2"}`}>
 	              {activeIslandFace.toUpperCase()} · ACTIVE PLACEMENT
 	            </span>
+	            {activeIslandFaceCapacityWarning && <span data-testid="active-island-face-too-small" role="status" aria-live="polite" className="pointer-events-none absolute z-20 left-1/2 top-1/2 max-w-[calc(100%-0.75rem)] -translate-x-1/2 -translate-y-1/2 rounded bg-rose-700 px-1.5 py-1 text-center text-[9px] font-bold leading-tight text-white shadow">
+	              {activeIslandFace.toUpperCase()} has {formatEighthInches(activeIslandFaceCapacityWarning.remaining)} left · cabinet needs {formatEighthInches(activeIslandFaceCapacityWarning.requiredWidth)} · short {formatEighthInches(activeIslandFaceCapacityWarning.shortage)}
+	            </span>}
             <span className="absolute left-1 top-1 text-[9px] font-bold tracking-wide text-[#a87f33] bg-white/70 px-1 rounded pointer-events-none">
               ISLAND {Math.round(island.width)}″×{Math.round(island.depth)}″
             </span>

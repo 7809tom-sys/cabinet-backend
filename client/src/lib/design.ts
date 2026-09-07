@@ -5422,6 +5422,8 @@ export interface IslandZone {
   width: number;
   depth: number;
   activeFace?: IslandFace;
+	  /** When enabled, a Back-face cabinet may grow the work zone toward the room Back wall to accommodate its depth. */
+	  autoAdjustDepthForBackFace?: boolean;
 	  /** Optional continuous countertop panel at the physical left or right island end. */
 	  waterfallEnd?: "none" | "left" | "right" | "both";
   /** One required continuous slab. Values are initialized from the cabinet assembly. */

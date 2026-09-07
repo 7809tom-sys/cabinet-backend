@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { IslandFace, IslandZone } from "@/lib/design";
 
 type NumericKey = "x" | "y" | "width" | "depth" | "countertopWidth" | "countertopDepth" | "countertopOffsetX" | "countertopOffsetY";
@@ -73,7 +74,7 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
             </div>
 	          ))}
 	        </div>
-	        <div data-testid="island-depth-guidance" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3 text-xs text-[#4a3b22]">
+		<div data-testid="island-depth-guidance" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3 text-xs text-[#4a3b22]">
 	          <p className="font-semibold text-[#1a2744]">Island depth guide</p>
 	          <p><strong>24 in.</strong> supports one 24-inch base-cabinet run. <strong>36 in.</strong> supports a 24-inch base run opposite a 12-inch wall-cabinet run. <strong>48 in.</strong> supports two 24-inch base runs, or a 36-inch cabinet work zone plus a 12-inch rear seating overhang. <strong>60 in.</strong> supports two 24-inch-deep cabinet runs plus a 12-inch rear seating overhang.</p>
 	          <p className="text-[11px] text-muted-foreground">Cabinets on each face must still add up to that face’s selected width; the designer keeps all cabinet runs edge-to-edge with no overlap.</p>
@@ -126,6 +127,13 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
 		      <span className="text-[10px] font-medium text-muted-foreground">Front</span>
 		    </div>
 		  </div>
+		</div>
+		<div data-testid="island-auto-depth-option" className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+		  <div className="space-y-1">
+		    <Label htmlFor="island-auto-back-depth" className="text-xs font-semibold">Auto-adjust depth for Back cabinets</Label>
+		    <p className="text-[11px] text-muted-foreground">When a deeper cabinet is added to Back, grow the work zone toward the Back side only when the room remains clear. Front cabinets and all existing island treatments stay unchanged.</p>
+		  </div>
+		  <Switch id="island-auto-back-depth" checked={draft.autoAdjustDepthForBackFace === true} onCheckedChange={(enabled) => setDraft((current) => current ? { ...current, autoAdjustDepthForBackFace: enabled } : current)} />
 		</div>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
           <Button type="button" variant="destructive" onClick={onRemove}>Remove island</Button>

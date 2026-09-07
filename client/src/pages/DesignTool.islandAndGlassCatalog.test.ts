@@ -9,7 +9,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		expect(source).not.toContain("islandPlacementMode && x == null && y == null");
 		  expect(source).toContain("if (island && islandPlacementModeRef.current)");
 		  expect(source).toContain("addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFaceRef.current)");
-		  expect(source).toContain("nextIslandFacePlacement(newCab, island, requestedIslandFace, prev)");
+		  expect(source).toContain("nextIslandFacePlacement(newCab, islandForPlacement, requestedIslandFace, islandPlacementPrevious)");
 		  expect(source).toContain("const islandPlacementModeRef = useRef(false);");
 		  expect(source).toContain('setPlacementTarget("island")');
 		  expect(source).toContain("islandFaceRef.current = islandFace;");
@@ -77,8 +77,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	it("offers the Back face for the next cabinet when the chosen Front run reaches its configured island length without changing island treatments", () => {
 	  expect(source).toContain("alternateIslandFaceRecommendation");
 	  expect(source).toContain("Chosen island length reached");
-	  expect(source).toContain("const oppositeCandidate = nextIslandFacePlacement(newCab, island, oppositeFace, prev)");
-	  expect(source).toContain("const selectedFaceCapacity = islandFaceCapacity(island, requestedIslandFace, prev)");
+	  expect(source).toContain("const oppositeCandidate = nextIslandFacePlacement(newCab, islandForPlacement, oppositeFace, islandPlacementPrevious)");
+	  expect(source).toContain("const selectedFaceCapacity = islandFaceCapacity(islandForPlacement, requestedIslandFace, islandPlacementPrevious)");
 	  expect(source).toContain("setAlternateIslandFaceRecommendation({");
 	  expect(source).toContain('setPlacementTarget("island", recommendation.face)');
 	  expect(source).toContain("Choose the next cabinet to add there.");
@@ -97,11 +97,25 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("Move to");
 	});
 
+	it("uses the full wall run for normal 3D catalog drops instead of letting island members create a pointer-local Back-wall gap", () => {
+	  expect(source).toContain("const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;");
+	  expect(source).toContain("const strictPointerPlacement = freehand && !automaticSnapping;");
+	  expect(source).toContain("const widestGap = [...gaps].sort((left, right) => right.length - left.length)[0] ?? null;");
+	  expect(source).toContain("strictPointerPlacement && !measured.containsTarget");
+	});
+
 	it("opens Island setup with an accurate depth requirement before placing a shallow opposing wall cabinet", () => {
 	  expect(source).toContain("const minimumOpposingIslandDepth = STD.BASE_DEPTH + Math.max(0, Number(newCab.depth) || STD.WALL_DEPTH)");
 	  expect(source).toContain("isShallowIslandWallCabinet && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth");
 	  expect(source).toContain("setIslandAttributesOpen(true)");
 	  expect(source).toContain("48 inches if you want a 12-inch seating overhang");
+	});
+
+	it("honors an opt-in Back-face depth adjustment and keeps it collision-safe before adding the cabinet", () => {
+	  expect(source).toContain("autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH)");
+	  expect(source).toContain("island.autoAdjustDepthForBackFace === true");
+	  expect(source).toContain("automatic Back-face depth adjustment is blocked");
+	  expect(source).toContain("Island depth adjusted to");
 	});
 
 	it("uses island-local floor elevation and island-face measurements for selected island cabinets", () => {
