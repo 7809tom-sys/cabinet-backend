@@ -12,4 +12,13 @@ describe("IslandAttributesDialog waterfall prompt", () => {
     expect(source).toContain('value="right"');
     expect(source).toContain('waterfallEnd: value as "none" | "left" | "right"');
   });
+
+  it("updates the accessible island-edge preview before Apply", () => {
+    expect(source).toContain('data-testid="island-waterfall-live-preview"');
+    expect(source).toContain("Live island preview");
+    expect(source).toContain('draft.waterfallEnd === "left"');
+    expect(source).toContain('draft.waterfallEnd === "right"');
+    expect(source).toContain('aria-label="Left waterfall edge"');
+    expect(source).toContain('aria-label="Right waterfall edge"');
+  });
 });

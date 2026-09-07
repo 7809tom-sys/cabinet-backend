@@ -1717,3 +1717,4 @@
 - [x] Explain and offer safe island-depth recovery when a 24-inch base-only island cannot physically accept an opposing 12-inch W-30-30 face
 - [x] Repair the still-invisible selected island-end waterfall using the actual saved cabinet state, countertop selection, and 3D geometry path
 - [x] Prompt for an optional island waterfall and its Left or Right end when an island zone is created or edited, then apply it to the physical island end panel
+- [x] Show a real-time left, right, or no-waterfall island-edge preview inside Island setup before the user applies the selection
