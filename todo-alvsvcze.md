@@ -1785,3 +1785,4 @@
 - [x] Make a W30 blocked by a 2′6″ Front island remainder offer and complete Back-face placement rather than ending with a face-capacity error
 - [x] Restore cabinet editing on desktop and phone by making the nested Media Library dialog viewport-safe, selectable, closable, and return users to the editor without losing changes
 - [x] Compare and restore the Media Library interaction that worked yesterday without removing needed draggable-popup behavior
+- [x] Make the Cabinet Config editor itself fit laptop and phone viewports with reachable distributor settings and save actions through internal scrolling

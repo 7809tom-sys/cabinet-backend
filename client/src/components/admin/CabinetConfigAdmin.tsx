@@ -1060,8 +1060,8 @@ function EditModal({
 
   return (<>
     <Dialog open={open} onOpenChange={(v) => { if (!v && !busy) { setDraft({}); onClose(); } }}>
-      <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="!flex h-[min(88dvh,52rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col overflow-hidden p-4 sm:h-[min(88dvh,52rem)] sm:w-[min(32rem,calc(100vw-2rem))] sm:max-w-none sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Settings2 className="h-4 w-4 text-primary shrink-0" />
             <span className="font-mono font-bold text-primary">{row.masterCode}</span>
@@ -1073,15 +1073,15 @@ function EditModal({
           )}
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-4">
+        <Tabs defaultValue="details" className="flex min-h-0 w-full flex-1 flex-col">
+          <TabsList className="mb-3 grid w-full shrink-0 grid-cols-3">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="measurements">Measurements</TabsTrigger>
             <TabsTrigger value="aliases">Aliases</TabsTrigger>
           </TabsList>
 
           {/* ── Details tab ── */}
-          <TabsContent value="details" className="space-y-5 mt-0">
+          <TabsContent value="details" className="mt-0 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Master Code</Label>
               <Input
@@ -1705,7 +1705,7 @@ function EditModal({
           </TabsContent>
 
           {/* ── Measurements tab ── */}
-          <TabsContent value="measurements" className="space-y-5 mt-0">
+          <TabsContent value="measurements" className="mt-0 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">
@@ -1897,7 +1897,7 @@ function EditModal({
           </TabsContent>
 
           {/* ── Aliases tab ── */}
-          <TabsContent value="aliases" className="space-y-4 mt-0">
+          <TabsContent value="aliases" className="mt-0 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
             <p className="text-xs text-muted-foreground">
               Master SKU alias codes that redirect to{" "}
               <span className="font-mono font-semibold">{row.masterCode}</span>. When any of these codes appear in an order or catalog lookup, they resolve to this cabinet.
@@ -2008,7 +2008,7 @@ function EditModal({
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="gap-2 flex-row justify-end mt-2">
+        <DialogFooter className="mt-2 shrink-0 flex-row justify-end gap-2 border-t border-border pt-3">
           <Button variant="outline" onClick={() => { setDraft({}); onClose(); }} disabled={busy}>
             Cancel
           </Button>
