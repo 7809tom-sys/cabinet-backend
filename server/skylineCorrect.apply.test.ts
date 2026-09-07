@@ -1,5 +1,6 @@
-// Apply the 14 owner-approved Skyline-catalog corrections. Idempotent:
-// re-running produces the same final state. Runs under vitest for DB env.
+// Verify the owner-approved Skyline-catalog identity corrections without
+// mutating production data. The record updates are applied through the
+// approved database migration action, then guarded here against regression.
 //
 // Corrections (source: Skyline / Spring Forest 20-20 catalog cross-check):
 //  - WRC-*  : "Refrigerator Wall Cabinet" was a MISLABEL; WRC = Wine Rack Cabinet.
@@ -12,11 +13,13 @@ import { sql } from "drizzle-orm";
 
 const SRC = "Skyline Catalog Correction";
 
-// masterCode -> { description, numberOfDoors }
-const FIX: Record<string, { description: string; numberOfDoors: number }> = {
-  "WRC-24-30": { description: '24" Wall Wine Rack Cabinet', numberOfDoors: 0 },
-  "WRC-30-15": { description: '30" Wall Wine Rack Cabinet', numberOfDoors: 0 },
-  "WRC-30-18": { description: '30" Wall Wine Rack Cabinet', numberOfDoors: 0 },
+// Active masterCode -> approved identity fields.  The WRC and ERB records
+// are the current Design Tool/catalog masters, not their inactive legacy
+// hyphenated duplicates.
+const FIX: Record<string, { description: string; numberOfDoors: number; subCategory?: string }> = {
+  WRC2430: { description: '24" Wine Rack Wall Cabinet (Fully Assembled)', numberOfDoors: 0, subCategory: "Wine Rack / Open Display" },
+  WRC3015: { description: '30" Wine Rack Wall Cabinet (Fully Assembled)', numberOfDoors: 0, subCategory: "Wine Rack / Open Display" },
+  WRC3018: { description: '30" Wine Rack Wall Cabinet (Fully Assembled)', numberOfDoors: 0, subCategory: "Wine Rack / Open Display" },
 
   "U-18-84-24": { description: '18" x 84" Tall Utility/Pantry Cabinet - 2 Doors (stacked upper & lower) with 1 Fixed Shelf and 4 Adjustable Shelves', numberOfDoors: 2 },
   "U-18-90-24": { description: '18" x 90" Tall Utility/Pantry Cabinet - 2 Doors (stacked upper & lower) with 1 Fixed Shelf and 5 Adjustable Shelves', numberOfDoors: 2 },
@@ -25,40 +28,38 @@ const FIX: Record<string, { description: string; numberOfDoors: number }> = {
   "U-24-84-24": { description: '24" x 84" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 4 Adjustable Shelves', numberOfDoors: 4 },
   "U-24-90-24": { description: '24" x 90" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves', numberOfDoors: 4 },
   "U-24-96-24": { description: '24" x 96" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves', numberOfDoors: 4 },
-  "U-30-84-24": { description: '30" x 84" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 4 Adjustable Shelves', numberOfDoors: 4 },
-  "U-30-90-24": { description: '30" x 90" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves', numberOfDoors: 4 },
-  "U-30-96-24": { description: '30" x 96" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves', numberOfDoors: 4 },
+  U308424: { description: '30" x 84" Tall Utility / Pantry Cabinet', numberOfDoors: 4 },
+  U309024: { description: '30" x 90" Tall Utility / Pantry Cabinet', numberOfDoors: 4 },
+  U309624: { description: '30" x 96" Tall Utility / Pantry Cabinet', numberOfDoors: 4 },
 
-  "ERB-33": { description: '33" Base Easy Reach Corner Cabinet w/Lazy Susan', numberOfDoors: 1 },
-  "ERB-36": { description: '36" Base Easy Reach Corner Cabinet w/Lazy Susan', numberOfDoors: 1 },
+  ERB33: { description: '33" Easy Reach Base Cabinet with Lazy Susan', numberOfDoors: 1, subCategory: "Lazy Susan / Easy Reach" },
+  ERB36: { description: '36" Easy Reach Base Cabinet with Lazy Susan', numberOfDoors: 1, subCategory: "Lazy Susan / Easy Reach" },
 };
 
-function esc(s: string) {
-  return s.replace(/'/g, "''");
+function dimensionsEncodedByMasterCode(masterCode: string): { width: number; height: number } | null {
+  const wallOrWineRack = /^(?:W|WRC)(\d{2})(\d{2})$/.exec(masterCode);
+  if (wallOrWineRack) return { width: Number(wallOrWineRack[1]), height: Number(wallOrWineRack[2]) };
+
+  const pantry = /^U-(\d{2})-(\d{2})-\d{2}$/.exec(masterCode);
+  if (pantry) return { width: Number(pantry[1]), height: Number(pantry[2]) };
+
+  const compactPantry = /^U(\d{2})(\d{2})\d{2}$/.exec(masterCode);
+  if (compactPantry) return { width: Number(compactPantry[1]), height: Number(compactPantry[2]) };
+
+  return null;
 }
 
-describe("apply skyline conflict corrections", () => {
-  it("updates the 14 rows and verifies", async () => {
+describe("approved Skyline identity corrections", () => {
+  it("keeps the active wine-rack, pantry, and easy-reach records source-aligned without changing commercial data", async () => {
     const db = await getDb();
     expect(db).toBeTruthy();
     if (!db) return;
 
-    for (const [code, fix] of Object.entries(FIX)) {
-      await db.execute(
-        sql.raw(
-          `UPDATE cabinets
-             SET description = '${esc(fix.description)}',
-                 numberOfDoors = ${fix.numberOfDoors},
-                 descriptionSource = '${esc(SRC)}'
-           WHERE masterCode = '${esc(code)}'`
-        )
-      );
-    }
-
-    const codes = Object.keys(FIX).map((c) => `'${esc(c)}'`).join(",");
+    const codes = Object.keys(FIX).map((code) => `'${code}'`).join(",");
     const res = (await db.execute(
       sql.raw(
-        `SELECT masterCode, description, numberOfDoors, descriptionSource
+        `SELECT masterCode, description, numberOfDoors, subCategory, descriptionSource, width, height,
+                isActive, isCornerCabinet, corner_type, cabinet_square, graphicType
            FROM cabinets WHERE masterCode IN (${codes}) ORDER BY masterCode`
       )
     )) as any;
@@ -69,13 +70,27 @@ describe("apply skyline conflict corrections", () => {
       const want = FIX[r.masterCode];
       expect(r.description).toBe(want.description);
       expect(Number(r.numberOfDoors)).toBe(want.numberOfDoors);
-      expect(r.descriptionSource).toBe(SRC);
-      // eslint-disable-next-line no-console
-      console.log(`OK ${r.masterCode} | doors=${r.numberOfDoors} | ${r.description}`);
+      expect(Number(r.isActive)).toBe(1);
+      if (want.subCategory) {
+        expect(r.subCategory).toBe(want.subCategory);
+        expect(r.descriptionSource).toBe(SRC);
+      }
+
+      const encodedDimensions = dimensionsEncodedByMasterCode(r.masterCode);
+      if (encodedDimensions) {
+        expect(Number(r.width)).toBe(encodedDimensions.width);
+        expect(Number(r.height)).toBe(encodedDimensions.height);
+      }
     }
 
-    // sanity: no WRC row still says "Refrigerator"
-    const stray = rows.filter((r) => /refrigerator/i.test(r.description));
+    const wineRacks = rows.filter((row) => row.masterCode.startsWith("WRC"));
+    expect(wineRacks).toHaveLength(3);
+    const stray = wineRacks.filter((row) => /refrigerator/i.test(`${row.description} ${row.subCategory}`));
     expect(stray.length).toBe(0);
+
+    for (const masterCode of ["ERB33", "ERB36"]) {
+      const row = rows.find((candidate) => candidate.masterCode === masterCode);
+      expect(row).toMatchObject({ isCornerCabinet: 1, graphicType: "base_easy_reach" });
+    }
   }, 60000);
 });

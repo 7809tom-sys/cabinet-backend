@@ -827,7 +827,7 @@
 - [x] Full Skyline workbook inventory: Extracted and normalized all 350 workbook product rows across 32 style codes into 11,200 stable item/style records, retaining source item code, description, style amount, and the user rule that `#N/A`, N/A, blank, and Not Available mean unavailable
 - [x] Full Skyline site-catalog comparison: Compared all 11,200 normalized source records with the live Skyline Cabinetry master, alias, distributor SKU, availability, publication, approval, cabinet-active, and style-active data that governs website catalog eligibility
 - [x] Full Skyline discrepancy classification: Produced a complete row-level register and a conflict-only register. The audit identifies 6,548 aligned available records, 4,351 aligned unavailable records, and 301 approval-gated review rows: 141 missing mappings, 88 source-available items blocked from website eligibility, 34 list-reference mismatches, 32 multiple mappings, and 6 source-N/A items still live
-- [ ] Full Skyline audit report and approval gate: Deliver a readable complete-audit report with safe proposed actions, including the previously confirmed NB 3DB12/3DB15/3DB18 findings, and await user approval before changing any catalog, alias, eligibility, visibility, publication, or price record
+- [x] Full Skyline audit report and approval gate: Delivered a readable complete-audit report with safe proposed actions, including the previously confirmed NB 3DB12/3DB15/3DB18 findings; the owner approved the bounded identity corrections while ambiguous mappings and additions remain on hold
 - [x] Skyline navy drawer-base decision deck: Prepared and presented a nine-slide evidence-led decision deck summarizing the completed 21-item NB audit, the 18 aligned records, the three confirmed discrepancies, workbook price evidence, and approval-gated controlled repair plan
 - [x] Skyline Navy Blue inventory discrepancy CSV: Superseded by the completed validated export entry below; the original 21-item pre-correction register was delivered and the post-correction verification register is now available
 - [x] Skyline Navy Blue inventory discrepancy CSV: Exported and validated a complete 21-item inventory-management CSV with workbook source/price cells, live mapping and visibility status, current and workbook prices, calculated variances, discrepancy classification, recommended action, and approval gate; 18 rows are aligned and 3 rows require approved correction
@@ -1726,3 +1726,11 @@
 - [x] Randomly select one Featured Door Styles room scene at the start of each signed-in session while keeping it stable during that session
 - [x] Preserve verified room-scene-to-distributor attribution for authorized internal users while keeping distributor names hidden from public shoppers
 - [x] Display verified distributor attribution and curated six-scene selection status in the authorized Featured Door Styles administration view without exposing it publicly
+- [x] Apply the approved WRC wine-rack identity correction without changing Skyline pricing, availability, or public source privacy
+- [x] Verify and apply the approved Skyline tall utility and pantry door-count corrections with matching 2D and 3D face layouts
+- [x] Verify and apply the approved ERB-33 and ERB-36 lazy-Susan product-detail correction without changing geometry or commercial data
+- [x] Add regression coverage and publish the owner-approved bounded Skyline identity correction set
+- [x] Apply the owner-provided cabinet-code width-by-height rule when auditing approved Skyline records and flag any conflicting diagram label for correction
+- [x] Add a source-backed stile-and-rail specification for door styles without inferring unverified dimensions
+- [x] Include the complete verified door description and frame specification in the safeguarded customer image-handoff record
+- [x] Add a saved handoff reference package with the locked kitchen image, selected product thumbnails, verified specifications, and an explicit do-not-change-the-plan instruction

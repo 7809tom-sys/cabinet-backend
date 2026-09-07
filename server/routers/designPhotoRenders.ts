@@ -234,6 +234,30 @@ function headingSvg() {
   </svg>`);
 }
 
+type DoorFrameSpecification = {
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  centerRailWidth?: string | number | null;
+  profileNotes?: string | null;
+};
+
+function formatVerifiedInches(value: string | number | null | undefined) {
+  const inches = Number(value);
+  return Number.isFinite(inches) && inches > 0 ? `${inches}\"` : null;
+}
+
+/** Lists only source-entered measurements; unknown door-frame details remain absent. */
+export function verifiedDoorFrameSpecification(style: DoorFrameSpecification | null | undefined) {
+  if (!style) return null;
+  const measurements = [
+    formatVerifiedInches(style.stileWidth) ? `${formatVerifiedInches(style.stileWidth)} stiles` : null,
+    formatVerifiedInches(style.railWidth) ? `${formatVerifiedInches(style.railWidth)} rails` : null,
+    formatVerifiedInches(style.centerRailWidth) ? `${formatVerifiedInches(style.centerRailWidth)} center rail` : null,
+    style.profileNotes?.trim() || null,
+  ].filter((part): part is string => Boolean(part));
+  return measurements.length > 0 ? `Verified door frame: ${measurements.join(" · ")}` : null;
+}
+
 export async function composeManualHandoffBoard(sourceImage: Buffer, references: ManualAiReference[]) {
   const mainX = 36;
   const mainY = 102;
@@ -293,7 +317,7 @@ async function manualAiReferences(
   const selectedIds = selectedPelicanIds(design.selectedSurfaces).slice(0, 40);
   const [styleRows, productRows] = await Promise.all([
     design.selectedStyleId
-      ? db.select({ id: doorStyles.id, name: doorStyles.aliasName, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, woodSpecies: doorStyles.woodSpecies, finish: doorStyles.finish, doorSampleImageUrl: doorStyles.doorSampleImageUrl, cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl }).from(doorStyles).where(eq(doorStyles.id, design.selectedStyleId)).limit(1)
+      ? db.select({ id: doorStyles.id, name: doorStyles.aliasName, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, woodSpecies: doorStyles.woodSpecies, finish: doorStyles.finish, railWidth: doorStyles.railWidth, stileWidth: doorStyles.stileWidth, centerRailWidth: doorStyles.centerRailWidth, profileNotes: doorStyles.profileNotes, doorSampleImageUrl: doorStyles.doorSampleImageUrl, cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl }).from(doorStyles).where(eq(doorStyles.id, design.selectedStyleId)).limit(1)
       : Promise.resolve([]),
     selectedIds.length
       ? db.select({ id: pelicanProducts.id, pelicanCode: pelicanProducts.pelicanCode, name: pelicanProducts.name, category: pelicanProducts.category, subCategory: pelicanProducts.subCategory, size: pelicanProducts.size, description: pelicanProducts.description, imageUrl: pelicanProducts.imageUrl, materialImageUrl: pelicanProducts.materialImageUrl }).from(pelicanProducts).where(inArray(pelicanProducts.id, selectedIds))
@@ -305,7 +329,7 @@ async function manualAiReferences(
   if (style || cabinetProvenance?.materialImageUrl) {
     references.push({
       title: style?.name || style?.ourName || cabinetProvenance?.name || "Cabinet door finish",
-      detail: [style?.styleCode, style?.doorStyle, style?.woodSpecies, style?.finish].filter(Boolean).join(" · ") || "Selected cabinet finish",
+      detail: [style?.styleCode, style?.doorStyle, style?.woodSpecies, style?.finish, verifiedDoorFrameSpecification(style)].filter(Boolean).join(" · ") || "Selected cabinet finish",
       imageUrl: await signedReferenceUrl(style?.doorSampleImageUrl ?? style?.cornerSwatchImageUrl ?? style?.thumbnailImageUrl ?? cabinetProvenance?.materialImageUrl),
       role: "cabinet",
       productId: style?.id ?? cabinetProvenance?.productId ?? null,
@@ -342,6 +366,7 @@ async function manualAiReferences(
 function manualAiPrompt(provenance: PhotoRenderProvenanceInput, references: ManualAiReference[]) {
   const selectedReferences = references.map((reference, index) => `${index + 2}. ${reference.title}${reference.detail ? ` — ${reference.detail}` : ""}`).join("\n");
   return [
+    "Please design the kitchen. Do not alter or change the plan.",
     "Use image 1 as the locked CabinetDealz kitchen plan and camera composition. Do not alter its layout, cabinets, fillers, countertop runs, appliances, fixtures, walls, doors, windows, island, dimensions, or viewpoint.",
     "The remaining numbered cards are the exact selected CabinetDealz and Pelican product references. Apply each reference only to its matching existing surface or fixture. Do not introduce any product not shown on this board.",
     "Create a photorealistic architectural interior image with realistic lighting and physically plausible material texture. Return one kitchen image only, without labels, UI, people, text, logos, watermarks, measurements, or extra products.",
