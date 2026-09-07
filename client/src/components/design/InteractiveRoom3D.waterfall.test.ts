@@ -9,9 +9,10 @@ describe("3D waterfall end panels", () => {
     expect(source).toContain("waterfallLeft: cabinet.waterfallLeft ?? null");
     expect(source).toContain("waterfallRight: cabinet.waterfallRight ?? null");
     expect(source).toContain("const waterfallSides");
-    expect(source).toContain("waterfallPanel: true");
-    expect(source).toContain("fullHeightToFloor: true");
+	  expect(source).toContain("waterfallPanel: true");
+	  expect(source).toContain("fullHeightToFloor: true");
 	  expect(source).toContain("islandWaterfall: Boolean(sku.islandFace)");
+	  expect(source).toContain("panel.translateX(side * (bodyWidth / 2 + panelThickness / 2))");
 	  expect(source.indexOf("const waterfallSides")).toBeGreaterThan(source.indexOf("if (shouldRenderCountertopOverSceneItem"));
   });
 });

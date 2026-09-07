@@ -89,13 +89,25 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
 	          </Select>
 	          <p className="text-[11px] text-muted-foreground">For a finished 48-inch seating island, set the cabinet work zone to 36 inches deep, then choose the 12-inch rear overhang. For a finished 60-inch seating island, use a 48-inch cabinet work zone plus this overhang.</p>
 	        </div>
-	        <div className="space-y-1">
+        <div className="space-y-1">
           <Label className="text-xs">Active placement face</Label>
           <Select value={draft.activeFace ?? "front"} onValueChange={(value) => setDraft({ ...draft, activeFace: value as IslandFace })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="front">Front</SelectItem><SelectItem value="back">Back</SelectItem><SelectItem value="left">Left end</SelectItem><SelectItem value="right">Right end</SelectItem></SelectContent>
           </Select>
         </div>
+		<div data-testid="island-waterfall-prompt" className="space-y-1 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+		  <Label className="text-xs font-semibold text-[#1a2744]">Add a waterfall?</Label>
+		  <Select value={draft.waterfallEnd ?? "none"} onValueChange={(value) => setDraft({ ...draft, waterfallEnd: value as "none" | "left" | "right" })}>
+		    <SelectTrigger aria-label="Island waterfall end"><SelectValue /></SelectTrigger>
+		    <SelectContent>
+		      <SelectItem value="none">No waterfall</SelectItem>
+		      <SelectItem value="left">Yes — left end</SelectItem>
+		      <SelectItem value="right">Yes — right end</SelectItem>
+		    </SelectContent>
+		  </Select>
+		  <p className="text-[11px] text-muted-foreground">A full-height countertop panel is added to this physical island end using the active countertop material.</p>
+		</div>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
           <Button type="button" variant="destructive" onClick={onRemove}>Remove island</Button>
           <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={onRotate}>Rotate 90°</Button><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="button" onClick={() => onApply(draft)}>Apply</Button></div>

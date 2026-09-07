@@ -4557,7 +4557,10 @@ export function addCabinet(
 	      );
 	      panel.position.copy(cabinet.position);
 	      panel.rotation.y = rotation;
-	      panel.translateX(side * (bodyWidth / 2 - panelThickness / 2));
+	      // Sit outside the cabinet carcass so the slab is visible at the chosen
+	      // island end. The panel owns the countertop's 1.5-inch side overhang,
+	      // rather than being embedded within the cabinet body.
+	      panel.translateX(side * (bodyWidth / 2 + panelThickness / 2));
 	      panel.translateZ((COUNTERTOP_FRONT_OVERHANG - rearExtensionIn * INCH) / 2);
 	      panel.position.y = waterfallTop / 2;
 	      panel.userData = {
@@ -5439,7 +5442,7 @@ function addIslandZone(
   for (const edge of [back, front, left, right]) edge.userData = { islandGuide: true };
   group.add(back, front, left, right);
   const slabs = islandCountertopRects(island, placed);
-  slabs.forEach((slab, slabIndex) => {
+	  slabs.forEach((slab, slabIndex) => {
     const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
       centerXIn: slab.x + slab.width / 2,
       centerZIn: slab.y + slab.depth / 2,
@@ -5466,9 +5469,32 @@ function addIslandZone(
     );
     counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
     counter.userData = { islandCountertop: true, islandCountertopSegment: slabIndex + 1, widthIn: slab.width, depthIn: slab.depth };
-    group.add(counter);
-  });
-  root.add(group);
+	    group.add(counter);
+	  });
+	  const waterfallEnd = island.waterfallEnd;
+	  if ((waterfallEnd === "left" || waterfallEnd === "right") && slabs.length > 0) {
+	    const slabLeft = Math.min(...slabs.map((slab) => slab.x));
+	    const slabRight = Math.max(...slabs.map((slab) => slab.x + slab.width));
+	    const slabBack = Math.min(...slabs.map((slab) => slab.y));
+	    const slabFront = Math.max(...slabs.map((slab) => slab.y + slab.depth));
+	    const slabDepth = slabFront - slabBack;
+	    const panelThickness = 1.5 * INCH;
+	    const panelHeight = transform.counterTop + 0.75 * INCH;
+	    const panelMaterial = new THREE.MeshPhysicalMaterial({
+	      color: countertopTexture ? "#ffffff" : counterColor,
+	      map: countertopTexture ?? null,
+	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
+	    });
+	    const panel = new THREE.Mesh(
+	      new THREE.BoxGeometry(panelThickness, panelHeight, slabDepth * INCH),
+	      panelMaterial,
+	    );
+	    const endX = waterfallEnd === "left" ? slabLeft : slabRight;
+	    panel.position.set(endX * INCH - transform.x, panelHeight / 2, (slabBack + slabDepth / 2) * INCH - transform.z);
+	    panel.userData = { islandWaterfall: true, waterfallEnd, fullHeightToFloor: true, usesActiveCountertopMaterial: true };
+	    group.add(panel);
+	  }
+	  root.add(group);
 }
 
 export type ThreeDBacksplashSegment = {

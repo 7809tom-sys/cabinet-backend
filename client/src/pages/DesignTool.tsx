@@ -5239,10 +5239,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    if (!moved.ok) { toast.error(moved.reason); return; }
 	    const resized = resizeIslandScene(moved.island, moved.placed, room, draft.width, draft.depth);
 	    if (!resized.ok) { toast.error(resized.reason); return; }
-	    const nextIsland: IslandZone = {
-	      ...resized.island,
-	      activeFace: draft.activeFace ?? islandFace,
-	      countertopWidth: draft.countertopWidth ?? null,
+		    const nextIsland: IslandZone = {
+		      ...resized.island,
+		      activeFace: draft.activeFace ?? islandFace,
+		      waterfallEnd: draft.waterfallEnd ?? "none",
+		      countertopWidth: draft.countertopWidth ?? null,
 	      countertopDepth: draft.countertopDepth ?? null,
 	      countertopOffsetX: draft.countertopOffsetX ?? 0,
 	      countertopOffsetY: draft.countertopOffsetY ?? 0,
@@ -5287,13 +5288,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    }
 	    const width = Math.max(24, Math.min(72, room.width - 24));
 	    const depth = Math.max(24, Math.min(48, room.depth - 24));
-	    const next: IslandZone = {
-	      x: Math.max(0, (room.width - width) / 2),
-	      y: Math.max(0, (room.depth - depth) / 2),
-	      width,
-	      depth,
-	      activeFace: "front",
-	      countertopWidth: null,
+		    const next: IslandZone = {
+		      x: Math.max(0, (room.width - width) / 2),
+		      y: Math.max(0, (room.depth - depth) / 2),
+		      width,
+		      depth,
+		      activeFace: "front",
+		      waterfallEnd: "none",
+		      countertopWidth: null,
 	      countertopDepth: null,
 	      countertopOffsetX: 0,
 	      countertopOffsetY: 0,
