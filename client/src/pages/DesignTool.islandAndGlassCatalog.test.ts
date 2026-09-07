@@ -5,10 +5,11 @@ const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "ut
 
 describe("DesignTool island scene and glass catalog wiring", () => {
 	it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {
-		expect(source).toContain("targetIslandFace ?? (islandPlacementModeRef.current ? islandFaceRef.current : null)");
+		expect(source).toContain("const selectedIslandFace = targetIslandFace");
+		expect(source).toContain("islandPlacementMode || islandPlacementModeRef.current");
 		expect(source).not.toContain("islandPlacementMode && x == null && y == null");
-		  expect(source).toContain("if (island && islandPlacementModeRef.current)");
-		  expect(source).toContain("addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFaceRef.current)");
+		  expect(source).toContain("if (island && (islandPlacementMode || islandPlacementModeRef.current))");
+		  expect(source).toContain("addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFace ?? islandFaceRef.current)");
 		  expect(source).toContain("nextIslandFacePlacement(newCab, islandForPlacement, requestedIslandFace, islandPlacementPrevious)");
 		  expect(source).toContain("const islandPlacementModeRef = useRef(false);");
 		  expect(source).toContain('setPlacementTarget("island")');

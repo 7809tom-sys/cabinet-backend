@@ -3115,7 +3115,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      let spot: { x: number; y: number; rotation: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
-      const requestedIslandFace = isFloatingShelf ? null : island && (targetIslandFace ?? (islandPlacementModeRef.current ? islandFaceRef.current : null));
+      // The controlled mode is what the customer sees in the Placement panel.
+      // Prefer it over legacy refs so a W-30-30 selected while Island mode is
+      // visibly active always enters the island resolver, even immediately after
+      // a mode or face change.
+      const selectedIslandFace = targetIslandFace
+        ?? ((islandPlacementMode || islandPlacementModeRef.current) ? (islandFace ?? islandFaceRef.current) : null);
+      const requestedIslandFace = isFloatingShelf ? null : island && selectedIslandFace;
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -3844,7 +3850,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, island, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
 	  );
 	  const placeOnRecommendedWall = useCallback(() => {
 	    const recommendation = alternateWallRecommendation;
@@ -3920,8 +3926,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // Island mode is an explicit placement target, not merely a view. Do not
 	      // allow a 3D catalog click or drag to fall through to an outer wall while
 	      // the owner is building the island assembly.
-	      if (island && islandPlacementModeRef.current) {
-	        addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFaceRef.current);
+	      if (island && (islandPlacementMode || islandPlacementModeRef.current)) {
+	        addCabinet(cabinet, undefined, undefined, forceAccessory, 0, false, undefined, islandFace ?? islandFaceRef.current);
 	        return;
 	      }
 	      if (!dropTarget) { addCabinet(cabinet, undefined, undefined, forceAccessory); return; }
@@ -3996,7 +4002,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const appliance = appliancePalette.find((candidate) => Number(candidate.id) === item.id);
     if (appliance) addAtDropTarget(appliance);
     else toast.error("That appliance is no longer available for this room type.");
-	  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, island, room, placed, openings]);
+	  }, [liveMasterCabinets, threeDAccessoryCatalog, appliancePalette, addCabinet, activeWall, island, islandPlacementMode, islandFace, room, placed, openings]);
 
   const addRangeHoodFromInteractive3d = useCallback(() => {
     const range = placed.find((item) => /^RANGE-/.test(item.masterCode));
@@ -5739,15 +5745,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     );
   };
 
+  // All delete entry points must release the physical cabinet run immediately.
+  // Catalog placement reads placedRef between renders, so leaving it stale after
+  // a keyboard or toolbar delete falsely keeps the removed cabinet (or its sink
+  // relationship) inside the next placement collision and gap calculations.
+  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
+    const removed = placedRef.current.find((cabinet) => cabinet.uid === uid);
+    deleteAttachedSinkFixtures(removed);
+    setPlaced((current) => {
+      const next = removePlacedCabinetWithRequiredBlindCornerFiller(current, uid);
+      placedRef.current = next;
+      return next;
+    });
+    setSelectedUid((current) => current === uid ? null : current);
+    setSelectedSinkUid(null);
+    setFailedWallFit(null);
+    setPlacementWarning(null);
+    setAlternateWallRecommendation(null);
+    setAlternateIslandFaceRecommendation(null);
+    setSmallGapFillerPrompt(null);
+  }, [deleteAttachedSinkFixtures]);
+
   const deleteSelected = () => {
     // Cabinet selection takes priority; otherwise delete a selected sink,
     // wall opening, or pony wall so EVERY selectable object on the canvas is
     // removable from the same Delete control (mobile toolbar + Delete/Backspace key).
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
-      deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === selectedUid));
-	      setPlaced((prev) => removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid));
-      setSelectedUid(null);
+      removeCabinetAndReleaseVoid(selectedUid);
       return;
     }
     if (selectedSinkUid) {
@@ -6658,17 +6683,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // cabinet can always be removed regardless of category/placement or how it
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
-    deleteAttachedSinkFixtures(placed.find((cabinet) => cabinet.uid === uid));
-    setPlaced((prev) => {
-      const next = removePlacedCabinetWithRequiredBlindCornerFiller(prev, uid);
-      // Palette and 3D-drop placement read this committed reference between
-      // renders. Keep it synchronized so a just-deleted SB-36 cannot remain
-      // as a phantom wall-run blocker during an immediate re-add.
-      placedRef.current = next;
-      return next;
-    });
-    setSelectedUid((cur) => (cur === uid ? null : cur));
-  }, [placed, deleteAttachedSinkFixtures]);
+    removeCabinetAndReleaseVoid(uid);
+  }, [removeCabinetAndReleaseVoid]);
 
   // Rotate a specific cabinet by uid (used by the on-canvas rotate handle so a
   // touch user can turn any cabinet they tap, not just via the toolbar/keyboard).

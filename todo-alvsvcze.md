@@ -1789,3 +1789,5 @@
 - [x] On Designer plan or finish changes, identify placed cabinets without authorized customer pricing and offer compliant priced alternatives only after explicit user review
 - [x] Treat verified functional equivalents, including compatible door-count alternatives such as a two-door base to a three-door base, as labeled priced suggestions without changing a plan automatically
 - [x] Treat verified functional equivalents, such as LS36-to-ER36 where appropriate, as labeled approved alternatives for unpriced cabinet review without changing a plan automatically
+- [x] Allow a 30-inch wall cabinet to place on an island with normal snapping, collision, rotation, and invoice/material updates, without a wall-type or 30-inch exclusion
+- [x] Immediately release a deleted cabinet’s full physical void so same-size or smaller fitting replacements are allowed without phantom cabinet, sink, or selection reservations

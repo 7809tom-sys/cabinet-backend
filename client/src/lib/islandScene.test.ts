@@ -186,8 +186,8 @@ describe("island mini-scene geometry", () => {
   });
 
 	  it("protects an occupied front island run while preserving the empty Back face for a W-30-30", () => {
-    const frontB12 = islandFacePlacement(cabinet({ uid: "front-b12", masterCode: "B-12", width: 12 }), island, "front", 0);
-    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), island, "front", 12);
+	    const frontB12 = islandFacePlacement(cabinet({ uid: "front-b12", masterCode: "B-12", width: 12 }), island, "front", 0);
+	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), island, "front", 12);
     const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "B-18", width: 18 }), island, "front", 42);
     const existing = [frontB12, frontRange, frontB18];
     const w3030 = cabinet({ uid: "w3030", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 });
@@ -198,10 +198,34 @@ describe("island mini-scene geometry", () => {
       islandOffset: 0,
       x: island.x,
 	      y: island.y,
-    });
-  });
+	    });
+	  });
 
-	it("snaps opposing front and back runs beside a usable end cabinet and fits one slab to the combined shape", () => {
+	  it("places a W-30-30 wall cabinet on the island Back after growing only the Back depth beside a 24-inch Front run", () => {
+	    const compactIsland: IslandZone = { ...island, depth: 24 };
+	    const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "B-18", width: 18 }), compactIsland, "front", 0);
+	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), compactIsland, "front", 18);
+	    const frontB12 = islandFacePlacement(cabinet({ uid: "front-b12", masterCode: "B-12", width: 12 }), compactIsland, "front", 48);
+	    const frontRun = [frontB18, frontRange, frontB12];
+	    const w3030 = cabinet({ uid: "island-w3030", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 });
+
+	    const expansion = autoAdjustIslandDepthForBackFace(compactIsland, frontRun, room, w3030.depth);
+	    expect(expansion).toMatchObject({ ok: true, island: { depth: 36 } });
+	    if (!expansion.ok) throw new Error(expansion.reason);
+	    const placedW30 = nextIslandFacePlacement(w3030, expansion.island, "back", expansion.placed);
+
+	    expect(placedW30).toMatchObject({
+	      islandFace: "back",
+	      islandOffset: 0,
+	      islandCounterHeightWallCabinet: true,
+	      mountBottom: 4.5,
+	      width: 30,
+	      depth: 12,
+	    });
+	    expect(hasCollision(placedW30!, expansion.placed)).toBe(false);
+	  });
+
+	 it("snaps opposing front and back runs beside a usable end cabinet and fits one slab to the combined shape", () => {
 	  const leftEnd = nextIslandFacePlacement(cabinet({ uid: "left-end" }), island, "left", []);
 	  const back = nextIslandFacePlacement(cabinet({ uid: "back" }), island, "back", [leftEnd!]);
 	  const front = nextIslandFacePlacement(cabinet({ uid: "front" }), island, "front", [leftEnd!, back!]);

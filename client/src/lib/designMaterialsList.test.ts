@@ -67,7 +67,44 @@ describe("complete Designer materials list", () => {
 	    expect(materialsListPricedTotal(rows)).toBe(1589);
   });
 
-  it("exports spreadsheet-friendly columns without inventing pending prices", () => {
+  it("keeps an island-placed 30-inch wall cabinet in the cabinet invoice and materials output", () => {
+    const islandWallRows = buildMaterialsListRows({
+      buildRows: [
+        {
+          sourceUids: ["island-w3030"],
+          code: "W-30-30",
+          description: "30-inch Wall Cabinet on island",
+          widthIn: 30,
+          heightIn: 30,
+          depthIn: 12,
+          placement: "wall",
+          color: "Aura Cream",
+          qty: 1,
+          unitPrice: 315,
+        },
+      ],
+      pricingLines: [
+        { masterCode: "W-30-30", name: "30-inch Wall Cabinet", styleId: 7, styleLabel: "Aura Cream", distributorId: 4, tier: "homeowner", unitPrice: 315, qty: 1 },
+      ],
+      selectedSurfaces: [],
+      supplements: [],
+      distributorNames: new Map([[4, "Ashford"]]),
+      defaultDistributorId: 4,
+      defaultStyleName: "Aura Cream",
+    });
+
+    expect(islandWallRows).toContainEqual(expect.objectContaining({
+      code: "W-30-30",
+      section: "cabinet",
+      dimensions: '30" W × 30" H × 12" D',
+      qty: 1,
+      unitPrice: 315,
+      lineTotal: 315,
+      sourceUids: ["island-w3030"],
+    }));
+  });
+
+	it("exports spreadsheet-friendly columns without inventing pending prices", () => {
     const csv = materialsListCsv(rows);
     expect(csv).toContain("No.,Section,Item Code,Description,Category,Distributor,Color / Style,Dimensions,Qty,Unit Price,Line Total,Notes");
 	    expect(csv).toContain('1,Cabinets & cabinet parts,B-24,24-inch Base Cabinet,Cabinet,Ashford,Aura Cream,"24"" W × 34.5"" H × 24"" D",2,300.00,600.00,');
