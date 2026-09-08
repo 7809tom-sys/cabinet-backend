@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import { appRouter } from "./routers";
+import type { TrpcContext } from "./_core/context";
+
+function callerContext(role: "user" | "admin"): TrpcContext {
+  return {
+    user: { id: 1, openId: "freight-test-lab", name: "Freight Tester", email: "test@example.com", role } as TrpcContext["user"],
+    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    res: { clearCookie: () => {}, cookie: () => {} } as unknown as TrpcContext["res"],
+  };
+}
+
+describe("Operations Freight Test Lab", () => {
+  it("is restricted to administrators", async () => {
+    const caller = appRouter.createCaller(callerContext("user"));
+    await expect(caller.freight.adminSimulateFreight({
+      destinationZip: "30303",
+      merchandiseSubtotalCents: 500000,
+      mode: "pallet_preview",
+      items: [{ cabinetId: null, qty: 1, weightLbs: 50 }],
+    })).rejects.toThrow();
+  });
+
+  it("builds a test-only pallet preview without a customer quote token", async () => {
+    const caller = appRouter.createCaller(callerContext("admin"));
+    const result = await caller.freight.adminSimulateFreight({
+      destinationZip: "30303",
+      merchandiseSubtotalCents: 500000,
+      mode: "pallet_preview",
+      accessorials: { residential: true, liftgate: true },
+      items: [
+        { cabinetId: null, qty: 6, weightLbs: 75 },
+        { cabinetId: null, qty: 2, weightLbs: 30 },
+      ],
+    });
+
+    expect(result.testOnly).toBe(true);
+    expect(result.mode).toBe("pallet_preview");
+    expect(result.deliveryType).toBe("residential");
+    expect(result.liftgate).toBe(true);
+    expect(result.totalUnits).toBe(8);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.palletCount).toBeGreaterThan(0);
+    expect(result.groups[0]?.pallets[0]).toMatchObject({
+      lengthIn: expect.any(Number),
+      widthIn: expect.any(Number),
+      heightIn: expect.any(Number),
+      weightLbs: expect.any(Number),
+    });
+    expect(result.totalBillableWeightLbs).toBeGreaterThan(0);
+    expect(result.quote).toBeNull();
+    expect(result.note).toContain("No carrier request");
+    expect(JSON.stringify(result)).not.toContain("quoteToken");
+  });
+
+  it("searches real active catalog/style combinations and reports their origin configuration status", async () => {
+    const caller = appRouter.createCaller(callerContext("admin"));
+    const matches = await caller.freight.adminSearchSimulationItems({ query: "B" });
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]).toMatchObject({
+      cabinetId: expect.any(Number),
+      masterCode: expect.any(String),
+      styleId: expect.any(Number),
+      styleName: expect.any(String),
+      distributorId: expect.any(Number),
+    });
+    expect(matches[0]).toHaveProperty("originZip");
+    expect(matches[0]).toHaveProperty("planBFeeCents");
+  });
+
+  it("reports an unavailable Plan B test when the sample group has no configured fallback fee", async () => {
+    const caller = appRouter.createCaller(callerContext("admin"));
+    const result = await caller.freight.adminSimulateFreight({
+      destinationZip: "30303",
+      merchandiseSubtotalCents: 100000,
+      mode: "plan_b",
+      items: [{ cabinetId: null, qty: 1, weightLbs: 50 }],
+    });
+
+    expect(result.testOnly).toBe(true);
+    expect(result.groups[0]?.source).toBe("unavailable");
+    expect(result.quote?.available).toBe(false);
+    expect(result.quote?.reason).toContain("no Plan B fee configured");
+    expect(JSON.stringify(result)).not.toContain("quoteToken");
+  });
+});

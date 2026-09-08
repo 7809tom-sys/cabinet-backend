@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Truck, Calculator, Plug, ShieldCheck, Activity } from "lucide-react";
+import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity } from "lucide-react";
+import FreightTestLab from "./FreightTestLab";
 
 // Dollars <-> cents helpers (we edit dollars, store cents).
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -82,12 +83,6 @@ export default function ShippingAdmin() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [apiKeyInput, setApiKeyInput] = useState(""); // write-only
   const [hasKey, setHasKey] = useState(false);
-
-  // Test live quote
-  const [testZip, setTestZip] = useState("30303");
-  const [testWeight, setTestWeight] = useState("900");
-  const [testCube, setTestCube] = useState("80");
-  const [testResidential, setTestResidential] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -165,21 +160,6 @@ export default function ShippingAdmin() {
     },
     onError: (e) => toast.error(e.message),
   });
-  const testLive = trpc.freight.testLiveQuote.useMutation({
-    onSuccess: (r) => {
-      if (r.ok) {
-        toast.success(
-          `Live quote: $${toDollars(r.amountCents ?? 0)}` +
-            (r.carrier ? ` · ${r.carrier}` : "") +
-            (r.palletCount ? ` · ${r.palletCount} pallet(s)` : "")
-        );
-      } else {
-        toast.error(r.error ?? "Live quote failed");
-      }
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -260,15 +240,6 @@ export default function ShippingAdmin() {
       }))
       .filter((z) => z.zoneName && z.zipPrefixes);
     saveZones.mutate({ zones: cleaned });
-  }
-
-  function handleTestLive() {
-    testLive.mutate({
-      destinationZip: testZip.trim(),
-      testWeightLbs: numOr(testWeight, 900),
-      testCubicFt: numOr(testCube, 80),
-      residential: testResidential,
-    });
   }
 
   const liveMode = form.quoteMode === "live";
@@ -581,41 +552,7 @@ export default function ShippingAdmin() {
         </CardContent>
       </Card>
 
-      {/* ── Test live quote ───────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" /> Test Live Quote
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Sends a sample pallet to the carrier using the <strong>saved</strong> key + origin. Save
-            your settings first, then test.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label>Destination ZIP</Label>
-              <Input value={testZip} onChange={(e) => setTestZip(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Test weight (lbs)</Label>
-              <Input value={testWeight} onChange={(e) => setTestWeight(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Test cube (cu ft)</Label>
-              <Input value={testCube} onChange={(e) => setTestCube(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-2 pt-6">
-              <Switch checked={testResidential} onCheckedChange={setTestResidential} id="resi" />
-              <Label htmlFor="resi">Residential</Label>
-            </div>
-          </div>
-          <Button onClick={handleTestLive} disabled={testLive.isPending} variant="outline" className="bg-background">
-            {testLive.isPending ? "Requesting live rate…" : "Run live test quote"}
-          </Button>
-        </CardContent>
-      </Card>
+      <FreightTestLab />
 
       {/* ── Legacy estimator zones (only relevant in estimator mode) ──── */}
       <Card className={liveMode ? "opacity-70" : ""}>

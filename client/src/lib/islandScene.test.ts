@@ -11,6 +11,7 @@ import {
 	  islandFaceTransferOption,
 	  autoAdjustIslandDepthForBackFace,
 	  islandWithFaceSeatingOverhang,
+	  normalizeIslandRangeRearPlanes,
   inferredIslandFace,
   moveIslandScene,
   nextIslandFacePlacement,
@@ -44,6 +45,79 @@ describe("island mini-scene geometry", () => {
   ] as const)("places the cabinet on the %s face with its door facing outward", (face, expected) => {
     expect(islandFacePlacement(cabinet(), island, face, 0)).toMatchObject({ ...expected, islandFace: face, islandOffset: 0 });
   });
+
+	it.each([
+	  ["front", { x: 36, y: 60, rotation: 0 }],
+	  ["back", { x: 36, y: 30, rotation: 180 }],
+	  ["left", { x: 30, y: 36, rotation: 90 }],
+	  ["right", { x: 84, y: 36, rotation: 270 }],
+	] as const)("keeps a 30-inch-deep range on the %s base-cabinet rear plane", (face, expected) => {
+	  const base = islandFacePlacement(cabinet({ uid: `base-${face}` }), island, face, 0);
+	  const range = islandFacePlacement(cabinet({
+	    uid: `range-${face}`,
+	    masterCode: "RANGE-30",
+	    description: "30 inch range",
+	    placement: "appliance",
+	    width: 30,
+	    depth: 30,
+	    height: 36,
+	  }), island, face, 0);
+	  expect(range).toMatchObject({ ...expected, islandFace: face, islandOffset: 0 });
+	  if (face === "front") expect(range.y).toBe(base.y);
+	  if (face === "back") expect(range.y + 30).toBe(base.y + 24);
+	  if (face === "left") expect(range.x + 30).toBe(base.x + 24);
+	  if (face === "right") expect(range.x).toBe(base.x);
+	});
+
+	it("repairs a saved protruding range and its opposing wall cabinet to the shared zero-gap seam", () => {
+	  const deeperIsland: IslandZone = { ...island, depth: 60 };
+	  const frontBase = islandFacePlacement(cabinet({ uid: "front-base", width: 18 }), deeperIsland, "front", 0);
+	  const legacyRange = {
+	    ...cabinet({ uid: "legacy-range", masterCode: "RANGE-30", description: "30 inch range", placement: "appliance", width: 30, depth: 30, height: 36 }),
+	    x: deeperIsland.x + 18,
+	    y: deeperIsland.y + deeperIsland.depth - 30,
+	    rotation: 0,
+	    islandFace: "front" as const,
+	    islandOffset: 18,
+	  };
+	  const legacyBackWall = {
+	    ...cabinet({ uid: "legacy-back-wall", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 }),
+	    x: deeperIsland.x + 18,
+	    y: legacyRange.y - 12,
+	    rotation: 180,
+	    islandFace: "back" as const,
+	    islandOffset: 18,
+	    islandCounterHeightWallCabinet: true,
+	  };
+	  const repaired = normalizeIslandRangeRearPlanes(deeperIsland, [frontBase, legacyRange, legacyBackWall], room);
+	  const repairedRange = repaired.find((item) => item.uid === legacyRange.uid)!;
+	  const repairedWall = repaired.find((item) => item.uid === legacyBackWall.uid)!;
+	  expect(repairedRange.y).toBe(frontBase.y);
+	  expect(repairedWall.y + 12).toBe(frontBase.y);
+	  expect(hasCollision(repairedWall, [frontBase, repairedRange])).toBe(false);
+	});
+
+	it("retains the saved range position when rear-plane repair would collide with a real room object", () => {
+	  const deeperIsland: IslandZone = { ...island, depth: 60 };
+	  const legacyRange = {
+	    ...cabinet({ uid: "blocked-range", masterCode: "RANGE-30", description: "30 inch range", placement: "appliance", width: 30, depth: 30, height: 36 }),
+	    x: deeperIsland.x,
+	    y: deeperIsland.y + deeperIsland.depth - 30,
+	    rotation: 0,
+	    islandFace: "front" as const,
+	    islandOffset: 0,
+	  };
+	  const externalObject = cabinet({
+	    uid: "room-object",
+	    masterCode: "B-24",
+	    x: deeperIsland.x,
+	    y: legacyRange.y + legacyRange.depth,
+	    width: 24,
+	    depth: 24,
+	  });
+	  const repaired = normalizeIslandRangeRearPlanes(deeperIsland, [legacyRange, externalObject], room);
+	  expect(repaired.find((item) => item.uid === legacyRange.uid)).toMatchObject({ x: legacyRange.x, y: legacyRange.y });
+	});
 
   it("places a wall catalog cabinet at island floor level while preserving an explicit later elevation edit", () => {
     const wallCabinet = cabinet({ uid: "wfr2442", masterCode: "WFR2442", placement: "wall", depth: 12, height: 42, mountBottom: 54 });

@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const source = readFileSync(resolve(process.cwd(), "client/src/components/admin/FreightTestLab.tsx"), "utf8");
+const shippingAdminSource = readFileSync(resolve(process.cwd(), "client/src/components/admin/ShippingAdmin.tsx"), "utf8");
+
+describe("Operations Freight Test Lab UI", () => {
+  it("replaces the narrow live test with a real catalog-backed sample-order lab", () => {
+    expect(shippingAdminSource).toContain("<FreightTestLab />");
+    expect(source).toContain("adminSearchSimulationItems");
+    expect(source).toContain("adminSimulateFreight");
+    expect(source).toContain("Search real catalog items");
+    expect(source).toContain("Sample order items");
+  });
+
+  it("supports pallet preview, saved Plan A, and Plan B without order or payment creation", () => {
+    expect(source).toContain('value="pallet_preview"');
+    expect(source).toContain('value="saved_configuration"');
+    expect(source).toContain('value="plan_b"');
+    expect(source).toContain("never creates an order, checkout, signed customer quote, or payment");
+    expect(source).toContain("Plan A and Plan B comparison");
+    expect(source).toContain("resultsByMode");
+    expect(source).toContain("function invalidateResults()");
+    expect(source).not.toContain("orders.create");
+    expect(source).not.toContain("payments.");
+  });
+
+  it("shows Business/Residential accessorials and final pallet dimensions and loaded weights", () => {
+    expect(source).toContain('value="business"');
+    expect(source).toContain('value="residential"');
+    expect(source).toContain("Lift gate");
+    expect(source).toContain("Inside delivery");
+    expect(source).toContain("Limited access");
+    expect(source).toContain("Loaded weight");
+    expect(source).toContain("pallet.lengthIn");
+    expect(source).toContain("pallet.widthIn");
+    expect(source).toContain("pallet.heightIn");
+    expect(source).toContain("pallet.weightLbs");
+  });
+});

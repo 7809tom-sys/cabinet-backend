@@ -8,6 +8,7 @@ import {
   hasCollision,
   isCounterHeightIslandWallCabinet,
   isOnIsland,
+  isRangeOrOven,
   placedFootprint,
   type IslandFace,
   type IslandZone,
@@ -86,6 +87,13 @@ export function islandFaceCapacity(island: IslandZone, face: IslandFace, placed:
 export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, face: IslandFace, offset: number): PlacedCabinet {
   const width = Math.max(0, Number(cabinet.width) || 0);
   const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);
+  // A range may be deeper than the 24-inch base boxes beside it. Its rear edge
+  // still belongs on the shared base-cabinet rear plane; only the appliance
+  // front may project into the cooking aisle. Otherwise the extra depth points
+  // into the island and falsely pushes an opposing shallow cabinet away.
+  const rearPlaneDepth = cabinet.placement === "appliance" && isRangeOrOven(cabinet.masterCode, cabinet.description)
+    ? Math.min(depth, STD.BASE_DEPTH)
+    : depth;
   const along = Math.max(0, Math.min(offset, Math.max(0, islandFaceLength(island, face) - width)));
   const isCounterHeightWallFace = cabinet.placement === "wall"
     && depth <= STD.WALL_DEPTH + COLLISION_EPSILON_IN
@@ -96,10 +104,48 @@ export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, 
     ? cabinet.mountBottom
     : 0;
   const local = { ...cabinet, mountBottom, islandCounterHeightWallCabinet: isCounterHeightWallFace || undefined };
-  if (face === "front") return { ...local, x: island.x + along, y: island.y + island.depth - depth, rotation: 0, islandFace: face, islandOffset: along };
-  if (face === "back") return { ...local, x: island.x + along, y: island.y, rotation: 180, islandFace: face, islandOffset: along };
-  if (face === "left") return { ...local, x: island.x, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
-  return { ...local, x: island.x + island.width - depth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+  if (face === "front") return { ...local, x: island.x + along, y: island.y + island.depth - rearPlaneDepth, rotation: 0, islandFace: face, islandOffset: along };
+  if (face === "back") return { ...local, x: island.x + along, y: island.y + rearPlaneDepth - depth, rotation: 180, islandFace: face, islandOffset: along };
+  if (face === "left") return { ...local, x: island.x + rearPlaneDepth - depth, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
+  return { ...local, x: island.x + island.width - rearPlaneDepth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+}
+
+/**
+ * Re-seat saved island ranges authored before rear-plane alignment existed.
+ * Non-island room objects and every non-range island member remain untouched.
+ */
+export function normalizeIslandRangeRearPlanes(island: IslandZone, placed: PlacedCabinet[], room?: RoomData): PlacedCabinet[] {
+  const alignedRanges = placed.map((item) => {
+    if (!isIslandAssemblyMember(item, island, placed)) return item;
+    if (item.placement !== "appliance" || !isRangeOrOven(item.masterCode, item.description)) return item;
+    const face = inferredIslandFace(item, island);
+    const offset = islandOffsetForPlaced(item, island, face);
+    const aligned = islandFacePlacement(item, island, face, offset);
+    return { ...item, x: aligned.x, y: aligned.y, rotation: aligned.rotation, islandFace: face, islandOffset: aligned.islandOffset };
+  });
+  const alignedAssembly = alignedRanges.map((item) => {
+    if (!isIslandAssemblyMember(item, island, alignedRanges) || !isCounterHeightIslandWallCabinet(item)) return item;
+    const face = inferredIslandFace(item, island);
+    const offset = islandOffsetForPlaced(item, island, face);
+    const aligned = islandFacePlacementAgainstOpposingRun(item, island, face, offset, alignedRanges);
+    return { ...item, x: aligned.x, y: aligned.y, rotation: aligned.rotation, islandFace: face, islandOffset: aligned.islandOffset };
+  });
+
+  if (!room) return alignedAssembly;
+  const externalObjects = placed.filter((item) => !isIslandAssemblyMember(item, island, placed));
+  const movedMembers = alignedAssembly.filter((item, index) => {
+    const original = placed[index];
+    return original && (Math.abs(item.x - original.x) > COLLISION_EPSILON_IN || Math.abs(item.y - original.y) > COLLISION_EPSILON_IN);
+  });
+  const unsafe = movedMembers.some((item) => {
+    const footprint = placedFootprint(item);
+    const outsideRoom = item.x < -COLLISION_EPSILON_IN
+      || item.y < -COLLISION_EPSILON_IN
+      || item.x + footprint.w > room.width + COLLISION_EPSILON_IN
+      || item.y + footprint.d > room.depth + COLLISION_EPSILON_IN;
+    return outsideRoom || hasCollision(item, externalObjects);
+  });
+  return unsafe ? placed : alignedAssembly;
 }
 
 function opposingIslandFace(face: IslandFace): IslandFace {

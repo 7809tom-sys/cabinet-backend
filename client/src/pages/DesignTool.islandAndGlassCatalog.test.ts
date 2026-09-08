@@ -120,7 +120,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	});
 
 	it("honors an opt-in Back-face depth adjustment and keeps it collision-safe before adding the cabinet", () => {
-	  expect(source).toContain("autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH)");
+	  expect(source).toContain("islandPlacementPrevious = normalizeIslandRangeRearPlanes(island, prev, room)");
+	  expect(source).toContain("autoAdjustIslandDepthForBackFace(island, islandPlacementPrevious, room, Number(newCab.depth) || STD.BASE_DEPTH)");
 	  expect(source).toContain("island.autoAdjustDepthForBackFace === true");
 	  expect(source).toContain("automatic Back-face depth adjustment is blocked");
 	  expect(source).toContain("Island depth adjusted for Back:");

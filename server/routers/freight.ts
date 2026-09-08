@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, inArray, asc } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -205,7 +205,8 @@ async function resolvePackages(
         const rows = await db
           .select({
             id: cabinets.id,
-            weight: cabinets.weight,
+            weight: cabinets.pkgWeight,
+            fallbackWeight: cabinets.weight,
             l: cabinets.pkgLength,
             w: cabinets.pkgWidth,
             h: cabinets.pkgHeight,
@@ -219,7 +220,11 @@ async function resolvePackages(
           .where(inArray(cabinets.id, ids));
         for (const r of rows) {
           byId.set(r.id, {
-            weight: r.weight != null ? Number(r.weight) : null,
+            weight: r.weight != null
+              ? Number(r.weight)
+              : r.fallbackWeight != null
+                ? Number(r.fallbackWeight)
+                : null,
             l: r.l != null ? Number(r.l) : null,
             w: r.w != null ? Number(r.w) : null,
             h: r.h != null ? Number(r.h) : null,
@@ -234,7 +239,8 @@ async function resolvePackages(
         const rows = await db
           .select({
             code: cabinets.masterCode,
-            weight: cabinets.weight,
+            weight: cabinets.pkgWeight,
+            fallbackWeight: cabinets.weight,
             l: cabinets.pkgLength,
             w: cabinets.pkgWidth,
             h: cabinets.pkgHeight,
@@ -248,7 +254,11 @@ async function resolvePackages(
           .where(inArray(cabinets.masterCode, codes));
         for (const r of rows) {
           byCode.set(r.code, {
-            weight: r.weight != null ? Number(r.weight) : null,
+            weight: r.weight != null
+              ? Number(r.weight)
+              : r.fallbackWeight != null
+                ? Number(r.fallbackWeight)
+                : null,
             l: r.l != null ? Number(r.l) : null,
             w: r.w != null ? Number(r.w) : null,
             h: r.h != null ? Number(r.h) : null,
@@ -402,6 +412,31 @@ type StyleFreightGroup = {
   originZip: string;
   flatFreightFeeCents: number | null;
   items: FreightItemInput[];
+};
+
+type FreightSimulationMode = "pallet_preview" | "saved_configuration" | "plan_b";
+
+type FreightSimulationGroup = {
+  key: string;
+  label: string;
+  originZip: string;
+  planBFeeCents: number | null;
+  source: "preview" | "live" | "plan_b" | "estimator" | "unavailable";
+  carrier: string | null;
+  baseAmountCents: number | null;
+  liveError: string | null;
+  palletCount: number;
+  totalWeightLbs: number;
+  totalContentsWeightLbs: number;
+  totalCubicFt: number;
+  pallets: Array<{
+    lengthIn: number;
+    widthIn: number;
+    heightIn: number;
+    weightLbs: number;
+    contentsWeightLbs: number;
+    contentsCubicFt: number;
+  }>;
 };
 
 async function resolveStyleFreightGroups(input: {
@@ -674,6 +709,222 @@ async function requestLiveRate(input: {
   return live;
 }
 
+function liveProviderEnvironment(row: ShippingSettings): "sandbox" | "production" | null {
+  if (row.liveProvider === "freightquote") return row.fqEnvironment ?? "sandbox";
+  if (row.liveProvider === "globaltranz") return row.gtzEnvironment ?? "sandbox";
+  if (row.liveProvider === "worldwideexpress") return row.wwexEnvironment ?? "sandbox";
+  return null;
+}
+
+async function simulateFreight(input: {
+  destinationZip: string;
+  items: FreightItemInput[];
+  merchandiseSubtotalCents: number;
+  accessorials?: {
+    liftgate?: boolean;
+    residential?: boolean;
+    insideDelivery?: boolean;
+    limitedAccess?: boolean;
+  };
+  mode: FreightSimulationMode;
+}) {
+  const settingsRow = await loadSettingsRow();
+  if (!settingsRow) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Save Operations shipping settings before running a freight simulation.",
+    });
+  }
+
+  const destinationZip = normalizeZip(input.destinationZip);
+  if (!destinationZip) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid 5-digit destination ZIP." });
+  }
+
+  const settings = rowToSettings(settingsRow);
+  const caps = rowToPalletCaps(settingsRow);
+  const overall = await resolvePackages(input.items, settingsRow, settings.defaultCabinetWeightLbs);
+  const overallLoad = totalPackagedLoad(overall.packages);
+  const isKitchen = isKitchenOrder(overallLoad.units, settingsRow.kitchenMinCabinets);
+  const styleGroups = await resolveStyleFreightGroups({
+    destinationZip,
+    items: input.items,
+    fallbackOriginZip: settings.originZip,
+  });
+
+  const groups: FreightSimulationGroup[] = [];
+  const rateGroups: FreightRateGroup[] = [];
+  const unavailable: string[] = [];
+  let totalBillableWeightLbs = 0;
+
+  for (const group of styleGroups) {
+    const resolvedGroup = await resolvePackages(
+      group.items,
+      settingsRow,
+      settings.defaultCabinetWeightLbs,
+    );
+    const plan = buildPallets(resolvedGroup.packages, caps);
+    totalBillableWeightLbs += plan.totalWeightLbs;
+    const detail: FreightSimulationGroup = {
+      key: group.key,
+      label: group.label,
+      originZip: group.originZip,
+      planBFeeCents: group.flatFreightFeeCents,
+      source: "preview",
+      carrier: null,
+      baseAmountCents: null,
+      liveError: null,
+      palletCount: plan.palletCount,
+      totalWeightLbs: plan.totalWeightLbs,
+      totalContentsWeightLbs: plan.totalContentsWeightLbs,
+      totalCubicFt: plan.totalCubicFt,
+      pallets: plan.pallets,
+    };
+
+    if (input.mode === "plan_b") {
+      if (group.flatFreightFeeCents == null) {
+        detail.source = "unavailable";
+        detail.liveError = "No Plan B fee is configured for this Featured Door Style.";
+        unavailable.push(`${group.label}: no Plan B fee configured`);
+      } else {
+        detail.source = "plan_b";
+        detail.baseAmountCents = group.flatFreightFeeCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          originZip: group.originZip,
+          source: "plan_b",
+          baseAmountCents: group.flatFreightFeeCents,
+          palletCount: plan.palletCount,
+        });
+      }
+    } else if (
+      input.mode === "saved_configuration" &&
+      settingsRow.quoteMode === "live" &&
+      settingsRow.liveProvider !== "estimator"
+    ) {
+      const live = await requestLiveRate({
+        provider: settingsRow.liveProvider,
+        settings: settingsRow,
+        liveApiKey: settingsRow.liveApiKey ?? "",
+        request: {
+          fromZip: group.originZip,
+          toZip: destinationZip,
+          pallets: plan.pallets.map((pallet) => ({
+            lengthIn: pallet.lengthIn,
+            widthIn: pallet.widthIn,
+            heightIn: pallet.heightIn,
+            weightLbs: pallet.weightLbs,
+          })),
+          freightClass: settingsRow.freightClass,
+          residential: input.accessorials?.residential,
+          liftgate: input.accessorials?.liftgate,
+          limitedAccess: input.accessorials?.limitedAccess,
+        },
+        palletCount: plan.palletCount,
+        totalWeightLbs: plan.totalWeightLbs,
+      });
+      const carrier = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+      detail.carrier = carrier;
+      detail.liveError = live.ok ? null : live.error ?? "Carrier unavailable";
+      if (live.ok) {
+        detail.source = "live";
+        detail.baseAmountCents = live.amountCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label}${carrier ? ` · ${carrier}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          originZip: group.originZip,
+          source: "live",
+          baseAmountCents: live.amountCents,
+          carrier,
+          palletCount: plan.palletCount,
+        });
+      } else if (group.flatFreightFeeCents != null) {
+        detail.source = "plan_b";
+        detail.baseAmountCents = group.flatFreightFeeCents;
+        rateGroups.push({
+          key: group.key,
+          label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          originZip: group.originZip,
+          source: "plan_b",
+          baseAmountCents: group.flatFreightFeeCents,
+          palletCount: plan.palletCount,
+        });
+      } else {
+        detail.source = "unavailable";
+        unavailable.push(`${group.label}: ${detail.liveError}`);
+      }
+    } else if (input.mode === "saved_configuration") {
+      detail.source = "estimator";
+    }
+
+    groups.push(detail);
+  }
+
+  let quote: FreightQuote | null = null;
+  if (
+    input.mode === "saved_configuration" &&
+    (settingsRow.quoteMode !== "live" || settingsRow.liveProvider === "estimator")
+  ) {
+    quote = estimateFreight(
+      {
+        destinationZip,
+        totalWeightLbs: totalCartWeight(overall.weighted, settings.defaultCabinetWeightLbs),
+        merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+        accessorials: input.accessorials,
+      },
+      settings,
+      await loadZones(),
+    );
+  } else if (input.mode !== "pallet_preview" && unavailable.length === 0) {
+    quote = combineStyleFreightGroups({
+      groups: rateGroups,
+      settings,
+      accessorials: input.accessorials,
+      merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+      billableWeightLbs: totalBillableWeightLbs,
+      isKitchen,
+      kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
+    });
+  }
+
+  if (input.mode !== "pallet_preview" && unavailable.length > 0) {
+    quote = {
+      available: false,
+      zoneName: null,
+      billableWeightLbs: totalBillableWeightLbs,
+      lines: [],
+      freightBeforeMarkupCents: 0,
+      markupCents: 0,
+      damageFeeCents: 0,
+      totalCents: 0,
+      freeFreightApplied: false,
+      reason: `Simulation unavailable for ${unavailable.join("; ")}.`,
+    };
+  }
+
+  return {
+    testOnly: true as const,
+    simulatedAt: Date.now(),
+    mode: input.mode,
+    destinationZip,
+    deliveryType: input.accessorials?.residential ? "residential" as const : "business" as const,
+    liftgate: input.accessorials?.liftgate === true,
+    quoteMode: settingsRow.quoteMode,
+    provider: settingsRow.liveProvider,
+    providerEnvironment: liveProviderEnvironment(settingsRow),
+    merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+    totalUnits: overallLoad.units,
+    isKitchen,
+    totalBillableWeightLbs,
+    groups,
+    quote,
+    note: input.mode === "pallet_preview"
+      ? "Pallet preview only. No carrier request, order, checkout, or payment was created."
+      : "Administrator simulation only. No order, checkout, payment, or signed customer quote was created.",
+  };
+}
+
 export const freightRouter = router({
   // ─── Public: estimate/quote freight for a cart ──────────────────────────────
   estimate: publicProcedure
@@ -850,6 +1101,93 @@ export const freightRouter = router({
       : null;
     return { settings: safeSettings, zones: zoneRows };
   }),
+
+  // ─── Admin: search real catalog/style combinations for test orders ───────────
+  adminSearchSimulationItems: adminProcedure
+    .input(z.object({ query: z.string().min(1).max(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const query = `%${input.query.trim()}%`;
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          pkgWeight: cabinets.pkgWeight,
+          fallbackWeight: cabinets.weight,
+          pkgLength: cabinets.pkgLength,
+          pkgWidth: cabinets.pkgWidth,
+          pkgHeight: cabinets.pkgHeight,
+          styleId: doorStyles.id,
+          styleName: doorStyles.ourName,
+          styleAlias: doorStyles.aliasName,
+          distributorId: doorStyles.distributorId,
+          distributorName: doorStyles.distributorName,
+          originZip: doorStyles.warehouseZip,
+          planBFeeCents: doorStyles.flatFreightFeeCents,
+          distributorSku: distributorSkus.distributorSku,
+          platformSku: distributorSkus.platformSku,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(and(
+          eq(cabinets.isActive, true),
+          eq(doorStyles.isActive, true),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.status, "approved"),
+          or(
+            like(cabinets.masterCode, query),
+            like(cabinets.description, query),
+            like(distributorSkus.distributorSku, query),
+            like(distributorSkus.platformSku, query),
+            like(doorStyles.ourName, query),
+            like(doorStyles.aliasName, query),
+          ),
+        ))
+        .orderBy(asc(cabinets.masterCode), asc(doorStyles.ourName))
+        .limit(30);
+
+      return rows.map((row) => ({
+        cabinetId: row.cabinetId,
+        masterCode: row.masterCode,
+        description: row.description,
+        category: row.category,
+        distributorSku: row.distributorSku,
+        platformSku: row.platformSku,
+        styleId: row.styleId,
+        styleName: row.styleAlias || row.styleName,
+        distributorId: row.distributorId,
+        distributorName: row.distributorName,
+        originZip: normalizeZip(row.originZip ?? "") || null,
+        planBFeeCents: row.planBFeeCents,
+        packageWeightLbs: row.pkgWeight != null
+          ? Number(row.pkgWeight)
+          : row.fallbackWeight != null
+            ? Number(row.fallbackWeight)
+            : null,
+        packageDimensionsIn: row.pkgLength != null && row.pkgWidth != null && row.pkgHeight != null
+          ? {
+              length: Number(row.pkgLength),
+              width: Number(row.pkgWidth),
+              height: Number(row.pkgHeight),
+            }
+          : null,
+      }));
+    }),
+
+  // ─── Admin: simulate a complete order without creating checkout state ────────
+  adminSimulateFreight: adminProcedure
+    .input(z.object({
+      destinationZip: z.string().min(3).max(16),
+      items: itemsSchema.refine((items) => items.length > 0, "Add at least one sample item."),
+      merchandiseSubtotalCents: z.number().int().min(0).max(100000000),
+      accessorials: accessorialsSchema,
+      mode: z.enum(["pallet_preview", "saved_configuration", "plan_b"]),
+    }))
+    .mutation(({ input }) => simulateFreight(input)),
 
   // ─── Admin: update settings (upserts the single row) ────────────────────────
   adminUpdateSettings: adminProcedure

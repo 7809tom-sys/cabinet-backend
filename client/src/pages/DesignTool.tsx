@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -2046,7 +2046,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          ? { ...shelf, placement: "appliance" as const }
 	          : shelf;
 	      });
-      setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), d.room ?? DEFAULT_ROOM)).placed);
+	      const restoredRoom = d.room ?? DEFAULT_ROOM;
+	      const restoredIsland = persisted?.island ?? null;
+	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), restoredRoom)).placed;
+	      setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, repairedPlaced, restoredRoom) : repairedPlaced);
       const restoredStyle = restoredSavedDesignStyle(d);
       setStyleId(restoredStyle.styleId);
       // Restore the supply-line lock if the saved design was pinned to one.
@@ -3131,9 +3134,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Prefer it over legacy refs so a W-30-30 selected while Island mode is
       // visibly active always enters the island resolver, even immediately after
       // a mode or face change.
-      const selectedIslandFace = targetIslandFace
-        ?? ((islandPlacementMode || islandPlacementModeRef.current) ? (islandFace ?? islandFaceRef.current) : null);
-      const requestedIslandFace = isFloatingShelf ? null : island && selectedIslandFace;
+	      const selectedIslandFace = targetIslandFace
+	        ?? ((islandPlacementMode || islandPlacementModeRef.current) ? (islandFace ?? islandFaceRef.current) : null);
+	      const requestedIslandFace = isFloatingShelf ? null : island && selectedIslandFace;
+	      if (requestedIslandFace && island) {
+	        islandPlacementPrevious = normalizeIslandRangeRearPlanes(island, prev, room);
+	      }
       const selectedPlacementTarget = targetCabinetUid
         ? prev.find((cabinet) => cabinet.uid === targetCabinetUid) ?? null
         : x == null && y == null && selectedUid
@@ -3491,7 +3497,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          }
 	        }
 	        if (requestedIslandFace === "back" && (island.autoAdjustDepthForBackFace === true || forceBackDepthAdjustment)) {
-	          const adjustment = autoAdjustIslandDepthForBackFace(island, prev, room, Number(newCab.depth) || STD.BASE_DEPTH);
+	          const adjustment = autoAdjustIslandDepthForBackFace(island, islandPlacementPrevious, room, Number(newCab.depth) || STD.BASE_DEPTH);
 	          if (!adjustment.ok) {
 	            const message = `${newCab.masterCode} was not added because automatic Back-face depth adjustment is blocked: ${adjustment.reason}`;
 	            setPlacementWarning(message);
