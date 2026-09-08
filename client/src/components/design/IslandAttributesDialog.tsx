@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import type { IslandFace, IslandZone } from "@/lib/design";
 
-type NumericKey = "x" | "y" | "width" | "depth" | "countertopWidth" | "countertopDepth" | "countertopOffsetX" | "countertopOffsetY";
+type NumericKey = "x" | "y" | "width" | "depth" | "countertopWidth" | "countertopDepth" | "countertopOffsetX" | "countertopOffsetY" | "countertopOverhang";
 
 export function IslandAttributesDialog({ open, island, onOpenChange, onApply, onRotate, onRemove }: {
   open: boolean;
@@ -21,7 +21,7 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
   useEffect(() => setDraft(island ? { ...island } : null), [island, open]);
 	  if (!draft) return null;
 	  const setNumber = (key: NumericKey, value: string) => {
-	    if (value.trim() === "" && (key === "countertopWidth" || key === "countertopDepth")) {
+	    if (value.trim() === "" && (key === "countertopWidth" || key === "countertopDepth" || key === "countertopOverhang")) {
 	      setDraft((current) => current ? { ...current, [key]: null } : current);
 	      return;
 	    }
@@ -73,6 +73,26 @@ export function IslandAttributesDialog({ open, island, onOpenChange, onApply, on
               <Input id={`island-${key}`} type="number" step="0.125" min={min} value={draft[key] ?? ""} placeholder={key.startsWith("countertop") ? "Automatic" : undefined} onChange={(event) => setNumber(key, event.target.value)} />
             </div>
 	          ))}
+	        </div>
+	        <div data-testid="island-countertop-overhang-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+	          <div className="space-y-1">
+	            <Label htmlFor="island-countertopOverhang" className="text-xs font-semibold text-[#1a2744]">Standard countertop overhang (in.)</Label>
+	            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+	              <Input
+	                id="island-countertopOverhang"
+	                type="number"
+	                inputMode="decimal"
+	                step="0.125"
+	                min="0"
+	                max="24"
+	                value={draft.countertopOverhang ?? ""}
+	                placeholder="Automatic — 1.5"
+	                onChange={(event) => setNumber("countertopOverhang", event.target.value)}
+	              />
+	              <Button type="button" variant="outline" onClick={() => setDraft((current) => current ? { ...current, countertopOverhang: null } : current)}>Use 1.5 in. default</Button>
+	            </div>
+	          </div>
+	          <p className="text-[11px] text-muted-foreground">Sets the exact reveal around every automatic island slab edge. The 10-inch and 12-inch seating choices still control only the selected seating side, and waterfall panels continue to follow the finished slab. Exact slab dimensions entered above take priority.</p>
 	        </div>
 		<div data-testid="island-depth-guidance" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3 text-xs text-[#4a3b22]">
 	          <p className="font-semibold text-[#1a2744]">Island depth guide</p>

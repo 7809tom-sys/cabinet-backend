@@ -27,6 +27,19 @@ describe("IslandAttributesDialog", () => {
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ x: 42, countertopWidth: null, countertopDepth: 54 }));
   });
 
+	  it("accepts an exact island countertop overhang and can return it to the 1.5-inch default", () => {
+	    const onApply = vi.fn();
+	    render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
+	    const overhang = screen.getByLabelText("Standard countertop overhang (in.)");
+	    fireEvent.change(overhang, { target: { value: "3.125" } });
+	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: 3.125 }));
+	    fireEvent.click(screen.getByRole("button", { name: "Use 1.5 in. default" }));
+	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: null }));
+	    expect(screen.getByTestId("island-countertop-overhang-control")).toBeTruthy();
+	  });
+
   it("exposes complete-assembly rotate and remove actions on the responsive dialog", () => {
     const onRotate = vi.fn();
     const onRemove = vi.fn();

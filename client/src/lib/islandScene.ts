@@ -17,6 +17,16 @@ import {
 } from "./design";
 
 export const ISLAND_COUNTERTOP_OVERHANG_IN = 1.5;
+export const ISLAND_COUNTERTOP_OVERHANG_MAX_IN = 24;
+
+/** The user may replace the standard reveal in exact one-eighth-inch increments. */
+export function islandCountertopOverhangIn(island: IslandZone): number {
+  if (island.countertopOverhang == null) return ISLAND_COUNTERTOP_OVERHANG_IN;
+  const configured = Number(island.countertopOverhang);
+  return Number.isFinite(configured)
+    ? Math.max(0, Math.min(ISLAND_COUNTERTOP_OVERHANG_MAX_IN, configured))
+    : ISLAND_COUNTERTOP_OVERHANG_IN;
+}
 
 /**
  * Persisted islandFace is authoritative for current plans. Center-point
@@ -518,10 +528,11 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
   const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const allBounds = islandCountertopSupportBounds(supports);
   if (!allBounds) return [];
+  const overhang = islandCountertopOverhangIn(island);
   const hasIntentionalSlab = island.countertopWidth != null || island.countertopDepth != null;
   if (hasIntentionalSlab) {
-    const autoWidth = allBounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
-    const autoDepth = allBounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2;
+    const autoWidth = allBounds.width + overhang * 2;
+    const autoDepth = allBounds.depth + overhang * 2;
     const width = island.countertopWidth ?? autoWidth;
     const depth = island.countertopDepth ?? autoDepth;
     const supportCenterX = allBounds.x + allBounds.width / 2;
@@ -547,10 +558,10 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
   return groups.flatMap((group) => {
     const bounds = islandCountertopSupportBounds(group);
     return bounds ? [{
-      x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
-      y: bounds.y - ISLAND_COUNTERTOP_OVERHANG_IN,
-      width: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
-      depth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+      x: bounds.x - overhang,
+      y: bounds.y - overhang,
+      width: bounds.width + overhang * 2,
+      depth: bounds.depth + overhang * 2,
     }] : [];
   });
 }
@@ -561,11 +572,12 @@ export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]
   if (slabs.length === 1) return slabs[0];
   const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const bounds = islandCountertopSupportBounds(supports);
+  const overhang = islandCountertopOverhangIn(island);
   return bounds ? {
-    x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
-    y: bounds.y - ISLAND_COUNTERTOP_OVERHANG_IN,
-    width: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
-    depth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    x: bounds.x - overhang,
+    y: bounds.y - overhang,
+    width: bounds.width + overhang * 2,
+    depth: bounds.depth + overhang * 2,
   } : null;
 }
 
@@ -583,11 +595,12 @@ export function islandWithFaceSeatingOverhang(
   const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const bounds = islandCountertopSupportBounds(supports);
   if (!bounds) return island;
-  const extra = overhangIn - ISLAND_COUNTERTOP_OVERHANG_IN;
+  const standardOverhang = islandCountertopOverhangIn(island);
+  const extra = overhangIn - standardOverhang;
   if (face === "front") return {
     ...island,
-    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
-    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopWidth: bounds.width + standardOverhang * 2,
+    countertopDepth: bounds.depth + standardOverhang + overhangIn,
     countertopOffsetX: 0,
     countertopOffsetY: extra / 2,
     countertopWidthAnchoredToZone: false,
@@ -595,8 +608,8 @@ export function islandWithFaceSeatingOverhang(
   };
   if (face === "back") return {
     ...island,
-    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
-    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
+    countertopWidth: bounds.width + standardOverhang * 2,
+    countertopDepth: bounds.depth + standardOverhang + overhangIn,
     countertopOffsetX: 0,
     countertopOffsetY: -extra / 2,
     countertopWidthAnchoredToZone: false,
@@ -604,8 +617,8 @@ export function islandWithFaceSeatingOverhang(
   };
   if (face === "left") return {
     ...island,
-    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
-    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopWidth: bounds.width + standardOverhang + overhangIn,
+    countertopDepth: bounds.depth + standardOverhang * 2,
     countertopOffsetX: -extra / 2,
     countertopOffsetY: 0,
     countertopWidthAnchoredToZone: false,
@@ -613,8 +626,8 @@ export function islandWithFaceSeatingOverhang(
   };
   return {
     ...island,
-    countertopWidth: bounds.width + ISLAND_COUNTERTOP_OVERHANG_IN + overhangIn,
-    countertopDepth: bounds.depth + ISLAND_COUNTERTOP_OVERHANG_IN * 2,
+    countertopWidth: bounds.width + standardOverhang + overhangIn,
+    countertopDepth: bounds.depth + standardOverhang * 2,
     countertopOffsetX: extra / 2,
     countertopOffsetY: 0,
     countertopWidthAnchoredToZone: false,

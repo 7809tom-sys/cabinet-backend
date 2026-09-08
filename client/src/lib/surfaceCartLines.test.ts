@@ -88,7 +88,14 @@ describe("buildSurfaceCartLines — box quantity with overage", () => {
     sellPrice: 3.99,
     coverageSqFt: 16, // 16 sq ft per box
   };
-  const areas = { backsplashSqFt: 30, flooringSqFt: 120 };
+  const quartzSlab: SurfacePick = {
+    id: 404,
+    name: "Countertop slab test fixture",
+    category: "Quartz Slabs (Countertops)",
+    size: '126" x 63"',
+    sellPrice: 1200,
+  };
+  const areas = { backsplashSqFt: 30, flooringSqFt: 120, countertopSqFt: 60 };
 
   it("calculates backsplash boxes with 15% overage, rounded up", () => {
     // 30 sq ft * 1.15 = 34.5 / 10 sq ft per box = 3.45 → ceil = 4 boxes
@@ -104,6 +111,20 @@ describe("buildSurfaceCartLines — box quantity with overage", () => {
     expect(line.qty).toBe(9);
     expect(line.qtyNote).toContain("10%");
     expect(line.qtyNote).toContain("9 boxes");
+  });
+
+  it("prices countertop products as whole slabs using authoritative stored slab dimensions", () => {
+    const [line] = buildSurfaceCartLines([quartzSlab], "homeowner", areas);
+    expect(line.qty).toBe(2);
+    expect(line.unitPrice).toBe(1200);
+    expect(line.qtyNote).toBe("60.0 sq ft ÷ 55.1 sq ft/slab = 2 slabs");
+    expect(line.qty * (line.unitPrice ?? 0)).toBe(2400);
+  });
+
+  it("does not invent a countertop quantity when stored slab dimensions are missing", () => {
+    const [line] = buildSurfaceCartLines([{ ...quartzSlab, size: null }], "homeowner", areas);
+    expect(line.qty).toBe(1);
+    expect(line.qtyNote).toBeUndefined();
   });
 
   it("falls back to qty=1 when coverageSqFt is not set", () => {

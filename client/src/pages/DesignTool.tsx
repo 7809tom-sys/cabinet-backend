@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopRect, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -2498,8 +2498,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // These come from Pelican, a DIFFERENT supply line than the cabinet
   // distributor, so they carry distributorId: null (never triggers the
   // cabinet distributor-lock) and use a PEL-<id> code namespace so they never
-  // collide with a cabinet masterCode. Quantity is 1 per selected product; the
-  // Pelican category is shown as the line's label. Unpriced picks are skipped.
+  // collide with a cabinet masterCode. Products with verified box coverage or
+  // authoritative whole-slab dimensions use the measured installation area;
+  // other products remain one selected unit.
+  // The Pelican category is shown as the line's label. Unpriced picks are skipped.
   const surfaceCartLines = useMemo<CartItem[]>(() => {
     // The selected backsplash is priced from the same supported wall segments
     // rendered in 3D—never total room walls or cabinet faces. Full-height and
@@ -2512,9 +2514,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       countertopBacksplashHeightIn,
     ).reduce((total, segment) => total + ((segment.end - segment.start) * (segment.top - segment.bottom)) / 144, 0)) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
-    const areas = { backsplashSqFt, flooringSqFt };
+    const countertopSqFt = countertop
+      ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null).squareFeet
+      : 0;
+    const areas = { backsplashSqFt, flooringSqFt, countertopSqFt };
     return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas) as CartItem[];
-  }, [selectedSurfaces, tier, placed, openings, room, backsplashHeightMode, countertopBacksplashHeightIn]);
+  }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn]);
 
   // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
@@ -2700,7 +2705,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [hasBaseRun]);
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
-    () => (countertop ? countertopArea(placed, island) : null),
+    () => (countertop ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null) : null),
     [countertop, placed, island]
   );
 
@@ -5446,6 +5451,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      countertopDepth: draft.countertopDepth ?? null,
 	      countertopOffsetX: draft.countertopOffsetX ?? 0,
 	      countertopOffsetY: draft.countertopOffsetY ?? 0,
+	      countertopOverhang: draft.countertopOverhang == null ? null : islandCountertopOverhangIn(draft),
 	      countertopWidthAnchoredToZone: draft.countertopWidthAnchoredToZone ?? false,
 	      countertopDepthAnchoredToZone: draft.countertopDepthAnchoredToZone ?? false,
 	    };
@@ -11874,6 +11880,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        open={surfacesOpen}
 	        onOpenChange={setSurfacesOpen}
 	        selected={selectedSurfaces}
+	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
 	        onToggle={(item) => {
 	          const role = surfaceRole(item);
 	          if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet") {

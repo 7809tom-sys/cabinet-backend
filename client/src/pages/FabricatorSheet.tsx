@@ -4,12 +4,13 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
-  type PlacedCabinet, type RoomData, type WallSide,
+  type IslandZone, type PlacedCabinet, type RoomData, type WallSide,
   type SinkFixture,
   COUNTERTOP_DEPTH_IN, countertopMaterial, edgeProfile,
   countertopArea, countertopSurfaces, cabinetWall, placedFootprint,
   bearsCountertop,
 } from "@/lib/design";
+import { islandCountertopRects } from "@/lib/islandScene";
 
 /**
  * Fabricator Countertop Sheet — a dimensioned top-down drawing showing:
@@ -37,7 +38,7 @@ function getDraftKey(): string {
 interface DraftSnapshot {
   room: RoomData;
   placed: PlacedCabinet[];
-  island?: { x: number; y: number; width: number; depth: number } | null;
+  island?: IslandZone | null;
   sinks?: SinkFixture[];
   countertopMaterialId?: string | null;
   edgeProfileId?: string | null;
@@ -206,7 +207,11 @@ export default function FabricatorSheet() {
   const ep = useMemo(() => edgeProfile(draft?.edgeProfileId), [draft]);
   const area = useMemo(() => {
     if (!draft) return null;
-    return countertopArea(draft.placed, draft.island);
+    return countertopArea(
+      draft.placed,
+      draft.island,
+      draft.island ? islandCountertopRects(draft.island, draft.placed) : null,
+    );
   }, [draft]);
 
   if (!draft) {

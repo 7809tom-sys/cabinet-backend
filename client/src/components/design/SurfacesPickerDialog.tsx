@@ -46,6 +46,7 @@ export function SurfacesPickerDialog({
   onOpenChange,
   selected,
   onToggle,
+  estimatedSubtotal,
   backsplashHeightMode = "standard",
   onBacksplashHeightModeChange,
   countertopBacksplashHeightIn = 0,
@@ -55,6 +56,8 @@ export function SurfacesPickerDialog({
   onOpenChange: (o: boolean) => void;
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface) => void;
+  /** Measured cart subtotal for selected surfaces, including area-based quantities. */
+  estimatedSubtotal?: number | null;
   backsplashHeightMode?: "standard" | "full-height";
   onBacksplashHeightModeChange?: (mode: "standard" | "full-height") => void;
   countertopBacksplashHeightIn?: 0 | 2.5 | 3;
@@ -301,7 +304,7 @@ export function SurfacesPickerDialog({
                 <Badge variant="secondary">{selected.length}</Badge>
                 added ·{" "}
                 <span className="font-semibold text-foreground">
-                  {formatPrice(selected.reduce((sum, s) => sum + (s.sellPrice ?? 0), 0))}
+                  {formatPrice(estimatedSubtotal ?? selected.reduce((sum, s) => sum + (s.sellPrice ?? 0), 0))}
                 </span>
               </span>
             )}

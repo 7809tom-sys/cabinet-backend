@@ -4,6 +4,7 @@ import {
   ISLAND_COUNTERTOP_OVERHANG_IN,
 	  islandCountertopRect,
 	  islandCountertopRects,
+	  islandCountertopOverhangIn,
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
 	  islandFacePlacement,
@@ -416,6 +417,26 @@ describe("island mini-scene geometry", () => {
     });
   });
 
+	  it("applies an exact custom overhang to every edge of an automatic connected slab", () => {
+	    const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
+	    const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 24);
+	    const custom = { ...island, countertopOverhang: 3.125 };
+	    expect(islandCountertopOverhangIn(custom)).toBe(3.125);
+	    expect(islandCountertopRect(custom, [left, right])).toEqual({
+	      x: island.x - 3.125,
+	      y: island.y + island.depth - 24 - 3.125,
+	      width: 54.25,
+	      depth: 30.25,
+	    });
+	  });
+
+	  it("uses the standard 1.5-inch overhang for legacy islands and clamps unsafe custom values", () => {
+	    expect(islandCountertopOverhangIn(island)).toBe(ISLAND_COUNTERTOP_OVERHANG_IN);
+	    expect(islandCountertopOverhangIn({ ...island, countertopOverhang: null })).toBe(ISLAND_COUNTERTOP_OVERHANG_IN);
+	    expect(islandCountertopOverhangIn({ ...island, countertopOverhang: -4 })).toBe(0);
+	    expect(islandCountertopOverhangIn({ ...island, countertopOverhang: 40 })).toBe(24);
+	  });
+
   it("does not let an automatic countertop bridge an unoccupied island gap", () => {
     const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
     const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 48);
@@ -424,6 +445,20 @@ describe("island mini-scene geometry", () => {
       { x: island.x + 48 - ISLAND_COUNTERTOP_OVERHANG_IN, y: island.y + island.depth - 24 - ISLAND_COUNTERTOP_OVERHANG_IN, width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2, depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2 },
     ]);
   });
+
+	  it("keeps custom standard overhang compatible with a selected seating-side depth", () => {
+	    const customIsland = { ...island, countertopOverhang: 3 };
+	    const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), customIsland, "back", 0);
+	    const frontWallCabinet = nextIslandFacePlacement(
+	      cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
+	      customIsland,
+	      "front",
+	      [backBase],
+	    )!;
+	    const seating = islandWithFaceSeatingOverhang(customIsland, [backBase, frontWallCabinet], "front", 10);
+	    expect(islandCountertopRect(seating, [backBase, frontWallCabinet])).toEqual({ x: 33, y: 33, width: 30, depth: 49 });
+	    expect(seating.countertopOverhang).toBe(3);
+	  });
 
 	  it("keeps exact custom slab dimensions and offsets while cabinet geometry stays authoritative", () => {
 	    const attached = islandFacePlacement(cabinet(), island, "front", 0);

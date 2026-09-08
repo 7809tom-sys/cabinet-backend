@@ -489,14 +489,14 @@ describe("persisted 2D entity parity", () => {
     const saved = roomWithPersistedEntities(ROOM_12x10, {
       openings: [{ uid: "window", kind: "window", side: "top", offset: 24, width: 36, height: 30, sillHeight: 36 }],
       sinks: [{ uid: "sink", type: "single", x: 24, y: 0, width: 33, depth: 22, faucet: true }],
-      island: { x: 48, y: 48, width: 60, depth: 30 },
+      island: { x: 48, y: 48, width: 60, depth: 30, countertopOverhang: 3.125 },
       furniture: [],
       ponyWalls: [],
     });
     expect(saved.persistedEntities).toMatchObject({
       openings: [{ uid: "window", offset: 24, width: 36 }],
       sinks: [{ uid: "sink", faucet: true, width: 33 }],
-      island: { x: 48, y: 48, width: 60, depth: 30 },
+      island: { x: 48, y: 48, width: 60, depth: 30, countertopOverhang: 3.125 },
     });
   });
 });
@@ -1497,6 +1497,14 @@ describe("countertopArea", () => {
 	    const m = countertopArea([base], island);
 	    expect(m.hasIsland).toBe(true);
 	    expect(m.squareFeet).toBeCloseTo(7.4, 1);
+	  });
+
+	  it("uses exact rendered island slab dimensions for countertop square footage", () => {
+	    const island = { x: 50, y: 40, width: 48, depth: 24, countertopOverhang: 3 };
+	    const base = cab({ placement: "base", width: 36, depth: 24, x: 50, y: 40, islandFace: "back", islandOffset: 0 });
+	    const m = countertopArea([base], island, [{ width: 42, depth: 30 }]);
+	    expect(m.hasIsland).toBe(true);
+	    expect(m.squareFeet).toBe(8.8);
 	  });
 
   it("COUNTERTOP_DEPTH_IN is 25.5", () => {

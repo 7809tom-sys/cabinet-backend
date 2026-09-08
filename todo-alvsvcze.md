@@ -1800,3 +1800,5 @@
 - [x] Snap opposing island wall cabinets directly against the backs of existing base cabinets with no internal void, keep island face capacity independent of unrelated room walls/cabinets/sinks/appliances, and identify the exact object and overlap when resizing is physically blocked
 - [x] Replace flat 3D sink surfaces with physically recessed bowls, visible interior walls and bottoms, drains, and realistic fixture materials while preserving verified sink dimensions and cabinet fit
 - [x] Fix the current Island mode placement path so an overlapping opposing W-30-30 or other shallow wall-cabinet run moves inward to direct back-to-back contact with the existing base run instead of remaining at the outer island edge
+- [x] Add an exact customizable island countertop-overhang distance control that updates 2D and 3D slab geometry, persists through save and reload, and preserves existing seating, waterfall, cabinet placement, and pricing behavior
+- [x] Make custom island countertop overhang area update the countertop measurement and customer-facing price without changing cabinet prices

@@ -1095,7 +1095,7 @@ export interface RoomData {
 export interface PersistedDesignEntities {
   openings: WallOpening[];
   sinks: SinkFixture[];
-  island: { x: number; y: number; width: number; depth: number } | null;
+  island: IslandZone | null;
   furniture: PlacedFurniture[];
   ponyWalls: PonyWall[];
 }
@@ -3820,8 +3820,8 @@ export function trimPiecesNeeded(
 }
 
 // ─── Countertops ────────────────────────────────────────────────────────────
-// Countertops aren't auto-priced (material/edge/fabrication is supplier-quoted),
-// so the design tool measures the run and the contractor requests a quote.
+// The Designer measures exact countertop area for material quantity and quoting.
+// Selected whole slabs may carry a catalog price; edge work and fabrication remain quoted.
 // Standard countertop depth is 25.5" (24" base box + ~1.5" front overhang).
 // Island tops use the island footprint directly.
 export const COUNTERTOP_DEPTH_IN = 25.5;
@@ -3834,29 +3834,54 @@ export interface CountertopMeasurement {
   waterfallSqFt: number; // extra sq ft from waterfall panels (height × depth per side)
 }
 
+export interface CountertopSlabMeasurement {
+  width: number;
+  depth: number;
+}
+
 /**
  * Measure the countertop needed for a layout: base-cabinet run x standard depth,
  * plus the island footprint if present. Wall/tall cabinets don't take a top.
  */
 export function countertopArea(
   placed: PlacedCabinet[],
-  island?: IslandZone | null
+  island?: IslandZone | null,
+  islandSlabs?: readonly CountertopSlabMeasurement[] | null,
 ): CountertopMeasurement {
-  const perimeterPlaced = island ? placed.filter((p) => !isOnIsland(p, island)) : placed;
+  const hasExplicitIslandFaces = island ? placed.some((item) => item.islandFace != null) : false;
+  const isIslandMember = (item: PlacedCabinet) => island != null && (
+    hasExplicitIslandFaces ? item.islandFace != null : isOnIsland(item, island)
+  );
+  const perimeterPlaced = island ? placed.filter((item) => !isIslandMember(item)) : placed;
   const runInches = perimeterPlaced
     .filter((p) => p.placement === "base")
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
   let squareIn = runInches * COUNTERTOP_DEPTH_IN;
-  const islandSupports = island ? placed.filter((p) => isOnIsland(p, island) && bearsIslandCountertop(p)) : [];
-  const hasIsland = islandSupports.length > 0;
-  if (hasIsland && island) {
+  const islandSupports = island ? placed.filter((item) => isIslandMember(item) && bearsIslandCountertop(item)) : [];
+  const measuredIslandSquareIn = island && islandSlabs != null
+    ? islandSlabs.reduce((sum, slab) => {
+        const width = Number(slab.width);
+        const depth = Number(slab.depth);
+        return Number.isFinite(width) && Number.isFinite(depth) && width > 0 && depth > 0
+          ? sum + width * depth
+          : sum;
+      }, 0)
+    : null;
+  const hasIsland = measuredIslandSquareIn == null ? islandSupports.length > 0 : measuredIslandSquareIn > 0;
+  if (measuredIslandSquareIn != null) {
+    squareIn += measuredIslandSquareIn;
+  } else if (hasIsland && island) {
     const footprints = islandSupports.map((item) => ({ item, footprint: placedFootprint(item) }));
     const minX = Math.min(...footprints.map(({ item }) => item.x));
     const minY = Math.min(...footprints.map(({ item }) => item.y));
     const maxX = Math.max(...footprints.map(({ item, footprint }) => item.x + footprint.w));
     const maxY = Math.max(...footprints.map(({ item, footprint }) => item.y + footprint.d));
-    const slabWidth = island.countertopWidth ?? maxX - minX + 3;
-    const slabDepth = island.countertopDepth ?? maxY - minY + 3;
+    const configuredOverhang = Number(island.countertopOverhang);
+    const overhang = island.countertopOverhang == null || !Number.isFinite(configuredOverhang)
+      ? 1.5
+      : Math.max(0, Math.min(24, configuredOverhang));
+    const slabWidth = island.countertopWidth ?? maxX - minX + overhang * 2;
+    const slabDepth = island.countertopDepth ?? maxY - minY + overhang * 2;
     squareIn += slabWidth * slabDepth;
   }
   // Waterfall panels: each side adds height × depth (the panel is as tall as
@@ -5431,6 +5456,8 @@ export interface IslandZone {
   countertopDepth?: number | null;
   countertopOffsetX?: number | null;
   countertopOffsetY?: number | null;
+  /** Exact reveal around automatic slab edges. Null/undefined uses the standard 1.5-inch reveal. */
+  countertopOverhang?: number | null;
   /** When true, the explicit slab width remains centered on the island work zone instead of the current cabinet envelope. */
   countertopWidthAnchoredToZone?: boolean | null;
   /** When true, the explicit slab depth remains centered on the island work zone instead of the current cabinet envelope. */
@@ -5445,6 +5472,7 @@ export function clampIslandToRoom(island: IslandZone | null, room: RoomData): Is
   const y = Math.max(0, Math.min(island.y, room.depth - depth));
   const countertopWidth = island.countertopWidth == null ? null : Math.max(1, Math.min(island.countertopWidth, room.width));
   const countertopDepth = island.countertopDepth == null ? null : Math.max(1, Math.min(island.countertopDepth, room.depth));
+  const countertopOverhang = island.countertopOverhang == null ? null : Math.max(0, Math.min(island.countertopOverhang, 24));
   return {
     ...island,
     x,
@@ -5453,6 +5481,7 @@ export function clampIslandToRoom(island: IslandZone | null, room: RoomData): Is
     depth,
     countertopWidth,
     countertopDepth,
+    countertopOverhang,
     activeFace: island.activeFace ?? "front",
   };
 }
