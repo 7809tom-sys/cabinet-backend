@@ -23,6 +23,7 @@ export type RecItem = {
   size: string | null;
   imageUrl: string | null;
   sellPrice: number | null;
+  unsupportedOverhangLimitIn?: number | null;
 };
 
 function toSurface(p: RecItem): SelectedSurface {
@@ -36,6 +37,7 @@ function toSurface(p: RecItem): SelectedSurface {
     size: p.size,
     imageUrl: p.imageUrl,
     sellPrice: p.sellPrice,
+    unsupportedOverhangLimitIn: p.unsupportedOverhangLimitIn ?? null,
   };
 }
 

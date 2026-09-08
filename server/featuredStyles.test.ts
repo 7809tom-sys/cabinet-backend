@@ -71,6 +71,46 @@ describe("doorStyles featured — admin management + public row", () => {
     expect(publicRows.every((row) => !("distributorName" in row))).toBe(true);
   });
 
+  it("keeps the authoritative style shipping origin private while allowing an admin to update it", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(adminCtx());
+    const all = await caller.doorStyles.listForAdmin();
+    const target = all[0];
+    if (!target) return;
+    const originalZip = target.warehouseZip ?? null;
+    const originalFlatFee = target.flatFreightFeeCents ?? null;
+
+    try {
+      await caller.doorStyles.adminUpdateDoorStyle({
+        id: target.id,
+        warehouseZip: "30303",
+        flatFreightFeeCents: 42500,
+      });
+      const managed = await caller.doorStyles.listForAdmin();
+      expect(managed.find((row) => row.id === target.id)?.warehouseZip).toBe("30303");
+      expect(managed.find((row) => row.id === target.id)?.flatFreightFeeCents).toBe(42500);
+
+      const publicRows = await caller.doorStyles.list();
+      expect(publicRows.every((row) => !("warehouseZip" in row))).toBe(true);
+      const featuredRows = await caller.doorStyles.featured();
+      expect(featuredRows.every((row) => !("warehouseZip" in row))).toBe(true);
+    } finally {
+      await caller.doorStyles.adminUpdateDoorStyle({
+        id: target.id,
+        warehouseZip: originalZip,
+        flatFreightFeeCents: originalFlatFee,
+      });
+    }
+  });
+
+  it("rejects an invalid style shipping origin ZIP", async () => {
+    const caller = appRouter.createCaller(adminCtx());
+    await expect(
+      caller.doorStyles.adminUpdateDoorStyle({ id: 1, warehouseZip: "303" }),
+    ).rejects.toThrow("Shipping origin ZIP must be exactly 5 digits");
+  });
+
   it("admin can toggle a room-scene-ready style featured/unfeatured", async () => {
     const db = await getDb();
     if (!db) return;

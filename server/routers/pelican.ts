@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gt, like, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
@@ -366,6 +367,29 @@ export const pelicanRouter = router({
       await db
         .update(pelicanProducts)
         .set({ coverageSqFt: input.coverageSqFt != null ? String(input.coverageSqFt) : null })
+        .where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
+    }),
+  /** Store only a supplier/fabricator-verified unsupported overhang limit. */
+  setUnsupportedOverhangLimit: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        unsupportedOverhangLimitIn: z.number().min(0).max(36).nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      if (input.unsupportedOverhangLimitIn != null) {
+        const eighths = input.unsupportedOverhangLimitIn * 8;
+        if (Math.abs(eighths - Math.round(eighths)) > 0.000001) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Structural overhang limits must use 1/8-inch increments." });
+        }
+      }
+      await db
+        .update(pelicanProducts)
+        .set({ unsupportedOverhangLimitIn: input.unsupportedOverhangLimitIn == null ? null : String(input.unsupportedOverhangLimitIn) })
         .where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
     }),

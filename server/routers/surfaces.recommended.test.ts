@@ -23,6 +23,7 @@ type Rec = {
   size: string | null;
   imageUrl: string | null;
   sellPrice: number | null;
+  unsupportedOverhangLimitIn?: number | null;
 };
 
 const ACCESSORY =
@@ -67,6 +68,8 @@ describe("surfaces.recommended", () => {
     for (const r of rows) {
       expect(r.category).toBe("Quartz Slabs (Countertops)");
       expect(r.sellPrice ?? 0).toBeGreaterThan(0);
+      expect(Object.prototype.hasOwnProperty.call(r, "unsupportedOverhangLimitIn")).toBe(true);
+      expect(r.unsupportedOverhangLimitIn == null || Number.isFinite(r.unsupportedOverhangLimitIn)).toBe(true);
     }
   });
 

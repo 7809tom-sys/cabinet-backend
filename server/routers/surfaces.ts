@@ -138,6 +138,7 @@ export const surfacesRouter = router({
           subCategory: r.subCategory,
           size: r.size,
           coverageSqFt: r.coverageSqFt ? parseFloat(String(r.coverageSqFt)) : null,
+          unsupportedOverhangLimitIn: r.unsupportedOverhangLimitIn == null ? null : Number(r.unsupportedOverhangLimitIn),
           imageUrl: r.imageUrl,
           sellPrice: sellPriceOf(r, map),
         }))

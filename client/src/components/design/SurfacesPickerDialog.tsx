@@ -37,6 +37,8 @@ export type SelectedSurface = {
   sellPrice: number | null;
   /** Sq ft per box/carton — when set, BOM auto-calculates box qty from area + overage. */
   coverageSqFt?: number | null;
+  /** Supplier/fabricator-verified maximum unsupported overhang for this exact material. */
+  unsupportedOverhangLimitIn?: number | null;
 };
 
 const PAGE_LIMIT = 60;
@@ -115,6 +117,7 @@ export function SurfacesPickerDialog({
     materialImageUrl: product.materialImageUrl,
     sellPrice: product.sellPrice,
     coverageSqFt: product.coverageSqFt ?? null,
+    unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn ?? null,
   })), [preferredProducts]);
   const items = category === "Preferred" ? preferredItems : data?.items ?? [];
   const visibleItems = useMemo(() => {
@@ -230,6 +233,7 @@ export function SurfacesPickerDialog({
                     materialImageUrl: p.materialImageUrl,
                     sellPrice: p.sellPrice,
                     coverageSqFt: p.coverageSqFt ?? null,
+                    unsupportedOverhangLimitIn: p.unsupportedOverhangLimitIn == null ? null : Number(p.unsupportedOverhangLimitIn),
                   };
                   return (
                     <div

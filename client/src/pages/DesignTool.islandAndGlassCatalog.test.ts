@@ -189,4 +189,13 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain("c.displayMasterCode ?? c.masterCode");
 	    expect(source).toContain("sourceCabinetId: Number(item.id)");
 	  });
+
+	  it("places every supported-height glass stacker on its respective matching wall cabinet without changing its width", () => {
+	    expect(source).toContain("glassStackerParentPlacement({");
+	    expect(source).toContain("}, prev, room, selectedUid)");
+	    expect(source).toContain("stackerParentUid = stackerPlacement.parentUid");
+	    expect(source).toContain("stackedOnCabinetUid: stackerParentUid");
+	    expect(source).toContain("width,");
+	    expect(source).not.toContain("stackWidth = bw");
+	  });
 });

@@ -57,8 +57,13 @@ interface SettingsForm {
   wwexUsername: string;
   wwexPassword: string;
   wwexEnvironment: "sandbox" | "production";
+  wwexSandboxTokenUrl: string;
+  wwexSandboxRateUrl: string;
+  wwexProductionTokenUrl: string;
+  wwexProductionRateUrl: string;
   kitchenFreightFloor: string; // dollars
   kitchenMinCabinets: string;
+  standardPalletLengthIn: string;
   palletLengthIn: string;
   palletWidthIn: string;
   palletHeightIn: string;
@@ -120,8 +125,13 @@ export default function ShippingAdmin() {
       wwexUsername: (s as Record<string, unknown>)?.wwexUsername as string ?? "",
       wwexPassword: "",
       wwexEnvironment: ((s as Record<string, unknown>)?.wwexEnvironment as "sandbox" | "production") ?? "sandbox",
+      wwexSandboxTokenUrl: (s as Record<string, unknown>)?.wwexSandboxTokenUrl as string ?? "",
+      wwexSandboxRateUrl: (s as Record<string, unknown>)?.wwexSandboxRateUrl as string ?? "",
+      wwexProductionTokenUrl: (s as Record<string, unknown>)?.wwexProductionTokenUrl as string ?? "",
+      wwexProductionRateUrl: (s as Record<string, unknown>)?.wwexProductionRateUrl as string ?? "",
       kitchenFreightFloor: toDollars(s?.kitchenFreightFloorCents ?? 80000),
       kitchenMinCabinets: String(s?.kitchenMinCabinets ?? 6),
+      standardPalletLengthIn: String(s?.standardPalletLengthIn ?? "48"),
       palletLengthIn: String(s?.palletLengthIn ?? "96"),
       palletWidthIn: String(s?.palletWidthIn ?? "40"),
       palletHeightIn: String(s?.palletHeightIn ?? "60"),
@@ -222,9 +232,14 @@ export default function ShippingAdmin() {
       wwexUsername: form.wwexUsername || undefined,
       wwexPassword: form.wwexPassword || undefined,
       wwexEnvironment: form.wwexEnvironment,
+      wwexSandboxTokenUrl: form.wwexSandboxTokenUrl.trim() || null,
+      wwexSandboxRateUrl: form.wwexSandboxRateUrl.trim() || null,
+      wwexProductionTokenUrl: form.wwexProductionTokenUrl.trim() || null,
+      wwexProductionRateUrl: form.wwexProductionRateUrl.trim() || null,
       liveApiKey: apiKeyInput.trim().length > 0 ? apiKeyInput.trim() : undefined,
       kitchenFreightFloorCents: toCents(form.kitchenFreightFloor),
       kitchenMinCabinets: Math.round(numOr(form.kitchenMinCabinets, 6)),
+      standardPalletLengthIn: numOr(form.standardPalletLengthIn, 48),
       palletLengthIn: numOr(form.palletLengthIn, 96),
       palletWidthIn: numOr(form.palletWidthIn, 40),
       palletHeightIn: numOr(form.palletHeightIn, 60),
@@ -433,8 +448,36 @@ export default function ShippingAdmin() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">
+                    {form.wwexEnvironment === "sandbox" ? "Sandbox" : "Production"} OAuth token URL
+                  </Label>
+                  <Input
+                    inputMode="url"
+                    value={form.wwexEnvironment === "sandbox" ? form.wwexSandboxTokenUrl : form.wwexProductionTokenUrl}
+                    onChange={(e) => set(form.wwexEnvironment === "sandbox"
+                      ? { wwexSandboxTokenUrl: e.target.value }
+                      : { wwexProductionTokenUrl: e.target.value })}
+                    placeholder="Verified HTTPS token URL from your WWEX representative"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs">
+                    {form.wwexEnvironment === "sandbox" ? "Sandbox" : "Production"} rate URL
+                  </Label>
+                  <Input
+                    inputMode="url"
+                    value={form.wwexEnvironment === "sandbox" ? form.wwexSandboxRateUrl : form.wwexProductionRateUrl}
+                    onChange={(e) => set(form.wwexEnvironment === "sandbox"
+                      ? { wwexSandboxRateUrl: e.target.value }
+                      : { wwexProductionRateUrl: e.target.value })}
+                    placeholder="Verified HTTPS rate URL from your WWEX representative"
+                    autoComplete="off"
+                  />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Contact your WWEX account representative to obtain API credentials and enable integration access.</p>
+              <p className="text-xs text-muted-foreground">Contact your WWEX account representative for the environment-specific token and rate URLs. The app will not send credentials to guessed or non-HTTPS hosts.</p>
             </div>
           )}
         </CardContent>
@@ -447,8 +490,8 @@ export default function ShippingAdmin() {
             <Truck className="h-5 w-5 text-primary" /> Freight Basis
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Cabinets ship flat-pack (RTA) on freight pallets. Live quotes are built from each
-            order's <strong>packaged weight + cubic feet</strong>, packed onto 8&nbsp;ft pallets.
+            Cabinets ship flat-pack (RTA) on freight pallets. Live quotes use each order's
+            <strong> packaged weight, cube, and longest package dimension</strong>. Trim rides on the same complete-kitchen shipment without creating a separate pallet; the reported pallet length still covers every loaded item.
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -462,8 +505,11 @@ export default function ShippingAdmin() {
               <Input value={form.freightClass} onChange={(e) => set({ freightClass: e.target.value })} placeholder="175" />
             </div>
             <div className="space-y-1.5">
-              <Label>Handling markup %</Label>
+              <Label>Operations freight markup %</Label>
               <Input value={form.markupPct} onChange={(e) => set({ markupPct: e.target.value })} placeholder="15" />
+              <p className="text-xs text-muted-foreground">
+                Applied after the live Plan A carrier rate or an approved style Plan B fee. Delivery accessorials remain itemized.
+              </p>
             </div>
           </div>
 
@@ -481,10 +527,14 @@ export default function ShippingAdmin() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-semibold">8&nbsp;ft pallet definition</Label>
+            <Label className="text-sm font-semibold">Pallet definitions</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Length (in)</Label>
+                <Label>Standard length (in)</Label>
+                <Input value={form.standardPalletLengthIn} onChange={(e) => set({ standardPalletLengthIn: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Long-item length (in)</Label>
                 <Input value={form.palletLengthIn} onChange={(e) => set({ palletLengthIn: e.target.value })} />
               </div>
               <div className="space-y-1.5">

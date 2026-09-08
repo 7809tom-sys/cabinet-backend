@@ -37,6 +37,9 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   // Sq ft per box/carton — for tile, backsplash, flooring sold by the box.
   // When set, the BOM auto-calculates box qty from room area + overage.
   coverageSqFt: decimal("coverageSqFt", { precision: 8, scale: 2 }),
+  // Administrator-entered, supplier/fabricator-verified maximum unsupported
+  // countertop overhang for this exact material. Null means not verified.
+  unsupportedOverhangLimitIn: decimal("unsupportedOverhangLimitIn", { precision: 6, scale: 3 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

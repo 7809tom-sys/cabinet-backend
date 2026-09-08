@@ -358,6 +358,10 @@ export const doorStyles = mysqlTable("door_styles", {
   doorPanelType: varchar("doorPanelType", { length: 64 }),
   warehouseZip: varchar("warehouseZip", { length: 16 }),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }),
+  // Optional whole-order Plan B freight charge for this distributor/style.
+  // It is used only when that style group's live carrier request fails;
+  // Operations markup and configured Plan B accessorials apply separately.
+  flatFreightFeeCents: int("flatFreightFeeCents"),
   doorSampleImageUrl: varchar("doorSampleImageUrl", { length: 512 }),
   // Separate photo of just the drawer front (no door below). Used by the
   // elevation renderer to show the correct texture on drawer bands.
@@ -1107,6 +1111,13 @@ export const orderRequests = mysqlTable("order_requests", {
   // Fulfillment: how the customer wants the order delivered. "pickup" is only
   // offered when a distributor near the delivery ZIP has pickup enabled.
   deliveryMethod: mysqlEnum("deliveryMethod", ["ship", "pickup"]).default("ship").notNull(),
+  deliveryLocationType: mysqlEnum("deliveryLocationType", ["business", "residential"]).default("business").notNull(),
+  liftgateRequired: boolean("liftgateRequired").default(false).notNull(),
+  // Exact signed freight quote accepted at submission; payment reuses this
+  // server-verified amount instead of accepting a customer-entered freight value.
+  freightQuoteCents: int("freightQuoteCents").default(0).notNull(),
+  // Distinguishes a valid signed zero-dollar/free-freight quote from no quote.
+  freightQuoteVerified: boolean("freightQuoteVerified").default(false).notNull(),
   // When pickup is chosen, which distributor's pickup location was selected.
   pickupDistributorId: int("pickupDistributorId"),
   // Sales tax: 2-letter state code, rate (decimal), and computed tax amount.
@@ -1522,6 +1533,13 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   wwexUsername: varchar("wwexUsername", { length: 128 }),
   wwexPassword: varchar("wwexPassword", { length: 255 }),
   wwexEnvironment: mysqlEnum("wwexEnvironment", ["sandbox", "production"]).default("sandbox"),
+  // WWEX endpoints are supplied by the account representative. Public WWEX
+  // pages do not publish stable REST hosts, so we never send credentials to a
+  // guessed hostname.
+  wwexSandboxTokenUrl: varchar("wwexSandboxTokenUrl", { length: 512 }),
+  wwexSandboxRateUrl: varchar("wwexSandboxRateUrl", { length: 512 }),
+  wwexProductionTokenUrl: varchar("wwexProductionTokenUrl", { length: 512 }),
+  wwexProductionRateUrl: varchar("wwexProductionRateUrl", { length: 512 }),
   // Quote mode. "estimator" = in-house zone math (legacy). "live" = call the
   // carrier API for a real LTL rate; if the live call fails, freight is reported
   // as unavailable ("quoted on your order") rather than guessed.
@@ -1532,8 +1550,9 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   // What counts as a "kitchen" for the floor: any order at/above this many
   // cabinet line-units. Small parts orders below this are NOT forced to the floor.
   kitchenMinCabinets: int("kitchenMinCabinets").default(6).notNull(),
-  // 8 ft freight pallet model. Cabinets ship flat-pack, so we cube the order by
-  // PACKAGED weight + cubic feet and split into pallets using these caps.
+  // Standard cabinet pallets remain compact. The long pallet is reserved for
+  // trim or another carton whose authoritative package/physical length is 7–8 ft.
+  standardPalletLengthIn: decimal("standardPalletLengthIn", { precision: 6, scale: 2 }).default("48").notNull(),
   palletLengthIn: decimal("palletLengthIn", { precision: 6, scale: 2 }).default("96").notNull(),
   palletWidthIn: decimal("palletWidthIn", { precision: 6, scale: 2 }).default("40").notNull(),
   palletHeightIn: decimal("palletHeightIn", { precision: 6, scale: 2 }).default("60").notNull(),

@@ -75,6 +75,13 @@ export default function PelicanCatalogAdmin() {
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const setUnsupportedOverhangLimit = trpc.pelican.setUnsupportedOverhangLimit.useMutation({
+    onSuccess: () => {
+      void utils.pelican.adminList.invalidate();
+      toast.success("Verified structural overhang limit saved.");
+    },
+    onError: (e) => toast.error(e.message || "The structural overhang limit could not be saved."),
+  });
   const setMaterialImage = trpc.pelican.setMaterialImage.useMutation({
     onSuccess: () => {
       void utils.pelican.adminList.invalidate();
@@ -154,6 +161,7 @@ export default function PelicanCatalogAdmin() {
                   <TableHead className="text-center">Designer</TableHead>
                   <TableHead className="text-center">Featured</TableHead>
                   <TableHead className="text-right">Sq ft/Box</TableHead>
+                  <TableHead className="min-w-[160px] text-right">Unsupported overhang (in.)</TableHead>
                   <TableHead className="min-w-[220px]">3D Material Swatch</TableHead>
                 </TableRow>
               </TableHeader>
@@ -237,6 +245,33 @@ export default function PelicanCatalogAdmin() {
                           }
                         }}
                       />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {it.category === "Quartz Slabs (Countertops)" ? (
+                        <input
+                          aria-label={`Verified unsupported overhang for ${it.name}`}
+                          type="number"
+                          step="0.125"
+                          min="0"
+                          max="36"
+                          className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-xs"
+                          defaultValue={it.unsupportedOverhangLimitIn == null ? "" : Number(it.unsupportedOverhangLimitIn)}
+                          placeholder="Unverified"
+                          onBlur={(event) => {
+                            const value = event.target.value.trim();
+                            const next = value === "" ? null : Number(value);
+                            const current = it.unsupportedOverhangLimitIn == null ? null : Number(it.unsupportedOverhangLimitIn);
+                            if (next !== current) {
+                              setUnsupportedOverhangLimit.mutate({
+                                id: it.id,
+                                unsupportedOverhangLimitIn: next != null && Number.isFinite(next) ? next : null,
+                              });
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Input

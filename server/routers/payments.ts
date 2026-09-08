@@ -112,8 +112,9 @@ export const paymentsRouter = router({
           dataDescriptor: z.string().min(1).max(128),
           dataValue: z.string().min(1).max(8192),
         }),
-        // The freight total (cents) attached to this order from a freight quote.
-        freightCents: z.number().int().min(1, "A shipping quote must be attached before payment."),
+        // Deprecated client display value. The charge always uses the verified
+        // freight amount persisted on the order request.
+        freightCents: z.number().int().min(0).optional(),
         payer: z
           .object({
             name: z.string().max(256).optional(),
@@ -145,6 +146,13 @@ export const paymentsRouter = router({
       if (merchandiseCents <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This order has no priced line items to charge." });
       }
+      const verifiedFreightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents;
+      if (order.deliveryMethod === "ship" && !order.freightQuoteVerified) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "A verified shipping quote must be attached before payment.",
+        });
+      }
 
       // Recompute the fee stack + grand total on the server (card payment).
       // Tech fee is ONLY charged on affiliate-referred orders.
@@ -152,7 +160,7 @@ export const paymentsRouter = router({
       const stack = computeFeeStack(
         {
           cabinetSubtotalCents: merchandiseCents,
-          freightCents: input.freightCents,
+          freightCents: verifiedFreightCents,
           paymentMethod: "card",
           isAffiliateOrder: order.affiliateId != null,
         },
@@ -171,7 +179,7 @@ export const paymentsRouter = router({
         amountCents,
         merchandiseCents,
         feesCents,
-        freightCents: input.freightCents,
+        freightCents: verifiedFreightCents,
         payerName: input.payer?.name ?? order.originatorName ?? null,
         payerEmail: input.payer?.email ?? order.originatorEmail ?? null,
       });
@@ -233,7 +241,7 @@ export const paymentsRouter = router({
           merchandiseCents,
           damageFeeCents: stack.damageFeeCents,
           techFeeCents: stack.techFeeCents,
-          freightCents: input.freightCents,
+          freightCents: verifiedFreightCents,
           cardFeeCents: stack.cardFeeCents,
           totalCents: amountCents,
         },

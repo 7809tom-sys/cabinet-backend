@@ -1,0 +1,1 @@
+ALTER TABLE `shipping_settings` ADD `standardPalletLengthIn` decimal(6,2) DEFAULT '48' NOT NULL;

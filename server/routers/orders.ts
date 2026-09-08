@@ -41,6 +41,7 @@ import { affiliateStyleBranding } from "../../drizzle/schema";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -690,6 +691,9 @@ export const ordersRouter = router({
         notes: z.string().max(2000).optional(),
         referralCode: z.string().max(32).optional(),
         deliveryMethod: z.enum(["ship", "pickup"]).optional(),
+        deliveryLocationType: z.enum(["business", "residential"]).optional(),
+        liftgateRequired: z.boolean().optional(),
+        freightQuoteToken: z.string().max(4096).optional(),
         pickupDistributorId: z.number().int().positive().nullable().optional(),
         /** 2-letter US state code for sales tax calculation */
         taxState: z.string().length(2).optional(),
@@ -753,6 +757,49 @@ export const ordersRouter = router({
         0
       );
       const itemCount = normalizedLines.reduce((sum, l) => sum + l.qty, 0);
+      const deliveryMethod = input.deliveryMethod ?? "ship";
+      const deliveryLocationType = input.deliveryLocationType ?? "business";
+      const liftgateRequired = input.liftgateRequired === true;
+      let freightQuoteCents = 0;
+      let freightQuoteVerified = false;
+      if (deliveryMethod === "ship" && input.freightQuoteToken) {
+        let quote;
+        try {
+          quote = verifyFreightQuoteToken(input.freightQuoteToken);
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "Freight quote is invalid.",
+          });
+        }
+        const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
+        const expectedItemsHash = freightItemsHash(normalizedLines.map((line) => ({
+          cabinetId: line.cabinetId,
+          masterCode: line.masterCode,
+          styleId: line.styleId ?? input.styleId ?? null,
+          distributorId: null,
+          qty: line.qty,
+        })));
+        const quoteMatchesOrder =
+          quote.destinationZip === expectedZip &&
+          quote.merchandiseSubtotalCents === Math.max(0, Math.round(total * 100)) &&
+          quote.residential === (deliveryLocationType === "residential") &&
+          quote.liftgate === liftgateRequired &&
+          quote.itemsHash === expectedItemsHash;
+        if (!quoteMatchesOrder) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The shipping quote no longer matches this order. Request a new quote.",
+          });
+        }
+        freightQuoteCents = quote.totalCents;
+        freightQuoteVerified = true;
+      } else if (input.deliveryMethod === "ship" && input.submit) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Request a current shipping quote before submitting this order.",
+        });
+      }
       const kitchenDesignId = await resolveAuthorizedKitchenDesignId(db, ctx.user, input.kitchenDesignId);
 
       // Affiliate attribution: if a referral code was supplied, resolve the
@@ -855,8 +902,12 @@ export const ordersRouter = router({
         notes: input.notes ?? null,
         affiliateId,
         referralCode,
-        deliveryMethod: input.deliveryMethod ?? "ship",
-        pickupDistributorId: input.deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
+        deliveryMethod,
+        deliveryLocationType,
+        liftgateRequired: deliveryMethod === "ship" && liftgateRequired,
+        freightQuoteCents,
+        freightQuoteVerified,
+        pickupDistributorId: deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
         taxState: input.taxState ?? null,
         taxRate: input.taxRate != null ? String(input.taxRate) : null,
         taxAmount: input.taxAmount != null ? String(input.taxAmount.toFixed(2)) : null,
@@ -894,7 +945,7 @@ export const ordersRouter = router({
       // to the distributor with copies to affiliates, and confirmed by the
       // originator/affiliate. That email step is DEFERRED until distributor email
       // is wired. For now we only persist the request.
-      return { id: insertId };
+      return { id: insertId, freightCents: freightQuoteCents };
     }),
 
   // ─── Originator confirmation ───────────────────────────────────────────────
@@ -1547,8 +1598,8 @@ export const ordersRouter = router({
     .input(
       z.object({
         orderRequestId: z.number().int().positive(),
-        /** Freight in cents (must be > 0 before payment) */
-        freightCents: z.number().int().min(0).default(0),
+        /** Deprecated display value; verified freight is loaded from the order. */
+        freightCents: z.number().int().min(0).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1578,12 +1629,20 @@ export const ordersRouter = router({
           platformSku: l.masterCode ?? undefined,
         }));
 
-      // Add freight as a line item if provided
-      if (input.freightCents > 0) {
+      const verifiedFreightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents;
+      if (order.deliveryMethod === "ship" && !order.freightQuoteVerified) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "A verified shipping quote must be attached before payment.",
+        });
+      }
+
+      // Add only the server-verified freight snapshot stored on the order.
+      if (verifiedFreightCents > 0) {
         stripeLines.push({
           description: "LTL Freight Shipping",
           quantity: 1,
-          unitPriceCents: input.freightCents,
+          unitPriceCents: verifiedFreightCents,
         });
       }
 

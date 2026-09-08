@@ -71,9 +71,22 @@ function scrubCabinet<T extends Record<string, unknown>>(row: T): Omit<T, "descr
   const { descriptionSource: _drop, ...rest } = row as T & { descriptionSource?: unknown };
   return rest;
 }
-function scrubDoorStyle<T extends Record<string, unknown>>(row: T): Omit<T, "distributorName"> {
+function scrubDoorStyle<T extends Record<string, unknown>>(
+  row: T,
+): Omit<T, "distributorName" | "warehouseZip" | "shippingRate" | "flatFreightFeeCents"> {
   if (!row) return row;
-  const { distributorName: _drop, ...rest } = row as T & { distributorName?: unknown };
+  const {
+    distributorName: _dropDistributor,
+    warehouseZip: _dropWarehouseZip,
+    shippingRate: _dropShippingRate,
+    flatFreightFeeCents: _dropFlatFreightFee,
+    ...rest
+  } = row as T & {
+    distributorName?: unknown;
+    warehouseZip?: unknown;
+    shippingRate?: unknown;
+    flatFreightFeeCents?: unknown;
+  };
   return rest;
 }
 
@@ -162,8 +175,6 @@ export const doorStylesRouter = router({
         frameSize: doorStyles.frameSize,
         overlayType: doorStyles.overlayType,
         doorPanelType: doorStyles.doorPanelType,
-        warehouseZip: doorStyles.warehouseZip,
-        shippingRate: doorStyles.shippingRate,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
         drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
         doorSampleVerified: doorStyles.doorSampleVerified,
@@ -320,6 +331,7 @@ export const doorStylesRouter = router({
         doorPanelType: doorStyles.doorPanelType,
         warehouseZip: doorStyles.warehouseZip,
         shippingRate: doorStyles.shippingRate,
+        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
         drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
         doorSampleVerified: doorStyles.doorSampleVerified,
@@ -418,6 +430,8 @@ export const doorStylesRouter = router({
         color: z.string().max(64).nullable().optional(),
         finish: z.string().max(128).nullable().optional(),
         woodSpecies: z.string().max(64).nullable().optional(),
+        warehouseZip: z.string().regex(/^\d{5}$/, "Shipping origin ZIP must be exactly 5 digits").nullable().optional(),
+        flatFreightFeeCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
         doorSampleImageUrl: z.string().max(512).nullable().optional(),
         drawerSampleImageUrl: z.string().max(512).nullable().optional(),
         roomSceneImageUrl: z.string().max(512).nullable().optional(),
@@ -443,6 +457,8 @@ export const doorStylesRouter = router({
       if (fields.color !== undefined) patch.color = fields.color?.trim() || null;
       if (fields.finish !== undefined) patch.finish = fields.finish?.trim() || null;
       if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
+      if (fields.warehouseZip !== undefined) patch.warehouseZip = fields.warehouseZip?.trim() || null;
+      if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
       if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
       if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;
       if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;

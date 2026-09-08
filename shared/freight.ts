@@ -48,6 +48,16 @@ export interface FreightQuoteLine {
   amountCents: number;
 }
 
+export interface FreightRateGroup {
+  key: string;
+  label: string;
+  originZip: string;
+  source: "live" | "plan_b";
+  baseAmountCents: number;
+  carrier?: string | null;
+  palletCount?: number;
+}
+
 export interface FreightQuote {
   available: boolean;
   zoneName: string | null;
@@ -60,6 +70,98 @@ export interface FreightQuote {
   totalCents: number;
   freeFreightApplied: boolean;
   reason?: string; // populated when available=false
+  rateGroups?: FreightRateGroup[];
+  /** Server-signed short-lived proof used to attach this exact quote to an order. */
+  quoteToken?: string;
+}
+
+export function combineStyleFreightGroups(input: {
+  groups: FreightRateGroup[];
+  settings: FreightSettings;
+  accessorials?: FreightAccessorials;
+  merchandiseSubtotalCents: number;
+  billableWeightLbs: number;
+  isKitchen: boolean;
+  kitchenFreightFloorCents: number;
+}): FreightQuote {
+  const groups = input.groups.filter((group) => group.baseAmountCents >= 0);
+  if (groups.length === 0) {
+    return {
+      available: false,
+      zoneName: null,
+      billableWeightLbs: Math.max(0, Math.round(input.billableWeightLbs)),
+      lines: [],
+      freightBeforeMarkupCents: 0,
+      markupCents: 0,
+      damageFeeCents: 0,
+      totalCents: 0,
+      freeFreightApplied: false,
+      reason: "No style-origin freight group returned a live rate or configured Plan B fee.",
+      rateGroups: [],
+    };
+  }
+
+  const lines: FreightQuoteLine[] = groups.map((group) => ({
+    label: `${group.source === "live" ? "Plan A live" : "Plan B fallback"} — ${group.label}`,
+    amountCents: Math.round(group.baseAmountCents),
+  }));
+
+  // A live provider quote already includes requested accessorials. Plan B is a
+  // distributor/style fallback amount, so Operations accessorials are added per
+  // fallback shipment rather than hidden inside the configured flat fee.
+  const planBShipmentCount = groups.filter((group) => group.source === "plan_b").length;
+  const accessorials = input.accessorials ?? {};
+  if (planBShipmentCount > 0 && accessorials.liftgate && input.settings.liftgateFeeCents > 0) {
+    lines.push({
+      label: `Liftgate service — ${planBShipmentCount} Plan B shipment${planBShipmentCount === 1 ? "" : "s"}`,
+      amountCents: input.settings.liftgateFeeCents * planBShipmentCount,
+    });
+  }
+  if (planBShipmentCount > 0 && accessorials.residential && input.settings.residentialFeeCents > 0) {
+    lines.push({
+      label: `Residential delivery — ${planBShipmentCount} Plan B shipment${planBShipmentCount === 1 ? "" : "s"}`,
+      amountCents: input.settings.residentialFeeCents * planBShipmentCount,
+    });
+  }
+  if (planBShipmentCount > 0 && accessorials.insideDelivery && input.settings.insideDeliveryFeeCents > 0) {
+    lines.push({
+      label: `Inside delivery — ${planBShipmentCount} Plan B shipment${planBShipmentCount === 1 ? "" : "s"}`,
+      amountCents: input.settings.insideDeliveryFeeCents * planBShipmentCount,
+    });
+  }
+  if (input.settings.handlingFeeCents > 0) {
+    lines.push({ label: "Operations handling", amountCents: input.settings.handlingFeeCents });
+  }
+
+  let freightBeforeMarkupCents = lines.reduce((sum, line) => sum + line.amountCents, 0);
+  const markupCents = round((freightBeforeMarkupCents * input.settings.markupBps) / 10000);
+  const damageFeeCents = round((freightBeforeMarkupCents * input.settings.damageFeeBps) / 10000);
+  let totalCents = freightBeforeMarkupCents + markupCents + damageFeeCents;
+
+  if (input.isKitchen && totalCents < input.kitchenFreightFloorCents) {
+    const floorAdjustment = input.kitchenFreightFloorCents - totalCents;
+    lines.push({ label: "Kitchen freight minimum adjustment", amountCents: floorAdjustment });
+    freightBeforeMarkupCents += floorAdjustment;
+    totalCents = input.kitchenFreightFloorCents;
+  }
+
+  const freeFreightApplied =
+    input.settings.freeFreightThresholdCents > 0 &&
+    input.merchandiseSubtotalCents >= input.settings.freeFreightThresholdCents;
+  if (freeFreightApplied) totalCents = 0;
+
+  return {
+    available: true,
+    zoneName: groups.length > 1 ? "Multiple style origins" : groups[0].label,
+    billableWeightLbs: Math.max(0, Math.round(input.billableWeightLbs)),
+    lines,
+    freightBeforeMarkupCents,
+    markupCents,
+    damageFeeCents,
+    totalCents,
+    freeFreightApplied,
+    rateGroups: groups,
+  };
 }
 
 // Normalize a ZIP to its 5 leading digits (strip spaces/ZIP+4).

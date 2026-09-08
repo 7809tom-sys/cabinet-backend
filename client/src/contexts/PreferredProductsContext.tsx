@@ -19,12 +19,14 @@ export type PreferredProduct = {
   materialImageUrl?: string | null;
   sellPrice: number | null;
   coverageSqFt?: number | null;
+  unsupportedOverhangLimitIn?: number | null;
 };
 
-export type PreferableCatalogProduct = Omit<PreferredProduct, "category" | "productCategory" | "coverageSqFt"> & {
+export type PreferableCatalogProduct = Omit<PreferredProduct, "category" | "productCategory" | "coverageSqFt" | "unsupportedOverhangLimitIn"> & {
   category: string;
   productCategory?: string;
   coverageSqFt?: number | string | null;
+  unsupportedOverhangLimitIn?: number | string | null;
 };
 
 export const MAX_PREFERRED_PRODUCTS_PER_CATEGORY = 6;
@@ -121,6 +123,7 @@ export function PreferredProductsProvider({ children }: { children: React.ReactN
         category,
         productCategory: product.productCategory ?? product.category,
         coverageSqFt: product.coverageSqFt == null ? null : Number(product.coverageSqFt),
+        unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn == null ? null : Number(product.unsupportedOverhangLimitIn),
       };
       if (user) {
         void (async () => {
@@ -147,6 +150,7 @@ export function PreferredProductsProvider({ children }: { children: React.ReactN
         category,
         productCategory: product.productCategory ?? product.category,
         coverageSqFt: product.coverageSqFt == null ? null : Number(product.coverageSqFt),
+        unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn == null ? null : Number(product.unsupportedOverhangLimitIn),
       }]);
       toast.success(`${product.name} added to Preferred on this device.`);
     }

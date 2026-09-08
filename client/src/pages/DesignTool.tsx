@@ -113,7 +113,7 @@ import {
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox, isStacker, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
@@ -741,6 +741,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [surfacesOpen, setSurfacesOpen] = useState(false);
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
+  const selectedCountertopStructuralLimit = useMemo(() => {
+    const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "countertop");
+    return selected
+      ? { name: selected.name, unsupportedOverhangLimitIn: selected.unsupportedOverhangLimitIn ?? null }
+      : null;
+  }, [selectedSurfaces]);
   // A kitchen has one active installed floor. When a customer chooses another
   // flooring product, it replaces the prior active flooring pick rather than
   // leaving an old first row to silently control the rendered material.
@@ -3348,31 +3354,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
 
-      // ── Stacker auto-snap ──────────────────────────────────────────────
-      let stackerMountBottom: number | undefined;
-      let stackWidth = width;
-      if (accPlacement === "wall" && isStacker(c)) {
-        const topLine = wallCabinetTopLine(room);
-        stackerMountBottom = topLine;
-        const sameWallCabs = prev.filter((p) => {
-          if (p.placement !== "wall" || isStacker(p)) return false;
-          const pw = cabinetWall(p, room);
-          const sw = cabinetWall({ ...p, x: spot.x, y: spot.y, width, depth, rotation: spot.rotation }, room);
-          return pw === sw;
-        });
-        const byX = [...sameWallCabs].sort(
-          (a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x)
-        );
-        const bestMatch =
-          byX.find((p) => Math.abs(p.width - width) <= 0.5) ?? byX[0];
-        if (bestMatch) {
-          const bw = rotatedSize(bestMatch).w;
-          spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
-          stackWidth = bw;
-          preserveResolvedPlacement = true;
-          toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
-        }
-      }
+	      // ── Stacker auto-snap ──────────────────────────────────────────────
+	      let stackerMountBottom: number | undefined;
+	      let stackerParentUid: string | undefined;
+	      if (!requestedIslandFace && accPlacement === "wall" && isStacker({ ...c, height })) {
+	        const stackerPlacement = glassStackerParentPlacement({
+	          uid: "glass-stacker-preview",
+	          cabinetId: Number(c.id),
+	          masterCode: c.masterCode,
+	          description: c.description,
+	          category: c.category ?? null,
+	          subCategory: c.subCategory ?? null,
+	          placement: "wall",
+	          x: spot.x,
+	          y: spot.y,
+	          width,
+	          depth,
+	          height,
+	          rotation: spot.rotation,
+	        }, prev, room, selectedUid);
+	        if (!stackerPlacement.ok) {
+	          const message = stackerPlacement.reason === "ceiling"
+	            ? `${c.masterCode} cannot stack above ${stackerPlacement.parentCode ?? "the matching wall cabinet"}: the combined top would reach ${formatInches(stackerPlacement.requiredTop ?? 0)}, but the ceiling is ${formatInches(stackerPlacement.ceiling ?? 0)} at that cabinet.`
+	            : `${c.masterCode} must stack on a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family on the selected ${WALL_LABELS[activeWall]} wall. Select or add that wall cabinet first.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return;
+	        }
+	        spot = { x: stackerPlacement.x, y: stackerPlacement.y, rotation: stackerPlacement.rotation };
+	        stackerMountBottom = stackerPlacement.mountBottom;
+	        stackerParentUid = stackerPlacement.parentUid;
+	        preserveResolvedPlacement = true;
+	        toast.success(`Stacker snapped above ${stackerPlacement.parentCode}`);
+	      }
 
       // ── OTR microwave auto-snap over a range ───────────────────────────
       let otrMountBottom: number | undefined;
@@ -3404,8 +3418,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         placement: accPlacement,
         x: spot.x,
         y: spot.y,
-        width: stackWidth,
-        nominalWidth: stackWidth,
+	        width,
+	        nominalWidth: width,
         depth,
         nominalDepth: depth,
         height,
@@ -3433,8 +3447,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
 	        styleId: styleIdRef.current ?? null,
         ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
-        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
-	        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
+	        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
+		        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
+		        ...(stackerParentUid ? { stackedOnCabinetUid: stackerParentUid } : {}),
 	        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
 	        ...(rangeHoodPlacement?.ok ? { mountBottom: rangeHoodPlacement.mountBottom } : {}),
 	      };
@@ -7191,16 +7206,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           applied++;
         }
         // Carry the exact product into the Surfaces & Fixtures list for every role.
-        surfaces.push({
-          id: pick.id,
+	        surfaces.push({
+	          id: pick.id,
           slug: pick.slug,
           name: pick.name,
           category: pick.category,
           subCategory: pick.subCategory ?? null,
           size: pick.size ?? null,
-          imageUrl: pick.imageUrl ?? null,
-          sellPrice: pick.sellPrice ?? null,
-        });
+	          imageUrl: pick.imageUrl ?? null,
+	          sellPrice: pick.sellPrice ?? null,
+	          unsupportedOverhangLimitIn: pick.unsupportedOverhangLimitIn ?? null,
+	        });
       });
       if (surfaces.length > 0) {
         setSelectedSurfaces((prev) => {
@@ -11922,6 +11938,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        open={islandAttributesOpen}
 	        onOpenChange={setIslandAttributesOpen}
 	        island={island}
+	        countertopMaterial={selectedCountertopStructuralLimit}
 	        onApply={applyIslandAttributes}
 	        onRotate={rotateIsland}
 		        onRemove={removeIslandScene}

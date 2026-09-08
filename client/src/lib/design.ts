@@ -421,6 +421,8 @@ export interface PlacedCabinet {
   mountBottom?: number | null;
   /** True after a user intentionally changes mountBottom; automatic over-sink cleanup must preserve it. */
   mountBottomAdjusted?: boolean;
+  /** Wall cabinet whose top physically supports this glass stacker. */
+  stackedOnCabinetUid?: string | null;
   /** Refrigerator UID that owns this over-fridge cabinet or enclosure panel. */
   refrigeratorAssemblyId?: string | null;
   /** Durable role inside a refrigerator enclosure so movement/rebuild cannot orphan a member. */
@@ -2781,23 +2783,108 @@ export function blindCornerViolations(
   return bad;
 }
 
-// A glass STACKER is a short wall cabinet designed to sit ON TOP of the main
-// wall cabinet below it (common in Skyline lines), growing UP toward the
-// ceiling — unlike a standalone short/bridge wall cabinet, which hangs from the
-// 84" top line. Detected from the description/code ("stacker").
-export function isStacker(p: { description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
+const GLASS_STACKER_HEIGHTS = new Set([12, 15, 18, 21, 24]);
+
+function glassStackerHeight(p: { height?: number | string | null; masterCode?: string | null }): number | null {
+  const explicit = Number(p.height);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const pairs = ((p.masterCode ?? "").toUpperCase().match(/\d{2}/g) ?? []).map(Number);
+  const inferred = pairs[pairs.length - 1];
+  return Number.isFinite(inferred) ? inferred : null;
+}
+
+function glassStackerFamily(p: { masterCode?: string | null }): "WDC" | "W" | null {
+  const code = (p.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.includes("WDC")) return "WDC";
+  if (code.startsWith("W") || /^GD?S\d/.test(code)) return "W";
+  return null;
+}
+
+// Every 12", 15", 18", 21", or 24" glass wall cabinet is a stacker: it sits
+// directly ON TOP of a same-width cabinet from its respective wall family. This
+// includes both conventional W3012GD/W3012PG identities and distributor formats
+// such as 2412WDCGD. Taller glass wall cabinets remain normal wall cabinets.
+export function isStacker(p: { description?: string | null; masterCode?: string | null; subCategory?: string | null; height?: number | string | null }): boolean {
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  const height = glassStackerHeight(p);
+  const supportedHeight = height == null || GLASS_STACKER_HEIGHTS.has(height);
   // Text signals: "stacker", "glass stacker", "stacking"/"stacked".
-  if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return true;
+  if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return supportedHeight;
   // Code signals: GS-* / GDS-* stacker families used across lines (e.g. GS-3012,
   // GDS-3015). Require a following size digit so we never match unrelated codes.
-  // W*PG suffix: glass-door stacker wall cabinets (e.g. W3012PG, W1212PG, W2412PG).
-  // These are 12"-tall wall cabinets that stack on top of standard wall cabinets.
   const code = (p.masterCode ?? "").toUpperCase();
-  if (/^GD?S[-_ ]?\d/.test(code)) return true;
-  // W[WW][HH]PG pattern: wall cabinet with PG suffix and 12" height (e.g. W3012PG, W1212PG)
-  if (/^W\d{2,4}PG$/.test(code)) return true;
-  return false;
+  if (/^GD?S[-_ ]?\d/.test(code)) return supportedHeight;
+  const normalized = code.replace(/[^A-Z0-9]/g, "");
+  const glassIdentity = normalized.endsWith("GD") || normalized.endsWith("PG") || /\bglass\b/.test(hay);
+  return glassIdentity && height != null && GLASS_STACKER_HEIGHTS.has(height);
+}
+
+export type GlassStackerParentPlacementResult =
+  | { ok: true; x: number; y: number; rotation: number; mountBottom: number; parentUid: string; parentCode: string }
+  | { ok: false; reason: "not-stacker" | "no-matching-parent" | "ceiling"; parentCode?: string; requiredTop?: number; ceiling?: number };
+
+/**
+ * Resolve the physical cabinet that a glass stacker belongs on. Matching is
+ * strict by room wall, installed width, and cabinet family; a WDC glass stacker
+ * cannot silently land on a standard W cabinet. The currently selected matching
+ * parent wins, otherwise the nearest matching run position is used.
+ */
+export function glassStackerParentPlacement(
+  stacker: PlacedCabinet,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+  preferredParentUid?: string | null,
+): GlassStackerParentPlacementResult {
+  if (stacker.placement !== "wall" || !isStacker(stacker)) return { ok: false, reason: "not-stacker" };
+  const side = cabinetWall(stacker, room);
+  const horizontal = side === "top" || side === "bottom";
+  const wallLengthIn = Math.max(1, horizontal ? room.width : room.depth);
+  const stackerFamily = glassStackerFamily(stacker);
+  const stackerWidth = Number(stacker.width);
+  const stackerStart = horizontal ? stacker.x : stacker.y;
+  const stackerCenter = stackerStart + stackerWidth / 2;
+  const candidates = placed.filter((parent) => {
+    if (parent.uid === stacker.uid || parent.placement !== "wall" || parent.islandFace || isStacker(parent)) return false;
+    if (cabinetWall(parent, room) !== side || !isAgainstWall(parent, side, room)) return false;
+    if (Math.abs(Number(parent.width) - stackerWidth) > 0.5) return false;
+    const parentFamily = glassStackerFamily(parent);
+    return stackerFamily == null || parentFamily === stackerFamily;
+  }).sort((left, right) => {
+    const leftPreferred = left.uid === preferredParentUid ? 0 : 1;
+    const rightPreferred = right.uid === preferredParentUid ? 0 : 1;
+    if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
+    const leftStart = horizontal ? left.x : left.y;
+    const rightStart = horizontal ? right.x : right.y;
+    return Math.abs(leftStart + Number(left.width) / 2 - stackerCenter) - Math.abs(rightStart + Number(right.width) / 2 - stackerCenter);
+  });
+  if (candidates.length === 0) return { ok: false, reason: "no-matching-parent" };
+
+  let firstCeilingBlock: Extract<GlassStackerParentPlacementResult, { ok: false }> | null = null;
+  for (const parent of candidates) {
+    const parentBox = elevationBox(parent, room);
+    const mountBottom = parentBox.bottom + parentBox.height;
+    const footprint = placedFootprint(parent);
+    const start = horizontal ? parent.x : parent.y;
+    const span = horizontal ? footprint.w : footprint.d;
+    const ceiling = Math.min(
+      wallCeilingAt(room, side, start / wallLengthIn),
+      wallCeilingAt(room, side, (start + span) / wallLengthIn),
+    );
+    const requiredTop = mountBottom + placedHeight(stacker);
+    if (requiredTop <= ceiling + COLLISION_EPSILON_IN) {
+      return {
+        ok: true,
+        x: parent.x,
+        y: parent.y,
+        rotation: parent.rotation,
+        mountBottom,
+        parentUid: parent.uid,
+        parentCode: parent.masterCode,
+      };
+    }
+    firstCeilingBlock ??= { ok: false, reason: "ceiling", parentCode: parent.masterCode, requiredTop, ceiling };
+  }
+  return firstCeilingBlock ?? { ok: false, reason: "no-matching-parent" };
 }
 
 /**

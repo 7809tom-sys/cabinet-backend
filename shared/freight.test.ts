@@ -4,6 +4,7 @@ import {
   resolveZone,
   normalizeZip,
   totalCartWeight,
+  combineStyleFreightGroups,
   type FreightSettings,
   type FreightZoneRate,
 } from "./freight";
@@ -182,5 +183,65 @@ describe("totalCartWeight", () => {
       45
     );
     expect(w).toBe(100 + 135 + 45);
+  });
+});
+
+describe("combineStyleFreightGroups", () => {
+  it("adds separate Plan A style origins and applies Operations markup once", () => {
+    const q = combineStyleFreightGroups({
+      groups: [
+        { key: "1:10", label: "Style A · 30303", originZip: "30303", source: "live", baseAmountCents: 42000 },
+        { key: "2:20", label: "Style B · 32801", originZip: "32801", source: "live", baseAmountCents: 38000 },
+      ],
+      settings: SETTINGS,
+      merchandiseSubtotalCents: 300000,
+      billableWeightLbs: 1200,
+      isKitchen: false,
+      kitchenFreightFloorCents: 80000,
+    });
+
+    expect(q.available).toBe(true);
+    expect(q.rateGroups).toHaveLength(2);
+    expect(q.freightBeforeMarkupCents).toBe(80000);
+    expect(q.markupCents).toBe(12000);
+    expect(q.totalCents).toBe(92000);
+    expect(q.lines.map((line) => line.label)).toEqual([
+      "Plan A live — Style A · 30303",
+      "Plan A live — Style B · 32801",
+    ]);
+  });
+
+  it("uses Plan B only for the failed style group and itemizes its delivery accessorials", () => {
+    const q = combineStyleFreightGroups({
+      groups: [
+        { key: "1:10", label: "Style A · 30303", originZip: "30303", source: "live", baseAmountCents: 42000 },
+        { key: "2:20", label: "Florida Style · 32801", originZip: "32801", source: "plan_b", baseAmountCents: 35000 },
+      ],
+      settings: SETTINGS,
+      accessorials: { residential: true, liftgate: true },
+      merchandiseSubtotalCents: 300000,
+      billableWeightLbs: 1200,
+      isKitchen: false,
+      kitchenFreightFloorCents: 80000,
+    });
+
+    expect(q.rateGroups?.map((group) => group.source)).toEqual(["live", "plan_b"]);
+    expect(q.lines).toContainEqual({ label: "Liftgate service — 1 Plan B shipment", amountCents: 7500 });
+    expect(q.lines).toContainEqual({ label: "Residential delivery — 1 Plan B shipment", amountCents: 6500 });
+    expect(q.lines.some((line) => line.label.startsWith("Plan B fallback — Florida Style"))).toBe(true);
+  });
+
+  it("reports unavailable instead of inventing a rate when no group has Plan A or Plan B", () => {
+    const q = combineStyleFreightGroups({
+      groups: [],
+      settings: SETTINGS,
+      merchandiseSubtotalCents: 100000,
+      billableWeightLbs: 400,
+      isKitchen: false,
+      kitchenFreightFloorCents: 80000,
+    });
+
+    expect(q.available).toBe(false);
+    expect(q.reason).toMatch(/live rate or configured Plan B/i);
   });
 });

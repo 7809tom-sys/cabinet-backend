@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { IslandAttributesDialog } from "./IslandAttributesDialog";
+import { effectiveIslandOverhangIn, IslandAttributesDialog } from "./IslandAttributesDialog";
 
 afterEach(cleanup);
 
@@ -38,6 +38,41 @@ describe("IslandAttributesDialog", () => {
 	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: null }));
 	    expect(screen.getByTestId("island-countertop-overhang-control")).toBeTruthy();
+	  });
+
+	  it("warns with the selected material, verified limit, and exact structural excess", () => {
+	    render(
+	      <IslandAttributesDialog
+	        open
+	        island={{ ...island, countertopWidth: null, countertopDepth: null, countertopOverhang: 6 }}
+	        countertopMaterial={{ name: "Verified Quartz", unsupportedOverhangLimitIn: 4 }}
+	        onOpenChange={vi.fn()}
+	        onApply={vi.fn()}
+	        onRotate={vi.fn()}
+	        onRemove={vi.fn()}
+	      />,
+	    );
+	    const warning = screen.getByTestId("island-overhang-limit-exceeded").textContent ?? "";
+	    expect(warning).toContain("Verified Quartz");
+	    expect(warning).toContain("6 in.");
+	    expect(warning).toContain("4 in.");
+	    expect(warning).toContain("2 in.");
+	    expect(screen.getByRole("alert")).toBeTruthy();
+	  });
+
+	  it("shows verified-safe and unverified material guidance without inventing a limit", () => {
+	    const props = { open: true, island: { ...island, countertopWidth: null, countertopDepth: null, countertopOverhang: 3 }, onOpenChange: vi.fn(), onApply: vi.fn(), onRotate: vi.fn(), onRemove: vi.fn() };
+	    const view = render(<IslandAttributesDialog {...props} countertopMaterial={{ name: "Verified Quartz", unsupportedOverhangLimitIn: 4 }} />);
+	    expect(screen.getByTestId("island-overhang-limit-within").textContent).toContain("4 in.");
+	    view.rerender(<IslandAttributesDialog {...props} countertopMaterial={{ name: "Pending Quartz", unsupportedOverhangLimitIn: null }} />);
+	    const unverified = screen.getByTestId("island-overhang-limit-unverified").textContent ?? "";
+	    expect(unverified).toContain("Pending Quartz");
+	    expect(unverified).toContain("does not yet have a verified");
+	    expect(unverified).not.toMatch(/limit of \d/i);
+	  });
+
+	  it("checks the largest unsupported edge when an exact slab is offset for seating", () => {
+	    expect(effectiveIslandOverhangIn({ ...island, countertopWidth: 78, countertopDepth: 60, countertopOffsetY: -6 })).toBe(12);
 	  });
 
   it("exposes complete-assembly rotate and remove actions on the responsive dialog", () => {

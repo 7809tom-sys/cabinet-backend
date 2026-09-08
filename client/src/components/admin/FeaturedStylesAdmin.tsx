@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
   AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, EyeOff, Eye,
-  Trash2, Plus, Package, Building2, DollarSign,
+  Trash2, Plus, Package, Building2, DollarSign, MapPin,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,8 @@ interface AdminStyle {
   distributorName: string | null;  // distributor's own name for this style (e.g. "Aspen White")
   supplierBrandName?: string | null; // real supplier brand (e.g. "US Cabinet Depot") — admin only
   supplierName?: string | null;      // neutral internal label (e.g. "Line A") — admin only
+  warehouseZip: string | null;
+  flatFreightFeeCents: number | null;
   railWidth: string | null;
   stileWidth: string | null;
   centerRailWidth: string | null;
@@ -266,6 +268,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [color, setColor] = useState(style.color ?? "");
   const [finish, setFinish] = useState(style.finish ?? "");
   const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
+  const [warehouseZip, setWarehouseZip] = useState(style.warehouseZip ?? "");
+  const [flatFreightDollars, setFlatFreightDollars] = useState(
+    style.flatFreightFeeCents != null ? (style.flatFreightFeeCents / 100).toFixed(2) : "",
+  );
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
   const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
@@ -288,6 +294,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setColor(s.color ?? "");
     setFinish(s.finish ?? "");
     setWoodSpecies(s.woodSpecies ?? "");
+    setWarehouseZip(s.warehouseZip ?? "");
+    setFlatFreightDollars(
+      s.flatFreightFeeCents != null ? (s.flatFreightFeeCents / 100).toFixed(2) : "",
+    );
     setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
     setDrawerSampleImageUrl(s.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
@@ -341,6 +351,17 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       toast.error("Rail and stile measurements must be positive values in inches");
       return;
     }
+    const normalizedWarehouseZip = warehouseZip.trim();
+    if (normalizedWarehouseZip && !/^\d{5}$/.test(normalizedWarehouseZip)) {
+      toast.error("Shipping origin ZIP must be exactly 5 digits");
+      return;
+    }
+    const flatFreightValue = flatFreightDollars.trim();
+    const flatFreightNumber = flatFreightValue ? Number(flatFreightValue) : null;
+    if (flatFreightNumber != null && (!Number.isFinite(flatFreightNumber) || flatFreightNumber < 0)) {
+      toast.error("Flat freight fee must be a valid non-negative dollar amount");
+      return;
+    }
     // For image URL fields: only send the field if the user actually changed it
     // from the original value. This prevents a stale empty string from wiping
     // an existing image that was set in a previous session.
@@ -359,6 +380,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       color: color.trim() || null,
       finish: finish.trim() || null,
       woodSpecies: woodSpecies.trim() || null,
+      warehouseZip: normalizedWarehouseZip || null,
+      flatFreightFeeCents: flatFreightNumber == null ? null : Math.round(flatFreightNumber * 100),
       doorSampleImageUrl: imgField(doorSampleImageUrl, orig.doorSampleImageUrl),
       drawerSampleImageUrl: imgField(drawerSampleImageUrl, orig.drawerSampleImageUrl),
       roomSceneImageUrl: imgField(roomSceneImageUrl, orig.roomSceneImageUrl),
@@ -454,6 +477,42 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               onChange={(e) => setOurName(e.target.value)}
               placeholder="e.g. Lumina White"
             />
+          </div>
+
+          <div className="rounded-lg border border-sky-200 bg-sky-50/50 px-3 py-3 space-y-2">
+            <Label htmlFor="ed-warehouse-zip" className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-sky-700" />
+              Shipping Origin ZIP
+              <span className="text-muted-foreground font-normal text-xs">(admin only)</span>
+            </Label>
+            <Input
+              id="ed-warehouse-zip"
+              value={warehouseZip}
+              onChange={(e) => setWarehouseZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              placeholder="5-digit distributor warehouse ZIP"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={5}
+            />
+            <p className="text-xs text-muted-foreground">
+              Live freight for this Door Style ships from this ZIP. It stays private and overrides the general distributor/global fallback for this style.
+            </p>
+            <div className="space-y-1.5 pt-1">
+              <Label htmlFor="ed-flat-freight">Plan B flat freight fee (optional)</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">$</span>
+                <Input
+                  id="ed-flat-freight"
+                  value={flatFreightDollars}
+                  onChange={(e) => setFlatFreightDollars(e.target.value)}
+                  placeholder="Used only when the live quote is unavailable"
+                  inputMode="decimal"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use this only when the distributor gives this cabinet line an approved fallback charge. The live carrier quote remains Plan A; Operations markup and delivery accessorials stay separate.
+              </p>
+            </div>
           </div>
 
           {/* Door style type + Color */}

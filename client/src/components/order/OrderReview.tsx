@@ -211,7 +211,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   // nearby distributor's pickup location (offered when ZIP is within radius).
   const [deliveryMethod, setDeliveryMethod] = useState<"ship" | "pickup">("ship");
   const [pickupDistributorId, setPickupDistributorId] = useState<number | null>(null);
+  const [deliveryLocationType, setDeliveryLocationType] = useState<"business" | "residential">("business");
+  const [liftgateRequired, setLiftgateRequired] = useState(false);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
+  const [submittedFreightCents, setSubmittedFreightCents] = useState(0);
   // Sales tax: customer selects their state; we look up the combined rate.
   const [taxState, setTaxState] = useState<string>("");
   // Referral attribution captured from a storefront visit or ?ref= link.
@@ -483,6 +486,33 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
 
   const total = pricedLines.reduce((sum, l) => sum + (l.linePrice ?? 0), 0);
 
+  const freightInput = useMemo(
+    () => ({
+      destinationZip: zipDebounced,
+      merchandiseSubtotalCents: Math.max(0, Math.round(total * 100)),
+      accessorials: {
+        residential: deliveryLocationType === "residential",
+        liftgate: liftgateRequired,
+      },
+      items: pricedLines
+        .filter((line) => line.matched && (line.cabinetId != null || line.masterCode))
+        .map((line) => ({
+          cabinetId: line.cabinetId,
+          masterCode: line.masterCode,
+          styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null,
+          distributorId: null,
+          qty: line.qty,
+          weightLbs: null,
+        })),
+    }),
+    [zipDebounced, total, deliveryLocationType, liftgateRequired, pricedLines, selectedStyle?.styleId],
+  );
+  const freightEstimate = trpc.freight.estimate.useQuery(freightInput, {
+    enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && freightInput.items.length > 0,
+    retry: false,
+  });
+  const freightCents = freightEstimate.data?.available ? freightEstimate.data.totalCents : 0;
+
   // Sales tax calculation: look up rate for selected state, compute tax amount.
   const taxRateQuery = trpc.location.getTaxRate.useQuery(
     { stateCode: taxState },
@@ -490,7 +520,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   );
   const taxInfo = taxRateQuery.data ?? null;
   const taxAmount = taxInfo && total > 0 ? Number((total * taxInfo.rate).toFixed(2)) : 0;
-  const grandTotal = total + taxAmount;
+  const grandTotal = total + taxAmount + (deliveryMethod === "ship" ? freightCents / 100 : 0);
 
   // Owner-only roll-up: total cost + gross margin across all priced lines.
   const isOwner = user?.role === "admin";
@@ -544,6 +574,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const createReq = trpc.orders.createRequest.useMutation({
     onSuccess: (res) => {
       setSubmittedId(res.id);
+      setSubmittedFreightCents(res.freightCents);
       if (isAuthenticated) utils.orders.myRequests.invalidate();
       toast.success(t("or_submitted_toast"), {
         description: t("or_submitted_desc"),
@@ -561,6 +592,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     }
     if (!emailValid) {
       toast.error(t("or_valid_email_confirm"));
+      return;
+    }
+    if (deliveryMethod === "ship" && !freightEstimate.data?.quoteToken) {
+      toast.error("A current shipping quote is required before submitting this order.");
       return;
     }
     // Carry the finish-match rule through to the order: skins & decorative end
@@ -588,6 +623,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       notes: composedNotes || undefined,
       referralCode: referralCode ?? undefined,
       deliveryMethod,
+      deliveryLocationType,
+      liftgateRequired: deliveryMethod === "ship" && liftgateRequired,
+      freightQuoteToken: deliveryMethod === "ship" ? freightEstimate.data?.quoteToken : undefined,
       pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
       taxState: taxState || undefined,
       taxRate: taxInfo?.rate,
@@ -668,6 +706,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             orderRequestId={submittedId}
             payerName={name || undefined}
             payerEmail={email}
+            presetFreightCents={submittedFreightCents}
           />
         </div>
       </div>
@@ -1120,6 +1159,83 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             </div>
           </div>
         )}
+        {deliveryMethod === "ship" && (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+            <div>
+              <p className="text-sm font-medium">Delivery location</p>
+              <p className="text-xs text-muted-foreground">
+                Select the actual location type. A ZIP alone cannot reliably identify a residential address.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(["business", "residential"] as const).map((locationType) => (
+                <button
+                  key={locationType}
+                  type="button"
+                  onClick={() => {
+                    setDeliveryLocationType(locationType);
+                    setLiftgateRequired(locationType === "residential");
+                  }}
+                  className={`rounded-md border p-3 text-left transition-colors ${
+                    deliveryLocationType === locationType
+                      ? "border-primary bg-background ring-1 ring-primary"
+                      : "border-border bg-background hover:bg-muted"
+                  }`}
+                >
+                  <span className="block text-sm font-medium capitalize">{locationType}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {locationType === "residential"
+                      ? "Lift gate selected by default; you can change it below."
+                      : "Commercial receiving location; confirm equipment below."}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+              <input
+                type="checkbox"
+                checked={liftgateRequired}
+                onChange={(e) => setLiftgateRequired(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <span className="block text-sm font-medium">Lift gate required</span>
+                <span className="block text-xs text-muted-foreground">
+                  Select this when the delivery location does not have a loading dock or forklift for unloading.
+                </span>
+              </span>
+            </label>
+            {zipDebounced.length < 5 ? (
+              <p className="text-xs text-muted-foreground">Enter the delivery ZIP above to calculate the pallet quote.</p>
+            ) : freightEstimate.isFetching ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculating pallet dimensions, loaded weight, and live shipping…
+              </div>
+            ) : freightEstimate.data?.available ? (
+              <div className="space-y-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
+                <div className="flex items-center justify-between gap-3 text-sm font-semibold">
+                  <span>Verified shipping total</span>
+                  <span>${(freightEstimate.data.totalCents / 100).toFixed(2)}</span>
+                </div>
+                {(freightEstimate.data.rateGroups ?? []).map((group) => (
+                  <div key={group.key} className="flex items-start justify-between gap-3 text-xs">
+                    <span>
+                      {group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
+                    </span>
+                    <span className="shrink-0">${(group.baseAmountCents / 100).toFixed(2)}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-emerald-800">
+                  Each origin is packed and quoted separately using final pallet dimensions and loaded weight.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                {freightEstimate.error?.message ?? freightEstimate.data?.reason ?? "Shipping is not available for this order yet."}
+              </div>
+            )}
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="ord-notes">{t("or_notes")}</Label>
           <Textarea id="ord-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("or_notes_ph")} rows={3} />
@@ -1134,7 +1250,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         )}
         <Button
           onClick={handleSubmit}
-          disabled={createReq.isPending}
+          disabled={createReq.isPending || (deliveryMethod === "ship" && freightEstimate.isFetching)}
           size="lg"
           className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
         >

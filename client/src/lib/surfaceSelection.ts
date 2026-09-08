@@ -18,6 +18,8 @@ export interface SurfacePick {
   size?: string | null;
   imageUrl?: string | null;
   sellPrice: number | null;
+  /** Supplier/fabricator-verified maximum unsupported countertop overhang. */
+  unsupportedOverhangLimitIn?: number | null;
   /** Area entered by the user (sq ft) for area-priced roles. */
   areaSqft?: number | null;
   /** Editable coverage assumption (sq ft per box/package). */

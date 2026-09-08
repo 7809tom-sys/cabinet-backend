@@ -9,6 +9,7 @@ import {
 } from "./liveFreight";
 
 const CAPS: PalletCaps = {
+  standardPalletLengthIn: 48,
   palletLengthIn: 96,
   palletWidthIn: 40,
   palletHeightIn: 60,
@@ -42,13 +43,30 @@ describe("buildPallets", () => {
     expect(plan.pallets).toHaveLength(0);
   });
 
-  it("uses a single 8 ft pallet for a small order and adds tare", () => {
-    const plan = buildPallets([{ weightLbs: 300, cubicFt: 30, qty: 1 }], CAPS);
+  it("uses a standard pallet for ordinary cabinet cartons and adds tare", () => {
+    const plan = buildPallets(
+      [{ weightLbs: 300, cubicFt: 30, qty: 1, maxPackageLengthIn: 36 }],
+      CAPS,
+    );
     expect(plan.palletCount).toBe(1);
-    expect(plan.pallets[0].lengthIn).toBe(96);
+    expect(plan.pallets[0].lengthIn).toBe(48);
     // contents 300 + tare 50
     expect(plan.pallets[0].weightLbs).toBe(350);
     expect(plan.totalWeightLbs).toBe(350);
+  });
+
+  it("uses the 8 ft pallet only when a package is at least 7 ft long and preserves shorter required lengths", () => {
+    const longPlan = buildPallets(
+      [{ weightLbs: 40, cubicFt: 4, qty: 1, maxPackageLengthIn: 96 }],
+      CAPS,
+    );
+    const shortPlan = buildPallets(
+      [{ weightLbs: 40, cubicFt: 4, qty: 1, maxPackageLengthIn: 72 }],
+      CAPS,
+    );
+
+    expect(longPlan.pallets[0].lengthIn).toBe(96);
+    expect(shortPlan.pallets[0].lengthIn).toBe(72);
   });
 
   it("splits into multiple pallets when the weight cap is exceeded", () => {
@@ -119,5 +137,43 @@ describe("applyKitchenFloor", () => {
     });
     expect(r.finalCents).toBe(12000);
     expect(r.floorApplied).toBe(false);
+  });
+});
+
+describe("buildPallets — complete-kitchen trim consolidation", () => {
+  it("keeps long trim on one complete-kitchen shipment without adding a separate pallet", () => {
+    const plan = buildPallets(
+      [
+        { weightLbs: 45, cubicFt: 8, qty: 12, maxPackageLengthIn: 42 },
+        { weightLbs: 8, cubicFt: 1, qty: 3, maxPackageLengthIn: 96, isTrim: true },
+      ],
+      CAPS,
+    );
+
+    expect(plan.palletCount).toBe(1);
+    expect(plan.pallets.every((pallet) => pallet.lengthIn === 96)).toBe(true);
+    expect(plan.totalContentsWeightLbs).toBe(564);
+    expect(plan.totalCubicFt).toBe(99);
+  });
+
+  it("uses an 8-foot pallet for a standalone long trim shipment", () => {
+    const plan = buildPallets(
+      [{ weightLbs: 8, cubicFt: 1, qty: 3, maxPackageLengthIn: 96, isTrim: true }],
+      CAPS,
+    );
+
+    expect(plan.pallets.every((pallet) => pallet.lengthIn === 96)).toBe(true);
+  });
+
+  it("uses an 8-foot pallet when a non-trim long item changes the kitchen footprint", () => {
+    const plan = buildPallets(
+      [
+        { weightLbs: 45, cubicFt: 8, qty: 12, maxPackageLengthIn: 42 },
+        { weightLbs: 100, cubicFt: 10, qty: 1, maxPackageLengthIn: 90 },
+      ],
+      CAPS,
+    );
+
+    expect(plan.pallets.every((pallet) => pallet.lengthIn === 96)).toBe(true);
   });
 });

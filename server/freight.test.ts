@@ -36,9 +36,16 @@ function settingsPayload(s: NonNullable<Awaited<ReturnType<typeof readSettings>>
     freeFreightThresholdCents: s.freeFreightThresholdCents,
     defaultCabinetWeightLbs: Number(s.defaultCabinetWeightLbs),
     quoteMode: (s.quoteMode ?? "estimator") as "estimator" | "live",
-    liveProvider: (s.liveProvider ?? "estimator") as "estimator" | "easypost" | "shippo",
+    liveProvider: (s.liveProvider ?? "estimator") as
+      | "estimator"
+      | "easypost"
+      | "shippo"
+      | "freightquote"
+      | "globaltranz"
+      | "worldwideexpress",
     kitchenFreightFloorCents: s.kitchenFreightFloorCents ?? 80000,
     kitchenMinCabinets: s.kitchenMinCabinets ?? 8,
+    standardPalletLengthIn: Number(s.standardPalletLengthIn ?? 48),
     palletLengthIn: Number(s.palletLengthIn ?? 96),
     palletWidthIn: Number(s.palletWidthIn ?? 48),
     palletHeightIn: Number(s.palletHeightIn ?? 48),
@@ -59,17 +66,27 @@ async function readSettings() {
 
 describe("freight.estimate", () => {
   it("returns a quote with a 15% markup line for a covered ZIP", async () => {
-    const caller = appRouter.createCaller(publicCtx());
-    const q = await caller.freight.estimate({
-      destinationZip: "30303",
-      items: [{ cabinetId: null, qty: 4, weightLbs: 50 }], // 200 lbs, no catalog lookup
-      merchandiseSubtotalCents: 200000,
-    });
-    expect(q.available).toBe(true);
-    expect(q.zoneName).toBeTruthy();
-    // markup is 15% of pre-markup freight
-    expect(q.markupCents).toBe(Math.round((q.freightBeforeMarkupCents * 1500) / 10000));
-    expect(q.totalCents).toBeGreaterThan(0);
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const before = await readSettings();
+    const s = before!;
+    await adminCaller.freight.adminUpdateSettings(
+      settingsPayload(s, { enabled: true, quoteMode: "estimator", liveProvider: "estimator", markupBps: 1500 }),
+    );
+    try {
+      const caller = appRouter.createCaller(publicCtx());
+      const q = await caller.freight.estimate({
+        destinationZip: "30303",
+        items: [{ cabinetId: null, qty: 4, weightLbs: 50 }], // 200 lbs, no catalog lookup
+        merchandiseSubtotalCents: 200000,
+      });
+      expect(q.available).toBe(true);
+      expect(q.zoneName).toBeTruthy();
+      // markup is 15% of pre-markup freight
+      expect(q.markupCents).toBe(Math.round((q.freightBeforeMarkupCents * 1500) / 10000));
+      expect(q.totalCents).toBeGreaterThan(0);
+    } finally {
+      await adminCaller.freight.adminUpdateSettings(settingsPayload(s));
+    }
   });
 
   it("reports unavailable when freight is disabled, then restores", async () => {
@@ -123,6 +140,7 @@ describe("freight admin", () => {
         liveProvider: "easypost",
         kitchenFreightFloorCents: 80000,
         freightClass: "200",
+        standardPalletLengthIn: 48,
         palletMaxWeightLbs: 1800,
       })
     );
@@ -131,6 +149,7 @@ describe("freight admin", () => {
     expect(mid?.liveProvider).toBe("easypost");
     expect(mid?.kitchenFreightFloorCents).toBe(80000);
     expect(mid?.freightClass).toBe("200");
+    expect(Number(mid?.standardPalletLengthIn)).toBe(48);
     expect(Number(mid?.palletMaxWeightLbs)).toBe(1800);
 
     // Restore prior values so other tests / runtime see the original settings.

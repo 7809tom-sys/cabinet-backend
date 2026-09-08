@@ -1,0 +1,41 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const source = readFileSync(
+  resolve(process.cwd(), "client/src/components/order/OrderReview.tsx"),
+  "utf8",
+);
+
+describe("OrderReview freight accessorial controls", () => {
+  it("uses only Business and Residential delivery types and never guesses from ZIP", () => {
+    expect(source).toContain('useState<"business" | "residential">("business")');
+    expect(source).toContain('(["business", "residential"] as const)');
+    expect(source).toContain("A ZIP alone cannot reliably identify a residential address");
+    expect(source).not.toContain('"rural"');
+  });
+
+  it("defaults lift-gate service on for Residential while retaining an explicit override", () => {
+    expect(source).toContain('setLiftgateRequired(locationType === "residential")');
+    expect(source).toContain('checked={liftgateRequired}');
+    expect(source).toContain('onChange={(e) => setLiftgateRequired(e.target.checked)}');
+    expect(source).toContain("does not have a loading dock or forklift");
+  });
+
+  it("requests a grouped freight quote with style provenance and the selected accessorials", () => {
+    expect(source).toContain("trpc.freight.estimate.useQuery(freightInput");
+    expect(source).toContain("styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null");
+    expect(source).toContain('residential: deliveryLocationType === "residential"');
+    expect(source).toContain("liftgate: liftgateRequired");
+    expect(source).toContain("final pallet dimensions and loaded weight");
+  });
+
+  it("shows each Plan A or Plan B style-origin group and passes the exact total to payment", () => {
+    expect(source).toContain('group.source === "live" ? "Plan A live" : "Plan B fallback"');
+    expect(source).toContain("freightEstimate.data.rateGroups");
+    expect(source).toContain("freightQuoteToken: deliveryMethod === \"ship\" ? freightEstimate.data?.quoteToken : undefined");
+    expect(source).toContain("setSubmittedFreightCents(res.freightCents)");
+    expect(source).toContain("presetFreightCents={submittedFreightCents}");
+    expect(source).toContain("total + taxAmount + (deliveryMethod === \"ship\" ? freightCents / 100 : 0)");
+  });
+});

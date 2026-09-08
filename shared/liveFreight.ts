@@ -12,8 +12,9 @@
 // Money: whole cents. Dimensions: inches. Weight: pounds. Volume: cubic feet.
 
 export interface PalletCaps {
-  // 8 ft pallet footprint/height used for the carrier dimensions.
-  palletLengthIn: number; // 96 = 8 ft
+  // Standard cabinet pallet and long-item pallet footprints used for carrier dimensions.
+  standardPalletLengthIn?: number; // 48 in default for ordinary cabinet cartons
+  palletLengthIn: number; // 96 in long pallet for trim and other 7–8 ft cartons
   palletWidthIn: number;
   palletHeightIn: number;
   // Packing caps — a pallet is "full" when EITHER weight or cube cap is hit.
@@ -29,6 +30,11 @@ export interface FreightItemPackage {
   weightLbs: number;
   cubicFt: number;
   qty: number;
+  // Longest authoritative packaged dimension (or physical fallback) for one unit.
+  maxPackageLengthIn?: number | null;
+  // Trim rides with an existing complete-kitchen load and contributes weight/cube,
+  // but does not by itself force every kitchen pallet to an 8-foot footprint.
+  isTrim?: boolean;
 }
 
 export interface BuiltPallet {
@@ -67,12 +73,15 @@ export function totalPackagedLoad(items: FreightItemPackage[]): {
   return { weightLbs, cubicFt, units };
 }
 
-// Determine how many 8 ft pallets the order needs. We do NOT bin-pack individual
+// Determine how many pallets the order needs. We do NOT bin-pack individual
 // boxes (the carrier bills by total weight + handling units); instead we compute
 // the pallet count as the max of the weight-driven and cube-driven counts, then
 // distribute the load evenly across that many pallets so each pallet reports a
 // realistic billable weight (contents share + tare).
-export function buildPallets(items: FreightItemPackage[], caps: PalletCaps): PalletPlan {
+export function buildPallets(
+  items: FreightItemPackage[],
+  caps: PalletCaps,
+): PalletPlan {
   const { weightLbs, cubicFt } = totalPackagedLoad(items);
 
   if (weightLbs <= 0 && cubicFt <= 0) {
@@ -94,13 +103,25 @@ export function buildPallets(items: FreightItemPackage[], caps: PalletCaps): Pal
 
   const perContentsWeight = weightLbs / palletCount;
   const perContentsCube = cubicFt / palletCount;
+  const longestRequiredIn = items.reduce(
+    (longest, item) => Math.max(
+      longest,
+      Math.max(0, Math.floor(item.qty)) > 0 ? Math.max(0, item.maxPackageLengthIn ?? 0) : 0,
+    ),
+    0,
+  );
+  const requiresLongPallet = longestRequiredIn >= 84;
+  const standardPalletLengthIn = Math.max(caps.standardPalletLengthIn ?? 48, longestRequiredIn);
+  const palletLengthIn = requiresLongPallet
+    ? caps.palletLengthIn
+    : Math.min(standardPalletLengthIn, caps.palletLengthIn);
 
   const pallets: BuiltPallet[] = [];
   for (let i = 0; i < palletCount; i++) {
     const contentsWeightLbs = Math.round(perContentsWeight);
     const weightWithTare = Math.ceil(contentsWeightLbs + caps.palletTareLbs);
     pallets.push({
-      lengthIn: caps.palletLengthIn,
+      lengthIn: palletLengthIn,
       widthIn: caps.palletWidthIn,
       heightIn: caps.palletHeightIn,
       weightLbs: weightWithTare,

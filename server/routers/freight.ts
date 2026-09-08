@@ -9,6 +9,7 @@ import {
   cabinets,
   distributors,
   distributorSkus,
+  doorStyles,
   type ShippingSettings,
 } from "../../drizzle/schema";
 import {
@@ -25,6 +26,8 @@ import {
   type FreightZoneRate,
   type FreightQuote,
   type FreightQuoteLine,
+  combineStyleFreightGroups,
+  type FreightRateGroup,
 } from "@shared/freight";
 import {
   buildPallets,
@@ -42,6 +45,7 @@ import { freightquoteQuote } from "../_core/freightquote";
 import { globaltranzQuote } from "../_core/globaltranz";
 import { worldwideexpressQuote } from "../_core/worldwideexpress";
 import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
+import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -78,6 +82,7 @@ function rowToSettings(row: ShippingSettings): FreightSettings {
 
 function rowToPalletCaps(row: ShippingSettings): PalletCaps {
   return {
+    standardPalletLengthIn: Number(row.standardPalletLengthIn),
     palletLengthIn: Number(row.palletLengthIn),
     palletWidthIn: Number(row.palletWidthIn),
     palletHeightIn: Number(row.palletHeightIn),
@@ -122,6 +127,8 @@ const itemsSchema = z
     z.object({
       cabinetId: z.number().int().positive().nullable(),
       masterCode: z.string().max(64).nullable().optional(),
+      styleId: z.number().int().positive().nullable().optional(),
+      distributorId: z.number().int().positive().nullable().optional(),
       qty: z.number().int().min(1).max(999),
       weightLbs: z.number().min(0).max(5000).nullable().optional(),
     })
@@ -132,9 +139,34 @@ const itemsSchema = z
 type FreightItemInput = {
   cabinetId: number | null;
   masterCode?: string | null;
+  styleId?: number | null;
+  distributorId?: number | null;
   qty: number;
   weightLbs?: number | null;
 };
+
+function attachFreightQuoteToken(
+  quote: FreightQuote,
+  input: {
+    destinationZip: string;
+    items: FreightItemInput[];
+    merchandiseSubtotalCents: number;
+    accessorials?: { residential?: boolean; liftgate?: boolean };
+  },
+): FreightQuote {
+  if (!quote.available) return quote;
+  return {
+    ...quote,
+    quoteToken: createFreightQuoteToken({
+      totalCents: quote.totalCents,
+      merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+      destinationZip: input.destinationZip,
+      residential: input.accessorials?.residential === true,
+      liftgate: input.accessorials?.liftgate === true,
+      items: input.items,
+    }),
+  };
+}
 
 // Resolve packaged weight + cubic feet per order line from the catalog, with the
 // configured fallbacks. Returns both the per-line packages (for pallet building)
@@ -153,7 +185,16 @@ async function resolvePackages(
     .map((i) => i.masterCode)
     .filter((c): c is string => typeof c === "string" && c.length > 0);
 
-  type Pkg = { weight: number | null; l: number | null; w: number | null; h: number | null };
+  type Pkg = {
+    weight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+    physicalWidth: number | null;
+    physicalHeight: number | null;
+    physicalDepth: number | null;
+    isTrim: boolean;
+  };
   const byId = new Map<number, Pkg>();
   const byCode = new Map<string, Pkg>();
 
@@ -168,6 +209,11 @@ async function resolvePackages(
             l: cabinets.pkgLength,
             w: cabinets.pkgWidth,
             h: cabinets.pkgHeight,
+            physicalWidth: cabinets.width,
+            physicalHeight: cabinets.height,
+            physicalDepth: cabinets.depth,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
           })
           .from(cabinets)
           .where(inArray(cabinets.id, ids));
@@ -177,6 +223,10 @@ async function resolvePackages(
             l: r.l != null ? Number(r.l) : null,
             w: r.w != null ? Number(r.w) : null,
             h: r.h != null ? Number(r.h) : null,
+            physicalWidth: r.physicalWidth != null ? Number(r.physicalWidth) : null,
+            physicalHeight: r.physicalHeight != null ? Number(r.physicalHeight) : null,
+            physicalDepth: r.physicalDepth != null ? Number(r.physicalDepth) : null,
+            isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
         }
       }
@@ -188,6 +238,11 @@ async function resolvePackages(
             l: cabinets.pkgLength,
             w: cabinets.pkgWidth,
             h: cabinets.pkgHeight,
+            physicalWidth: cabinets.width,
+            physicalHeight: cabinets.height,
+            physicalDepth: cabinets.depth,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
           })
           .from(cabinets)
           .where(inArray(cabinets.masterCode, codes));
@@ -197,6 +252,10 @@ async function resolvePackages(
             l: r.l != null ? Number(r.l) : null,
             w: r.w != null ? Number(r.w) : null,
             h: r.h != null ? Number(r.h) : null,
+            physicalWidth: r.physicalWidth != null ? Number(r.physicalWidth) : null,
+            physicalHeight: r.physicalHeight != null ? Number(r.physicalHeight) : null,
+            physicalDepth: r.physicalDepth != null ? Number(r.physicalDepth) : null,
+            isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
         }
       }
@@ -228,6 +287,15 @@ async function resolvePackages(
       weightLbs: resolvedWeight != null && resolvedWeight > 0 ? resolvedWeight : fallbackWeight,
       cubicFt,
       qty: it.qty,
+      maxPackageLengthIn: Math.max(
+        pkg?.l ?? 0,
+        pkg?.w ?? 0,
+        pkg?.h ?? 0,
+        pkg?.physicalWidth ?? 0,
+        pkg?.physicalHeight ?? 0,
+        pkg?.physicalDepth ?? 0,
+      ) || null,
+      isTrim: pkg?.isTrim ?? false,
     });
   }
 
@@ -328,6 +396,139 @@ async function resolveOriginZip(
   return nearest ?? fallbackZip;
 }
 
+type StyleFreightGroup = {
+  key: string;
+  label: string;
+  originZip: string;
+  flatFreightFeeCents: number | null;
+  items: FreightItemInput[];
+};
+
+async function resolveStyleFreightGroups(input: {
+  destinationZip: string;
+  items: FreightItemInput[];
+  explicitDistributorId?: number | null;
+  fallbackOriginZip: string;
+}): Promise<StyleFreightGroup[]> {
+  const db = await getDb();
+  const requestedStyleIds = Array.from(
+    new Set(
+      input.items
+        .map((item) => item.styleId)
+        .filter((styleId): styleId is number => typeof styleId === "number" && styleId > 0),
+    ),
+  );
+  const cabinetIds = Array.from(
+    new Set(
+      input.items
+        .map((item) => item.cabinetId)
+        .filter((cabinetId): cabinetId is number => typeof cabinetId === "number" && cabinetId > 0),
+    ),
+  );
+
+  type StyleMeta = {
+    id: number;
+    distributorId: number;
+    ourName: string;
+    aliasName: string | null;
+    warehouseZip: string | null;
+    flatFreightFeeCents: number | null;
+  };
+  const styleById = new Map<number, StyleMeta>();
+  const candidatesByCabinet = new Map<number, StyleMeta[]>();
+
+  if (db && requestedStyleIds.length > 0) {
+    const rows = await db
+      .select({
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        warehouseZip: doorStyles.warehouseZip,
+        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+      })
+      .from(doorStyles)
+      .where(inArray(doorStyles.id, requestedStyleIds));
+    for (const row of rows) styleById.set(row.id, row);
+  }
+
+  if (db && cabinetIds.length > 0) {
+    const rows = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        warehouseZip: doorStyles.warehouseZip,
+        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+      })
+      .from(distributorSkus)
+      .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .where(inArray(distributorSkus.cabinetId, cabinetIds));
+    for (const row of rows) {
+      const candidate: StyleMeta = row;
+      const current = candidatesByCabinet.get(row.cabinetId) ?? [];
+      current.push(candidate);
+      candidatesByCabinet.set(row.cabinetId, current);
+    }
+  }
+
+  const groups = new Map<string, StyleFreightGroup>();
+  for (const item of input.items) {
+    const requestedStyleId = item.styleId ?? null;
+    const directStyle = requestedStyleId ? styleById.get(requestedStyleId) : undefined;
+    const candidates = item.cabinetId ? candidatesByCabinet.get(item.cabinetId) ?? [] : [];
+    const requestedDistributorId = item.distributorId ?? input.explicitDistributorId ?? null;
+    const matchedStyle = requestedStyleId
+      ? (directStyle && (!requestedDistributorId || directStyle.distributorId === requestedDistributorId)
+          ? directStyle
+          : undefined)
+      : candidates.find(
+          (candidate) => !requestedDistributorId || candidate.distributorId === requestedDistributorId,
+        ) ?? (candidates.length === 1 ? candidates[0] : undefined);
+
+    if (requestedStyleId && !matchedStyle) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "The selected cabinet style could not be matched to its shipping origin. Review Featured Door Styles and request a new quote.",
+      });
+    }
+
+    const distributorId = matchedStyle?.distributorId ?? requestedDistributorId;
+    const styleOriginZip = normalizeZip(matchedStyle?.warehouseZip ?? "");
+    if (matchedStyle && !styleOriginZip) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
+      });
+    }
+    const originZip = styleOriginZip || await resolveOriginZip(
+      input.destinationZip,
+      distributorId,
+      input.fallbackOriginZip,
+    );
+    const key = matchedStyle
+      ? `style:${matchedStyle.id}:${originZip}`
+      : `fallback:${distributorId ?? "global"}:${originZip}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.items.push(item);
+      continue;
+    }
+    const styleLabel = matchedStyle?.aliasName || matchedStyle?.ourName;
+    groups.set(key, {
+      key,
+      label: `${styleLabel || "Configured supply line"} · origin ${originZip}`,
+      originZip,
+      flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
+      items: [item],
+    });
+  }
+
+  return Array.from(groups.values());
+}
+
 // Build a stable FreightQuote from a live carrier amount.
 function liveQuoteToFreightQuote(
   carrierCents: number,
@@ -388,6 +589,91 @@ function liveQuoteToFreightQuote(
   };
 }
 
+type LiveRateRequest = Parameters<typeof easypostQuote>[1];
+type LiveRateResult = {
+  ok: boolean;
+  amountCents: number;
+  carrier?: string;
+  service?: string;
+  error?: string;
+};
+
+async function requestLiveRate(input: {
+  provider: NonNullable<ShippingSettings["liveProvider"]>;
+  settings: ShippingSettings;
+  liveApiKey: string;
+  request: LiveRateRequest;
+  palletCount: number;
+  totalWeightLbs: number;
+}): Promise<LiveRateResult> {
+  const startedAt = Date.now();
+  let live: LiveRateResult;
+  if (input.provider === "freightquote") {
+    live = await freightquoteQuote(
+      {
+        clientId: input.settings.fqClientId ?? "",
+        clientSecret: input.settings.fqClientSecret ?? "",
+        accountNumber: input.settings.fqAccountNumber ?? "",
+        environment: (input.settings.fqEnvironment ?? "sandbox") as "sandbox" | "production",
+      },
+      input.request,
+    );
+  } else if (input.provider === "globaltranz") {
+    live = await globaltranzQuote(
+      {
+        apiKey: input.settings.gtzApiKey ?? "",
+        username: input.settings.gtzUsername ?? "",
+        password: input.settings.gtzPassword ?? "",
+        accountNumber: input.settings.gtzAccountNumber ?? "",
+        environment: (input.settings.gtzEnvironment ?? "sandbox") as "sandbox" | "production",
+      },
+      input.request,
+    );
+  } else if (input.provider === "worldwideexpress") {
+    const isProduction = input.settings.wwexEnvironment === "production";
+    live = await worldwideexpressQuote(
+      {
+        clientId: input.settings.wwexClientId ?? "",
+        clientSecret: input.settings.wwexClientSecret ?? "",
+        accountNumber: input.settings.wwexAccountNumber ?? "",
+        username: input.settings.wwexUsername ?? undefined,
+        password: input.settings.wwexPassword ?? undefined,
+        environment: (input.settings.wwexEnvironment ?? "sandbox") as "sandbox" | "production",
+        tokenUrl: isProduction
+          ? input.settings.wwexProductionTokenUrl
+          : input.settings.wwexSandboxTokenUrl,
+        rateUrl: isProduction
+          ? input.settings.wwexProductionRateUrl
+          : input.settings.wwexSandboxRateUrl,
+      },
+      input.request,
+    );
+  } else {
+    live = await easypostQuote(input.liveApiKey, input.request);
+  }
+
+  logFreightApiCall({
+    broker: input.provider,
+    fromZip: input.request.fromZip,
+    toZip: input.request.toZip,
+    palletCount: input.palletCount,
+    totalWeightLbs: input.totalWeightLbs,
+    freightClass: input.request.freightClass,
+    accessorials: [
+      input.request.residential ? "RESIDENTIAL" : null,
+      input.request.liftgate ? "LIFTGATE" : null,
+      input.request.limitedAccess ? "LIMITED_ACCESS" : null,
+    ].filter(Boolean) as string[],
+    ok: live.ok,
+    amountCents: live.amountCents,
+    carrier: live.carrier,
+    service: live.service,
+    error: live.error,
+    durationMs: Date.now() - startedAt,
+  });
+  return live;
+}
+
 export const freightRouter = router({
   // ─── Public: estimate/quote freight for a cart ──────────────────────────────
   estimate: publicProcedure
@@ -416,15 +702,12 @@ export const freightRouter = router({
       const liveProvider = settingsRow?.liveProvider ?? "estimator";
       const liveKey = settingsRow?.liveApiKey ?? "";
 
-      // ── LIVE MODE: real carrier rate, no guessing ──────────────────────────
-      if (quoteMode === "live" && liveProvider !== "estimator" && liveKey) {
-        const caps = rowToPalletCaps(settingsRow!);
-        const plan = buildPallets(packages, caps);
+      // ── LIVE MODE: one carrier shipment per authoritative style origin ─────
+      if (quoteMode === "live" && liveProvider !== "estimator" && settingsRow) {
+        const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
-        const isKitchen = isKitchenOrder(load.units, settingsRow!.kitchenMinCabinets);
-        const kitchenFloorCents = settingsRow!.kitchenFreightFloorCents;
-
-        if (plan.palletCount === 0) {
+        const isKitchen = isKitchenOrder(load.units, settingsRow.kitchenMinCabinets);
+        if (load.units === 0) {
           return {
             available: false,
             zoneName: null,
@@ -439,131 +722,102 @@ export const freightRouter = router({
           };
         }
 
-        // Ship from the distributor warehouse nearest the destination (falls
-        // back to the configured global origin ZIP when unavailable).
-        const cartDistributorId = await resolveCartDistributorId(
-          input.items,
-          input.distributorId
-        );
-        const originZip = await resolveOriginZip(
-          input.destinationZip,
-          cartDistributorId,
-          settings.originZip
-        );
+        const styleGroups = await resolveStyleFreightGroups({
+          destinationZip: input.destinationZip,
+          items: input.items,
+          explicitDistributorId: input.distributorId,
+          fallbackOriginZip: settings.originZip,
+        });
+        const rateGroups: FreightRateGroup[] = [];
+        const failedGroups: string[] = [];
+        let totalBillableWeightLbs = 0;
 
-        // ── Dispatch to the configured live broker ─────────────────────────
-        const liveReq = {
-          fromZip: originZip,
-          toZip: input.destinationZip,
-          pallets: plan.pallets.map((p) => ({
-            lengthIn: p.lengthIn,
-            widthIn: p.widthIn,
-            heightIn: p.heightIn,
-            weightLbs: p.weightLbs,
-          })),
-          freightClass: settingsRow!.freightClass,
-          residential: input.accessorials?.residential,
-          liftgate: input.accessorials?.liftgate,
-          limitedAccess: input.accessorials?.limitedAccess,
-        };
+        for (const group of styleGroups) {
+          const resolvedGroup = await resolvePackages(
+            group.items,
+            settingsRow,
+            settings.defaultCabinetWeightLbs,
+          );
+          const plan = buildPallets(resolvedGroup.packages, caps);
+          totalBillableWeightLbs += plan.totalWeightLbs;
+          const liveReq: LiveRateRequest = {
+            fromZip: group.originZip,
+            toZip: input.destinationZip,
+            pallets: plan.pallets.map((pallet) => ({
+              lengthIn: pallet.lengthIn,
+              widthIn: pallet.widthIn,
+              heightIn: pallet.heightIn,
+              weightLbs: pallet.weightLbs,
+            })),
+            freightClass: settingsRow.freightClass,
+            residential: input.accessorials?.residential,
+            liftgate: input.accessorials?.liftgate,
+            limitedAccess: input.accessorials?.limitedAccess,
+          };
+          const live = await requestLiveRate({
+            provider: liveProvider,
+            settings: settingsRow,
+            liveApiKey: liveKey,
+            request: liveReq,
+            palletCount: plan.palletCount,
+            totalWeightLbs: plan.totalWeightLbs,
+          });
+          const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
 
-        const brokerStart = Date.now();
-        let live;
-        if (liveProvider === "freightquote") {
-          live = await freightquoteQuote(
-            {
-              clientId: settingsRow!.fqClientId ?? "",
-              clientSecret: settingsRow!.fqClientSecret ?? "",
-              accountNumber: settingsRow!.fqAccountNumber ?? "",
-              environment: (settingsRow!.fqEnvironment ?? "sandbox") as "sandbox" | "production",
-            },
-            liveReq,
-          );
-        } else if (liveProvider === "globaltranz") {
-          live = await globaltranzQuote(
-            {
-              apiKey: settingsRow!.gtzApiKey ?? "",
-              username: settingsRow!.gtzUsername ?? "",
-              password: settingsRow!.gtzPassword ?? "",
-              accountNumber: settingsRow!.gtzAccountNumber ?? "",
-              environment: (settingsRow!.gtzEnvironment ?? "sandbox") as "sandbox" | "production",
-            },
-            liveReq,
-          );
-        } else if (liveProvider === "worldwideexpress") {
-          live = await worldwideexpressQuote(
-            {
-              clientId: settingsRow!.wwexClientId ?? "",
-              clientSecret: settingsRow!.wwexClientSecret ?? "",
-              accountNumber: settingsRow!.wwexAccountNumber ?? "",
-              username: settingsRow!.wwexUsername ?? undefined,
-              password: settingsRow!.wwexPassword ?? undefined,
-              environment: (settingsRow!.wwexEnvironment ?? "sandbox") as "sandbox" | "production",
-            },
-            liveReq,
-          );
-        } else {
-          // EasyPost or Shippo (legacy)
-          live = await easypostQuote(liveKey, liveReq);
+          if (live.ok) {
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+              originZip: group.originZip,
+              source: "live",
+              baseAmountCents: live.amountCents,
+              carrier: carrierLabel,
+              palletCount: plan.palletCount,
+            });
+          } else if (group.flatFreightFeeCents != null) {
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+              originZip: group.originZip,
+              source: "plan_b",
+              baseAmountCents: group.flatFreightFeeCents,
+              palletCount: plan.palletCount,
+            });
+          } else {
+            failedGroups.push(`${group.label}: ${live.error ?? "carrier unavailable"}`);
+          }
         }
 
-        // Log the API call for admin visibility.
-        logFreightApiCall({
-          broker: liveProvider,
-          fromZip: liveReq.fromZip,
-          toZip: liveReq.toZip,
-          palletCount: plan.palletCount,
-          totalWeightLbs: plan.totalWeightLbs,
-          freightClass: liveReq.freightClass,
-          accessorials: [
-            liveReq.residential ? "RESIDENTIAL" : null,
-            liveReq.liftgate ? "LIFTGATE" : null,
-            liveReq.limitedAccess ? "LIMITED_ACCESS" : null,
-          ].filter(Boolean) as string[],
-          ok: live.ok,
-          amountCents: live.amountCents,
-          carrier: live.carrier,
-          service: live.service,
-          error: live.error,
-          durationMs: Date.now() - brokerStart,
-        });
-
-        if (!live.ok) {
-          // No fabricated number — tell the UI freight is quoted at the order.
+        if (failedGroups.length > 0) {
           return {
             available: false,
             zoneName: null,
-            billableWeightLbs: plan.totalWeightLbs,
+            billableWeightLbs: totalBillableWeightLbs,
             lines: [],
             freightBeforeMarkupCents: 0,
             markupCents: 0,
             damageFeeCents: 0,
             totalCents: 0,
             freeFreightApplied: false,
-            reason:
-              "Live shipping will be quoted on your order. (" +
-              (live.error ?? "carrier unavailable") +
-              ")",
+            reason: `Live shipping is unavailable for ${failedGroups.join("; ")}. No Plan B fee is configured for the affected style group.`,
           };
         }
 
-        const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
-        return liveQuoteToFreightQuote(
-          live.amountCents,
+        return attachFreightQuoteToken(combineStyleFreightGroups({
+          groups: rateGroups,
           settings,
-          input.merchandiseSubtotalCents,
+          accessorials: input.accessorials,
+          merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+          billableWeightLbs: totalBillableWeightLbs,
           isKitchen,
-          kitchenFloorCents,
-          plan.totalWeightLbs,
-          plan.palletCount,
-          carrierLabel
-        );
+          kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
+        }), input);
       }
 
       // ── ESTIMATOR MODE (legacy, table-driven) ──────────────────────────────
       const zones = await loadZones();
       const totalWeightLbs = totalCartWeight(weighted, settings.defaultCabinetWeightLbs);
-      return estimateFreight(
+      return attachFreightQuoteToken(estimateFreight(
         {
           destinationZip: input.destinationZip,
           totalWeightLbs,
@@ -572,7 +826,7 @@ export const freightRouter = router({
         },
         settings,
         zones
-      );
+      ), input);
     }),
 
   // ─── Admin: read current settings + zones ───────────────────────────────────
@@ -634,10 +888,15 @@ export const freightRouter = router({
         wwexUsername: z.string().max(128).nullable().optional(),
         wwexPassword: z.string().max(255).nullable().optional(),
         wwexEnvironment: z.enum(["sandbox", "production"]).optional(),
+        wwexSandboxTokenUrl: z.string().max(512).nullable().optional(),
+        wwexSandboxRateUrl: z.string().max(512).nullable().optional(),
+        wwexProductionTokenUrl: z.string().max(512).nullable().optional(),
+        wwexProductionRateUrl: z.string().max(512).nullable().optional(),
         // Optional: only set the key when provided (keeps existing if omitted).
         liveApiKey: z.string().max(255).nullable().optional(),
         kitchenFreightFloorCents: z.number().int().min(0).max(100000000),
         kitchenMinCabinets: z.number().int().min(1).max(100),
+        standardPalletLengthIn: z.number().min(12).max(96),
         palletLengthIn: z.number().min(12).max(240),
         palletWidthIn: z.number().min(12).max(120),
         palletHeightIn: z.number().min(12).max(120),
@@ -657,6 +916,7 @@ export const freightRouter = router({
       const values: Record<string, unknown> = {
         ...rest,
         defaultCabinetWeightLbs: String(input.defaultCabinetWeightLbs),
+        standardPalletLengthIn: String(input.standardPalletLengthIn),
         palletLengthIn: String(input.palletLengthIn),
         palletWidthIn: String(input.palletWidthIn),
         palletHeightIn: String(input.palletHeightIn),
@@ -709,9 +969,6 @@ export const freightRouter = router({
       if (!row) {
         return { ok: false, error: "Shipping settings have not been saved yet." };
       }
-      if (!row.liveApiKey) {
-        return { ok: false, error: "No live API key is set. Add your carrier key first." };
-      }
       if (!row.originZip) {
         return { ok: false, error: "Set an origin ZIP before testing a live quote." };
       }
@@ -722,7 +979,16 @@ export const freightRouter = router({
         caps
       );
 
-      const live = await easypostQuote(row.liveApiKey, {
+      if (row.liveProvider === "estimator") {
+        return { ok: false, error: "Select a live freight provider before testing." };
+      }
+      const live = await requestLiveRate({
+        provider: row.liveProvider,
+        settings: row,
+        liveApiKey: row.liveApiKey ?? "",
+        palletCount: plan.palletCount,
+        totalWeightLbs: plan.totalWeightLbs,
+        request: {
         fromZip: row.originZip,
         toZip: input.destinationZip,
         pallets: plan.pallets.map((p) => ({
@@ -733,6 +999,7 @@ export const freightRouter = router({
         })),
         freightClass: row.freightClass,
         residential: input.residential,
+        },
       });
 
       if (!live.ok) return { ok: false, error: live.error ?? "Live quote failed." };

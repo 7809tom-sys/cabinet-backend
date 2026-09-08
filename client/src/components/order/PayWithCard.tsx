@@ -36,7 +36,7 @@ export interface PayWithCardProps {
   orderRequestId: number;
   payerName?: string;
   payerEmail?: string;
-  /** Optional preset freight (cents) when the team has already attached a quote. */
+  /** Server-verified freight snapshot persisted on the order; zero is valid for pickup/free freight. */
   presetFreightCents?: number;
   onPaid?: (info: { transactionId: string | null; amountCents: number }) => void;
 }
@@ -44,9 +44,8 @@ export interface PayWithCardProps {
 /**
  * Upfront card payment via Authorize.Net Accept.js. The card is tokenized in the
  * browser (raw PAN never reaches our server); we send only the opaque nonce.
- * Payment is gated on a freight amount being attached — the input below captures
- * the freight the team quoted for this order, and the server recomputes the
- * authoritative grand total (cabinets + fees + freight) before charging.
+ * Payment is gated on a server-verified freight snapshot attached to the order.
+ * The server recomputes the authoritative grand total before charging.
  */
 export default function PayWithCard({
   orderRequestId,
@@ -59,9 +58,6 @@ export default function PayWithCard({
   const { data: config, isLoading } = trpc.payments.publicConfig.useQuery();
   const [scriptReady, setScriptReady] = useState(false);
 
-  const [freightDollars, setFreightDollars] = useState(
-    presetFreightCents ? (presetFreightCents / 100).toFixed(2) : "",
-  );
   const [cardNumber, setCardNumber] = useState("");
   const [expMonth, setExpMonth] = useState("");
   const [expYear, setExpYear] = useState("");
@@ -92,8 +88,9 @@ export default function PayWithCard({
 
   const charge = trpc.payments.charge.useMutation();
 
-  const freightCents = Math.round((parseFloat(freightDollars) || 0) * 100);
-  const freightOk = freightCents > 0;
+  const freightCents = presetFreightCents ?? 0;
+  const freightDollars = presetFreightCents != null ? (freightCents / 100).toFixed(2) : "";
+  const freightOk = presetFreightCents != null;
 
   const handlePay = useCallback(() => {
     if (!config?.enabled) return;
@@ -135,7 +132,6 @@ export default function PayWithCard({
               dataDescriptor: res.opaqueData.dataDescriptor,
               dataValue: res.opaqueData.dataValue,
             },
-            freightCents,
             payer: { name: payerName, email: payerEmail },
           },
           {
@@ -153,7 +149,7 @@ export default function PayWithCard({
         );
       },
     );
-  }, [config, freightOk, freightCents, cardNumber, expMonth, expYear, cvc, zip, charge, orderRequestId, payerName, payerEmail, onPaid, t]);
+  }, [config, freightOk, cardNumber, expMonth, expYear, cvc, zip, charge, orderRequestId, payerName, payerEmail, onPaid, t]);
 
   if (isLoading) {
     return <div className="flex justify-center py-6"><Spinner /></div>;
@@ -196,7 +192,7 @@ export default function PayWithCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Freight gate */}
+        {/* Verified freight gate */}
         <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5">
           <Label htmlFor="freight" className="flex items-center gap-1.5">
             <Truck className="h-4 w-4" /> {t("pay_shipping_quoted")}
@@ -205,16 +201,17 @@ export default function PayWithCard({
             <span className="text-muted-foreground">$</span>
             <Input
               id="freight"
-              inputMode="decimal"
               value={freightDollars}
-              onChange={(e) => setFreightDollars(e.target.value)}
-              placeholder="0.00"
+              placeholder="Verified quote required"
               className="max-w-[160px]"
-              disabled={Boolean(presetFreightCents)}
+              readOnly
+              disabled
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {t("pay_freight_hint")}
+            {freightOk
+              ? "This amount is the signed pallet quote stored with your order and cannot be edited at payment."
+              : "Return to Order Review and request a current shipping quote before paying."}
           </p>
         </div>
 

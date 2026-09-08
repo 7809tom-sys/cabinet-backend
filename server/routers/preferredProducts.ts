@@ -72,6 +72,7 @@ export const preferredProductsRouter = router({
             materialImageUrl: product.materialImageUrl,
             sellPrice: preferredSellPrice(product, markupBpsByCategory),
             coverageSqFt: product.coverageSqFt == null ? null : Number(product.coverageSqFt),
+            unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn == null ? null : Number(product.unsupportedOverhangLimitIn),
           }];
         }),
       };

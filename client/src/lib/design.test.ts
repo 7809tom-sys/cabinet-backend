@@ -22,7 +22,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
-  isStacker, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts,
+	  isStacker, glassStackerParentPlacement, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
@@ -2409,10 +2409,59 @@ describe("wall cabinet elevation rules", () => {
     expect(box.bottom + box.height).toBe(34.5);
   });
 
-  it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
-    expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
-    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
-  });
+	  it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
+	    expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
+	    for (const height of [12, 15, 18, 21, 24]) {
+	      expect(isStacker({ masterCode: `W30${height}GD`, description: `30x${height} Glass Door Wall Cabinet`, height })).toBe(true);
+	    }
+	    expect(isStacker({ masterCode: "2412WDCGD", description: "24x12 WDC Glass Door Wall Cabinet", height: 12 })).toBe(true);
+	    expect(isStacker({ masterCode: "WDC42PG", description: "24 inch Glass Door Wall Cabinet", height: 42 })).toBe(false);
+	    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
+	  });
+
+	  it("stacks 2412WDCGD on its selected 2430WDC parent without changing the 24-inch width", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+	    const standardParent = cab({ uid: "standard-parent", placement: "wall", masterCode: "W2430", description: "24x30 Wall Cabinet", x: 12, y: 0, width: 24, depth: 12, height: 30, rotation: 0 });
+	    const wdcParent = cab({ uid: "wdc-parent", placement: "wall", masterCode: "2430WDC", description: "24x30 Diagonal Corner Wall Cabinet", x: 72, y: 0, width: 24, depth: 24, height: 30, rotation: 0 });
+	    const stacker = cab({ uid: "wdc-stacker", placement: "wall", masterCode: "2412WDCGD", description: "24x12 WDC Glass Door Wall Cabinet", x: 70, y: 0, width: 24, depth: 12, height: 12, rotation: 0 });
+	    const resolved = glassStackerParentPlacement(stacker, [standardParent, wdcParent], room, "wdc-parent");
+
+	    expect(resolved).toEqual({ ok: true, x: 72, y: 0, rotation: 0, mountBottom: 84, parentUid: "wdc-parent", parentCode: "2430WDC" });
+	    if (resolved.ok) {
+	      const placedStacker = { ...stacker, x: resolved.x, y: resolved.y, rotation: resolved.rotation, mountBottom: resolved.mountBottom, stackedOnCabinetUid: resolved.parentUid };
+	      expect(placedStacker.width).toBe(24);
+	      expect(elevationBox(placedStacker, room).bottom).toBe(84);
+	      expect(hasCollision(placedStacker, [wdcParent])).toBe(false);
+	    }
+	  });
+
+	  it("stacks each supported 12-, 15-, 18-, 21-, and 24-inch glass height on the same matching wall cabinet", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+	    const parent = cab({ uid: "parent", placement: "wall", masterCode: "W3030", description: "30x30 Wall Cabinet", x: 36, y: 0, width: 30, depth: 12, height: 30, rotation: 0 });
+
+	    for (const height of [12, 15, 18, 21, 24]) {
+	      const stacker = cab({ uid: `stacker-${height}`, placement: "wall", masterCode: `W30${height}GD`, description: `30x${height} Glass Door Wall Cabinet`, x: 34, y: 0, width: 30, depth: 12, height, rotation: 0 });
+	      const resolved = glassStackerParentPlacement(stacker, [parent], room, "parent");
+	      expect(resolved).toMatchObject({ ok: true, x: 36, y: 0, mountBottom: 84, parentUid: "parent", parentCode: "W3030" });
+	      if (resolved.ok) {
+	        expect(hasCollision({ ...stacker, ...resolved }, [parent])).toBe(false);
+	      }
+	    }
+	  });
+
+	  it("blocks a glass stacker when its matching parent would push it through the ceiling", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const parent = cab({ uid: "parent", placement: "wall", masterCode: "W3042", description: "30x42 Wall Cabinet", x: 24, y: 0, width: 30, depth: 12, height: 42, rotation: 0 });
+	    const stacker = cab({ uid: "stacker", placement: "wall", masterCode: "W3012GD", description: "30x12 Glass Door Wall Cabinet", x: 24, y: 0, width: 30, depth: 12, height: 12, rotation: 0 });
+
+	    expect(glassStackerParentPlacement(stacker, [parent], room, "parent")).toEqual({
+	      ok: false,
+	      reason: "ceiling",
+	      parentCode: "W3042",
+	      requiredTop: 108,
+	      ceiling: 96,
+	    });
+	  });
 
   // ── Taller-ceiling behavior ───────────────────────────────────────────────
   it("keeps the 84in top line on a standard 8ft ceiling (room passed)", () => {

@@ -161,19 +161,16 @@ describe("payments router", () => {
     }
   });
 
-  it("charge input rejects a zero/blank freight (freight must be attached first)", async () => {
-    const db = await getDb();
-    if (!db) return;
-    const guest = appRouter.createCaller(guestCtx());
-    await expect(
-      guest.payments.charge({
-        orderRequestId: 1,
-        opaqueData: { dataDescriptor: "COMMON.ACCEPT.INAPP.PAYMENT", dataValue: "x" },
-        freightCents: 0,
-      }),
-    ).rejects.toThrow();
+  it("charges only the server-verified freight stored on the order", () => {
+    const source = readFileSync(resolve(process.cwd(), "server/routers/payments.ts"), "utf8");
+    expect(source).toContain('const verifiedFreightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents');
+    expect(source).toContain('order.deliveryMethod === "ship" && !order.freightQuoteVerified');
+    expect(source).toContain("freightCents: verifiedFreightCents");
+    expect(source).not.toContain("freightCents: input.freightCents");
   });
 });
 
 // local import to avoid top-of-file churn
 import { eq } from "drizzle-orm";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
