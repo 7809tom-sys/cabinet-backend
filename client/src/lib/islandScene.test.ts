@@ -55,7 +55,7 @@ describe("island mini-scene geometry", () => {
     expect(elevationBox(raised, room)).toEqual({ bottom: 6, height: 42 });
   });
 
-	it("keeps a shallow W-24-30 island face flush with the exterior edge at counter height", () => {
+	 it("snaps a shallow W-24-30 directly against the back of the opposing base run", () => {
     const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), island, "back", 0);
     const frontWallCabinet = nextIslandFacePlacement(
       cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
@@ -68,7 +68,7 @@ describe("island mini-scene geometry", () => {
       islandCounterHeightWallCabinet: true,
       mountBottom: 4.5,
       x: backBase.x,
-	      y: island.y + island.depth - 12,
+		      y: backBase.y + 24,
     });
     expect(elevationBox(frontWallCabinet!, room)).toEqual({ bottom: 4.5, height: 30 });
     expect(hasCollision(frontWallCabinet!, [backBase])).toBe(false);
@@ -173,6 +173,31 @@ describe("island mini-scene geometry", () => {
     expect(hasCollision(front!, [back!])).toBe(false);
   });
 
+	it("removes the internal void when a shallow Back wall cabinet opposes a Front base run in a deeper island zone", () => {
+	  const deeperIsland: IslandZone = { ...island, depth: 60 };
+	  const frontBase = islandFacePlacement(cabinet({ uid: "front-base", width: 30, depth: 24 }), deeperIsland, "front", 0);
+	  const backWall = nextIslandFacePlacement(
+	    cabinet({ uid: "back-wall", masterCode: "W-30-30", description: "30 inch wall cabinet", placement: "wall", width: 30, depth: 12, height: 30 }),
+	    deeperIsland,
+	    "back",
+	    [frontBase],
+	  );
+	  expect(backWall).toMatchObject({ islandFace: "back", islandOffset: 0, y: frontBase.y - 12 });
+	  expect(backWall!.y + 12).toBe(frontBase.y);
+	  expect(hasCollision(backWall!, [frontBase])).toBe(false);
+	  expect(inferredIslandFace(backWall!, deeperIsland)).toBe("back");
+	  expect(islandFaceCapacity(deeperIsland, "back", [frontBase, backWall!])).toMatchObject({ occupiedSpan: 30, largestOpenSpan: 42 });
+
+	  const resized = resizeIslandScene(deeperIsland, [frontBase, backWall!], room, deeperIsland.width, 72);
+	  expect(resized.ok).toBe(true);
+	  if (resized.ok) {
+	    const resizedFront = resized.placed.find((item) => item.uid === frontBase.uid)!;
+	    const resizedBack = resized.placed.find((item) => item.uid === backWall!.uid)!;
+	    expect(resizedBack.y + 12).toBe(resizedFront.y);
+	    expect(inferredIslandFace(resizedBack, resized.island)).toBe("back");
+	  }
+	});
+
   it("keeps opposing front and back runs aligned from the same island edge", () => {
     const front = nextIslandFacePlacement(cabinet({ uid: "front-a" }), island, "front", []);
     const back = nextIslandFacePlacement(cabinet({ uid: "back-a" }), island, "back", [front!]);
@@ -193,7 +218,7 @@ describe("island mini-scene geometry", () => {
       "back",
       existing,
     );
-	    expect(backWallCabinet).toMatchObject({ islandFace: "back", islandOffset: 0, x: island.x, y: island.y });
+		    expect(backWallCabinet).toMatchObject({ islandFace: "back", islandOffset: 0, x: island.x, y: island.y + 12 });
     expect(hasCollision(backWallCabinet!, existing)).toBe(false);
   });
 
@@ -209,7 +234,7 @@ describe("island mini-scene geometry", () => {
       islandFace: "back",
       islandOffset: 0,
       x: island.x,
-	      y: island.y,
+		      y: island.y + 12,
 	    });
 	  });
 
@@ -275,8 +300,8 @@ describe("island mini-scene geometry", () => {
     )!;
     const tenInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 10);
     const twelveInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 12);
-	    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 59.5 });
-	    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 61.5 });
+	    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 47.5 });
+	    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 49.5 });
     expect(twelveInch.countertopWidthAnchoredToZone).toBe(false);
     expect(twelveInch.countertopDepthAnchoredToZone).toBe(false);
   });
@@ -334,11 +359,14 @@ describe("island mini-scene geometry", () => {
 	    expect(result.placed.find((item) => item.uid === "room-wall")).toEqual(roomWallCabinet);
 	  });
 
-	  it("still rejects a translated island when an attached member would hit a real room object", () => {
+	  it("still rejects a translated island and names the real room object and overlap", () => {
 	    const attached = islandFacePlacement(cabinet({ uid: "attached" }), island, "front", 12);
 	    const roomObject = cabinet({ uid: "room-object", masterCode: "B-24", x: attached.x + 24, y: attached.y, islandFace: undefined, islandOffset: undefined });
 	    const result = moveIslandScene(island, [attached, roomObject], room, 6, 0);
-	    expect(result).toMatchObject({ ok: false, reason: "The moved island assembly would overlap another object." });
+	    expect(result).toMatchObject({ ok: false });
+	    if (result.ok) return;
+	    expect(result.reason).toContain("B-24");
+	    expect(result.reason).toContain("footprint overlap");
 	  });
 
   it("quarter-turns the island, every member, active face, and custom slab as one assembly", () => {
@@ -354,6 +382,16 @@ describe("island mini-scene geometry", () => {
 	  it("rejects a resize that makes an occupied face too short", () => {
 	    const attached = islandFacePlacement(cabinet({ width: 36 }), island, "front", 36);
 	    expect(resizeIslandScene(island, [attached], room, 60, 48).ok).toBe(false);
+	  });
+
+	  it("names the exact room object and overlap when resizing is physically blocked", () => {
+	    const attached = islandFacePlacement(cabinet({ uid: "attached", masterCode: "3-DB18", width: 18 }), island, "front", 0);
+	    const blocker = cabinet({ uid: "room-blocker", masterCode: "B-24", x: attached.x, y: island.y + 12, islandFace: undefined, islandOffset: undefined });
+	    const result = resizeIslandScene(island, [attached, blocker], room, island.width, 36);
+	    expect(result).toMatchObject({ ok: false });
+	    if (result.ok) return;
+	    expect(result.reason).toContain("Resizing the island would make 3-DB18 overlap B-24");
+	    expect(result.reason).toContain("footprint overlap");
 	  });
 
 	  it("grows only toward the Back for an incoming deeper Back cabinet while keeping the Front face fixed", () => {
@@ -430,7 +468,7 @@ describe("island mini-scene geometry", () => {
 	    });
 	  });
 
-	  it("trims an empty oversized Back side before adding W30 and leaves room-wall cabinets outside the island assembly", () => {
+		  it("uses the opposing seam in an oversized island while leaving room-wall cabinets outside the assembly", () => {
 	    const staleIsland: IslandZone = { x: 24, y: 0, width: 66, depth: 96, activeFace: "front", autoAdjustDepthForBackFace: true };
 	    const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "3-DB18", width: 18 }), staleIsland, "front", 0);
 	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), staleIsland, "front", 18);
@@ -441,7 +479,12 @@ describe("island mini-scene geometry", () => {
 	    const incoming = cabinet({ uid: "back-w3030", masterCode: "W-30-30", placement: "wall", width: 30, depth: 12, height: 30 });
 
 	    expect(islandFaceCapacity(staleIsland, "front", existing).largestOpenSpan).toBe(6);
-	    expect(nextIslandFacePlacement(incoming, staleIsland, "back", existing)).toBeNull();
+		    expect(nextIslandFacePlacement(incoming, staleIsland, "back", existing)).toMatchObject({
+		      islandFace: "back",
+		      islandOffset: 0,
+		      x: 24,
+		      y: 60,
+		    });
 	    const adjustment = autoAdjustIslandDepthForBackFace(staleIsland, existing, room, incoming.depth);
 	    expect(adjustment.ok).toBe(true);
 	    if (!adjustment.ok) return;

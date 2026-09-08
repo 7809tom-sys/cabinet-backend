@@ -3,6 +3,7 @@ import {
   STD,
   bearsIslandCountertop,
   bearsCountertop,
+  cabinetCollisionDetail,
   clampIslandToRoom,
   hasCollision,
   isCounterHeightIslandWallCabinet,
@@ -89,6 +90,69 @@ export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, 
   if (face === "back") return { ...local, x: island.x + along, y: island.y, rotation: 180, islandFace: face, islandOffset: along };
   if (face === "left") return { ...local, x: island.x, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
   return { ...local, x: island.x + island.width - depth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+}
+
+function opposingIslandFace(face: IslandFace): IslandFace {
+  return face === "front" ? "back" : face === "back" ? "front" : face === "left" ? "right" : "left";
+}
+
+function spansOverlap(firstStart: number, firstLength: number, secondStart: number, secondLength: number): boolean {
+  return Math.min(firstStart + firstLength, secondStart + secondLength) - Math.max(firstStart, secondStart) > COLLISION_EPSILON_IN;
+}
+
+/**
+ * A shallow wall cabinet used at counter height on an island must meet the
+ * opposing base run back-to-back. Extra island depth is countertop/seating
+ * space, not an internal void between cabinet backs.
+ */
+export function islandFacePlacementAgainstOpposingRun(
+  cabinet: PlacedCabinet,
+  island: IslandZone,
+  face: IslandFace,
+  offset: number,
+  placed: PlacedCabinet[],
+): PlacedCabinet {
+  const candidate = islandFacePlacement(cabinet, island, face, offset);
+  if (!isCounterHeightIslandWallCabinet(candidate)) return candidate;
+
+  const candidateFootprint = placedFootprint(candidate);
+  const oppositeFace = opposingIslandFace(face);
+  const oppositeMembers = placed.filter((item) => {
+    if (item.uid === candidate.uid || !isIslandAssemblyMember(item, island, placed)) return false;
+    if (inferredIslandFace(item, island) !== oppositeFace) return false;
+    const footprint = placedFootprint(item);
+    return face === "front" || face === "back"
+      ? spansOverlap(candidate.x, candidateFootprint.w, item.x, footprint.w)
+      : spansOverlap(candidate.y, candidateFootprint.d, item.y, footprint.d);
+  });
+  if (oppositeMembers.length === 0) return candidate;
+
+  if (face === "front") {
+    const seam = Math.max(...oppositeMembers.map((item) => item.y + placedFootprint(item).d));
+    return { ...candidate, y: seam };
+  }
+  if (face === "back") {
+    const seam = Math.min(...oppositeMembers.map((item) => item.y));
+    return { ...candidate, y: seam - candidateFootprint.d };
+  }
+  if (face === "left") {
+    const seam = Math.min(...oppositeMembers.map((item) => item.x));
+    return { ...candidate, x: seam - candidateFootprint.w };
+  }
+  const seam = Math.max(...oppositeMembers.map((item) => item.x + placedFootprint(item).w));
+  return { ...candidate, x: seam };
+}
+
+function formatCollisionInches(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+
+function islandCollisionReason(action: "Moving" | "Resizing" | "Rotating" | "Adjusting", moving: PlacedCabinet, others: PlacedCabinet[]): string | null {
+  const collision = cabinetCollisionDetail(moving, others);
+  if (!collision) return null;
+  const blocker = collision.cabinet.masterCode || collision.cabinet.description || "unnamed object";
+  const movingLabel = moving.masterCode || moving.description || "island cabinet";
+  return `${action} the island would make ${movingLabel} overlap ${blocker} by ${formatCollisionInches(collision.penetration)}\" (${formatCollisionInches(collision.overlapX)}\" × ${formatCollisionInches(collision.overlapY)}\" footprint overlap).`;
 }
 
 export function islandFaceFitMeasure(
@@ -195,6 +259,10 @@ export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): 
   const nearestDistance = distances[0]?.[1] ?? Number.POSITIVE_INFINITY;
   const declaredFace = cabinet.islandFace ?? null;
   if (!declaredFace) return nearestFace;
+  // Counter-height wall cabinets can be intentionally inset so their backs
+  // touch an opposing base run. Their stored face remains authoritative even
+  // when that shared seam is nearer the zone center than the exterior edge.
+  if (isCounterHeightIslandWallCabinet(cabinet)) return declaredFace;
 
   const declaredDistance = distances.find(([face]) => face === declaredFace)?.[1] ?? Number.POSITIVE_INFINITY;
   // Older saved plans can retain an islandFace label after a cabinet was moved
@@ -243,10 +311,7 @@ export function nextIslandFacePlacement(cabinet: PlacedCabinet, island: IslandZo
   for (const start of candidateStarts) {
     if (start + runLength > islandFaceLength(island, face) + COLLISION_EPSILON_IN) continue;
     if (occupied.some((span) => start < span.end - COLLISION_EPSILON_IN && start + runLength > span.start + COLLISION_EPSILON_IN)) continue;
-    // A shallow wall cabinet selected for an island face must remain flush to
-    // that exterior face. Pulling it inward to meet the opposing base run
-    // leaves a visible void below the shared countertop.
-    const candidate = islandFacePlacement(cabinet, island, face, start);
+    const candidate = islandFacePlacementAgainstOpposingRun(cabinet, island, face, start, placed);
     if (!hasCollision(candidate, placed)) return candidate;
   }
   return null;
@@ -299,8 +364,9 @@ export function moveIslandScene(island: IslandZone, placed: PlacedCabinet[], roo
     return { ok: false, reason: "The island assembly would leave the room.", island, placed };
   }
   const moved = members.map((item) => ({ ...item, x: item.x + dx, y: item.y + dy }));
-  if (moved.some((item, index) => hasCollision(item, [...others, ...moved.filter((_, otherIndex) => otherIndex !== index)]))) {
-    return { ok: false, reason: "The moved island assembly would overlap another object.", island, placed };
+  for (let index = 0; index < moved.length; index++) {
+    const reason = islandCollisionReason("Moving", moved[index], [...others, ...moved.filter((_, otherIndex) => otherIndex !== index)]);
+    if (reason) return { ok: false, reason, island, placed };
   }
   const byId = new Map(moved.map((item) => [item.uid, item]));
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
@@ -320,9 +386,11 @@ export function resizeIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   })) {
     return { ok: false, reason: "The resized island face is too short for its cabinets.", island, placed };
   }
-  const rebuilt = members.map((item) => islandFacePlacement(item, nextIsland, inferredIslandFace(item, island), islandOffsetForPlaced(item, island)));
-  if (rebuilt.some((item, index) => hasCollision(item, [...others, ...rebuilt.filter((_, otherIndex) => otherIndex !== index)]))) {
-    return { ok: false, reason: "The resized island assembly would overlap another object.", island, placed };
+  const edgePlaced = members.map((item) => islandFacePlacement(item, nextIsland, inferredIslandFace(item, island), islandOffsetForPlaced(item, island)));
+  const rebuilt = edgePlaced.map((item) => islandFacePlacementAgainstOpposingRun(item, nextIsland, inferredIslandFace(item, nextIsland), islandOffsetForPlaced(item, nextIsland), edgePlaced));
+  for (let index = 0; index < rebuilt.length; index++) {
+    const reason = islandCollisionReason("Resizing", rebuilt[index], [...others, ...rebuilt.filter((_, otherIndex) => otherIndex !== index)]);
+    if (reason) return { ok: false, reason, island, placed };
   }
   const byId = new Map(rebuilt.map((item) => [item.uid, item]));
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
@@ -361,12 +429,14 @@ export function autoAdjustIslandDepthForBackFace(island: IslandZone, placed: Pla
 
   const memberIds = new Set(members.map((item) => item.uid));
   const others = placed.filter((item) => !memberIds.has(item.uid));
-  const rebuilt = members.map((item) => {
+  const edgePlaced = members.map((item) => {
     const face = inferredIslandFace(item, island);
     return islandFacePlacement(item, nextIsland, face, islandOffsetForPlaced(item, island, face));
   });
-  if (rebuilt.some((item, index) => hasCollision(item, [...others, ...rebuilt.filter((_, otherIndex) => otherIndex !== index)]))) {
-    return { ok: false, reason: "The deeper island would overlap another room object.", island, placed };
+  const rebuilt = edgePlaced.map((item) => islandFacePlacementAgainstOpposingRun(item, nextIsland, inferredIslandFace(item, nextIsland), islandOffsetForPlaced(item, nextIsland), edgePlaced));
+  for (let index = 0; index < rebuilt.length; index++) {
+    const reason = islandCollisionReason("Adjusting", rebuilt[index], [...others, ...rebuilt.filter((_, otherIndex) => otherIndex !== index)]);
+    if (reason) return { ok: false, reason, island, placed };
   }
 
   const byId = new Map(rebuilt.map((item) => [item.uid, item]));
@@ -410,8 +480,9 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
     const positioned = { ...rotatedItem, x: nextCenterX - after.w / 2, y: nextCenterY - after.d / 2, islandFace: face };
     return { ...positioned, islandOffset: face === "front" || face === "back" ? positioned.x - nextIsland.x : positioned.y - nextIsland.y };
   });
-  if (rotated.some((item, index) => hasCollision(item, [...others, ...rotated.filter((_, otherIndex) => otherIndex !== index)]))) {
-    return { ok: false, reason: "The rotated island assembly would overlap another object.", island, placed };
+  for (let index = 0; index < rotated.length; index++) {
+    const reason = islandCollisionReason("Rotating", rotated[index], [...others, ...rotated.filter((_, otherIndex) => otherIndex !== index)]);
+    if (reason) return { ok: false, reason, island, placed };
   }
   const byId = new Map(rotated.map((item) => [item.uid, item]));
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
