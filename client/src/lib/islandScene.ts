@@ -264,7 +264,7 @@ export type IslandFaceTransferOption = {
  * seating, toe-kick, and base-molding choices stay intact.
  */
 export function islandFaceTransferOption(selected: PlacedCabinet, island: IslandZone, placed: PlacedCabinet[]): IslandFaceTransferOption | null {
-  if (!isOnIsland(selected, island)) return null;
+  if (!isIslandAssemblyMember(selected, island, placed)) return null;
   const sourceFace = inferredIslandFace(selected, island);
   const targetFace: IslandFace = sourceFace === "front" ? "back" : sourceFace === "back" ? "front" : sourceFace === "left" ? "right" : "left";
   const withoutSelected = placed.filter((item) => item.uid !== selected.uid);
@@ -273,7 +273,7 @@ export function islandFaceTransferOption(selected: PlacedCabinet, island: Island
 
   const sourceOffset = islandOffsetForPlaced(selected, island, sourceFace);
   const swapCandidates = withoutSelected
-    .filter((item) => isOnIsland(item, island) && inferredIslandFace(item, island) === targetFace)
+    .filter((item) => isIslandAssemblyMember(item, island, placed) && inferredIslandFace(item, island) === targetFace)
     .sort((left, right) => Math.abs(islandOffsetForPlaced(left, island, targetFace) - sourceOffset) - Math.abs(islandOffsetForPlaced(right, island, targetFace) - sourceOffset));
   for (const oppositeCabinet of swapCandidates) {
     const remaining = withoutSelected.filter((item) => item.uid !== oppositeCabinet.uid);
@@ -291,7 +291,7 @@ export type IslandSceneEditResult =
   | { ok: false; reason: string; island: IslandZone; placed: PlacedCabinet[] };
 
 export function moveIslandScene(island: IslandZone, placed: PlacedCabinet[], room: RoomData, dx: number, dy: number): IslandSceneEditResult {
-  const members = placed.filter((item) => isOnIsland(item, island));
+  const members = placed.filter((item) => isIslandAssemblyMember(item, island, placed));
   const memberIds = new Set(members.map((item) => item.uid));
   const others = placed.filter((item) => !memberIds.has(item.uid));
   const nextIsland = clampIslandToRoom({ ...island, x: island.x + dx, y: island.y + dy }, room)!;
@@ -311,7 +311,7 @@ export function resizeIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   if (Math.abs(nextIsland.width - width) > COLLISION_EPSILON_IN || Math.abs(nextIsland.depth - depth) > COLLISION_EPSILON_IN) {
     return { ok: false, reason: "The island size would leave the room.", island, placed };
   }
-  const members = placed.filter((item) => isOnIsland(item, island));
+  const members = placed.filter((item) => isIslandAssemblyMember(item, island, placed));
   const memberIds = new Set(members.map((item) => item.uid));
   const others = placed.filter((item) => !memberIds.has(item.uid));
   if (members.some((item) => {
@@ -394,7 +394,7 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   if (Math.abs(nextIsland.x - (centerX - island.depth / 2)) > COLLISION_EPSILON_IN || Math.abs(nextIsland.y - (centerY - island.width / 2)) > COLLISION_EPSILON_IN) {
     return { ok: false, reason: "The rotated island assembly would leave the room.", island, placed };
   }
-  const members = placed.filter((item) => isOnIsland(item, island));
+  const members = placed.filter((item) => isIslandAssemblyMember(item, island, placed));
   const memberIds = new Set(members.map((item) => item.uid));
   const others = placed.filter((item) => !memberIds.has(item.uid));
   const rotated = members.map((item) => {
@@ -444,7 +444,7 @@ function countertopSupportsConnect(first: PlacedCabinet, second: PlacedCabinet):
  * A user-entered custom slab remains one intentional physical slab.
  */
 export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
+  const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const allBounds = islandCountertopSupportBounds(supports);
   if (!allBounds) return [];
   const hasIntentionalSlab = island.countertopWidth != null || island.countertopDepth != null;
@@ -488,7 +488,7 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
 export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect | null {
   const slabs = islandCountertopRects(island, placed);
   if (slabs.length === 1) return slabs[0];
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
+  const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const bounds = islandCountertopSupportBounds(supports);
   return bounds ? {
     x: bounds.x - ISLAND_COUNTERTOP_OVERHANG_IN,
@@ -509,7 +509,7 @@ export function islandWithFaceSeatingOverhang(
   face: IslandFace,
   overhangIn: IslandSeatingOverhangIn,
 ): IslandZone {
-  const supports = placed.filter((item) => isOnIsland(item, island) && bearsIslandCountertop(item));
+  const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
   const bounds = islandCountertopSupportBounds(supports);
   if (!bounds) return island;
   const extra = overhangIn - ISLAND_COUNTERTOP_OVERHANG_IN;

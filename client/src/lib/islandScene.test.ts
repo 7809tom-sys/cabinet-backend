@@ -301,6 +301,46 @@ describe("island mini-scene geometry", () => {
     }
   });
 
+	  it("keeps the same W30 face capacity after translating the island across the room", () => {
+	    const startingIsland: IslandZone = { x: 6, y: 30, width: 66, depth: 36, activeFace: "front" };
+	    const frontB18 = islandFacePlacement(cabinet({ uid: "front-b18", masterCode: "3-DB18", width: 18 }), startingIsland, "front", 0);
+	    const frontRange = islandFacePlacement(cabinet({ uid: "front-range", masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 24, height: 36 }), startingIsland, "front", 18);
+	    const frontDb12 = islandFacePlacement(cabinet({ uid: "front-db12", masterCode: "3-DB12", width: 12 }), startingIsland, "front", 48);
+	    const existing = [frontB18, frontRange, frontDb12];
+	    const moved = moveIslandScene(startingIsland, existing, room, 42, 18);
+	    expect(moved.ok).toBe(true);
+	    if (!moved.ok) return;
+
+	    expect(islandFaceCapacity(startingIsland, "front", existing)).toMatchObject({ length: 66, largestOpenSpan: 6 });
+	    expect(islandFaceCapacity(moved.island, "front", moved.placed)).toMatchObject({ length: 66, largestOpenSpan: 6 });
+	    expect(moved.placed.map((item) => item.islandOffset)).toEqual(existing.map((item) => item.islandOffset));
+
+	    const w3030 = cabinet({ uid: "back-w3030", masterCode: "W-30-30", placement: "wall", width: 30, depth: 12, height: 30 });
+	    const before = nextIslandFacePlacement(w3030, startingIsland, "back", existing);
+	    const after = nextIslandFacePlacement(w3030, moved.island, "back", moved.placed);
+	    expect(before).toMatchObject({ islandFace: "back", islandOffset: 0 });
+	    expect(after).toMatchObject({ islandFace: "back", islandOffset: 0 });
+	    expect(after!.x - moved.island.x).toBe(before!.x - startingIsland.x);
+	    expect(after!.y - moved.island.y).toBe(before!.y - startingIsland.y);
+	  });
+
+	  it("does not move an unrelated room-wall cabinet whose center happens to fall inside an explicit island zone", () => {
+	    const attached = islandFacePlacement(cabinet({ uid: "attached" }), island, "front", 12);
+	    const roomWallCabinet = cabinet({ uid: "room-wall", masterCode: "B-24", x: island.x + 48, y: island.y + 4, islandFace: undefined, islandOffset: undefined });
+	    const result = moveIslandScene(island, [attached, roomWallCabinet], room, 6, 3);
+	    expect(result.ok).toBe(true);
+	    if (!result.ok) return;
+	    expect(result.placed.find((item) => item.uid === "attached")).toMatchObject({ x: attached.x + 6, y: attached.y + 3 });
+	    expect(result.placed.find((item) => item.uid === "room-wall")).toEqual(roomWallCabinet);
+	  });
+
+	  it("still rejects a translated island when an attached member would hit a real room object", () => {
+	    const attached = islandFacePlacement(cabinet({ uid: "attached" }), island, "front", 12);
+	    const roomObject = cabinet({ uid: "room-object", masterCode: "B-24", x: attached.x + 24, y: attached.y, islandFace: undefined, islandOffset: undefined });
+	    const result = moveIslandScene(island, [attached, roomObject], room, 6, 0);
+	    expect(result).toMatchObject({ ok: false, reason: "The moved island assembly would overlap another object." });
+	  });
+
   it("quarter-turns the island, every member, active face, and custom slab as one assembly", () => {
     const attached = islandFacePlacement(cabinet(), island, "front", 12);
     const result = rotateIslandScene({ ...island, countertopWidth: 78, countertopDepth: 54, countertopOffsetX: 2, countertopOffsetY: -1 }, [attached], room);

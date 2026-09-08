@@ -1796,3 +1796,5 @@
 - [x] After deleting an SB36, make its released 36-inch Back-wall span authoritative for the immediate same-size or smaller replacement instead of selecting a nearby 24-inch opening
 - [x] Show a green cabinet ghost with a Perfect fit label over a newly released opening, and a red tooltip with required, available, and shortage measurements when the dragged cabinet is too large
 - [x] Prompt for a real 3-inch post-placement gap after DB18, suppress filler prompting for an exact-fit DB21 with zero remaining space, and anchor the chosen whole or cut filler only to the verified left or right adjacent gap
+- [x] Make island Front and Back face capacity translation-invariant so the same W30 placement works after moving the island, while preserving separate room-boundary and real collision checks
+- [ ] Snap opposing island wall cabinets directly against the backs of existing base cabinets with no internal void, keep island face capacity independent of unrelated room walls/cabinets/sinks/appliances, and identify the exact object and overlap when resizing is physically blocked
