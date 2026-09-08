@@ -5126,17 +5126,81 @@ export function sinkFaucetTransform(sink: SinkFixture) {
   };
 }
 
+function roundedRectangleContour(width: number, depth: number, radius: number, cornerSegments = 6) {
+  const halfWidth = width / 2;
+  const halfDepth = depth / 2;
+  const cornerRadius = Math.max(0.001, Math.min(radius, halfWidth * 0.46, halfDepth * 0.46));
+  const corners = [
+    { x: halfWidth - cornerRadius, z: halfDepth - cornerRadius, start: 0 },
+    { x: -halfWidth + cornerRadius, z: halfDepth - cornerRadius, start: Math.PI / 2 },
+    { x: -halfWidth + cornerRadius, z: -halfDepth + cornerRadius, start: Math.PI },
+    { x: halfWidth - cornerRadius, z: -halfDepth + cornerRadius, start: Math.PI * 1.5 },
+  ];
+  return corners.flatMap((corner) => Array.from({ length: cornerSegments }, (_, index) => {
+    const angle = corner.start + (index / cornerSegments) * Math.PI / 2;
+    return new THREE.Vector2(
+      corner.x + Math.cos(angle) * cornerRadius,
+      corner.z + Math.sin(angle) * cornerRadius,
+    );
+  }));
+}
+
+/**
+ * Build only the four sloped interior walls of a sink bowl. The top remains
+ * genuinely open and the separately rendered floor sits at the measured bowl
+ * depth, avoiding the sealed rounded box that previously looked like a flat lid.
+ */
+export function recessedSinkBowlGeometry(width: number, depth: number, height: number, radius: number) {
+  const sideInset = Math.min(1.25 * INCH, width * 0.12, depth * 0.12);
+  const bottomWidth = Math.max(width * 0.58, width - sideInset * 2);
+  const bottomDepth = Math.max(depth * 0.58, depth - sideInset * 2);
+  const topContour = roundedRectangleContour(width, depth, radius);
+  const bottomContour = roundedRectangleContour(bottomWidth, bottomDepth, Math.max(0.025, radius * 0.66));
+  const positions: number[] = [];
+  const indices: number[] = [];
+  topContour.forEach((point) => positions.push(point.x, 0, point.y));
+  bottomContour.forEach((point) => positions.push(point.x, -height, point.y));
+  for (let index = 0; index < topContour.length; index++) {
+    const next = (index + 1) % topContour.length;
+    const bottomIndex = index + topContour.length;
+    const bottomNext = next + topContour.length;
+    indices.push(index, next, bottomIndex, next, bottomNext, bottomIndex);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.userData = { openSinkBowlGeometry: true, bottomWidth, bottomDepth, measuredDepth: height };
+  return geometry;
+}
+
+function sinkInteriorStencilMaterial<T extends THREE.Material>(material: T, stencilRef: number): T {
+  material.depthTest = false;
+  material.depthWrite = false;
+  material.stencilWrite = true;
+  material.stencilRef = stencilRef;
+  material.stencilFunc = THREE.EqualStencilFunc;
+  material.stencilFail = THREE.KeepStencilOp;
+  material.stencilZFail = THREE.KeepStencilOp;
+  material.stencilZPass = THREE.KeepStencilOp;
+  return material;
+}
+
 export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const width = sink.width * INCH;
   const depth = sink.depth * INCH;
   const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
-  const stainlessSteel = new THREE.MeshStandardMaterial({ color: "#b8c1c6", metalness: 0.78, roughness: 0.22 });
-  const brushedStainlessSteel = new THREE.MeshStandardMaterial({ color: "#8f9aa0", metalness: 0.72, roughness: 0.3 });
-  const stainlessBasinInterior = new THREE.MeshStandardMaterial({ color: "#6f7b81", metalness: 0.68, roughness: 0.34 });
+  const sinkStencilRef = 1 + Array.from(sink.uid || `${sink.x}:${sink.y}:${sink.width}:${sink.depth}`).reduce(
+    (hash, character) => ((hash * 31) + character.charCodeAt(0)) % 254,
+    0,
+  );
+  const stainlessSteel = new THREE.MeshPhysicalMaterial({ color: "#d3dade", metalness: 0.9, roughness: 0.17, clearcoat: 0.28, clearcoatRoughness: 0.2 });
+  const brushedStainlessSteel = new THREE.MeshPhysicalMaterial({ color: "#c0c8cc", metalness: 0.7, roughness: 0.28, clearcoat: 0.18, clearcoatRoughness: 0.32 });
+  const stainlessBasinInterior = sinkInteriorStencilMaterial(new THREE.MeshPhysicalMaterial({ color: "#b6c0c5", metalness: 0.58, roughness: 0.3, clearcoat: 0.2, clearcoatRoughness: 0.3, side: THREE.DoubleSide }), sinkStencilRef);
   const isGunmetalBlack = sink.surfaceFinish === "gunmetal-black";
-  const gunmetalSteel = new THREE.MeshStandardMaterial({ color: "#202326", metalness: 0.7, roughness: 0.26 });
-  const brushedGunmetalSteel = new THREE.MeshStandardMaterial({ color: "#303438", metalness: 0.62, roughness: 0.34 });
-  const gunmetalBasinInterior = new THREE.MeshStandardMaterial({ color: "#191b1d", metalness: 0.58, roughness: 0.38 });
+  const gunmetalSteel = new THREE.MeshPhysicalMaterial({ color: "#25292c", metalness: 0.78, roughness: 0.24, clearcoat: 0.2, clearcoatRoughness: 0.3 });
+  const brushedGunmetalSteel = new THREE.MeshPhysicalMaterial({ color: "#383d41", metalness: 0.7, roughness: 0.32, clearcoat: 0.14, clearcoatRoughness: 0.36 });
+  const gunmetalBasinInterior = sinkInteriorStencilMaterial(new THREE.MeshPhysicalMaterial({ color: "#202427", metalness: 0.66, roughness: 0.36, clearcoat: 0.16, clearcoatRoughness: 0.38, side: THREE.DoubleSide }), sinkStencilRef);
   const steel = isGunmetalBlack ? gunmetalSteel : stainlessSteel;
   const brushedSteel = isGunmetalBlack ? brushedGunmetalSteel : brushedStainlessSteel;
   const basinInterior = isGunmetalBlack ? gunmetalBasinInterior : stainlessBasinInterior;
@@ -5158,13 +5222,6 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const innerDepth = bowlDimensions[0].depth;
   const bowlHeights = bowlDimensions.map((_, bowlIndex) => Math.max(0.12, (sink.bowlHeights?.[bowlIndex] ?? sink.bowlHeight ?? 10) * INCH));
   const bowlHeight = bowlHeights[0];
-  const rim = new THREE.Mesh(
-    new RoundedBoxGeometry(width, 0.045, depth, 4, Math.min(0.055, width * 0.04, depth * 0.04)),
-    steel,
-  );
-  rim.position.set(centerX, countertopTop + 0.015, centerZ);
-  rim.userData = { sinkRim: true, fixtureDetail: true };
-  root.add(rim);
   // A verified two-bowl profile gives the physical dimensions of each bowl.
   // Preserve those two measurements rather than stretching one generic basin.
   const lateralIsX = sink.wallSide !== "left" && sink.wallSide !== "right";
@@ -5187,6 +5244,62 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     return { bowlOffsets: [firstCenter, secondCenter], dividerOffset: firstCenter + firstBowlSpan / 2 + dividerGap / 2 };
   })();
   const bowlOffsets = asymmetricLayout?.bowlOffsets ?? (measuredDoubleBowl ? [-bowlSeparation, bowlSeparation] : [0]);
+  const openingBounds = bowlOffsets.reduce((bounds, lateralOffset, bowlIndex) => {
+    const dimensions = bowlDimensions[bowlIndex] ?? bowlDimensions[0];
+    const localX = lateralIsX ? lateralOffset : 0;
+    const localZ = lateralIsX ? 0 : lateralOffset;
+    return {
+      minX: Math.min(bounds.minX, localX - dimensions.width / 2),
+      maxX: Math.max(bounds.maxX, localX + dimensions.width / 2),
+      minZ: Math.min(bounds.minZ, localZ - dimensions.depth / 2),
+      maxZ: Math.max(bounds.maxZ, localZ + dimensions.depth / 2),
+    };
+  }, { minX: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, minZ: Number.POSITIVE_INFINITY, maxZ: Number.NEGATIVE_INFINITY });
+  const outerMinX = -width / 2;
+  const outerMaxX = width / 2;
+  const outerMinZ = -depth / 2;
+  const outerMaxZ = depth / 2;
+  const openingMinX = Math.max(outerMinX + 0.018, openingBounds.minX);
+  const openingMaxX = Math.min(outerMaxX - 0.018, openingBounds.maxX);
+  const openingMinZ = Math.max(outerMinZ + 0.018, openingBounds.minZ);
+  const openingMaxZ = Math.min(outerMaxZ - 0.018, openingBounds.maxZ);
+  const rimHeight = 0.045;
+  const rimSegments = [
+    { side: "back", width, depth: openingMinZ - outerMinZ, x: 0, z: (outerMinZ + openingMinZ) / 2 },
+    { side: "front", width, depth: outerMaxZ - openingMaxZ, x: 0, z: (openingMaxZ + outerMaxZ) / 2 },
+    { side: "left", width: openingMinX - outerMinX, depth: openingMaxZ - openingMinZ, x: (outerMinX + openingMinX) / 2, z: (openingMinZ + openingMaxZ) / 2 },
+    { side: "right", width: outerMaxX - openingMaxX, depth: openingMaxZ - openingMinZ, x: (openingMaxX + outerMaxX) / 2, z: (openingMinZ + openingMaxZ) / 2 },
+  ];
+  rimSegments.forEach((segment) => {
+    if (segment.width <= 0.004 || segment.depth <= 0.004) return;
+    const rimSegment = new THREE.Mesh(
+      new RoundedBoxGeometry(segment.width, rimHeight, segment.depth, 3, Math.min(0.028, segment.width * 0.18, segment.depth * 0.18)),
+      steel,
+    );
+    rimSegment.position.set(centerX + segment.x, countertopTop + 0.018, centerZ + segment.z);
+    rimSegment.renderOrder = 24;
+    rimSegment.userData = { sinkRim: true, sinkRimFrameSegment: true, sinkRimSide: segment.side, openSinkCutout: true, fixtureDetail: true };
+    root.add(rimSegment);
+  });
+  const openingWidth = Math.max(0.04, openingMaxX - openingMinX);
+  const openingDepth = Math.max(0.04, openingMaxZ - openingMinZ);
+  const openingCenterX = centerX + (openingMinX + openingMaxX) / 2;
+  const openingCenterZ = centerZ + (openingMinZ + openingMaxZ) / 2;
+  const cutoutMaskMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthTest: false, depthWrite: false });
+  cutoutMaskMaterial.stencilWrite = true;
+  cutoutMaskMaterial.stencilRef = sinkStencilRef;
+  cutoutMaskMaterial.stencilFunc = THREE.AlwaysStencilFunc;
+  cutoutMaskMaterial.stencilFail = THREE.ReplaceStencilOp;
+  cutoutMaskMaterial.stencilZFail = THREE.ReplaceStencilOp;
+  cutoutMaskMaterial.stencilZPass = THREE.ReplaceStencilOp;
+  const openingShadow = new THREE.Mesh(
+    new RoundedBoxGeometry(openingWidth, 0.012, openingDepth, 3, Math.min(0.07, openingWidth * 0.08, openingDepth * 0.08)),
+    cutoutMaskMaterial,
+  );
+  openingShadow.position.set(openingCenterX, countertopTop + 0.012, openingCenterZ);
+  openingShadow.renderOrder = 18;
+  openingShadow.userData = { sinkCountertopCutoutMask: true, openSinkCutout: true, fixtureDetail: true };
+  root.add(openingShadow);
   const hasMeasuredDrainInset = Number.isFinite(sink.drainInsetRight) || Number.isFinite(sink.drainInsetBack);
   const documentedDrainPosition = (bowlX: number, bowlZ: number, sourceMeasuredBowlWidthIn: number, sourceMeasuredBowlDepthIn: number) => {
     if (!hasMeasuredDrainInset) return { x: bowlX, z: bowlZ + sourceMeasuredBowlDepthIn * INCH * 0.18 };
@@ -5214,30 +5327,50 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const bowlHeightForIndex = bowlHeights[bowlIndex] ?? bowlHeight;
     const bowlInnerWidth = bowlDimensionsForIndex.width;
     const bowlInnerDepth = bowlDimensionsForIndex.depth;
-    const bowl = new THREE.Mesh(
-      new RoundedBoxGeometry(bowlInnerWidth, bowlHeightForIndex, bowlInnerDepth, 5, Math.min(0.12, bowlInnerWidth * 0.09, bowlInnerDepth * 0.09)),
-      basinInterior,
-    );
-    bowl.position.set(bowlX, countertopTop - bowlHeightForIndex / 2, bowlZ);
-    bowl.userData = { sinkBowl: true, recessedSinkBowl: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    const bowlRadius = Math.min(0.12, bowlInnerWidth * 0.09, bowlInnerDepth * 0.09);
+    const bowlGeometry = recessedSinkBowlGeometry(bowlInnerWidth, bowlInnerDepth, bowlHeightForIndex, bowlRadius);
+    const bowl = new THREE.Mesh(bowlGeometry, basinInterior);
+    bowl.position.set(bowlX, countertopTop, bowlZ);
+    bowl.renderOrder = 20;
+    bowl.userData = { sinkBowl: true, recessedSinkBowl: true, openSinkBowl: true, visibleInteriorDepth: true, bowlDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowl);
+    const floorInset = bowlGeometry.userData as { bottomWidth: number; bottomDepth: number };
+    const bowlFloorMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
     const bowlFloor = new THREE.Mesh(
-      new RoundedBoxGeometry(bowlInnerWidth * 0.72, 0.025, bowlInnerDepth * 0.68, 3, Math.min(0.08, bowlInnerWidth * 0.06, bowlInnerDepth * 0.06)),
-      brushedSteel,
+      new RoundedBoxGeometry(floorInset.bottomWidth, 0.025, floorInset.bottomDepth, 4, Math.min(0.08, floorInset.bottomWidth * 0.07, floorInset.bottomDepth * 0.07)),
+      bowlFloorMaterial,
     );
     bowlFloor.position.set(bowlX, countertopTop - bowlHeightForIndex + 0.014, bowlZ);
-    bowlFloor.userData = { sinkBowlFloor: true, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    bowlFloor.renderOrder = 21;
+    bowlFloor.userData = { sinkBowlFloor: true, visibleSinkBowlBottom: true, recessedDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     root.add(bowlFloor);
-    const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.022, 24), steel);
+    const drainRadius = Math.min(1.75 * INCH, bowlInnerWidth * 0.12, bowlInnerDepth * 0.12);
+    const drainMaterial = sinkInteriorStencilMaterial(steel.clone(), sinkStencilRef);
+    drainMaterial.color.set(isGunmetalBlack ? "#0d1012" : "#556168");
+    drainMaterial.metalness = 0.66;
+    drainMaterial.roughness = 0.34;
+    const drain = new THREE.Mesh(new THREE.CylinderGeometry(drainRadius * 0.82, drainRadius * 0.82, 0.022, 32), drainMaterial);
     const drainPosition = documentedDrainPosition(bowlX, bowlZ, sourceBowlWidthForIndex, sourceBowlDepthForIndex);
-    drain.position.set(drainPosition.x, countertopTop - 0.235, drainPosition.z);
-    drain.userData = { sinkDrain: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1, documentedDrainInset: hasMeasuredDrainInset };
+    drain.position.set(drainPosition.x, countertopTop - bowlHeightForIndex + 0.03, drainPosition.z);
+    drain.renderOrder = 22;
+    drain.userData = { sinkDrain: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1, documentedDrainInset: hasMeasuredDrainInset };
     root.add(drain);
-    const drainRing = new THREE.Mesh(new THREE.TorusGeometry(0.087, 0.012, 8, 24), brushedSteel);
+    const drainRingMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
+    const drainRing = new THREE.Mesh(new THREE.TorusGeometry(drainRadius, 0.012, 8, 32), drainRingMaterial);
     drainRing.rotation.x = Math.PI / 2;
     drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
-    drainRing.userData = { sinkDrainRing: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
+    drainRing.renderOrder = 23;
+    drainRing.userData = { sinkDrainRing: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
     root.add(drainRing);
+    [0.62, 0.34].forEach((scale, strainerIndex) => {
+      const strainerMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
+      const strainerRing = new THREE.Mesh(new THREE.TorusGeometry(drainRadius * scale, 0.0055, 6, 28), strainerMaterial);
+      strainerRing.rotation.x = Math.PI / 2;
+      strainerRing.position.set(drain.position.x, drainRing.position.y + 0.002 + strainerIndex * 0.001, drain.position.z);
+      strainerRing.renderOrder = 23;
+      strainerRing.userData = { sinkDrainStrainer: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
+      root.add(strainerRing);
+    });
   });
   if (sink.apronFront) {
     const exteriorHeight = Math.max((sink.exteriorHeight ?? (sink.bowlHeight ?? 10)) * INCH, bowlHeight + 0.025, 0.18);
@@ -5273,6 +5406,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     root.add(apron);
   }
   if (sink.type === "double" || measuredDoubleBowl) {
+    const dividerMaterial = sinkInteriorStencilMaterial(steel.clone(), sinkStencilRef);
     const divider = new THREE.Mesh(
       new RoundedBoxGeometry(
         lateralIsX ? 0.055 : innerWidth * 0.88,
@@ -5281,14 +5415,15 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
         3,
         0.02,
       ),
-      steel,
+      dividerMaterial,
     );
     divider.position.set(
       centerX + (lateralIsX ? (asymmetricLayout?.dividerOffset ?? 0) : 0),
       countertopTop - 0.11,
       centerZ + (lateralIsX ? 0 : (asymmetricLayout?.dividerOffset ?? 0)),
     );
-    divider.userData = { sinkBowlDivider: true, fixtureDetail: true };
+    divider.renderOrder = 22;
+    divider.userData = { sinkBowlDivider: true, visibleInsideSinkCutout: true, fixtureDetail: true };
     root.add(divider);
   }
   if (!sink.faucet || !sink.pelicanFaucetProfileId || sink.faucetOverallHeight == null || sink.faucetSpoutLength == null || sink.faucetSpoutHeight == null || !sink.faucetForm) return;
@@ -6592,7 +6727,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    });
 	    let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
     } catch {
       setWebglUnavailable(true);
       return;
@@ -7121,7 +7256,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
     setPathTracePreviewError(null);
     try {
       const canvas = document.createElement("canvas");
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
       if (!renderer.capabilities.isWebGL2) throw new Error("This browser does not support the WebGL2 renderer required for the production-render test.");
       renderer.setPixelRatio(1);
       renderer.setSize(THREE_D_PATH_TRACE_PREVIEW.width, THREE_D_PATH_TRACE_PREVIEW.height, false);

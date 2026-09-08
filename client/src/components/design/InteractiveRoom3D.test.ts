@@ -3069,18 +3069,43 @@ describe("interactive 3D room scene helpers", () => {
       faucetOverallHeight: 27.1875, faucetSpoutLength: 9.875, faucetSpoutHeight: 4.9375, faucetFinish: "brushed-nickel", faucetForm: "pull-down",
     } as never);
     const markers = new Set<string>();
+    const rimSegments: THREE.Object3D[] = [];
+    let bowl: THREE.Mesh | null = null;
+    let bowlFloor: THREE.Mesh | null = null;
+    let drain: THREE.Mesh | null = null;
+    let cutoutMask: THREE.Mesh | null = null;
     root.traverse((node) => {
       for (const [key, value] of Object.entries(node.userData)) if (value === true) markers.add(key);
+      if (node.userData.sinkRimFrameSegment) rimSegments.push(node);
+      if (node.userData.openSinkBowl) bowl = node as THREE.Mesh;
+      if (node.userData.visibleSinkBowlBottom) bowlFloor = node as THREE.Mesh;
+      if (node.userData.sinkDrain) drain = node as THREE.Mesh;
+      if (node.userData.sinkCountertopCutoutMask) cutoutMask = node as THREE.Mesh;
     });
     expect(markers.has("sinkRim")).toBe(true);
     expect(markers.has("recessedSinkBowl")).toBe(true);
     expect(markers.has("sinkBowlFloor")).toBe(true);
     expect(markers.has("sinkDrain")).toBe(true);
     expect(markers.has("sinkDrainRing")).toBe(true);
+    expect(markers.has("sinkDrainStrainer")).toBe(true);
     expect(markers.has("sinkFaucetBase")).toBe(true);
     expect(markers.has("sinkFaucetArc")).toBe(true);
     expect(markers.has("sinkFaucetSprayHead")).toBe(true);
     expect(markers.has("sinkFaucetHandle")).toBe(true);
+    expect(rimSegments).toHaveLength(4);
+    expect(cutoutMask?.userData.openSinkCutout).toBe(true);
+    expect(bowl?.geometry.userData.openSinkBowlGeometry).toBe(true);
+    expect(bowl?.userData.visibleInteriorDepth).toBe(true);
+    expect((bowl?.material as THREE.Material).depthTest).toBe(false);
+    expect((bowl?.material as THREE.Material).stencilWrite).toBe(true);
+    expect((bowl?.material as THREE.Material).stencilFunc).toBe(THREE.EqualStencilFunc);
+    expect((cutoutMask?.material as THREE.Material).colorWrite).toBe(false);
+    expect((cutoutMask?.material as THREE.Material).stencilRef).toBe((bowl?.material as THREE.Material).stencilRef);
+    expect((cutoutMask?.material as THREE.Material).stencilZPass).toBe(THREE.ReplaceStencilOp);
+    expect((bowlFloor?.material as THREE.Material).depthTest).toBe(false);
+    expect(bowlFloor?.userData.recessedDepthIn).toBe(10);
+    expect(drain?.userData.drainAtBowlBottom).toBe(true);
+    expect(drain!.position.y).toBeLessThan(sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 22 } as never).countertopTop - 0.7);
   });
 
   it("uses a verified Pelican farmhouse profile’s measured bowl and apron geometry", () => {

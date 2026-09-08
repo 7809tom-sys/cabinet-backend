@@ -3622,6 +3622,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
       }
       if (
+        !requestedIslandFace &&
         finalCab.placement === "wall" &&
         bridgeMountBottom == null &&
         stackerMountBottom == null &&
@@ -3647,7 +3648,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
-      } else if (automaticSnapping && !strictDropTarget && !preserveResolvedPlacement) {
+      } else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement) {
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
