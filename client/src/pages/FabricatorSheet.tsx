@@ -10,7 +10,7 @@ import {
   countertopArea, countertopSurfaces, cabinetWall, placedFootprint,
   bearsCountertop,
 } from "@/lib/design";
-import { islandCountertopRects } from "@/lib/islandScene";
+import { islandCountertopVisibleRects } from "@/lib/islandScene";
 
 /**
  * Fabricator Countertop Sheet — a dimensioned top-down drawing showing:
@@ -210,7 +210,7 @@ export default function FabricatorSheet() {
     return countertopArea(
       draft.placed,
       draft.island,
-      draft.island ? islandCountertopRects(draft.island, draft.placed) : null,
+      draft.island ? islandCountertopVisibleRects(draft.island, draft.placed) : null,
     );
   }, [draft]);
 

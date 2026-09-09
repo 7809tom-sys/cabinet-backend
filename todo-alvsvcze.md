@@ -1823,5 +1823,7 @@
 - [x] Add a 4-inch crown-molding takeoff allowance for every exposed outside cabinet corner, so mitered crown quantities reflect the angled projection instead of only cabinet-edge lengths
 - [x] Preserve existing crown perimeter geometry and catalog pricing identity while recalculating Materials & Parts crown linear footage and stock-piece quantity from the adjusted takeoff
 - [x] Rebuild or remove the island countertop immediately when an island cabinet is deleted, matching the remaining island footprint while preserving any remaining island countertop material, overhang, waterfall, cart, pricing, and saved-plan behavior
-- [ ] Remove countertop coverage over an island stove/range while preserving the island slab around the appliance, selected material, overhang, waterfall, cart, pricing, and saved-plan behavior
-- [ ] Orient island sink faucets on the correct user-facing side of the sink for every island face while preserving sink cutouts, fixture placement, materials, and saved-plan behavior
+- [x] Remove countertop coverage over an island stove/range while preserving the island slab around the appliance, selected material, overhang, waterfall, cart, pricing, and saved-plan behavior
+- [x] Orient island sink faucets on the correct user-facing side of the sink for every island face while preserving sink cutouts, fixture placement, materials, and saved-plan behavior
+- [ ] Calculate light-rail molding from each continuous exposed bottom perimeter of eligible upper cabinets, including front widths and exposed depth returns without double-counting shared cabinet sides
+- [ ] Add the owner-specified 4-inch light-rail installation allowance to the takeoff and recalculate Materials & Parts linear footage and stock-piece quantity while preserving trim SKU, price identity, and saved-plan behavior

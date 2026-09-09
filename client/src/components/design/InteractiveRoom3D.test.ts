@@ -3119,6 +3119,16 @@ describe("interactive 3D room scene helpers", () => {
     expect(faucet.z).toBeCloseTo(4.348333333333334, 12);
   });
 
+  it("places an island faucet behind the sink toward the island interior instead of the user-facing cabinet front", () => {
+    const frontSink = { uid: "island-front", type: "single", x: 36, y: 60, width: 30, depth: 20, sourceDepth: 20, wallSide: "top" } as never;
+    const backSink = { uid: "island-back", type: "single", x: 36, y: 36, width: 30, depth: 20, sourceDepth: 20, wallSide: "bottom" } as never;
+    const frontTransform = sinkFixtureTransform(frontSink);
+    const backTransform = sinkFixtureTransform(backSink);
+
+    expect(sinkFaucetTransform(frontSink).z).toBeLessThan(frontTransform.z);
+    expect(sinkFaucetTransform(backSink).z).toBeGreaterThan(backTransform.z);
+  });
+
   it("builds a recessed rounded sink with drain and a realistic pull-down faucet assembly", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

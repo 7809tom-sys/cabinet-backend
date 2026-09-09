@@ -20,7 +20,7 @@ import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
-import { islandFaceCapacity } from "@/lib/islandScene";
+import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
 
 export type PlanMeasurePoint = { x: number; y: number };
 
@@ -1020,7 +1020,9 @@ export function PlanCanvas({
         {/* Countertop slab layer — visible material over base cabinets + island.
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {
-          const surfaces = countertopSurfaces(cabinets, room, island);
+	          const perimeterSurfaces = countertopSurfaces(cabinets, room, island).filter((surface) => surface.kind !== "island");
+	          const islandSurfaces = island ? islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const })) : [];
+	          const surfaces = [...perimeterSurfaces, ...islandSurfaces];
           if (surfaces.length === 0) return null;
           return (
             <div className="pointer-events-none absolute inset-0 z-[2]">

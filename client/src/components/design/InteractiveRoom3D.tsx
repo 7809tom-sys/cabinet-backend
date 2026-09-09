@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCrownEligibleCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
-import { islandCountertopRects, islandFaceFitMeasure } from "@/lib/islandScene";
+import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -5626,7 +5626,8 @@ function addIslandZone(
   right.position.set(transform.guideWidth / 2, guideHeight / 2, 0);
   for (const edge of [back, front, left, right]) edge.userData = { islandGuide: true };
   group.add(back, front, left, right);
-  const slabs = islandCountertopRects(island, placed);
+	  const slabs = islandCountertopVisibleRects(island, placed);
+	  const waterfallSlabs = islandCountertopRects(island, placed);
 	  slabs.forEach((slab, slabIndex) => {
     const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
       centerXIn: slab.x + slab.width / 2,
@@ -5658,11 +5659,11 @@ function addIslandZone(
 	  });
 	  const waterfallEnd = island.waterfallEnd;
 	  const waterfallEnds = waterfallEnd === "both" ? (["left", "right"] as const) : waterfallEnd === "left" || waterfallEnd === "right" ? [waterfallEnd] : [];
-	  if (waterfallEnds.length > 0 && slabs.length > 0) {
-	    const slabLeft = Math.min(...slabs.map((slab) => slab.x));
-	    const slabRight = Math.max(...slabs.map((slab) => slab.x + slab.width));
-	    const slabBack = Math.min(...slabs.map((slab) => slab.y));
-	    const slabFront = Math.max(...slabs.map((slab) => slab.y + slab.depth));
+	  if (waterfallEnds.length > 0 && waterfallSlabs.length > 0) {
+	    const slabLeft = Math.min(...waterfallSlabs.map((slab) => slab.x));
+	    const slabRight = Math.max(...waterfallSlabs.map((slab) => slab.x + slab.width));
+	    const slabBack = Math.min(...waterfallSlabs.map((slab) => slab.y));
+	    const slabFront = Math.max(...waterfallSlabs.map((slab) => slab.y + slab.depth));
 	    const slabDepth = slabFront - slabBack;
 	    const panelThickness = 1.5 * INCH;
 	    const panelHeight = transform.counterTop + 0.75 * INCH;

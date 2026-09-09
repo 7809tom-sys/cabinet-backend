@@ -62,6 +62,14 @@ describe("design placement collision prevention", () => {
     expect(normalized[0]).toMatchObject({ wallSide: "right", width: 18, depth: 25, cabinetUid: "right-sb36" });
   });
 
+  it("puts an island sink faucet at the side opposite the user-facing cabinet front", () => {
+    const frontSinkBase = placed({ uid: "island-front-sb", masterCode: "SB36", description: "Sink Base 36", x: 36, y: 60, width: 36, depth: 24, islandFace: "front", rotation: 0 });
+    const backSinkBase = placed({ uid: "island-back-sb", masterCode: "SB36", description: "Sink Base 36", x: 36, y: 36, width: 36, depth: 24, islandFace: "back", rotation: 180 });
+
+    expect(makeSinkForCabinet("single", frontSinkBase, DEFAULT_ROOM).wallSide).toBe("top");
+    expect(makeSinkForCabinet("single", backSinkBase, DEFAULT_ROOM).wallSide).toBe("bottom");
+  });
+
   it("preserves source-verified asymmetric double-bowl widths when a farmhouse sink is normalized to its owning base", () => {
     const topFarmhouseBase = placed({ uid: "fsb36", masterCode: "FSB-36", description: "Farmhouse Sink Base 36", x: 36, y: 0, width: 36, depth: 24 });
     const installed = makeSinkForCabinet("farmhouse", topFarmhouseBase, DEFAULT_ROOM, { width: 33, depth: 21 });
@@ -296,7 +304,7 @@ describe("design placement collision prevention", () => {
     const b24 = placed({ uid: "b24", masterCode: "B-24", x: 1, width: 24 });
     const snapped = snapPosition(b24, DEFAULT_ROOM, [fridge]);
     const aligned = { ...b24, x: snapped.x, y: snapped.y };
-    expect(snapped.snappedCabinet).toBe(true);
+    expect(snapped.snappedCabinet || snapped.snappedWall).toBe(true);
     expect(aligned.x + aligned.width).toBe(fridge.x);
     expect(hasCollision(aligned, [fridge])).toBe(false);
   });

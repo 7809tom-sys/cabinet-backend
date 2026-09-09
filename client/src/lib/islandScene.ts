@@ -706,6 +706,50 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
   });
 }
 
+/** Countertop openings occupied by island ranges are not supported slab area. */
+export function islandRangeCountertopCutouts(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
+  return placed.flatMap((item) => {
+    if (!isIslandAssemblyMember(item, island, placed)) return [];
+    if (item.placement !== "appliance" || !isRangeOrOven(item.masterCode, item.description)) return [];
+    const footprint = placedFootprint(item);
+    return [{ x: item.x, y: item.y, width: footprint.w, depth: footprint.d }];
+  });
+}
+
+function subtractIslandCountertopRect(
+  slab: IslandCountertopRect,
+  cutout: IslandCountertopRect,
+): IslandCountertopRect[] {
+  const overlapLeft = Math.max(slab.x, cutout.x);
+  const overlapRight = Math.min(slab.x + slab.width, cutout.x + cutout.width);
+  const overlapBack = Math.max(slab.y, cutout.y);
+  const overlapFront = Math.min(slab.y + slab.depth, cutout.y + cutout.depth);
+  if (overlapRight - overlapLeft <= COLLISION_EPSILON_IN || overlapFront - overlapBack <= COLLISION_EPSILON_IN) return [slab];
+
+  const fragments: IslandCountertopRect[] = [
+    { x: slab.x, y: slab.y, width: slab.width, depth: overlapBack - slab.y },
+    { x: slab.x, y: overlapFront, width: slab.width, depth: slab.y + slab.depth - overlapFront },
+    { x: slab.x, y: overlapBack, width: overlapLeft - slab.x, depth: overlapFront - overlapBack },
+    { x: overlapRight, y: overlapBack, width: slab.x + slab.width - overlapRight, depth: overlapFront - overlapBack },
+  ];
+  return fragments.filter((fragment) => fragment.width > COLLISION_EPSILON_IN && fragment.depth > COLLISION_EPSILON_IN);
+}
+
+/**
+ * Rendered and priced island countertop fragments. The outer slab still drives
+ * waterfall ends, but a range footprint is a true opening rather than an
+ * unsupported slab drawn over the appliance.
+ */
+export function islandCountertopVisibleRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
+  const cutouts = islandRangeCountertopCutouts(island, placed);
+  return islandCountertopRects(island, placed).flatMap((slab) =>
+    cutouts.reduce<IslandCountertopRect[]>(
+      (fragments, cutout) => fragments.flatMap((fragment) => subtractIslandCountertopRect(fragment, cutout)),
+      [slab],
+    ),
+  );
+}
+
 /** Legacy single-slab measurement used by the 2D island attribute interface. */
 export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect | null {
   const slabs = islandCountertopRects(island, placed);

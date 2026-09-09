@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, islandAfterCountertopSupportRemoval, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, islandAfterCountertopSupportRemoval, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -2607,7 +2607,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ).reduce((total, segment) => total + ((segment.end - segment.start) * (segment.top - segment.bottom)) / 144, 0)) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
     const countertopMeasurement = countertop
-      ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null)
+	      ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null)
       : null;
     const areas = {
       backsplashSqFt,
@@ -2803,7 +2803,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [hasBaseRun]);
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
-    () => (countertop ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null) : null),
+	    () => (countertop ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null) : null),
     [countertop, placed, island]
   );
 

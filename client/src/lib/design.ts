@@ -6396,7 +6396,7 @@ export function makeSinkForCabinet(
 	  dimensions?: { width: number; depth: number },
 ): SinkFixture {
 	  const side = cabinet.islandFace
-	    ? ({ front: "bottom", back: "top", left: "right", right: "left" } as const)[cabinet.islandFace]
+	    ? ({ front: "top", back: "bottom", left: "right", right: "left" } as const)[cabinet.islandFace]
 	    : cabinetWall(cabinet, room);
   const rawWidth = dimensions?.width ?? SINK_PRESETS[type].width;
   const rawDepth = dimensions?.depth ?? SINK_PRESETS[type].depth;

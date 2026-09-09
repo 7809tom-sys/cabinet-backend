@@ -155,8 +155,9 @@ describe("plan placement assistance wiring", () => {
 });
 
 describe("plan countertop material scopes", () => {
-  it("renders island slabs from the island material while perimeter runs retain the wall material", () => {
+  it("renders visible island countertop fragments from the island material while perimeter runs retain the wall material", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain("islandCountertopVisibleRects(island, cabinets)");
     expect(source).toContain('data-countertop-scope={s.kind === "island" ? "island" : "perimeter"}');
     expect(source).toContain('s.kind === "island" ? islandCountertopMaterialId ?? countertopMaterialId : countertopMaterialId');
   });

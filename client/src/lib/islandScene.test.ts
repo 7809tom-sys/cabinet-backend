@@ -6,6 +6,7 @@ import {
 	  islandAfterCountertopSupportRemoval,
 		  islandCountertopRect,
 	  islandCountertopRects,
+	  islandCountertopVisibleRects,
 	  islandCountertopOverhangIn,
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
@@ -428,12 +429,12 @@ describe("island mini-scene geometry", () => {
     expect(twelveInch.countertopDepthAnchoredToZone).toBe(false);
   });
 
-  it.each([
-    ["front", "bottom"],
-    ["back", "top"],
-    ["left", "right"],
-    ["right", "left"],
-  ] as const)("faces an island sink and faucet outward on the %s run", (face, wallSide) => {
+	  it.each([
+	    ["front", "top"],
+	    ["back", "bottom"],
+	    ["left", "right"],
+	    ["right", "left"],
+	  ] as const)("places an island faucet opposite the user-facing cabinet front on the %s run", (face, wallSide) => {
     const sinkBase = islandFacePlacement(cabinet({ uid: `sink-${face}`, masterCode: "SB-36", description: "36 inch sink base", width: 36 }), island, face, 0);
     expect(makeSinkForCabinet("double", sinkBase, room, { width: 30, depth: 20 })).toMatchObject({ cabinetUid: sinkBase.uid, wallSide });
   });
@@ -558,16 +559,35 @@ describe("island mini-scene geometry", () => {
 	    expect(islandCountertopOverhangIn({ ...island, countertopOverhang: 40 })).toBe(24);
 	  });
 
-  it("does not let an automatic countertop bridge an unoccupied island gap", () => {
-    const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
-    const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 48);
+	  it("does not let an automatic countertop bridge an unoccupied island gap", () => {
+	    const left = islandFacePlacement(cabinet({ uid: "left" }), island, "front", 0);
+	    const right = islandFacePlacement(cabinet({ uid: "right" }), island, "front", 48);
     expect(islandCountertopRects(island, [left, right])).toEqual([
       { x: island.x - ISLAND_COUNTERTOP_OVERHANG_IN, y: island.y + island.depth - 24 - ISLAND_COUNTERTOP_OVERHANG_IN, width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2, depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2 },
       { x: island.x + 48 - ISLAND_COUNTERTOP_OVERHANG_IN, y: island.y + island.depth - 24 - ISLAND_COUNTERTOP_OVERHANG_IN, width: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2, depth: 24 + ISLAND_COUNTERTOP_OVERHANG_IN * 2 },
-    ]);
-  });
+	    ]);
+	  });
 
-	  it("keeps custom standard overhang compatible with a selected seating-side depth", () => {
+	  it("cuts an island range footprint out of the rendered and priced countertop fragments", () => {
+	    const leftBase = islandFacePlacement(cabinet({ uid: "left-base", width: 24 }), island, "front", 0);
+	    const range = islandFacePlacement(cabinet({
+	      uid: "island-range",
+	      masterCode: "RANGE-24",
+	      description: "24 inch island range",
+	      placement: "appliance",
+	      width: 24,
+	      depth: 24,
+	      height: 36,
+	    }), island, "front", 24);
+	    const rightBase = islandFacePlacement(cabinet({ uid: "right-base", width: 24 }), island, "front", 48);
+	    const customSlab = { ...island, countertopWidth: 75, countertopDepth: 27, countertopOffsetX: 1.5 };
+
+	    const visible = islandCountertopVisibleRects(customSlab, [leftBase, range, rightBase]);
+	    expect(visible.reduce((area, rect) => area + rect.width * rect.depth, 0)).toBe(1449);
+	    expect(visible.some((rect) => rect.x <= range.x && rect.x + rect.width >= range.x + range.width && rect.y <= range.y && rect.y + rect.depth >= range.y + range.depth)).toBe(false);
+	  });
+
+		  it("keeps custom standard overhang compatible with a selected seating-side depth", () => {
 	    const customIsland = { ...island, countertopOverhang: 3 };
 	    const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), customIsland, "back", 0);
 	    const frontWallCabinet = nextIslandFacePlacement(
