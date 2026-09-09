@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { mergedElevationTrimRuns } from "./ElevationView";
 import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
+import { crownLinearInches, isCrownEligibleCabinet } from "@/lib/design";
 
 describe("continuous cabinet trim", () => {
   it("merges edge-touching crown and toe-kick intervals but preserves true openings", () => {
@@ -36,8 +37,38 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
 	  expect(root.children).toHaveLength(4);
-		  expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-		});
+    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
+  });
+
+  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
+    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+    const elevatedUpper = {
+      uid: "upper", cabinetId: 1, masterCode: "W-24-42", description: "Elevated upper",
+      placement: "wall", x: 0, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54,
+    } as never;
+    const floorWall = {
+      uid: "floor-wall", cabinetId: 2, masterCode: "W-24-30", description: "Floor-seated wall cabinet",
+      placement: "wall", x: 24, y: 0, width: 24, height: 30, depth: 12, rotation: 0, mountBottom: 4.5,
+    } as never;
+    const restoredIslandWall = {
+      uid: "island-wall", cabinetId: 3, masterCode: "W-30-30", description: "Restored island wall cabinet",
+      placement: "wall", x: 36, y: 54, width: 30, height: 30, depth: 12, rotation: 180, mountBottom: 54,
+      islandFace: "Back", islandCounterHeightWallCabinet: true,
+    } as never;
+    const tall = {
+      uid: "tall", cabinetId: 4, masterCode: "UC2496", description: "Tall pantry",
+      placement: "tall", x: 48, y: 0, width: 24, height: 96, depth: 24, rotation: 0, mountBottom: 0,
+    } as never;
+    const cabinets = [elevatedUpper, floorWall, restoredIslandWall, tall];
+
+    expect(isCrownEligibleCabinet(elevatedUpper, room)).toBe(true);
+    expect(isCrownEligibleCabinet(tall, room)).toBe(true);
+    expect(isCrownEligibleCabinet(floorWall, room)).toBe(false);
+    expect(isCrownEligibleCabinet(restoredIslandWall, room)).toBe(false);
+    expect(new Set(threeDCrownPerimeterSegments(cabinets, room).map((segment) => segment.ownerUid)))
+      .toEqual(new Set(["upper", "tall"]));
+    expect(crownLinearInches(cabinets, room)).toBeCloseTo(24 + 24 + 3, 6);
+  });
 
 		it("removes internal crown returns across one-eighth-inch legacy offsets in the final Three.js mesh", () => {
 		  const root = new THREE.Group();

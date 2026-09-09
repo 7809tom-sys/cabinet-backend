@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCrownEligibleCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -3403,9 +3403,15 @@ export function addCabinet(
     frontGroup.add(shadow);
   };
   const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null, hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto") => {
-    const requestedTopCenteredDoorPull = !drawer && hardwarePosition === "top-center";
-    const raisedIslandWallDoorPull = requestedTopCenteredDoorPull && sku.islandCounterHeightWallCabinet === true;
-    const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedIslandWallDoorPull;
+    const raisedFloorWallDoorPull = !drawer && usesRaisedFloorWallDoorPull({
+      placement: sku.placementType,
+      mountBottom: sku.mountBottom,
+      islandFace: sku.islandFace,
+      islandCounterHeightWallCabinet: sku.islandCounterHeightWallCabinet,
+    });
+    const effectiveHardwarePosition = raisedFloorWallDoorPull && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
+    const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
+    const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull;
     const pullLength = Math.min(Math.max(0.12, ((drawer || horizontalTopRailPull) ? faceWidth : faceHeight) * ((drawer || horizontalTopRailPull) ? 0.48 : 0.28)), (drawer || horizontalTopRailPull) ? 0.62 : 0.86);
     const pull = new THREE.Mesh(new THREE.BoxGeometry((drawer || horizontalTopRailPull) ? pullLength : 0.022, (drawer || horizontalTopRailPull) ? 0.022 : pullLength, 0.026), hardwareMaterial);
     // Doors swing from their outside edge. Pulls therefore sit vertically at
@@ -3414,7 +3420,7 @@ export function addCabinet(
     const automaticSide = hingeSide === "left" ? 1 : hingeSide === "right" ? -1 : -Math.sign(x || 1);
     // Drawers are fixed at the horizontal center by CabinetDealz construction
     // rules. Saved hardware choices remain effective only for door pulls.
-    const resolvedHardwarePosition = drawer ? "center" : normalizeDoorHardwareFramePosition(hardwarePosition);
+    const resolvedHardwarePosition = drawer ? "center" : normalizeDoorHardwareFramePosition(effectiveHardwarePosition);
     const topCenteredDoorPull = !drawer && resolvedHardwarePosition === "top-center";
     const explicitSide = horizontalTopRailPull ? 0 : resolvedHardwarePosition === "left" ? -1 : resolvedHardwarePosition === "right" ? 1 : resolvedHardwarePosition === "center" ? 0 : automaticSide;
     const pullX = drawer || horizontalTopRailPull
@@ -3423,14 +3429,14 @@ export function addCabinet(
         faceWidth / INCH,
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
       ) * INCH;
-    const pullY = drawer ? y : requestedTopCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
+    const pullY = drawer ? y : raisedFloorWallDoorPull || requestedTopCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, z);
     pull.userData = {
       cabinetHardware: true,
       cabinetPull: drawer ? "drawer" : "door",
       verticalPull: !drawer && !horizontalTopRailPull,
       pullDoorZone: drawer ? null : doorZone,
-      pullEdge: raisedIslandWallDoorPull ? "raised-door-rail" : horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
+      pullEdge: raisedFloorWallDoorPull ? "raised-door-rail" : horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
       ...(hingeSide ? { hingeSide, handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
       hardwarePosition: resolvedHardwarePosition,
       ...(drawer || explicitSide === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }),
@@ -4933,7 +4939,7 @@ export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: Room
   // pantry or refrigerator surround is a physical blocker at the same top line;
   // omitting it from the union left hidden bridge returns running to the wall
   // and removed the matching exposed segment on the opposite side.
-  const cabinets = placed.filter((cabinet) => cabinet.placement === "wall" || cabinet.placement === "tall");
+  const cabinets = placed.filter((cabinet) => isCrownEligibleCabinet(cabinet, room));
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
   const footprints = cabinets.map((cabinet) => worldCrownFootprint(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];
@@ -6055,7 +6061,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     doorOrientation: cabinet.doorOrientation ?? null,
     swing: cabinet.swing ?? null,
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,
-    hardwarePosition: cabinet.hardwarePosition ?? null,
+    mountBottom: cabinet.mountBottom ?? null,
+    hardwarePosition: resolveCabinetHardwarePosition(cabinet),
     openingType: cabinet.openingType ?? null,
     openingWidth: cabinet.openingWidth ?? null,
     openingHeight: cabinet.openingHeight ?? null,

@@ -37,6 +37,7 @@ import {
   resolveSwing,
   resolveCabinetHardwarePosition,
   supportsCenteredTopDoorPull,
+  usesRaisedFloorWallDoorPull,
   isCounterHeightIslandWallCabinet,
   islandWallCabinetBaseTreatment,
   type IslandWallCabinetBaseTreatment,
@@ -323,6 +324,7 @@ export function CabinetAttributesDialog({
   const noDoor = !!cabinet.noDoor;
   const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
   const canUseCenteredTopPull = supportsCenteredTopDoorPull(cabinet);
+  const usesAutomaticRaisedPull = usesRaisedFloorWallDoorPull(cabinet);
   const isIslandWallCabinet = isCounterHeightIslandWallCabinet(cabinet);
   const islandBaseTreatment = islandWallCabinetBaseTreatment(cabinet);
   const isBase = cabinet.placement === "base";
@@ -797,16 +799,22 @@ export function CabinetAttributesDialog({
                   {t("dt_ca_right")}
                 </Button>
               </div>
-              {canUseCenteredTopPull && (
+              {usesAutomaticRaisedPull && (
+                <div className="rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-950/20" data-testid="automatic-raised-floor-wall-pull">
+                  <Label className="text-sm font-semibold">Upward door pull is automatic</Label>
+                  <p className="text-[11px] text-muted-foreground">This floor-seated wall cabinet keeps each vertical pull on its existing hinge-aware door rail and positions it upward automatically.</p>
+                </div>
+              )}
+              {canUseCenteredTopPull && !usesAutomaticRaisedPull && (
                 <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
                   <div>
                     <Label className="text-sm font-semibold">Raise door handle on its rail</Label>
-                    <p className="text-[11px] text-muted-foreground">{isIslandWallCabinet ? "Island wall cabinet — moves the vertical pull upward on its existing door rail." : "B15/B18 only — moves the door handle to the centered top rail."}</p>
+                    <p className="text-[11px] text-muted-foreground">B15/B18 only — moves the door handle to the centered top rail.</p>
                   </div>
                   <Switch
                     checked={hardwarePosition === "top-center"}
                     disabled={noDoor}
-                    aria-label={isIslandWallCabinet ? "Move island wall cabinet door handle higher on its door rail" : "Move B15/B18 door handle to top center"}
+                    aria-label="Move B15/B18 door handle to top center"
                     onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")}
                   />
                 </div>

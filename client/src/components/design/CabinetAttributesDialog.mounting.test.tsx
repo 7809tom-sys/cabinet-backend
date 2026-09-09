@@ -151,7 +151,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onSetHandleSide).toHaveBeenCalledWith("b18", "top-center");
   });
 
-  it("offers visible floor-treatment previews and a raised-on-rail handle for a wall cabinet placed at island counter height", () => {
+  it("shows the automatic upward-pull rule without the former handle toggle for an island wall cabinet", () => {
     const onSetHandleSide = vi.fn();
     const onSetIslandWallBaseTreatment = vi.fn();
     const islandWall = { ...wallCabinet, uid: "island-wall", masterCode: "W2430", height: 30, numberOfDoors: 2, islandFace: "front", islandCounterHeightWallCabinet: true } as never;
@@ -163,8 +163,20 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(within(dialog).getByLabelText("Learn about island base finishes")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: /base molding/i }));
     expect(onSetIslandWallBaseTreatment).toHaveBeenCalledWith("island-wall", "base-molding");
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Move island wall cabinet door handle higher on its door rail" }));
-    expect(onSetHandleSide).toHaveBeenCalledWith("island-wall", "top-center");
+    expect(within(dialog).getByTestId("automatic-raised-floor-wall-pull")).toBeTruthy();
+    expect(within(dialog).getByText(/keeps each vertical pull on its existing hinge-aware door rail/i)).toBeTruthy();
+    expect(within(dialog).queryByRole("switch", { name: /island wall cabinet door handle/i })).toBeNull();
+    expect(onSetHandleSide).not.toHaveBeenCalled();
+  });
+
+  it("uses the same automatic upward-pull rule for a non-island wall cabinet seated on the 4½-inch toe kick", () => {
+    const floorWall = { ...wallCabinet, uid: "floor-wall", masterCode: "W1830", mountBottom: 4.5, hardwarePosition: "top-center" } as never;
+    const onSetHandleSide = vi.fn();
+    renderDialog(vi.fn(), onSetHandleSide, undefined, 0, floorWall);
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    expect(within(dialog).getByTestId("automatic-raised-floor-wall-pull")).toBeTruthy();
+    expect(within(dialog).queryByRole("switch", { name: /handle/i })).toBeNull();
+    expect(onSetHandleSide).not.toHaveBeenCalled();
   });
 
   it("confirms before applying the selected door hardware position to every eligible cabinet", () => {

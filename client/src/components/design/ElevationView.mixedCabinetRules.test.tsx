@@ -99,6 +99,25 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(pairedUpper.match(/data-hardware-edge-inset-in="1.5"/g)).toHaveLength(2);
   });
 
+  it("raises a floor-seated wall-cabinet pull while keeping it vertical on the selected side rail", () => {
+    const markup = renderToStaticMarkup(createElement(HardwareOverlay, {
+      doors: 1,
+      drawers: 0,
+      doorPiece: "pull",
+      drawerPiece: "none",
+      accent: "#1a2744",
+      hardwarePosition: "left",
+      swing: "right",
+      isWall: true,
+      faceWidthIn: 18,
+      raisedDoorPullOnRail: true,
+    }));
+    expect(markup).toContain('data-hardware-orientation="vertical"');
+    expect(markup).toContain('data-hardware-position="raised-door-rail"');
+    expect(markup).toContain('data-hardware-center-in="1.5"');
+    expect(markup).toContain("top:13%");
+  });
+
   it("renders WD1860 right-side-up with one tall door above two bottom drawers", () => {
     const markup = renderToStaticMarkup(
       createElement(DoorFront, {

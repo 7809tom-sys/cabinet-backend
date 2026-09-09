@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCabinetDoorHardwareToAll, isCabinetDoorHardwareEligible, supportsCenteredTopDoorPull, type PlacedCabinet } from "./design";
+import { applyCabinetDoorHardwareToAll, isCabinetDoorHardwareEligible, resolveCabinetHardwarePosition, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, type PlacedCabinet } from "./design";
 
 function cabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -33,5 +33,20 @@ describe("B15/B18 centered top-rail pull", () => {
     expect(isCabinetDoorHardwareEligible(b15, "top-center")).toBe(true);
     expect(isCabinetDoorHardwareEligible(b24, "top-center")).toBe(false);
     expect(applyCabinetDoorHardwareToAll([b15, b18, b24, w18], "top-center").map((item) => item.hardwarePosition ?? null)).toEqual(["top-center", "top-center", null, null]);
+  });
+
+  it("makes the upward vertical pull automatic for Island mode and 4½-inch floor-seated wall cabinets", () => {
+    const elevatedUpper = cabinet({ uid: "upper", masterCode: "W1830", placement: "wall", mountBottom: 54 });
+    const floorWall = cabinet({ uid: "floor", masterCode: "W1830", placement: "wall", mountBottom: 4.5, hardwarePosition: "left" });
+    const islandWall = cabinet({ uid: "island", masterCode: "W2430", placement: "wall", mountBottom: 54, islandFace: "front", islandCounterHeightWallCabinet: true, hardwarePosition: "top-center" });
+    const islandBase = cabinet({ uid: "island-base", masterCode: "B18", placement: "base", islandFace: "front", hardwarePosition: "top-center" });
+
+    expect(usesRaisedFloorWallDoorPull(elevatedUpper)).toBe(false);
+    expect(usesRaisedFloorWallDoorPull(floorWall)).toBe(true);
+    expect(usesRaisedFloorWallDoorPull(islandWall)).toBe(true);
+    expect(usesRaisedFloorWallDoorPull(islandBase)).toBe(false);
+    expect(resolveCabinetHardwarePosition(floorWall)).toBe("left");
+    expect(resolveCabinetHardwarePosition(islandWall)).toBe("auto");
+    expect(supportsCenteredTopDoorPull(islandWall)).toBe(false);
   });
 });

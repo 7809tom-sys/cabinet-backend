@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isCrownEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount,
 } from "@/lib/design";
@@ -339,7 +339,7 @@ export function ElevationView({
     return (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
   });
   const crownRuns = mergedElevationTrimRuns(sorted
-    .filter((p) => p.placement === "wall" && p.mountBottom == null)
+    .filter((p) => isCrownEligibleCabinet(p, room))
     .map((p) => {
       const footprint = placedFootprint(p);
       const start = horizontal ? p.x : p.y;
@@ -599,6 +599,7 @@ export function ElevationView({
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
               hardwarePosition={resolveCabinetHardwarePosition(p)}
+              raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
               swing={resolveSwing(p)}
               isWall={isWall}
               faceWidthIn={sizeAlong}
@@ -1945,7 +1946,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, raisedDoorPullOnRail = false,
 }: {
   doors: number;
   drawers: number;
@@ -1956,6 +1957,7 @@ export function HardwareOverlay({
   swing?: "left" | "right" | "double" | "none" | null;
   isWall?: boolean;
   faceWidthIn: number;
+  raisedDoorPullOnRail?: boolean;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
   // top highlight and soft drop shadow so pieces read as real metal hardware.
@@ -1969,7 +1971,7 @@ export function HardwareOverlay({
     // fronts retain their individual Attributes choice, including paired pulls.
     const requestedPosition = isDoor ? normalizedDoorPosition : "center";
     const topCenteredDoorPull = Boolean(isDoor && requestedPosition === "top-center");
-    const raisedWallDoorPull = Boolean(topCenteredDoorPull && isWall);
+    const raisedWallDoorPull = Boolean(isDoor && raisedDoorPullOnRail);
     const horizontalTopRailPull = Boolean(topCenteredDoorPull && !raisedWallDoorPull);
     const position = horizontalTopRailPull
       ? "center"
@@ -2016,7 +2018,7 @@ export function HardwareOverlay({
           className="absolute"
           data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"}
           data-hardware-orientation={horizontalTopRailPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}
-          data-hardware-position={topCenteredDoorPull ? "top-center" : position}
+          data-hardware-position={raisedWallDoorPull ? "raised-door-rail" : topCenteredDoorPull ? "top-center" : position}
           {...measuredHardwareData}
           style={pullStyle as React.CSSProperties}
         />
@@ -2059,7 +2061,7 @@ export function HardwareOverlay({
     // the handle side (opposite of the hinge).
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
-    const doorTop = normalizedDoorPosition === "top-center"
+    const doorTop = raisedDoorPullOnRail || normalizedDoorPosition === "top-center"
       ? drawerBand + (100 - drawerBand) * 0.13
       : drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)

@@ -21,7 +21,7 @@ import {
   countertopMaterial,
   isOnIsland, placedFootprint, bearsIslandCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
-  isRangeOrOven, isStacker, wallCabinetTopLine, isCounterHeightIslandWallCabinet, islandWallCabinetBaseTreatment,
+  isRangeOrOven, isStacker, wallCabinetTopLine, isCounterHeightIslandWallCabinet, islandWallCabinetBaseTreatment, usesRaisedFloorWallDoorPull,
 	  DEFAULT_CEILING_HEIGHT,
 	  type IslandZone, type IslandFace,
 } from "@/lib/design";
@@ -206,7 +206,7 @@ function DoorFront({
 }
 
 export function IslandHardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn, raisedDoorPullOnRail = false,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
@@ -215,6 +215,7 @@ export function IslandHardwareOverlay({
   hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   faceWidthIn: number;
+  raisedDoorPullOnRail?: boolean;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
@@ -222,7 +223,9 @@ export function IslandHardwareOverlay({
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean, index = 0) => {
     const requestedSide = isDoor ? normalizedDoorPosition : null;
     const topCenteredDoorPull = Boolean(isDoor && requestedSide === "top-center");
-    const hSide = topCenteredDoorPull
+    const raisedWallDoorPull = Boolean(isDoor && raisedDoorPullOnRail);
+    const horizontalTopRailPull = topCenteredDoorPull && !raisedWallDoorPull;
+    const hSide = horizontalTopRailPull
       ? "center"
       : requestedSide === "auto" && isDoor && doors === 1
       ? swing === "left" ? "right" : swing === "right" ? "left" : "right"
@@ -252,12 +255,12 @@ export function IslandHardwareOverlay({
       );
     }
     if (kind === "pull") {
-      const pullStyle = topCenteredDoorPull
+      const pullStyle = horizontalTopRailPull
         ? { left: "30%", right: "30%", top: `${topPct}%`, height: 3, marginTop: -1.5, background: metal, boxShadow: metalShadow, zIndex: 8 }
         : isDoor
         ? { left: leftPos, top: `${topPct}%`, width: 3, height: "24%", marginLeft: -1.5, transform: "translateY(-50%)", background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 2 }
         : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
-      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={topCenteredDoorPull ? "horizontal" : isDoor ? "vertical" : "horizontal"} data-hardware-position={topCenteredDoorPull ? "top-center" : hSide ?? "center"} {...measuredHardwareData} style={pullStyle} />;
+      return <div key={key} className="absolute" data-cabinet-hardware={isDoor ? "door-pull" : "drawer-pull"} data-hardware-orientation={horizontalTopRailPull ? "horizontal" : isDoor ? "vertical" : "horizontal"} data-hardware-position={raisedWallDoorPull ? "raised-door-rail" : topCenteredDoorPull ? "top-center" : hSide ?? "center"} {...measuredHardwareData} style={pullStyle} />;
     }
     if (kind === "cup") {
       return (
@@ -270,7 +273,7 @@ export function IslandHardwareOverlay({
   };
   const items: React.ReactNode[] = [];
   if (doors > 0 && doorPiece !== "none") {
-    const topPct = normalizedDoorPosition === "top-center" ? 13 : 50;
+    const topPct = raisedDoorPullOnRail || normalizedDoorPosition === "top-center" ? 13 : 50;
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)
       : 1;
@@ -471,6 +474,7 @@ export function IslandElevationView({
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
               hardwarePosition={resolveCabinetHardwarePosition(p)}
+              raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
               swing={resolveSwing(p)}
               faceWidthIn={cabSizeAlong}
             />

@@ -756,13 +756,34 @@ export function customSizeNote(p: PlacedCabinet): string {
   return parts.length ? `CUSTOM ${parts.join(" × ")}` : "";
 }
 
-// Build-sheet note for the per-cabinet door/hardware attributes set in the
-// right-click attributes dialog. "No door" wins (an open unit has no handle);
-// otherwise an explicit handle side is noted. Returns "" when nothing applies.
+/** True when a wall cabinet is used as floor casework rather than as an upper.
+ * Its door pull stays on the same hinge-aware side rail but moves upward for
+ * comfortable access. Island ownership remains authoritative for older saves
+ * whose mountBottom still contains the former room-wall value. */
+export function usesRaisedFloorWallDoorPull(p: {
+  placement?: Placement | string | null;
+  mountBottom?: number | null;
+  islandFace?: IslandFace | null;
+  islandCounterHeightWallCabinet?: boolean | null;
+}): boolean {
+  if (p.placement !== "wall") return false;
+  if (p.islandFace || p.islandCounterHeightWallCabinet === true) return true;
+  return typeof p.mountBottom === "number"
+    && Math.abs(p.mountBottom - STD.TOE_KICK) <= COLLISION_EPSILON_IN;
+}
+
 export function resolveCabinetHardwarePosition(p: {
   hardwarePosition?: CabinetHardwarePosition | null;
   handleSide?: "left" | "right" | "top" | "bottom" | null;
+  placement?: Placement | string | null;
+  mountBottom?: number | null;
+  islandFace?: IslandFace | null;
+  islandCounterHeightWallCabinet?: boolean | null;
 }): CabinetHardwarePosition {
+  // The raised position is a construction rule for floor-seated wall cabinets,
+  // not an editable hardware style. Retire any saved top-center override while
+  // preserving an explicit left/right rail choice.
+  if (usesRaisedFloorWallDoorPull(p) && p.hardwarePosition === "top-center") return "auto";
   // A door pull cannot sit in the center panel. Older plans may have saved the
   // retired Center option; treat it as Automatic so every hinged door returns
   // to the applicable opening-edge stile without mutating the saved cabinet.
@@ -792,8 +813,8 @@ export function cabinetHardwarePositionPatch(
   };
 }
 
-/** The centered horizontal pull on the top rail is available for B15/B18 bases
- * and counter-height wall cabinets intentionally placed on an island. */
+/** The centered horizontal pull on the top rail is available for B15/B18 bases.
+ * Floor-seated wall cabinets use an automatic raised vertical pull instead. */
 export function supportsCenteredTopDoorPull(p: {
   masterCode?: string | null;
   placement?: Placement | null;
@@ -801,7 +822,7 @@ export function supportsCenteredTopDoorPull(p: {
   islandCounterHeightWallCabinet?: boolean | null;
 }): boolean {
   const code = `${p.masterCode ?? ""}`.trim().toUpperCase();
-  return (p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code)) || isCounterHeightIslandWallCabinet(p);
+  return p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code);
 }
 
 /** True when a placed record has a real door front eligible for the requested
@@ -3738,9 +3759,23 @@ export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number
 
 // Crown runs along the top of wall cabinets, grouped per wall with miter
 // allowance. Requires the room to know which wall each cabinet is on.
+export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
+  if (p.placement === "tall") return true;
+  if (p.placement !== "wall") return false;
+  // Island wall cabinets are floor/counter-height casework, never upper runs.
+  // The explicit island marker remains authoritative for older saves whose
+  // mountBottom may still contain a room-wall value.
+  if (usesRaisedFloorWallDoorPull(p)) return false;
+  // A wall cabinet deliberately dropped to a 4½-inch toe kick is floor-seated
+  // casework. Use the rendered elevation bottom so restored plans, counter-height
+  // variants, and explicit mountBottom values all follow the same physical rule.
+  const bottom = elevationBox(p, room).bottom;
+  return bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
+}
+
 export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
   // Crown caps the top of upper (wall) cabinets and tall pantry/oven cabinets.
-  const wallCabs = placed.filter((p) => p.placement === "wall" || p.placement === "tall");
+  const wallCabs = placed.filter((p) => isCrownEligibleCabinet(p, room));
   if (wallCabs.length === 0) return 0;
   if (!room) {
     // No room context: fall back to a single continuous run + one allowance.

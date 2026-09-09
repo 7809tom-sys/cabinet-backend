@@ -2262,6 +2262,22 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetSku(placed[0])).toMatchObject({ height: 96, width: 33, depth: 24 });
   });
 
+  it("normalizes the retired top-center override for saved Island mode and 4½-inch floor wall cabinets", () => {
+    const floorWall = existingCabinetSku({
+      uid: "floor-wall", cabinetId: 1, masterCode: "W1830", description: "Floor wall",
+      placement: "wall", x: 0, y: 0, width: 18, height: 30, depth: 12, rotation: 0,
+      mountBottom: 4.5, hardwarePosition: "top-center",
+    } as never);
+    const islandWall = existingCabinetSku({
+      uid: "island-wall", cabinetId: 2, masterCode: "W2430", description: "Island wall",
+      placement: "wall", x: 24, y: 48, width: 24, height: 30, depth: 12, rotation: 180,
+      mountBottom: 54, islandFace: "back", islandCounterHeightWallCabinet: true, hardwarePosition: "top-center",
+    } as never);
+
+    expect(floorWall).toMatchObject({ mountBottom: 4.5, hardwarePosition: "auto" });
+    expect(islandWall).toMatchObject({ mountBottom: 54, islandFace: "back", islandCounterHeightWallCabinet: true, hardwarePosition: "auto" });
+  });
+
   it("maps mixed saved designs through one 2D-to-3D contract without design-specific scene branches", () => {
     const placed = [
       { uid: "cdb", cabinetId: 1, masterCode: "CDB36", description: "Corner Drawer Base", placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, numberOfDoors: 0, numberOfDrawers: 3, cornerType: "l-shape", customProfile: "corner-drawer-base" },
