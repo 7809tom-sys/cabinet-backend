@@ -1828,3 +1828,4 @@
 - [x] Calculate light-rail molding from each continuous exposed bottom perimeter of eligible upper cabinets, including front widths and exposed depth returns without double-counting shared cabinet sides
 - [x] Add the owner-specified 4-inch light-rail installation allowance to the takeoff and recalculate Materials & Parts linear footage and stock-piece quantity while preserving trim SKU, price identity, and saved-plan behavior
 - [x] Render visible 45-degree outside-corner crown-miter geometry in the Designer using the same exposed-corner topology as the crown takeoff, while preserving crown eligibility, selected finish, Materials & Parts quantity, cart, saved-plan, 2D, and 3D behavior
+- [x] Replace the visible crown-miter artifact with a full clean 45-degree crown return/block at each exposed outside corner, matching the approved reference without stray dark or blue meshes/panels and preserving unchanged crown takeoff, cart, and saved-plan behavior

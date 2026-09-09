@@ -39,9 +39,11 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
 		  expect(root.children).toHaveLength(6);
 		    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-		    const miterSeams = root.children.filter((rail) => rail.userData.crownMiterSeam);
-		    expect(miterSeams).toHaveLength(2);
-		    expect(miterSeams.every((seam) => seam.userData.visibleMiterAngleDegrees === 45 && seam.userData.doesNotChangeCrownTakeoff === true)).toBe(true);
+		    const miterReturns = root.children.filter((rail) => rail.userData.crownMiterReturn);
+		    expect(miterReturns).toHaveLength(2);
+		    expect(miterReturns.every((piece) => piece.userData.fullCrownMiterBlock === true && piece.userData.visibleMiterAngleDegrees === 45 && piece.userData.doesNotChangeCrownTakeoff === true)).toBe(true);
+		    expect(miterReturns.every((piece) => ((piece as THREE.Mesh).geometry as THREE.BufferGeometry).index?.count === 24)).toBe(true);
+		    expect(root.children.some((piece) => piece.userData.crownMiterSeam === true)).toBe(false);
 		  });
 
 		  it("uses the exposed W1230 crown perimeter for a 16-20-16 mitered takeoff", () => {
@@ -256,9 +258,9 @@ describe("continuous cabinet trim", () => {
 	    { uid: "wdc-bottom-left", cabinetId: 14, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 0, y: 72, width: 24, height: 42, depth: 24, rotation: 270, mountBottom: 54, cornerType: "diagonal" },
 	  ], room, undefined, "#ffffff");
 
-		  const crownRails = root.children.filter((rail) => rail.userData.crownMiterSeam !== true);
+		  const crownRails = root.children.filter((rail) => rail.userData.crownMiterReturn !== true);
 		  expect(crownRails).toHaveLength(12);
-		  expect(root.children.filter((rail) => rail.userData.crownMiterSeam)).toHaveLength(8);
+		  expect(root.children.filter((rail) => rail.userData.crownMiterReturn)).toHaveLength(8);
 		  expect(crownRails.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
 		  expect(crownRails.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
 		  for (const rail of crownRails) {

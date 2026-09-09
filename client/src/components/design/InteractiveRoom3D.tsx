@@ -4837,6 +4837,7 @@ export type ThreeDCrownMiterJoint = {
   top: number;
   firstDirection: CrownPoint;
   secondDirection: CrownPoint;
+  ownerUids: [string, string];
   miterAngleDegrees: 45;
 };
 
@@ -4878,16 +4879,16 @@ export function threeDCrownMiterJoints(segments: ThreeDCrownPerimeterSegment[]):
   const straightJoinDotProduct = 0.999;
   const nodes: Array<{
     point: CrownPoint;
-    endpoints: Array<{ segmentIndex: number; direction: CrownPoint; top: number }>;
+    endpoints: Array<{ segmentIndex: number; ownerUid: string; direction: CrownPoint; top: number }>;
   }> = [];
-  const addEndpoint = (point: CrownPoint, endpoint: { segmentIndex: number; direction: CrownPoint; top: number }) => {
+  const addEndpoint = (point: CrownPoint, endpoint: { segmentIndex: number; ownerUid: string; direction: CrownPoint; top: number }) => {
     const node = nodes.find((candidate) => Math.hypot(candidate.point.x - point.x, candidate.point.z - point.z) <= endpointTolerance);
     if (node) node.endpoints.push(endpoint);
     else nodes.push({ point, endpoints: [endpoint] });
   };
   segments.forEach((segment, segmentIndex) => {
-    addEndpoint(segment.start, { segmentIndex, direction: crownEndpointDirection(segment, true), top: segment.top });
-    addEndpoint(segment.end, { segmentIndex, direction: crownEndpointDirection(segment, false), top: segment.top });
+    addEndpoint(segment.start, { segmentIndex, ownerUid: segment.ownerUid, direction: crownEndpointDirection(segment, true), top: segment.top });
+    addEndpoint(segment.end, { segmentIndex, ownerUid: segment.ownerUid, direction: crownEndpointDirection(segment, false), top: segment.top });
   });
   return nodes.flatMap((node) => {
     if (node.endpoints.length !== 2) return [];
@@ -4900,6 +4901,7 @@ export function threeDCrownMiterJoints(segments: ThreeDCrownPerimeterSegment[]):
       top: (first.top + second.top) / 2,
       firstDirection: first.direction,
       secondDirection: second.direction,
+      ownerUids: [first.ownerUid, second.ownerUid],
       miterAngleDegrees: 45 as const,
     }];
   });
@@ -5073,6 +5075,7 @@ export function addThreeDCrownMolding(
 ) {
   const cabinetByUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
   const segments = threeDCrownPerimeterSegments(placed, room);
+  const crownMaterialByOwner = new Map<string, THREE.MeshStandardMaterial>();
   for (const segment of segments) {
     const cabinet = cabinetByUid.get(segment.ownerUid);
     if (!cabinet) continue;
@@ -5091,6 +5094,7 @@ export function addThreeDCrownMolding(
     // loading synchronized across its exposed side, toe kick, and crown.
     const material = ownerFinishMaterial
       ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
+    crownMaterialByOwner.set(segment.ownerUid, material);
     const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownHeight, railThickness), material);
     rail.position.set(segment.center.x * INCH, (segment.top + 1.5) * INCH, segment.center.z * INCH);
     rail.rotation.y = segment.rotation;
@@ -5110,34 +5114,42 @@ export function addThreeDCrownMolding(
     root.add(rail);
   }
 
-  // These diagonal seam strips are visual-only. They sit across the crown face
-  // at each exposed two-piece turn so the 45° miter is apparent in the room,
-  // while the rails retain their exact exposed lengths for takeoff and ordering.
+  // The crown return is a full triangular prism, not a thin line. Its diagonal
+  // outer face visibly joins the two rails at 45° like a field-mitered crown
+  // corner, while its footprint stays within the existing rail overlap.
   const miterLegInches = 2.25;
-  const miterSeamMaterial = new THREE.MeshStandardMaterial({ color: "#46505d", roughness: 0.46, metalness: 0.01 });
   for (const joint of threeDCrownMiterJoints(segments)) {
-    const start = {
-      x: joint.point.x + joint.firstDirection.x * miterLegInches,
-      z: joint.point.z + joint.firstDirection.z * miterLegInches,
-    };
-    const end = {
-      x: joint.point.x + joint.secondDirection.x * miterLegInches,
-      z: joint.point.z + joint.secondDirection.z * miterLegInches,
-    };
-    const length = Math.hypot(end.x - start.x, end.z - start.z);
-    if (length <= 1e-6) continue;
-    const seam = new THREE.Mesh(new THREE.BoxGeometry(length * INCH + 0.008, 3 * INCH + 0.01, 0.028), miterSeamMaterial);
-    seam.position.set((start.x + end.x) * INCH / 2, (joint.top + 1.5) * INCH, (start.z + end.z) * INCH / 2);
-    seam.rotation.y = -Math.atan2(end.z - start.z, end.x - start.x);
-    seam.userData = {
+    const leg = miterLegInches * INCH;
+    const crownHeight = 3 * INCH;
+    const first = { x: joint.firstDirection.x * leg, z: joint.firstDirection.z * leg };
+    const second = { x: joint.secondDirection.x * leg, z: joint.secondDirection.z * leg };
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute([
+      0, 0, 0, first.x, 0, first.z, second.x, 0, second.z,
+      0, crownHeight, 0, first.x, crownHeight, first.z, second.x, crownHeight, second.z,
+    ], 3));
+    geometry.setIndex([
+      0, 2, 1, 3, 4, 5,
+      0, 1, 4, 0, 4, 3,
+      1, 2, 5, 1, 5, 4,
+      2, 0, 3, 2, 3, 5,
+    ]);
+    geometry.computeVertexNormals();
+    const material = crownMaterialByOwner.get(joint.ownerUids[0])
+      ?? crownMaterialByOwner.get(joint.ownerUids[1])
+      ?? new THREE.MeshStandardMaterial({ color: fallbackColor, roughness: 0.58, metalness: 0.01 });
+    const returnBlock = new THREE.Mesh(geometry, material);
+    returnBlock.position.set(joint.point.x * INCH, joint.top * INCH, joint.point.z * INCH);
+    returnBlock.userData = {
       crownMolding: true,
-      crownMiterSeam: true,
+      crownMiterReturn: true,
+      fullCrownMiterBlock: true,
       exposedTopEdge: true,
       visibleMiterAngleDegrees: joint.miterAngleDegrees,
       miterLegInches,
       doesNotChangeCrownTakeoff: true,
     };
-    root.add(seam);
+    root.add(returnBlock);
   }
 }
 
