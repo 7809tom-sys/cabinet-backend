@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, islandAfterCountertopSupportRemoval, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -5919,39 +5919,43 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Catalog placement reads placedRef between renders, so leaving it stale after
   // a keyboard or toolbar delete falsely keeps the removed cabinet (or its sink
   // relationship) inside the next placement collision and gap calculations.
-	  const removeCabinetsAndReleaseVoid = useCallback((uids: string[], removeSharedFillerGroups = false) => {
-	    const uidSet = new Set(uids);
-	    const committed = placedRef.current;
-	    const removed = committed.filter((cabinet) => uidSet.has(cabinet.uid));
-	    removed.forEach((cabinet) => deleteAttachedSinkFixtures(cabinet));
-	    const fillerGroups = new Set(
-	      removed
-	        .map((cabinet) => cabinet.fillerPieceGroupId)
-	        .filter((groupId): groupId is string => !!groupId),
-	    );
-	    let next = uids.reduce(
-	      (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
-	      committed,
-	    );
-	    if (removeSharedFillerGroups && fillerGroups.size > 0) {
-	      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
-	    }
-	    // Placement can run before React commits a render. Update the authoritative
-	    // reference first so the newly released span is immediately measurable.
-	    placedRef.current = next;
-	    setPlaced(next);
-	    setSelectedUid((current) => current && uidSet.has(current) ? null : current);
-	    setSelectedSinkUid(null);
-	    setFailedWallFit(null);
-	    setPlacementWarning(null);
-	    setAlternateWallRecommendation(null);
-	    setAlternateIslandFaceRecommendation(null);
-	    setSmallGapFillerPrompt(null);
-	  }, [deleteAttachedSinkFixtures]);
+  const removeCabinetsAndReleaseVoid = useCallback((uids: string[], removeSharedFillerGroups = false) => {
+    const uidSet = new Set(uids);
+    const committed = placedRef.current;
+    const removed = committed.filter((cabinet) => uidSet.has(cabinet.uid));
+    removed.forEach((cabinet) => deleteAttachedSinkFixtures(cabinet));
+    const fillerGroups = new Set(
+      removed
+        .map((cabinet) => cabinet.fillerPieceGroupId)
+        .filter((groupId): groupId is string => !!groupId),
+    );
+    let next = uids.reduce(
+      (current, uid) => removePlacedCabinetWithRequiredBlindCornerFiller(current, uid),
+      committed,
+    );
+    if (removeSharedFillerGroups && fillerGroups.size > 0) {
+      next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
+    }
+    const nextIsland = island
+      ? islandAfterCountertopSupportRemoval(island, committed, next)
+      : null;
+    // Placement can run before React commits a render. Update the authoritative
+    // reference first so the newly released span is immediately measurable.
+    placedRef.current = next;
+    setPlaced(next);
+    if (nextIsland && nextIsland !== island) setIsland(nextIsland);
+    setSelectedUid((current) => current && uidSet.has(current) ? null : current);
+    setSelectedSinkUid(null);
+    setFailedWallFit(null);
+    setPlacementWarning(null);
+    setAlternateWallRecommendation(null);
+    setAlternateIslandFaceRecommendation(null);
+    setSmallGapFillerPrompt(null);
+  }, [deleteAttachedSinkFixtures, island]);
 
-	  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
-	    removeCabinetsAndReleaseVoid([uid]);
-	  }, [removeCabinetsAndReleaseVoid]);
+  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
+    removeCabinetsAndReleaseVoid([uid]);
+  }, [removeCabinetsAndReleaseVoid]);
 
   const deleteSelected = () => {
     // Cabinet selection takes priority; otherwise delete a selected sink,
@@ -13128,17 +13132,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onRemovePlacedItems={(uids) => {
 	          const sources = new Set(uids);
 	          if (sources.size === 0) return;
-	          setPlaced((current) => {
-	            let next = current;
-            for (const uid of Array.from(sources)) next = removePlacedCabinetGroup(next, uid);
-	            placedRef.current = next;
-	            return next;
-	          });
-	          setSinks((current) => current.filter((sink) => !Array.from(sources).some((uid) => {
-	            const cabinet = placed.find((item) => item.uid === uid);
-	            return cabinet ? fixtureIsOnCabinetFootprint(sink, cabinet) : false;
-	          })));
-	          setSelectedUid((selected) => selected && sources.has(selected) ? null : selected);
+	          removeCabinetsAndReleaseVoid(Array.from(sources), true);
 	          toast.success("Design item removed from Materials & Parts.");
 	        }}
 	      />

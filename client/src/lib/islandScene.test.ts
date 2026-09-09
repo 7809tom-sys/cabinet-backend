@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { elevationBox, hasCollision, makeSinkForCabinet, type IslandZone, type PlacedCabinet, type RoomData } from "./design";
 import {
-  ISLAND_COUNTERTOP_OVERHANG_IN,
-  applyCabinetFinishScope,
-	  islandCountertopRect,
+	  ISLAND_COUNTERTOP_OVERHANG_IN,
+	  applyCabinetFinishScope,
+	  islandAfterCountertopSupportRemoval,
+		  islandCountertopRect,
 	  islandCountertopRects,
 	  islandCountertopOverhangIn,
 	  islandFaceCapacity,
@@ -580,11 +581,62 @@ describe("island mini-scene geometry", () => {
 	    expect(seating.countertopOverhang).toBe(3);
 	  });
 
-	  it("keeps exact custom slab dimensions and offsets while cabinet geometry stays authoritative", () => {
-	    const attached = islandFacePlacement(cabinet(), island, "front", 0);
-	    const custom = { ...island, countertopWidth: 60, countertopDepth: 30, countertopOffsetX: 2, countertopOffsetY: -1 };
-	    expect(islandCountertopRect(custom, [attached])).toEqual({ x: 20, y: 56, width: 60, depth: 30 });
-	  });
+		  it("keeps exact custom slab dimensions and offsets while cabinet geometry stays authoritative", () => {
+		    const attached = islandFacePlacement(cabinet(), island, "front", 0);
+		    const custom = { ...island, countertopWidth: 60, countertopDepth: 30, countertopOffsetX: 2, countertopOffsetY: -1 };
+		    expect(islandCountertopRect(custom, [attached])).toEqual({ x: 20, y: 56, width: 60, depth: 30 });
+		  });
+
+		  it("rebuilds a custom island slab from the remaining cabinet after one countertop support is deleted", () => {
+		    const first = islandFacePlacement(cabinet({ uid: "first" }), island, "front", 0);
+		    const second = islandFacePlacement(cabinet({ uid: "second" }), island, "front", 24);
+		    const custom = {
+		      ...island,
+		      countertopMaterialId: "quartz-carrara",
+		      countertopProductId: 101,
+		      countertopOverhang: 3,
+		      waterfallEnd: "right" as const,
+		      countertopWidth: 72,
+		      countertopDepth: 42,
+		      countertopOffsetX: 5,
+		      countertopOffsetY: -4,
+		      countertopWidthAnchoredToZone: true,
+		      countertopDepthAnchoredToZone: true,
+		    };
+		    const rebuilt = islandAfterCountertopSupportRemoval(custom, [first, second], [first]);
+
+		    expect(rebuilt).toMatchObject({
+		      countertopMaterialId: "quartz-carrara",
+		      countertopProductId: 101,
+		      countertopOverhang: 3,
+		      waterfallEnd: "right",
+		      countertopWidth: null,
+		      countertopDepth: null,
+		      countertopOffsetX: 0,
+		      countertopOffsetY: 0,
+		      countertopWidthAnchoredToZone: false,
+		      countertopDepthAnchoredToZone: false,
+		    });
+		    expect(islandCountertopRect(rebuilt, [first])).toEqual({ x: 33, y: 57, width: 30, depth: 30 });
+		  });
+
+		  it("clears a stale custom island slab when its final countertop support is deleted", () => {
+		    const onlySupport = islandFacePlacement(cabinet({ uid: "only" }), island, "front", 0);
+		    const custom = { ...island, countertopWidth: 60, countertopDepth: 42, countertopOffsetX: 3, countertopOffsetY: -2 };
+		    const rebuilt = islandAfterCountertopSupportRemoval(custom, [onlySupport], []);
+
+		    expect(rebuilt.countertopWidth).toBeNull();
+		    expect(rebuilt.countertopDepth).toBeNull();
+		    expect(islandCountertopRects(rebuilt, [])).toEqual([]);
+		  });
+
+		  it("retains a custom island slab when only a non-bearing island appliance is deleted", () => {
+		    const support = islandFacePlacement(cabinet({ uid: "support" }), island, "front", 0);
+		    const appliance = islandFacePlacement(cabinet({ uid: "range", placement: "appliance", masterCode: "RANGE-30", width: 30, depth: 24 }), island, "front", 24);
+		    const custom = { ...island, countertopWidth: 60, countertopDepth: 42, countertopOffsetX: 3, countertopOffsetY: -2 };
+
+		    expect(islandAfterCountertopSupportRemoval(custom, [support, appliance], [support])).toBe(custom);
+		  });
 
 	  it("keeps a guided 12-inch rear seating overhang anchored to the island work zone before a rear cabinet run exists", () => {
 	    const workZone = { ...island, depth: 36 };

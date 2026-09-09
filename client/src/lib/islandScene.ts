@@ -722,6 +722,43 @@ export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]
 }
 
 /**
+ * A custom slab size is intentional only while its original support footprint
+ * remains intact. When an island countertop-bearing cabinet is deleted, clear
+ * those stale dimensions so the next render measures the surviving supports
+ * instead of leaving an unsupported bridge or overhang in the scene. The
+ * selected product/material, standard overhang, waterfall choice, and cabinet
+ * finish belong to the island itself and remain unchanged.
+ */
+export function islandAfterCountertopSupportRemoval(
+  island: IslandZone,
+  before: PlacedCabinet[],
+  after: PlacedCabinet[],
+): IslandZone {
+  const beforeSupportIds = new Set(
+    before
+      .filter((item) => isIslandAssemblyMember(item, island, before) && bearsIslandCountertop(item))
+      .map((item) => item.uid),
+  );
+  const afterSupportIds = new Set(
+    after
+      .filter((item) => isIslandAssemblyMember(item, island, after) && bearsIslandCountertop(item))
+      .map((item) => item.uid),
+  );
+  const supportWasRemoved = Array.from(beforeSupportIds).some((uid) => !afterSupportIds.has(uid));
+  if (!supportWasRemoved) return island;
+
+  return {
+    ...island,
+    countertopWidth: null,
+    countertopDepth: null,
+    countertopOffsetX: 0,
+    countertopOffsetY: 0,
+    countertopWidthAnchoredToZone: false,
+    countertopDepthAnchoredToZone: false,
+  };
+}
+
+/**
  * Create one intentional island slab with seating projection on a selected
  * face. The stated 10- or 12-inch value is measured from that cabinet face;
  * the normal 1.5-inch reveal is retained on the other exposed slab edges.

@@ -1822,3 +1822,6 @@
 - [x] Add a responsive live summary panel showing the currently selected wall cabinet color, island cabinet color, wall countertop material, and island countertop material
 - [x] Add a 4-inch crown-molding takeoff allowance for every exposed outside cabinet corner, so mitered crown quantities reflect the angled projection instead of only cabinet-edge lengths
 - [x] Preserve existing crown perimeter geometry and catalog pricing identity while recalculating Materials & Parts crown linear footage and stock-piece quantity from the adjusted takeoff
+- [x] Rebuild or remove the island countertop immediately when an island cabinet is deleted, matching the remaining island footprint while preserving any remaining island countertop material, overhang, waterfall, cart, pricing, and saved-plan behavior
+- [ ] Remove countertop coverage over an island stove/range while preserving the island slab around the appliance, selected material, overhang, waterfall, cart, pricing, and saved-plan behavior
+- [ ] Orient island sink faucets on the correct user-facing side of the sink for every island face while preserving sink cutouts, fixture placement, materials, and saved-plan behavior
