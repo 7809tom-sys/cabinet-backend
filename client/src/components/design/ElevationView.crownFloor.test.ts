@@ -8,4 +8,12 @@ describe("Elevation crown eligibility wiring", () => {
     expect(source).toContain(".filter((p) => isCrownEligibleCabinet(p, room))");
     expect(source).not.toContain('.filter((p) => p.placement === "wall" && p.mountBottom == null)\n    .map((p) => {\n      const footprint = placedFootprint(p);');
   });
+
+  it("keeps the physical toe-kick run and visibly applies the selected finish instead of changing cart-only state", () => {
+    const source = readFileSync(new URL("./ElevationView.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain('data-selected-toe-kick-finish={toeKick ? "true" : "false"}');
+    expect(source).toContain("background: toeKick");
+    expect(source).toContain("? `linear-gradient(180deg, ${finish.face} 0%, ${finish.edge} 100%)`");
+  });
 });

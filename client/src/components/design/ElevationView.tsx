@@ -1813,12 +1813,15 @@ export function ElevationView({
                 // cabinet above it.
                 // Fixed dark color — real toe kicks are always painted/stained
                 // near-black to hide dirt and visually recede under the cabinet.
-                background: `linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 60%, #1e1e1e 100%)`,
+                background: toeKick
+                  ? `linear-gradient(180deg, ${finish.face} 0%, ${finish.edge} 100%)`
+                  : `linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 60%, #1e1e1e 100%)`,
                 boxShadow: `inset 0 4px 8px rgba(0,0,0,0.70), inset 0 -1px 0 rgba(255,255,255,0.06)`,
                 borderTop: `1.5px solid rgba(0,0,0,0.85)`,
                 borderRadius: "0 0 1px 1px",
                 zIndex: 4,
               }}
+              data-selected-toe-kick-finish={toeKick ? "true" : "false"}
               title={t("dt_ev_toe_kick")}
             />
           );

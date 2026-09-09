@@ -12800,14 +12800,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             {interactive3dLoading ? (
               <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>
             ) : resolvedInteractive3dScene ? (
-	              <InteractiveRoom3D
-		                key={`active-floor-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}
-		                scene={resolvedInteractive3dScene}
-		                placed={threeDPlaced}
-		                crown={crown}
-		                catalogDropWall={activeWall}
-		                islandFocusRequest={islandCameraFocusRequest}
-		                catalogDragItem={interactive3dCatalogDragItem}
+              <InteractiveRoom3D
+                key={`active-floor-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}
+                scene={resolvedInteractive3dScene}
+                placed={threeDPlaced}
+                crown={crown}
+                toeKick={toeKick}
+                catalogDropWall={activeWall}
+                islandFocusRequest={islandCameraFocusRequest}
+                catalogDragItem={interactive3dCatalogDragItem}
                 roomOverride={room}
                 openings={openings}
                 sinks={sinks}

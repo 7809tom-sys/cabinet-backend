@@ -472,6 +472,8 @@ interface Props {
   placed?: PlacedCabinet[];
   /** Draw crown rails around the exposed tops of upper cabinets. */
   crown?: boolean;
+  /** Apply the selected finished toe-kick skin to every eligible floor cabinet. */
+  toeKick?: boolean;
   roomOverride?: RoomData;
   /** Doors, cased openings, and windows from the current 2D plan. */
   openings?: WallOpening[];
@@ -2742,7 +2744,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -2779,6 +2781,8 @@ export function addCabinet(
   // to floor level; wall cabinets mounted above the floor are excluded.
   const isCounterHeightIslandWallCabinet = isWall && Boolean(sku.islandFace) && sku.islandCounterHeightWallCabinet === true;
   const hasFurnitureBaseMolding = isCounterHeightIslandWallCabinet && sku.islandWallCabinetBaseTreatment === "base-molding";
+  const hasSelectedToeKickFinish = Boolean(surfaceTextures?.selectedToeKick)
+    || (isCounterHeightIslandWallCabinet && !hasFurnitureBaseMolding);
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
     && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet || (isWall && requestedMountBottom <= 0.001));
@@ -2892,30 +2896,28 @@ export function addCabinet(
       const exposedSideZ = lShape.sideLeg.z;
       const toeKickRecess = 3 * INCH;
       const toeKickThickness = 0.08;
-      const cornerReturnSpan = toeKickRecess + toeKickThickness;
-      const cornerReturnX = exposedSideX - toeKickRecess - toeKickThickness / 2 + cornerReturnSpan / 2;
-      const cornerReturnZ = exposedBackZ - toeKickRecess - toeKickThickness / 2 + cornerReturnSpan / 2;
+      const backKickZ = exposedBackZ - toeKickRecess - toeKickThickness / 2;
+      const sideKickX = exposedSideX - toeKickRecess - toeKickThickness / 2;
+      const backKickOuterX = exposedBackX + exposedBackWidth / 2;
+      const sideKickOuterZ = exposedSideZ + exposedSideLength / 2;
+      // Extend each thin recessed leg only to the other leg's centreline. Their
+      // thicknesses overlap in one small right-angle joint, so the toe kick is
+      // continuous without the old 4-inch square block protruding into the
+      // visible inside corner.
+      const joinedBackWidth = Math.max(0.12, backKickOuterX - sideKickX);
+      const joinedSideLength = Math.max(0.12, sideKickOuterZ - backKickZ);
       const exposedKicks = [
         {
           side: "back-leg" as const,
-          geometry: new THREE.BoxGeometry(exposedBackWidth, toeKickHeight, toeKickThickness),
-          x: exposedBackX,
-          z: exposedBackZ - toeKickRecess - toeKickThickness / 2,
+          geometry: new THREE.BoxGeometry(joinedBackWidth, toeKickHeight, toeKickThickness),
+          x: sideKickX + joinedBackWidth / 2,
+          z: backKickZ,
         },
         {
           side: "side-leg" as const,
-          geometry: new THREE.BoxGeometry(toeKickThickness, toeKickHeight, exposedSideLength),
-          x: exposedSideX - toeKickRecess - toeKickThickness / 2,
-          z: exposedSideZ,
-        },
-        {
-          // The two recessed room-facing toe-kick legs must visibly meet at
-          // the inside corner. This small square return fills only that
-          // connection, never the L-corner's open appliance-facing cavity.
-          side: "corner-return" as const,
-          geometry: new THREE.BoxGeometry(cornerReturnSpan, toeKickHeight, cornerReturnSpan),
-          x: cornerReturnX,
-          z: cornerReturnZ,
+          geometry: new THREE.BoxGeometry(toeKickThickness, toeKickHeight, joinedSideLength),
+          x: sideKickX,
+          z: backKickZ + joinedSideLength / 2,
         },
       ];
       for (const exposedKick of exposedKicks) {
@@ -2929,6 +2931,7 @@ export function addCabinet(
           lCornerToeKickSide: exposedKick.side,
           toeKickHeightIn: THREE_D_TOE_KICK,
           toeKickRecessIn: 3,
+          selectedToeKickFinishSkin: hasSelectedToeKickFinish,
         };
         cabinet.add(legKick);
         bodyMeshes.push(legKick);
@@ -2961,6 +2964,7 @@ export function addCabinet(
           attachedEndFrontToeKick: face.side,
           toeKickFaceWidthIn: attachedFronts.sideLength / INCH,
           toeKickRecessIn: 3,
+          selectedToeKickFinishSkin: hasSelectedToeKickFinish,
         };
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);
@@ -2987,6 +2991,28 @@ export function addCabinet(
       };
       cabinet.add(toeKick);
       bodyMeshes.push(toeKick);
+      if (hasSelectedToeKickFinish && !isFrontFlushFillerBoard) {
+        const finishSkinThickness = 0.035;
+        const finishSkin = new THREE.Mesh(
+          new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, finishSkinThickness),
+          toeKickMaterial,
+        );
+        finishSkin.position.set(
+          0,
+          -bodyHeight / 2 - toeKickHeight / 2,
+          bodyDepth / 2 - 3 * INCH + finishSkinThickness / 2 + 0.002,
+        );
+        finishSkin.userData = {
+          selectedToeKickFinishSkin: true,
+          floorStandingToeKick: true,
+          toeKickHeightIn: THREE_D_TOE_KICK,
+          toeKickRecessIn: 3,
+          visibleToeKickFrontPlane: true,
+          doesNotReplacePhysicalSupport: true,
+        };
+        cabinet.add(finishSkin);
+        bodyMeshes.push(finishSkin);
+      }
     }
     }
   }
@@ -6407,7 +6433,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -7032,6 +7058,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	        ));
 	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
 	          countertop: countertopTexture,
+	          selectedToeKick: toeKick,
 	          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
 	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 	        });
@@ -7040,7 +7067,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture });
+	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture, selectedToeKick: toeKick });
 	      }
 	    }
 	    if (countertopUpstandSegments.length > 0) {
@@ -7107,7 +7134,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, roomOverr
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

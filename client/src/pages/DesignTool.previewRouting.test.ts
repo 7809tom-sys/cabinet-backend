@@ -13,6 +13,7 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).toContain("<InteractiveRoom3D");
     expect(designToolSource).not.toContain("<DesignPreviewModal");
     expect(designToolSource).not.toContain("setPreviewModalOpen");
+    expect(designToolSource).toMatch(/<InteractiveRoom3D[\s\S]*?placed=\{threeDPlaced\}[\s\S]*?toeKick=\{toeKick\}/);
   });
 
   it("opens a loaded saved plan in the deterministic renderer even before a door style is selected", () => {
