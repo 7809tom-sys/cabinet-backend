@@ -1890,10 +1890,13 @@ describe("interactive 3D room scene helpers", () => {
       undefined,
       { selectedToeKick: true },
     );
-    const kicks: THREE.Object3D[] = [];
-    root.traverse((node) => { if (node.userData.lCornerToeKick) kicks.push(node); });
+    const kicks: THREE.Mesh[] = [];
+    root.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.lCornerToeKick) kicks.push(node); });
     expect(kicks).toHaveLength(2);
     expect(kicks.every((node) => node.userData.selectedToeKickFinishSkin === true)).toBe(true);
+    expect(kicks.every((node) => node.userData.visibleToeKickFrontPlane === true)).toBe(true);
+    expect(kicks.every((node) => node.userData.doesNotReplacePhysicalSupport === true)).toBe(true);
+    expect(kicks.every((node) => (node.material as THREE.MeshStandardMaterial).color.getHexString() === "7e8d72")).toBe(true);
     expect(kicks.some((node) => node.userData.lCornerToeKickSide === "corner-return")).toBe(false);
   });
 
@@ -2116,12 +2119,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(pulls.every((node) => node.userData.verticalPull && node.userData.pullEdge === "opposite-hinge")).toBe(true);
   });
 
-  it("keeps cabinet shell and toe kick in the selected finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
+  it("keeps the cabinet shell and selected Toe Kick in the finish while using recessed drawer gaps instead of ghost-prone outlines", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 1, cabinetId: 1, masterCode: "B-30", description: "Base Cabinet",
       placementType: "base", width: 30, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 1,
-    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" }, undefined, undefined, undefined, { selectedToeKick: true });
     const nodes: THREE.Object3D[] = [];
     root.traverse((node) => nodes.push(node));
     const toeKick = nodes.find((node) => node.userData.baseToeKick) as THREE.Mesh;
@@ -5587,12 +5590,19 @@ describe("interactive 3D room scene helpers", () => {
     expect(finishSkins[0].userData.baseToeKick).toBeUndefined();
     expect(finishSkins[0].geometry.parameters.depth).toBeCloseTo(0.035, 8);
     expect(finishSkins[0].position.z).toBeCloseTo(24 / 12 / 2 - 3 / 12 + 0.035 / 2 + 0.002, 8);
+    expect((finishSkins[0].material as THREE.MeshStandardMaterial).color.getHexString()).toBe("7e8d72");
 
     const unselectedRoot = new THREE.Group();
     addCabinet(unselectedRoot, sku, null, {}, 144, 120, "#7e8d72", "#f8f8f6");
     const unselectedFinishSkins: THREE.Object3D[] = [];
-    unselectedRoot.traverse((node) => { if (node.userData.selectedToeKickFinishSkin) unselectedFinishSkins.push(node); });
+    const unselectedPhysicalSupports: THREE.Mesh[] = [];
+    unselectedRoot.traverse((node) => {
+      if (node.userData.selectedToeKickFinishSkin) unselectedFinishSkins.push(node);
+      if (node instanceof THREE.Mesh && node.userData.baseToeKick) unselectedPhysicalSupports.push(node);
+    });
     expect(unselectedFinishSkins).toHaveLength(0);
+    expect(unselectedPhysicalSupports).toHaveLength(1);
+    expect((unselectedPhysicalSupports[0].material as THREE.MeshStandardMaterial).color.getHexString()).toBe("211f1c");
   });
 
   it("adds a four-and-a-half-inch toe kick to every cabinet that rests on the floor, including tall and floor-dropped wall profiles", () => {

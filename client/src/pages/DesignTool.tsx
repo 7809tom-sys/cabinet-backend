@@ -7875,10 +7875,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      hybridPlanUnderlay={hybridPlanUnderlay}
 		      catalogDragItem={interactive3dCatalogDragItem}
 	      className="h-full min-h-0"
-		      scene={resolvedInteractive3dScene}
-		      placed={threeDPlaced}
-		      crown={crown}
-		      catalogDropWall={activeWall}
+	      scene={resolvedInteractive3dScene}
+	      placed={threeDPlaced}
+	      crown={crown}
+	      toeKick={toeKick}
+	      catalogDropWall={activeWall}
 		      islandFocusRequest={islandCameraFocusRequest}
 	      roomOverride={room}
       openings={openings}

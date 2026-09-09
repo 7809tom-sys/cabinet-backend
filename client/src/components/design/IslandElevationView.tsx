@@ -560,13 +560,17 @@ export function IslandElevationView({
               return (
                 <div
                   key={`tk-${p.uid}`}
+                  data-selected-toe-kick-finish={toeKick ? "true" : "false"}
                   className="absolute"
                   style={{
                     left: cabPosAlong * ppi,
                     width: cabSizeAlong * ppi,
                     bottom: 0,
                     height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi),
-                    background: `linear-gradient(180deg, ${cabFinish.edge} 0%, color-mix(in srgb, ${cabFinish.edge} 80%, #000) 100%)`,
+                    background: toeKick
+                      ? `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 65%, ${cabFinish.edge} 100%)`
+                      : `linear-gradient(180deg, #1a1a1a 0%, #2a2a2a 60%, #1e1e1e 100%)`,
+                    borderTop: toeKick ? `1px solid ${cabFinish.edge}` : "1px solid rgba(0,0,0,0.85)",
                     zIndex: 4,
                   }}
                 />

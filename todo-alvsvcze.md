@@ -1816,4 +1816,5 @@
 - [x] Make the selected global Toe Kick option render visible toe-kick geometry in 2D and 3D wherever it is already counted in materials and the cart, while preserving ER36 clean-corner geometry, unselected-state suppression, saved-plan behavior, cabinet placement, and pricing
 - [x] Add an island-only cabinet color selector that changes island cabinet finishes without changing outside wall-run cabinet finishes
 - [x] When Apply to all is used for a non-island cabinet finish, ask whether to recolor only non-island cabinets or include the island, and preserve pricing, cabinet identity, persistence, and 2D/3D rendering
-- [ ] Reproduce and correct the remaining selected Toe Kick visibility failure in the actual Designer drawing while preserving the completed ER36/BER36/ERB36 inside-corner seam, cart quantities, pricing, and saved-plan behavior
+- [x] Reproduce and correct the remaining selected Toe Kick visibility failure in the actual Designer drawing while preserving the completed ER36/BER36/ERB36 inside-corner seam, cart quantities, pricing, and saved-plan behavior
+- [x] Clarify the ambiguous “fix price” follow-up as a request to continue the active Toe Kick task; make no customer, affiliate, supplier, catalog, Designer, cart, or checkout price change without an identified product and authoritative approved value

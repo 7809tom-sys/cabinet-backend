@@ -2864,8 +2864,12 @@ export function addCabinet(
   const bodyMeshes: THREE.Mesh[] = [];
   if (isFloorStandingCabinet) {
     const toeKickHeight = THREE_D_TOE_KICK * INCH;
-    const toeKickMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.64, metalness: 0.01 });
-    structuralFinishMaterials.push(toeKickMaterial);
+    const toeKickMaterial = new THREE.MeshStandardMaterial({
+      color: hasSelectedToeKickFinish ? color : "#211f1c",
+      roughness: hasSelectedToeKickFinish ? 0.48 : 0.82,
+      metalness: 0.01,
+    });
+    if (hasSelectedToeKickFinish) structuralFinishMaterials.push(toeKickMaterial);
     if (hasFurnitureBaseMolding) {
       const baseMolding = new THREE.Mesh(
         new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, Math.max(0.12, bodyDepth - 0.04)),
@@ -2932,6 +2936,8 @@ export function addCabinet(
           toeKickHeightIn: THREE_D_TOE_KICK,
           toeKickRecessIn: 3,
           selectedToeKickFinishSkin: hasSelectedToeKickFinish,
+          visibleToeKickFrontPlane: hasSelectedToeKickFinish,
+          doesNotReplacePhysicalSupport: true,
         };
         cabinet.add(legKick);
         bodyMeshes.push(legKick);
@@ -2965,6 +2971,8 @@ export function addCabinet(
           toeKickFaceWidthIn: attachedFronts.sideLength / INCH,
           toeKickRecessIn: 3,
           selectedToeKickFinishSkin: hasSelectedToeKickFinish,
+          visibleToeKickFrontPlane: hasSelectedToeKickFinish,
+          doesNotReplacePhysicalSupport: true,
         };
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);

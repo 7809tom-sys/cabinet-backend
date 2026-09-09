@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const designToolSource = readFileSync(resolve(process.cwd(), "client/src/pages/DesignTool.tsx"), "utf8");
+const nativeThreeDStart = designToolSource.indexOf("const renderNativeThreeDCanvas");
+const nativeThreeDEnd = designToolSource.indexOf("\n  if (!verified)", nativeThreeDStart);
+const nativeThreeDSource = designToolSource.slice(nativeThreeDStart, nativeThreeDEnd);
 
 describe("DesignTool deterministic 3D preview routing", () => {
   it("routes all preview controls through InteractiveRoom3D rather than the simplified preview modal", () => {
@@ -13,7 +16,9 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).toContain("<InteractiveRoom3D");
     expect(designToolSource).not.toContain("<DesignPreviewModal");
     expect(designToolSource).not.toContain("setPreviewModalOpen");
-    expect(designToolSource).toMatch(/<InteractiveRoom3D[\s\S]*?placed=\{threeDPlaced\}[\s\S]*?toeKick=\{toeKick\}/);
+    expect(nativeThreeDStart).toBeGreaterThan(-1);
+    expect(nativeThreeDEnd).toBeGreaterThan(nativeThreeDStart);
+    expect(nativeThreeDSource).toMatch(/<InteractiveRoom3D[\s\S]*?placed=\{threeDPlaced\}[\s\S]*?crown=\{crown\}[\s\S]*?toeKick=\{toeKick\}[\s\S]*?catalogDropWall=\{activeWall\}/);
   });
 
   it("opens a loaded saved plan in the deterministic renderer even before a door style is selected", () => {
