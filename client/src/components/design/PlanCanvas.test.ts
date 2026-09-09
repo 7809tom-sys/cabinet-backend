@@ -148,10 +148,18 @@ describe("plan placement assistance wiring", () => {
 	    expect(source).toContain("bestFitCatalogOption(activeGap, layerCandidates)");
 	    expect(source).toContain('data-testid="automatic-filler-size-suggestion"');
 	    expect(source).toContain("catalogFillerSuggestion(catalogFillerCandidates, recommendation.remaining, activeGap.layer)");
-	    expect(source).toContain("e.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, width)");
-	    expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, e.shiftKey)");
+	    expect(source).toContain("automaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width)");
+	    expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, !automaticSnapping)");
 	    expect(source).toContain("hold Shift for freehand");
 	  });
+});
+
+describe("plan countertop material scopes", () => {
+  it("renders island slabs from the island material while perimeter runs retain the wall material", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-countertop-scope={s.kind === "island" ? "island" : "perimeter"}');
+    expect(source).toContain('s.kind === "island" ? islandCountertopMaterialId ?? countertopMaterialId : countertopMaterialId');
+  });
 });
 
 describe("island work-zone face selection", () => {

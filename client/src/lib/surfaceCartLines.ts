@@ -9,6 +9,8 @@ export type SurfacePick = {
   sellPrice: number | null;
   /** Sq ft per box/carton for tile, backsplash, and flooring products. */
   coverageSqFt?: number | null;
+  /** Countertop assignment; legacy undefined applies the product to the combined design area. */
+  countertopScope?: "perimeter" | "island" | "all";
 };
 
 /** Minimal cart line shape (subset of CartItem) produced for a surface pick. */
@@ -70,6 +72,10 @@ export type RoomAreas = {
   flooringSqFt: number;
   /** Exact rendered countertop area (sq ft), including the configured island overhang. */
   countertopSqFt?: number;
+  /** Exact rendered wall-run countertop area when materials are split by scope. */
+  perimeterCountertopSqFt?: number;
+  /** Exact rendered island countertop area when materials are split by scope. */
+  islandCountertopSqFt?: number;
 };
 
 /**
@@ -105,11 +111,16 @@ export function buildSurfaceCartLines(
     const isCountertop = cat.includes("countertop") || cat.includes("quartz slab");
 
     if (areas && isCountertop) {
-      const rawArea = areas.countertopSqFt ?? 0;
+      const rawArea = s.countertopScope === "perimeter"
+        ? areas.perimeterCountertopSqFt ?? areas.countertopSqFt ?? 0
+        : s.countertopScope === "island"
+          ? areas.islandCountertopSqFt ?? areas.countertopSqFt ?? 0
+          : areas.countertopSqFt ?? 0;
       const slabSqFt = countertopSlabSquareFeet(s.size);
       if (rawArea > 0 && slabSqFt) {
         qty = Math.ceil(rawArea / slabSqFt);
-        qtyNote = `${rawArea.toFixed(1)} sq ft ÷ ${slabSqFt.toFixed(1)} sq ft/slab = ${qty} ${qty === 1 ? "slab" : "slabs"}`;
+        const scopeNote = s.countertopScope === "perimeter" ? " wall-run" : s.countertopScope === "island" ? " island" : "";
+        qtyNote = `${rawArea.toFixed(1)} sq ft${scopeNote} ÷ ${slabSqFt.toFixed(1)} sq ft/slab = ${qty} ${qty === 1 ? "slab" : "slabs"}`;
       }
     } else if (areas && s.coverageSqFt && s.coverageSqFt > 0) {
       const rawArea = isBacksplash ? areas.backsplashSqFt : isFlooring ? areas.flooringSqFt : 0;

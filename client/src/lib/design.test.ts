@@ -1482,6 +1482,8 @@ describe("countertopArea", () => {
     expect(m.linearFeet).toBe(6);
     // 72 * 25.5 / 144 = 12.75 -> ceil to 0.1 = 12.8
     expect(m.squareFeet).toBeCloseTo(12.8, 1);
+	    expect(m.perimeterSquareFeet).toBeCloseTo(12.8, 1);
+	    expect(m.islandSquareFeet).toBe(0);
     expect(m.hasIsland).toBe(false);
   });
 
@@ -1505,6 +1507,18 @@ describe("countertopArea", () => {
 	    const m = countertopArea([base], island, [{ width: 42, depth: 30 }]);
 	    expect(m.hasIsland).toBe(true);
 	    expect(m.squareFeet).toBe(8.8);
+	    expect(m.perimeterSquareFeet).toBe(0);
+	    expect(m.islandSquareFeet).toBe(8.8);
+	  });
+
+	  it("reports wall-run and island countertop areas independently while preserving the combined total", () => {
+	    const island = { x: 50, y: 40, width: 48, depth: 24 };
+	    const wallBase = cab({ placement: "base", width: 36, depth: 24, x: 0, y: 0 });
+	    const islandBase = cab({ placement: "base", width: 36, depth: 24, x: 50, y: 40, islandFace: "back", islandOffset: 0 });
+	    const m = countertopArea([wallBase, islandBase], island, [{ width: 42, depth: 30 }]);
+	    expect(m.perimeterSquareFeet).toBeCloseTo(6.4, 1);
+	    expect(m.islandSquareFeet).toBe(8.8);
+	    expect(m.squareFeet).toBeCloseTo(15.2, 1);
 	  });
 
   it("COUNTERTOP_DEPTH_IN is 25.5", () => {

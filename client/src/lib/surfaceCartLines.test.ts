@@ -121,6 +121,21 @@ describe("buildSurfaceCartLines — box quantity with overage", () => {
     expect(line.qty * (line.unitPrice ?? 0)).toBe(2400);
   });
 
+  it("prices different wall-run and island countertop products from their own measured slab areas", () => {
+    const wall = { ...quartzSlab, id: 405, name: "Wall Quartz", countertopScope: "perimeter" as const };
+    const island = { ...quartzSlab, id: 406, name: "Island Granite", countertopScope: "island" as const };
+    const lines = buildSurfaceCartLines([wall, island], "homeowner", {
+      ...areas,
+      countertopSqFt: 100,
+      perimeterCountertopSqFt: 40,
+      islandCountertopSqFt: 60,
+    });
+    expect(lines.find((line) => line.name === "Wall Quartz")).toMatchObject({ qty: 1 });
+    expect(lines.find((line) => line.name === "Island Granite")).toMatchObject({ qty: 2 });
+    expect(lines.find((line) => line.name === "Wall Quartz")?.qtyNote).toContain("40.0 sq ft wall-run");
+    expect(lines.find((line) => line.name === "Island Granite")?.qtyNote).toContain("60.0 sq ft island");
+  });
+
   it("does not invent a countertop quantity when stored slab dimensions are missing", () => {
     const [line] = buildSurfaceCartLines([{ ...quartzSlab, size: null }], "homeowner", areas);
     expect(line.qty).toBe(1);

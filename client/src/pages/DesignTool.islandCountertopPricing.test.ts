@@ -9,8 +9,9 @@ describe("Designer island countertop pricing", () => {
   });
 
   it("passes measured countertop square footage into priced surface quantities and totals", () => {
-    expect(source).toContain("const areas = { backsplashSqFt, flooringSqFt, countertopSqFt }");
-    expect(source).toContain("island, countertop, backsplashHeightMode");
-    expect(source).toContain("estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}");
+	    expect(source).toContain("perimeterCountertopSqFt: countertopMeasurement?.perimeterSquareFeet ?? 0");
+	    expect(source).toContain("islandCountertopSqFt: countertopMeasurement?.islandSquareFeet ?? 0");
+	    expect(source).toContain("island, countertop, backsplashHeightMode");
+	    expect(source).toContain("estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}");
   });
 });

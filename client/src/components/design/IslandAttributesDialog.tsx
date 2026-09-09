@@ -14,6 +14,13 @@ export type CountertopStructuralLimit = {
   unsupportedOverhangLimitIn: number | null;
 } | null;
 
+export type IslandCountertopOption = {
+  id: number;
+  name: string;
+  materialId: string;
+  unsupportedOverhangLimitIn: number | null;
+};
+
 export function effectiveIslandOverhangIn(island: IslandZone): number {
   const standard = island.countertopOverhang ?? 1.5;
   const widthReveal = island.countertopWidth == null
@@ -27,10 +34,12 @@ export function effectiveIslandOverhangIn(island: IslandZone): number {
 
 const formatInches = (value: number) => Number(value.toFixed(3)).toString();
 
-export function IslandAttributesDialog({ open, island, countertopMaterial, cabinetFinishOptions = [], perimeterFinishName, onOpenChange, onApply, onRotate, onRemove }: {
+export function IslandAttributesDialog({ open, island, countertopMaterial, countertopOptions = [], perimeterCountertopName, cabinetFinishOptions = [], perimeterFinishName, onOpenChange, onApply, onRotate, onRemove }: {
   open: boolean;
   island: IslandZone | null;
   countertopMaterial?: CountertopStructuralLimit;
+  countertopOptions?: IslandCountertopOption[];
+  perimeterCountertopName?: string | null;
   cabinetFinishOptions?: Array<{ id: number; name: string }>;
   perimeterFinishName?: string | null;
   onOpenChange: (open: boolean) => void;
@@ -80,9 +89,13 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, cabin
 	    && draft.countertopDepthAnchoredToZone === true
 	    ? "12"
 	    : "automatic";
-	  const effectiveOverhang = effectiveIslandOverhangIn(draft);
-	  const verifiedLimit = countertopMaterial?.unsupportedOverhangLimitIn ?? null;
-	  const structuralExcess = verifiedLimit == null ? null : Math.max(0, effectiveOverhang - verifiedLimit);
+		  const effectiveOverhang = effectiveIslandOverhangIn(draft);
+		  const selectedCountertopOption = draft.countertopProductId == null
+		    ? null
+		    : countertopOptions.find((option) => option.id === draft.countertopProductId) ?? null;
+		  const effectiveCountertopMaterial = selectedCountertopOption ?? countertopMaterial;
+		  const verifiedLimit = effectiveCountertopMaterial?.unsupportedOverhangLimitIn ?? null;
+		  const structuralExcess = verifiedLimit == null ? null : Math.max(0, effectiveOverhang - verifiedLimit);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] w-[min(94vw,720px)] overflow-y-auto sm:max-w-[720px]">
@@ -98,7 +111,7 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, cabin
             </div>
 	          ))}
 	        </div>
-        {cabinetFinishOptions.length > 0 && (
+	        {cabinetFinishOptions.length > 0 && (
           <div data-testid="island-cabinet-finish-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
             <div className="space-y-1">
               <Label htmlFor="island-cabinet-finish" className="text-xs font-semibold text-[#1a2744]">Island cabinet color</Label>
@@ -118,8 +131,33 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, cabin
             </div>
             <p className="text-[11px] text-muted-foreground">Changes every cabinet that belongs to this island while leaving the outside wall cabinet runs in their current color.</p>
           </div>
-        )}
-	        <div data-testid="island-countertop-overhang-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+	        )}
+	        {countertopOptions.length > 0 && (
+	          <div data-testid="island-countertop-material-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+	            <div className="space-y-1">
+	              <Label htmlFor="island-countertop-material" className="text-xs font-semibold text-[#1a2744]">Island countertop material</Label>
+	              <Select
+	                value={draft.countertopProductId == null ? "__match_perimeter__" : String(draft.countertopProductId)}
+	                onValueChange={(value) => {
+	                  const selected = countertopOptions.find((option) => String(option.id) === value) ?? null;
+	                  setDraft((current) => current ? {
+	                    ...current,
+	                    countertopProductId: selected?.id ?? null,
+	                    countertopMaterialId: selected?.materialId ?? null,
+	                  } : current);
+	                }}
+	              >
+	                <SelectTrigger id="island-countertop-material" data-testid="island-countertop-material-select"><SelectValue /></SelectTrigger>
+	                <SelectContent>
+	                  <SelectItem value="__match_perimeter__">Match wall countertops{perimeterCountertopName ? ` (${perimeterCountertopName})` : ""}</SelectItem>
+	                  {countertopOptions.map((option) => <SelectItem key={option.id} value={String(option.id)}>{option.name}</SelectItem>)}
+	                </SelectContent>
+	              </Select>
+	            </div>
+	            <p className="text-[11px] text-muted-foreground">Changes the island slab and waterfall material only. Countertops on the outside wall runs keep their current material.</p>
+	          </div>
+	        )}
+		        <div data-testid="island-countertop-overhang-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
 	          <div className="space-y-1">
 	            <Label htmlFor="island-countertopOverhang" className="text-xs font-semibold text-[#1a2744]">Standard countertop overhang (in.)</Label>
 	            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -138,15 +176,15 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, cabin
 	            </div>
 	          </div>
 	          <p className="text-[11px] text-muted-foreground">Sets the exact reveal around every automatic island slab edge. The 10-inch and 12-inch seating choices still control only the selected seating side, and waterfall panels continue to follow the finished slab. Exact slab dimensions entered above take priority.</p>
-	          {!countertopMaterial ? (
-	            <p data-testid="island-overhang-material-unselected" className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">Select a countertop material to check its structural overhang limit.</p>
-	          ) : verifiedLimit == null ? (
-	            <p data-testid="island-overhang-limit-unverified" className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900"><strong>{countertopMaterial.name}</strong> does not yet have a verified unsupported-overhang limit. Confirm support requirements with the supplier or fabricator before approval.</p>
-	          ) : structuralExcess != null && structuralExcess > 0.001 ? (
-	            <p data-testid="island-overhang-limit-exceeded" role="alert" className="rounded border border-red-400 bg-red-50 px-2 py-1.5 text-[11px] text-red-900">The selected <strong>{formatInches(effectiveOverhang)} in.</strong> overhang exceeds <strong>{countertopMaterial.name}</strong>&apos;s verified unsupported limit of <strong>{formatInches(verifiedLimit)} in.</strong> by <strong>{formatInches(structuralExcess)} in.</strong> Reduce the overhang or add fabricator-approved structural support.</p>
-	          ) : (
-	            <p data-testid="island-overhang-limit-within" className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-900">Selected overhang: <strong>{formatInches(effectiveOverhang)} in.</strong> Verified unsupported limit for <strong>{countertopMaterial.name}</strong>: <strong>{formatInches(verifiedLimit)} in.</strong></p>
-	          )}
+		          {!effectiveCountertopMaterial ? (
+		            <p data-testid="island-overhang-material-unselected" className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">Select a countertop material to check its structural overhang limit.</p>
+		          ) : verifiedLimit == null ? (
+		            <p data-testid="island-overhang-limit-unverified" className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900"><strong>{effectiveCountertopMaterial.name}</strong> does not yet have a verified unsupported-overhang limit. Confirm support requirements with the supplier or fabricator before approval.</p>
+		          ) : structuralExcess != null && structuralExcess > 0.001 ? (
+		            <p data-testid="island-overhang-limit-exceeded" role="alert" className="rounded border border-red-400 bg-red-50 px-2 py-1.5 text-[11px] text-red-900">The selected <strong>{formatInches(effectiveOverhang)} in.</strong> overhang exceeds <strong>{effectiveCountertopMaterial.name}</strong>&apos;s verified unsupported limit of <strong>{formatInches(verifiedLimit)} in.</strong> by <strong>{formatInches(structuralExcess)} in.</strong> Reduce the overhang or add fabricator-approved structural support.</p>
+		          ) : (
+		            <p data-testid="island-overhang-limit-within" className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-900">Selected overhang: <strong>{formatInches(effectiveOverhang)} in.</strong> Verified unsupported limit for <strong>{effectiveCountertopMaterial.name}</strong>: <strong>{formatInches(verifiedLimit)} in.</strong></p>
+		          )}
 	        </div>
 		<div data-testid="island-depth-guidance" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3 text-xs text-[#4a3b22]">
 	          <p className="font-semibold text-[#1a2744]">Island depth guide</p>

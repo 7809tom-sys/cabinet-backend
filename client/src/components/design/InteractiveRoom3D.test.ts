@@ -487,7 +487,7 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(rendererSource).toContain('cabinetDragMeasurement.preview.freehand ? "Shift freehand position"');
 	    expect(rendererSource).toContain("wallGapFreehandPreview(gaps, targetAlong, item.width)");
 	    expect(rendererSource).toContain("Boolean(session.preview?.freehand) !== event.shiftKey");
-	    expect(designerSource).toContain("freehand ? wallGapFreehandPreview(gaps, targetAlong, width) : wallGapFitPreview(gaps, targetAlong, width)");
+	    expect(designerSource).toContain("strictPointerPlacement ? wallGapFreehandPreview(gaps, targetAlong, width) : null");
 	    expect(designerSource).toContain("freehand ? undefined : dropTarget.placementUid");
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
     expect(designerSource).toContain("rangeHoodPositionAdjusted: true");
@@ -1079,7 +1079,7 @@ describe("interactive 3D room scene helpers", () => {
     const designToolSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(designToolSource.match(/catalogDropWall=\{activeWall\}/g)).toHaveLength(2);
     expect(designToolSource.match(/catalogDragItem=\{interactive3dCatalogDragItem\}/g)).toHaveLength(2);
-    expect(designToolSource).toContain("const dropWall = dropTarget.wall ?? activeWall");
+	    expect(designToolSource).toContain("const dropWall = strictPointerPlacement ? (dropTarget.wall ?? activeWall) : activeWall");
     expect(designToolSource).toContain("targetedSinkBaseForThreeDDrop(placed, dropTarget, room)");
   });
 

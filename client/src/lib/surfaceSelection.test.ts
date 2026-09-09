@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
+  activeCountertopForScope,
+  clearCountertopSurfaceScope,
   computeBoxes,
   saveSurfaceSelection,
   loadSurfaceSelection,
@@ -7,10 +9,72 @@ import {
   guessFlooringMaterialId,
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
+  setCountertopSurfaceForScope,
   SURFACE_SELECTION_KEY,
   type SurfaceSelection,
   type SurfacePick,
 } from "./surfaceSelection";
+
+const countertop = (id: number, name: string): SurfacePick => ({
+  id,
+  slug: `countertop-${id}`,
+  name,
+  category: "Quartz Slabs (Countertops)",
+  sellPrice: 1000 + id,
+});
+
+describe("scoped countertop selections", () => {
+  it("treats a legacy unscoped countertop as the material for both wall runs and the island", () => {
+    const legacy = countertop(1, "Legacy Quartz");
+    expect(activeCountertopForScope([legacy], "perimeter")?.id).toBe(1);
+    expect(activeCountertopForScope([legacy], "island")?.id).toBe(1);
+  });
+
+  it("keeps the wall-run material when a different island countertop is selected", () => {
+    const wall = countertop(1, "Wall Quartz");
+    const island = countertop(2, "Island Granite");
+    const next = setCountertopSurfaceForScope([wall], island, "island");
+    expect(activeCountertopForScope(next, "perimeter")).toMatchObject({ id: 1, countertopScope: "perimeter" });
+    expect(activeCountertopForScope(next, "island")).toMatchObject({ id: 2, countertopScope: "island" });
+  });
+
+	it("keeps an inherited island matched when the wall countertop changes", () => {
+	  const next = setCountertopSurfaceForScope(
+	    [countertop(1, "Original Shared Quartz")],
+	    countertop(2, "New Shared Quartz"),
+	    "perimeter",
+	  );
+	  expect(next).toHaveLength(1);
+	  expect(activeCountertopForScope(next, "perimeter")).toMatchObject({ id: 2, countertopScope: "all" });
+	  expect(activeCountertopForScope(next, "island")).toMatchObject({ id: 2, countertopScope: "all" });
+	});
+
+	it("keeps an explicitly different island countertop when the wall material changes", () => {
+	  const next = setCountertopSurfaceForScope([
+	    { ...countertop(1, "Old Wall Quartz"), countertopScope: "perimeter" },
+	    { ...countertop(3, "Island Granite"), countertopScope: "island" },
+	  ], countertop(2, "New Wall Quartz"), "perimeter");
+	  expect(activeCountertopForScope(next, "perimeter")?.id).toBe(2);
+	  expect(activeCountertopForScope(next, "island")?.id).toBe(3);
+	});
+
+  it("collapses matching wall and island products to one whole-design selection", () => {
+    const wall = { ...countertop(1, "Shared Quartz"), countertopScope: "perimeter" as const };
+    const island = { ...countertop(2, "Island Granite"), countertopScope: "island" as const };
+    const next = setCountertopSurfaceForScope([wall, island], wall, "island");
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ id: 1, countertopScope: "all" });
+  });
+
+  it("returns the island to the wall material without removing the wall selection", () => {
+    const next = clearCountertopSurfaceScope([
+      { ...countertop(1, "Wall Quartz"), countertopScope: "perimeter" },
+      { ...countertop(2, "Island Granite"), countertopScope: "island" },
+    ], "island");
+    expect(activeCountertopForScope(next, "perimeter")?.id).toBe(1);
+    expect(activeCountertopForScope(next, "island")?.id).toBe(1);
+  });
+});
 
 // The repo runs vitest under the "node" environment (no DOM), so provide a
 // minimal in-memory localStorage shim before the module reads/writes it.

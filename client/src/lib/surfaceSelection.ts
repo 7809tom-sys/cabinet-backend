@@ -6,6 +6,7 @@
 // Tool can pre-select matching materials and pre-load the chosen fixtures.
 
 export type SurfaceRole = "flooring" | "tile" | "countertop" | "sink" | "faucet";
+export type CountertopScope = "perimeter" | "island" | "all";
 
 export interface SurfacePick {
   id: number;
@@ -18,6 +19,8 @@ export interface SurfacePick {
   size?: string | null;
   imageUrl?: string | null;
   sellPrice: number | null;
+  /** Countertop assignment in the Designer. Legacy undefined selections apply to the whole design. */
+  countertopScope?: CountertopScope;
   /** Supplier/fabricator-verified maximum unsupported countertop overhang. */
   unsupportedOverhangLimitIn?: number | null;
   /** Area entered by the user (sq ft) for area-priced roles. */
@@ -28,6 +31,71 @@ export interface SurfacePick {
   wastePct?: number | null;
   /** Computed package/box count = ceil(area * (1+waste) / sqftPerBox). */
   boxes?: number | null;
+}
+
+type CountertopSurfaceLike = {
+  id: number;
+  name: string;
+  category: string;
+  subCategory?: string | null;
+  countertopScope?: CountertopScope;
+};
+
+export function isCountertopSurfacePick(surface: Pick<CountertopSurfaceLike, "category" | "subCategory" | "name">): boolean {
+  const text = `${surface.category} ${surface.subCategory ?? ""} ${surface.name}`.toLowerCase();
+  return text.includes("countertop") || text.includes("quartz slab");
+}
+
+/** Legacy unscoped countertop picks remain whole-design selections until a separate island material is chosen. */
+export function activeCountertopForScope<T extends CountertopSurfaceLike>(
+  surfaces: readonly T[],
+  scope: "perimeter" | "island",
+): T | null {
+  const countertops = surfaces.filter(isCountertopSurfacePick);
+  if (scope === "perimeter") {
+    return [...countertops].reverse().find((surface) => surface.countertopScope !== "island") ?? null;
+  }
+  return [...countertops].reverse().find((surface) => surface.countertopScope === "island" || surface.countertopScope === "all")
+    ?? activeCountertopForScope(surfaces, "perimeter");
+}
+
+/** Assign exactly one product to a countertop scope while preserving the other scope's independent choice. */
+export function setCountertopSurfaceForScope<T extends CountertopSurfaceLike>(
+  surfaces: readonly T[],
+  item: T,
+  scope: "perimeter" | "island",
+): T[] {
+  const nonCountertops = surfaces.filter((surface) => !isCountertopSurfacePick(surface));
+  const countertops = surfaces.filter(isCountertopSurfacePick);
+	if (scope === "perimeter") {
+	  const explicitIsland = [...countertops].reverse().find((surface) => surface.countertopScope === "island") ?? null;
+	  if (!explicitIsland || explicitIsland.id === item.id) {
+	    return [...nonCountertops, { ...item, countertopScope: "all" }];
+	  }
+	  return [...nonCountertops, { ...explicitIsland, countertopScope: "island" } as T, { ...item, countertopScope: "perimeter" }];
+  }
+	const perimeter = activeCountertopForScope(countertops, "perimeter");
+	if (perimeter?.id === item.id) {
+	  return [...nonCountertops, { ...item, countertopScope: "all" }];
+	}
+	const preservedPerimeter = perimeter ? [{ ...perimeter, countertopScope: "perimeter" } as T] : [];
+	return [...nonCountertops, ...preservedPerimeter, { ...item, countertopScope: "island" }];
+}
+
+/** Remove an explicit assignment while retaining the other scope and allowing the island to inherit the perimeter. */
+export function clearCountertopSurfaceScope<T extends CountertopSurfaceLike>(
+  surfaces: readonly T[],
+  scope: "perimeter" | "island",
+): T[] {
+  return surfaces.flatMap((surface) => {
+    if (!isCountertopSurfacePick(surface)) return [surface];
+    if (surface.countertopScope === "all") {
+      return [{ ...surface, countertopScope: scope === "island" ? "perimeter" : "island" }];
+    }
+    if (scope === "island" && surface.countertopScope === "island") return [];
+    if (scope === "perimeter" && surface.countertopScope !== "island") return [];
+    return [surface];
+  });
 }
 
 export interface SurfaceSelection {

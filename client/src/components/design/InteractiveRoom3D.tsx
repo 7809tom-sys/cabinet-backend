@@ -510,6 +510,8 @@ interface Props {
   catalogFinishProductId?: number | null;
   catalogCountertopName?: string | null;
   catalogCountertopProductId?: number | null;
+  catalogIslandCountertopName?: string | null;
+  catalogIslandCountertopProductId?: number | null;
   catalogFlooringName?: string | null;
   catalogFlooringProductId?: number | null;
   catalogFlooringCategory?: string | null;
@@ -530,8 +532,11 @@ interface Props {
   countertopBacksplashHeightIn?: 0 | 2.5 | 3;
   /** Exact selected 2D countertop fill used when no presentation-only override exists. */
   catalogCountertopColor?: string | null;
+  /** Independent island countertop fill; null/undefined follows the perimeter countertop. */
+  catalogIslandCountertopColor?: string | null;
   /** Exact selected website product images used only as material maps. */
   catalogCountertopImageUrl?: string | null;
+  catalogIslandCountertopImageUrl?: string | null;
   catalogFlooringImageUrl?: string | null;
   catalogBacksplashImageUrl?: string | null;
   shareContext?: { layoutPresetId: string; distributorId: number; styleId: number };
@@ -6441,7 +6446,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -6914,10 +6919,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      subCategory: catalogFlooringSubCategory,
 	      size: catalogFlooringSize,
 	    });
-	    const countertopSource = threeDProductMaterialSource("countertop", catalogCountertopName, catalogCountertopImageUrl);
+		    const countertopSource = threeDProductMaterialSource("countertop", catalogCountertopName, catalogCountertopImageUrl);
+		    const islandCountertopSource = threeDProductMaterialSource(
+		      "countertop",
+		      catalogIslandCountertopName ?? catalogCountertopName,
+		      catalogIslandCountertopImageUrl ?? catalogCountertopImageUrl,
+		    );
 	    const backsplashSource = threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl);
 	    const floorTexture = loadSurfaceTexture(floorSource, "flooring", room.width, room.depth);
-	    const countertopTexture = loadSurfaceTexture(countertopSource, "countertop", room.width, room.depth);
+		    const countertopTexture = loadSurfaceTexture(countertopSource, "countertop", room.width, room.depth);
+		    const islandCountertopTexture = loadSurfaceTexture(islandCountertopSource, "countertop", room.width, room.depth);
 	    const backsplashTexture = loadSurfaceTexture(backsplashSource, "backsplash", room.width, 18);
 	    const backsplashRoom = roomOverride ?? ({
 	      width: room.width,
@@ -7086,7 +7097,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    }
 	    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
-	    if (island) addIslandZone(catalogRoot, island, placed, materialDefaults.countertop, countertopTexture);
+		    if (island) addIslandZone(
+		      catalogRoot,
+		      island,
+		      placed,
+		      catalogIslandCountertopColor ?? materialDefaults.countertop,
+		      islandCountertopTexture,
+		    );
 	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
 	    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
 	    catalogRoot.traverse((node) => {
@@ -7142,7 +7159,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

@@ -124,7 +124,35 @@ describe("IslandAttributesDialog", () => {
 	  fireEvent.click(screen.getByTestId("island-cabinet-finish-select"));
 	  fireEvent.click(screen.getByRole("option", { name: "Midnight Navy" }));
 	  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ cabinetStyleId: 99 }));
-	  expect(screen.getByText(/leaving the outside wall cabinet runs in their current color/i)).toBeTruthy();
-	});
+		  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ cabinetStyleId: 99 }));
+		  expect(screen.getByText(/leaving the outside wall cabinet runs in their current color/i)).toBeTruthy();
+		});
+
+		it("stores a separate island countertop product and visual material while preserving the wall countertop", () => {
+		  const onApply = vi.fn();
+		  render(
+		    <IslandAttributesDialog
+		      open
+		      island={{ ...island, countertopProductId: null, countertopMaterialId: null }}
+		      countertopOptions={[
+		        { id: 10, name: "Wall Quartz", materialId: "white-quartz", unsupportedOverhangLimitIn: 4 },
+		        { id: 11, name: "Island Calacatta", materialId: "carrara-marble", unsupportedOverhangLimitIn: 6 },
+		      ]}
+		      perimeterCountertopName="Wall Quartz"
+		      onOpenChange={vi.fn()}
+		      onApply={onApply}
+		      onRotate={vi.fn()}
+		      onRemove={vi.fn()}
+		    />,
+		  );
+		  expect(screen.getByText("Match wall countertops (Wall Quartz)")).toBeTruthy();
+		  fireEvent.click(screen.getByTestId("island-countertop-material-select"));
+		  fireEvent.click(screen.getByRole("option", { name: "Island Calacatta" }));
+		  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+		  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
+		    countertopProductId: 11,
+		    countertopMaterialId: "carrara-marble",
+		  }));
+		  expect(screen.getByText(/outside wall runs keep their current material/i)).toBeTruthy();
+		});
 });

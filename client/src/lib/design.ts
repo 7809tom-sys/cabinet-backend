@@ -3951,6 +3951,8 @@ export const COUNTERTOP_DEPTH_IN = 25.5;
 export interface CountertopMeasurement {
   linearFeet: number; // total run of base cabinets that take a top, in feet
   squareFeet: number; // run x countertop depth (+ island + waterfall), in sq ft
+  perimeterSquareFeet: number; // wall-run bases plus their existing waterfall panels
+  islandSquareFeet: number; // exact rendered island slab area
   runInches: number;  // raw base run, inches
   hasIsland: boolean;
   waterfallSqFt: number; // extra sq ft from waterfall panels (height × depth per side)
@@ -3979,6 +3981,7 @@ export function countertopArea(
     .filter((p) => p.placement === "base")
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
   let squareIn = runInches * COUNTERTOP_DEPTH_IN;
+  let islandSquareIn = 0;
   const islandSupports = island ? placed.filter((item) => isIslandMember(item) && bearsIslandCountertop(item)) : [];
   const measuredIslandSquareIn = island && islandSlabs != null
     ? islandSlabs.reduce((sum, slab) => {
@@ -3992,6 +3995,7 @@ export function countertopArea(
   const hasIsland = measuredIslandSquareIn == null ? islandSupports.length > 0 : measuredIslandSquareIn > 0;
   if (measuredIslandSquareIn != null) {
     squareIn += measuredIslandSquareIn;
+    islandSquareIn = measuredIslandSquareIn;
   } else if (hasIsland && island) {
     const footprints = islandSupports.map((item) => ({ item, footprint: placedFootprint(item) }));
     const minX = Math.min(...footprints.map(({ item }) => item.x));
@@ -4004,7 +4008,8 @@ export function countertopArea(
       : Math.max(0, Math.min(24, configuredOverhang));
     const slabWidth = island.countertopWidth ?? maxX - minX + overhang * 2;
     const slabDepth = island.countertopDepth ?? maxY - minY + overhang * 2;
-    squareIn += slabWidth * slabDepth;
+    islandSquareIn = slabWidth * slabDepth;
+    squareIn += islandSquareIn;
   }
   // Waterfall panels: each side adds height × depth (the panel is as tall as
   // the countertop height from floor and as deep as the cabinet depth).
@@ -4019,10 +4024,14 @@ export function countertopArea(
   }
   squareIn += waterfallSqIn;
   const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
+  const perimeterSquareFeet = Math.ceil((((runInches * COUNTERTOP_DEPTH_IN) + waterfallSqIn) / 144) * 10) / 10;
+  const islandSquareFeet = Math.ceil((islandSquareIn / 144) * 10) / 10;
   return {
     runInches,
     linearFeet: Math.round((runInches / 12) * 10) / 10,
     squareFeet: Math.ceil((squareIn / 144) * 10) / 10, // round up to 0.1 sq ft
+    perimeterSquareFeet,
+    islandSquareFeet,
     hasIsland,
     waterfallSqFt,
   };
@@ -5571,6 +5580,10 @@ export interface IslandZone {
   activeFace?: IslandFace;
   /** Optional door-style override shared by island cabinets; null/undefined follows the perimeter design finish. */
   cabinetStyleId?: number | null;
+	/** Optional visual countertop material override; null/undefined follows the perimeter countertop. */
+	countertopMaterialId?: string | null;
+	/** Exact selected countertop product for the island; null/undefined follows the perimeter product. */
+	countertopProductId?: number | null;
 	  /** When enabled, a Back-face cabinet may grow the work zone toward the room Back wall to accommodate its depth. */
 	  autoAdjustDepthForBackFace?: boolean;
 	  /** Optional continuous countertop panel at the physical left or right island end. */

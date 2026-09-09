@@ -24,11 +24,11 @@ describe("InteractiveRoom3D island wall cabinet base treatment", () => {
   });
 
   it("keeps an island wall cabinet pull vertical on its existing door rail when raised", () => {
-    expect(source).toContain("const raisedIslandWallDoorPull = requestedTopCenteredDoorPull && sku.islandCounterHeightWallCabinet === true;");
-    expect(source).toContain("const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedIslandWallDoorPull;");
-    expect(source).toContain('pullEdge: raisedIslandWallDoorPull ? "raised-door-rail"');
+	    expect(source).toContain("const raisedFloorWallDoorPull = !drawer && usesRaisedFloorWallDoorPull");
+	    expect(source).toContain("const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull;");
+	    expect(source).toContain('pullEdge: raisedFloorWallDoorPull ? "raised-door-rail"');
     expect(source).toContain("verticalPull: !drawer && !horizontalTopRailPull");
-    expect(elevationSource).toContain("const raisedWallDoorPull = Boolean(topCenteredDoorPull && isWall);");
+	    expect(elevationSource).toContain("const raisedWallDoorPull = Boolean(isDoor && raisedDoorPullOnRail);");
     expect(elevationSource).toContain('data-hardware-orientation={horizontalTopRailPull ? "horizontal" : isDoor ? "vertical" : "horizontal"}');
   });
 });

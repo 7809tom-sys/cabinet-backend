@@ -1818,3 +1818,5 @@
 - [x] When Apply to all is used for a non-island cabinet finish, ask whether to recolor only non-island cabinets or include the island, and preserve pricing, cabinet identity, persistence, and 2D/3D rendering
 - [x] Reproduce and correct the remaining selected Toe Kick visibility failure in the actual Designer drawing while preserving the completed ER36/BER36/ERB36 inside-corner seam, cart quantities, pricing, and saved-plan behavior
 - [x] Clarify the ambiguous “fix price” follow-up as a request to continue the active Toe Kick task; make no customer, affiliate, supplier, catalog, Designer, cart, or checkout price change without an identified product and authoritative approved value
+- [x] Add an island-only countertop material selector that preserves the wall-run countertop selection and existing island overhang, waterfall, pricing, cart, saved-plan, 2D, and 3D behavior
+- [x] Add a responsive live summary panel showing the currently selected wall cabinet color, island cabinet color, wall countertop material, and island countertop material

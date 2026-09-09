@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -174,9 +174,12 @@ import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/
 import { RecommendedSurfaces } from "@/components/design/RecommendedSurfaces";
 import {
   takeSurfaceHandoff,
+  activeCountertopForScope,
+  clearCountertopSurfaceScope,
   guessFlooringMaterialId,
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
+  setCountertopSurfaceForScope,
   type SurfaceRole,
 } from "@/lib/surfaceSelection";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
@@ -741,12 +744,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [surfacesOpen, setSurfacesOpen] = useState(false);
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
+  const { data: recommendedCountertopProducts } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 24 });
+  const countertopProductChoices = useMemo<SelectedSurface[]>(() => {
+    const byId = new Map<number, SelectedSurface>();
+    ((recommendedCountertopProducts ?? []) as RecItem[]).forEach((item) => byId.set(item.id, {
+      id: item.id,
+      pelicanCode: item.pelicanCode ?? null,
+      slug: item.slug,
+      name: item.name,
+      category: item.category,
+      subCategory: item.subCategory,
+      size: item.size,
+      imageUrl: item.imageUrl,
+      sellPrice: item.sellPrice,
+      unsupportedOverhangLimitIn: item.unsupportedOverhangLimitIn ?? null,
+    }));
+    selectedSurfaces.filter((surface) => surfaceRole(surface) === "countertop").forEach((surface) => byId.set(surface.id, surface));
+    return Array.from(byId.values());
+  }, [recommendedCountertopProducts, selectedSurfaces]);
+  const perimeterCountertopSurface = useMemo(
+    () => activeCountertopForScope(selectedSurfaces, "perimeter"),
+    [selectedSurfaces],
+  );
+  const islandCountertopSurface = useMemo(
+    () => activeCountertopForScope(selectedSurfaces, "island"),
+    [selectedSurfaces],
+  );
   const selectedCountertopStructuralLimit = useMemo(() => {
-    const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "countertop");
+    const selected = islandCountertopSurface ?? perimeterCountertopSurface;
     return selected
       ? { name: selected.name, unsupportedOverhangLimitIn: selected.unsupportedOverhangLimitIn ?? null }
       : null;
-  }, [selectedSurfaces]);
+  }, [islandCountertopSurface, perimeterCountertopSurface]);
   // A kitchen has one active installed floor. When a customer chooses another
   // flooring product, it replaces the prior active flooring pick rather than
   // leaving an old first row to silently control the rendered material.
@@ -772,6 +801,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     item: SelectedSurface,
     role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet" | "range-top"
   ) => {
+    if (role === "countertop") {
+      const already = activeCountertopForScope(selectedSurfaces, "perimeter")?.id === item.id;
+      setSelectedSurfaces((prev) => already
+        ? clearCountertopSurfaceScope(prev, "perimeter")
+        : setCountertopSurfaceForScope(prev, item, "perimeter"));
+      if (already) {
+        toast.success(`${item.name} removed from wall countertops`);
+        return;
+      }
+      const id = guessCountertopMaterialId(item);
+      if (id) setCountertopMaterialId(id);
+      setCountertop(true);
+      toast.success(`${item.name} applied to wall countertops`);
+      return;
+    }
     const already = role === "flooring"
       ? [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "flooring")?.id === item.id
       : selectedSurfaces.some((surface) => surface.id === item.id);
@@ -793,10 +837,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     } else if (role === "backsplash") {
       const id = guessBacksplashMaterialId(pick);
       if (id) setBacksplashMaterialId(id);
-    } else if (role === "countertop") {
-      const id = guessCountertopMaterialId(pick);
-      if (id) setCountertopMaterialId(id);
-      setCountertop(true);
     }
     toast.success(`${item.name} added`);
   };
@@ -815,11 +855,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       } else if (role === "backsplash") {
         const id = guessBacksplashMaterialId(su);
         if (id) setBacksplashMaterialId(id);
-      } else if (role === "countertop") {
-        const id = guessCountertopMaterialId(su);
-        if (id) setCountertopMaterialId(id);
-        setCountertop(true);
       }
+    }
+    const perimeterCountertop = activeCountertopForScope(surfaces, "perimeter");
+    if (perimeterCountertop) {
+      const id = guessCountertopMaterialId(perimeterCountertop);
+      if (id) setCountertopMaterialId(id);
+      setCountertop(true);
     }
   });
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
@@ -2447,6 +2489,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => isMixedFinish(placed, styleId),
     [placed, styleId]
   );
+	const selectedFinishSummary = useMemo(() => {
+	  const wallStyleId = styleId;
+	  const islandStyleId = island && styleId
+	    ? resolvedIslandCabinetStyleId(placed, island, styleId) ?? styleId
+	    : styleId;
+	  const wallFinish = wallStyleId != null ? finishById.get(wallStyleId) ?? activeFinish : activeFinish;
+	  const islandFinish = islandStyleId != null ? finishById.get(islandStyleId) ?? wallFinish : wallFinish;
+	  return {
+	    wallCabinet: {
+	      name: wallStyleId != null ? styleNameById.get(wallStyleId) ?? activeStyleName ?? `Style #${wallStyleId}` : "Not selected",
+	      finish: wallFinish,
+	    },
+	    islandCabinet: island ? {
+	      name: islandStyleId != null ? styleNameById.get(islandStyleId) ?? activeStyleName ?? `Style #${islandStyleId}` : "Not selected",
+	      finish: islandFinish,
+	    } : null,
+	    wallCountertop: countertop ? {
+	      name: perimeterCountertopSurface?.name ?? countertopMaterial(countertopMaterialId).name,
+	      material: countertopMaterial(countertopMaterialId),
+	    } : null,
+	    islandCountertop: island && countertop ? {
+	      name: islandCountertopSurface?.name ?? countertopMaterial(island.countertopMaterialId ?? countertopMaterialId).name,
+	      material: countertopMaterial(island.countertopMaterialId ?? countertopMaterialId),
+	    } : null,
+	  };
+	}, [activeFinish, activeStyleName, countertop, countertopMaterialId, finishById, island, islandCountertopSurface, perimeterCountertopSurface, placed, styleId, styleNameById]);
 
   // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
   // miter allowance; both are ordered in whole standard sticks (96").
@@ -2533,10 +2601,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       countertopBacksplashHeightIn,
     ).reduce((total, segment) => total + ((segment.end - segment.start) * (segment.top - segment.bottom)) / 144, 0)) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
-    const countertopSqFt = countertop
-      ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null).squareFeet
-      : 0;
-    const areas = { backsplashSqFt, flooringSqFt, countertopSqFt };
+    const countertopMeasurement = countertop
+      ? countertopArea(placed, island, island ? islandCountertopRects(island, placed) : null)
+      : null;
+    const areas = {
+      backsplashSqFt,
+      flooringSqFt,
+      countertopSqFt: countertopMeasurement?.squareFeet ?? 0,
+      perimeterCountertopSqFt: countertopMeasurement?.perimeterSquareFeet ?? 0,
+      islandCountertopSqFt: countertopMeasurement?.islandSquareFeet ?? 0,
+    };
     return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas) as CartItem[];
   }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn]);
 
@@ -5249,7 +5323,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const backsplashSurf = selectedSurfaces.find((s) => surfaceRole(s) === "backsplash");
     const sinkSurf = selectedSurfaces.find((s) => surfaceRole(s) === "sink");
     const faucetSurf = selectedSurfaces.find((s) => surfaceRole(s) === "faucet");
-    const countertopSurf = selectedSurfaces.find((s) => surfaceRole(s) === "countertop");
+	    const perimeterCountertopSurf = activeCountertopForScope(selectedSurfaces, "perimeter");
+	    const islandCountertopSurf = activeCountertopForScope(selectedSurfaces, "island");
+	    const perimeterCountertopName = perimeterCountertopSurf?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined);
+	    const islandCountertopName = island
+	      ? islandCountertopSurf?.name || countertopMaterial(island.countertopMaterialId ?? countertopMaterialId).name
+	      : undefined;
     // Second finish
     let secondFinish: string | undefined;
     if (styleB != null && styleB !== styleA) {
@@ -5263,7 +5342,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       finishName: activeStyleName || undefined,
       doorStyle: activeStyle ? ((activeStyle as { doorStyle?: string | null }).doorStyle || activeStyleName || undefined) : undefined,
       secondFinishName: secondFinish,
-      countertop: countertopSurf?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined),
+	      countertop: islandCountertopName && perimeterCountertopName && islandCountertopName !== perimeterCountertopName
+	        ? `Wall runs: ${perimeterCountertopName}; Island: ${islandCountertopName}`
+	        : perimeterCountertopName ?? islandCountertopName,
       hardware: hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined,
       flooring: flooringSurf?.name || undefined,
       backsplash: backsplashSurf?.name || undefined,
@@ -5275,7 +5356,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       layoutType,
       hasIsland: island != null,
     };
-  }, [placed, room, island, selectedSurfaces, activeStyleName, activeStyle, styleA, styleB, doorStyles, countertopMaterialId, hardwareStyleId]);
+	}, [placed, room, island, selectedSurfaces, activeStyleName, activeStyle, styleA, styleB, doorStyles, countertopMaterialId, hardwareStyleId]);
 
   // The room's four walls as spans (usable length = full wall minus the openings
   // on it), so the consultant works with realistic numbers.
@@ -5479,6 +5560,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      ...resized.island,
 		      activeFace: draft.activeFace ?? islandFace,
 		      cabinetStyleId: draft.cabinetStyleId ?? null,
+		      countertopMaterialId: draft.countertopMaterialId ?? null,
+		      countertopProductId: draft.countertopProductId ?? null,
 		      waterfallEnd: draft.waterfallEnd ?? "none",
 		      countertopWidth: draft.countertopWidth ?? null,
 		      countertopDepth: draft.countertopDepth ?? null,
@@ -5493,6 +5576,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      reportResizeBlock("The island countertop would extend outside the room.");
 	      return;
 	    }
+		    const requestedCountertop = draft.countertopProductId == null
+		      ? null
+		      : countertopProductChoices.find((surface) => surface.id === draft.countertopProductId) ?? null;
+		    const perimeterCountertop = activeCountertopForScope(selectedSurfaces, "perimeter");
+		    if (requestedCountertop) {
+		      setSelectedSurfaces((current) => setCountertopSurfaceForScope(current, requestedCountertop, "island"));
+		      setCountertop(true);
+		      if (perimeterCountertop?.id === requestedCountertop.id) {
+		        nextIsland.countertopProductId = null;
+		        nextIsland.countertopMaterialId = null;
+		      }
+		    } else {
+		      setSelectedSurfaces((current) => clearCountertopSurfaceScope(current, "island"));
+		      nextIsland.countertopProductId = null;
+		      nextIsland.countertopMaterialId = null;
+		    }
 		    const recolored = styleId == null
 		      ? { placed: resized.placed, island: nextIsland, islandStyleId: null }
 		      : applyCabinetFinishScope(resized.placed, nextIsland, styleId, draft.cabinetStyleId ?? styleId, "island");
@@ -5501,7 +5600,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    setStyleB(recolored.islandStyleId);
 		    setPlacementTarget("island", committedIsland.activeFace);
 		    setIslandAttributesOpen(false);
-		  }, [commitIslandScene, island, islandFace, room, setPlacementTarget, styleId]);
+		  }, [commitIslandScene, countertopProductChoices, island, islandFace, room, selectedSurfaces, setPlacementTarget, styleId]);
 
 	  const rotateIsland = useCallback(() => {
 	    if (!island) return;
@@ -5517,6 +5616,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    placedRef.current = nextPlaced;
 	    setPlaced(nextPlaced);
 		    setSinks((current) => current.filter((sink) => !sink.cabinetUid || !memberIds.has(sink.cabinetUid)));
+		    setSelectedSurfaces((current) => clearCountertopSurfaceScope(current, "island"));
 		    setIsland(null);
 		    setPlacementTarget("wall");
 	    setIslandAttributesOpen(false);
@@ -5537,7 +5637,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      width,
 		      depth,
 	      activeFace: "front",
-	      cabinetStyleId: null,
+		      cabinetStyleId: null,
+		      countertopMaterialId: null,
+		      countertopProductId: null,
 	      waterfallEnd: "none",
 		      countertopWidth: null,
 	      countertopDepth: null,
@@ -7815,8 +7917,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     40: "/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp",
     54: "/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp",
   };
-    const imageForRole = (role: "countertop" | "flooring" | "backsplash") => {
-      const selected = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);
+	    const imageForRole = (role: "countertop" | "flooring" | "backsplash") => {
+	      const selected = role === "countertop"
+	        ? perimeterCountertopSurface
+	        : [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role);
       // Catalog product cards can be staged-room or retail photographs. The
       // final 3D scene accepts only an explicitly approved, repeatable swatch;
       // named curated assets are resolved separately by the 3D renderer.
@@ -7833,29 +7937,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return {
       countertop: imageForRole("countertop"),
       flooring: imageForRole("flooring"),
-      backsplash: imageForRole("backsplash"),
-    };
-  }, [selectedSurfaces]);
+	      backsplash: imageForRole("backsplash"),
+	    };
+	  }, [perimeterCountertopSurface, selectedSurfaces]);
 
   const threeDSurfaceProductNames = useMemo(() => {
-    const nameForRole = (role: "countertop" | "flooring" | "backsplash") =>
-      [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role)?.name ?? null;
+	    const nameForRole = (role: "countertop" | "flooring" | "backsplash") =>
+	      (role === "countertop" ? perimeterCountertopSurface : [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role))?.name ?? null;
     return {
       countertop: nameForRole("countertop"),
       flooring: nameForRole("flooring"),
-      backsplash: nameForRole("backsplash"),
-    };
-  }, [selectedSurfaces]);
+	      backsplash: nameForRole("backsplash"),
+	    };
+	  }, [perimeterCountertopSurface, selectedSurfaces]);
 
   const threeDSurfaceProductIds = useMemo(() => {
-    const idForRole = (role: "countertop" | "flooring" | "backsplash") =>
-      [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role)?.id ?? null;
+	    const idForRole = (role: "countertop" | "flooring" | "backsplash") =>
+	      (role === "countertop" ? perimeterCountertopSurface : [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === role))?.id ?? null;
     return {
       countertop: idForRole("countertop"),
       flooring: idForRole("flooring"),
-      backsplash: idForRole("backsplash"),
-    };
-  }, [selectedSurfaces]);
+	      backsplash: idForRole("backsplash"),
+	    };
+	  }, [perimeterCountertopSurface, selectedSurfaces]);
+
+	const threeDIslandCountertop = {
+	  name: islandCountertopSurface?.name ?? (island ? countertopMaterial(island.countertopMaterialId ?? countertopMaterialId).name : null),
+	  productId: islandCountertopSurface?.id ?? null,
+	  imageUrl: islandCountertopSurface?.materialImageUrl ?? null,
+	  color: countertopMaterial(island?.countertopMaterialId ?? countertopMaterialId).fill,
+	};
 
   const threeDFlooringProductMetadata = useMemo(() => {
     const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "flooring") ?? null;
@@ -7917,6 +8028,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      catalogFinishProductId={styleId ?? null}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	      catalogCountertopProductId={threeDSurfaceProductIds.countertop}
+	      catalogIslandCountertopName={threeDIslandCountertop.name}
+	      catalogIslandCountertopProductId={threeDIslandCountertop.productId}
 	      catalogFlooringName={threeDSurfaceProductNames.flooring}
 	      catalogFlooringProductId={threeDSurfaceProductIds.flooring}
 	      catalogFlooringCategory={threeDFlooringProductMetadata?.category}
@@ -7931,7 +8044,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      backsplashHeightMode={backsplashHeightMode}
 	      countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	      catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+	      catalogIslandCountertopColor={threeDIslandCountertop.color}
       catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
+	      catalogIslandCountertopImageUrl={threeDIslandCountertop.imageUrl}
       catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
       catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}
       onPresentationChange={setInteractive3dPresentation}
@@ -10567,6 +10682,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
               countertopMaterialId={countertop ? countertopMaterialId : null}
+	              islandCountertopMaterialId={countertop ? island?.countertopMaterialId ?? countertopMaterialId : null}
               sinks={sinks}
               selectedSinkUid={selectedSinkUid}
               onSelectSink={selectSink}
@@ -10647,13 +10763,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 room={room}
                 cabinets={placed}
                 island={island}
-                face={islandFace}
-                selectedUid={selectedUid}
-                onSelect={selectCabinet}
-                countertopMaterialId={countertop ? countertopMaterialId : null}
-                finish={activeFinish}
-                crown={crown}
-                toeKick={toeKick}
+	                face={islandFace}
+	                selectedUid={selectedUid}
+	                onSelect={selectCabinet}
+	                countertopMaterialId={countertop ? island.countertopMaterialId ?? countertopMaterialId : null}
+	                finish={activeFinish}
+	                crown={crown}
+	                toeKick={toeKick}
                 batten={batten}
                 lightRail={lightRail}
                 panelKind={activePanelKind}
@@ -10726,13 +10842,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
                   onResizeWall={resizeWall}
-                  conflictUids={conflictUids}
-                  layoutLocked={layoutLocked}
-                  lockedWalls={lockedWalls}
-                  countertopMaterialId={countertop ? countertopMaterialId : null}
-              sinks={sinks}
-              selectedSinkUid={selectedSinkUid}
-              onSelectSink={selectSink}
+	                  conflictUids={conflictUids}
+	                  layoutLocked={layoutLocked}
+	                  lockedWalls={lockedWalls}
+	                  countertopMaterialId={countertop ? countertopMaterialId : null}
+	                  islandCountertopMaterialId={countertop ? island?.countertopMaterialId ?? countertopMaterialId : null}
+	              sinks={sinks}
+	              selectedSinkUid={selectedSinkUid}
+	              onSelectSink={selectSink}
               onMoveSink={moveSink}
               onDropToFloor={dropToFloor}
               finishFor={finishForCab}
@@ -11476,6 +11593,42 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 </span>
               </div>
             )}
+	            <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
+	              <div className="mb-2 flex items-center justify-between gap-2">
+	                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Current selections</h3>
+	                <span className="text-[10px] text-muted-foreground">Wall runs and island</span>
+	              </div>
+	              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+	                <div data-testid="summary-wall-cabinet-color" className="min-w-0">
+	                  <p className="text-[10px] font-medium text-muted-foreground">Wall cabinet color</p>
+	                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+	                    <span className="h-3.5 w-3.5 shrink-0 border" style={{ background: selectedFinishSummary.wallCabinet.finish.face, borderColor: selectedFinishSummary.wallCabinet.finish.edge }} />
+	                    <span className="truncate text-[11px] font-semibold text-foreground" title={selectedFinishSummary.wallCabinet.name}>{selectedFinishSummary.wallCabinet.name}</span>
+	                  </div>
+	                </div>
+	                <div data-testid="summary-island-cabinet-color" className="min-w-0">
+	                  <p className="text-[10px] font-medium text-muted-foreground">Island cabinet color</p>
+	                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+	                    {selectedFinishSummary.islandCabinet ? <span className="h-3.5 w-3.5 shrink-0 border" style={{ background: selectedFinishSummary.islandCabinet.finish.face, borderColor: selectedFinishSummary.islandCabinet.finish.edge }} /> : <span className="h-3.5 w-3.5 shrink-0 border border-dashed bg-muted" />}
+	                    <span className="truncate text-[11px] font-semibold text-foreground" title={selectedFinishSummary.islandCabinet?.name ?? "No island"}>{selectedFinishSummary.islandCabinet?.name ?? "No island"}</span>
+	                  </div>
+	                </div>
+	                <div data-testid="summary-wall-countertop" className="min-w-0">
+	                  <p className="text-[10px] font-medium text-muted-foreground">Wall countertop</p>
+	                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+	                    {selectedFinishSummary.wallCountertop ? <span className="h-3.5 w-3.5 shrink-0 border" style={{ background: selectedFinishSummary.wallCountertop.material.fill, borderColor: selectedFinishSummary.wallCountertop.material.edge }} /> : <span className="h-3.5 w-3.5 shrink-0 border border-dashed bg-muted" />}
+	                    <span className="truncate text-[11px] font-semibold text-foreground" title={selectedFinishSummary.wallCountertop?.name ?? "Not selected"}>{selectedFinishSummary.wallCountertop?.name ?? "Not selected"}</span>
+	                  </div>
+	                </div>
+	                <div data-testid="summary-island-countertop" className="min-w-0">
+	                  <p className="text-[10px] font-medium text-muted-foreground">Island countertop</p>
+	                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+	                    {selectedFinishSummary.islandCountertop ? <span className="h-3.5 w-3.5 shrink-0 border" style={{ background: selectedFinishSummary.islandCountertop.material.fill, borderColor: selectedFinishSummary.islandCountertop.material.edge }} /> : <span className="h-3.5 w-3.5 shrink-0 border border-dashed bg-muted" />}
+	                    <span className="truncate text-[11px] font-semibold text-foreground" title={selectedFinishSummary.islandCountertop?.name ?? (island ? "Not selected" : "No island")}>{selectedFinishSummary.islandCountertop?.name ?? (island ? "Not selected" : "No island")}</span>
+	                  </div>
+	                </div>
+	              </div>
+	            </section>
             {/* Range/oven corner clearance is now a WARNING ONLY. Per product
                 decision, Cabinet Dealz does not auto-insert or auto-shift
                 cabinets — the designer places the clearance filler manually
@@ -11999,11 +12152,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      </AlertDialog>
 			      <IslandAttributesDialog
 			        open={islandAttributesOpen}
-		        onOpenChange={setIslandAttributesOpen}
-		        island={island}
-		        countertopMaterial={selectedCountertopStructuralLimit}
-		        cabinetFinishOptions={islandCabinetFinishOptions}
-		        perimeterFinishName={activeStyleName}
+	        onOpenChange={setIslandAttributesOpen}
+	        island={island}
+	        countertopMaterial={selectedCountertopStructuralLimit}
+	        countertopOptions={countertopProductChoices.map((surface) => ({
+	          id: surface.id,
+	          name: surface.name,
+	          materialId: guessCountertopMaterialId(surface) ?? DEFAULT_COUNTERTOP_MATERIAL_ID,
+	          unsupportedOverhangLimitIn: surface.unsupportedOverhangLimitIn ?? null,
+	        }))}
+	        perimeterCountertopName={countertop ? perimeterCountertopSurface?.name ?? countertopMaterial(countertopMaterialId).name : null}
+	        cabinetFinishOptions={islandCabinetFinishOptions}
+	        perimeterFinishName={activeStyleName}
 		        onApply={applyIslandAttributes}
 	        onRotate={rotateIsland}
 		        onRemove={removeIslandScene}
@@ -12903,6 +13063,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                catalogFinishProductId={styleId ?? null}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	                catalogCountertopProductId={threeDSurfaceProductIds.countertop}
+	                catalogIslandCountertopName={threeDIslandCountertop.name}
+	                catalogIslandCountertopProductId={threeDIslandCountertop.productId}
 	                catalogFlooringName={threeDSurfaceProductNames.flooring}
 	                catalogFlooringProductId={threeDSurfaceProductIds.flooring}
 	                catalogFlooringCategory={threeDFlooringProductMetadata?.category}
@@ -12917,7 +13079,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                backsplashHeightMode={backsplashHeightMode}
 	                countertopBacksplashHeightIn={countertopBacksplashHeightIn}
 	                catalogCountertopColor={countertopMaterial(countertopMaterialId).fill}
+	                catalogIslandCountertopColor={threeDIslandCountertop.color}
 	                catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}
+	                catalogIslandCountertopImageUrl={threeDIslandCountertop.imageUrl}
 	                catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}
 	                catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}
                 onPresentationChange={setInteractive3dPresentation}

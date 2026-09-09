@@ -170,6 +170,7 @@ interface Props {
   // Countertop: when a material id is set, draw a visible slab over base cabinets
   // (and the island). Sinks/faucets are drawn on top of the counter.
   countertopMaterialId?: string | null;
+  islandCountertopMaterialId?: string | null;
   sinks?: SinkFixture[];
   selectedSinkUid?: string | null;
   onSelectSink?: (uid: string | null) => void;
@@ -250,7 +251,7 @@ export function PlanCanvas({
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, onResizeWall, conflictUids,
   layoutLocked = false, lockedWalls,
-  countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
+  countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
@@ -1019,31 +1020,34 @@ export function PlanCanvas({
         {/* Countertop slab layer — visible material over base cabinets + island.
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {
-          const mat = countertopMaterial(countertopMaterialId);
           const surfaces = countertopSurfaces(cabinets, room, island);
           if (surfaces.length === 0) return null;
           return (
             <div className="pointer-events-none absolute inset-0 z-[2]">
-              {surfaces.map((s, i) => (
-                <div
-                  key={`ct${i}`}
-                  className="absolute"
-                  style={{
-                    left: s.x * ppi,
-                    top: s.y * ppi,
-                    width: s.width * ppi,
-                    height: s.depth * ppi,
-                    background: mat.fill,
-                    border: `1px solid ${mat.edge}`,
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
-                    backgroundImage: mat.speckle
-                      ? `radial-gradient(${mat.speckle} 0.5px, transparent 0.6px)`
-                      : undefined,
-                    backgroundSize: mat.speckle ? "6px 6px" : undefined,
-                    opacity: 0.92,
-                  }}
-                />
-              ))}
+              {surfaces.map((s, i) => {
+                const mat = countertopMaterial(s.kind === "island" ? islandCountertopMaterialId ?? countertopMaterialId : countertopMaterialId);
+                return (
+                  <div
+                    key={`ct${i}`}
+                    data-countertop-scope={s.kind === "island" ? "island" : "perimeter"}
+                    className="absolute"
+                    style={{
+                      left: s.x * ppi,
+                      top: s.y * ppi,
+                      width: s.width * ppi,
+                      height: s.depth * ppi,
+                      background: mat.fill,
+                      border: `1px solid ${mat.edge}`,
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+                      backgroundImage: mat.speckle
+                        ? `radial-gradient(${mat.speckle} 0.5px, transparent 0.6px)`
+                        : undefined,
+                      backgroundSize: mat.speckle ? "6px 6px" : undefined,
+                      opacity: 0.92,
+                    }}
+                  />
+                );
+              })}
             </div>
           );
         })()}

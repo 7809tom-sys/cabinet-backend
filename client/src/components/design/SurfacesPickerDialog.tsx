@@ -21,6 +21,7 @@ import {
 import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
 import { Search, Plus, Check, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
+import type { CountertopScope } from "@/lib/surfaceSelection";
 
 export type SelectedSurface = {
   id: number;
@@ -35,6 +36,8 @@ export type SelectedSurface = {
   /** Optional approved material-only image for the 3D scene. */
   materialImageUrl?: string | null;
   sellPrice: number | null;
+  /** Wall-run versus island countertop assignment. Undefined is the legacy whole-design behavior. */
+  countertopScope?: CountertopScope;
   /** Sq ft per box/carton — when set, BOM auto-calculates box qty from area + overage. */
   coverageSqFt?: number | null;
   /** Supplier/fabricator-verified maximum unsupported overhang for this exact material. */
