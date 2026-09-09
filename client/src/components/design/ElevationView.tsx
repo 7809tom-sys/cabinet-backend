@@ -1753,6 +1753,7 @@ export function ElevationView({
             <div
               key={`crown-run-${run.anchorUid}-${run.start}`}
               data-testid="continuous-crown-run"
+              data-visible-crown-miter="45"
               className="absolute"
               style={{
                 left: run.start * ppi - 2,
@@ -1762,6 +1763,7 @@ export function ElevationView({
                 background: cabF.face,
                 borderTop: `1.5px solid ${cabF.edge}`,
                 borderRadius: "2px 2px 0 0",
+                clipPath: "polygon(0 0, 100% 0, calc(100% - 4px) 100%, 4px 100%)",
                 zIndex: 3,
               }}
               title={t("dt_ev_crown")}

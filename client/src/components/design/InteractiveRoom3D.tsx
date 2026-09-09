@@ -4832,6 +4832,14 @@ export type ThreeDCrownPerimeterSegment = {
   diagonalCorner: boolean;
 };
 
+export type ThreeDCrownMiterJoint = {
+  point: CrownPoint;
+  top: number;
+  firstDirection: CrownPoint;
+  secondDirection: CrownPoint;
+  miterAngleDegrees: 45;
+};
+
 function measuredCrownSegment(
   ownerUid: string,
   kind: CrownEdgeKind,
@@ -4851,6 +4859,50 @@ function measuredCrownSegment(
     rotation: -Math.atan2(end.z - start.z, end.x - start.x),
     diagonalCorner,
   };
+}
+
+function crownEndpointDirection(segment: ThreeDCrownPerimeterSegment, atStart: boolean): CrownPoint {
+  const dx = atStart ? segment.end.x - segment.start.x : segment.start.x - segment.end.x;
+  const dz = atStart ? segment.end.z - segment.start.z : segment.start.z - segment.end.z;
+  const length = Math.hypot(dx, dz);
+  return length > 1e-9 ? { x: dx / length, z: dz / length } : { x: 0, z: 0 };
+}
+
+/**
+ * Identifies the same two-piece exposed turns that the crown takeoff treats as
+ * mitered corners. Straight cabinet joins and unsupported branch connections
+ * deliberately receive no visible miter seam.
+ */
+export function threeDCrownMiterJoints(segments: ThreeDCrownPerimeterSegment[]): ThreeDCrownMiterJoint[] {
+  const endpointTolerance = 0.25;
+  const straightJoinDotProduct = 0.999;
+  const nodes: Array<{
+    point: CrownPoint;
+    endpoints: Array<{ segmentIndex: number; direction: CrownPoint; top: number }>;
+  }> = [];
+  const addEndpoint = (point: CrownPoint, endpoint: { segmentIndex: number; direction: CrownPoint; top: number }) => {
+    const node = nodes.find((candidate) => Math.hypot(candidate.point.x - point.x, candidate.point.z - point.z) <= endpointTolerance);
+    if (node) node.endpoints.push(endpoint);
+    else nodes.push({ point, endpoints: [endpoint] });
+  };
+  segments.forEach((segment, segmentIndex) => {
+    addEndpoint(segment.start, { segmentIndex, direction: crownEndpointDirection(segment, true), top: segment.top });
+    addEndpoint(segment.end, { segmentIndex, direction: crownEndpointDirection(segment, false), top: segment.top });
+  });
+  return nodes.flatMap((node) => {
+    if (node.endpoints.length !== 2) return [];
+    const [first, second] = node.endpoints;
+    if (!first || !second || first.segmentIndex === second.segmentIndex || Math.abs(first.top - second.top) > endpointTolerance) return [];
+    const dot = first.direction.x * second.direction.x + first.direction.z * second.direction.z;
+    if (Math.abs(dot) >= straightJoinDotProduct) return [];
+    return [{
+      point: node.point,
+      top: (first.top + second.top) / 2,
+      firstDirection: first.direction,
+      secondDirection: second.direction,
+      miterAngleDegrees: 45 as const,
+    }];
+  });
 }
 
 /** The three exposed local edges of a WDC pentagon: two returns and its diagonal front. */
@@ -5020,7 +5072,8 @@ export function addThreeDCrownMolding(
   fallbackColor: string,
 ) {
   const cabinetByUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
-  for (const segment of threeDCrownPerimeterSegments(placed, room)) {
+  const segments = threeDCrownPerimeterSegments(placed, room);
+  for (const segment of segments) {
     const cabinet = cabinetByUid.get(segment.ownerUid);
     if (!cabinet) continue;
     const crownHeight = 3 * INCH;
@@ -5055,6 +5108,36 @@ export function addThreeDCrownMolding(
       sharesOwnerCabinetFinishMaterial: Boolean(ownerFinishMaterial),
     };
     root.add(rail);
+  }
+
+  // These diagonal seam strips are visual-only. They sit across the crown face
+  // at each exposed two-piece turn so the 45° miter is apparent in the room,
+  // while the rails retain their exact exposed lengths for takeoff and ordering.
+  const miterLegInches = 2.25;
+  const miterSeamMaterial = new THREE.MeshStandardMaterial({ color: "#46505d", roughness: 0.46, metalness: 0.01 });
+  for (const joint of threeDCrownMiterJoints(segments)) {
+    const start = {
+      x: joint.point.x + joint.firstDirection.x * miterLegInches,
+      z: joint.point.z + joint.firstDirection.z * miterLegInches,
+    };
+    const end = {
+      x: joint.point.x + joint.secondDirection.x * miterLegInches,
+      z: joint.point.z + joint.secondDirection.z * miterLegInches,
+    };
+    const length = Math.hypot(end.x - start.x, end.z - start.z);
+    if (length <= 1e-6) continue;
+    const seam = new THREE.Mesh(new THREE.BoxGeometry(length * INCH + 0.008, 3 * INCH + 0.01, 0.028), miterSeamMaterial);
+    seam.position.set((start.x + end.x) * INCH / 2, (joint.top + 1.5) * INCH, (start.z + end.z) * INCH / 2);
+    seam.rotation.y = -Math.atan2(end.z - start.z, end.x - start.x);
+    seam.userData = {
+      crownMolding: true,
+      crownMiterSeam: true,
+      exposedTopEdge: true,
+      visibleMiterAngleDegrees: joint.miterAngleDegrees,
+      miterLegInches,
+      doesNotChangeCrownTakeoff: true,
+    };
+    root.add(seam);
   }
 }
 

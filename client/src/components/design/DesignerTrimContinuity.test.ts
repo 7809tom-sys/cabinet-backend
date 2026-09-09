@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { mergedElevationTrimRuns } from "./ElevationView";
-import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
+import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownMiterJoints, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
 import { crownLinearInches, isCrownEligibleCabinet } from "@/lib/design";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 
@@ -37,11 +37,14 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind === "front")).toHaveLength(2);
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
-		  expect(root.children).toHaveLength(4);
-	    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-	  });
+		  expect(root.children).toHaveLength(6);
+		    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
+		    const miterSeams = root.children.filter((rail) => rail.userData.crownMiterSeam);
+		    expect(miterSeams).toHaveLength(2);
+		    expect(miterSeams.every((seam) => seam.userData.visibleMiterAngleDegrees === 45 && seam.userData.doesNotChangeCrownTakeoff === true)).toBe(true);
+		  });
 
-	  it("uses the exposed W1230 crown perimeter for a 16-20-16 mitered takeoff", () => {
+		  it("uses the exposed W1230 crown perimeter for a 16-20-16 mitered takeoff", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 };
 	    const segments = threeDCrownPerimeterSegments([
 	      { uid: "w1230", cabinetId: 1, masterCode: "W-12-30", description: "Wall", placement: "wall", x: 0, y: 0, width: 12, height: 30, depth: 12, rotation: 0, mountBottom: 54 },
@@ -52,8 +55,12 @@ describe("continuous cabinet trim", () => {
 	    expect(takeoff.rawLinearInches).toBe(36);
 	    expect(takeoff.exposedMiterCornerCount).toBe(2);
 	    expect(takeoff.miterAllowanceInches).toBe(16);
-	    expect(takeoff.totalLinearInches).toBe(52);
-	  });
+		    expect(takeoff.totalLinearInches).toBe(52);
+		    expect(threeDCrownMiterJoints(segments)).toEqual([
+		      expect.objectContaining({ miterAngleDegrees: 45 }),
+		      expect.objectContaining({ miterAngleDegrees: 45 }),
+		    ]);
+		  });
 
 	  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 };
@@ -249,10 +256,12 @@ describe("continuous cabinet trim", () => {
 	    { uid: "wdc-bottom-left", cabinetId: 14, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 0, y: 72, width: 24, height: 42, depth: 24, rotation: 270, mountBottom: 54, cornerType: "diagonal" },
 	  ], room, undefined, "#ffffff");
 
-	  expect(root.children).toHaveLength(12);
-	  expect(root.children.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
-	  expect(root.children.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
-	  for (const rail of root.children) {
+		  const crownRails = root.children.filter((rail) => rail.userData.crownMiterSeam !== true);
+		  expect(crownRails).toHaveLength(12);
+		  expect(root.children.filter((rail) => rail.userData.crownMiterSeam)).toHaveLength(8);
+		  expect(crownRails.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
+		  expect(crownRails.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
+		  for (const rail of crownRails) {
 	    const railLength = ((rail as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width;
 	    expect(railLength).toBeLessThan(2);
 	  }

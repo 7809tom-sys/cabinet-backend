@@ -16,4 +16,11 @@ describe("Elevation crown eligibility wiring", () => {
     expect(source).toContain("background: toeKick");
     expect(source).toContain("? `linear-gradient(180deg, ${finish.face} 0%, ${finish.edge} 100%)`");
   });
+
+  it("renders visible 45-degree miter end cuts on the elevation crown band", () => {
+    const source = readFileSync(new URL("./ElevationView.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain('data-visible-crown-miter="45"');
+    expect(source).toContain('clipPath: "polygon(0 0, 100% 0, calc(100% - 4px) 100%, 4px 100%)"');
+  });
 });
