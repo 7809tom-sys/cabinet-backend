@@ -5,6 +5,7 @@ import {
   bearsCountertop,
   cabinetCollisionDetail,
   clampIslandToRoom,
+  effectiveStyleId,
   hasCollision,
   isCounterHeightIslandWallCabinet,
   isOnIsland,
@@ -38,6 +39,99 @@ export function isIslandAssemblyMember(item: PlacedCabinet, island: IslandZone, 
   if (item.islandFace) return true;
   if (placed.some((candidate) => candidate.islandFace != null)) return false;
   return isOnIsland(item, island);
+}
+
+export type CabinetFinishScope = "island" | "non-island" | "all";
+
+function isCabinetFinishEligible(item: PlacedCabinet): boolean {
+  return item.placement !== "appliance";
+}
+
+/**
+ * Resolves the island's shared finish from its persisted setting first, then
+ * from a uniform legacy island run. Null means the island follows the current
+ * perimeter/default finish.
+ */
+export function resolvedIslandCabinetStyleId(
+  placed: PlacedCabinet[],
+  island: IslandZone | null,
+  defaultStyleId: number | null,
+): number | null {
+  if (!island) return null;
+  if (typeof island.cabinetStyleId === "number") return island.cabinetStyleId;
+  const styles = new Set(
+    placed
+      .filter((item) => isCabinetFinishEligible(item) && isIslandAssemblyMember(item, island, placed))
+      .map((item) => effectiveStyleId(item, defaultStyleId))
+      .filter((styleId): styleId is number => styleId != null),
+  );
+  if (styles.size !== 1) return null;
+  const onlyStyle = Array.from(styles)[0] ?? null;
+  return onlyStyle === defaultStyleId ? null : onlyStyle;
+}
+
+/**
+ * Applies one finish to exactly the requested cabinet scope. Non-island bulk
+ * changes first freeze an inheriting island at its current visible finish, so
+ * changing the perimeter default cannot silently recolor the island.
+ */
+export function applyCabinetFinishScope(
+  placed: PlacedCabinet[],
+  island: IslandZone | null,
+  currentDefaultStyleId: number | null,
+  targetStyleId: number,
+  scope: CabinetFinishScope,
+): {
+  placed: PlacedCabinet[];
+  island: IslandZone | null;
+  nextDefaultStyleId: number | null;
+  islandStyleId: number | null;
+  changedCount: number;
+} {
+  const islandMemberIds = new Set(
+    island
+      ? placed
+          .filter((item) => isCabinetFinishEligible(item) && isIslandAssemblyMember(item, island, placed))
+          .map((item) => item.uid)
+      : [],
+  );
+  const priorIslandStyleId = island
+    ? resolvedIslandCabinetStyleId(placed, island, currentDefaultStyleId) ?? currentDefaultStyleId
+    : null;
+  const nextDefaultStyleId = scope === "island" ? currentDefaultStyleId : targetStyleId;
+  const nextIslandStyleId = scope === "all"
+    ? null
+    : scope === "island"
+      ? (targetStyleId === nextDefaultStyleId ? null : targetStyleId)
+      : (priorIslandStyleId === nextDefaultStyleId ? null : priorIslandStyleId);
+
+  const nextPlaced = placed.map((item) => {
+    if (!isCabinetFinishEligible(item)) return item;
+    const isIslandMember = islandMemberIds.has(item.uid);
+    let nextStyleId = item.styleId ?? null;
+    if (scope === "all") nextStyleId = null;
+    else if (scope === "island" && isIslandMember) nextStyleId = nextIslandStyleId;
+    else if (scope === "non-island" && !isIslandMember) nextStyleId = null;
+    else if (scope === "non-island" && isIslandMember && effectiveStyleId(item, currentDefaultStyleId) === currentDefaultStyleId) {
+      nextStyleId = nextIslandStyleId;
+    }
+    return nextStyleId === (item.styleId ?? null) ? item : { ...item, styleId: nextStyleId };
+  });
+
+  const changedCount = placed.reduce((count, item, index) => {
+    if (!isCabinetFinishEligible(item)) return count;
+    return effectiveStyleId(item, currentDefaultStyleId) === effectiveStyleId(nextPlaced[index]!, nextDefaultStyleId)
+      ? count
+      : count + 1;
+  }, 0);
+
+  return {
+    placed: nextPlaced,
+    island: island ? { ...island, cabinetStyleId: nextIslandStyleId } : null,
+    nextDefaultStyleId,
+    islandStyleId: nextIslandStyleId,
+    changedCount,
+  };
 }
 
 export function islandFaceLength(island: IslandZone, face: IslandFace): number {

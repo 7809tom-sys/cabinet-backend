@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { elevationBox, hasCollision, makeSinkForCabinet, type IslandZone, type PlacedCabinet, type RoomData } from "./design";
 import {
   ISLAND_COUNTERTOP_OVERHANG_IN,
+  applyCabinetFinishScope,
 	  islandCountertopRect,
 	  islandCountertopRects,
 	  islandCountertopOverhangIn,
@@ -15,8 +16,9 @@ import {
   inferredIslandFace,
   moveIslandScene,
   nextIslandFacePlacement,
-  resizeIslandScene,
-  rotateIslandScene,
+	  resizeIslandScene,
+	  rotateIslandScene,
+	  resolvedIslandCabinetStyleId,
 } from "./islandScene";
 
 const room: RoomData = { width: 144, depth: 120 };
@@ -229,9 +231,53 @@ describe("island mini-scene geometry", () => {
       "front",
       [legacyFarmSinkBase],
     );
-    expect(sinkBase).toMatchObject({ islandFace: "front", islandOffset: 36, x: 72, y: 60 });
-    expect(hasCollision(sinkBase!, [legacyFarmSinkBase])).toBe(false);
-  });
+	    expect(sinkBase).toMatchObject({ islandFace: "front", islandOffset: 36, x: 72, y: 60 });
+	    expect(hasCollision(sinkBase!, [legacyFarmSinkBase])).toBe(false);
+	  });
+
+	  it("applies an island color without changing the perimeter run", () => {
+	    const perimeter = cabinet({ uid: "perimeter", x: 0, y: 0, styleId: null });
+	    const islandCabinet = islandFacePlacement(cabinet({ uid: "island-front", styleId: null }), island, "front", 0);
+	    const result = applyCabinetFinishScope([perimeter, islandCabinet], island, 7, 99, "island");
+	    expect(result.nextDefaultStyleId).toBe(7);
+	    expect(result.island).toMatchObject({ cabinetStyleId: 99 });
+	    expect(result.placed.find((item) => item.uid === "perimeter")?.styleId ?? null).toBeNull();
+	    expect(result.placed.find((item) => item.uid === "island-front")?.styleId).toBe(99);
+	    expect(result.changedCount).toBe(1);
+	  });
+
+	  it("changes non-island cabinets while freezing an inheriting island at its original color", () => {
+	    const selectedPerimeter = cabinet({ uid: "selected-perimeter", x: 0, y: 0, styleId: 99 });
+	    const otherPerimeter = cabinet({ uid: "other-perimeter", x: 24, y: 0, styleId: null });
+	    const islandCabinet = islandFacePlacement(cabinet({ uid: "island-front", styleId: null }), island, "front", 0);
+	    const result = applyCabinetFinishScope([selectedPerimeter, otherPerimeter, islandCabinet], island, 7, 99, "non-island");
+	    expect(result.nextDefaultStyleId).toBe(99);
+	    expect(result.island).toMatchObject({ cabinetStyleId: 7 });
+	    expect(result.placed.find((item) => item.uid === "selected-perimeter")?.styleId ?? null).toBeNull();
+	    expect(result.placed.find((item) => item.uid === "other-perimeter")?.styleId ?? null).toBeNull();
+	    expect(result.placed.find((item) => item.uid === "island-front")?.styleId).toBe(7);
+	    expect(result.changedCount).toBe(1);
+	  });
+
+	  it("includes island cabinets only when the user chooses the all-cabinet scope", () => {
+	    const perimeter = cabinet({ uid: "perimeter", x: 0, y: 0, styleId: 99 });
+	    const styledIsland = { ...island, cabinetStyleId: 7 };
+	    const islandCabinet = islandFacePlacement(cabinet({ uid: "island-front", styleId: 7 }), styledIsland, "front", 0);
+	    const result = applyCabinetFinishScope([perimeter, islandCabinet], styledIsland, 7, 99, "all");
+	    expect(result.nextDefaultStyleId).toBe(99);
+	    expect(result.island).toMatchObject({ cabinetStyleId: null });
+	    expect(result.placed.map((item) => item.styleId ?? null)).toEqual([null, null]);
+	    expect(result.changedCount).toBe(1);
+	  });
+
+	  it("uses the legacy in-zone fallback when an older island has no face metadata", () => {
+	    const legacyIslandCabinet = { ...islandFacePlacement(cabinet({ uid: "legacy-island", styleId: 44 }), island, "front", 0), islandFace: undefined, islandOffset: undefined };
+	    const perimeter = cabinet({ uid: "perimeter", x: 0, y: 0, styleId: null });
+	    expect(resolvedIslandCabinetStyleId([legacyIslandCabinet, perimeter], island, 7)).toBe(44);
+	    const result = applyCabinetFinishScope([legacyIslandCabinet, perimeter], island, 7, 55, "island");
+	    expect(result.placed.find((item) => item.uid === "legacy-island")?.styleId).toBe(55);
+	    expect(result.placed.find((item) => item.uid === "perimeter")?.styleId ?? null).toBeNull();
+	  });
 
   it("keeps a sequential face run flush even when another face has members", () => {
     const rightSide = nextIslandFacePlacement(cabinet({ uid: "right-side" }), island, "right", []);
@@ -614,6 +660,7 @@ describe("island mini-scene geometry", () => {
 	    const savedIsland = {
 	      ...island,
 	      activeFace: "right" as const,
+	      cabinetStyleId: 99,
 	      countertopWidth: 80,
 	      countertopDepth: 54,
 	      countertopOffsetX: 1.5,

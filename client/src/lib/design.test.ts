@@ -3301,7 +3301,7 @@ describe("two-tone state updates (DesignTool behavior, pure replicas)", () => {
     expect(designDefault).toBe(7);
   });
 
-  it("'Apply to all' spreads the selected override to every OTHER cabinet", () => {
+  it("the explicit all-cabinet scope spreads the selected override to every other cabinet", () => {
     const placed: Cab[] = [
       { uid: "a", styleId: null },
       { uid: "b", styleId: 99 }, // selected with a navy override

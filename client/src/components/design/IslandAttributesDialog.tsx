@@ -27,10 +27,12 @@ export function effectiveIslandOverhangIn(island: IslandZone): number {
 
 const formatInches = (value: number) => Number(value.toFixed(3)).toString();
 
-export function IslandAttributesDialog({ open, island, countertopMaterial, onOpenChange, onApply, onRotate, onRemove }: {
+export function IslandAttributesDialog({ open, island, countertopMaterial, cabinetFinishOptions = [], perimeterFinishName, onOpenChange, onApply, onRotate, onRemove }: {
   open: boolean;
   island: IslandZone | null;
   countertopMaterial?: CountertopStructuralLimit;
+  cabinetFinishOptions?: Array<{ id: number; name: string }>;
+  perimeterFinishName?: string | null;
   onOpenChange: (open: boolean) => void;
   onApply: (next: IslandZone) => void;
   onRotate: () => void;
@@ -96,6 +98,27 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, onOpe
             </div>
 	          ))}
 	        </div>
+        {cabinetFinishOptions.length > 0 && (
+          <div data-testid="island-cabinet-finish-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+            <div className="space-y-1">
+              <Label htmlFor="island-cabinet-finish" className="text-xs font-semibold text-[#1a2744]">Island cabinet color</Label>
+              <Select
+                value={draft.cabinetStyleId == null ? "__match_perimeter__" : String(draft.cabinetStyleId)}
+                onValueChange={(value) => setDraft((current) => current ? {
+                  ...current,
+                  cabinetStyleId: value === "__match_perimeter__" ? null : Number(value),
+                } : current)}
+              >
+                <SelectTrigger id="island-cabinet-finish" data-testid="island-cabinet-finish-select"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__match_perimeter__">Match non-island cabinets{perimeterFinishName ? ` (${perimeterFinishName})` : ""}</SelectItem>
+                  {cabinetFinishOptions.map((finish) => <SelectItem key={finish.id} value={String(finish.id)}>{finish.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Changes every cabinet that belongs to this island while leaving the outside wall cabinet runs in their current color.</p>
+          </div>
+        )}
 	        <div data-testid="island-countertop-overhang-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
 	          <div className="space-y-1">
 	            <Label htmlFor="island-countertopOverhang" className="text-xs font-semibold text-[#1a2744]">Standard countertop overhang (in.)</Label>

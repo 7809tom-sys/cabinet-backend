@@ -121,7 +121,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { autoAdjustIslandDepthForBackFace, inferredIslandFace, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, rotateIslandScene } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -935,6 +935,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     distributorId: number | null;
     requiresDistributorOverride: boolean;
   } | null>(null);
+  const [finishApplyScopePrompt, setFinishApplyScopePrompt] = useState<{ targetStyleId: number } | null>(null);
   const [planSwitchAlternativeChoices, setPlanSwitchAlternativeChoices] = useState<Record<string, number>>({});
   // Distributor lock: once the base cabinet's finish is chosen the member can
   // "Lock" the design to that style's supply line. While locked, the palette
@@ -1117,6 +1118,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const displaySlotBStyles = useMemo(
     () => slotBStyles.map((style) => ({ ...style, aliasName: affiliateStyleName(style) })),
     [affiliateStyleName, slotBStyles],
+  );
+  const islandCabinetFinishOptions = useMemo(
+    () => uniqueDoorStyles.map((style) => ({ id: style.id, name: affiliateStyleName(style) })),
+    [affiliateStyleName, uniqueDoorStyles],
   );
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
@@ -2052,6 +2057,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, repairedPlaced, restoredRoom) : repairedPlaced);
       const restoredStyle = restoredSavedDesignStyle(d);
       setStyleId(restoredStyle.styleId);
+      const restoredIslandStyleId = typeof restoredIsland?.cabinetStyleId === "number"
+        && restoredIsland.cabinetStyleId !== restoredStyle.styleId
+        ? restoredIsland.cabinetStyleId
+        : null;
+      setStyleB(restoredIslandStyleId);
       // Restore the supply-line lock if the saved design was pinned to one.
       setLockedDistributorId(restoredStyle.distributorId);
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
@@ -3569,6 +3579,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          return;
 	        }
 	        Object.assign(newCab, islandCandidate);
+	        if (islandForPlacement.cabinetStyleId != null) newCab.styleId = islandForPlacement.cabinetStyleId;
 	      }
 
 	      // Blind corner: auto-position and auto-swing
@@ -5467,24 +5478,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    const nextIsland: IslandZone = {
 		      ...resized.island,
 		      activeFace: draft.activeFace ?? islandFace,
+		      cabinetStyleId: draft.cabinetStyleId ?? null,
 		      waterfallEnd: draft.waterfallEnd ?? "none",
 		      countertopWidth: draft.countertopWidth ?? null,
-	      countertopDepth: draft.countertopDepth ?? null,
-	      countertopOffsetX: draft.countertopOffsetX ?? 0,
-	      countertopOffsetY: draft.countertopOffsetY ?? 0,
-	      countertopOverhang: draft.countertopOverhang == null ? null : islandCountertopOverhangIn(draft),
-	      countertopWidthAnchoredToZone: draft.countertopWidthAnchoredToZone ?? false,
-	      countertopDepthAnchoredToZone: draft.countertopDepthAnchoredToZone ?? false,
-	    };
+		      countertopDepth: draft.countertopDepth ?? null,
+		      countertopOffsetX: draft.countertopOffsetX ?? 0,
+		      countertopOffsetY: draft.countertopOffsetY ?? 0,
+		      countertopOverhang: draft.countertopOverhang == null ? null : islandCountertopOverhangIn(draft),
+		      countertopWidthAnchoredToZone: draft.countertopWidthAnchoredToZone ?? false,
+		      countertopDepthAnchoredToZone: draft.countertopDepthAnchoredToZone ?? false,
+		    };
 	    const slab = islandCountertopRect(nextIsland, resized.placed);
 	    if (slab && (slab.x < 0 || slab.y < 0 || slab.x + slab.width > room.width || slab.y + slab.depth > room.depth)) {
 	      reportResizeBlock("The island countertop would extend outside the room.");
 	      return;
 	    }
-		    commitIslandScene(nextIsland, resized.placed);
-		    setPlacementTarget("island", nextIsland.activeFace);
-	    setIslandAttributesOpen(false);
-	  }, [commitIslandScene, island, islandFace, room, setPlacementTarget]);
+		    const recolored = styleId == null
+		      ? { placed: resized.placed, island: nextIsland, islandStyleId: null }
+		      : applyCabinetFinishScope(resized.placed, nextIsland, styleId, draft.cabinetStyleId ?? styleId, "island");
+		    const committedIsland = recolored.island ?? nextIsland;
+		    commitIslandScene(committedIsland, recolored.placed);
+		    setStyleB(recolored.islandStyleId);
+		    setPlacementTarget("island", committedIsland.activeFace);
+		    setIslandAttributesOpen(false);
+		  }, [commitIslandScene, island, islandFace, room, setPlacementTarget, styleId]);
 
 	  const rotateIsland = useCallback(() => {
 	    if (!island) return;
@@ -5519,8 +5536,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      y: Math.max(0, (room.depth - depth) / 2),
 		      width,
 		      depth,
-		      activeFace: "front",
-		      waterfallEnd: "none",
+	      activeFace: "front",
+	      cabinetStyleId: null,
+	      waterfallEnd: "none",
 		      countertopWidth: null,
 	      countertopDepth: null,
 	      countertopOffsetX: 0,
@@ -6519,35 +6537,42 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setStyleId(newStyleId);
   }, [styleId, placed, cabinetsLocked]);
 
-  // Two-tone bulk helper: give the SELECTED cabinet's finish to every other
-  // cabinet that currently shares its effective finish. Lets the user set one
-  // island cabinet to a 2nd color, then push that color to the rest of the
-  // island run in a single click — without disturbing the perimeter.
+  const commitSelectedFinishScope = useCallback((targetStyleId: number, scope: CabinetFinishScope) => {
+    const result = applyCabinetFinishScope(placedRef.current, island, styleId, targetStyleId, scope);
+    placedRef.current = result.placed;
+    setPlaced(result.placed);
+    if (result.island) setIsland(result.island);
+    if (result.nextDefaultStyleId !== styleId) setStyleId(result.nextDefaultStyleId);
+    setStyleB(scope === "all" ? null : result.islandStyleId);
+    if (scope === "all") setActiveSlot("A");
+    const scopeLabel = scope === "island" ? "island cabinet" : scope === "non-island" ? "non-island cabinet" : "cabinet";
+    toast.success(result.changedCount > 0
+      ? `Applied this finish to ${result.changedCount} ${scopeLabel}${result.changedCount === 1 ? "" : "s"}.`
+      : "The selected cabinets already use this finish.");
+  }, [island, styleId]);
+
+  // Island selections remain island-only. A perimeter selection asks whether
+  // the contrasting island should be preserved before any cabinet is changed.
   const applySelectedFinishToMatching = useCallback(() => {
     if (!selectedUid) return;
-    const sel = placed.find((p) => p.uid === selectedUid);
-    if (!sel) return;
-    const targetStyle = sel.styleId ?? null; // the override we want to spread
-    if (targetStyle == null) {
+    const selected = placed.find((cabinet) => cabinet.uid === selectedUid);
+    if (!selected) return;
+    const targetStyleId = selected.styleId ?? null;
+    if (targetStyleId == null) {
       toast.info(t("dt_t_pick_finish_first"));
       return;
     }
-    setPlaced((prev) => {
-      let n = 0;
-      const next = prev.map((p) => {
-        if (p.uid === selectedUid) return p;
-        if (p.styleId !== targetStyle) { n++; return { ...p, styleId: targetStyle }; }
-        return p;
-      });
-      toast.success(n > 0 ? `Applied this finish to ${n} more cabinet${n === 1 ? "" : "s"}.` : "All cabinets already use this finish.");
-      return next;
-    });
-    // When all cabinets are switched to the same style, update the main styleId
-    // so trim (crown, toe kick, light rail, batten) also switches to match.
-    if (targetStyle !== styleId) {
-      setStyleId(targetStyle);
+    if (island && isIslandAssemblyMember(selected, island, placed)) {
+      commitSelectedFinishScope(targetStyleId, "island");
+      return;
     }
-  }, [selectedUid, placed, styleId]);
+    const hasIslandCabinets = island != null && placed.some((cabinet) => isIslandAssemblyMember(cabinet, island, placed));
+    if (hasIslandCabinets) {
+      setFinishApplyScopePrompt({ targetStyleId });
+      return;
+    }
+    commitSelectedFinishScope(targetStyleId, "all");
+  }, [commitSelectedFinishScope, island, placed, selectedUid]);
 
   // ── Two-color (two door styles) selector ───────────────────────────────────
   // Slot A is the primary door style. We mirror styleId -> styleA so the active
@@ -11925,7 +11950,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        designId={loadDesignId ?? undefined}
 	        designName={savedDesign?.name ?? null}
 	      />
-	      <AlertDialog open={!!islandSeatingOverhangPrompt} onOpenChange={(open) => { if (!open) setIslandSeatingOverhangPrompt(null); }}>
+		      <AlertDialog open={!!islandSeatingOverhangPrompt} onOpenChange={(open) => { if (!open) setIslandSeatingOverhangPrompt(null); }}>
 	        <AlertDialogContent className="w-[min(94vw,540px)]">
 	          <AlertDialogHeader>
 	            <AlertDialogTitle>Add island seating overhang?</AlertDialogTitle>
@@ -11938,14 +11963,47 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(10)}>Add 10 in. seating</AlertDialogAction>
 	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(12)}>Add 12 in. seating</AlertDialogAction>
 	          </AlertDialogFooter>
-	        </AlertDialogContent>
-	      </AlertDialog>
-		      <IslandAttributesDialog
-		        open={islandAttributesOpen}
-	        onOpenChange={setIslandAttributesOpen}
-	        island={island}
-	        countertopMaterial={selectedCountertopStructuralLimit}
-	        onApply={applyIslandAttributes}
+		        </AlertDialogContent>
+		      </AlertDialog>
+		      <AlertDialog open={finishApplyScopePrompt != null} onOpenChange={(open) => { if (!open) setFinishApplyScopePrompt(null); }}>
+		        <AlertDialogContent className="w-[min(94vw,560px)]">
+		          <AlertDialogHeader>
+		            <AlertDialogTitle>Where should this cabinet color be applied?</AlertDialogTitle>
+		            <AlertDialogDescription>
+		              Keep the island as a contrasting color, or include it with the outside wall cabinet runs. This changes cabinet finishes only; placement, quantities, and cabinet selections stay the same.
+		            </AlertDialogDescription>
+		          </AlertDialogHeader>
+		          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+		            <AlertDialogCancel>Cancel</AlertDialogCancel>
+		            <AlertDialogAction
+		              data-testid="apply-finish-non-island-only"
+		              onClick={() => {
+		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "non-island");
+		                setFinishApplyScopePrompt(null);
+		              }}
+		            >
+		              Non-island cabinets only
+		            </AlertDialogAction>
+		            <AlertDialogAction
+		              data-testid="apply-finish-include-island"
+		              onClick={() => {
+		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "all");
+		                setFinishApplyScopePrompt(null);
+		              }}
+		            >
+		              Include island cabinets
+		            </AlertDialogAction>
+		          </AlertDialogFooter>
+		        </AlertDialogContent>
+		      </AlertDialog>
+			      <IslandAttributesDialog
+			        open={islandAttributesOpen}
+		        onOpenChange={setIslandAttributesOpen}
+		        island={island}
+		        countertopMaterial={selectedCountertopStructuralLimit}
+		        cabinetFinishOptions={islandCabinetFinishOptions}
+		        perimeterFinishName={activeStyleName}
+		        onApply={applyIslandAttributes}
 	        onRotate={rotateIsland}
 		        onRemove={removeIslandScene}
 		      />

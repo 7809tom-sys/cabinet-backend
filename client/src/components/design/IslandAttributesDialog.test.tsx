@@ -105,4 +105,26 @@ describe("IslandAttributesDialog", () => {
 	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ autoAdjustDepthForBackFace: true, activeFace: "front", depth: 48 }));
 	  expect(screen.getByTestId("island-auto-depth-option")).toBeTruthy();
 	});
+
+	it("stores a selected island cabinet color while keeping the perimeter choice separate", () => {
+	  const onApply = vi.fn();
+	  render(
+	    <IslandAttributesDialog
+	      open
+	      island={{ ...island, cabinetStyleId: null }}
+	      cabinetFinishOptions={[{ id: 7, name: "Aero Sage" }, { id: 99, name: "Midnight Navy" }]}
+	      perimeterFinishName="Aero Sage"
+	      onOpenChange={vi.fn()}
+	      onApply={onApply}
+	      onRotate={vi.fn()}
+	      onRemove={vi.fn()}
+	    />,
+	  );
+	  expect(screen.getByText("Match non-island cabinets (Aero Sage)")).toBeTruthy();
+	  fireEvent.click(screen.getByTestId("island-cabinet-finish-select"));
+	  fireEvent.click(screen.getByRole("option", { name: "Midnight Navy" }));
+	  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ cabinetStyleId: 99 }));
+	  expect(screen.getByText(/leaving the outside wall cabinet runs in their current color/i)).toBeTruthy();
+	});
 });
