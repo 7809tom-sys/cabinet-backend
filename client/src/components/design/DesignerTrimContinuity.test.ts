@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { mergedElevationTrimRuns } from "./ElevationView";
 import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
 import { crownLinearInches, isCrownEligibleCabinet } from "@/lib/design";
+import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 
 describe("continuous cabinet trim", () => {
   it("merges edge-touching crown and toe-kick intervals but preserves true openings", () => {
@@ -36,11 +37,25 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind === "front")).toHaveLength(2);
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
-	  expect(root.children).toHaveLength(4);
-    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-  });
+		  expect(root.children).toHaveLength(4);
+	    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
+	  });
 
-  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
+	  it("uses the exposed W1230 crown perimeter for a 16-20-16 mitered takeoff", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 };
+	    const segments = threeDCrownPerimeterSegments([
+	      { uid: "w1230", cabinetId: 1, masterCode: "W-12-30", description: "Wall", placement: "wall", x: 0, y: 0, width: 12, height: 30, depth: 12, rotation: 0, mountBottom: 54 },
+	    ] as never[], room);
+	    const takeoff = crownTakeoffFromExposedSegments(segments);
+
+	    expect(segments.map((segment) => segment.length)).toEqual([12, 12, 12]);
+	    expect(takeoff.rawLinearInches).toBe(36);
+	    expect(takeoff.exposedMiterCornerCount).toBe(2);
+	    expect(takeoff.miterAllowanceInches).toBe(16);
+	    expect(takeoff.totalLinearInches).toBe(52);
+	  });
+
+	  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 };
     const elevatedUpper = {
       uid: "upper", cabinetId: 1, masterCode: "W-24-42", description: "Elevated upper",

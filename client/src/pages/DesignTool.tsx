@@ -100,7 +100,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+	  finishColors, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
@@ -162,7 +162,8 @@ import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsLi
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
-import { InteractiveRoom3D, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
+import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
@@ -2516,11 +2517,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  };
 	}, [activeFinish, activeStyleName, countertop, countertopMaterialId, finishById, island, islandCountertopSurface, perimeterCountertopSurface, placed, styleId, styleNameById]);
 
-  // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
-  // miter allowance; both are ordered in whole standard sticks (96").
-  const crownOrder = useMemo(
-    () => (crown ? trimPiecesNeeded(crownLinearInches(placed, room)) : null),
+  // Crown follows the final exposed 3D perimeter. Each exposed 45° turn has
+  // two cut ends, both receiving the owner's 4-inch miter allowance.
+  const crownTakeoff = useMemo(
+    () => (crown ? crownTakeoffFromExposedSegments(threeDCrownPerimeterSegments(placed, room)) : null),
     [crown, placed, room]
+  );
+  const crownOrder = useMemo(
+    () => (crownTakeoff ? trimPiecesNeeded(crownTakeoff.totalLinearInches) : null),
+    [crownTakeoff]
   );
   const toeKickOrder = useMemo(
     () => (toeKick ? trimPiecesNeeded(toeKickLinearInches(placed)) : null),
@@ -11409,7 +11414,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {pcs} pc{pcs > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                        {pcs} pc{pcs > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft takeoff (includes both 4&quot; miter cuts at each exposed crown corner)
                         {ext != null ? ` · ${p!.masterCode} · $${p!.unitPrice.toFixed(2)} ea × ${pcs}` : ""}
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>

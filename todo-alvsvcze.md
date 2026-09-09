@@ -1820,3 +1820,5 @@
 - [x] Clarify the ambiguous “fix price” follow-up as a request to continue the active Toe Kick task; make no customer, affiliate, supplier, catalog, Designer, cart, or checkout price change without an identified product and authoritative approved value
 - [x] Add an island-only countertop material selector that preserves the wall-run countertop selection and existing island overhang, waterfall, pricing, cart, saved-plan, 2D, and 3D behavior
 - [x] Add a responsive live summary panel showing the currently selected wall cabinet color, island cabinet color, wall countertop material, and island countertop material
+- [x] Add a 4-inch crown-molding takeoff allowance for every exposed outside cabinet corner, so mitered crown quantities reflect the angled projection instead of only cabinet-edge lengths
+- [x] Preserve existing crown perimeter geometry and catalog pricing identity while recalculating Materials & Parts crown linear footage and stock-piece quantity from the adjusted takeoff

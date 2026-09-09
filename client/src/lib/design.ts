@@ -3635,14 +3635,13 @@ export function finishColors(...parts: (string | null | undefined)[]): FinishCol
 export const CROWN_HEIGHT_IN = 3;     // visual crown band height in elevation
 export const TOE_KICK_HEIGHT_IN = STD.TOE_KICK; // 4.5"
 export const LIGHT_RAIL_HEIGHT_IN = 1.5; // light rail valance under wall cabinets
-// Any mitered trim (crown, light rail, decorative molding) loses length at the
-// 45° corner cuts, so each continuous wall run needs extra material. Trade rule
-// of thumb: add 3" to each wall's run (e.g. a 12" wall needs a 15" cut). The
-// allowance is applied once per WALL the trim runs along — not per cabinet —
-// because trim runs continuously and is only mitered where walls meet.
+// Light rail and other simple wall-run trim retains the existing 3" per-run
+// allowance. Crown has a separate exact takeoff because its exposed perimeter
+// can include returns, depth steps, and 45° cuts around outside cabinet corners.
 export const MITER_ALLOWANCE_IN = 3;
-// Back-compat alias.
-export const CROWN_MITER_ALLOWANCE_IN = MITER_ALLOWANCE_IN;
+// Each end of an exposed crown miter cut receives four inches. An outside
+// corner joins two cut ends, so it contributes eight inches to the takeoff.
+export const CROWN_MITER_ALLOWANCE_IN = 4;
 
 // Which of the four walls is this cabinet sitting against?
 //
@@ -3757,8 +3756,9 @@ export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number
   return total;
 }
 
-// Crown runs along the top of wall cabinets, grouped per wall with miter
-// allowance. Requires the room to know which wall each cabinet is on.
+// Legacy width-only crown estimate for non-render callers. The live Designer
+// order uses the final exposed 3D crown perimeter, including every return and
+// the four-inch allowance at both cut ends of each outside corner.
 export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
   if (p.placement === "tall") return true;
   if (p.placement !== "wall") return false;
