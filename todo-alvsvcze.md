@@ -1825,5 +1825,6 @@
 - [x] Rebuild or remove the island countertop immediately when an island cabinet is deleted, matching the remaining island footprint while preserving any remaining island countertop material, overhang, waterfall, cart, pricing, and saved-plan behavior
 - [x] Remove countertop coverage over an island stove/range while preserving the island slab around the appliance, selected material, overhang, waterfall, cart, pricing, and saved-plan behavior
 - [x] Orient island sink faucets on the correct user-facing side of the sink for every island face while preserving sink cutouts, fixture placement, materials, and saved-plan behavior
-- [ ] Calculate light-rail molding from each continuous exposed bottom perimeter of eligible upper cabinets, including front widths and exposed depth returns without double-counting shared cabinet sides
-- [ ] Add the owner-specified 4-inch light-rail installation allowance to the takeoff and recalculate Materials & Parts linear footage and stock-piece quantity while preserving trim SKU, price identity, and saved-plan behavior
+- [x] Calculate light-rail molding from each continuous exposed bottom perimeter of eligible upper cabinets, including front widths and exposed depth returns without double-counting shared cabinet sides
+- [x] Add the owner-specified 4-inch light-rail installation allowance to the takeoff and recalculate Materials & Parts linear footage and stock-piece quantity while preserving trim SKU, price identity, and saved-plan behavior
+- [ ] Render visible 45-degree outside-corner crown-miter geometry in the Designer using the same exposed-corner topology as the crown takeoff, while preserving crown eligibility, selected finish, Materials & Parts quantity, cart, saved-plan, 2D, and 3D behavior

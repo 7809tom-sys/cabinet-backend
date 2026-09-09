@@ -3635,13 +3635,16 @@ export function finishColors(...parts: (string | null | undefined)[]): FinishCol
 export const CROWN_HEIGHT_IN = 3;     // visual crown band height in elevation
 export const TOE_KICK_HEIGHT_IN = STD.TOE_KICK; // 4.5"
 export const LIGHT_RAIL_HEIGHT_IN = 1.5; // light rail valance under wall cabinets
-// Light rail and other simple wall-run trim retains the existing 3" per-run
-// allowance. Crown has a separate exact takeoff because its exposed perimeter
-// can include returns, depth steps, and 45° cuts around outside cabinet corners.
+// Other simple wall-run trim retains the existing 3" per-run allowance. Crown
+// has a separate exact takeoff because its exposed perimeter can include returns,
+// depth steps, and 45° cuts around outside cabinet corners.
 export const MITER_ALLOWANCE_IN = 3;
 // Each end of an exposed crown miter cut receives four inches. An outside
 // corner joins two cut ends, so it contributes eight inches to the takeoff.
 export const CROWN_MITER_ALLOWANCE_IN = 4;
+// Light rail is installed below upper cabinets. Add four inches once for each
+// continuous exposed rail assembly to provide the owner's installation buffer.
+export const LIGHT_RAIL_INSTALLATION_ALLOWANCE_IN = 4;
 
 // Which of the four walls is this cabinet sitting against?
 //
@@ -3791,17 +3794,101 @@ export function toeKickLinearInches(placed: PlacedCabinet[]): number {
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
 }
 
-// Light rail runs along the BOTTOM edge of UPPER (wall) cabinets only (hides
-// under-cabinet lighting). Like crown it's mitered per wall, so it carries the
-// same corner allowance, but it never applies to tall/base cabinets.
-export function lightRailLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
-  const wallCabs = placed.filter((p) => p.placement === "wall");
-  if (wallCabs.length === 0) return 0;
-  if (!room) {
-    const run = wallCabs.reduce((s, p) => s + rotatedSize(p).w, 0);
-    return run + MITER_ALLOWANCE_IN;
+export interface LightRailTakeoff {
+  exposedLinearInches: number;
+  installationAllowanceInches: number;
+  totalLinearInches: number;
+  assemblies: number;
+}
+
+function isLightRailEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
+  if (p.placement !== "wall") return false;
+  if (usesRaisedFloorWallDoorPull(p)) return false;
+  return !room || elevationBox(p, room).bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
+}
+
+type LightRailFootprint = { cabinet: PlacedCabinet; x: number; y: number; width: number; depth: number; wall: WallSide };
+
+function lightRailFootprint(p: PlacedCabinet, room?: RoomData): LightRailFootprint {
+  const size = rotatedSize(p);
+  // The Designer always supplies room context. This deterministic fallback is
+  // retained for legacy pure callers that only provide a placed cabinet list.
+  const wall = room ? cabinetWall(p, room) : ((Math.round(p.rotation) % 180 + 180) % 180 === 0 ? "top" : "left");
+  return { cabinet: p, x: p.x, y: p.y, width: size.w, depth: size.d, wall };
+}
+
+function overlappingLength(startA: number, endA: number, startB: number, endB: number): number {
+  return Math.min(endA, endB) - Math.max(startA, startB);
+}
+
+function lightRailAssemblies(footprints: LightRailFootprint[]): LightRailFootprint[][] {
+  const remaining = [...footprints];
+  const groups: LightRailFootprint[][] = [];
+  while (remaining.length > 0) {
+    const group = [remaining.shift()!];
+    for (let index = 0; index < group.length; index++) {
+      for (let candidate = remaining.length - 1; candidate >= 0; candidate--) {
+        const a = group[index];
+        const b = remaining[candidate];
+        const gapX = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
+        const gapY = Math.max(a.y - (b.y + b.depth), b.y - (a.y + a.depth), 0);
+        if (gapX <= COLLISION_EPSILON_IN && gapY <= COLLISION_EPSILON_IN) {
+          group.push(b);
+          remaining.splice(candidate, 1);
+        }
+      }
+    }
+    groups.push(group);
   }
-  return miteredTrimInches(wallCabs, room);
+  return groups;
+}
+
+function lightRailExposedEdgeInches(footprint: LightRailFootprint, all: LightRailFootprint[]): number {
+  const shares = (edge: "top" | "bottom" | "left" | "right") => all.some((other) => {
+    if (other.cabinet.uid === footprint.cabinet.uid) return false;
+    if (edge === "top") return Math.abs(other.y + other.depth - footprint.y) <= COLLISION_EPSILON_IN && overlappingLength(footprint.x, footprint.x + footprint.width, other.x, other.x + other.width) > COLLISION_EPSILON_IN;
+    if (edge === "bottom") return Math.abs(footprint.y + footprint.depth - other.y) <= COLLISION_EPSILON_IN && overlappingLength(footprint.x, footprint.x + footprint.width, other.x, other.x + other.width) > COLLISION_EPSILON_IN;
+    if (edge === "left") return Math.abs(other.x + other.width - footprint.x) <= COLLISION_EPSILON_IN && overlappingLength(footprint.y, footprint.y + footprint.depth, other.y, other.y + other.depth) > COLLISION_EPSILON_IN;
+    return Math.abs(footprint.x + footprint.width - other.x) <= COLLISION_EPSILON_IN && overlappingLength(footprint.y, footprint.y + footprint.depth, other.y, other.y + other.depth) > COLLISION_EPSILON_IN;
+  });
+
+  const edges: Array<["top" | "bottom" | "left" | "right", number]> = [
+    ["top", footprint.width],
+    ["bottom", footprint.width],
+    ["left", footprint.depth],
+    ["right", footprint.depth],
+  ];
+  const backEdge: Record<WallSide, "top" | "bottom" | "left" | "right"> = { top: "top", bottom: "bottom", left: "left", right: "right" };
+  return edges.reduce((total, [edge, length]) => (
+    edge === backEdge[footprint.wall] || shares(edge) ? total : total + length
+  ), 0);
+}
+
+/**
+ * Light rail follows the visible underside perimeter of upper cabinets: front
+ * widths plus exposed depth returns, never hidden shared sides or wall backs.
+ * Each connected installed assembly receives one four-inch cut/installation
+ * allowance, so a standalone W1230 takes off at 12 + 12 + 12 + 4 = 40 inches.
+ */
+export function lightRailTakeoff(placed: PlacedCabinet[], room?: RoomData): LightRailTakeoff {
+  const footprints = placed.filter((p) => isLightRailEligibleCabinet(p, room)).map((p) => lightRailFootprint(p, room));
+  if (footprints.length === 0) return { exposedLinearInches: 0, installationAllowanceInches: 0, totalLinearInches: 0, assemblies: 0 };
+  const assemblies = lightRailAssemblies(footprints);
+  const exposedLinearInches = footprints.reduce((total, footprint) => total + lightRailExposedEdgeInches(footprint, footprints), 0);
+  const installationAllowanceInches = assemblies.length * LIGHT_RAIL_INSTALLATION_ALLOWANCE_IN;
+  return {
+    exposedLinearInches,
+    installationAllowanceInches,
+    totalLinearInches: exposedLinearInches + installationAllowanceInches,
+    assemblies: assemblies.length,
+  };
+}
+
+// Light rail runs along the exposed underside of true upper cabinets only. It
+// excludes wall backs, shared cabinet sides, island/floor wall casework, tall,
+// base, and appliance cabinets.
+export function lightRailLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
+  return lightRailTakeoff(placed, room).totalLinearInches;
 }
 
 // ─── Valance (VA) ────────────────────────────────────────────────────────────

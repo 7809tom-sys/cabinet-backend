@@ -11,4 +11,9 @@ describe("DesignTool crown takeoff routing", () => {
     expect(designToolSource).toContain("trimPiecesNeeded(crownTakeoff.totalLinearInches)");
     expect(designToolSource).toContain('includes both 4&quot; miter cuts at each exposed crown corner');
   });
+
+  it("orders light rail from the shared exposed under-cabinet perimeter takeoff", () => {
+    expect(designToolSource).toContain("trimPiecesNeeded(lightRailLinearInches(placed, room))");
+    expect(designToolSource).toContain("Light rail follows the actual exposed underside perimeter of upper cabinets");
+  });
 });

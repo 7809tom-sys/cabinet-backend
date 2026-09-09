@@ -996,7 +996,7 @@ describe("cased openings (pass-through / doorway, no door)", () => {
 
 import {
   finishColors, DEFAULT_FINISH_COLORS,
-  crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+  crownLinearInches, toeKickLinearInches, lightRailLinearInches, lightRailTakeoff, inchesToLinearFeet,
   battenLinearInches, BATTEN_WIDTH_IN, BATTEN_THICKNESS_IN,
 } from "./design";
 
@@ -1064,15 +1064,47 @@ describe("trim linear footage", () => {
     // rotated width 12 + 3in miter allowance = 15.
     expect(crownLinearInches(placed)).toBe(15);
   });
-  it("light rail sums ONLY wall cabinet widths (not base/tall/appliance)", () => {
+  it("takes a standalone W1230 from its front and two exposed depth returns plus four inches", () => {
+    const placed = [cab({ uid: "w1230", placement: "wall", masterCode: "W1230", description: "12 inch by 30 inch wall cabinet", width: 12, depth: 12, x: 36, y: 0, height: 30 })];
+    // 12" front + 12" left return + 12" right return + 4" installation allowance.
+    expect(lightRailLinearInches(placed, ROOM_12x10)).toBe(40);
+    expect(lightRailTakeoff(placed, ROOM_12x10)).toEqual({
+      exposedLinearInches: 36,
+      installationAllowanceInches: 4,
+      totalLinearInches: 40,
+      assemblies: 1,
+    });
+    expect(trimPiecesNeeded(lightRailLinearInches(placed, ROOM_12x10)).measuredFeet).toBe(3.3);
+  });
+  it("counts a continuous adjacent upper run without double-counting its shared side", () => {
     const placed = [
-      cab({ placement: "wall", width: 30 }),
-      cab({ placement: "wall", width: 24 }),
-      cab({ placement: "tall", width: 24 }),
-      cab({ placement: "base", width: 36 }),
+      cab({ uid: "w12-left", placement: "wall", width: 12, depth: 12, x: 36, y: 0, height: 30 }),
+      cab({ uid: "w12-right", placement: "wall", width: 12, depth: 12, x: 48, y: 0, height: 30 }),
+      cab({ uid: "tall", placement: "tall", width: 24, x: 80, y: 0 }),
+      cab({ uid: "base", placement: "base", width: 36, x: 0, y: 0 }),
     ];
-    // 30 + 24 = 54 wall run, + 3in miter allowance = 57 (tall/base excluded).
-    expect(lightRailLinearInches(placed)).toBe(57);
+    // 24" front + two exposed 12" returns + one 4" continuous-run allowance.
+    expect(lightRailLinearInches(placed, ROOM_12x10)).toBe(52);
+  });
+  it("adds the installation allowance once for each disconnected light-rail assembly", () => {
+    const placed = [
+      cab({ uid: "left-w12", placement: "wall", width: 12, depth: 12, x: 24, y: 0, height: 30 }),
+      cab({ uid: "right-w12", placement: "wall", width: 12, depth: 12, x: 60, y: 0, height: 30 }),
+    ];
+    // Two standalone 36" exposed perimeters + two 4" installation allowances.
+    expect(lightRailTakeoff(placed, ROOM_12x10)).toMatchObject({
+      exposedLinearInches: 72,
+      installationAllowanceInches: 8,
+      totalLinearInches: 80,
+      assemblies: 2,
+    });
+  });
+  it("excludes island and floor-seated wall cabinets from light rail", () => {
+    const placed = [
+      cab({ uid: "island-wall", placement: "wall", width: 30, depth: 12, x: 36, y: 36, islandFace: "front", mountBottom: 4.5 }),
+      cab({ uid: "floor-wall", placement: "wall", width: 30, depth: 12, x: 72, y: 0, mountBottom: 4.5 }),
+    ];
+    expect(lightRailLinearInches(placed, ROOM_12x10)).toBe(0);
   });
   it("light rail is zero when there are no wall cabinets", () => {
     const placed = [cab({ placement: "base", width: 36 }), cab({ placement: "tall", width: 24 })];

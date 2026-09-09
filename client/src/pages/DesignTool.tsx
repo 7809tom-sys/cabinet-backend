@@ -2537,7 +2537,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => (batten ? trimPiecesNeeded(battenLinearInches(placed, room)) : null),
     [batten, placed, room]
   );
-  // Light rail runs under the upper cabinets; mitered per wall like crown.
+  // Light rail follows the actual exposed underside perimeter of upper cabinets,
+  // including exposed depth returns and its installation allowance.
   const lightRailOrder = useMemo(
     () => (lightRail ? trimPiecesNeeded(lightRailLinearInches(placed, room)) : null),
     [lightRail, placed, room]
