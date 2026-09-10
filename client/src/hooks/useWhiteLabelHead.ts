@@ -14,15 +14,17 @@ export function useWhiteLabelHead(opts: {
   storeName?: string | null;
   tagline?: string | null;
   logoUrl?: string | null;
+  /** Preserve route-specific metadata owned by useSeo while retaining affiliate icon branding. */
+  preserveRouteMetadata?: boolean;
 }) {
-  const { storeName, tagline, logoUrl } = opts;
+  const { storeName, tagline, logoUrl, preserveRouteMetadata = false } = opts;
 
   useEffect(() => {
     if (!storeName) return;
 
     const title = tagline ? `${storeName} — ${tagline}` : storeName;
     const prevTitle = document.title;
-    document.title = title;
+    if (!preserveRouteMetadata) document.title = title;
 
     // Track what we changed so we can restore it precisely.
     const restores: Array<() => void> = [
@@ -41,10 +43,12 @@ export function useWhiteLabelHead(opts: {
       });
     };
 
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[name="twitter:title"]', title);
+    if (!preserveRouteMetadata) {
+      setMeta('meta[property="og:title"]', title);
+      setMeta('meta[name="twitter:title"]', title);
+    }
     setMeta('meta[property="og:site_name"]', storeName);
-    if (tagline) {
+    if (tagline && !preserveRouteMetadata) {
       setMeta('meta[name="description"]', tagline);
       setMeta('meta[property="og:description"]', tagline);
       setMeta('meta[name="twitter:description"]', tagline);
@@ -64,13 +68,15 @@ export function useWhiteLabelHead(opts: {
             link.type = prevType;
           });
         });
-      setMeta('meta[property="og:image"]', logoUrl);
-      setMeta('meta[name="twitter:image"]', logoUrl);
+      if (!preserveRouteMetadata) {
+        setMeta('meta[property="og:image"]', logoUrl);
+        setMeta('meta[name="twitter:image"]', logoUrl);
+      }
     }
 
     return () => {
       // Run in reverse so nested changes unwind cleanly.
       for (let i = restores.length - 1; i >= 0; i--) restores[i]();
     };
-  }, [storeName, tagline, logoUrl]);
+  }, [storeName, tagline, logoUrl, preserveRouteMetadata]);
 }

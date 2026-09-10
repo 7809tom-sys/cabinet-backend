@@ -118,7 +118,14 @@ function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; 
   const accentColor = data?.accentColor || "#c9a227";
   // Keep the tab/favicon on the affiliate's brand for cart, order, and design
   // pages reached from their storefront.
-  useWhiteLabelHead({ storeName: data?.storeName, tagline: data?.tagline, logoUrl });
+  const preserveRouteMetadata = typeof window !== "undefined"
+    && window.location.pathname === `/store/${slug}/kitchens`;
+  useWhiteLabelHead({
+    storeName: data?.storeName,
+    tagline: data?.tagline,
+    logoUrl,
+    preserveRouteMetadata,
+  });
   return (
     <div className={`flex flex-col ${fullHeight ? "h-[100dvh] overflow-hidden" : "min-h-screen"}`}>
       <AdminEditModeBar />

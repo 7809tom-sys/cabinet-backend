@@ -58,4 +58,24 @@ describe("buildKitchenDiscoveryJsonLd", () => {
     expect(JSON.stringify(ld)).not.toContain("offers");
     expect(JSON.stringify(ld)).not.toContain("price");
   });
+
+  it("keeps affiliate kitchen journey links inside the branded storefront route tree", () => {
+    const ld = buildKitchenDiscoveryJsonLd({
+      origin: "https://reaves-way-cabinet-shop.cabinetdealz.com",
+      path: "/store/reaves-way-cabinet-shop/kitchens",
+      journeyBasePath: "/store/reaves-way-cabinet-shop",
+      name: "Plan Your Complete Kitchen with Reaves Way Cabinet Shop",
+      description: "Plan a kitchen with Reaves Way Cabinet Shop.",
+    });
+    const graph = ld["@graph"] as Array<Record<string, unknown>>;
+    const journey = graph.find((node) => node["@type"] === "ItemList")!;
+    const urls = (journey.itemListElement as Array<Record<string, string>>).map((item) => item.url);
+
+    expect(urls).toEqual([
+      "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/kitchens#choose-a-direction",
+      "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/bundles",
+      "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/design",
+      "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/order",
+    ]);
+  });
 });

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import { affiliateSlugFromHostCandidates, affiliateStorefrontPath } from "../lib/affiliateSubdomain";
+import { affiliateSlugFromHostCandidates, affiliateStorefrontPath, isAffiliateStorefrontBypassPath } from "../lib/affiliateSubdomain";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -91,14 +91,7 @@ async function startServer() {
     // Don't rewrite API calls, static assets, or already-prefixed store paths.
     // The browser must still retrieve its JavaScript/CSS/image assets at the
     // normal root paths even while the document itself is brand-routed.
-    if (
-      req.url.startsWith("/api/") ||
-      req.url.startsWith("/store/") ||
-      req.url.startsWith("/__manus__") ||
-      req.url.startsWith("/manus-storage") ||
-      req.url.startsWith("/assets/") ||
-      /\.(?:css|js|mjs|map|ico|png|jpe?g|gif|webp|svg|woff2?|ttf)(?:\?|$)/i.test(req.url)
-    ) {
+    if (isAffiliateStorefrontBypassPath(req.url)) {
       return next();
     }
     // Canonicalize the browser URL as well as the server request. A real

@@ -109,16 +109,18 @@ export function buildAffiliateStorefrontJsonLd(input: {
 export function buildKitchenDiscoveryJsonLd(input: {
   origin: string;
   path?: string;
+  journeyBasePath?: string;
   name: string;
   description: string;
 }): Record<string, unknown> {
   const path = input.path || "/kitchens";
   const url = `${input.origin.replace(/\/$/, "")}${path}`;
+  const journeyBasePath = input.journeyBasePath || "";
   const entries = [
-    { name: "Explore kitchen styles", path: "/styles" },
-    { name: "Browse kitchen packages", path: "/bundles" },
-    { name: "Design a kitchen", path: "/design" },
-    { name: "Request a kitchen quote", path: "/order/new" },
+    { name: "Explore complete kitchen styles", path: journeyBasePath ? `${path}#choose-a-direction` : "/styles" },
+    { name: "Browse kitchen packages", path: journeyBasePath ? `${journeyBasePath}/bundles` : "/bundles" },
+    { name: "Design a kitchen", path: journeyBasePath ? `${journeyBasePath}/design` : "/design" },
+    { name: "Request a kitchen quote", path: journeyBasePath ? `${journeyBasePath}/order` : "/order/new" },
   ];
   return {
     "@context": "https://schema.org",

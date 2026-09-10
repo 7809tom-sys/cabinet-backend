@@ -45,7 +45,7 @@ export default function KitchenDiscovery({ affiliateSlug }: KitchenDiscoveryProp
   const origin = publicOrigin();
   const basePath = affiliateSlug ? `/store/${affiliateSlug}` : "";
   const canonical = `${origin}${basePath}/kitchens`;
-  const storeName = affiliate.data?.storeName ?? "CabinetDealz";
+  const storeName = (affiliate.data?.storeName ?? "CabinetDealz").trim().replace(/[.]+$/, "");
   const title = affiliateSlug
     ? `Plan Your Complete Kitchen with ${storeName}`
     : "Plan Your Complete Kitchen";
@@ -56,6 +56,7 @@ export default function KitchenDiscovery({ affiliateSlug }: KitchenDiscoveryProp
     () => buildKitchenDiscoveryJsonLd({
       origin,
       path: `${basePath}/kitchens`,
+      journeyBasePath: affiliateSlug ? basePath : undefined,
       name: title,
       description,
     }),

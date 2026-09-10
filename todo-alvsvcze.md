@@ -1858,3 +1858,4 @@
 - [x] Correct canonical public-domain URLs in sitemap and affiliate storefront metadata so deployment hosts never compete with CabinetDealz or affiliate storefront addresses
 - [x] Add a public kitchen-first discovery hub that guides customers from kitchen style and package selection into design and quote paths
 - [x] Add verified affiliate-specific storefront metadata and schema that accurately represents each affiliate’s public business and service information
+- [x] Make kitchen-first structured-data journey URLs and affiliate sitemap entries resolve only to valid branded storefront routes

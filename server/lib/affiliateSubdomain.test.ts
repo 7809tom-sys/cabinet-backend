@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { affiliateSlugFromHost, affiliateSlugFromHostCandidates, affiliateStorefrontPath } from "./affiliateSubdomain";
+import { affiliateSlugFromHost, affiliateSlugFromHostCandidates, affiliateStorefrontPath, isAffiliateStorefrontBypassPath } from "./affiliateSubdomain";
 
 describe("affiliate subdomain host resolution", () => {
   it("extracts a single affiliate slug from the public host", () => {
@@ -33,5 +33,11 @@ describe("affiliate subdomain host resolution", () => {
       "reaves-way-cabinet-shop",
       "/catalog/W-12-30?style=330005&cabinetId=9360055",
     )).toBe("/store/reaves-way-cabinet-shop/catalog/W-12-30?style=330005&cabinetId=9360055");
+  });
+
+  it("keeps crawler endpoints outside the storefront rewrite so every affiliate can publish branded crawl directives", () => {
+    expect(isAffiliateStorefrontBypassPath("/robots.txt")).toBe(true);
+    expect(isAffiliateStorefrontBypassPath("/sitemap.xml")).toBe(true);
+    expect(isAffiliateStorefrontBypassPath("/catalog")).toBe(false);
   });
 });

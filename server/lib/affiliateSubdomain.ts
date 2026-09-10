@@ -37,3 +37,17 @@ export function affiliateStorefrontPath(slug: string, requestedUrl: string): str
   const suffix = requestedUrl === "/" ? "" : requestedUrl;
   return `/store/${slug}${suffix}`;
 }
+
+/** Paths that must reach server middleware instead of the storefront SPA redirect. */
+export function isAffiliateStorefrontBypassPath(requestPath: string): boolean {
+  return (
+    requestPath.startsWith("/api/") ||
+    requestPath.startsWith("/store/") ||
+    requestPath.startsWith("/__manus__") ||
+    requestPath.startsWith("/manus-storage") ||
+    requestPath.startsWith("/assets/") ||
+    requestPath === "/robots.txt" ||
+    requestPath === "/sitemap.xml" ||
+    /\.(?:css|js|mjs|map|ico|png|jpe?g|gif|webp|svg|woff2?|ttf)(?:\?|$)/i.test(requestPath)
+  );
+}
