@@ -34,7 +34,7 @@ describe("IslandAttributesDialog", () => {
 	    fireEvent.change(overhang, { target: { value: "3.125" } });
 	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: 3.125 }));
-	    fireEvent.click(screen.getByRole("button", { name: "Use 1.5 in." }));
+	    fireEvent.click(screen.getByRole("button", { name: "Auto" }));
 	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: null }));
 	    expect(screen.getByTestId("island-countertop-overhang-control")).toBeTruthy();
@@ -52,6 +52,7 @@ describe("IslandAttributesDialog", () => {
 	        onRemove={vi.fn()}
 	      />,
 	    );
+	    fireEvent.click(screen.getByText(/Overhang support/i));
 	    const warning = screen.getByTestId("island-overhang-limit-exceeded").textContent ?? "";
 	    expect(warning).toContain("Verified Quartz");
 	    expect(warning).toContain("6 in.");
@@ -105,21 +106,32 @@ describe("IslandAttributesDialog", () => {
 		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
 		  const dimensions = screen.getByTestId("island-advanced-dimensions") as HTMLDetailsElement;
 		  expect(dimensions.open).toBe(false);
-		  fireEvent.click(screen.getByText(/Zone and slab measurements/i));
+		  fireEvent.click(screen.getByText(/Measurements/i));
 		  expect(dimensions.open).toBe(true);
 		  expect(screen.getByLabelText("Slab front-to-back (in.)")).toBeTruthy();
 		});
 
-	it("lets the user opt into a Back-face-only depth adjustment without changing other island choices", () => {
-	  const onApply = vi.fn();
-	  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
-	  fireEvent.click(screen.getByRole("switch", { name: /auto-adjust depth for Back cabinets/i }));
-	  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ autoAdjustDepthForBackFace: true, activeFace: "front", depth: 48 }));
-	  expect(screen.getByTestId("island-auto-depth-option")).toBeTruthy();
-	});
+		it("lets the user opt into a Back-face-only depth adjustment without changing other island choices", () => {
+		  const onApply = vi.fn();
+		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
+		  fireEvent.click(screen.getByRole("switch", { name: /auto-adjust depth for Back cabinets/i }));
+		  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+		  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ autoAdjustDepthForBackFace: true, activeFace: "front", depth: 48 }));
+		  expect(screen.getByTestId("island-auto-depth-option")).toBeTruthy();
+		});
 
-	it("stores a selected island cabinet color while keeping the perimeter choice separate", () => {
+		it("keeps optional support and preview details collapsed while primary island controls remain direct", () => {
+		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
+		  const optionalDetails = Array.from(document.querySelectorAll("details")) as HTMLDetailsElement[];
+		  expect(optionalDetails.every((detail) => detail.open === false)).toBe(true);
+		  expect(screen.getByLabelText("Standard countertop overhang (in.)")).toBeTruthy();
+		  expect(screen.getByTestId("island-seating-overhang")).toBeTruthy();
+		  expect(screen.getByText("Active placement face")).toBeTruthy();
+		  expect(screen.getByLabelText("Island waterfall end")).toBeTruthy();
+		  expect(screen.getByRole("switch", { name: /auto-adjust depth for Back cabinets/i })).toBeTruthy();
+		});
+
+		it("stores a selected island cabinet color while keeping the perimeter choice separate", () => {
 	  const onApply = vi.fn();
 	  render(
 	    <IslandAttributesDialog
@@ -138,7 +150,7 @@ describe("IslandAttributesDialog", () => {
 	  fireEvent.click(screen.getByRole("option", { name: "Midnight Navy" }));
 	  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 		  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ cabinetStyleId: 99 }));
-		  expect(screen.getByText("Island cabinets only.")).toBeTruthy();
+		  expect(screen.getByText("Cabinet color")).toBeTruthy();
 		});
 
 		it("stores a separate island countertop product and visual material while preserving the wall countertop", () => {
@@ -166,6 +178,6 @@ describe("IslandAttributesDialog", () => {
 		    countertopProductId: 11,
 		    countertopMaterialId: "carrara-marble",
 		  }));
-		  expect(screen.getByText("Island slab and waterfall only.")).toBeTruthy();
+		  expect(screen.getByText("Countertop material")).toBeTruthy();
 		});
 });
