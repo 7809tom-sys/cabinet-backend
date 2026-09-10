@@ -37,13 +37,16 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind === "front")).toHaveLength(2);
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	  expect(segments.some((segment) => segment.kind.endsWith("return") && Math.abs(segment.center.x - 24) < 0.01)).toBe(false);
-		  expect(root.children).toHaveLength(6);
+		  expect(root.children).toHaveLength(4);
 		    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
-		    const miterReturns = root.children.filter((rail) => rail.userData.crownMiterReturn);
-		    expect(miterReturns).toHaveLength(2);
-		    expect(miterReturns.every((piece) => piece.userData.fullCrownMiterBlock === true && piece.userData.visibleMiterAngleDegrees === 45 && piece.userData.doesNotChangeCrownTakeoff === true)).toBe(true);
-		    expect(miterReturns.every((piece) => ((piece as THREE.Mesh).geometry as THREE.BufferGeometry).index?.count === 24)).toBe(true);
-		    expect(root.children.some((piece) => piece.userData.crownMiterSeam === true)).toBe(false);
+		    expect(root.children.every((rail) => rail.userData.angledCrownProfile === true && rail.userData.crownProfileAngleDegrees === 45 && rail.userData.isUprightCrownProfile === false)).toBe(true);
+		    for (const rail of root.children) {
+		      const profileYAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(rail.quaternion);
+		      const profileAngleFromVertical = Math.acos(Math.min(1, Math.abs(profileYAxis.y))) * 180 / Math.PI;
+		      expect(profileAngleFromVertical).toBeCloseTo(45, 6);
+		    }
+		    expect(threeDCrownMiterJoints(segments)).toHaveLength(2);
+		    expect(root.children.some((piece) => piece.userData.crownMiterReturn === true || piece.userData.crownMiterSeam === true)).toBe(false);
 		  });
 
 		  it("uses the exposed W1230 crown perimeter for a 16-20-16 mitered takeoff", () => {
@@ -258,12 +261,10 @@ describe("continuous cabinet trim", () => {
 	    { uid: "wdc-bottom-left", cabinetId: 14, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 0, y: 72, width: 24, height: 42, depth: 24, rotation: 270, mountBottom: 54, cornerType: "diagonal" },
 	  ], room, undefined, "#ffffff");
 
-		  const crownRails = root.children.filter((rail) => rail.userData.crownMiterReturn !== true);
-		  expect(crownRails).toHaveLength(12);
-		  expect(root.children.filter((rail) => rail.userData.crownMiterReturn)).toHaveLength(8);
-		  expect(crownRails.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
-		  expect(crownRails.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
-		  for (const rail of crownRails) {
+		  expect(root.children).toHaveLength(12);
+		  expect(root.children.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
+		  expect(root.children.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
+		  for (const rail of root.children) {
 	    const railLength = ((rail as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width;
 	    expect(railLength).toBeLessThan(2);
 	  }

@@ -116,12 +116,12 @@ import {
 	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
-  isApplianceCode,
+  isApplianceCode, bearsIslandCountertop,
 	  type PonyWall, makePonyWall, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, islandAfterCountertopSupportRemoval, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, type CabinetFinishScope } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -3888,19 +3888,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setFailedWallFit(null);
       justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
-	      placedRef.current = committedRun;
-	      setPlaced(() => committedRun);
-	      if (autoAdjustedIsland) {
-	        setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth, key: Date.now() });
-	        setIsland(autoAdjustedIsland);
-	        toast.success(`Island depth adjusted for Back: ${formatInches(island?.depth ?? autoAdjustedIsland.depth)} → ${formatInches(autoAdjustedIsland.depth)}.`);
-	      }
+		      placedRef.current = committedRun;
+		      setPlaced(() => committedRun);
+		      const islandBeforePlacement = autoAdjustedIsland ?? island;
+		      const synchronizedIsland = requestedIslandFace && islandBeforePlacement
+		        ? synchronizeIslandCountertopFootprint(islandBeforePlacement, islandPlacementPrevious, committedRun)
+		        : null;
+		      if (synchronizedIsland && synchronizedIsland !== island) {
+		        setIsland(synchronizedIsland);
+		      }
+		      if (autoAdjustedIsland) {
+		        setIslandDepthTransition({ fromDepth: island?.depth ?? autoAdjustedIsland.depth, toDepth: autoAdjustedIsland.depth, key: Date.now() });
+		        toast.success(`Island depth adjusted for Back: ${formatInches(island?.depth ?? autoAdjustedIsland.depth)} → ${formatInches(autoAdjustedIsland.depth)}.`);
+		      }
 	      // As soon as the user completes the chosen Front island length, offer
 	      // the Back face for the next selection. This changes only the active
 	      // placement face; the completed run and every island treatment remain
 	      // exactly as configured.
-	      if (requestedIslandFace === "front" && island) {
-	        const completedFrontCapacity = islandFaceCapacity(island, "front", committedRun);
+		      if (requestedIslandFace === "front" && islandBeforePlacement) {
+		        const completedFrontCapacity = islandFaceCapacity(synchronizedIsland ?? islandBeforePlacement, "front", committedRun);
 	        if (completedFrontCapacity.isFull) {
 	          const message = `The Front island run has reached its chosen ${formatInches(completedFrontCapacity.length)} length. Would you like the next cabinet to be added to the Back side of the island?`;
 	          setAlternateIslandFaceRecommendation({
@@ -3908,7 +3914,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            forceAccessory,
 	            requestedFace: "front",
 	            face: "back",
-	            availableLength: islandFaceLength(island, "back"),
+		            availableLength: islandFaceLength(synchronizedIsland ?? islandBeforePlacement, "back"),
 	            selectedFaceLength: completedFrontCapacity.length,
 	            selectedFaceIsFull: true,
 	          });
@@ -3916,7 +3922,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          toast.info(message);
 	        }
 	      }
-	      if (requestedIslandFace && finalCab.placement === "base") setCountertop(true);
+		      if (requestedIslandFace && bearsIslandCountertop(finalCab)) setCountertop(true);
 		      if (requestedIslandFace && finalCab.islandCounterHeightWallCabinet === true) {
 		        setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace });
 		        setCountertop(true);
@@ -5937,8 +5943,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (removeSharedFillerGroups && fillerGroups.size > 0) {
       next = next.filter((cabinet) => !cabinet.fillerPieceGroupId || !fillerGroups.has(cabinet.fillerPieceGroupId));
     }
-    const nextIsland = island
-      ? islandAfterCountertopSupportRemoval(island, committed, next)
+		    const nextIsland = island
+		      ? synchronizeIslandCountertopFootprint(island, committed, next)
       : null;
     // Placement can run before React commits a render. Update the authoritative
     // reference first so the newly released span is immediately measurable.
@@ -12785,13 +12791,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <DialogHeader>
 	            <DialogTitle>{alternateIslandFaceRecommendation?.requiresBackDepthAdjustment ? "Add this cabinet to Back?" : alternateIslandFaceRecommendation?.selectedFaceIsFull ? "Chosen island length reached" : "Clear opposite island face found"}</DialogTitle>
 	            <DialogDescription>
-	              The existing island run and all of its toe-kick, base-molding, waterfall, and other island settings will remain unchanged.
+		          The countertop automatically expands over each added island cabinet and removes coverage over each deleted island cabinet. Its selected material, overhang, waterfall, toe-kick, and base-molding settings remain unchanged.
 	            </DialogDescription>
 	          </DialogHeader>
 	          {alternateIslandFaceRecommendation && (
 	            <div data-testid="alternate-island-face-placement-recommendation" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
 	              <p className="font-semibold">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on Back after the island depth adjusts from ${formatInches(alternateIslandFaceRecommendation.currentIslandDepth ?? 0)} to ${formatInches(alternateIslandFaceRecommendation.requiredIslandDepth ?? 0)}` : alternateIslandFaceRecommendation.selectedFaceIsFull ? `The ${alternateIslandFaceRecommendation.requestedFace} run is full at ${formatInches(alternateIslandFaceRecommendation.selectedFaceLength)}` : `${alternateIslandFaceRecommendation.cabinet.masterCode} fits on the ${alternateIslandFaceRecommendation.face} island face`}</p>
-	              <p className="mt-1 text-xs leading-relaxed">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `Yes will add this ${alternateIslandFaceRecommendation.cabinet.masterCode} to Back now. The ${alternateIslandFaceRecommendation.requestedFace} run, toe kick, base molding, waterfall, seating, and countertop settings will not move.` : `Select ${alternateIslandFaceRecommendation.face} now, then choose the next cabinet for its measured ${formatInches(alternateIslandFaceRecommendation.availableLength)} run. The ${alternateIslandFaceRecommendation.requestedFace} run will not move.`}</p>
+		              <p className="mt-1 text-xs leading-relaxed">{alternateIslandFaceRecommendation.requiresBackDepthAdjustment ? `Yes will add this ${alternateIslandFaceRecommendation.cabinet.masterCode} to Back now. Its countertop coverage will be added automatically using the existing island material and treatments.` : `Select ${alternateIslandFaceRecommendation.face} now, then choose the next cabinet for its measured ${formatInches(alternateIslandFaceRecommendation.availableLength)} run. Countertop coverage will be added automatically over that cabinet.`}</p>
 	            </div>
 	          )}
 	          <DialogFooter className="gap-2 sm:gap-0">

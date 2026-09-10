@@ -766,30 +766,22 @@ export function islandCountertopRect(island: IslandZone, placed: PlacedCabinet[]
 }
 
 /**
- * A custom slab size is intentional only while its original support footprint
- * remains intact. When an island countertop-bearing cabinet is deleted, clear
- * those stale dimensions so the next render measures the surviving supports
- * instead of leaving an unsupported bridge or overhang in the scene. The
- * selected product/material, standard overhang, waterfall choice, and cabinet
- * finish belong to the island itself and remain unchanged.
+ * Reset only custom slab dimensions when the counter-bearing island cabinet
+ * set changes. The next render then measures the current supports directly,
+ * so countertop coverage grows with a new cabinet and disappears over a
+ * deleted cabinet. Product, standard overhang, waterfall, and finish remain
+ * island treatments and are intentionally preserved.
  */
-export function islandAfterCountertopSupportRemoval(
+export function synchronizeIslandCountertopFootprint(
   island: IslandZone,
   before: PlacedCabinet[],
   after: PlacedCabinet[],
 ): IslandZone {
-  const beforeSupportIds = new Set(
-    before
-      .filter((item) => isIslandAssemblyMember(item, island, before) && bearsIslandCountertop(item))
-      .map((item) => item.uid),
-  );
-  const afterSupportIds = new Set(
-    after
-      .filter((item) => isIslandAssemblyMember(item, island, after) && bearsIslandCountertop(item))
-      .map((item) => item.uid),
-  );
-  const supportWasRemoved = Array.from(beforeSupportIds).some((uid) => !afterSupportIds.has(uid));
-  if (!supportWasRemoved) return island;
+  const beforeSupports = before.filter((item) => isIslandAssemblyMember(item, island, before) && bearsIslandCountertop(item));
+  const afterSupports = after.filter((item) => isIslandAssemblyMember(item, island, after) && bearsIslandCountertop(item));
+  const beforeIds = beforeSupports.map((item) => item.uid).sort();
+  const afterIds = afterSupports.map((item) => item.uid).sort();
+  if (beforeIds.length === afterIds.length && beforeIds.every((uid, index) => uid === afterIds[index])) return island;
 
   return {
     ...island,
@@ -800,6 +792,15 @@ export function islandAfterCountertopSupportRemoval(
     countertopWidthAnchoredToZone: false,
     countertopDepthAnchoredToZone: false,
   };
+}
+
+/** Backwards-compatible deletion alias for existing consumers. */
+export function islandAfterCountertopSupportRemoval(
+  island: IslandZone,
+  before: PlacedCabinet[],
+  after: PlacedCabinet[],
+): IslandZone {
+  return synchronizeIslandCountertopFootprint(island, before, after);
 }
 
 /**

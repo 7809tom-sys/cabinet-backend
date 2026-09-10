@@ -5075,11 +5075,12 @@ export function addThreeDCrownMolding(
 ) {
   const cabinetByUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
   const segments = threeDCrownPerimeterSegments(placed, room);
-  const crownMaterialByOwner = new Map<string, THREE.MeshStandardMaterial>();
+  const crownProfileAngleRadians = Math.PI / 4;
+  const crownProfileRise = 3 * INCH;
+  const crownProfileLength = crownProfileRise * Math.SQRT2;
   for (const segment of segments) {
     const cabinet = cabinetByUid.get(segment.ownerUid);
     if (!cabinet) continue;
-    const crownHeight = 3 * INCH;
     const railThickness = 0.075;
     const ownerGroup = root.children.find((node) => node.userData.placedUid === cabinet.uid);
     let ownerFinishMaterial: THREE.MeshStandardMaterial | null = null;
@@ -5094,10 +5095,10 @@ export function addThreeDCrownMolding(
     // loading synchronized across its exposed side, toe kick, and crown.
     const material = ownerFinishMaterial
       ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
-    crownMaterialByOwner.set(segment.ownerUid, material);
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownHeight, railThickness), material);
-    rail.position.set(segment.center.x * INCH, (segment.top + 1.5) * INCH, segment.center.z * INCH);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownProfileLength, railThickness), material);
+    rail.position.set(segment.center.x * INCH, segment.top * INCH + crownProfileRise / 2, segment.center.z * INCH);
     rail.rotation.y = segment.rotation;
+    rail.rotateX(-crownProfileAngleRadians);
     rail.userData = {
       crownMolding: true,
       continuousCabinetTrim: true,
@@ -5110,46 +5111,11 @@ export function addThreeDCrownMolding(
       continuousRunOverlap: true,
       selectedFinishStructuralSurface: true,
       sharesOwnerCabinetFinishMaterial: Boolean(ownerFinishMaterial),
+      angledCrownProfile: true,
+      crownProfileAngleDegrees: 45,
+      isUprightCrownProfile: false,
     };
     root.add(rail);
-  }
-
-  // The crown return is a full triangular prism, not a thin line. Its diagonal
-  // outer face visibly joins the two rails at 45° like a field-mitered crown
-  // corner, while its footprint stays within the existing rail overlap.
-  const miterLegInches = 2.25;
-  for (const joint of threeDCrownMiterJoints(segments)) {
-    const leg = miterLegInches * INCH;
-    const crownHeight = 3 * INCH;
-    const first = { x: joint.firstDirection.x * leg, z: joint.firstDirection.z * leg };
-    const second = { x: joint.secondDirection.x * leg, z: joint.secondDirection.z * leg };
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute([
-      0, 0, 0, first.x, 0, first.z, second.x, 0, second.z,
-      0, crownHeight, 0, first.x, crownHeight, first.z, second.x, crownHeight, second.z,
-    ], 3));
-    geometry.setIndex([
-      0, 2, 1, 3, 4, 5,
-      0, 1, 4, 0, 4, 3,
-      1, 2, 5, 1, 5, 4,
-      2, 0, 3, 2, 3, 5,
-    ]);
-    geometry.computeVertexNormals();
-    const material = crownMaterialByOwner.get(joint.ownerUids[0])
-      ?? crownMaterialByOwner.get(joint.ownerUids[1])
-      ?? new THREE.MeshStandardMaterial({ color: fallbackColor, roughness: 0.58, metalness: 0.01 });
-    const returnBlock = new THREE.Mesh(geometry, material);
-    returnBlock.position.set(joint.point.x * INCH, joint.top * INCH, joint.point.z * INCH);
-    returnBlock.userData = {
-      crownMolding: true,
-      crownMiterReturn: true,
-      fullCrownMiterBlock: true,
-      exposedTopEdge: true,
-      visibleMiterAngleDegrees: joint.miterAngleDegrees,
-      miterLegInches,
-      doesNotChangeCrownTakeoff: true,
-    };
-    root.add(returnBlock);
   }
 }
 

@@ -4,6 +4,7 @@ import {
 	  ISLAND_COUNTERTOP_OVERHANG_IN,
 	  applyCabinetFinishScope,
 	  islandAfterCountertopSupportRemoval,
+	  synchronizeIslandCountertopFootprint,
 		  islandCountertopRect,
 	  islandCountertopRects,
 	  islandCountertopVisibleRects,
@@ -607,7 +608,7 @@ describe("island mini-scene geometry", () => {
 		    expect(islandCountertopRect(custom, [attached])).toEqual({ x: 20, y: 56, width: 60, depth: 30 });
 		  });
 
-		  it("rebuilds a custom island slab from the remaining cabinet after one countertop support is deleted", () => {
+		  it("removes custom slab coverage over a deleted cabinet by rebuilding from remaining supports", () => {
 		    const first = islandFacePlacement(cabinet({ uid: "first" }), island, "front", 0);
 		    const second = islandFacePlacement(cabinet({ uid: "second" }), island, "front", 24);
 		    const custom = {
@@ -638,6 +639,15 @@ describe("island mini-scene geometry", () => {
 		      countertopDepthAnchoredToZone: false,
 		    });
 		    expect(islandCountertopRect(rebuilt, [first])).toEqual({ x: 33, y: 57, width: 30, depth: 30 });
+		  });
+
+		  it("adds countertop coverage over a newly added countertop-bearing island cabinet", () => {
+		    const first = islandFacePlacement(cabinet({ uid: "first" }), island, "front", 0);
+		    const second = islandFacePlacement(cabinet({ uid: "second" }), island, "front", 24);
+		    const configured = { ...island, countertopWidth: 30, countertopDepth: 30, countertopOffsetX: 0, countertopOffsetY: 0 };
+		    const expanded = synchronizeIslandCountertopFootprint(configured, [first], [first, second]);
+
+		    expect(islandCountertopRect(expanded, [first, second])).toEqual({ x: 34.5, y: 58.5, width: 51, depth: 27 });
 		  });
 
 		  it("clears a stale custom island slab when its final countertop support is deleted", () => {
