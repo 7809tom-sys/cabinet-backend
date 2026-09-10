@@ -5080,6 +5080,41 @@ export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: Room
   return exposed;
 }
 
+function createAngledCrownRailGeometry(segment: ThreeDCrownPerimeterSegment, rise: number, thickness: number) {
+  const length = Math.max(segment.length * INCH, 0.01);
+  const directionX = (segment.end.x - segment.start.x) / Math.max(segment.length, 1e-6);
+  const directionZ = (segment.end.z - segment.start.z) / Math.max(segment.length, 1e-6);
+  const outwardX = directionZ;
+  const outwardZ = -directionX;
+  const profileThickness = thickness / Math.SQRT2;
+  const profilePoints = (x: number, z: number) => {
+    const base = [x, segment.top * INCH, z];
+    const slope = [outwardX * rise, rise, outwardZ * rise];
+    const normal = [-outwardX * profileThickness, profileThickness, -outwardZ * profileThickness];
+    return [
+      base,
+      [base[0] + slope[0], base[1] + slope[1], base[2] + slope[2]],
+      [base[0] + slope[0] + normal[0], base[1] + slope[1] + normal[1], base[2] + slope[2] + normal[2]],
+      [base[0] + normal[0], base[1] + normal[1], base[2] + normal[2]],
+    ];
+  };
+  const start = profilePoints(segment.start.x * INCH, segment.start.z * INCH);
+  const end = profilePoints(segment.end.x * INCH, segment.end.z * INCH);
+  const positions = [...start, ...end].flat();
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex([
+    0, 1, 2, 0, 2, 3,
+    4, 6, 5, 4, 7, 6,
+    0, 4, 5, 0, 5, 1,
+    1, 5, 6, 1, 6, 2,
+    2, 6, 7, 2, 7, 3,
+    3, 7, 4, 3, 4, 0,
+  ]);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export function addThreeDCrownMolding(
   root: THREE.Group,
   placed: PlacedCabinet[],
@@ -5091,7 +5126,6 @@ export function addThreeDCrownMolding(
   const segments = threeDCrownPerimeterSegments(placed, room);
   const crownProfileAngleRadians = Math.PI / 4;
   const crownProfileRise = 3 * INCH;
-  const crownProfileLength = crownProfileRise * Math.SQRT2;
   for (const segment of segments) {
     const cabinet = cabinetByUid.get(segment.ownerUid);
     if (!cabinet) continue;
@@ -5109,10 +5143,7 @@ export function addThreeDCrownMolding(
     // loading synchronized across its exposed side, toe kick, and crown.
     const material = ownerFinishMaterial
       ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(segment.length * INCH + 0.025, crownProfileLength, railThickness), material);
-    rail.position.set(segment.center.x * INCH, segment.top * INCH + crownProfileRise / 2, segment.center.z * INCH);
-    rail.rotation.y = segment.rotation;
-    rail.rotateX(-crownProfileAngleRadians);
+    const rail = new THREE.Mesh(createAngledCrownRailGeometry(segment, crownProfileRise, railThickness), material);
     rail.userData = {
       crownMolding: true,
       continuousCabinetTrim: true,
@@ -5127,6 +5158,8 @@ export function addThreeDCrownMolding(
       sharesOwnerCabinetFinishMaterial: Boolean(ownerFinishMaterial),
       angledCrownProfile: true,
       crownProfileAngleDegrees: 45,
+      crownProfileRiseInches: crownProfileRise / INCH,
+      crownProfileOutwardRunInches: crownProfileRise / INCH,
       isUprightCrownProfile: false,
     };
     root.add(rail);

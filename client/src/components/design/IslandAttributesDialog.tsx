@@ -104,7 +104,7 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
           <DialogDescription>Cabinet runs and countertop coverage update automatically.</DialogDescription>
         </DialogHeader>
 	        <details data-testid="island-advanced-dimensions" className="rounded-md border bg-muted/20 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-semibold text-[#1a2744]">Zone and slab measurements <span className="font-normal text-muted-foreground">— optional</span></summary>
+            <summary aria-label="Open optional island zone and slab measurements" title="Open optional exact zone, slab, and overhang measurements." className="cursor-pointer text-xs font-semibold text-[#1a2744]">Zone and slab measurements <span className="font-normal text-muted-foreground">— optional</span></summary>
 	          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {fields.map(({ key, label, min }) => (
               <div key={key} className="space-y-1">
@@ -218,8 +218,8 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		      <SelectItem value="both">Yes — both ends</SelectItem>
 		    </SelectContent>
 		  </Select>
-		  <details className="mt-2">
-		    <summary className="cursor-pointer text-[10px] text-muted-foreground">Show waterfall preview</summary>
+		<details className="mt-2">
+		    <summary aria-label="Show waterfall preview" title="Preview the selected waterfall end treatment." className="cursor-pointer text-[10px] text-muted-foreground">Show waterfall preview</summary>
 		    <div data-testid="island-waterfall-live-preview" role="status" aria-live="polite" className="mt-2 border border-[#d9c196] bg-white p-2">
 		    <div className="mb-2 flex items-center justify-between gap-3">
 		      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Live island preview</span>

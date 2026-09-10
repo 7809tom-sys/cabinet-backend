@@ -1835,3 +1835,5 @@
 - [x] Condense the Island Attributes popup by prioritizing primary island controls, reducing repeated guidance, and placing optional slab measurements and depth guidance in compact expandable sections without removing any available settings
 - [x] Restore reliable left-click and right-click selection for an island stove/range without changing its island placement, countertop opening, material, cart, or saved-plan behavior
 - [x] Condense every scroll-heavy Designer popup by keeping the most frequently used controls visible first and moving optional measurements, guidance, specialty treatments, and advanced configuration into compact expandable More options sections without removing any settings
+- [x] Correct the 3D crown molding body so it visibly projects at a true 45-degree angle from the cabinet top instead of rendering upright, while preserving crown takeoff, material, corner joins, cart, and saved-plan behavior
+- [x] Add concise accessible hover and keyboard-focus tooltips to compact Designer popup disclosures and icon-only controls so their functions remain clear without restoring long visible labels

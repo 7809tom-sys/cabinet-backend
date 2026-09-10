@@ -91,6 +91,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     const options = within(dialog).getByTestId("cabinet-attributes-more-options") as HTMLDetailsElement;
     expect(options.open).toBe(false);
     expect(within(dialog).getByText("More cabinet options")).toBeTruthy();
+		expect(within(dialog).getByLabelText("Open optional cabinet settings")).toBeTruthy();
 
     fireEvent.click(within(options).getByText("More cabinet options"));
     expect(options.open).toBe(true);

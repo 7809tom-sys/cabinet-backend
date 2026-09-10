@@ -38,6 +38,7 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     renderDialog();
     const options = screen.getByTestId("refrigerator-enclosure-options") as HTMLDetailsElement;
     expect(options.open).toBe(false);
+		expect(screen.getByLabelText("Open optional refrigerator enclosure settings")).toBeTruthy();
 
     fireEvent.click(screen.getByText("More enclosure options"));
     expect(options.open).toBe(true);

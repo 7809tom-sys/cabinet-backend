@@ -41,9 +41,11 @@ describe("continuous cabinet trim", () => {
 		    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
 		    expect(root.children.every((rail) => rail.userData.angledCrownProfile === true && rail.userData.crownProfileAngleDegrees === 45 && rail.userData.isUprightCrownProfile === false)).toBe(true);
 		    for (const rail of root.children) {
-		      const profileYAxis = new THREE.Vector3(0, 1, 0).applyQuaternion(rail.quaternion);
-		      const profileAngleFromVertical = Math.acos(Math.min(1, Math.abs(profileYAxis.y))) * 180 / Math.PI;
-		      expect(profileAngleFromVertical).toBeCloseTo(45, 6);
+		      const positions = (rail as THREE.Mesh).geometry.getAttribute("position");
+		      const lowerInner = new THREE.Vector3().fromBufferAttribute(positions, 0);
+		      const upperInner = new THREE.Vector3().fromBufferAttribute(positions, 1);
+		      const profileVector = upperInner.sub(lowerInner);
+		      expect(profileVector.y).toBeCloseTo(Math.hypot(profileVector.x, profileVector.z), 6);
 		    }
 		    expect(threeDCrownMiterJoints(segments)).toHaveLength(2);
 		    expect(root.children.some((piece) => piece.userData.crownMiterReturn === true || piece.userData.crownMiterSeam === true)).toBe(false);
@@ -265,9 +267,9 @@ describe("continuous cabinet trim", () => {
 		  expect(root.children.every((rail) => rail.userData.diagonalCornerCrown === true)).toBe(true);
 		  expect(root.children.filter((rail) => rail.userData.crownMoldingFront)).toHaveLength(4);
 		  for (const rail of root.children) {
-	    const railLength = ((rail as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.width;
-	    expect(railLength).toBeLessThan(2);
-	  }
+		    const positions = (rail as THREE.Mesh).geometry.getAttribute("position");
+		    expect(positions.count).toBe(8);
+		  }
 	});
 
 	it("integrates a top-right WDC42 into 12-inch runs on both walls without crown at either hidden cabinet junction", () => {

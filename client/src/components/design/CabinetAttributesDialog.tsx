@@ -407,11 +407,16 @@ export function CabinetAttributesDialog({
           </section>
 
           <details data-testid="cabinet-attributes-more-options" className="group rounded-lg border border-border bg-muted/15">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-              <span>More cabinet options</span>
-              <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Placement, finish, doors &amp; specialty settings</span>
-              <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide optional settings</span>
-            </summary>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <summary aria-label="Open optional cabinet settings" className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                  <span>More cabinet options</span>
+                  <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Placement, finish, doors &amp; specialty settings</span>
+                  <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide optional settings</span>
+                </summary>
+              </TooltipTrigger>
+              <TooltipContent>Open optional placement, finish, door, hardware, and specialty settings.</TooltipContent>
+            </Tooltip>
             <div className="space-y-3 border-t border-border px-3 py-3">
 
           {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
