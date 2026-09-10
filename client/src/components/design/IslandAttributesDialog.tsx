@@ -98,21 +98,24 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		  const structuralExcess = verifiedLimit == null ? null : Math.max(0, effectiveOverhang - verifiedLimit);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] w-[min(94vw,720px)] overflow-y-auto sm:max-w-[720px]">
-        <DialogHeader>
+      <DialogContent className="max-h-[86vh] w-[min(94vw,680px)] gap-3 overflow-y-auto p-4 sm:max-w-[680px] sm:p-5">
+        <DialogHeader className="space-y-1">
           <DialogTitle>Island attributes</DialogTitle>
-          <DialogDescription>The dashed work zone has no solid base. Real cabinets build four independent runs; one continuous slab is generated automatically and remains editable.</DialogDescription>
+          <DialogDescription>Cabinet runs and countertop coverage update automatically.</DialogDescription>
         </DialogHeader>
-	        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {fields.map(({ key, label, min }) => (
-            <div key={key} className="space-y-1">
-              <Label htmlFor={`island-${key}`} className="text-xs">{label} (in.)</Label>
-              <Input id={`island-${key}`} type="number" step="0.125" min={min} value={draft[key] ?? ""} placeholder={key.startsWith("countertop") ? "Automatic" : undefined} onChange={(event) => setNumber(key, event.target.value)} />
-            </div>
-	          ))}
-	        </div>
+	        <details data-testid="island-advanced-dimensions" className="rounded-md border bg-muted/20 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-[#1a2744]">Zone and slab measurements <span className="font-normal text-muted-foreground">— optional</span></summary>
+	          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {fields.map(({ key, label, min }) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`island-${key}`} className="text-[11px]">{label} (in.)</Label>
+                <Input className="h-8 text-sm" id={`island-${key}`} type="number" step="0.125" min={min} value={draft[key] ?? ""} placeholder={key.startsWith("countertop") ? "Automatic" : undefined} onChange={(event) => setNumber(key, event.target.value)} />
+              </div>
+            ))}
+	          </div>
+	        </details>
 	        {cabinetFinishOptions.length > 0 && (
-          <div data-testid="island-cabinet-finish-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+          <div data-testid="island-cabinet-finish-control" className="space-y-1.5 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2.5">
             <div className="space-y-1">
               <Label htmlFor="island-cabinet-finish" className="text-xs font-semibold text-[#1a2744]">Island cabinet color</Label>
               <Select
@@ -129,11 +132,11 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-[11px] text-muted-foreground">Changes every cabinet that belongs to this island while leaving the outside wall cabinet runs in their current color.</p>
+            <p className="text-[10px] text-muted-foreground">Island cabinets only.</p>
           </div>
 	        )}
 	        {countertopOptions.length > 0 && (
-	          <div data-testid="island-countertop-material-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+          <div data-testid="island-countertop-material-control" className="space-y-1.5 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2.5">
 	            <div className="space-y-1">
 	              <Label htmlFor="island-countertop-material" className="text-xs font-semibold text-[#1a2744]">Island countertop material</Label>
 	              <Select
@@ -154,13 +157,13 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 	                </SelectContent>
 	              </Select>
 	            </div>
-	            <p className="text-[11px] text-muted-foreground">Changes the island slab and waterfall material only. Countertops on the outside wall runs keep their current material.</p>
+            <p className="text-[10px] text-muted-foreground">Island slab and waterfall only.</p>
 	          </div>
 	        )}
-		        <div data-testid="island-countertop-overhang-control" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+	        <div data-testid="island-countertop-overhang-control" className="space-y-1.5 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2.5">
 	          <div className="space-y-1">
 	            <Label htmlFor="island-countertopOverhang" className="text-xs font-semibold text-[#1a2744]">Standard countertop overhang (in.)</Label>
-	            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+	            <div className="flex gap-2 sm:items-center">
 	              <Input
 	                id="island-countertopOverhang"
 	                type="number"
@@ -172,10 +175,9 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 	                placeholder="Automatic — 1.5"
 	                onChange={(event) => setNumber("countertopOverhang", event.target.value)}
 	              />
-	              <Button type="button" variant="outline" onClick={() => setDraft((current) => current ? { ...current, countertopOverhang: null } : current)}>Use 1.5 in. default</Button>
+	              <Button className="shrink-0 text-xs" type="button" variant="outline" onClick={() => setDraft((current) => current ? { ...current, countertopOverhang: null } : current)}>Use 1.5 in.</Button>
 	            </div>
 	          </div>
-	          <p className="text-[11px] text-muted-foreground">Sets the exact reveal around every automatic island slab edge. The 10-inch and 12-inch seating choices still control only the selected seating side, and waterfall panels continue to follow the finished slab. Exact slab dimensions entered above take priority.</p>
 		          {!effectiveCountertopMaterial ? (
 		            <p data-testid="island-overhang-material-unselected" className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">Select a countertop material to check its structural overhang limit.</p>
 		          ) : verifiedLimit == null ? (
@@ -186,30 +188,26 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		            <p data-testid="island-overhang-limit-within" className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-900">Selected overhang: <strong>{formatInches(effectiveOverhang)} in.</strong> Verified unsupported limit for <strong>{effectiveCountertopMaterial.name}</strong>: <strong>{formatInches(verifiedLimit)} in.</strong></p>
 		          )}
 	        </div>
-		<div data-testid="island-depth-guidance" className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3 text-xs text-[#4a3b22]">
-	          <p className="font-semibold text-[#1a2744]">Island depth guide</p>
-	          <p><strong>24 in.</strong> supports one 24-inch base-cabinet run. <strong>36 in.</strong> supports a 24-inch base run opposite a 12-inch wall-cabinet run. <strong>48 in.</strong> supports two 24-inch base runs, or a 36-inch cabinet work zone plus a 12-inch rear seating overhang. <strong>60 in.</strong> supports two 24-inch-deep cabinet runs plus a 12-inch rear seating overhang.</p>
-	          <p className="text-[11px] text-muted-foreground">Cabinets on each face must still add up to that face’s selected width; the designer keeps all cabinet runs edge-to-edge with no overlap.</p>
-	        </div>
-	        <div className="space-y-1">
-	          <Label className="text-xs">Rear seating countertop overhang</Label>
-	          <Select value={rearSeatingOverhang} onValueChange={(value) => applyRearSeatingOverhang(value as "automatic" | "12")}>
+	        <div className="grid gap-2 sm:grid-cols-2">
+	          <div className="space-y-1">
+	            <Label className="text-xs">Rear seating</Label>
+	            <Select value={rearSeatingOverhang} onValueChange={(value) => applyRearSeatingOverhang(value as "automatic" | "12")}>
 	            <SelectTrigger data-testid="island-seating-overhang"><SelectValue /></SelectTrigger>
 	            <SelectContent>
 	              <SelectItem value="automatic">Automatic standard slab</SelectItem>
 	              <SelectItem value="12">12 in. behind the back run for seating</SelectItem>
 	            </SelectContent>
-	          </Select>
-	          <p className="text-[11px] text-muted-foreground">For a finished 48-inch seating island, set the cabinet work zone to 36 inches deep, then choose the 12-inch rear overhang. For a finished 60-inch seating island, use a 48-inch cabinet work zone plus this overhang.</p>
-	        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Active placement face</Label>
-          <Select value={draft.activeFace ?? "front"} onValueChange={(value) => setDraft({ ...draft, activeFace: value as IslandFace })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="front">Front</SelectItem><SelectItem value="back">Back</SelectItem><SelectItem value="left">Left end</SelectItem><SelectItem value="right">Right end</SelectItem></SelectContent>
-          </Select>
+	            </Select>
+	          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Active placement face</Label>
+            <Select value={draft.activeFace ?? "front"} onValueChange={(value) => setDraft({ ...draft, activeFace: value as IslandFace })}>
+	          <SelectTrigger><SelectValue /></SelectTrigger>
+	          <SelectContent><SelectItem value="front">Front</SelectItem><SelectItem value="back">Back</SelectItem><SelectItem value="left">Left end</SelectItem><SelectItem value="right">Right end</SelectItem></SelectContent>
+	            </Select>
+          </div>
         </div>
-		<div data-testid="island-waterfall-prompt" className="space-y-1 rounded-lg border border-[#d9c196] bg-[#fff9ed] p-3">
+		<div data-testid="island-waterfall-prompt" className="space-y-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2.5">
 		  <Label className="text-xs font-semibold text-[#1a2744]">Add a waterfall?</Label>
 		  <Select value={draft.waterfallEnd ?? "none"} onValueChange={(value) => setDraft({ ...draft, waterfallEnd: value as "none" | "left" | "right" | "both" })}>
 		    <SelectTrigger aria-label="Island waterfall end"><SelectValue /></SelectTrigger>
@@ -220,8 +218,9 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		      <SelectItem value="both">Yes — both ends</SelectItem>
 		    </SelectContent>
 		  </Select>
-		  <p className="text-[11px] text-muted-foreground">A full-height countertop panel is added to this physical island end using the active countertop material.</p>
-		  <div data-testid="island-waterfall-live-preview" role="status" aria-live="polite" className="mt-3 border border-[#d9c196] bg-white p-3">
+		  <details className="mt-2">
+		    <summary className="cursor-pointer text-[10px] text-muted-foreground">Show waterfall preview</summary>
+		    <div data-testid="island-waterfall-live-preview" role="status" aria-live="polite" className="mt-2 border border-[#d9c196] bg-white p-2">
 		    <div className="mb-2 flex items-center justify-between gap-3">
 		      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Live island preview</span>
 		      <span className="text-[11px] text-muted-foreground">{draft.waterfallEnd === "left" ? "Waterfall: left end" : draft.waterfallEnd === "right" ? "Waterfall: right end" : draft.waterfallEnd === "both" ? "Waterfall: both ends" : "No waterfall"}</span>
@@ -238,15 +237,20 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		      </div>
 		      <span className="text-[10px] font-medium text-muted-foreground">Front</span>
 		    </div>
-		  </div>
+		    </div>
+		  </details>
 		</div>
-		<div data-testid="island-auto-depth-option" className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
-		  <div className="space-y-1">
+		<div data-testid="island-auto-depth-option" className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-2.5 py-2">
+		  <div className="space-y-0.5">
 		    <Label htmlFor="island-auto-back-depth" className="text-xs font-semibold">Auto-adjust depth for Back cabinets</Label>
-		    <p className="text-[11px] text-muted-foreground">When a deeper cabinet is added to Back, grow the work zone toward the Back side only when the room remains clear. Front cabinets and all existing island treatments stay unchanged.</p>
+		    <p className="text-[10px] text-muted-foreground">Only grows Back when room clearance allows.</p>
 		  </div>
 		  <Switch id="island-auto-back-depth" checked={draft.autoAdjustDepthForBackFace === true} onCheckedChange={(enabled) => setDraft((current) => current ? { ...current, autoAdjustDepthForBackFace: enabled } : current)} />
 		</div>
+		<details data-testid="island-depth-guidance" className="rounded-md border px-3 py-2 text-xs text-[#4a3b22]">
+		  <summary className="cursor-pointer font-semibold text-[#1a2744]">Island depth guide</summary>
+		  <p className="mt-2"><strong>24 in.</strong> supports one 24-inch base-cabinet run. <strong>36 in.</strong> supports a 24-inch base run opposite a 12-inch wall-cabinet run. <strong>48 in.</strong> supports two 24-inch base runs, or a 36-inch work zone plus a 12-inch rear seating overhang. <strong>60 in.</strong> supports two 24-inch-deep runs plus a 12-inch rear seating overhang.</p>
+		</details>
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
           <Button type="button" variant="destructive" onClick={onRemove}>Remove island</Button>
           <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={onRotate}>Rotate 90°</Button><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="button" onClick={() => onApply(draft)}>Apply</Button></div>
