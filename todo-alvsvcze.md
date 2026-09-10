@@ -1849,3 +1849,9 @@
 - [x] Prevent the WWEX Client ID and Client Secret form state from reverting to previously loaded values after a successful dedicated credential save
 - [ ] Reproduce and correct the still-reported live WWEX credential reversion by tracing the authenticated save request, database update, and reload sequence end to end
 - [x] Reproduce and fix the reported Add ZIP control failure so a valid freight-zone ZIP is added visibly and saved without affecting WWEX settings
+- [ ] Run a safe non-booking live WWEX rate check after the administrator saved credentials, and report whether freight pricing is operational
+- [ ] Verify the customer-visible freight quote by following a real shippable item through the shopping cart without placing an order, payment, or shipment
+- [ ] Configure the verified WWEX production rate endpoint for the saved live credentials and confirm a non-booking cart freight quote can return a carrier price
+- [x] Audit CabinetDealz’s Answer Engine Optimization readiness across public metadata, structured data, crawlability, product entities, and answer-oriented content before proposing changes
+- [ ] Define and implement a kitchen-first AEO and SEO architecture that leads customers through complete-kitchen planning, quoting, and ordering rather than individual cabinet shopping
+- [ ] Define and implement an affiliate-safe local SEO architecture with unique public storefront, service-area, and kitchen-project content while preventing duplicate or thin pages
