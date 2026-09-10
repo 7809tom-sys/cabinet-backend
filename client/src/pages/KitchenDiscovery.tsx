@@ -33,6 +33,25 @@ const KITCHEN_PATHS: Array<{
   },
 ];
 
+const KITCHEN_FAQS = [
+  {
+    question: "How do I start planning a complete kitchen?",
+    answer: "Start with a kitchen look, then explore a package or build your layout in the kitchen designer.",
+  },
+  {
+    question: "Can I begin with a ready-to-customize kitchen package?",
+    answer: "Yes. Kitchen Packages provide a ready-to-customize starting point that you can use before moving into the design process.",
+  },
+  {
+    question: "What should I have before I begin a kitchen design?",
+    answer: "You can start with a kitchen style or package. Room measurements help you organize the layout when you open the kitchen designer.",
+  },
+  {
+    question: "When should I request a kitchen quote?",
+    answer: "Request a quote after you have selected the kitchen direction, package, or layout you want to discuss for the complete project.",
+  },
+] as const;
+
 function publicOrigin(): string {
   return typeof window === "undefined" ? "https://www.cabinetdealz.com" : window.location.origin;
 }
@@ -59,6 +78,7 @@ export default function KitchenDiscovery({ affiliateSlug }: KitchenDiscoveryProp
       journeyBasePath: affiliateSlug ? basePath : undefined,
       name: title,
       description,
+      faqs: KITCHEN_FAQS.map((faq) => ({ ...faq })),
     }),
     [basePath, description, origin, title],
   );
@@ -179,6 +199,24 @@ export default function KitchenDiscovery({ affiliateSlug }: KitchenDiscoveryProp
               <Ruler className="h-4 w-4" /> Open Kitchen Designer <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
+        </div>
+      </section>
+
+      <section className="border-t border-border bg-muted/35 py-12 sm:py-16" aria-labelledby="kitchen-questions-title">
+        <div className="container max-w-4xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Kitchen planning answers</p>
+          <h2 id="kitchen-questions-title" className="mt-2 font-serif text-3xl font-bold tracking-tight sm:text-4xl">Questions people ask before planning a kitchen.</h2>
+          <div className="mt-8 divide-y divide-border border-y border-border">
+            {KITCHEN_FAQS.map((faq) => (
+              <details key={faq.question} className="group py-5">
+                <summary className="cursor-pointer list-none pr-10 font-serif text-xl font-bold marker:hidden">
+                  {faq.question}
+                  <span className="float-right text-primary transition-transform duration-200 group-open:rotate-45" aria-hidden="true">+</span>
+                </summary>
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
     </div>

@@ -112,6 +112,7 @@ export function buildKitchenDiscoveryJsonLd(input: {
   journeyBasePath?: string;
   name: string;
   description: string;
+  faqs?: Array<{ question: string; answer: string }>;
 }): Record<string, unknown> {
   const path = input.path || "/kitchens";
   const url = `${input.origin.replace(/\/$/, "")}${path}`;
@@ -144,6 +145,20 @@ export function buildKitchenDiscoveryJsonLd(input: {
           url: `${input.origin.replace(/\/$/, "")}${entry.path}`,
         })),
       },
+      ...(input.faqs?.length
+        ? [{
+            "@type": "FAQPage",
+            "@id": `${url}#faq`,
+            mainEntity: input.faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.answer,
+              },
+            })),
+          }]
+        : []),
     ],
   };
 }

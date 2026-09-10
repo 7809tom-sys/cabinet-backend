@@ -1859,3 +1859,4 @@
 - [x] Add a public kitchen-first discovery hub that guides customers from kitchen style and package selection into design and quote paths
 - [x] Add verified affiliate-specific storefront metadata and schema that accurately represents each affiliate’s public business and service information
 - [x] Make kitchen-first structured-data journey URLs and affiliate sitemap entries resolve only to valid branded storefront routes
+- [x] Add factual complete-kitchen planning answers and matching FAQ structured data to the public kitchen discovery hub and affiliate equivalents

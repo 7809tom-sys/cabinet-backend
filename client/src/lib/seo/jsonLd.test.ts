@@ -78,4 +78,26 @@ describe("buildKitchenDiscoveryJsonLd", () => {
       "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/order",
     ]);
   });
+
+  it("publishes only the displayed kitchen-planning answers in FAQ schema", () => {
+    const faqs = [{
+      question: "How do I start planning a complete kitchen?",
+      answer: "Start with a kitchen look, then explore a package or build your layout in the kitchen designer.",
+    }];
+    const ld = buildKitchenDiscoveryJsonLd({
+      origin: "https://www.cabinetdealz.com",
+      name: "Plan Your Complete Kitchen",
+      description: "Plan a kitchen from style to quote.",
+      faqs,
+    });
+    const graph = ld["@graph"] as Array<Record<string, unknown>>;
+    const faq = graph.find((node) => node["@type"] === "FAQPage")!;
+
+    expect(faq.mainEntity).toEqual([{
+      "@type": "Question",
+      name: faqs[0].question,
+      acceptedAnswer: { "@type": "Answer", text: faqs[0].answer },
+    }]);
+    expect(JSON.stringify(ld)).not.toContain("price");
+  });
 });
