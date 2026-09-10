@@ -14,6 +14,7 @@ import {
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -95,7 +96,7 @@ import {
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
           isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
-  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
+	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
@@ -427,7 +428,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setVerifiedName((user as { name?: string | null } | null)?.name ?? "Administrator");
     setVerified(true);
   }, [isAdmin, loadDesignId, user, verified]);
-  // Optional bundle deal to pre-load (?bundleId=<id>), e.g. from the Bundle Deals page.
+  // Optional kitchen package to pre-load (?bundleId=<id>), e.g. from the Kitchen Packages page.
   const bundleIdParam = useMemo(() => {
     const v = new URLSearchParams(search).get("bundleId");
     const n = v ? Number(v) : NaN;
@@ -7088,7 +7089,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
 
-  // Load a bundle deal from ?bundleId=<id> (e.g. opened from the Bundle Deals page).
+  // Load a kitchen package from ?bundleId=<id> (e.g. opened from the Kitchen Packages page).
   const loadedBundleRef = useRef<number | null>(null);
   useEffect(() => {
     if (bundleIdParam == null || !bundleData || loadedBundleRef.current === bundleIdParam) return;
@@ -7620,7 +7621,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     onError: (e) => toast.error("Rename failed", { description: e.message }),
   });
   const [loadSignal, setLoadSignal] = useState(0);
-  // Bundle Deal save dialog (admin only)
+  // Kitchen Package save dialog (admin only)
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
   const [bundleName, setBundleName] = useState("");
   const [bundleDesc, setBundleDesc] = useState("");
@@ -7633,7 +7634,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           await uploadBundleFloorPlanMut.mutateAsync({ bundleId: res.id, imageBase64: floorPlanDataUrl });
         }
       } catch { /* floor plan upload is best-effort */ }
-      toast.success("Bundle Deal saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Bundle Deals to publish it.` });
+      toast.success("Kitchen Package saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Kitchen Packages to publish it.` });
       setBundleDialogOpen(false);
       setBundleName("");
       setBundleDesc("");
@@ -8740,7 +8741,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors disabled:opacity-50"
                     >
                       <PackageOpen className="h-4 w-4 shrink-0" />
-                      <span className="flex-1 text-left">Save as Bundle Deal</span>
+                      <span className="flex-1 text-left">Save as Kitchen Package</span>
                     </button>
                   )}
                   {canAffiliatePriceShop && (
@@ -9173,7 +9174,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     onSelect={() => setBundleDialogOpen(true)}
                     className="text-purple-600 font-medium"
                   >
-                    <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Bundle Deal
+                    <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Kitchen Package
                   </DropdownMenuItem>
 	                </>
 	              )}
@@ -9741,15 +9742,68 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  <p>{selectedCabWallFitText}</p>
 	                </div>}
 
-	                {/* Door & Drawer Layout diagram — shown immediately after cabinet header */}
-                {!selectedCab.noDoor && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
-                    <div className="flex justify-center">
-                      <DoorDrawerDiagram cabinet={selectedCab} width={220} />
+
+                <div className="rounded-xl border border-border bg-muted/30 p-3" data-testid="mobile-cabinet-door-hardware">
+                  <div className="mb-3 text-sm font-semibold text-foreground">Door &amp; hardware</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Remove door</div>
+                      <p className="text-[11px] text-muted-foreground">Order as an open unit with no door front.</p>
                     </div>
+                    <Switch
+                      checked={Boolean(selectedCab.noDoor)}
+                      onCheckedChange={(value) => setNoDoorFor(selectedCab.uid, value)}
+                      aria-label="Remove door"
+                    />
                   </div>
-                )}
+
+                  <div className={`mt-3 space-y-2 border-t border-border pt-3 ${selectedCab.noDoor ? "pointer-events-none opacity-40" : ""}`}>
+                    <div className="text-sm font-medium text-foreground">Door swing (hinge side)</div>
+                    {resolveSwing(selectedCab) === "double" ? (
+                      <p className="text-[11px] text-muted-foreground">Double doors open from the center.</p>
+                    ) : hasDoorSwing(selectedCab) ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant={resolveSwing(selectedCab) === "left" ? "default" : "outline"} size="sm" className="h-8" onClick={() => setSwingFor(selectedCab.uid, "left")}>Left hinge</Button>
+                        <Button variant={resolveSwing(selectedCab) === "right" ? "default" : "outline"} size="sm" className="h-8" onClick={() => setSwingFor(selectedCab.uid, "right")}>Right hinge</Button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">This cabinet has no hinged door to reverse.</p>
+                    )}
+                  </div>
+
+                  <div className={`mt-3 space-y-2 border-t border-border pt-3 ${selectedCab.noDoor ? "pointer-events-none opacity-40" : ""}`}>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Hardware placement</div>
+                      <p className="text-[11px] text-muted-foreground">Automatic follows the opening edge; drawer pulls stay centered.</p>
+                    </div>
+	                    <div className="grid grid-cols-3 gap-2">
+	                      <Button variant={resolveCabinetHardwarePosition(selectedCab) === "auto" ? "default" : "outline"} size="sm" className="h-8" onClick={() => setHandleSideFor(selectedCab.uid, "auto")}>Automatic</Button>
+	                      <Button variant={resolveCabinetHardwarePosition(selectedCab) === "left" ? "default" : "outline"} size="sm" className="h-8" onClick={() => setHandleSideFor(selectedCab.uid, "left")}>Left</Button>
+	                      <Button variant={resolveCabinetHardwarePosition(selectedCab) === "right" ? "default" : "outline"} size="sm" className="h-8" onClick={() => setHandleSideFor(selectedCab.uid, "right")}>Right</Button>
+	                    </div>
+	                    {usesRaisedFloorWallDoorPull(selectedCab) && (
+	                      <p className="rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2 text-[11px] text-muted-foreground dark:border-emerald-800 dark:bg-emerald-950/20">
+	                        Upward door pulls are automatic for this floor-seated wall cabinet.
+	                      </p>
+	                    )}
+	                    {supportsCenteredTopDoorPull(selectedCab) && !usesRaisedFloorWallDoorPull(selectedCab) && (
+	                      <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/20">
+	                        <div>
+	                          <div className="text-sm font-semibold text-foreground">Raise door handle</div>
+	                          <p className="text-[11px] text-muted-foreground">B15/B18 only.</p>
+	                        </div>
+	                        <Switch
+	                          checked={resolveCabinetHardwarePosition(selectedCab) === "top-center"}
+	                          aria-label="Move B15/B18 door handle to top center"
+	                          onCheckedChange={(checked) => setHandleSideFor(selectedCab.uid, checked ? "top-center" : "auto")}
+	                        />
+	                      </div>
+	                    )}
+	                    {resolveSwing(selectedCab) === "double" && (
+	                      <Button variant={resolveCabinetHardwarePosition(selectedCab) === "paired" ? "default" : "outline"} size="sm" className="h-8 w-full" onClick={() => setHandleSideFor(selectedCab.uid, "paired")}>Paired doors — pulls at the center meeting edge</Button>
+	                    )}
+	                  </div>
+                </div>
 
                 <div className="rounded-xl border border-border bg-muted/30 p-3">
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -13179,21 +13233,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </DialogContent>
       </Dialog>
 
-      {/* Bundle Deal save dialog (admin only) */}
+      {/* Kitchen Package save dialog (admin only) */}
       {isAdmin && (
         <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <PackageOpen className="h-5 w-5 text-purple-600" /> Save as Bundle Deal
+                <PackageOpen className="h-5 w-5 text-purple-600" /> Save as Kitchen Package
               </DialogTitle>
               <DialogDescription>
-                Save this design as a publishable Bundle Deal. Customers can browse it and load it into the designer to customize.
+                Save this design as a publishable Kitchen Package. Customers can browse it and load it into the designer to customize.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="bundle-name">Bundle Name <span className="text-destructive">*</span></Label>
+                <Label htmlFor="bundle-name">Kitchen Package Name <span className="text-destructive">*</span></Label>
                 <Input
                   id="bundle-name"
                   value={bundleName}
@@ -13219,7 +13273,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {total > 0 && <div className="flex justify-between"><span>Homeowner price:</span><span className="font-medium text-foreground">${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>}
                 {activeStyleName && <div className="flex justify-between"><span>Style:</span><span className="font-medium text-foreground">{activeStyleName}</span></div>}
               </div>
-              <p className="text-xs text-muted-foreground">The bundle will be saved as <strong>unpublished</strong>. Go to Admin → Bundle Deals to review and publish it.</p>
+              <p className="text-xs text-muted-foreground">The package will be saved as <strong>unpublished</strong>. Go to Admin → Kitchen Packages to review and publish it.</p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setBundleDialogOpen(false)}>Cancel</Button>
@@ -13229,7 +13283,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
               >
                 <PackageOpen className={`h-4 w-4${saveBundleMut.isPending ? " animate-spin" : ""}`} />
-                Save Bundle Deal
+                Save Kitchen Package
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -89,4 +89,19 @@ describe("designer toolbar layout", () => {
     expect(source).toContain('aria-label="Open Floor Plan and Room Size"');
     expect(source).toContain("<RoomSizeControl");
   });
+
+  it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {
+    const sheetStart = source.indexOf("{isMobile && selectedCab && !drawMode && !measureMode && (");
+    const sheetEnd = source.indexOf("<WallPicker onPick={snapSelectedToWall}", sheetStart);
+    const mobileCabinetSheet = source.slice(sheetStart, sheetEnd);
+
+    expect(sheetStart).toBeGreaterThan(-1);
+    expect(sheetEnd).toBeGreaterThan(sheetStart);
+    expect(mobileCabinetSheet).toContain('data-testid="mobile-cabinet-door-hardware"');
+    expect(mobileCabinetSheet).toContain("Door &amp; hardware");
+    expect(mobileCabinetSheet).toContain('aria-label="Remove door"');
+    expect(mobileCabinetSheet).toContain("supportsCenteredTopDoorPull(selectedCab)");
+    expect(mobileCabinetSheet).toContain("usesRaisedFloorWallDoorPull(selectedCab)");
+    expect(mobileCabinetSheet).not.toContain("DoorDrawerDiagram");
+  });
 });

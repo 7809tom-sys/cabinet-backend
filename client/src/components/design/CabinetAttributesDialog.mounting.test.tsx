@@ -92,11 +92,14 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(options.open).toBe(false);
     expect(within(dialog).getByText("More cabinet options")).toBeTruthy();
 		expect(within(dialog).getByLabelText("Open optional cabinet settings")).toBeTruthy();
+		expect(within(dialog).getByTestId("cabinet-attributes-door-hardware")).toBeTruthy();
+		expect(within(dialog).getByText("Hardware placement")).toBeTruthy();
+		expect(within(dialog).queryByText("Door & Drawer Layout")).toBeNull();
 
     fireEvent.click(within(options).getByText("More cabinet options"));
     expect(options.open).toBe(true);
     expect(within(options).getByText("Elevation position")).toBeTruthy();
-    expect(within(options).getByText("Hardware placement")).toBeTruthy();
+    expect(within(options).queryByText("Hardware placement")).toBeNull();
   });
 
   it("exposes right-click up/down mounting controls and sends the selected height", () => {

@@ -58,7 +58,7 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
     const query = new URLSearchParams({ bundleId: String(id) });
     if (affiliateSlug) query.set("affiliate", affiliateSlug);
     navigate(`/design?${query.toString()}`);
-    toast.success("Loading bundle into designer…");
+    toast.success("Loading kitchen package into designer…");
   };
 
   const designFromScratch = () => {
@@ -110,7 +110,7 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
         ) : bundles.isError ? (
           <div className="text-center py-20 text-muted-foreground">
             <PackageOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Unable to load bundle deals. Please try again.</p>
+            <p>Unable to load kitchen packages. Please try again.</p>
             <Button variant="outline" className="mt-4" onClick={() => bundles.refetch()}>Retry</Button>
           </div>
         ) : !bundles.data || bundles.data.length === 0 ? (

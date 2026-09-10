@@ -6,20 +6,21 @@ const homeSource = readFileSync(resolve(process.cwd(), "client/src/pages/Home.ts
 const welcomeSource = readFileSync(resolve(process.cwd(), "client/src/components/home/HomepageWelcomeBanner.tsx"), "utf8");
 
 describe("B2B homepage hierarchy", () => {
-  it("keeps Shop Cabinets as the single emphasized hero action", () => {
-    expect(homeSource).toContain('Shop Cabinets');
+  it("keeps complete-kitchen planning primary and uses Kitchen Packages as the single offering label", () => {
+    expect(homeSource).toContain('Plan a Complete Kitchen');
     expect(homeSource).toContain('bg-[var(--color-gold)] text-[var(--color-navy)]');
-    expect(homeSource).toContain('Bundle Deals');
+    expect(homeSource).toContain('Kitchen Packages');
+    expect(homeSource).not.toContain('Bundle Deals');
     expect(homeSource).toContain('variant="outline" className="border-white/80 text-white');
     expect(welcomeSource).toContain('variant="ghost"');
   });
 
-  it("uses stronger secondary actions and concise trade-platform hero copy", () => {
+  it("uses stronger secondary actions and concise complete-kitchen hero copy", () => {
     expect(homeSource).toContain('Surfaces & Fixtures');
     expect(homeSource).toContain("Plumber's Choice");
     expect(homeSource).toContain('border-white/80 text-white');
-    expect(homeSource).toContain('Source cabinets, surfaces, fixtures, and a complete kitchen plan from one trade-ready platform.');
-    expect(homeSource).toContain('text-3xl md:text-4xl font-bold text-[var(--color-gold)]');
+    expect(homeSource).toContain('Start with a complete kitchen idea, select a style and package, then customize the layout, surfaces, fixtures, and quote for your space.');
+    expect(homeSource).toContain('font-serif text-4xl md:text-5xl lg:text-6xl font-bold');
   });
 
   it("labels featured styles only with the verified active-catalog state and presents affiliate benefits in a responsive grid", () => {

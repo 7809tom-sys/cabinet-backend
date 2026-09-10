@@ -263,7 +263,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
         </div>
 
-        {/* ─── Bundle Deals promo band ─────────────────────────────────── */}
+        {/* ─── Kitchen Packages promo band ─────────────────────────────── */}
         <section id="bundles" className="py-14 md:py-16 border-b border-border">
           <div className="container">
             <div className="flex flex-col md:flex-row md:items-center gap-8">
@@ -273,14 +273,14 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                   <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>Pre-Designed Packages</span>
                 </div>
                 <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>
-                  Ready-to-Order Bundle Deals
+                  Ready-to-Customize Kitchen Packages
                 </h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Browse complete kitchen packages with floor plans, pricing, and cabinet counts. Customize any bundle to fit your space and order in minutes.
+                  Browse complete kitchen packages with floor plans, pricing, and cabinet counts. Customize any package to fit your space and order in minutes.
                 </p>
                 <Link href={withRef(`/store/${data.slug}/bundles`)}>
                   <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
-                    <PackageOpen className="h-4 w-4" /> View Bundle Deals <ArrowRight className="h-4 w-4" />
+                    <PackageOpen className="h-4 w-4" /> View Kitchen Packages <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </div>

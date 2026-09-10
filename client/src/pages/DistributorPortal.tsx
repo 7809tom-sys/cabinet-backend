@@ -213,7 +213,7 @@ export default function DistributorPortal() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="bundles">
-                <PackageOpen className="mr-1.5 h-4 w-4" /> Bundle Deals
+                <PackageOpen className="mr-1.5 h-4 w-4" /> Kitchen Packages
               </TabsTrigger>
             </TabsList>
 

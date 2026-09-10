@@ -68,7 +68,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Wrench, label: "Installation Estimates", section: "installation" },
   { icon: Palette, label: "Customize Store", section: "customize" },
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
-  { icon: PackageOpen, label: "Bundle Deals", section: "bundles" },
+  { icon: PackageOpen, label: "Kitchen Packages", section: "bundles" },
   { icon: Puzzle, label: "Plugins & Add-ons", section: "plugins" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
   { icon: Users, label: "My Team", section: "team" },

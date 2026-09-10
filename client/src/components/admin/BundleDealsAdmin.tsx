@@ -22,7 +22,7 @@ export default function BundleDealsAdmin() {
   const deleteMut = trpc.priceShop.deleteBundleDeal.useMutation({
     onSuccess: () => {
       utils.priceShop.listBundleDeals.invalidate();
-      toast.success("Bundle deleted");
+      toast.success("Kitchen Package deleted");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -33,7 +33,7 @@ export default function BundleDealsAdmin() {
     return (
       <div className="p-6 text-center text-muted-foreground">
         <PackageOpen className="h-8 w-8 mx-auto mb-2 animate-pulse opacity-40" />
-        Loading bundles…
+        Loading kitchen packages…
       </div>
     );
   }
@@ -42,9 +42,9 @@ export default function BundleDealsAdmin() {
     return (
       <div className="p-8 text-center text-muted-foreground">
         <PackageOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
-        <h3 className="font-semibold text-foreground mb-1">No Bundle Deals Yet</h3>
+        <h3 className="font-semibold text-foreground mb-1">No Kitchen Packages Yet</h3>
         <p className="text-sm max-w-sm mx-auto">
-          Open the Design Tool, create a kitchen layout, then use the More ▾ menu → "Save as Bundle Deal" to create your first bundle.
+          Open the Design Tool, create a kitchen layout, then use the More ▾ menu → "Save as Kitchen Package" to create your first package.
         </p>
       </div>
     );
@@ -53,7 +53,7 @@ export default function BundleDealsAdmin() {
   return (
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-muted-foreground">{bundles.data.length} bundle{bundles.data.length !== 1 ? "s" : ""} total</p>
+        <p className="text-sm text-muted-foreground">{bundles.data.length} kitchen package{bundles.data.length !== 1 ? "s" : ""} total</p>
         <a href="/bundles" target="_blank" rel="noopener noreferrer">
           <Button variant="outline" size="sm" className="gap-1.5 text-xs">
             <ExternalLink className="h-3 w-3" /> View Storefront
@@ -148,9 +148,9 @@ export default function BundleDealsAdmin() {
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Bundle Deal?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Kitchen Package?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the bundle from the storefront. This action cannot be undone.
+              This will permanently remove the kitchen package from the storefront. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

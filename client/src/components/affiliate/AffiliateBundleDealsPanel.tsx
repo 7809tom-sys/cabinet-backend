@@ -22,7 +22,7 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
   const deleteMut = trpc.priceShop.deleteBundleDeal.useMutation({
     onSuccess: () => {
       utils.priceShop.listBundleDeals.invalidate();
-      toast.success("Bundle deleted");
+      toast.success("Kitchen Package deleted");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -32,7 +32,7 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold">Bundle Deals</h2>
+        <h2 className="text-xl font-bold">Kitchen Packages</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Create pre-designed kitchen packages for your storefront. Customers can browse, customize, and order complete kitchens in minutes.
         </p>
@@ -41,20 +41,20 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
       {bundles.isLoading ? (
         <div className="p-6 text-center text-muted-foreground">
           <PackageOpen className="h-8 w-8 mx-auto mb-2 animate-pulse opacity-40" />
-          Loading bundles…
+          Loading kitchen packages…
         </div>
       ) : !bundles.data || bundles.data.length === 0 ? (
         <div className="p-8 text-center text-muted-foreground rounded-xl border border-dashed border-border">
           <PackageOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
-          <h3 className="font-semibold text-foreground mb-1">No Bundle Deals Yet</h3>
+          <h3 className="font-semibold text-foreground mb-1">No Kitchen Packages Yet</h3>
           <p className="text-sm max-w-sm mx-auto">
-            Open the Design Tool, create a kitchen layout, then use the More menu → "Save as Bundle Deal" to create your first bundle.
+            Open the Design Tool, create a kitchen layout, then use the More menu → "Save as Kitchen Package" to create your first package.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{bundles.data.length} bundle{bundles.data.length !== 1 ? "s" : ""} total</p>
+            <p className="text-sm text-muted-foreground">{bundles.data.length} kitchen package{bundles.data.length !== 1 ? "s" : ""} total</p>
           </div>
 
           {bundles.data.map((bundle) => (
@@ -148,9 +148,9 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Bundle Deal?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Kitchen Package?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the bundle from your storefront. This action cannot be undone.
+              This will permanently remove the kitchen package from your storefront. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -7,10 +7,10 @@ const mobileSaveSection = source.slice(
   source.indexOf("{/* Section popup launchers"),
 );
 
-describe("mobile Bundle Deal save action", () => {
-  it("offers administrators the same Save as Bundle Deal action as desktop", () => {
+describe("mobile Kitchen Package save action", () => {
+  it("offers administrators the same Save as Kitchen Package action as desktop", () => {
     expect(mobileSaveSection).toContain("{isAdmin && (");
-    expect(mobileSaveSection).toContain("Save as Bundle Deal");
+    expect(mobileSaveSection).toContain("Save as Kitchen Package");
     expect(mobileSaveSection).toContain("setBundleDialogOpen(true)");
   });
 });

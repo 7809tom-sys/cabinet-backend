@@ -52,7 +52,6 @@ import {
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
-import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
 import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
 import { trpc } from "@/lib/trpc";
@@ -406,16 +405,107 @@ export function CabinetAttributesDialog({
             })()}
           </section>
 
+          <section className="space-y-3 border-t border-border pt-3" data-testid="cabinet-attributes-door-hardware">
+            <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                {noDoor ? (
+                  <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <DoorClosed className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <div className="min-w-0">
+                  <Label className="text-sm">{t("dt_ca_remove_door")}</Label>
+                  <p className="text-[11px] text-muted-foreground">{t("dt_ca_remove_door_hint")}</p>
+                </div>
+              </div>
+              <Switch
+                checked={noDoor}
+                onCheckedChange={(value) => onSetNoDoor(uid, value)}
+                aria-label={t("dt_ca_remove_door")}
+              />
+            </div>
+
+            <div className={cn("space-y-1.5", noDoor && "pointer-events-none opacity-40")}>
+              <Label className="text-sm">{t("dt_ca_door_swing")}</Label>
+              {isDouble ? (
+                <p className="text-[11px] text-muted-foreground">{t("dt_ca_double_hint")}</p>
+              ) : !hasDoorSwing(cabinet) ? (
+                <p className="text-[11px] text-muted-foreground">{t("dt_ca_no_hinged")}</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant={swing === "left" ? "default" : "outline"} size="sm" className="h-8" disabled={!canSwing} onClick={() => onSetSwing(uid, "left")}>
+                    {t("dt_ca_left_hinge")}
+                  </Button>
+                  <Button type="button" variant={swing === "right" ? "default" : "outline"} size="sm" className="h-8" disabled={!canSwing} onClick={() => onSetSwing(uid, "right")}>
+                    {t("dt_ca_right_hinge")}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className={cn("space-y-1.5", noDoor && "pointer-events-none opacity-40")}>
+              <div>
+                <Label className="text-sm">Hardware placement</Label>
+                <p className="text-[11px] text-muted-foreground">Every door pull or knob stays centered on its 3-inch frame, exactly 1.5 inches from the selected edge. Automatic uses the opening edge opposite the hinge; every drawer pull stays centered automatically.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" variant={hardwarePosition === "auto" ? "default" : "outline"} size="sm" className="h-8" disabled={noDoor} onClick={() => onSetHandleSide(uid, "auto")}>Automatic</Button>
+                <Button type="button" variant={hardwarePosition === "left" ? "default" : "outline"} size="sm" className="h-8" disabled={noDoor} onClick={() => onSetHandleSide(uid, "left")}>{t("dt_ca_left")}</Button>
+                <Button type="button" variant={hardwarePosition === "right" ? "default" : "outline"} size="sm" className="h-8" disabled={noDoor} onClick={() => onSetHandleSide(uid, "right")}>{t("dt_ca_right")}</Button>
+              </div>
+              {usesAutomaticRaisedPull && (
+                <p className="rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2 text-[11px] text-muted-foreground dark:border-emerald-800 dark:bg-emerald-950/20" data-testid="automatic-raised-floor-wall-pull">
+                  This floor-seated wall cabinet keeps each vertical pull on its existing hinge-aware door rail and positions it upward automatically.
+                </p>
+              )}
+              {canUseCenteredTopPull && !usesAutomaticRaisedPull && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/20">
+                  <div>
+                    <Label className="text-sm font-semibold">Raise door handle on its rail</Label>
+                    <p className="text-[11px] text-muted-foreground">B15/B18 only.</p>
+                  </div>
+                  <Switch checked={hardwarePosition === "top-center"} disabled={noDoor} aria-label="Move B15/B18 door handle to top center" onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")} />
+                </div>
+              )}
+              {isDouble && (
+                <Button type="button" variant={hardwarePosition === "paired" ? "default" : "outline"} size="sm" className="h-8 w-full" disabled={noDoor} onClick={() => onSetHandleSide(uid, "paired")}>
+                  Paired doors — pulls at the center meeting edge
+                </Button>
+              )}
+              {onApplyHandleSideToAll && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="secondary" size="sm" className="h-9 w-full" disabled={noDoor || hardwareApplyCount === 0}>Apply to All Cabinets</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apply this door hardware position to all cabinets?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will apply {hardwarePosition === "auto" ? "Automatic" : hardwarePosition === "paired" ? "Paired doors" : hardwarePosition[0]!.toUpperCase() + hardwarePosition.slice(1)} to {hardwareApplyCount} eligible cabinet{hardwareApplyCount === 1 ? "" : "s"}. Open cabinets, appliances, panels, and drawer-only cabinets are skipped. Every drawer pull remains centered automatically.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onApplyHandleSideToAll(hardwarePosition)}>Apply to {hardwareApplyCount} cabinet{hardwareApplyCount === 1 ? "" : "s"}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          </section>
+
           <details data-testid="cabinet-attributes-more-options" className="group rounded-lg border border-border bg-muted/15">
             <Tooltip>
               <TooltipTrigger asChild>
                 <summary aria-label="Open optional cabinet settings" className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                   <span>More cabinet options</span>
-                  <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Placement, finish, doors &amp; specialty settings</span>
+                  <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Placement, finish &amp; specialty settings</span>
                   <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide optional settings</span>
                 </summary>
               </TooltipTrigger>
-              <TooltipContent>Open optional placement, finish, door, hardware, and specialty settings.</TooltipContent>
+              <TooltipContent>Open optional placement, finish, and specialty settings.</TooltipContent>
             </Tooltip>
             <div className="space-y-3 border-t border-border px-3 py-3">
 
@@ -711,171 +801,6 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {/* Door */}
-          <section className="space-y-3 border-t border-border pt-4">
-            <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>
-
-            {/* Remove door */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {noDoor ? (
-                  <DoorOpen className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <DoorClosed className="h-4 w-4 text-muted-foreground" />
-                )}
-                <div>
-                  <Label className="text-sm">{t("dt_ca_remove_door")}</Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t("dt_ca_remove_door_hint")}
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={noDoor}
-                onCheckedChange={(v) => onSetNoDoor(uid, v)}
-                aria-label={t("dt_ca_remove_door")}
-              />
-            </div>
-
-            {/* Door swing */}
-            <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-              <Label className="text-sm">{t("dt_ca_door_swing")}</Label>
-              {isDouble ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {t("dt_ca_double_hint")}
-                </p>
-              ) : !hasDoorSwing(cabinet) ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {t("dt_ca_no_hinged")}
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={swing === "left" ? "default" : "outline"}
-                    size="sm"
-                    className="h-8"
-                    disabled={!canSwing}
-                    onClick={() => onSetSwing(uid, "left")}
-                  >
-                    {t("dt_ca_left_hinge")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={swing === "right" ? "default" : "outline"}
-                    size="sm"
-                    className="h-8"
-                    disabled={!canSwing}
-                    onClick={() => onSetSwing(uid, "right")}
-                  >
-                    {t("dt_ca_right_hinge")}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Hardware position */}
-            <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-              <div>
-                <Label className="text-sm">Hardware placement</Label>
-                <p className="text-[11px] text-muted-foreground">Every door pull or knob stays centered on its 3-inch frame, exactly 1.5 inches from the selected edge. Automatic uses the opening edge opposite the hinge; every drawer pull stays centered automatically.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "auto" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "auto")}
-                >
-                  Automatic
-                </Button>
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "left" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "left")}
-                >
-                  {t("dt_ca_left")}
-                </Button>
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "right" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "right")}
-                >
-                  {t("dt_ca_right")}
-                </Button>
-              </div>
-              {usesAutomaticRaisedPull && (
-                <div className="rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-950/20" data-testid="automatic-raised-floor-wall-pull">
-                  <Label className="text-sm font-semibold">Upward door pull is automatic</Label>
-                  <p className="text-[11px] text-muted-foreground">This floor-seated wall cabinet keeps each vertical pull on its existing hinge-aware door rail and positions it upward automatically.</p>
-                </div>
-              )}
-              {canUseCenteredTopPull && !usesAutomaticRaisedPull && (
-                <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
-                  <div>
-                    <Label className="text-sm font-semibold">Raise door handle on its rail</Label>
-                    <p className="text-[11px] text-muted-foreground">B15/B18 only — moves the door handle to the centered top rail.</p>
-                  </div>
-                  <Switch
-                    checked={hardwarePosition === "top-center"}
-                    disabled={noDoor}
-                    aria-label="Move B15/B18 door handle to top center"
-                    onCheckedChange={(checked) => onSetHandleSide(uid, checked ? "top-center" : "auto")}
-                  />
-                </div>
-              )}
-              {isDouble && (
-                <Button
-                  type="button"
-                  variant={hardwarePosition === "paired" ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 w-full"
-                  disabled={noDoor}
-                  onClick={() => onSetHandleSide(uid, "paired")}
-                >
-                  Paired doors — pulls at the center meeting edge
-                </Button>
-              )}
-              {onApplyHandleSideToAll && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-9 w-full"
-                      disabled={noDoor || hardwareApplyCount === 0}
-                    >
-                      Apply to All Cabinets
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Apply this door hardware position to all cabinets?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will apply {hardwarePosition === "auto" ? "Automatic" : hardwarePosition === "paired" ? "Paired doors" : hardwarePosition[0]!.toUpperCase() + hardwarePosition.slice(1)} to {hardwareApplyCount} eligible cabinet{hardwareApplyCount === 1 ? "" : "s"}. Open cabinets, appliances, panels, and drawer-only cabinets are skipped. Every drawer pull remains centered automatically.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onApplyHandleSideToAll(hardwarePosition)}>
-                        Apply to {hardwareApplyCount} cabinet{hardwareApplyCount === 1 ? "" : "s"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          </section>
-
           {/* Glass door upgrade */}
           {cabinet.placement === "wall" && (
             <section className="space-y-3 border-t border-border pt-4">
@@ -1028,15 +953,6 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {/* Door & Drawer Layout diagram */}
-          {!noDoor && (
-            <section className="rounded-xl border border-border bg-muted/30 p-3">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
-              <div className="flex justify-center">
-                <DoorDrawerDiagram cabinet={cabinet} width={200} />
-              </div>
-            </section>
-          )}
           {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
           <RollOutTrayPicker
             cabinet={cabinet}
