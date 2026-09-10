@@ -1833,6 +1833,7 @@ describe("bearsCountertop", () => {
     expect(bearsCountertop({ placement: "tall", masterCode: "U-24-84" })).toBe(false);
     expect(bearsCountertop({ placement: "wall", masterCode: "W-30-30" })).toBe(false);
     expect(bearsCountertop({ placement: "appliance", masterCode: "FRIDGE-36" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "STOVE-30", description: "30 inch gas stove" })).toBe(false);
   });
   it("is false for base-zone panels, skins, and fillers", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe(false);

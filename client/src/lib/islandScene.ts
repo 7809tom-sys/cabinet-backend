@@ -710,7 +710,9 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
 export function islandRangeCountertopCutouts(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
   return placed.flatMap((item) => {
     if (!isIslandAssemblyMember(item, island, placed)) return [];
-    if (item.placement !== "appliance" || !isRangeOrOven(item.masterCode, item.description)) return [];
+    // Older drafts can retain a stove in the base layer. Classification—not the
+    // stale layer—owns the physical countertop opening.
+    if (!isRangeOrOven(item.masterCode, item.description)) return [];
     const footprint = placedFootprint(item);
     return [{ x: item.x, y: item.y, width: footprint.w, depth: footprint.d }];
   });

@@ -4990,6 +4990,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderCountertopOverSceneItem("appliance", "WINE-24")).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "B-33")).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "RANGE-30")).toBe(false);
+    expect(shouldRenderCountertopOverSceneItem("base", "STOVE-30", "30 inch gas stove")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("base", "FILL-3", "3 inch Filler")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem({ placement: "base", masterCode: "FILL-3", description: "3 inch Filler", subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
     expect(shouldRenderCountertopOverSceneItem("base", "REP2496", "Refrigerator End Panel")).toBe(false);
@@ -4997,6 +4998,33 @@ describe("interactive 3D room scene helpers", () => {
     expect(shouldRenderCountertopOverSceneItem("appliance", "RANGE-30")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("wall", "W-30-42")).toBe(false);
     expect(shouldRenderCountertopOverSceneItem("tall", "B-33")).toBe(false);
+  });
+
+  it("normalizes a legacy base-layer stove into a selectable appliance with no countertop support", () => {
+    const legacyStove = existingCabinetSku({
+      uid: "legacy-stove",
+      cabinetId: 42,
+      masterCode: "STOVE-30",
+      description: "30 inch gas stove",
+      placement: "base",
+      x: 24,
+      y: 0,
+      width: 30,
+      depth: 25,
+      height: 36,
+      rotation: 0,
+    } as never);
+    expect(legacyStove.placementType).toBe("appliance");
+    expect(shouldRenderCountertopOverSceneItem({ placement: "base", masterCode: legacyStove.masterCode, description: legacyStove.description })).toBe(false);
+
+    const root = new THREE.Group();
+    addCabinet(root, legacyStove, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 36, z: 12, rotation: 0, bottom: 0 });
+    let selectionHitbox: THREE.Mesh | undefined;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.applianceRangeSelectionHitbox) selectionHitbox = node;
+    });
+    expect(selectionHitbox).toBeDefined();
+    expect(selectionHitbox && threeDCabinetHitFromIntersections([{ object: selectionHitbox }])).toMatchObject({ uid: "legacy-stove", masterCode: "STOVE-30" });
   });
 
   it("centers the range oven face and reserves a measured lower storage drawer", () => {

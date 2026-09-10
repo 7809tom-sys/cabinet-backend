@@ -1857,6 +1857,7 @@ export function shouldRenderCountertopOverSceneItem(
   // genuine counter-bearing base, plus a dishwasher or wine opening. Master
   // code is deliberately considered even on stale placements, so an appliance
   // accidentally persisted as "base" can never receive a false counter slab.
+  if (isRangeOrOven(item.masterCode, item.description)) return false;
   if (/^(?:DW|DISHWASHER|WINE)[-_]?\d/i.test(item.masterCode ?? "")) return true;
   if (/^(?:RANGE|FRIDGE|HOOD|MW|MICROWAVE|OVEN)[-_]?\d/i.test(item.masterCode ?? "")) return false;
   return bearsCountertop(item);
@@ -2760,7 +2761,12 @@ export function addCabinet(
   const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
   const isPlacedHood = placement === "appliance" && /HOOD/i.test(sku.masterCode);
-  const isFreestandingRange = placement === "appliance" && !isPlacedHood && (/^RANGE[-_]?\d/i.test(sku.masterCode) || /freestanding\s+range|range\s*\/\s*stove/i.test(sku.description ?? ""));
+  const rangeOrStoveCode = /^(?:RANGE|RNG|STOVE|STV)[\s_-]*(?:\d+)?$/i.test(sku.masterCode);
+  const nonRangeApplianceCode = /^(?:FRIDGE|HOOD|DW|DISHWASHER|WINE|MW|MICROWAVE|OVEN)[\s_-]*/i.test(sku.masterCode);
+  const rangeOrStoveDescription = /\b(?:freestanding\s+)?(?:range|stove)\b/i.test(sku.description ?? "")
+    && !nonRangeApplianceCode
+    && !/\b(?:wall|built[-\s]?in|single|double)\s+oven\b/i.test(sku.description ?? "");
+  const isFreestandingRange = placement === "appliance" && !isPlacedHood && (rangeOrStoveCode || rangeOrStoveDescription);
   const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
@@ -3578,7 +3584,7 @@ export function addCabinet(
       if (isFloorDishwasher) applianceFace.position.y = dishwasherToeKickHeight / 2;
       if (isFloorDishwasher) applianceFace.userData = { applianceCode: sku.masterCode, dishwasherFlushFace: true, floorApplianceFace: true };
       frontGroup.add(applianceFace);
-      const rangeLayout = /RANGE/.test(code) ? rangeOvenFrontLayout(bodyHeight) : null;
+      const rangeLayout = isFreestandingRange ? rangeOvenFrontLayout(bodyHeight) : null;
       if (/FRIDGE/.test(code)) {
         const upperHeight = Math.max(0.2, bodyHeight * 0.72);
         const freezerHeight = Math.max(0.16, bodyHeight - upperHeight - 0.1);
@@ -4459,6 +4465,22 @@ export function addCabinet(
   }
   }
   cabinet.add(frontGroup);
+  // Every appliance needs a click target that resolves through its placement
+  // root. Standard RANGE records already add a dedicated range envelope below;
+  // this additionally covers legacy stove-coded appliances that otherwise only
+  // expose decorative child meshes to the raycaster.
+  if (isPlacedAppliance && !isFreestandingRange) {
+    const selectionHitbox = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    selectionHitbox.userData = {
+      applianceSelectionHitbox: true,
+      cabinetFront: true,
+      selectionOnly: true,
+    };
+    cabinet.add(selectionHitbox);
+  }
   for (const bodyMesh of bodyMeshes) {
     // The L corner is built from two overlapping carcass legs. Their individual
     // edge overlays expose the internal construction seam as a false line that
@@ -6260,7 +6282,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
   const cornerBody = threeDCornerBodyDimensions(cabinet);
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const inferredAppliancePlacement = /^(?:fridge|range|hood|dw|wine|mw)/i.test(cabinet.masterCode ?? "");
-  const placementType = cabinet.placement === "appliance" || inferredAppliancePlacement ? "appliance" : cabinet.placement;
+  const placementType = cabinet.placement === "appliance" || inferredAppliancePlacement || isRangeOrOven(cabinet.masterCode, cabinet.description)
+    ? "appliance"
+    : cabinet.placement;
   const appliance = placementType === "appliance"
     ? APPLIANCES.find((item) => {
       const definition = item as typeof item & { id?: string; code?: string };

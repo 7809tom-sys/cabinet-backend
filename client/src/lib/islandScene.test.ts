@@ -588,6 +588,24 @@ describe("island mini-scene geometry", () => {
 	    expect(visible.some((rect) => rect.x <= range.x && rect.x + rect.width >= range.x + range.width && rect.y <= range.y && rect.y + rect.depth >= range.y + range.depth)).toBe(false);
 	  });
 
+	  it("keeps a legacy base-layer stove as a true countertop opening", () => {
+	    const leftBase = islandFacePlacement(cabinet({ uid: "legacy-left", width: 24 }), island, "front", 0);
+	    const stove = islandFacePlacement(cabinet({
+	      uid: "legacy-stove",
+	      masterCode: "STOVE-24",
+	      description: "24 inch gas stove",
+	      placement: "base",
+	      width: 24,
+	      depth: 24,
+	      height: 36,
+	    }), island, "front", 24);
+	    const rightBase = islandFacePlacement(cabinet({ uid: "legacy-right", width: 24 }), island, "front", 48);
+	    const customSlab = { ...island, countertopWidth: 75, countertopDepth: 27, countertopOffsetX: 1.5 };
+
+	    const visible = islandCountertopVisibleRects(customSlab, [leftBase, stove, rightBase]);
+	    expect(visible.some((rect) => rect.x <= stove.x && rect.x + rect.width >= stove.x + stove.width && rect.y <= stove.y && rect.y + rect.depth >= stove.y + stove.depth)).toBe(false);
+	  });
+
 		  it("keeps custom standard overhang compatible with a selected seating-side depth", () => {
 	    const customIsland = { ...island, countertopOverhang: 3 };
 	    const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), customIsland, "back", 0);

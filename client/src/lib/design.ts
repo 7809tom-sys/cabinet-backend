@@ -4572,7 +4572,7 @@ export const RANGE_CLEARANCE_FILLER_IN = 3;
 
 export function isRangeOrOven(masterCode?: string | null, description?: string | null): boolean {
   const code = (masterCode || "").toUpperCase();
-  if (/^(RANGE|OVEN|RNG|OV)[-\d]/.test(code) || code === "RANGE" || code === "OVEN") return true;
+  if (/^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)[\s_-]*\d/.test(code) || /^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)$/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   return /\brange\b|\boven\b|\bstove\b|\bcooktop\b/.test(desc);
 }
@@ -6219,6 +6219,10 @@ export function bearsCountertop(p: {
   fillerPlacementMode?: "left" | "right" | "split" | null;
 }): boolean {
   if (p.placement !== "base") return false;
+  // Some legacy plans stored a freestanding stove in the base layer. A stove
+  // remains an appliance opening regardless of that stale layer value, so it
+  // must never receive a countertop slab.
+  if (isRangeOrOven(p.masterCode, p.description)) return false;
   const installedFillerWidth = Number(p.fillerTotalWidth);
   const isInstalledBaseFiller = Boolean(
     p.fillerPieceGroupId &&

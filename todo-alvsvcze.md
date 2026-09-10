@@ -1873,3 +1873,5 @@
 - [x] Restore a visible Floor Plan and Room Size control in the Designer so users can set room dimensions without relying on hidden menus or dragging a wall
 - [x] Compact the Cabinet Attributes popup by keeping only design-useful controls visible, replacing the oversized Door & Drawer Layout preview with a small summary, and moving Door & hardware controls into the main popup
 - [x] Use Kitchen Packages as the only public name for the complete-kitchen offering and remove duplicate Bundle Deals wording that refers to the same offering
+- [x] Restore direct stove selection so users can open stove attributes in the Designer on desktop, tablet, and mobile
+- [x] Exclude stove footprints from Designer countertop rendering so no countertop slab covers a stove
