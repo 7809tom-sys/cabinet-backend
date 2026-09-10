@@ -29,6 +29,8 @@ describe("affiliate white-label HTML head", () => {
       publicEmail: "hello@reaves.example",
       publicAddress: "125 Main Street, Austin, TX",
       serviceArea: "Austin, Round Rock",
+      facebookUrl: "https://www.facebook.com/reaves-way-cabinet-shop",
+      instagramUrl: "javascript:alert('not-a-profile')",
       canonicalUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
     });
 
@@ -48,6 +50,8 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain('"email":"hello@reaves.example"');
     expect(html).toContain('"address":"125 Main Street, Austin, TX"');
     expect(html).toContain('"areaServed":["Austin","Round Rock"]');
+    expect(html).toContain('"sameAs":["https://www.facebook.com/reaves-way-cabinet-shop"]');
+    expect(html).not.toContain("not-a-profile");
     expect(html).toContain('rel="icon" href="https://cdn.example/reaves-way-logo.png"');
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain("cabinet-dealz.png");

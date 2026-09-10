@@ -8,6 +8,8 @@ export type AffiliateHeadBrand = {
   publicEmail?: string | null;
   publicAddress?: string | null;
   serviceArea?: string | null;
+  facebookUrl?: string | null;
+  instagramUrl?: string | null;
   pageTitle?: string | null;
   pageDescription?: string | null;
   canonicalUrl?: string | null;
@@ -106,6 +108,9 @@ export function injectAffiliateWhiteLabelHead(
   const description = brand.pageDescription?.trim() || defaultDescription;
   const imageUrl = usableImageUrl(brand.logoUrl);
   const canonicalUrl = usableImageUrl(brand.canonicalUrl);
+  const socialProfiles = [brand.facebookUrl, brand.instagramUrl]
+    .map(usableImageUrl)
+    .filter((url): url is string => Boolean(url));
   const indexable = brand.indexable !== false;
   const primaryColor = /^#[0-9a-fA-F]{6}$/.test(brand.primaryColor || "")
     ? brand.primaryColor!
@@ -148,6 +153,7 @@ export function injectAffiliateWhiteLabelHead(
         ...(brand.publicEmail?.trim() ? { email: brand.publicEmail.trim() } : {}),
         ...(brand.publicAddress?.trim() ? { address: brand.publicAddress.trim() } : {}),
         ...(serviceAreas.length > 0 ? { areaServed: serviceAreas } : {}),
+        ...(socialProfiles.length > 0 ? { sameAs: socialProfiles } : {}),
       },
       {
         "@context": "https://schema.org",

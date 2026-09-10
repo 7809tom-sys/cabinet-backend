@@ -66,6 +66,8 @@ async function whiteLabelAffiliateHtml(
           publicEmail: affiliates.publicEmail,
           publicAddress: affiliates.publicAddress,
           serviceArea: affiliates.serviceArea,
+          facebookUrl: affiliates.facebookUrl,
+          instagramUrl: affiliates.instagramUrl,
         })
         .from(affiliates)
         .where(eq(affiliates.slug, slug))

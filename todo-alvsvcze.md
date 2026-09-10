@@ -1864,3 +1864,4 @@
 - [x] Publish verified affiliate service-area signals in storefront organization schema and crawlable metadata without inventing cities, addresses, or service claims
 - [x] Add saved affiliate service-area context to default public storefront descriptions while preserving route-specific kitchen discovery metadata
 - [x] Add factual collection schema and internal discovery links for public complete-kitchen packages without exposing individual cabinet pricing
+- [x] Publish only saved valid affiliate social profiles in branded storefront organization schema to strengthen verified entity signals
