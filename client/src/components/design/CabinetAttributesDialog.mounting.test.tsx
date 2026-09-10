@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { CabinetAttributesDialog } from "./CabinetAttributesDialog";
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -26,6 +26,8 @@ vi.mock("@/lib/trpc", () => ({
     }),
   },
 }));
+
+afterEach(cleanup);
 
 const wallCabinet = {
   uid: "w3024",
@@ -83,8 +85,22 @@ function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onA
 }
 
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
+  it("keeps optional cabinet controls compact until More cabinet options is opened", () => {
+    renderDialog();
+    const dialog = screen.getAllByRole("dialog").at(-1)!;
+    const options = within(dialog).getByTestId("cabinet-attributes-more-options") as HTMLDetailsElement;
+    expect(options.open).toBe(false);
+    expect(within(dialog).getByText("More cabinet options")).toBeTruthy();
+
+    fireEvent.click(within(options).getByText("More cabinet options"));
+    expect(options.open).toBe(true);
+    expect(within(options).getByText("Elevation position")).toBeTruthy();
+    expect(within(options).getByText("Hardware placement")).toBeTruthy();
+  });
+
   it("exposes right-click up/down mounting controls and sends the selected height", () => {
     const { onSetMountBottom, onMoveInOut } = renderDialog();
+    fireEvent.click(screen.getByText("More cabinet options"));
     expect(screen.getByText("End Panel Treatment")).toBeTruthy();
     expect((screen.getByLabelText("Cabinet mounting height from floor") as HTMLInputElement).value).toBe("72");
     fireEvent.click(screen.getByTitle("Move down one inch"));

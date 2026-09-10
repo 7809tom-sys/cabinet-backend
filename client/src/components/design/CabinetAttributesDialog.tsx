@@ -350,25 +350,7 @@ export function CabinetAttributesDialog({
           )}
         </DialogHeader>
 
-        <div className="space-y-5 py-1">
-          {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
-            <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-              <div>
-                <h4 className="text-sm font-semibold text-[#6e531d]">End Panel Treatment</h4>
-                <p className="text-[11px] text-muted-foreground">Plain finished ends are standard. Add a decorative panel only where you want one.</p>
-              </div>
-              <Select value={cabinet.decorativeEnd ?? "none"} onValueChange={(value) => onSetDecorativeEnd(uid, value as "none" | "left" | "right" | "both")}>
-                <SelectTrigger className="h-9 bg-background text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Plain finished ends</SelectItem>
-                  <SelectItem value="left">Decorative panel — left end</SelectItem>
-                  <SelectItem value="right">Decorative panel — right end</SelectItem>
-                  <SelectItem value="both">Decorative panels — both ends</SelectItem>
-                </SelectContent>
-              </Select>
-            </section>
-          )}
-
+        <div className="space-y-3 py-1">
           {/* Dimensions */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
@@ -423,6 +405,32 @@ export function CabinetAttributesDialog({
             </div>;
             })()}
           </section>
+
+          <details data-testid="cabinet-attributes-more-options" className="group rounded-lg border border-border bg-muted/15">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+              <span>More cabinet options</span>
+              <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Placement, finish, doors &amp; specialty settings</span>
+              <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide optional settings</span>
+            </summary>
+            <div className="space-y-3 border-t border-border px-3 py-3">
+
+          {(cabinet.placement === "base" || cabinet.placement === "wall" || cabinet.placement === "tall") && (
+            <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <div>
+                <h4 className="text-sm font-semibold text-[#6e531d]">End Panel Treatment</h4>
+                <p className="text-[11px] text-muted-foreground">Plain finished ends are standard. Add a decorative panel only where you want one.</p>
+              </div>
+              <Select value={cabinet.decorativeEnd ?? "none"} onValueChange={(value) => onSetDecorativeEnd(uid, value as "none" | "left" | "right" | "both")}>
+                <SelectTrigger className="h-9 bg-background text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Plain finished ends</SelectItem>
+                  <SelectItem value="left">Decorative panel — left end</SelectItem>
+                  <SelectItem value="right">Decorative panel — right end</SelectItem>
+                  <SelectItem value="both">Decorative panels — both ends</SelectItem>
+                </SelectContent>
+              </Select>
+            </section>
+          )}
 
           {canMoveMount && (
             <section className="space-y-2 border-t border-border pt-4">
@@ -1033,6 +1041,8 @@ export function CabinetAttributesDialog({
             qty={cabinet.rolloutQty ?? 0}
             onSetQty={(q) => onSetRolloutQty(uid, q)}
           />
+            </div>
+          </details>
         </div>
 
         <DialogFooter>

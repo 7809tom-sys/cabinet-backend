@@ -34,6 +34,17 @@ function renderDialog(onApply = vi.fn()) {
 }
 
 describe("RefrigeratorOptionsDialog end-panel defaults", () => {
+  it("keeps enclosure choices compact until More enclosure options is opened", () => {
+    renderDialog();
+    const options = screen.getByTestId("refrigerator-enclosure-options") as HTMLDetailsElement;
+    expect(options.open).toBe(false);
+
+    fireEvent.click(screen.getByText("More enclosure options"));
+    expect(options.open).toBe(true);
+    expect(screen.getByRole("button", { name: "Add Cabinet" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Both" })).toBeTruthy();
+  });
+
   it("recommends a matching cabinet above the refrigerator without removing the No Cabinet choice", () => {
     renderDialog();
     expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("aria-pressed")).toBe("true");

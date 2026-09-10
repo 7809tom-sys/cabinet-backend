@@ -3773,6 +3773,20 @@ export function addCabinet(
         ovenHandle.position.set(0, rangeLayout.openingCenterY + rangeLayout.openingHeight * 0.34, 0.093);
         ovenHandle.userData = { applianceCode: sku.masterCode, rangeOvenHandle: true, dimensionalApplianceDetail: true };
         frontGroup.add(ovenHandle);
+
+        // A merged island countertop can be the closest visible raycast result
+        // near a range opening. Give each range its own non-rendering envelope so
+        // clicks anywhere on the stove resolve to its saved placement identity.
+        const selectionHitbox = new THREE.Mesh(
+          new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+        );
+        selectionHitbox.userData = {
+          applianceRangeSelectionHitbox: true,
+          cabinetFront: true,
+          selectionOnly: true,
+        };
+        cabinet.add(selectionHitbox);
       }
       const control = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.76, Math.min(0.08, bodyHeight * 0.12), 0.066), new THREE.MeshStandardMaterial({ color: rangeAppearance?.controlColor ?? "#3b4147", roughness: 0.3, metalness: 0.45 }));
       control.position.y = bodyHeight / 2 - Math.min(0.1, bodyHeight * 0.14);

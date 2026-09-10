@@ -5800,6 +5800,7 @@ describe("interactive 3D room scene helpers", () => {
       numberOfDoors: 0,
       numberOfDrawers: 0,
       catalogImageUrl: "/manus-storage/range-test-front.webp",
+      placementUid: "island-range-30",
     } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
 
     let chassis: THREE.Mesh | null = null;
@@ -5810,6 +5811,7 @@ describe("interactive 3D room scene helpers", () => {
     const visibleFrontFeet: THREE.Mesh[] = [];
     const cabinetSkins: THREE.Mesh[] = [];
     const productFronts: THREE.Mesh[] = [];
+    const selectionHitboxes: THREE.Mesh[] = [];
     root.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return;
       if (node.userData.freestandingRangeChassis) chassis = node;
@@ -5820,6 +5822,7 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.visibleFreestandingRangeFoot) visibleFrontFeet.push(node);
       if (node.userData.selectedStyleSideSkin) cabinetSkins.push(node);
       if (node.userData.originalProductVisual) productFronts.push(node);
+      if (node.userData.applianceRangeSelectionHitbox) selectionHitboxes.push(node);
     });
 
     expect(chassis).not.toBeNull();
@@ -5830,6 +5833,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(visibleFrontFeet).toHaveLength(2);
     expect(cabinetSkins).toHaveLength(0);
     expect(productFronts).toHaveLength(0);
+    expect(selectionHitboxes).toHaveLength(1);
+    expect(selectionHitboxes[0]!.userData.cabinetFront).toBe(true);
+    expect(selectionHitboxes[0]!.userData.selectionOnly).toBe(true);
+    expect((selectionHitboxes[0]!.material as THREE.MeshBasicMaterial).opacity).toBe(0);
+    expect((selectionHitboxes[0]!.material as THREE.MeshBasicMaterial).colorWrite).toBe(false);
+    expect(threeDCabinetHitFromIntersections([{ object: selectionHitboxes[0]! }])).toMatchObject({
+      uid: "island-range-30",
+      masterCode: "RANGE-30",
+    });
 
     root.updateMatrixWorld(true);
     const chassisBounds = new THREE.Box3().setFromObject(chassis!);

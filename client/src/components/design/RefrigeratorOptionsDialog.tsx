@@ -394,6 +394,14 @@ export function RefrigeratorOptionsDialog({
             <DimSelector label="Depth" value={fridgeD} options={FRIDGE_DEPTHS} onChange={setFridgeD} />
           </Section>
 
+          <details data-testid="refrigerator-enclosure-options" className="group rounded-lg border border-border bg-muted/15 px-3 py-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+              <span>More enclosure options</span>
+              <span className="text-[11px] font-normal text-muted-foreground group-open:hidden">Cabinet above, end panels &amp; finish</span>
+              <span className="hidden text-[11px] font-normal text-muted-foreground group-open:inline">Hide enclosure options</span>
+            </summary>
+            <div className="space-y-4 border-t border-border pt-3">
+
           {/* ── 2. Over-Fridge Cabinet ───────────────────────────────────── */}
           <Section title="Over-Fridge Cabinet">
             <div className="space-y-1.5">
@@ -615,6 +623,8 @@ export function RefrigeratorOptionsDialog({
               <span className="text-sm">{t("dt_fridge_smooth_label")}</span>
             </label>
           )}
+            </div>
+          </details>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
