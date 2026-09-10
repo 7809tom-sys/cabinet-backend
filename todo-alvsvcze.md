@@ -1865,3 +1865,6 @@
 - [x] Add saved affiliate service-area context to default public storefront descriptions while preserving route-specific kitchen discovery metadata
 - [x] Add factual collection schema and internal discovery links for public complete-kitchen packages without exposing individual cabinet pricing
 - [x] Publish only saved valid affiliate social profiles in branded storefront organization schema to strengthen verified entity signals
+- [x] Make complete-kitchen planning and package discovery the primary homepage entry point while retaining cabinet, surface, fixture, and designer access
+- [x] Replace the single Door Style Shipping Origin ZIP field with an Add ZIP list that saves multiple valid origins and preserves existing freight behavior
+- [x] Restore a visible Floor Plan and Room Size control in the Designer so users can set room dimensions without relying on hidden menus or dragging a wall

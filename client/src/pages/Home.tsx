@@ -86,7 +86,7 @@ function Hero() {
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              <EditableText pageKey="home" field="hero_title_line1" defaultValue="Your One-Stop Shop for">
+              <EditableText pageKey="home" field="hero_title_line1" defaultValue="Plan Your Complete">
                 {(v) => <>{v}</>}
               </EditableText>
               <br />
@@ -98,40 +98,35 @@ function Hero() {
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              <EditableText pageKey="home" field="hero_subtitle" defaultValue="Source cabinets, surfaces, fixtures, and a complete kitchen plan from one trade-ready platform." multiline>
+              <EditableText pageKey="home" field="hero_subtitle" defaultValue="Start with a complete kitchen idea, select a style and package, then customize the layout, surfaces, fixtures, and quote for your space." multiline>
                 {(v) => <>{v}</>}
               </EditableText>
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-              <Link href="/styles">
+              <Link href="/kitchens">
                 <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                  Shop Cabinets
+                  Plan a Complete Kitchen
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/surfaces">
+              <Link href="/bundles">
                 <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
-                  Surfaces & Fixtures
+                  <PackageOpen className="h-4 w-4" />
+                  Kitchen Packages
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/plumbers-choice">
+              <Link href="/styles">
                 <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
-                  Plumber's Choice
+                  Shop by Style
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/design">
                 <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
-                  Design Your Kitchen
-                </Button>
-              </Link>
-              <Link href="/bundles">
-                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white font-semibold gap-2">
-                  <PackageOpen className="h-4 w-4" />
-                  Bundle Deals
+                  Start from Scratch
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

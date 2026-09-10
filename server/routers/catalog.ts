@@ -431,6 +431,7 @@ export const doorStylesRouter = router({
         finish: z.string().max(128).nullable().optional(),
         woodSpecies: z.string().max(64).nullable().optional(),
         warehouseZip: z.string().regex(/^\d{5}$/, "Shipping origin ZIP must be exactly 5 digits").nullable().optional(),
+        warehouseZips: z.array(z.string().regex(/^\d{5}$/, "Each shipping origin ZIP must be exactly 5 digits")).max(20).nullable().optional(),
         flatFreightFeeCents: z.number().int().min(0).max(10_000_000).nullable().optional(),
         doorSampleImageUrl: z.string().max(512).nullable().optional(),
         drawerSampleImageUrl: z.string().max(512).nullable().optional(),
@@ -458,6 +459,12 @@ export const doorStylesRouter = router({
       if (fields.finish !== undefined) patch.finish = fields.finish?.trim() || null;
       if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
       if (fields.warehouseZip !== undefined) patch.warehouseZip = fields.warehouseZip?.trim() || null;
+      if (fields.warehouseZips !== undefined) {
+        const normalizedOrigins = Array.from(new Set((fields.warehouseZips ?? []).map((zip) => zip.trim()).filter(Boolean)));
+        patch.warehouseZips = normalizedOrigins.length > 0 ? normalizedOrigins : null;
+        // Retain a primary legacy origin for existing integrations and saved data.
+        patch.warehouseZip = normalizedOrigins[0] ?? null;
+      }
       if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
       if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
       if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;

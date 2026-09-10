@@ -357,6 +357,9 @@ export const doorStyles = mysqlTable("door_styles", {
   overlayType: varchar("overlayType", { length: 64 }),
   doorPanelType: varchar("doorPanelType", { length: 64 }),
   warehouseZip: varchar("warehouseZip", { length: 16 }),
+  // Ordered private origin ZIPs for this specific cabinet line. warehouseZip
+  // remains the legacy primary value for integrations that accept one origin.
+  warehouseZips: json("warehouseZips").$type<string[]>(),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }),
   // Optional whole-order Plan B freight charge for this distributor/style.
   // It is used only when that style group's live carrier request fails;

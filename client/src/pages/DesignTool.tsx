@@ -8120,8 +8120,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
-        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        {/* Floor Plan / Room Size stays visible in every desktop workspace mode.
+            Mobile uses the compact room-size sheet trigger immediately below. */}
+        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -8296,6 +8297,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           className="lg:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
           onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
           title={`Room: ${Math.round(room.width / 12)}' × ${Math.round(room.depth / 12)}' · ${placed.length} items`}
+          aria-label="Open Floor Plan and Room Size"
         >
           <SquareDashedMousePointer className="h-4 w-4" />
         </button>

@@ -52,6 +52,7 @@ interface AdminStyle {
   supplierBrandName?: string | null; // real supplier brand (e.g. "US Cabinet Depot") — admin only
   supplierName?: string | null;      // neutral internal label (e.g. "Line A") — admin only
   warehouseZip: string | null;
+  warehouseZips?: string[] | null;
   flatFreightFeeCents: number | null;
   railWidth: string | null;
   stileWidth: string | null;
@@ -206,6 +207,12 @@ function thumb(s: AdminStyle): string | null {
   return s.roomSceneImageUrl || s.doorSampleImageUrl || s.thumbnailImageUrl || null;
 }
 
+function originZipList(style: Pick<AdminStyle, "warehouseZip" | "warehouseZips">): string[] {
+  return Array.from(new Set([...(style.warehouseZips ?? []), style.warehouseZip ?? ""]
+    .map((zip) => zip.replace(/\D/g, "").slice(0, 5))
+    .filter((zip) => /^\d{5}$/.test(zip))));
+}
+
 function SourceAttribution({ style }: { style: AdminStyle }) {
   const source = style.supplierBrandName?.trim() || style.supplierName?.trim() || null;
   const supplierStyle = style.distributorName?.trim() || null;
@@ -268,7 +275,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [color, setColor] = useState(style.color ?? "");
   const [finish, setFinish] = useState(style.finish ?? "");
   const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
-  const [warehouseZip, setWarehouseZip] = useState(style.warehouseZip ?? "");
+  const [warehouseZips, setWarehouseZips] = useState(() => originZipList(style));
+  const [newWarehouseZip, setNewWarehouseZip] = useState("");
   const [flatFreightDollars, setFlatFreightDollars] = useState(
     style.flatFreightFeeCents != null ? (style.flatFreightFeeCents / 100).toFixed(2) : "",
   );
@@ -294,7 +302,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setColor(s.color ?? "");
     setFinish(s.finish ?? "");
     setWoodSpecies(s.woodSpecies ?? "");
-    setWarehouseZip(s.warehouseZip ?? "");
+    setWarehouseZips(originZipList(s));
+    setNewWarehouseZip("");
     setFlatFreightDollars(
       s.flatFreightFeeCents != null ? (s.flatFreightFeeCents / 100).toFixed(2) : "",
     );
@@ -351,11 +360,6 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       toast.error("Rail and stile measurements must be positive values in inches");
       return;
     }
-    const normalizedWarehouseZip = warehouseZip.trim();
-    if (normalizedWarehouseZip && !/^\d{5}$/.test(normalizedWarehouseZip)) {
-      toast.error("Shipping origin ZIP must be exactly 5 digits");
-      return;
-    }
     const flatFreightValue = flatFreightDollars.trim();
     const flatFreightNumber = flatFreightValue ? Number(flatFreightValue) : null;
     if (flatFreightNumber != null && (!Number.isFinite(flatFreightNumber) || flatFreightNumber < 0)) {
@@ -380,7 +384,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       color: color.trim() || null,
       finish: finish.trim() || null,
       woodSpecies: woodSpecies.trim() || null,
-      warehouseZip: normalizedWarehouseZip || null,
+      warehouseZips: warehouseZips.length > 0 ? warehouseZips : null,
       flatFreightFeeCents: flatFreightNumber == null ? null : Math.round(flatFreightNumber * 100),
       doorSampleImageUrl: imgField(doorSampleImageUrl, orig.doorSampleImageUrl),
       drawerSampleImageUrl: imgField(drawerSampleImageUrl, orig.drawerSampleImageUrl),
@@ -393,6 +397,21 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
     });
+  }
+
+  function addWarehouseZip() {
+    const normalizedZip = newWarehouseZip.replace(/\D/g, "").slice(0, 5);
+    if (!/^\d{5}$/.test(normalizedZip)) {
+      toast.error("Shipping origin ZIP must be exactly 5 digits");
+      return;
+    }
+    if (warehouseZips.includes(normalizedZip)) {
+      toast.message("This shipping origin ZIP is already listed");
+      setNewWarehouseZip("");
+      return;
+    }
+    setWarehouseZips((current) => [...current, normalizedZip]);
+    setNewWarehouseZip("");
   }
 
   // Sync fields when the style prop changes (e.g. list refreshes)
@@ -482,20 +501,48 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
           <div className="rounded-lg border border-sky-200 bg-sky-50/50 px-3 py-3 space-y-2">
             <Label htmlFor="ed-warehouse-zip" className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-sky-700" />
-              Shipping Origin ZIP
+              Shipping Origin ZIPs
               <span className="text-muted-foreground font-normal text-xs">(admin only)</span>
             </Label>
-            <Input
-              id="ed-warehouse-zip"
-              value={warehouseZip}
-              onChange={(e) => setWarehouseZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
-              placeholder="5-digit distributor warehouse ZIP"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              maxLength={5}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="ed-warehouse-zip"
+                value={newWarehouseZip}
+                onChange={(e) => setNewWarehouseZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addWarehouseZip();
+                  }
+                }}
+                placeholder="5-digit distributor warehouse ZIP"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                maxLength={5}
+              />
+              <Button type="button" variant="outline" className="shrink-0" onClick={addWarehouseZip}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add ZIP
+              </Button>
+            </div>
+            {warehouseZips.length > 0 && (
+              <div className="flex flex-wrap gap-2" aria-label="Saved shipping origin ZIPs">
+                {warehouseZips.map((zip) => (
+                  <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">
+                    {zip}
+                    <button
+                      type="button"
+                      className="rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                      onClick={() => setWarehouseZips((current) => current.filter((item) => item !== zip))}
+                      aria-label={`Remove shipping origin ZIP ${zip}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Live freight for this Door Style ships from this ZIP. It stays private and overrides the general distributor/global fallback for this style.
+              Add every verified warehouse ZIP for this Door Style. Live freight uses the saved origin nearest to the delivery ZIP; these private origins override the general distributor/global fallback for this style.
             </p>
             <div className="space-y-1.5 pt-1">
               <Label htmlFor="ed-flat-freight">Plan B flat freight fee (optional)</Label>

@@ -441,6 +441,27 @@ async function resolveOriginZip(
   return nearest ?? fallbackZip;
 }
 
+export function normalizedDoorStyleOriginZips(
+  storedOrigins: string[] | null | undefined,
+  legacyOrigin: string | null | undefined,
+): string[] {
+  return Array.from(new Set([...(storedOrigins ?? []), legacyOrigin ?? ""]
+    .map((zip) => normalizeZip(zip))
+    .filter((zip): zip is string => Boolean(zip))));
+}
+
+async function chooseNearestDoorStyleOriginZip(
+  destinationZip: string,
+  originZips: string[],
+): Promise<string> {
+  if (originZips.length <= 1) return originZips[0] ?? "";
+  const customer = await geocodeZip(normalizeZip(destinationZip) ?? destinationZip);
+  const warehouses: WarehouseRef[] = await Promise.all(
+    originZips.map(async (zip) => ({ zip, coord: await geocodeZip(zip) })),
+  );
+  return pickNearestWarehouseZip(customer, warehouses) ?? originZips[0];
+}
+
 type StyleFreightGroup = {
   key: string;
   label: string;
@@ -502,6 +523,7 @@ async function resolveStyleFreightGroups(input: {
     ourName: string;
     aliasName: string | null;
     warehouseZip: string | null;
+    warehouseZips: string[] | null;
     flatFreightFeeCents: number | null;
   };
   const styleById = new Map<number, StyleMeta>();
@@ -515,6 +537,7 @@ async function resolveStyleFreightGroups(input: {
         ourName: doorStyles.ourName,
         aliasName: doorStyles.aliasName,
         warehouseZip: doorStyles.warehouseZip,
+        warehouseZips: doorStyles.warehouseZips,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
       })
       .from(doorStyles)
@@ -531,6 +554,7 @@ async function resolveStyleFreightGroups(input: {
         ourName: doorStyles.ourName,
         aliasName: doorStyles.aliasName,
         warehouseZip: doorStyles.warehouseZip,
+        warehouseZips: doorStyles.warehouseZips,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
       })
       .from(distributorSkus)
@@ -566,18 +590,19 @@ async function resolveStyleFreightGroups(input: {
     }
 
     const distributorId = matchedStyle?.distributorId ?? requestedDistributorId;
-    const styleOriginZip = normalizeZip(matchedStyle?.warehouseZip ?? "");
-    if (matchedStyle && !styleOriginZip) {
+    const styleOriginZips = normalizedDoorStyleOriginZips(
+      matchedStyle?.warehouseZips,
+      matchedStyle?.warehouseZip,
+    );
+    if (matchedStyle && styleOriginZips.length === 0) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
       });
     }
-    const originZip = styleOriginZip || await resolveOriginZip(
-      input.destinationZip,
-      distributorId,
-      input.fallbackOriginZip,
-    );
+    const originZip = styleOriginZips.length > 0
+      ? await chooseNearestDoorStyleOriginZip(input.destinationZip, styleOriginZips)
+      : await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip);
     const key = matchedStyle
       ? `style:${matchedStyle.id}:${originZip}`
       : `fallback:${distributorId ?? "global"}:${originZip}`;

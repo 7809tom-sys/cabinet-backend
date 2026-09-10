@@ -80,7 +80,13 @@ describe("designer toolbar layout", () => {
     expect(source).toContain('data-testid="island-placement-panel-toggle"');
     expect(source).toContain('aria-controls="island-placement-side-panel"');
     expect(source).toContain('data-testid="island-placement-side-panel"');
-    expect(source).toContain('className="absolute right-3 top-3 z-40 flex flex-col items-end gap-2"');
+    expect(source).toContain('className="absolute right-3 top-14 z-40 flex flex-col items-end gap-2 sm:top-16"');
     expect(source).not.toContain('sm:left-1/2 sm:right-auto sm:-translate-x-1/2');
+  });
+
+  it("keeps Floor Plan and Room Size visible in compact desktop workspace and reachable on mobile", () => {
+    expect(source).toContain('className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
+    expect(source).toContain('aria-label="Open Floor Plan and Room Size"');
+    expect(source).toContain("<RoomSizeControl");
   });
 });
