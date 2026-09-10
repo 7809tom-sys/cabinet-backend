@@ -1258,6 +1258,29 @@ function CustomizeTab({
   const activeScene = (Object.keys(KITCHEN_SCENES) as KitchenSceneKey[]).find(
     (k) => KITCHEN_SCENES[k] === form.heroImageUrl
   ) ?? null;
+  const localSeoChecks = [
+    {
+      label: "Business name",
+      ready: Boolean(form.storeName.trim()),
+      detail: "Used in your storefront title and public business schema.",
+    },
+    {
+      label: "Public contact",
+      ready: Boolean(form.publicPhone.trim() || form.publicEmail.trim()),
+      detail: "Provide a business phone or email that customers can use.",
+    },
+    {
+      label: "Service area",
+      ready: Boolean(form.serviceArea.trim() || form.publicAddress.trim()),
+      detail: "List the city, counties, metro area, or region you genuinely serve.",
+    },
+    {
+      label: "Business introduction",
+      ready: Boolean(form.aboutText.trim()),
+      detail: "Explain your real kitchen-planning and service approach in your own words.",
+    },
+  ];
+  const localSeoReadyCount = localSeoChecks.filter((check) => check.ready).length;
 
   return (
     <div className="space-y-6">
@@ -1289,10 +1312,36 @@ function CustomizeTab({
             <Input id="quick-public-phone" type="tel" value={form.publicPhone} onChange={(event) => set("publicPhone", event.target.value)} placeholder="(555) 555-5555" autoComplete="tel" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="quick-public-address">Address or service area <span className="font-normal text-muted-foreground">(optional)</span></Label>
-            <Input id="quick-public-address" value={form.publicAddress} onChange={(event) => set("publicAddress", event.target.value)} placeholder="City, state or service area" autoComplete="street-address" />
+            <Label htmlFor="quick-public-address">Public address <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input id="quick-public-address" value={form.publicAddress} onChange={(event) => set("publicAddress", event.target.value)} placeholder="City and state, or customer-facing address" autoComplete="street-address" />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="quick-service-area">Service area <span className="font-normal text-muted-foreground">(recommended)</span></Label>
+            <Input id="quick-service-area" value={form.serviceArea} onChange={(event) => set("serviceArea", event.target.value)} placeholder="Example: Sarasota & Manatee County, FL" />
           </div>
         </div>
+
+        <section data-testid="affiliate-local-seo-readiness" className="rounded-lg border border-primary/25 bg-background/70 p-4" aria-labelledby="affiliate-local-seo-title">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-primary" aria-hidden="true" />
+                <h3 id="affiliate-local-seo-title" className="font-semibold">Local search readiness</h3>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{localSeoReadyCount} of {localSeoChecks.length} verified storefront details are ready for local discovery.</p>
+            </div>
+            <Badge variant={localSeoReadyCount === localSeoChecks.length ? "default" : "outline"} className="w-fit">{localSeoReadyCount === localSeoChecks.length ? "Profile ready" : "Complete your profile"}</Badge>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {localSeoChecks.map((check) => (
+              <div key={check.label} className="flex gap-2 text-sm">
+                {check.ready ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-label="Ready" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-label="Needs information" />}
+                <div><p className="font-medium">{check.label}</p><p className="text-xs leading-relaxed text-muted-foreground">{check.detail}</p></div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">Only publish contact, service-area, and business details that are accurate and available to customers. Do not list a private home address unless customers are invited there.</p>
+        </section>
 
         <div data-testid="affiliate-website-import" className="rounded-lg border border-dashed border-primary/40 bg-background/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

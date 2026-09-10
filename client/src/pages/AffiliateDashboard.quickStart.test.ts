@@ -9,12 +9,16 @@ describe("affiliate quick storefront setup", () => {
     expect(source).toContain("Business name");
     expect(source).toContain("Business email");
     expect(source).toContain("Business phone");
-    expect(source).toContain("Address or service area");
+    expect(source).toContain("Public address");
+    expect(source).toContain("Service area");
     expect(source).toContain("Upload logo");
     expect(source).toContain("Mini homepage preview");
     expect(source).toContain("Launch with your defaults");
     expect(source).toContain("Publish storefront");
     expect(source).toContain("More storefront options");
+    expect(source).toContain('data-testid="affiliate-local-seo-readiness"');
+    expect(source).toContain("Local search readiness");
+    expect(source).toContain("Only publish contact, service-area, and business details that are accurate");
   });
 
   it("provides the post-publish share, customer storefront, and customer Designer actions", () => {

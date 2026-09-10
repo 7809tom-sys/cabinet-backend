@@ -1860,3 +1860,4 @@
 - [x] Add verified affiliate-specific storefront metadata and schema that accurately represents each affiliate’s public business and service information
 - [x] Make kitchen-first structured-data journey URLs and affiliate sitemap entries resolve only to valid branded storefront routes
 - [x] Add factual complete-kitchen planning answers and matching FAQ structured data to the public kitchen discovery hub and affiliate equivalents
+- [x] Add an affiliate-local SEO readiness workflow that identifies which verified public business and service-area fields must be completed before local storefront promotion
