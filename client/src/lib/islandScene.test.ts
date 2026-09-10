@@ -12,6 +12,7 @@ import {
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
 	  islandFacePlacement,
+	  isIslandAssemblyMember,
 	  islandFaceTransferOption,
 	  autoAdjustIslandDepthForBackFace,
 	  islandWithFaceSeatingOverhang,
@@ -604,6 +605,44 @@ describe("island mini-scene geometry", () => {
 
 	    const visible = islandCountertopVisibleRects(customSlab, [leftBase, stove, rightBase]);
 	    expect(visible.some((rect) => rect.x <= stove.x && rect.x + rect.width >= stove.x + stove.width && rect.y <= stove.y && rect.y + rect.depth >= stove.y + stove.depth)).toBe(false);
+	  });
+
+	  it("preserves a legacy island stove cutout after a counter-height wall cabinet adds face metadata", () => {
+	    const legacyStove = {
+	      ...islandFacePlacement(cabinet({
+	        uid: "legacy-island-stove",
+	        masterCode: "STOVE-24",
+	        description: "24 inch gas stove",
+	        placement: "base",
+	        width: 24,
+	        depth: 24,
+	        height: 36,
+	      }), island, "front", 24),
+	      islandFace: undefined,
+	      islandOffset: undefined,
+	    };
+	    const counterHeightWall = islandFacePlacement(cabinet({
+	      uid: "island-wall-after-stove",
+	      masterCode: "W-24-30",
+	      description: "24 inch wall cabinet",
+	      placement: "wall",
+	      width: 24,
+	      depth: 12,
+	      height: 30,
+	      islandCounterHeightWallCabinet: true,
+	    }), island, "back", 0);
+	    const afterWallPlacement = [legacyStove, counterHeightWall];
+	    const customSlab = {
+	      ...island,
+	      countertopWidth: island.width,
+	      countertopDepth: island.depth,
+	      countertopWidthAnchoredToZone: true,
+	      countertopDepthAnchoredToZone: true,
+	    };
+
+	    expect(isIslandAssemblyMember(legacyStove, island, afterWallPlacement)).toBe(true);
+	    const visible = islandCountertopVisibleRects(customSlab, afterWallPlacement);
+	    expect(visible.some((rect) => rect.x <= legacyStove.x && rect.x + rect.width >= legacyStove.x + legacyStove.width && rect.y <= legacyStove.y && rect.y + rect.depth >= legacyStove.y + legacyStove.depth)).toBe(false);
 	  });
 
 		  it("keeps custom standard overhang compatible with a selected seating-side depth", () => {

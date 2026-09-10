@@ -37,6 +37,10 @@ export function islandCountertopOverhangIn(island: IslandZone): number {
  */
 export function isIslandAssemblyMember(item: PlacedCabinet, island: IslandZone, placed: PlacedCabinet[]): boolean {
   if (item.islandFace) return true;
+  // A saved island stove can predate islandFace metadata. Once a newer wall
+  // cabinet adds that metadata, preserve the stove as an island member by its
+  // physical island footprint so its required countertop opening is retained.
+  if (isRangeOrOven(item.masterCode, item.description) && isOnIsland(item, island)) return true;
   if (placed.some((candidate) => candidate.islandFace != null)) return false;
   return isOnIsland(item, island);
 }

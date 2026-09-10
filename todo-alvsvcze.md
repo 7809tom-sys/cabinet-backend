@@ -1875,3 +1875,4 @@
 - [x] Use Kitchen Packages as the only public name for the complete-kitchen offering and remove duplicate Bundle Deals wording that refers to the same offering
 - [x] Restore direct stove selection so users can open stove attributes in the Designer on desktop, tablet, and mobile
 - [x] Exclude stove footprints from Designer countertop rendering so no countertop slab covers a stove
+- [x] Preserve every stove opening when the island countertop rebuilds after adding wall cabinets to an island face
