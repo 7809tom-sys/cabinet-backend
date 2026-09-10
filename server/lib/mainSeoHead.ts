@@ -25,6 +25,10 @@ const PUBLIC_ROUTE_COPY: Record<string, { title: string; description: string }> 
     title: "Kitchen Bundle Deals | CabinetDealz",
     description: "Browse ready-to-plan kitchen bundle deals and cabinet package ideas.",
   },
+  "/kitchens": {
+    title: "Plan Your Complete Kitchen | CabinetDealz",
+    description: "Explore kitchen styles, complete package ideas, and a guided path from room inspiration to kitchen design and quote.",
+  },
   "/surfaces": {
     title: "Countertops, Sinks & Fixtures | CabinetDealz",
     description: "Explore countertop, sink, faucet, and fixture selections for kitchen projects.",

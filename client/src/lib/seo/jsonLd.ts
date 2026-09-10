@@ -104,3 +104,44 @@ export function buildAffiliateStorefrontJsonLd(input: {
     },
   ];
 }
+
+/** Public whole-kitchen discovery schema. It contains no pricing or availability claims. */
+export function buildKitchenDiscoveryJsonLd(input: {
+  origin: string;
+  path?: string;
+  name: string;
+  description: string;
+}): Record<string, unknown> {
+  const path = input.path || "/kitchens";
+  const url = `${input.origin.replace(/\/$/, "")}${path}`;
+  const entries = [
+    { name: "Explore kitchen styles", path: "/styles" },
+    { name: "Browse kitchen packages", path: "/bundles" },
+    { name: "Design a kitchen", path: "/design" },
+    { name: "Request a kitchen quote", path: "/order/new" },
+  ];
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: input.name,
+        description: input.description,
+        mainEntity: { "@id": `${url}#journey` },
+      },
+      {
+        "@type": "ItemList",
+        "@id": `${url}#journey`,
+        name: "Complete kitchen planning journey",
+        itemListElement: entries.map((entry, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: entry.name,
+          url: `${input.origin.replace(/\/$/, "")}${entry.path}`,
+        })),
+      },
+    ],
+  };
+}

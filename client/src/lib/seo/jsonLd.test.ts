@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildProductJsonLd } from "./jsonLd";
+import { buildKitchenDiscoveryJsonLd, buildProductJsonLd } from "./jsonLd";
 
 describe("buildProductJsonLd (cabinet)", () => {
   it("emits a valid Product node with brand and sku, no offer", () => {
@@ -36,5 +36,26 @@ describe("buildProductJsonLd (cabinet)", () => {
     expect(() => JSON.stringify(ld)).not.toThrow();
     const parsed = JSON.parse(JSON.stringify(ld));
     expect(parsed["@type"]).toBe("Product");
+  });
+});
+
+describe("buildKitchenDiscoveryJsonLd", () => {
+  it("describes the complete-kitchen journey without publishing product pricing", () => {
+    const ld = buildKitchenDiscoveryJsonLd({
+      origin: "https://www.cabinetdealz.com",
+      name: "Plan Your Complete Kitchen",
+      description: "Plan a kitchen from style to quote.",
+    });
+    const graph = ld["@graph"] as Array<Record<string, unknown>>;
+    const journey = graph.find((node) => node["@type"] === "ItemList");
+    const collection = graph.find((node) => node["@type"] === "CollectionPage");
+
+    expect(collection).toMatchObject({
+      url: "https://www.cabinetdealz.com/kitchens",
+      name: "Plan Your Complete Kitchen",
+    });
+    expect(journey?.itemListElement).toHaveLength(4);
+    expect(JSON.stringify(ld)).not.toContain("offers");
+    expect(JSON.stringify(ld)).not.toContain("price");
   });
 });

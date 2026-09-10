@@ -3,6 +3,7 @@ import { getDb } from "./db";
 import { doorStyles } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { affiliateSlugFromHostCandidates } from "./lib/affiliateSubdomain";
+import { canonicalPublicOrigin } from "./lib/publicOrigin";
 
 /**
  * SEO routes: a crawl-accurate robots.txt and a dynamic sitemap.xml.
@@ -22,16 +23,19 @@ import { affiliateSlugFromHostCandidates } from "./lib/affiliateSubdomain";
 
 // Build the absolute origin (scheme + host) from the incoming request,
 // honoring reverse-proxy headers used by the hosting layer.
-function originFromRequest(req: Request): string {
-  const xfProto = (req.headers["x-forwarded-proto"] as string | undefined)
-    ?.split(",")[0]
-    ?.trim();
-  const xfHost = (req.headers["x-forwarded-host"] as string | undefined)
-    ?.split(",")[0]
-    ?.trim();
-  const proto = xfProto || req.protocol || "https";
-  const host = xfHost || req.get("host") || "";
-  return `${proto}://${host}`;
+function originFromRequest(req: Request, affiliateSlug?: string | null): string {
+  return canonicalPublicOrigin({
+    protocol: req.headers["x-forwarded-proto"] as string | undefined ?? req.protocol,
+    hostCandidates: [
+      req.headers["x-original-host"],
+      req.headers["x-forwarded-host"],
+      req.headers["x-host"],
+      req.hostname,
+      req.headers.host,
+    ],
+    affiliateSlug,
+    production: process.env.NODE_ENV === "production",
+  });
 }
 
 const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] =
@@ -39,6 +43,7 @@ const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] =
     { path: "/", changefreq: "weekly", priority: "1.0" },
     { path: "/styles", changefreq: "weekly", priority: "0.9" },
     { path: "/catalog", changefreq: "weekly", priority: "0.9" },
+    { path: "/kitchens", changefreq: "weekly", priority: "0.95" },
     { path: "/bundles", changefreq: "weekly", priority: "0.8" },
     { path: "/surfaces", changefreq: "monthly", priority: "0.8" },
     { path: "/countertops", changefreq: "monthly", priority: "0.7" },
@@ -69,8 +74,8 @@ function xmlEscape(s: string): string {
 
 export function registerSeoRoutes(app: Express) {
   app.get("/robots.txt", (req, res) => {
-    const origin = originFromRequest(req);
     const affiliateSlug = affiliateSlugForRequest(req);
+    const origin = originFromRequest(req, affiliateSlug);
     const body = [
       affiliateSlug ? "# Branded storefront crawl policy" : "# Cabinet Dealz crawl policy",
       "User-agent: *",
@@ -104,8 +109,8 @@ export function registerSeoRoutes(app: Express) {
   });
 
   app.get("/sitemap.xml", async (req, res) => {
-    const origin = originFromRequest(req);
     const affiliateSlug = affiliateSlugForRequest(req);
+    const origin = originFromRequest(req, affiliateSlug);
 
     if (affiliateSlug) {
       const storefrontPath = `/store/${encodeURIComponent(affiliateSlug)}`;

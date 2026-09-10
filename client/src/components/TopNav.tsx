@@ -20,6 +20,7 @@ type NavLink = { key: SiteStringKey; href: string };
 
 // Primary links shown inline on desktop
 const PRIMARY_LINKS: NavLink[] = [
+  { key: "nav_kitchen_packages", href: "/kitchens" },
   { key: "nav_shop_by_style", href: "/styles" },
   { key: "nav_all_cabinets", href: "/catalog" },
   { key: "nav_countertops", href: "/countertops" },

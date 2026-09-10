@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PackageOpen, Wand2, LayoutGrid, ChevronRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
-export default function BundleDeals() {
+export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string }) {
   const [, navigate] = useLocation();
   const bundles = trpc.priceShop.listPublishedBundles.useQuery();
   const [loadingId, setLoadingId] = useState<number | null>(null);
@@ -15,8 +15,14 @@ export default function BundleDeals() {
 
   const handleLoadBundle = (id: number) => {
     setLoadingId(id);
-    navigate(`/design?bundleId=${id}`);
+    const query = new URLSearchParams({ bundleId: String(id) });
+    if (affiliateSlug) query.set("affiliate", affiliateSlug);
+    navigate(`/design?${query.toString()}`);
     toast.success("Loading bundle into designer…");
+  };
+
+  const designFromScratch = () => {
+    navigate(affiliateSlug ? `/design?affiliate=${encodeURIComponent(affiliateSlug)}` : "/design");
   };
 
   const markFloorPlanUnavailable = (id: number) => {
@@ -74,7 +80,7 @@ export default function BundleDeals() {
             <p className="text-sm max-w-sm mx-auto">
               We're working on pre-designed kitchen packages. Check back soon, or design your own kitchen from scratch.
             </p>
-            <Button className="mt-6 gap-2 bg-[#d4a75a] hover:bg-[#c49648] text-white" onClick={() => navigate("/design")}>
+            <Button className="mt-6 gap-2 bg-[#d4a75a] hover:bg-[#c49648] text-white" onClick={designFromScratch}>
               <Wand2 className="h-4 w-4" /> Design Your Own Kitchen
             </Button>
           </div>
@@ -82,7 +88,7 @@ export default function BundleDeals() {
           <>
             <div className="flex items-center justify-between mb-6">
               <p className="text-sm text-muted-foreground">{bundles.data.length} package{bundles.data.length !== 1 ? "s" : ""} available</p>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/design")}>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={designFromScratch}>
                 <Wand2 className="h-3.5 w-3.5" /> Design from Scratch
               </Button>
             </div>

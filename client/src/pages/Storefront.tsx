@@ -264,7 +264,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
         </div>
 
         {/* ─── Bundle Deals promo band ─────────────────────────────────── */}
-        <section className="py-14 md:py-16 border-b border-border">
+        <section id="bundles" className="py-14 md:py-16 border-b border-border">
           <div className="container">
             <div className="flex flex-col md:flex-row md:items-center gap-8">
               <div className="flex-1">
@@ -278,7 +278,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                 <p className="text-muted-foreground leading-relaxed mb-6">
                   Browse complete kitchen packages with floor plans, pricing, and cabinet counts. Customize any bundle to fit your space and order in minutes.
                 </p>
-                <Link href={withRef("/bundles")}>
+                <Link href={withRef(`/store/${data.slug}/bundles`)}>
                   <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
                     <PackageOpen className="h-4 w-4" /> View Bundle Deals <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -480,6 +480,9 @@ function NavLinks({
       <a href="#shop" className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("cat_shop")}</Button>
       </a>
+      <Link href={withRef(`/store/${slug}/kitchens`)} className="hidden sm:block">
+        <Button variant="ghost" size="sm" className={cls}>Plan Your Kitchen</Button>
+      </Link>
       <Link href={withRef(`/design?affiliate=${slug}`)} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
       </Link>

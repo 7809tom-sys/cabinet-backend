@@ -4,6 +4,12 @@ export type AffiliateHeadBrand = {
   tagline?: string | null;
   logoUrl?: string | null;
   primaryColor?: string | null;
+  publicPhone?: string | null;
+  publicEmail?: string | null;
+  publicAddress?: string | null;
+  serviceArea?: string | null;
+  pageTitle?: string | null;
+  pageDescription?: string | null;
   canonicalUrl?: string | null;
   indexable?: boolean;
 };
@@ -89,7 +95,8 @@ export function injectAffiliateWhiteLabelHead(
 ): string {
   const storeName = brand.storeName?.trim() || "Kitchen & Bath Store";
   const tagline = brand.tagline?.trim() || "Cabinets and kitchen design";
-  const title = brand.tagline?.trim() ? `${storeName} — ${tagline}` : storeName;
+  const title = brand.pageTitle?.trim() || (brand.tagline?.trim() ? `${storeName} — ${tagline}` : storeName);
+  const description = brand.pageDescription?.trim() || tagline;
   const imageUrl = usableImageUrl(brand.logoUrl);
   const canonicalUrl = usableImageUrl(brand.canonicalUrl);
   const indexable = brand.indexable !== false;
@@ -99,12 +106,12 @@ export function injectAffiliateWhiteLabelHead(
   const favicon = imageUrl || monogramFavicon(storeName, primaryColor);
 
   let out = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
-  out = replaceOrInsertMeta(out, "name", "description", tagline);
+  out = replaceOrInsertMeta(out, "name", "description", description);
   out = replaceOrInsertMeta(out, "property", "og:site_name", storeName);
   out = replaceOrInsertMeta(out, "property", "og:title", title);
-  out = replaceOrInsertMeta(out, "property", "og:description", tagline);
+  out = replaceOrInsertMeta(out, "property", "og:description", description);
   out = replaceOrInsertMeta(out, "name", "twitter:title", title);
-  out = replaceOrInsertMeta(out, "name", "twitter:description", tagline);
+  out = replaceOrInsertMeta(out, "name", "twitter:description", description);
   out = replaceOrInsertMeta(out, "property", "og:image", imageUrl);
   out = replaceOrInsertMeta(out, "name", "twitter:image", imageUrl);
   out = replaceOrInsertMeta(out, "property", "og:url", canonicalUrl);
@@ -122,14 +129,22 @@ export function injectAffiliateWhiteLabelHead(
   // should not install a browser app that exposes Cabinet Dealz branding.
   out = out.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, "");
   if (canonicalUrl && indexable) {
+    const serviceAreas = (brand.serviceArea || "")
+      .split(/[,;\n]/)
+      .map((area) => area.trim())
+      .filter(Boolean);
     out = replaceAffiliateSeoJsonLd(out, [
       {
         "@context": "https://schema.org",
         "@type": "Organization",
         name: storeName,
         url: canonicalUrl,
-        ...(tagline ? { description: tagline } : {}),
+        ...(description ? { description } : {}),
         ...(imageUrl ? { logo: imageUrl } : {}),
+        ...(brand.publicPhone?.trim() ? { telephone: brand.publicPhone.trim() } : {}),
+        ...(brand.publicEmail?.trim() ? { email: brand.publicEmail.trim() } : {}),
+        ...(brand.publicAddress?.trim() ? { address: brand.publicAddress.trim() } : {}),
+        ...(serviceAreas.length > 0 ? { areaServed: serviceAreas } : {}),
       },
       {
         "@context": "https://schema.org",

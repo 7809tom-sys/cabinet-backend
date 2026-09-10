@@ -11,25 +11,31 @@ import { affiliates } from "../../drizzle/schema";
 import { injectAffiliateWhiteLabelHead } from "../lib/affiliateWhiteLabelHead";
 import { injectMainSeoHead } from "../lib/mainSeoHead";
 import { injectSharedRoomPreviewHead } from "../sharedRoomPreview";
+import { canonicalPublicOrigin } from "../lib/publicOrigin";
 
 function affiliateSlugFromRequestPath(requestPath: string): string | null {
   const slugMatch = requestPath.match(/^\/store\/([^/?#]+)/);
   return slugMatch?.[1] ?? null;
 }
 
-function publicOrigin(req: express.Request): string {
-  const proto = (req.headers["x-forwarded-proto"] as string | undefined)
-    ?.split(",")[0]
-    ?.trim() || req.protocol || "https";
-  const host = (req.headers["x-forwarded-host"] as string | undefined)
-    ?.split(",")[0]
-    ?.trim() || req.get("host") || "";
-  return `${proto}://${host}`;
+function publicOrigin(req: express.Request, affiliateSlug?: string | null): string {
+  return canonicalPublicOrigin({
+    protocol: req.headers["x-forwarded-proto"] as string | undefined ?? req.protocol,
+    hostCandidates: [
+      req.headers["x-original-host"],
+      req.headers["x-forwarded-host"],
+      req.headers["x-host"],
+      req.hostname,
+      req.headers.host,
+    ],
+    affiliateSlug,
+    production: process.env.NODE_ENV === "production",
+  });
 }
 
 function isIndexableAffiliatePath(requestPath: string, slug: string): boolean {
   const pathname = requestPath.split("?")[0].replace(/\/+$/, "") || "/";
-  return pathname === `/store/${slug}`;
+  return pathname === `/store/${slug}` || pathname === `/store/${slug}/kitchens`;
 }
 
 async function whiteLabelAffiliateHtml(
@@ -55,7 +61,11 @@ async function whiteLabelAffiliateHtml(
           storeName: affiliates.storeName,
           tagline: affiliates.tagline,
           logoUrl: affiliates.logoUrl,
-          primaryColor: affiliates.primaryColor,
+        primaryColor: affiliates.primaryColor,
+          publicPhone: affiliates.publicPhone,
+          publicEmail: affiliates.publicEmail,
+          publicAddress: affiliates.publicAddress,
+          serviceArea: affiliates.serviceArea,
         })
         .from(affiliates)
         .where(eq(affiliates.slug, slug))
@@ -63,10 +73,18 @@ async function whiteLabelAffiliateHtml(
     : null;
 
   const affiliatePathname = pathname || `/store/${slug}`;
+  const kitchenDiscoveryPath = affiliatePathname === `/store/${slug}/kitchens`;
+  const storeName = (row?.storeName?.trim() || "Kitchen & Bath Store").replace(/[.]+$/, "");
   return injectAffiliateWhiteLabelHead(html, {
     slug,
     ...row,
-    canonicalUrl: `${publicOrigin(req)}${affiliatePathname}`,
+    ...(kitchenDiscoveryPath
+      ? {
+          pageTitle: `Plan Your Complete Kitchen with ${storeName}`,
+          pageDescription: `Explore kitchen styles, complete package ideas, and a guided design-to-quote path with ${storeName}.`,
+        }
+      : {}),
+    canonicalUrl: `${publicOrigin(req, slug)}${affiliatePathname}`,
     indexable: isIndexableAffiliatePath(requestPath, slug),
   });
 }

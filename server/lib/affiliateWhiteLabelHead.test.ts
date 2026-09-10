@@ -25,6 +25,10 @@ describe("affiliate white-label HTML head", () => {
       tagline: "Cabinets designed for your home",
       logoUrl: "https://cdn.example/reaves-way-logo.png",
       primaryColor: "#225577",
+      publicPhone: "+1-555-0100",
+      publicEmail: "hello@reaves.example",
+      publicAddress: "125 Main Street, Austin, TX",
+      serviceArea: "Austin, Round Rock",
       canonicalUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
     });
 
@@ -39,6 +43,10 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain('property="og:url" content="https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop"');
     expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"');
     expect(html).toContain('data-affiliate-seo="true"');
+    expect(html).toContain('"telephone":"+1-555-0100"');
+    expect(html).toContain('"email":"hello@reaves.example"');
+    expect(html).toContain('"address":"125 Main Street, Austin, TX"');
+    expect(html).toContain('"areaServed":["Austin","Round Rock"]');
     expect(html).toContain('rel="icon" href="https://cdn.example/reaves-way-logo.png"');
     expect(html).not.toContain("Cabinet Dealz");
     expect(html).not.toContain("cabinet-dealz.png");
@@ -69,5 +77,19 @@ describe("affiliate white-label HTML head", () => {
 
     expect(html).toContain('name="robots" content="noindex, nofollow"');
     expect(html).not.toContain('data-affiliate-seo="true"');
+  });
+
+  it("uses the kitchen discovery page copy for the first crawler-visible affiliate response", () => {
+    const html = injectAffiliateWhiteLabelHead(platformHead, {
+      slug: "reaves-way-cabinet-shop",
+      storeName: "Reaves Way Cabinet Shop",
+      tagline: "Cabinets at value",
+      pageTitle: "Plan Your Complete Kitchen with Reaves Way Cabinet Shop",
+      pageDescription: "Explore kitchen styles, complete package ideas, and a guided design-to-quote path with Reaves Way Cabinet Shop.",
+      canonicalUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop/kitchens",
+    });
+
+    expect(html).toContain("<title>Plan Your Complete Kitchen with Reaves Way Cabinet Shop</title>");
+    expect(html).toContain('name="description" content="Explore kitchen styles, complete package ideas, and a guided design-to-quote path with Reaves Way Cabinet Shop."');
   });
 });

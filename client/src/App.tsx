@@ -59,6 +59,7 @@ const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
 const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
+const KitchenDiscovery = lazy(() => import("@/pages/KitchenDiscovery"));
 const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 const About = lazy(() => import("@/pages/About"));
 const Contact = lazy(() => import("@/pages/Contact"));
@@ -247,6 +248,24 @@ export default function App() {
                 <ErrorBoundary>
                   <CabinetDetail masterCode={params.masterCode} />
                 </ErrorBoundary>
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/kitchens">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <KitchenDiscovery affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/bundles">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <BundleDeals affiliateSlug={params.slug} />
               </AffiliateShell>
             </Suspense>
           )}
@@ -547,6 +566,13 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <BundleDeals />
+            </Suspense>
+          </AppLayout>
+        </Route>
+        <Route path="/kitchens">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <KitchenDiscovery />
             </Suspense>
           </AppLayout>
         </Route>

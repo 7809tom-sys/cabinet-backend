@@ -1855,3 +1855,6 @@
 - [x] Audit CabinetDealz’s Answer Engine Optimization readiness across public metadata, structured data, crawlability, product entities, and answer-oriented content before proposing changes
 - [ ] Define and implement a kitchen-first AEO and SEO architecture that leads customers through complete-kitchen planning, quoting, and ordering rather than individual cabinet shopping
 - [ ] Define and implement an affiliate-safe local SEO architecture with unique public storefront, service-area, and kitchen-project content while preventing duplicate or thin pages
+- [x] Correct canonical public-domain URLs in sitemap and affiliate storefront metadata so deployment hosts never compete with CabinetDealz or affiliate storefront addresses
+- [x] Add a public kitchen-first discovery hub that guides customers from kitchen style and package selection into design and quote paths
+- [x] Add verified affiliate-specific storefront metadata and schema that accurately represents each affiliate’s public business and service information
