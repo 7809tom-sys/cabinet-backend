@@ -1837,3 +1837,4 @@
 - [x] Condense every scroll-heavy Designer popup by keeping the most frequently used controls visible first and moving optional measurements, guidance, specialty treatments, and advanced configuration into compact expandable More options sections without removing any settings
 - [x] Correct the 3D crown molding body so it visibly projects at a true 45-degree angle from the cabinet top instead of rendering upright, while preserving crown takeoff, material, corner joins, cart, and saved-plan behavior
 - [x] Add concise accessible hover and keyboard-focus tooltips to compact Designer popup disclosures and icon-only controls so their functions remain clear without restoring long visible labels
+- [x] Correct outside-corner crown joins so the true 45-degree sloped rails terminate flush at one diagonal miter plane without pointed overshoots, extra pieces, or changes to crown takeoff, cart, price, or saved-plan behavior

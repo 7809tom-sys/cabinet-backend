@@ -4921,6 +4921,71 @@ export function threeDCrownMiterJoints(segments: ThreeDCrownPerimeterSegment[]):
   });
 }
 
+type CrownMiterEndpointTrim = {
+  startTopShift: number;
+  endTopShift: number;
+};
+
+/**
+ * A sloped crown rail rises outward from the cabinet edge. At an exposed turn,
+ * both rail tips must meet at one shared outer apex rather than extending past
+ * it as two square-ended boards. Trim only the raised edge along each rail;
+ * the cabinet-top edge stays at the measured exposed perimeter, so takeoff is
+ * not changed.
+ */
+export function crownMiterEndpointTrims(
+  segments: ThreeDCrownPerimeterSegment[],
+  riseInches: number,
+): CrownMiterEndpointTrim[] {
+  const trims = segments.map(() => ({ startTopShift: 0, endTopShift: 0 }));
+  const endpointTolerance = 0.25;
+  for (const joint of threeDCrownMiterJoints(segments)) {
+    const endpoints = segments.flatMap((segment, segmentIndex) => [
+      { segment, segmentIndex, atStart: true, point: segment.start },
+      { segment, segmentIndex, atStart: false, point: segment.end },
+    ]).filter((endpoint) =>
+      Math.hypot(endpoint.point.x - joint.point.x, endpoint.point.z - joint.point.z) <= endpointTolerance,
+    );
+    if (endpoints.length !== 2) continue;
+    const outward = endpoints.map(({ segment }) => {
+      const length = Math.max(segment.length, 1e-6);
+      const directionX = (segment.end.x - segment.start.x) / length;
+      const directionZ = (segment.end.z - segment.start.z) / length;
+      return { x: directionZ, z: -directionX };
+    });
+    const directions = endpoints.map(({ segment }) => {
+      const length = Math.max(segment.length, 1e-6);
+      return {
+        x: (segment.end.x - segment.start.x) / length,
+        z: (segment.end.z - segment.start.z) / length,
+      };
+    });
+    const firstRaisedEdge = {
+      x: joint.point.x + outward[0]!.x * riseInches,
+      z: joint.point.z + outward[0]!.z * riseInches,
+    };
+    const secondRaisedEdge = {
+      x: joint.point.x + outward[1]!.x * riseInches,
+      z: joint.point.z + outward[1]!.z * riseInches,
+    };
+    const cross = directions[0]!.x * directions[1]!.z - directions[0]!.z * directions[1]!.x;
+    if (Math.abs(cross) <= 1e-6) continue;
+    const betweenRaisedEdges = {
+      x: secondRaisedEdge.x - firstRaisedEdge.x,
+      z: secondRaisedEdge.z - firstRaisedEdge.z,
+    };
+    const firstShift = (betweenRaisedEdges.x * directions[1]!.z - betweenRaisedEdges.z * directions[1]!.x) / cross;
+    const secondShift = (betweenRaisedEdges.x * directions[0]!.z - betweenRaisedEdges.z * directions[0]!.x) / cross;
+    const shifts = [firstShift, secondShift];
+    endpoints.forEach((endpoint, index) => {
+      const trim = trims[endpoint.segmentIndex]!;
+      if (endpoint.atStart) trim.startTopShift = shifts[index]!;
+      else trim.endTopShift = shifts[index]!;
+    });
+  }
+  return trims;
+}
+
 /** The three exposed local edges of a WDC pentagon: two returns and its diagonal front. */
 export function diagonalCornerCrownSegments(bodyWidth: number, bodyDepth: number) {
   const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
@@ -5080,26 +5145,31 @@ export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: Room
   return exposed;
 }
 
-function createAngledCrownRailGeometry(segment: ThreeDCrownPerimeterSegment, rise: number, thickness: number) {
-  const length = Math.max(segment.length * INCH, 0.01);
+function createAngledCrownRailGeometry(
+  segment: ThreeDCrownPerimeterSegment,
+  rise: number,
+  thickness: number,
+  trim: CrownMiterEndpointTrim,
+) {
   const directionX = (segment.end.x - segment.start.x) / Math.max(segment.length, 1e-6);
   const directionZ = (segment.end.z - segment.start.z) / Math.max(segment.length, 1e-6);
   const outwardX = directionZ;
   const outwardZ = -directionX;
   const profileThickness = thickness / Math.SQRT2;
-  const profilePoints = (x: number, z: number) => {
+  const profilePoints = (x: number, z: number, topShift: number) => {
     const base = [x, segment.top * INCH, z];
     const slope = [outwardX * rise, rise, outwardZ * rise];
     const normal = [-outwardX * profileThickness, profileThickness, -outwardZ * profileThickness];
+    const along = [directionX * topShift * INCH, 0, directionZ * topShift * INCH];
     return [
       base,
-      [base[0] + slope[0], base[1] + slope[1], base[2] + slope[2]],
-      [base[0] + slope[0] + normal[0], base[1] + slope[1] + normal[1], base[2] + slope[2] + normal[2]],
+      [base[0] + slope[0] + along[0], base[1] + slope[1], base[2] + slope[2] + along[2]],
+      [base[0] + slope[0] + normal[0] + along[0], base[1] + slope[1] + normal[1], base[2] + slope[2] + normal[2] + along[2]],
       [base[0] + normal[0], base[1] + normal[1], base[2] + normal[2]],
     ];
   };
-  const start = profilePoints(segment.start.x * INCH, segment.start.z * INCH);
-  const end = profilePoints(segment.end.x * INCH, segment.end.z * INCH);
+  const start = profilePoints(segment.start.x * INCH, segment.start.z * INCH, trim.startTopShift);
+  const end = profilePoints(segment.end.x * INCH, segment.end.z * INCH, trim.endTopShift);
   const positions = [...start, ...end].flat();
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -5126,7 +5196,9 @@ export function addThreeDCrownMolding(
   const segments = threeDCrownPerimeterSegments(placed, room);
   const crownProfileAngleRadians = Math.PI / 4;
   const crownProfileRise = 3 * INCH;
-  for (const segment of segments) {
+  const miterTrims = crownMiterEndpointTrims(segments, crownProfileRise / INCH);
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const segment = segments[segmentIndex]!;
     const cabinet = cabinetByUid.get(segment.ownerUid);
     if (!cabinet) continue;
     const railThickness = 0.075;
@@ -5143,7 +5215,15 @@ export function addThreeDCrownMolding(
     // loading synchronized across its exposed side, toe kick, and crown.
     const material = ownerFinishMaterial
       ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[cabinet.uid] ?? fallbackColor, roughness: 0.58, metalness: 0.01 });
-    const rail = new THREE.Mesh(createAngledCrownRailGeometry(segment, crownProfileRise, railThickness), material);
+    const rail = new THREE.Mesh(
+      createAngledCrownRailGeometry(
+        segment,
+        crownProfileRise,
+        railThickness,
+        miterTrims[segmentIndex] ?? { startTopShift: 0, endTopShift: 0 },
+      ),
+      material,
+    );
     rail.userData = {
       crownMolding: true,
       continuousCabinetTrim: true,
@@ -5161,6 +5241,7 @@ export function addThreeDCrownMolding(
       crownProfileRiseInches: crownProfileRise / INCH,
       crownProfileOutwardRunInches: crownProfileRise / INCH,
       isUprightCrownProfile: false,
+      flushOutsideMiter: true,
     };
     root.add(rail);
   }

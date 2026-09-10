@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { mergedElevationTrimRuns } from "./ElevationView";
-import { addCabinet, addThreeDCrownMolding, diagonalCornerCrownSegments, threeDCrownMiterJoints, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
+import { addCabinet, addThreeDCrownMolding, crownMiterEndpointTrims, diagonalCornerCrownSegments, threeDCrownMiterJoints, threeDCrownPerimeterSegments } from "./InteractiveRoom3D";
 import { crownLinearInches, isCrownEligibleCabinet } from "@/lib/design";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 
@@ -40,13 +40,16 @@ describe("continuous cabinet trim", () => {
 		  expect(root.children).toHaveLength(4);
 		    expect(root.children.every((rail) => rail.userData.crownMolding === true)).toBe(true);
 		    expect(root.children.every((rail) => rail.userData.angledCrownProfile === true && rail.userData.crownProfileAngleDegrees === 45 && rail.userData.isUprightCrownProfile === false)).toBe(true);
-		    for (const rail of root.children) {
-		      const positions = (rail as THREE.Mesh).geometry.getAttribute("position");
-		      const lowerInner = new THREE.Vector3().fromBufferAttribute(positions, 0);
-		      const upperInner = new THREE.Vector3().fromBufferAttribute(positions, 1);
-		      const profileVector = upperInner.sub(lowerInner);
-		      expect(profileVector.y).toBeCloseTo(Math.hypot(profileVector.x, profileVector.z), 6);
-		    }
+			    for (const rail of root.children) {
+			      const positions = (rail as THREE.Mesh).geometry.getAttribute("position");
+			      const lowerInner = new THREE.Vector3().fromBufferAttribute(positions, 0);
+			      const upperInner = new THREE.Vector3().fromBufferAttribute(positions, 1);
+			      const lowerFarEnd = new THREE.Vector3().fromBufferAttribute(positions, 4);
+			      const alongRail = lowerFarEnd.sub(lowerInner).normalize();
+			      const rawProfile = upperInner.sub(lowerInner);
+			      const profileVector = rawProfile.clone().sub(alongRail.multiplyScalar(rawProfile.dot(alongRail)));
+			      expect(profileVector.y).toBeCloseTo(Math.hypot(profileVector.x, profileVector.z), 6);
+			    }
 		    expect(threeDCrownMiterJoints(segments)).toHaveLength(2);
 		    expect(root.children.some((piece) => piece.userData.crownMiterReturn === true || piece.userData.crownMiterSeam === true)).toBe(false);
 		  });
@@ -61,15 +64,52 @@ describe("continuous cabinet trim", () => {
 	    expect(segments.map((segment) => segment.length)).toEqual([12, 12, 12]);
 	    expect(takeoff.rawLinearInches).toBe(36);
 	    expect(takeoff.exposedMiterCornerCount).toBe(2);
-	    expect(takeoff.miterAllowanceInches).toBe(16);
-		    expect(takeoff.totalLinearInches).toBe(52);
-		    expect(threeDCrownMiterJoints(segments)).toEqual([
-		      expect.objectContaining({ miterAngleDegrees: 45 }),
-		      expect.objectContaining({ miterAngleDegrees: 45 }),
-		    ]);
+		  expect(takeoff.miterAllowanceInches).toBe(16);
+			  expect(takeoff.totalLinearInches).toBe(52);
+			  expect(threeDCrownMiterJoints(segments)).toEqual([
+			    expect.objectContaining({ miterAngleDegrees: 45 }),
+			    expect.objectContaining({ miterAngleDegrees: 45 }),
+			  ]);
+			  const trims = crownMiterEndpointTrims(segments, 3);
+			  expect(trims.flatMap((trim) => [trim.startTopShift, trim.endTopShift]).filter((shift) => Math.abs(shift) > 1e-6)).toHaveLength(4);
+			  expect(segments.map((segment) => segment.length)).toEqual([12, 12, 12]);
 		  });
 
-	  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
+		  it.each([0, 90, 180, 270])("terminates each rotated W1230 outside miter at one raised apex without changing its measured base edge", (rotation) => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		    const cabinets = [
+		      { uid: `w1230-${rotation}`, cabinetId: 1, masterCode: "W-12-30", description: "Wall", placement: "wall", x: 60, y: 48, width: 12, height: 30, depth: 12, rotation, mountBottom: 54 },
+		    ] as never[];
+		    const segments = threeDCrownPerimeterSegments(cabinets, room);
+		    const root = new THREE.Group();
+		    addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+
+		    expect(crownTakeoffFromExposedSegments(segments).totalLinearInches).toBe(52);
+		    for (const joint of threeDCrownMiterJoints(segments)) {
+		      const endpoints = segments.flatMap((segment, segmentIndex) => [
+		        { segment, segmentIndex, atStart: true, point: segment.start },
+		        { segment, segmentIndex, atStart: false, point: segment.end },
+		      ]).filter((endpoint) => Math.hypot(endpoint.point.x - joint.point.x, endpoint.point.z - joint.point.z) <= 0.25);
+		      expect(endpoints).toHaveLength(2);
+		      const [first, second] = endpoints;
+		      const readVertex = (endpoint: NonNullable<typeof first>, elevated: boolean) => {
+		        const positions = ((root.children[endpoint.segmentIndex] as THREE.Mesh).geometry.getAttribute("position"));
+		        const index = endpoint.atStart ? (elevated ? 1 : 0) : (elevated ? 5 : 4);
+		        return new THREE.Vector3().fromBufferAttribute(positions, index);
+		      };
+		      const firstRaisedEdge = readVertex(first!, true);
+		      const secondRaisedEdge = readVertex(second!, true);
+		      expect(firstRaisedEdge.distanceTo(secondRaisedEdge)).toBeLessThan(1e-6);
+		      for (const endpoint of endpoints) {
+		        const measuredBase = endpoint.atStart ? endpoint.segment.start : endpoint.segment.end;
+		        const renderedBase = readVertex(endpoint, false);
+		        expect(renderedBase.x).toBeCloseTo(measuredBase.x / 12, 6);
+		        expect(renderedBase.z).toBeCloseTo(measuredBase.z / 12, 6);
+		      }
+		    }
+		  });
+
+		  it("excludes every island or 4½-inch floor-seated wall cabinet from 3D crown and crown ordering", () => {
     const room = { width: 144, depth: 120, ceilingHeight: 96 };
     const elevatedUpper = {
       uid: "upper", cabinetId: 1, masterCode: "W-24-42", description: "Elevated upper",
@@ -253,7 +293,7 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.some((segment) => Math.abs(segment.length - 24) < 1e-9)).toBe(false);
 	});
 
-	it("renders the same three-piece diagonal WDC42 crown at all four room corners without a square cap", () => {
+		it("renders the same three-piece diagonal WDC42 crown at all four room corners without a square cap", () => {
 	  const root = new THREE.Group();
 	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
 	  addThreeDCrownMolding(root, [
@@ -269,10 +309,34 @@ describe("continuous cabinet trim", () => {
 		  for (const rail of root.children) {
 		    const positions = (rail as THREE.Mesh).geometry.getAttribute("position");
 		    expect(positions.count).toBe(8);
-		  }
-	});
+			  }
+		});
 
-	it("integrates a top-right WDC42 into 12-inch runs on both walls without crown at either hidden cabinet junction", () => {
+		it("keeps the diagonal WDC42’s exposed raised corner tips flush at each angled miter", () => {
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "wdc", cabinetId: 21, masterCode: "WDC2442", description: "Wall Diagonal Corner", placement: "wall", x: 48, y: 36, width: 24, height: 42, depth: 24, rotation: 0, mountBottom: 54, cornerType: "diagonal" },
+		  ] as never[];
+		  const segments = threeDCrownPerimeterSegments(cabinets, room);
+		  const root = new THREE.Group();
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+
+		  expect(segments).toHaveLength(3);
+		  for (const joint of threeDCrownMiterJoints(segments)) {
+		    const endpoints = segments.flatMap((segment, segmentIndex) => [
+		      { segment, segmentIndex, atStart: true, point: segment.start },
+		      { segment, segmentIndex, atStart: false, point: segment.end },
+		    ]).filter((endpoint) => Math.hypot(endpoint.point.x - joint.point.x, endpoint.point.z - joint.point.z) <= 0.25);
+		    expect(endpoints).toHaveLength(2);
+		    const raisedVertices = endpoints.map((endpoint) => {
+		      const positions = (root.children[endpoint.segmentIndex] as THREE.Mesh).geometry.getAttribute("position");
+		      return new THREE.Vector3().fromBufferAttribute(positions, endpoint.atStart ? 1 : 5);
+		    });
+		    expect(raisedVertices[0]!.distanceTo(raisedVertices[1]!)).toBeLessThan(1e-6);
+		  }
+		});
+
+		it("integrates a top-right WDC42 into 12-inch runs on both walls without crown at either hidden cabinet junction", () => {
 	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
 	  const segments = threeDCrownPerimeterSegments([
 	    { uid: "top-run", cabinetId: 31, masterCode: "W-24-42", description: "Wall", placement: "wall", x: 72, y: 0, width: 24, height: 42, depth: 12, rotation: 0, mountBottom: 54 },
