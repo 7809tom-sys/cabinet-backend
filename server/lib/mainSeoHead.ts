@@ -22,8 +22,8 @@ const PUBLIC_ROUTE_COPY: Record<string, { title: string; description: string }> 
     description: "Browse cabinet collections, cabinet configurations, and kitchen project options.",
   },
   "/bundles": {
-    title: "Kitchen Bundle Deals | CabinetDealz",
-    description: "Browse ready-to-plan kitchen bundle deals and cabinet package ideas.",
+    title: "Kitchen Packages | CabinetDealz",
+    description: "Explore ready-to-customize complete kitchen package ideas before opening the kitchen designer.",
   },
   "/kitchens": {
     title: "Plan Your Complete Kitchen | CabinetDealz",

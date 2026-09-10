@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildKitchenDiscoveryJsonLd, buildProductJsonLd } from "./jsonLd";
+import { buildKitchenDiscoveryJsonLd, buildKitchenPackageCollectionJsonLd, buildProductJsonLd } from "./jsonLd";
 
 describe("buildProductJsonLd (cabinet)", () => {
   it("emits a valid Product node with brand and sku, no offer", () => {
@@ -99,5 +99,31 @@ describe("buildKitchenDiscoveryJsonLd", () => {
       acceptedAnswer: { "@type": "Answer", text: faqs[0].answer },
     }]);
     expect(JSON.stringify(ld)).not.toContain("price");
+  });
+});
+
+describe("buildKitchenPackageCollectionJsonLd", () => {
+  it("lists actual kitchen packages by their public in-page discovery URLs without prices", () => {
+    const ld = buildKitchenPackageCollectionJsonLd({
+      origin: "https://www.cabinetdealz.com",
+      path: "/bundles",
+      name: "Kitchen Packages",
+      description: "Explore ready-to-customize kitchen package ideas.",
+      packages: [{
+        name: "Bright Kitchen Package",
+        description: "Homeowner price: $4,116.84. A kitchen layout starting point.",
+        image: "https://cdn.example/kitchen.png",
+        path: "/bundles#package-12",
+      }],
+    });
+    const graph = ld["@graph"] as Array<Record<string, unknown>>;
+    const list = graph.find((node) => node["@type"] === "ItemList")!;
+    const item = (list.itemListElement as Array<Record<string, unknown>>)[0];
+
+    expect(item.url).toBe("https://www.cabinetdealz.com/bundles#package-12");
+    expect(item.name).toBe("Bright Kitchen Package");
+    expect(item.description).toBeUndefined();
+    expect(JSON.stringify(ld)).not.toContain("price");
+    expect(JSON.stringify(ld)).not.toContain("offers");
   });
 });

@@ -1,17 +1,57 @@
 import { useState } from "react";
+import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useSeo } from "@/hooks/useSeo";
+import { buildKitchenPackageCollectionJsonLd } from "@/lib/seo/jsonLd";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PackageOpen, Wand2, LayoutGrid, ChevronRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
+function publicOrigin(): string {
+  return typeof window === "undefined" ? "https://www.cabinetdealz.com" : window.location.origin;
+}
+
 export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string }) {
   const [, navigate] = useLocation();
   const bundles = trpc.priceShop.listPublishedBundles.useQuery();
+  const affiliate = trpc.affiliates.bySlug.useQuery(
+    { slug: affiliateSlug ?? "" },
+    { enabled: Boolean(affiliateSlug), retry: false },
+  );
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [failedFloorPlans, setFailedFloorPlans] = useState<Set<number>>(() => new Set());
+  const origin = publicOrigin();
+  const basePath = affiliateSlug ? `/store/${affiliateSlug}` : "";
+  const canonical = `${origin}${basePath}/bundles`;
+  const storeName = (affiliate.data?.storeName ?? "CabinetDealz").trim().replace(/[.]+$/, "");
+  const title = affiliateSlug ? `Kitchen Packages with ${storeName}` : "Kitchen Packages";
+  const description = affiliateSlug
+    ? `Explore ready-to-customize complete kitchen package ideas with ${storeName}.`
+    : "Explore ready-to-customize complete kitchen package ideas before opening the kitchen designer.";
+  const jsonLd = useMemo(() => buildKitchenPackageCollectionJsonLd({
+    origin,
+    path: `${basePath}/bundles`,
+    name: title,
+    description,
+    packages: (bundles.data ?? []).map((bundle) => ({
+      name: bundle.name,
+      description: bundle.description,
+      image: bundle.floorPlanImageUrl || bundle.heroImageUrl,
+      path: `${basePath}/bundles#package-${bundle.id}`,
+    })),
+  }), [basePath, bundles.data, description, origin, title]);
+
+  useSeo({
+    title,
+    description,
+    siteName: storeName,
+    appendSiteName: !affiliateSlug,
+    canonical,
+    jsonLd,
+  });
 
   const handleLoadBundle = (id: number) => {
     setLoadingId(id);
@@ -44,7 +84,7 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
             Pre-Designed Kitchen Packages
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold mb-4">
-            Ready-to-Order <span className="text-[#d4a75a]">Bundle Deals</span>
+            Ready-to-Customize <span className="text-[#d4a75a]">Kitchen Packages</span>
           </h1>
           <p className="text-white/70 text-lg max-w-2xl mx-auto">
             Choose a pre-designed kitchen layout, customize it to fit your space, and order — all in minutes.
@@ -76,7 +116,7 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
         ) : !bundles.data || bundles.data.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             <PackageOpen className="h-16 w-16 mx-auto mb-4 opacity-20" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">No Bundle Deals Yet</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">No Kitchen Packages Yet</h2>
             <p className="text-sm max-w-sm mx-auto">
               We're working on pre-designed kitchen packages. Check back soon, or design your own kitchen from scratch.
             </p>
@@ -96,6 +136,7 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
               {bundles.data.map((bundle) => (
                 <div
                   key={bundle.id}
+                  id={`package-${bundle.id}`}
                   className="group rounded-xl border border-border bg-card overflow-hidden hover:shadow-lg hover:border-[#d4a75a]/50 transition-all duration-200"
                 >
                   {/* Hero image or placeholder */}

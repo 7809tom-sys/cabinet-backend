@@ -162,3 +162,50 @@ export function buildKitchenDiscoveryJsonLd(input: {
     ],
   };
 }
+
+/** Public kitchen-package collection schema. Package cards are linked in-place and never publish cabinet pricing. */
+export function buildKitchenPackageCollectionJsonLd(input: {
+  origin: string;
+  path: string;
+  name: string;
+  description: string;
+  packages: Array<{
+    name: string;
+    description?: string | null;
+    image?: string | null;
+    path: string;
+  }>;
+}): Record<string, unknown> {
+  const origin = input.origin.replace(/\/$/, "");
+  const url = `${origin}${input.path}`;
+  const schemaSafeDescription = (description: string | null | undefined): string | undefined => {
+    if (!description || /(?:\$|\bprice\b|\bcost\b)/i.test(description)) return undefined;
+    return description;
+  };
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: input.name,
+        description: input.description,
+        mainEntity: { "@id": `${url}#packages` },
+      },
+      {
+        "@type": "ItemList",
+        "@id": `${url}#packages`,
+        name: "Complete kitchen packages",
+        itemListElement: input.packages.map((pkg, index) => compact({
+          "@type": "ListItem",
+          position: index + 1,
+          name: pkg.name,
+          description: schemaSafeDescription(pkg.description),
+          image: pkg.image,
+          url: `${origin}${pkg.path}`,
+        })),
+      },
+    ],
+  };
+}

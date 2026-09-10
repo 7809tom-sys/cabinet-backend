@@ -35,7 +35,7 @@ function publicOrigin(req: express.Request, affiliateSlug?: string | null): stri
 
 function isIndexableAffiliatePath(requestPath: string, slug: string): boolean {
   const pathname = requestPath.split("?")[0].replace(/\/+$/, "") || "/";
-  return pathname === `/store/${slug}` || pathname === `/store/${slug}/kitchens`;
+  return pathname === `/store/${slug}` || pathname === `/store/${slug}/kitchens` || pathname === `/store/${slug}/bundles`;
 }
 
 async function whiteLabelAffiliateHtml(
@@ -74,6 +74,7 @@ async function whiteLabelAffiliateHtml(
 
   const affiliatePathname = pathname || `/store/${slug}`;
   const kitchenDiscoveryPath = affiliatePathname === `/store/${slug}/kitchens`;
+  const kitchenPackagesPath = affiliatePathname === `/store/${slug}/bundles`;
   const storeName = (row?.storeName?.trim() || "Kitchen & Bath Store").replace(/[.]+$/, "");
   return injectAffiliateWhiteLabelHead(html, {
     slug,
@@ -83,7 +84,12 @@ async function whiteLabelAffiliateHtml(
           pageTitle: `Plan Your Complete Kitchen with ${storeName}`,
           pageDescription: `Explore kitchen styles, complete package ideas, and a guided design-to-quote path with ${storeName}.`,
         }
-      : {}),
+      : kitchenPackagesPath
+        ? {
+            pageTitle: `Kitchen Packages with ${storeName}`,
+            pageDescription: `Explore ready-to-customize complete kitchen package ideas with ${storeName}.`,
+          }
+        : {}),
     canonicalUrl: `${publicOrigin(req, slug)}${affiliatePathname}`,
     indexable: isIndexableAffiliatePath(requestPath, slug),
   });
