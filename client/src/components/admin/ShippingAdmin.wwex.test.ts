@@ -10,9 +10,16 @@ const source = readFileSync(
 describe("ShippingAdmin WWEX verification controls", () => {
   it("provides a dedicated save action for the Client ID and Client Secret with clear safe-save feedback", () => {
     expect(source).toContain("saveWwexCredentials");
-    expect(source).toContain("Save WWEX credentials");
+    expect(source).toContain("Save Client ID + Secret");
     expect(source).toContain("WWEX Client ID and Client Secret saved.");
     expect(source).toContain("After saving, the secret field clears by design");
+  });
+
+  it("places the paired save action directly with the two credential inputs and supports Enter from the secret field", () => {
+    const wwexSection = source.slice(source.indexOf("Worldwide Express (WWEX) — OAuth2 Credentials"));
+    const credentialSection = wwexSection.slice(wwexSection.indexOf("<Label className=\"text-xs\">Client ID</Label>"), wwexSection.indexOf("<Label className=\"text-xs\">Account Number</Label>"));
+    expect(credentialSection).toContain("Save Client ID + Secret");
+    expect(credentialSection).toContain("handleSaveWwexCredentials();");
   });
 
   it("keeps a newly saved WWEX credential pair out of stale query hydration and generic settings saves", () => {

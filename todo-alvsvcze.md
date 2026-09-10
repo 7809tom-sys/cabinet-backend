@@ -1847,3 +1847,5 @@
 - [ ] Replace the incompatible generic WWEX rate payload with the verified Speedship staging shopFlow contract so a live carrier price can be returned safely
 - [ ] Configure verified WWEX staging token and shopFlow endpoints with safe readiness feedback before testing live carrier pricing
 - [x] Prevent the WWEX Client ID and Client Secret form state from reverting to previously loaded values after a successful dedicated credential save
+- [ ] Reproduce and correct the still-reported live WWEX credential reversion by tracing the authenticated save request, database update, and reload sequence end to end
+- [x] Reproduce and fix the reported Add ZIP control failure so a valid freight-zone ZIP is added visibly and saved without affecting WWEX settings

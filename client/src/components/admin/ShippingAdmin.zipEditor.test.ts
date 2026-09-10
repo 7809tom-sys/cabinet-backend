@@ -11,4 +11,11 @@ describe("ShippingAdmin multi-ZIP zone editor", () => {
     expect(source).toContain("serializeZipPrefixes(parseZipPrefixes(z.zipPrefixes))");
     expect(source).toContain("most specific matching entry still wins");
   });
+
+  it("saves a successful ZIP addition or removal immediately instead of requiring a second Save zones action", () => {
+    expect(source).toContain("function persistZones(nextZones: ZoneRow[], successMessage: string)");
+    expect(source).toContain("persistZones(nextZones, `${zip} added and saved.`);");
+    expect(source).toContain("persistZones(nextZones, `${zip} removed and saved.`);");
+    expect(source).toContain("Each successful Add ZIP or remove action saves immediately.");
+  });
 });

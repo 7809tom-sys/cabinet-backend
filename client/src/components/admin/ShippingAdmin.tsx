@@ -247,14 +247,24 @@ export default function ShippingAdmin() {
   }
 
   function handleSaveZones() {
-    const cleaned = zones
+    persistZones(zones, "Freight zones saved");
+  }
+
+  function persistZones(nextZones: ZoneRow[], successMessage: string) {
+    const cleaned = nextZones
       .map((z) => ({
         zoneName: z.zoneName.trim(),
         zipPrefixes: serializeZipPrefixes(parseZipPrefixes(z.zipPrefixes)),
         rateCents: toCents(z.rateDollars),
       }))
       .filter((z) => z.zoneName && z.zipPrefixes);
-    saveZones.mutate({ zones: cleaned });
+    saveZones.mutate({ zones: cleaned }, {
+      onSuccess: () => {
+        setZones(nextZones);
+        utils.freight.adminGet.invalidate();
+        toast.success(successMessage);
+      },
+    });
   }
 
   function updateZone(index: number, patch: Partial<ZoneRow>) {
@@ -273,12 +283,22 @@ export default function ShippingAdmin() {
       toast.error(`${zip} is already in this zone.`);
       return;
     }
-    updateZone(index, { zipPrefixes: serializeZipPrefixes([...currentZips, zip]) });
+    const nextZones = zones.map((zone, zoneIndex) => (
+      zoneIndex === index
+        ? { ...zone, zipPrefixes: serializeZipPrefixes([...currentZips, zip]) }
+        : zone
+    ));
+    persistZones(nextZones, `${zip} added and saved.`);
     setZipDrafts((current) => ({ ...current, [index]: "" }));
   }
 
   function removeZipFromZone(index: number, zip: string) {
-    updateZone(index, { zipPrefixes: serializeZipPrefixes(parseZipPrefixes(zones[index]?.zipPrefixes ?? "").filter((currentZip) => currentZip !== zip)) });
+    const nextZones = zones.map((zone, zoneIndex) => (
+      zoneIndex === index
+        ? { ...zone, zipPrefixes: serializeZipPrefixes(parseZipPrefixes(zone.zipPrefixes).filter((currentZip) => currentZip !== zip)) }
+        : zone
+    ));
+    persistZones(nextZones, `${zip} removed and saved.`);
   }
 
   function handleSaveWwexCredentials() {
@@ -445,7 +465,15 @@ export default function ShippingAdmin() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Client Secret</Label>
-                  <Input name="wwex-client-secret" type="password" value={form.wwexClientSecret} onChange={(e) => set({ wwexClientSecret: e.target.value })} placeholder="Enter a replacement secret" autoComplete="new-password" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
+                  <Input name="wwex-client-secret" type="password" value={form.wwexClientSecret} onChange={(e) => set({ wwexClientSecret: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveWwexCredentials(); } }} placeholder="Enter a replacement secret" autoComplete="new-password" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
+                </div>
+                <div className="md:col-span-2 flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-foreground">
+                    Save these two fields together before editing any optional WWEX settings.
+                  </p>
+                  <Button type="button" size="sm" className="shrink-0" onClick={handleSaveWwexCredentials} disabled={saveWwexCredentials.isPending}>
+                    {saveWwexCredentials.isPending ? "Saving credentials…" : "Save Client ID + Secret"}
+                  </Button>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Account Number</Label>
@@ -498,16 +526,13 @@ export default function ShippingAdmin() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="rounded-md border border-border bg-background p-3">
                 <p className="text-xs text-muted-foreground">
                   {hasWwexClientSecret
                     ? "A WWEX Client Secret is on file. Enter a replacement above, then save both client credentials together."
                     : "Enter both client credentials, then save them here before moving on."}
                   {" "}After saving, the secret field clears by design; it does not restore or display a prior secret.
                 </p>
-                <Button type="button" size="sm" className="shrink-0" onClick={handleSaveWwexCredentials} disabled={saveWwexCredentials.isPending}>
-                  {saveWwexCredentials.isPending ? "Saving…" : "Save WWEX credentials"}
-                </Button>
               </div>
               <p className="text-xs text-muted-foreground">Contact your WWEX account representative for the environment-specific token and rate URLs. The app will not send credentials to guessed or non-HTTPS hosts.</p>
             </div>
@@ -686,7 +711,7 @@ export default function ShippingAdmin() {
             </TableBody>
           </Table>
           </div>
-          <p className="text-xs text-muted-foreground">Add one ZIP code at a time. Shorter entries remain supported as leading ZIP prefixes; the most specific matching entry still wins.</p>
+          <p className="text-xs text-muted-foreground">Add one ZIP code at a time. Each successful Add ZIP or remove action saves immediately. Shorter entries remain supported as leading ZIP prefixes; the most specific matching entry still wins.</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="bg-background" onClick={() => setZones([...zones, { zoneName: "", zipPrefixes: "", rateDollars: "0.00" }])}>
               <Plus className="h-4 w-4 mr-1" /> Add zone
