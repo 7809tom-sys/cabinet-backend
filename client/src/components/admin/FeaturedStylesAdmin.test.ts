@@ -44,8 +44,8 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
 	  expect(adminSource).toContain('min-h-0 flex-1 space-y-4 overflow-y-auto');
 	});
 
-	it("manages private style-specific multiple shipping origins in Featured Door Styles", () => {
-	  expect(adminSource).toContain("Shipping Origin ZIPs");
+		it("manages private style-specific multiple shipping origins in Featured Door Styles", () => {
+		  expect(adminSource).toContain("Shipping Origin ZIPs");
 	  expect(adminSource).toContain("Add ZIP");
 	  expect(adminSource).toContain("Shipping origin ZIP must be exactly 5 digits");
 	  expect(adminSource).toContain("Live freight uses the saved origin nearest to the delivery ZIP");
@@ -54,6 +54,12 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
 	  expect(adminSource).toContain("Plan B flat freight fee");
 	  expect(adminSource).toContain("Used only when the live quote is unavailable");
 	  expect(adminSource).toContain("live carrier quote remains Plan A");
-	  expect(adminSource).toContain("flatFreightFeeCents:");
-	});
+		  expect(adminSource).toContain("flatFreightFeeCents:");
+		});
+
+		it("hydrates every saved origin ZIP supplied by the admin Door Style response", () => {
+		  expect(adminSource).toContain("warehouseZips?: string[] | null");
+		  expect(adminSource).toContain("setWarehouseZips(originZipList(s));");
+		  expect(adminSource).toContain("warehouseZips: warehouseZips.length > 0 ? warehouseZips : null");
+		});
 });

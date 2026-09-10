@@ -330,6 +330,7 @@ export const doorStylesRouter = router({
         overlayType: doorStyles.overlayType,
         doorPanelType: doorStyles.doorPanelType,
         warehouseZip: doorStyles.warehouseZip,
+        warehouseZips: doorStyles.warehouseZips,
         shippingRate: doorStyles.shippingRate,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
