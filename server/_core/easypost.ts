@@ -18,6 +18,12 @@ export interface LivePallet {
   weightLbs: number;
 }
 
+export interface LiveQuoteAddress {
+  locality: string;
+  region: string;
+  countryCode: "US";
+}
+
 export interface LiveQuoteRequest {
   fromZip: string;
   toZip: string;
@@ -26,6 +32,9 @@ export interface LiveQuoteRequest {
   residential?: boolean;
   liftgate?: boolean;
   limitedAccess?: boolean;
+  /** Carrier-specific providers can use verified ZIP-derived city/state data. */
+  fromAddress?: LiveQuoteAddress;
+  toAddress?: LiveQuoteAddress;
 }
 
 export interface LiveQuoteResult {

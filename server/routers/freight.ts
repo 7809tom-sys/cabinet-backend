@@ -38,7 +38,7 @@ import {
   type PalletCaps,
   type FreightItemPackage,
 } from "@shared/liveFreight";
-import { easypostQuote } from "../_core/easypost";
+import { easypostQuote, type LiveQuoteAddress } from "../_core/easypost";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 import { freightquoteQuote } from "../_core/freightquote";
@@ -316,6 +316,7 @@ async function resolvePackages(
 // In-memory geocode cache (zip → coord). Process-lifetime only; mirrors the
 // location router so destination/warehouse ZIPs resolve offline-first.
 const zipCoordCache = new Map<string, LatLng | null>();
+const zipAddressCache = new Map<string, LiveQuoteAddress | null>();
 
 async function geocodeZip(zip: string): Promise<LatLng | null> {
   if (zipCoordCache.has(zip)) return zipCoordCache.get(zip)!;
@@ -334,6 +335,40 @@ async function geocodeZip(zip: string): Promise<LatLng | null> {
     return loc;
   } catch {
     zipCoordCache.set(zip, null);
+    return null;
+  }
+}
+
+function addressComponent(
+  components: GeocodingResult["results"][number]["address_components"],
+  type: string,
+  preferShort = false,
+): string | null {
+  const component = components.find((candidate) => candidate.types.includes(type));
+  if (!component) return null;
+  return preferShort ? component.short_name : component.long_name;
+}
+
+/** Resolve non-invented city/state metadata required by the Speedship LTL request. */
+async function resolveZipAddress(zip: string): Promise<LiveQuoteAddress | null> {
+  const normalized = normalizeZip(zip);
+  if (!normalized) return null;
+  if (zipAddressCache.has(normalized)) return zipAddressCache.get(normalized)!;
+  try {
+    const result = await makeRequest<GeocodingResult>("/maps/api/geocode/json", {
+      address: `${normalized}, USA`,
+      components: "country:US",
+    });
+    const components = result.results?.[0]?.address_components ?? [];
+    const locality = addressComponent(components, "locality")
+      ?? addressComponent(components, "postal_town")
+      ?? addressComponent(components, "administrative_area_level_2");
+    const region = addressComponent(components, "administrative_area_level_1", true);
+    const address = locality && region ? { locality, region, countryCode: "US" as const } : null;
+    zipAddressCache.set(normalized, address);
+    return address;
+  } catch {
+    zipAddressCache.set(normalized, null);
     return null;
   }
 }
@@ -666,6 +701,10 @@ async function requestLiveRate(input: {
     );
   } else if (input.provider === "worldwideexpress") {
     const isProduction = input.settings.wwexEnvironment === "production";
+    const [fromAddress, toAddress] = await Promise.all([
+      resolveZipAddress(input.request.fromZip),
+      resolveZipAddress(input.request.toZip),
+    ]);
     live = await worldwideexpressQuote(
       {
         clientId: input.settings.wwexClientId ?? "",
@@ -681,7 +720,7 @@ async function requestLiveRate(input: {
           ? input.settings.wwexProductionRateUrl
           : input.settings.wwexSandboxRateUrl,
       },
-      input.request,
+      { ...input.request, fromAddress: fromAddress ?? undefined, toAddress: toAddress ?? undefined },
     );
   } else {
     live = await easypostQuote(input.liveApiKey, input.request);
@@ -1219,9 +1258,9 @@ export const freightRouter = router({
         gtzPassword: z.string().max(255).nullable().optional(),
         gtzAccountNumber: z.string().max(64).nullable().optional(),
         gtzEnvironment: z.enum(["sandbox", "production"]).optional(),
-        // Worldwide Express credentials
-        wwexClientId: z.string().max(255).nullable().optional(),
-        wwexClientSecret: z.string().max(255).nullable().optional(),
+        // WWEX Client ID and Client Secret use saveWwexCredentials exclusively.
+        // Keeping them out of this broad form mutation prevents a stale form
+        // snapshot from overwriting a newer paired credential save.
         wwexAccountNumber: z.string().max(64).nullable().optional(),
         wwexUsername: z.string().max(128).nullable().optional(),
         wwexPassword: z.string().max(255).nullable().optional(),
@@ -1272,7 +1311,7 @@ export const freightRouter = router({
       const credFields = [
         "fqClientId", "fqClientSecret", "fqAccountNumber",
         "gtzApiKey", "gtzUsername", "gtzPassword", "gtzAccountNumber",
-        "wwexClientId", "wwexClientSecret", "wwexAccountNumber", "wwexUsername", "wwexPassword",
+        "wwexAccountNumber", "wwexUsername", "wwexPassword",
       ] as const;
       for (const field of credFields) {
         const v = (input as Record<string, unknown>)[field];

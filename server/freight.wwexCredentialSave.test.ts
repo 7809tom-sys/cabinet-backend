@@ -13,4 +13,11 @@ describe("freight.saveWwexCredentials", () => {
     expect(source).toContain("hasWwexClientSecret: true");
     expect(source).not.toContain("wwexClientSecret: input.wwexClientSecret, hasWwexClientSecret");
   });
+
+  it("does not allow the broad Shipping settings mutation to overwrite the dedicated WWEX credential pair", () => {
+    const broadMutation = source.slice(source.indexOf("adminUpdateSettings: adminProcedure"), source.indexOf("saveWwexCredentials: adminProcedure"));
+    expect(broadMutation).toContain("WWEX Client ID and Client Secret use saveWwexCredentials exclusively.");
+    expect(broadMutation).not.toContain("wwexClientId: z.string");
+    expect(broadMutation).not.toContain("wwexClientSecret: z.string");
+  });
 });

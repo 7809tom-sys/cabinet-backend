@@ -12,7 +12,15 @@ describe("ShippingAdmin WWEX verification controls", () => {
     expect(source).toContain("saveWwexCredentials");
     expect(source).toContain("Save WWEX credentials");
     expect(source).toContain("WWEX Client ID and Client Secret saved.");
-    expect(source).toContain("The secret is intentionally cleared from this screen after saving.");
+    expect(source).toContain("After saving, the secret field clears by design");
+  });
+
+  it("keeps a newly saved WWEX credential pair out of stale query hydration and generic settings saves", () => {
+    expect(source).toContain("const [formInitialized, setFormInitialized] = useState(false);");
+    expect(source).toContain("if (!data || formInitialized) return;");
+    expect(source).toContain("an earlier cached response can never put an old Client ID back");
+    expect(source).not.toContain("wwexClientId: form.wwexClientId || undefined");
+    expect(source).not.toContain("wwexClientSecret: form.wwexClientSecret || undefined");
   });
 
   it("stores separate verified token and rate URLs for sandbox and production", () => {

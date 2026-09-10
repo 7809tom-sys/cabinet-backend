@@ -86,9 +86,12 @@ export default function ShippingAdmin() {
   const [hasKey, setHasKey] = useState(false);
   const [hasWwexClientSecret, setHasWwexClientSecret] = useState(false);
   const [zipDrafts, setZipDrafts] = useState<Record<number, string>>({});
+  const [formInitialized, setFormInitialized] = useState(false);
 
   useEffect(() => {
-    if (!data) return;
+    // Settings queries may finish after a credential mutation. Initialise once
+    // only, so an earlier cached response can never put an old Client ID back.
+    if (!data || formInitialized) return;
     const s = data.settings as
       | (NonNullable<typeof data.settings> & { hasLiveApiKey?: boolean; hasWwexClientSecret?: boolean })
       | null;
@@ -147,7 +150,8 @@ export default function ShippingAdmin() {
         rateDollars: toDollars(z.rateCents),
       }))
     );
-  }, [data]);
+    setFormInitialized(true);
+  }, [data, formInitialized]);
 
   const saveSettings = trpc.freight.adminUpdateSettings.useMutation({
     onSuccess: () => {
@@ -219,8 +223,6 @@ export default function ShippingAdmin() {
       gtzPassword: form.gtzPassword || undefined,
       gtzAccountNumber: form.gtzAccountNumber || undefined,
       gtzEnvironment: form.gtzEnvironment,
-      wwexClientId: form.wwexClientId || undefined,
-      wwexClientSecret: form.wwexClientSecret || undefined,
       wwexAccountNumber: form.wwexAccountNumber || undefined,
       wwexUsername: form.wwexUsername || undefined,
       wwexPassword: form.wwexPassword || undefined,
@@ -439,11 +441,11 @@ export default function ShippingAdmin() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Client ID</Label>
-                  <Input value={form.wwexClientId} onChange={(e) => set({ wwexClientId: e.target.value })} placeholder="WWEX Client ID" autoComplete="off" />
+                  <Input name="wwex-client-id" value={form.wwexClientId} onChange={(e) => set({ wwexClientId: e.target.value })} placeholder="WWEX Client ID" autoComplete="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Client Secret</Label>
-                  <Input type="password" value={form.wwexClientSecret} onChange={(e) => set({ wwexClientSecret: e.target.value })} placeholder="•••••••• (leave blank to keep current)" autoComplete="off" />
+                  <Input name="wwex-client-secret" type="password" value={form.wwexClientSecret} onChange={(e) => set({ wwexClientSecret: e.target.value })} placeholder="Enter a replacement secret" autoComplete="new-password" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Account Number</Label>
@@ -501,7 +503,7 @@ export default function ShippingAdmin() {
                   {hasWwexClientSecret
                     ? "A WWEX Client Secret is on file. Enter a replacement above, then save both client credentials together."
                     : "Enter both client credentials, then save them here before moving on."}
-                  {" "}The secret is intentionally cleared from this screen after saving.
+                  {" "}After saving, the secret field clears by design; it does not restore or display a prior secret.
                 </p>
                 <Button type="button" size="sm" className="shrink-0" onClick={handleSaveWwexCredentials} disabled={saveWwexCredentials.isPending}>
                   {saveWwexCredentials.isPending ? "Saving…" : "Save WWEX credentials"}
