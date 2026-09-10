@@ -29,6 +29,10 @@ const PUBLIC_ROUTE_COPY: Record<string, { title: string; description: string }> 
     title: "Plan Your Complete Kitchen | CabinetDealz",
     description: "Explore kitchen styles, complete package ideas, and a guided path from room inspiration to kitchen design and quote.",
   },
+  "/designer-guide": {
+    title: "How to Design a Complete Kitchen | CabinetDealz",
+    description: "Follow the CabinetDealz Designer walkthrough to set room size, place cabinets, plan working zones, select finishes, and review your complete kitchen plan.",
+  },
   "/surfaces": {
     title: "Countertops, Sinks & Fixtures | CabinetDealz",
     description: "Explore countertop, sink, faucet, and fixture selections for kitchen projects.",

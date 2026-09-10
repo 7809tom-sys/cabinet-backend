@@ -1867,4 +1867,7 @@
 - [x] Publish only saved valid affiliate social profiles in branded storefront organization schema to strengthen verified entity signals
 - [x] Make complete-kitchen planning and package discovery the primary homepage entry point while retaining cabinet, surface, fixture, and designer access
 - [x] Replace the single Door Style Shipping Origin ZIP field with an Add ZIP list that saves multiple valid origins and preserves existing freight behavior
+- [ ] Reproduce and correct the exact live Door Style multiple-origin ZIP save and reload workflow after the user reported the previous ZIP update was not done correctly
+- [x] Create a customer-facing visual slideshow that explains how to build a complete kitchen design using the CabinetDealz Designer
+- [x] Add the CabinetDealz Designer walkthrough as a responsive public website guide with a clear in-Designer help entry point
 - [x] Restore a visible Floor Plan and Room Size control in the Designer so users can set room dimensions without relying on hidden menus or dragging a wall

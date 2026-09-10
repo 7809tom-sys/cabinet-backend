@@ -45,6 +45,7 @@ const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] =
     { path: "/catalog", changefreq: "weekly", priority: "0.9" },
     { path: "/kitchens", changefreq: "weekly", priority: "0.95" },
     { path: "/bundles", changefreq: "weekly", priority: "0.8" },
+    { path: "/designer-guide", changefreq: "monthly", priority: "0.8" },
     { path: "/surfaces", changefreq: "monthly", priority: "0.8" },
     { path: "/countertops", changefreq: "monthly", priority: "0.7" },
     { path: "/stonecreek", changefreq: "monthly", priority: "0.7" },

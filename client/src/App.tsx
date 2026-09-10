@@ -60,6 +60,7 @@ const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
 const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
 const KitchenDiscovery = lazy(() => import("@/pages/KitchenDiscovery"));
+const DesignerWalkthrough = lazy(() => import("@/pages/DesignerWalkthrough"));
 const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 const About = lazy(() => import("@/pages/About"));
 const Contact = lazy(() => import("@/pages/Contact"));
@@ -357,6 +358,14 @@ export default function App() {
 
         <Route path="/design">
           <DesignerRoute />
+        </Route>
+
+        <Route path="/designer-guide">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <DesignerWalkthrough />
+            </Suspense>
+          </AppLayout>
         </Route>
 
         {/* Phone-first AR/photo physical measurement. It owns its own compact UI

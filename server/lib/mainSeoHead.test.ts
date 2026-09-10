@@ -22,6 +22,18 @@ describe("main SEO head", () => {
     expect(html).toContain('data-main-seo="true"');
   });
 
+  it("publishes the complete-kitchen Designer walkthrough as an indexable public guide", () => {
+    const html = injectMainSeoHead(shell, {
+      canonicalUrl: "https://www.cabinetdealz.com/designer-guide",
+      requestPath: "/designer-guide",
+    });
+
+    expect(html).toContain("<title>How to Design a Complete Kitchen | CabinetDealz</title>");
+    expect(html).toContain('content="Follow the CabinetDealz Designer walkthrough to set room size, place cabinets, plan working zones, select finishes, and review your complete kitchen plan."');
+    expect(html).toContain('rel="canonical" href="https://www.cabinetdealz.com/designer-guide"');
+    expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"');
+  });
+
   it("keeps private design workspaces out of search and avoids public schema", () => {
     const html = injectMainSeoHead(shell, {
       canonicalUrl: "https://www.cabinetdealz.com/design",

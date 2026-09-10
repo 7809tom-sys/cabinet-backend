@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +19,7 @@ import {
   PencilLine,
   PanelsTopLeft,
   RotateCw,
+  Presentation,
 } from "lucide-react";
 
 const DISMISS_KEY = "cd_design_tip_dismissed_v1";
@@ -131,6 +133,12 @@ export function DesignHelp() {
               {t("dt_help_tip4")}
             </HelpStep>
           </div>
+          <Link href="/designer-guide" className="block">
+            <Button type="button" className="w-full gap-2">
+              <Presentation className="h-4 w-4" aria-hidden="true" />
+              Open complete Designer walkthrough
+            </Button>
+          </Link>
         </DialogContent>
       </Dialog>
     ),
