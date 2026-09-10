@@ -96,7 +96,14 @@ export function injectAffiliateWhiteLabelHead(
   const storeName = brand.storeName?.trim() || "Kitchen & Bath Store";
   const tagline = brand.tagline?.trim() || "Cabinets and kitchen design";
   const title = brand.pageTitle?.trim() || (brand.tagline?.trim() ? `${storeName} — ${tagline}` : storeName);
-  const description = brand.pageDescription?.trim() || tagline;
+  const serviceAreas = (brand.serviceArea || "")
+    .split(/[,;\n]/)
+    .map((area) => area.trim())
+    .filter(Boolean);
+  const defaultDescription = serviceAreas.length > 0
+    ? `${tagline.replace(/[.]+$/, "")}. Serving ${serviceAreas.join(", ")}.`
+    : tagline;
+  const description = brand.pageDescription?.trim() || defaultDescription;
   const imageUrl = usableImageUrl(brand.logoUrl);
   const canonicalUrl = usableImageUrl(brand.canonicalUrl);
   const indexable = brand.indexable !== false;
@@ -129,10 +136,6 @@ export function injectAffiliateWhiteLabelHead(
   // should not install a browser app that exposes Cabinet Dealz branding.
   out = out.replace(/<link\s+rel=["']manifest["'][^>]*>\s*/i, "");
   if (canonicalUrl && indexable) {
-    const serviceAreas = (brand.serviceArea || "")
-      .split(/[,;\n]/)
-      .map((area) => area.trim())
-      .filter(Boolean);
     out = replaceAffiliateSeoJsonLd(out, [
       {
         "@context": "https://schema.org",
