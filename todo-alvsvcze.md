@@ -1838,3 +1838,8 @@
 - [x] Correct the 3D crown molding body so it visibly projects at a true 45-degree angle from the cabinet top instead of rendering upright, while preserving crown takeoff, material, corner joins, cart, and saved-plan behavior
 - [x] Add concise accessible hover and keyboard-focus tooltips to compact Designer popup disclosures and icon-only controls so their functions remain clear without restoring long visible labels
 - [x] Correct outside-corner crown joins so the true 45-degree sloped rails terminate flush at one diagonal miter plane without pointed overshoots, extra pieces, or changes to crown takeoff, cart, price, or saved-plan behavior
+- [ ] Require every future Designer, catalog, pricing, and operations change to pass responsive functional and visual validation on mobile, tablet, and PC before publication
+- [x] Allow the shipping feature-area configuration to accept, store, display, and match multiple ZIP codes while preserving existing freight and location rules
+- [x] Provide a simple Add ZIP code button with duplicate prevention, visible saved ZIPs, and per-ZIP removal in the shipping feature-area editor
+- [x] Fix Shipping provider credential replacement so an administrator-entered updated key persists safely rather than reverting to the previous key after save or reload
+- [x] Add a dedicated Save WWEX settings action beside the WWEX Client ID and Client Secret fields so provider credentials can be persisted without scrolling to the general Shipping save button

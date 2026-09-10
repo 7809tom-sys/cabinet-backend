@@ -8,6 +8,13 @@ const source = readFileSync(
 );
 
 describe("ShippingAdmin WWEX verification controls", () => {
+  it("provides a dedicated save action for the Client ID and Client Secret with clear safe-save feedback", () => {
+    expect(source).toContain("saveWwexCredentials");
+    expect(source).toContain("Save WWEX credentials");
+    expect(source).toContain("WWEX Client ID and Client Secret saved.");
+    expect(source).toContain("The secret is intentionally cleared from this screen after saving.");
+  });
+
   it("stores separate verified token and rate URLs for sandbox and production", () => {
     expect(source).toContain("wwexSandboxTokenUrl");
     expect(source).toContain("wwexSandboxRateUrl");

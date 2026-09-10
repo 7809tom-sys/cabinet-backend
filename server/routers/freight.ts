@@ -1291,6 +1291,34 @@ export const freightRouter = router({
       return { ok: true };
     }),
 
+  // ─── Admin: save WWEX OAuth credentials without requiring the full settings form ──
+  saveWwexCredentials: adminProcedure
+    .input(z.object({
+      wwexClientId: z.string().trim().min(1).max(255),
+      wwexClientSecret: z.string().trim().min(1).max(255),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const existing = await loadSettingsRow();
+      const values = {
+        wwexClientId: input.wwexClientId,
+        wwexClientSecret: input.wwexClientSecret,
+        updatedAt: new Date(),
+      };
+
+      if (existing) {
+        await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      } else {
+        await db.insert(shippingSettings).values(values);
+      }
+
+      // Deliberately return no credential value. The client only needs a safe
+      // confirmation that both fields were persisted together.
+      return { ok: true, wwexClientId: input.wwexClientId, hasWwexClientSecret: true };
+    }),
+
   // ─── Admin: test a live quote with the stored key + an example shipment ──────
   testLiveQuote: adminProcedure
     .input(

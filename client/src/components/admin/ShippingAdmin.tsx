@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity } from "lucide-react";
+import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity, X } from "lucide-react";
 import FreightTestLab from "./FreightTestLab";
+import { isValidZipPrefix, normalizeZipPrefix, parseZipPrefixes, serializeZipPrefixes } from "@/lib/shippingZipPrefixes";
 
 // Dollars <-> cents helpers (we edit dollars, store cents).
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -83,13 +84,16 @@ export default function ShippingAdmin() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [apiKeyInput, setApiKeyInput] = useState(""); // write-only
   const [hasKey, setHasKey] = useState(false);
+  const [hasWwexClientSecret, setHasWwexClientSecret] = useState(false);
+  const [zipDrafts, setZipDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!data) return;
     const s = data.settings as
-      | (NonNullable<typeof data.settings> & { hasLiveApiKey?: boolean })
+      | (NonNullable<typeof data.settings> & { hasLiveApiKey?: boolean; hasWwexClientSecret?: boolean })
       | null;
     setHasKey(!!s?.hasLiveApiKey);
+    setHasWwexClientSecret(!!s?.hasWwexClientSecret);
     setForm({
       enabled: s?.enabled ?? true,
       originZip: s?.originZip ?? "",
@@ -157,6 +161,15 @@ export default function ShippingAdmin() {
     onSuccess: () => {
       utils.freight.adminGet.invalidate();
       toast.success("Freight zones saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const saveWwexCredentials = trpc.freight.saveWwexCredentials.useMutation({
+    onSuccess: (result) => {
+      setHasWwexClientSecret(result.hasWwexClientSecret);
+      setForm((current) => current ? { ...current, wwexClientId: result.wwexClientId, wwexClientSecret: "" } : current);
+      utils.freight.adminGet.invalidate();
+      toast.success("WWEX Client ID and Client Secret saved.");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -235,11 +248,46 @@ export default function ShippingAdmin() {
     const cleaned = zones
       .map((z) => ({
         zoneName: z.zoneName.trim(),
-        zipPrefixes: z.zipPrefixes.replace(/\s/g, ""),
+        zipPrefixes: serializeZipPrefixes(parseZipPrefixes(z.zipPrefixes)),
         rateCents: toCents(z.rateDollars),
       }))
       .filter((z) => z.zoneName && z.zipPrefixes);
     saveZones.mutate({ zones: cleaned });
+  }
+
+  function updateZone(index: number, patch: Partial<ZoneRow>) {
+    setZones((current) => current.map((zone, zoneIndex) => (zoneIndex === index ? { ...zone, ...patch } : zone)));
+  }
+
+  function addZipToZone(index: number) {
+    const rawDraft = zipDrafts[index] ?? "";
+    const zip = normalizeZipPrefix(rawDraft);
+    if (!isValidZipPrefix(zip)) {
+      toast.error("Enter a ZIP code or ZIP prefix using 1 to 5 digits.");
+      return;
+    }
+    const currentZips = parseZipPrefixes(zones[index]?.zipPrefixes ?? "");
+    if (currentZips.includes(zip)) {
+      toast.error(`${zip} is already in this zone.`);
+      return;
+    }
+    updateZone(index, { zipPrefixes: serializeZipPrefixes([...currentZips, zip]) });
+    setZipDrafts((current) => ({ ...current, [index]: "" }));
+  }
+
+  function removeZipFromZone(index: number, zip: string) {
+    updateZone(index, { zipPrefixes: serializeZipPrefixes(parseZipPrefixes(zones[index]?.zipPrefixes ?? "").filter((currentZip) => currentZip !== zip)) });
+  }
+
+  function handleSaveWwexCredentials() {
+    if (!form) return;
+    const wwexClientId = form.wwexClientId.trim();
+    const wwexClientSecret = form.wwexClientSecret.trim();
+    if (!wwexClientId || !wwexClientSecret) {
+      toast.error("Enter both the WWEX Client ID and Client Secret before saving.");
+      return;
+    }
+    saveWwexCredentials.mutate({ wwexClientId, wwexClientSecret });
   }
 
   const liveMode = form.quoteMode === "live";
@@ -448,6 +496,17 @@ export default function ShippingAdmin() {
                   />
                 </div>
               </div>
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {hasWwexClientSecret
+                    ? "A WWEX Client Secret is on file. Enter a replacement above, then save both client credentials together."
+                    : "Enter both client credentials, then save them here before moving on."}
+                  {" "}The secret is intentionally cleared from this screen after saving.
+                </p>
+                <Button type="button" size="sm" className="shrink-0" onClick={handleSaveWwexCredentials} disabled={saveWwexCredentials.isPending}>
+                  {saveWwexCredentials.isPending ? "Saving…" : "Save WWEX credentials"}
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">Contact your WWEX account representative for the environment-specific token and rate URLs. The app will not send credentials to guessed or non-HTTPS hosts.</p>
             </div>
           )}
@@ -564,7 +623,8 @@ export default function ShippingAdmin() {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Zone name</TableHead>
@@ -577,22 +637,45 @@ export default function ShippingAdmin() {
               {zones.map((z, i) => (
                 <TableRow key={i}>
                   <TableCell>
-                    <Input value={z.zoneName} onChange={(e) => {
-                      const next = [...zones]; next[i] = { ...next[i], zoneName: e.target.value }; setZones(next);
-                    }} />
+                    <Input value={z.zoneName} onChange={(e) => updateZone(i, { zoneName: e.target.value })} />
                   </TableCell>
                   <TableCell>
-                    <Input value={z.zipPrefixes} onChange={(e) => {
-                      const next = [...zones]; next[i] = { ...next[i], zipPrefixes: e.target.value }; setZones(next);
-                    }} placeholder="30,31,32" />
+                    <div className="min-w-[280px] space-y-2">
+                      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5">
+                        {parseZipPrefixes(z.zipPrefixes).length > 0 ? parseZipPrefixes(z.zipPrefixes).map((zip) => (
+                          <span key={zip} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                            {zip}
+                            <button type="button" className="rounded-full p-0.5 hover:bg-primary/15" onClick={() => removeZipFromZone(i, zip)} aria-label={`Remove ZIP code ${zip}`}>
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        )) : <span className="text-xs text-muted-foreground">No ZIP codes added</span>}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          value={zipDrafts[i] ?? ""}
+                          onChange={(e) => setZipDrafts((current) => ({ ...current, [i]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addZipToZone(i); } }}
+                          inputMode="numeric"
+                          autoComplete="postal-code"
+                          maxLength={5}
+                          aria-label={`Add ZIP code to ${z.zoneName || "freight zone"}`}
+                          placeholder="Add ZIP code"
+                        />
+                        <Button type="button" variant="outline" size="sm" className="shrink-0 bg-background" onClick={() => addZipToZone(i)}>
+                          <Plus className="mr-1 h-4 w-4" /> Add ZIP
+                        </Button>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Input value={z.rateDollars} onChange={(e) => {
-                      const next = [...zones]; next[i] = { ...next[i], rateDollars: e.target.value }; setZones(next);
-                    }} />
+                    <Input value={z.rateDollars} onChange={(e) => updateZone(i, { rateDollars: e.target.value })} />
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZones(zones.filter((_, j) => j !== i))}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                      setZones((current) => current.filter((_, zoneIndex) => zoneIndex !== i));
+                      setZipDrafts({});
+                    }}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -600,6 +683,8 @@ export default function ShippingAdmin() {
               ))}
             </TableBody>
           </Table>
+          </div>
+          <p className="text-xs text-muted-foreground">Add one ZIP code at a time. Shorter entries remain supported as leading ZIP prefixes; the most specific matching entry still wins.</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="bg-background" onClick={() => setZones([...zones, { zoneName: "", zipPrefixes: "", rateDollars: "0.00" }])}>
               <Plus className="h-4 w-4 mr-1" /> Add zone
