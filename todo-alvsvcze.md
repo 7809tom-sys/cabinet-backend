@@ -1913,5 +1913,7 @@
 - [x] Display an accessible loading spinner and processing label while an Operations carrier-quote request is in progress
 - [x] Diagnose the reported affiliate storefront refresh failure without changing affiliate branding, DNS, pricing, or storefront content
 - [x] Correct and validate affiliate storefront refresh behavior across the available affiliate domain routes
+- [x] Diagnose the Railway code-upload failure for the approved affiliate refresh release
+- [ ] Retry the approved deployment after confirming no project-side upload blocker remains
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
