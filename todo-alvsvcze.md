@@ -1878,3 +1878,8 @@
 - [x] Preserve every stove opening when the island countertop rebuilds after adding wall cabinets to an island face
 - [x] Compact the Island attributes popup so commonly used controls fit without scrolling and optional guidance remains available in collapsed sections
 - [x] Render selected light-rail molding visibly beneath wall cabinets while preserving existing molding quantities and cart behavior
+- [x] Add a Vendor-page demand forecast based only on saved plans, showing projected styles, SKUs, quantities, and recent pipeline timing without using submitted orders
+- [x] Keep the Vendor Portal overview usable when vendor line data is still loading or unavailable so the forecast page remains reachable
+- [ ] Investigate affiliate storefront DNS and public routing availability, then repair any verified issue without publishing the pending Vendor forecast
+- [ ] Configure a wildcard affiliate hostname for *.cabinetdealz.com so current and future storefront subdomains resolve automatically
+- [ ] Test the pending Vendor saved-plan demand forecast against a real saved plan and report matched SKU, style, quantity, and timing results

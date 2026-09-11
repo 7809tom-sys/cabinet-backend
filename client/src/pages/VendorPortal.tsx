@@ -319,7 +319,11 @@ function OverviewPage() {
     return <div className="text-destructive p-4">Error loading line info: {myLine.error.message}</div>;
   }
 
-  const { line, counts, styles } = myLine.data!;
+  if (!myLine.data) {
+    return <div className="p-4 text-muted-foreground">Your vendor line is not available yet. You can still use the portal navigation while the line information is prepared.</div>;
+  }
+
+  const { line, counts, styles } = myLine.data;
 
   return (
     <div className="space-y-6">
@@ -1554,10 +1558,11 @@ function GalleryPage() {
 // ─── Vendor Analytics Page ───────────────────────────────────────────────────
 function VendorAnalyticsPage() {
   const adminDistId = useAdminDistributorId();
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(60);
   const summary = trpc.analytics.summary.useQuery({ days, ...(adminDistId ? { distributorId: adminDistId } : {}) });
+  const forecast = trpc.analytics.savedPlanForecast.useQuery({ days, ...(adminDistId ? { distributorId: adminDistId } : {}) });
 
-  if (summary.isLoading) {
+  if (summary.isLoading || forecast.isLoading) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
@@ -1566,7 +1571,8 @@ function VendorAnalyticsPage() {
   }
 
   const data = summary.data;
-  if (!data) return <p className="text-muted-foreground">No analytics data available.</p>;
+  const savedPlanForecast = forecast.data;
+  if (!data || !savedPlanForecast) return <p className="text-muted-foreground">No analytics data available.</p>;
 
   return (
     <div className="space-y-6">
@@ -1579,10 +1585,89 @@ function VendorAnalyticsPage() {
         >
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
+          <option value={60}>Last 60 days</option>
           <option value={90}>Last 90 days</option>
-          <option value={365}>Last year</option>
         </select>
       </div>
+
+      <section className="space-y-4" aria-labelledby="saved-plan-demand-heading">
+        <div>
+          <h3 id="saved-plan-demand-heading" className="text-lg font-semibold">Saved-plan demand forecast</h3>
+          <p className="text-sm text-muted-foreground">A demand signal from saved plans in the last {days} days. It does not use submitted orders or represent a sales commitment.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Saved plans</p>
+              <p className="text-3xl font-bold">{savedPlanForecast.savedPlanCount.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Projected cabinet units</p>
+              <p className="text-3xl font-bold">{savedPlanForecast.projectedCabinetQty.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Latest saved-plan activity</p>
+              <p className="text-base font-semibold">{savedPlanForecast.latestSavedAt ? new Date(savedPlanForecast.latestSavedAt).toLocaleDateString() : "No recent plans"}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {savedPlanForecast.topSkus.length > 0 ? (
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Leading SKU demand</CardTitle></CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Style</TableHead><TableHead className="text-right">Units in plans</TableHead><TableHead className="text-right">Plans</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {savedPlanForecast.topSkus.map((row) => (
+                      <TableRow key={`${row.platformSku}-${row.styleId}`}>
+                        <TableCell className="font-medium">{row.sku}</TableCell>
+                        <TableCell>{row.style}</TableCell>
+                        <TableCell className="text-right">{row.units.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{row.planCount.toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card><CardContent className="p-5 text-sm text-muted-foreground">No vendor-matched cabinet selections appear in saved plans for this period yet.</CardContent></Card>
+        )}
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Styles in the pipeline</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {savedPlanForecast.topStyles.length > 0 ? savedPlanForecast.topStyles.map((row) => (
+                <div key={row.styleId} className="flex items-center justify-between text-sm gap-3">
+                  <span className="truncate">{row.style}</span>
+                  <Badge variant="secondary">{row.units} units · {row.planCount} plans</Badge>
+                </div>
+              )) : <p className="text-sm text-muted-foreground">No matched styles in the selected period.</p>}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Recent saved-plan timing</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {savedPlanForecast.activity.length > 0 ? savedPlanForecast.activity.slice(-8).map((row) => (
+                <div key={row.day} className="flex items-center justify-between text-sm gap-3"><span>{new Date(`${row.day}T00:00:00Z`).toLocaleDateString()}</span><Badge variant="outline">{row.planCount} saved</Badge></div>
+              )) : <p className="text-sm text-muted-foreground">No saved-plan activity in the selected period.</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        {savedPlanForecast.unresolvedCabinetQty > 0 && (
+          <p className="text-xs text-muted-foreground">{savedPlanForecast.unresolvedCabinetQty.toLocaleString()} cabinet unit{savedPlanForecast.unresolvedCabinetQty === 1 ? "" : "s"} could not be matched to a current vendor SKU and are excluded from the SKU demand list.</p>
+        )}
+      </section>
 
       {/* Summary card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
