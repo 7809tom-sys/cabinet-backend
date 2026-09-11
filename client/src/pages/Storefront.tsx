@@ -29,6 +29,32 @@ type Brand = { primary: string; accent: string };
 // Defined early so the Storefront function can reference it in its props
 type StorefrontData = NonNullable<inferRouterOutputs<AppRouter>["affiliates"]["bySlug"]>;
 
+function storefrontNameFromSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
+    .join(" ");
+}
+
+function StorefrontRefreshState({ slug, isRetrying, onRetry }: { slug: string; isRetrying: boolean; onRetry: () => void }) {
+  const storeName = storefrontNameFromSlug(slug);
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm space-y-4 text-center" role="status" aria-live="polite">
+        <Spinner className="mx-auto h-8 w-8 text-primary" />
+        <div className="space-y-1">
+          <p className="text-lg font-semibold text-foreground">Loading {storeName}</p>
+          <p className="text-sm text-muted-foreground">Refreshing your cabinet storefront and current selections.</p>
+        </div>
+        <Button type="button" variant="outline" onClick={onRetry} disabled={isRetrying}>
+          {isRetrying ? "Refreshing storefront…" : "Retry storefront"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function color(val: string | null | undefined, fallback: string): string {
   if (!val) return fallback;
   const v = val.trim();
@@ -36,9 +62,14 @@ function color(val: string | null | undefined, fallback: string): string {
 }
 
 export default function Storefront({ slug, previewData }: { slug: string; previewData?: StorefrontData }) {
-  const { data: fetchedData, isLoading } = trpc.affiliates.bySlug.useQuery(
+  const { data: fetchedData, isLoading, isError, isFetching, refetch } = trpc.affiliates.bySlug.useQuery(
     { slug },
-    { retry: false, enabled: !previewData }
+    {
+      enabled: !previewData,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(750 * 2 ** attempt, 3_000),
+      refetchOnWindowFocus: false,
+    }
   );
   const data = previewData ?? fetchedData;
   const { lang, toggle, t } = useStorefrontLang();
@@ -104,12 +135,8 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
     };
   }, [data?.fontFamily, data?.headingFont, data?.buttonRadius]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="h-8 w-8" />
-      </div>
-    );
+  if (isLoading || isError) {
+    return <StorefrontRefreshState slug={slug} isRetrying={isFetching} onRetry={() => void refetch()} />;
   }
 
   if (!data) {
