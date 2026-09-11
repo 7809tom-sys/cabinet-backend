@@ -467,7 +467,7 @@ export const storefrontRouter = router({
                 { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
                 psAcc,
                 "homeowner"
-              )?.toFixed(2) ?? r.homeownerPrice,
+              )?.toFixed(2) ?? null,
           }));
         return {
           items: pricedAcc,
@@ -502,7 +502,7 @@ export const storefrontRouter = router({
             { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
             ps,
             "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+          )?.toFixed(2) ?? null,
       }));
 
       return {
@@ -628,7 +628,7 @@ export const storefrontRouter = router({
             { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
             psRec,
             "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+          )?.toFixed(2) ?? null,
       }));
 
       return { intent: input.intent, items };

@@ -78,6 +78,15 @@ describe("worldwideexpressQuote", () => {
       expect.objectContaining({ packagingType: "PLT", weight: { value: 742, unit: "LB" } }),
       expect.objectContaining({ packagingType: "PLT", weight: { value: 518, unit: "LB" } }),
     ]));
+    expect(rateBody.request.shipment.handlingUnitList[0]).toMatchObject({
+      billedDimension: {
+        length: { value: 48, unit: "in" },
+        width: { value: 40, unit: "in" },
+        height: { value: 60, unit: "in" },
+        dimensionType: "NET",
+      },
+    });
+    expect(rateBody.request.shipment.handlingUnitList[0]).not.toHaveProperty("dimensions");
     expect(rateBody.request.shipment.destinationAddress).toMatchObject({ locationType: "RESIDENTIAL" });
     expect(rateBody.request.shipment.liftgateDeliveryFlag).toBe(true);
   });

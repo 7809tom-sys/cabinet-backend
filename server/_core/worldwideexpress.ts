@@ -54,7 +54,7 @@ function speedshipAddress(address: LiveQuoteAddress | undefined, postalCode: str
 function speedshipHandlingUnit(pallet: LivePallet, freightClass: string) {
   const weight = Math.max(1, Math.round(pallet.weightLbs));
   return {
-    dimensions: {
+    billedDimension: {
       length: { value: Math.max(1, Math.round(pallet.lengthIn)), unit: "in" },
       width: { value: Math.max(1, Math.round(pallet.widthIn)), unit: "in" },
       height: { value: Math.max(1, Math.round(pallet.heightIn)), unit: "in" },

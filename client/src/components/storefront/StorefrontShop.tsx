@@ -855,6 +855,7 @@ function CatalogCard({
     styleId,
     category: showing.category,
   });
+  const hasCurrentPrice = typeof price === "number" && Number.isFinite(price) && price > 0;
   const detailHref = affiliateCabinetDetailHref({ slug, masterCode: code, styleId, cabinetId: item.id });
 
   return (
@@ -909,7 +910,7 @@ function CatalogCard({
       <div className="mt-auto pt-3 space-y-2">
         {/* Promotion badge + pricing */}
         {(() => {
-          const basePrice = price != null && price > 0 ? price : null;
+          const basePrice = hasCurrentPrice ? price : null;
           const promo = basePrice != null
             ? findPromo(showing, styleId, family.distributorId, promos)
             : null;
@@ -928,7 +929,11 @@ function CatalogCard({
                   )}
                 </>
               ) : (
-                <span className="font-serif text-lg font-bold">{money(price)}</span>
+                hasCurrentPrice ? (
+                  <span className="font-serif text-lg font-bold">{money(price)}</span>
+                ) : (
+                  <span className="text-sm font-semibold text-muted-foreground">Price unavailable</span>
+                )
               )}
             </div>
           );
@@ -968,10 +973,13 @@ function CatalogCard({
           </div>
           <button
             type="button"
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: brand.accent }}
+            disabled={!hasCurrentPrice}
+            title={hasCurrentPrice ? undefined : "This item needs a vendor price before it can be added to the cart."}
             onClick={() => {
-              const unitPrice = price != null && price > 0 ? price : null;
+              if (!hasCurrentPrice) return;
+              const unitPrice = price;
               const res = addItem({
                 masterCode: code,
                 name: description || code,
@@ -998,7 +1006,7 @@ function CatalogCard({
             }}
           >
             <ShoppingCart className="h-3.5 w-3.5" />
-            {t(lang, "btn_add_to_cart")}
+            {hasCurrentPrice ? t(lang, "btn_add_to_cart") : "Price unavailable"}
           </button>
         </div>
       </div>

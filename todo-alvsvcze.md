@@ -1882,4 +1882,9 @@
 - [x] Keep the Vendor Portal overview usable when vendor line data is still loading or unavailable so the forecast page remains reachable
 - [ ] Investigate affiliate storefront DNS and public routing availability, then repair any verified issue without publishing the pending Vendor forecast
 - [ ] Configure a wildcard affiliate hostname for *.cabinetdealz.com so current and future storefront subdomains resolve automatically
-- [ ] Test the pending Vendor saved-plan demand forecast against a real saved plan and report matched SKU, style, quantity, and timing results
+- [x] Test the pending Vendor saved-plan demand forecast against a real saved plan and report matched SKU, style, quantity, and timing results
+- [x] Investigate and repair the newly reported pricing issue once the affected product, cart, package, or forecast value is identified
+- [x] Prevent catalog items without a current calculable price from displaying a stale amount or entering a customer cart
+- [ ] Deliver a PDF summary of the verified storefront pricing safeguard without publishing the staged website update
+- [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
+- [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
