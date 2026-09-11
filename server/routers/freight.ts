@@ -474,6 +474,7 @@ type FreightSimulationGroup = {
   carrier: string | null;
   baseAmountCents: number | null;
   liveError: string | null;
+  carrierRetryAt: number | null;
   usedOperationsOriginFallback: boolean;
   missingOriginStyle: {
     id: number;
@@ -708,6 +709,7 @@ type LiveRateResult = {
   carrier?: string;
   service?: string;
   error?: string;
+  retryAfterMs?: number;
 };
 
 async function requestLiveRate(input: {
@@ -867,6 +869,7 @@ async function simulateFreight(input: {
       carrier: null,
       baseAmountCents: null,
       liveError: null,
+      carrierRetryAt: null,
       palletCount: plan.palletCount,
       totalWeightLbs: plan.totalWeightLbs,
       totalContentsWeightLbs: plan.totalContentsWeightLbs,
@@ -918,6 +921,9 @@ async function simulateFreight(input: {
       const carrier = [live.carrier, live.service].filter(Boolean).join(" ") || null;
       detail.carrier = carrier;
       detail.liveError = live.ok ? null : live.error ?? "Carrier unavailable";
+      detail.carrierRetryAt = !live.ok && typeof live.retryAfterMs === "number"
+        ? Date.now() + live.retryAfterMs
+        : null;
       if (live.ok) {
         detail.source = "live";
         detail.baseAmountCents = live.amountCents;
@@ -992,6 +998,10 @@ async function simulateFreight(input: {
     quoteMode: settingsRow.quoteMode,
     provider: carrierSettings.liveProvider,
     providerEnvironment: liveProviderEnvironment(carrierSettings),
+    carrierRetryAt: groups.reduce<number | null>((latest, group) => {
+      if (group.carrierRetryAt == null) return latest;
+      return latest == null || group.carrierRetryAt > latest ? group.carrierRetryAt : latest;
+    }, null),
     freightClass,
     freightClassDefaultedForStaging,
     merchandiseSubtotalCents: input.merchandiseSubtotalCents,

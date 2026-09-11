@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertTriangle, Calculator, PackageCheck, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Calculator, Loader2, PackageCheck, ShieldCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,11 @@ const modeLabel: Record<SimulationMode, string> = {
   plan_b: "Plan B only",
 };
 
+function formatCooldown(milliseconds: number): string {
+  const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
 export default function FreightTestLab() {
   const [selectedDesignId, setSelectedDesignId] = useState("none");
   const [destinationZip, setDestinationZip] = useState("30303");
@@ -36,11 +41,14 @@ export default function FreightTestLab() {
   const [resultsByMode, setResultsByMode] = useState<Partial<Record<SimulationMode, SavedDesignSimulationResult>>>({});
   const [missingOriginGroup, setMissingOriginGroup] = useState<SavedDesignSimulationResult["groups"][number] | null>(null);
   const [originZipDraft, setOriginZipDraft] = useState("");
+  const [now, setNow] = useState(() => Date.now());
+  const [carrierRetryAt, setCarrierRetryAt] = useState<number | null>(null);
 
   const designsQuery = trpc.freight.adminListSimulationDesigns.useQuery(undefined, { staleTime: 30_000 });
   const simulate = trpc.freight.adminSimulateSavedDesignFreight.useMutation({
     onSuccess: (result) => {
       setResultsByMode((current) => ({ ...current, [result.mode]: result }));
+      if (result.mode === "saved_configuration") setCarrierRetryAt(result.carrierRetryAt ?? null);
       toast.success(`${modeLabel[result.mode]} complete. No order or payment was created.`);
     },
     onError: (error) => toast.error(error.message),
@@ -103,6 +111,15 @@ export default function FreightTestLab() {
   const planBResult = resultsByMode.plan_b;
   const selectedDesign = designsQuery.data?.find((design) => String(design.id) === selectedDesignId);
   const carrierRateLimited = /temporarily rate-limited/i.test(result?.quote?.reason ?? "");
+  const activeCarrierRetryAt = result?.carrierRetryAt ?? carrierRetryAt;
+  const carrierCooldownRemainingMs = activeCarrierRetryAt == null ? 0 : Math.max(0, activeCarrierRetryAt - now);
+  const carrierCooldownActive = mode === "saved_configuration" && carrierCooldownRemainingMs > 0;
+
+  useEffect(() => {
+    if (!carrierCooldownActive) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [carrierCooldownActive]);
 
   return (
     <Card className="border-amber-300/70 bg-amber-50/30 dark:bg-amber-950/10">
@@ -197,9 +214,26 @@ export default function FreightTestLab() {
               <Switch checked={limitedAccess} onCheckedChange={(checked) => { setLimitedAccess(checked); invalidateResults(); }} /> Limited access
             </label>
           </div>
-            <Button type="button" onClick={runSimulation} disabled={simulate.isPending || selectedDesignId === "none" || selectedDesign?.readyForFreight === false}>
-              {simulate.isPending ? "Requesting carrier quote…" : mode === "pallet_preview" ? "Build pallet preview" : mode === "plan_b" ? "Test Plan B fee" : "Get carrier shipping quote"}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              type="button"
+              onClick={runSimulation}
+              disabled={simulate.isPending || carrierCooldownActive || selectedDesignId === "none" || selectedDesign?.readyForFreight === false}
+              aria-busy={simulate.isPending}
+              aria-describedby={carrierCooldownActive ? "wwex-retry-countdown" : undefined}
+            >
+              {simulate.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Requesting carrier quote…</>
+              ) : carrierCooldownActive ? (
+                <>Retry carrier quote in {formatCooldown(carrierCooldownRemainingMs)}</>
+              ) : mode === "pallet_preview" ? "Build pallet preview" : mode === "plan_b" ? "Test Plan B fee" : "Get carrier shipping quote"}
+            </Button>
+            {carrierCooldownActive && (
+              <p id="wwex-retry-countdown" role="status" aria-live="polite" className="text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+                WWEX retry available in {formatCooldown(carrierCooldownRemainingMs)}. No carrier request will be sent until the countdown ends.
+              </p>
+            )}
+          </div>
           {(planAResult || planBResult) && (
             <div className="grid grid-cols-1 gap-3 border-t pt-4 sm:grid-cols-2" aria-label="Plan A and Plan B comparison">
               <div className="border p-3">
@@ -247,7 +281,7 @@ export default function FreightTestLab() {
                 <div className="mt-1 space-y-2">
                   <p className="text-sm text-destructive">{result.quote?.reason ?? "Carrier shipping cost is unavailable for this test."}</p>
                   {carrierRateLimited ? (
-                    <p className="text-sm font-medium text-foreground">WWEX is temporarily busy. Wait, then try again; your saved credentials do not need to be replaced.</p>
+                    <p className="text-sm font-medium text-foreground">{carrierCooldownActive ? `WWEX is temporarily busy. Retry available in ${formatCooldown(carrierCooldownRemainingMs)}; your saved credentials do not need to be replaced.` : "WWEX is temporarily busy. The cooldown has ended, so you can retry; your saved credentials do not need to be replaced."}</p>
                   ) : (
                     <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="#worldwide-express-settings">Configure carrier quote settings</a>
                   )}

@@ -50,9 +50,16 @@ function throttleDelayMs(response: Response): number {
   return Math.min(Math.max(requestedMs, 30_000), 15 * 60 * 1000);
 }
 
-function throttleError(environment: WWEXCreds["environment"], delayMs: number): Error {
-  const minutes = Math.max(1, Math.ceil(delayMs / 60_000));
-  return new Error(`Worldwide Express ${environment} is temporarily rate-limited. Wait about ${minutes} minute${minutes === 1 ? "" : "s"} before trying again; saved credentials do not need to be replaced.`);
+class WorldwideExpressThrottleError extends Error {
+  constructor(public readonly retryAfterMs: number, environment: WWEXCreds["environment"]) {
+    const minutes = Math.max(1, Math.ceil(retryAfterMs / 60_000));
+    super(`Worldwide Express ${environment} is temporarily rate-limited. Wait about ${minutes} minute${minutes === 1 ? "" : "s"} before trying again; saved credentials do not need to be replaced.`);
+    this.name = "WorldwideExpressThrottleError";
+  }
+}
+
+function throttleError(environment: WWEXCreds["environment"], delayMs: number): WorldwideExpressThrottleError {
+  return new WorldwideExpressThrottleError(delayMs, environment);
 }
 
 export function normalizeSpeedshipFreightClass(value: string | null | undefined): string | null {
@@ -352,7 +359,8 @@ export async function worldwideexpressQuote(
     const cacheKey = providerCacheKey(creds, tokenUrl);
     const retryAt = throttleCache.get(cacheKey);
     if (retryAt && retryAt > Date.now()) {
-      return { ok: false, amountCents: 0, error: throttleError(creds.environment, retryAt - Date.now()).message };
+      const retryAfterMs = retryAt - Date.now();
+      return { ok: false, amountCents: 0, retryAfterMs, error: throttleError(creds.environment, retryAfterMs).message };
     }
     const token = await getAccessToken(creds);
 
@@ -370,7 +378,7 @@ export async function worldwideexpressQuote(
     if (res.status === 429) {
       const delayMs = throttleDelayMs(res);
       throttleCache.set(cacheKey, Date.now() + delayMs);
-      return { ok: false, amountCents: 0, error: throttleError(creds.environment, delayMs).message };
+      return { ok: false, amountCents: 0, retryAfterMs: delayMs, error: throttleError(creds.environment, delayMs).message };
     }
     if (!res.ok) {
       return {
@@ -393,6 +401,9 @@ export async function worldwideexpressQuote(
       service: best.service,
     };
   } catch (err) {
+    if (err instanceof WorldwideExpressThrottleError) {
+      return { ok: false, amountCents: 0, retryAfterMs: err.retryAfterMs, error: err.message };
+    }
     return {
       ok: false,
       amountCents: 0,

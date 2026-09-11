@@ -45,6 +45,8 @@ export interface LiveQuoteResult {
   carrier?: string;
   service?: string;
   error?: string;
+  /** Remaining provider throttle time, when a carrier explicitly rate-limits a quote request. */
+  retryAfterMs?: number;
 }
 
 const EASYPOST_BASE = "https://api.easypost.com/v2";

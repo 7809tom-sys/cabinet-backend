@@ -28,7 +28,13 @@ describe("Operations Freight Test Lab UI", () => {
     expect(source).toContain("Carrier shipping quote summary");
     expect(source).toContain("Get carrier shipping quote");
     expect(source).toContain("Configure carrier quote settings");
-    expect(source).toContain("WWEX is temporarily busy. Wait, then try again; your saved credentials do not need to be replaced.");
+    expect(source).toContain("WWEX is temporarily busy. Retry available in ${formatCooldown(carrierCooldownRemainingMs)}; your saved credentials do not need to be replaced.");
+    expect(source).toContain("Retry carrier quote in {formatCooldown(carrierCooldownRemainingMs)}");
+    expect(source).toContain("WWEX retry available in {formatCooldown(carrierCooldownRemainingMs)}");
+    expect(source).toContain("const [carrierRetryAt, setCarrierRetryAt] = useState<number | null>(null)");
+    expect(source).toContain("if (result.mode === \"saved_configuration\") setCarrierRetryAt(result.carrierRetryAt ?? null)");
+    expect(source).toContain("aria-busy={simulate.isPending}");
+    expect(source).toContain("<Loader2 className=\"h-4 w-4 animate-spin\"");
     expect(source).toContain("Pallets only — no shipping cost");
     expect(source).toContain("Staging class 175 used · saved setting unchanged");
     expect(source).not.toContain("orders.create");

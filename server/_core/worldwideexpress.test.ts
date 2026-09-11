@@ -319,7 +319,9 @@ describe("worldwideexpressQuote", () => {
     expect(first.error).toMatch(/temporarily rate-limited/i);
     expect(first.error).toMatch(/do not need to be replaced/i);
     expect(first.error).not.toMatch(/verify.*credentials/i);
+    expect(first.retryAfterMs).toBe(120_000);
     expect(second.error).toMatch(/temporarily rate-limited/i);
+    expect(second.retryAfterMs).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

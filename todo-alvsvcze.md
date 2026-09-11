@@ -1909,5 +1909,9 @@
 - [x] Use a documented valid cabinet freight class for the Operations-only WWEX staging test when the saved carrier class is unsupported, without changing stored shipping settings
 - [x] Identify temporary WWEX staging rate-limit responses without incorrectly telling the administrator to replace valid saved credentials
 - [x] Prevent repeated Operations carrier-test clicks from repeatedly requesting WWEX OAuth tokens during a temporary throttle
+- [x] Display a live retry countdown on the Operations carrier-quote button while WWEX staging is temporarily rate-limited
+- [x] Display an accessible loading spinner and processing label while an Operations carrier-quote request is in progress
+- [ ] Diagnose the reported affiliate storefront refresh failure without changing affiliate branding, DNS, pricing, or storefront content
+- [ ] Correct and validate affiliate storefront refresh behavior across the available affiliate domain routes
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
