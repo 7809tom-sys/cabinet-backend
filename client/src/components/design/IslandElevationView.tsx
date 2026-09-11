@@ -21,7 +21,7 @@ import {
   countertopMaterial,
   isOnIsland, placedFootprint, bearsIslandCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing, resolveCabinetHardwarePosition,
-  isRangeOrOven, isStacker, wallCabinetTopLine, isCounterHeightIslandWallCabinet, islandWallCabinetBaseTreatment, usesRaisedFloorWallDoorPull,
+  isRangeOrOven, isStacker, wallCabinetTopLine, isCounterHeightIslandWallCabinet, islandWallCabinetBaseTreatment, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  DEFAULT_CEILING_HEIGHT,
 	  type IslandZone, type IslandFace,
 } from "@/lib/design";
@@ -770,7 +770,7 @@ export function IslandElevationView({
           })}
 
           {/* Light rail */}
-          {lightRail && sorted.filter((p) => p.placement === "wall").map((p) => {
+          {lightRail && sorted.filter((p) => isLightRailEligibleCabinet(p, room)).map((p) => {
             const cabSizeAlong = sizeAlong(p);
             const cabPosAlong = posAlong(p);
             const { bottom } = elevationBox(p, room);
@@ -778,6 +778,7 @@ export function IslandElevationView({
             return (
               <div
                 key={`lr-${p.uid}`}
+                data-testid="light-rail-strip"
                 className="absolute"
                 style={{
                   left: cabPosAlong * ppi - 1,

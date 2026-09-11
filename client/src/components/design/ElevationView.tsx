@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isCrownEligibleCabinet, usesRaisedFloorWallDoorPull,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isCrownEligibleCabinet, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount,
 } from "@/lib/design";
@@ -1773,7 +1773,7 @@ export function ElevationView({
 
         {/* Light rail: slim valance strip under the bottom edge of each wall
             cabinet (hides under-cabinet lighting). */}
-        {lightRail && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
+        {lightRail && sorted.filter((p) => isLightRailEligibleCabinet(p, room)).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom } = elevationBox(p, room);
@@ -1781,6 +1781,7 @@ export function ElevationView({
           return (
             <div
               key={`lightrail-${p.uid}`}
+              data-testid="light-rail-strip"
               className="absolute"
               style={{
                 left: posAlong * ppi + 1,

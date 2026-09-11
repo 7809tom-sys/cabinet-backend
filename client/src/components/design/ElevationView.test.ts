@@ -5,8 +5,24 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isRefrigeratorEndPanel, refrigeratorEndPanelRenderStyle, resolveElevationFacePresentation, SingleDoorPanel, StylePanel } from "./ElevationView";
 
-describe("measured base and range elevations", () => {
-  it("renders 2-DB30 as two equal 50/50 drawer fronts across the elevation face", () => {
+	describe("measured base and range elevations", () => {
+	  it("renders selected light rail beneath a standard wall cabinet even when its 54-inch mount is saved explicitly", () => {
+	    const markup = renderToStaticMarkup(
+	      createElement(LanguageProvider, null, createElement(ElevationView, {
+	        room: { width: 144, depth: 120, ceilingHeight: 96 },
+	        cabinets: [{ uid: "wall-with-light-rail", cabinetId: 80, masterCode: "W-24-30", description: '24" Wall Cabinet', placement: "wall", x: 0, y: 0, width: 24, height: 30, depth: 12, rotation: 0, mountBottom: 54, numberOfDoors: 2, numberOfDrawers: 0 }],
+	        selectedUid: null,
+	        onSelect: () => undefined,
+	        wall: "back",
+	        lightRail: true,
+	      })),
+	    );
+
+	    expect(markup).toContain('data-testid="light-rail-strip"');
+	    expect(markup).toContain("bottom:210px");
+	  });
+
+	  it("renders 2-DB30 as two equal 50/50 drawer fronts across the elevation face", () => {
     const markup = renderToStaticMarkup(createElement(DoorFront, {
       kind: "shaker",
       edge: "#1a2744",

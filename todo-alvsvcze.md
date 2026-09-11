@@ -1877,4 +1877,4 @@
 - [x] Exclude stove footprints from Designer countertop rendering so no countertop slab covers a stove
 - [x] Preserve every stove opening when the island countertop rebuilds after adding wall cabinets to an island face
 - [x] Compact the Island attributes popup so commonly used controls fit without scrolling and optional guidance remains available in collapsed sections
-- [ ] Render selected light-rail molding visibly beneath wall cabinets while preserving existing molding quantities and cart behavior
+- [x] Render selected light-rail molding visibly beneath wall cabinets while preserving existing molding quantities and cart behavior

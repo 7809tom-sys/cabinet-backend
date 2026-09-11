@@ -3801,7 +3801,7 @@ export interface LightRailTakeoff {
   assemblies: number;
 }
 
-function isLightRailEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
+export function isLightRailEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
   if (p.placement !== "wall") return false;
   if (usesRaisedFloorWallDoorPull(p)) return false;
   return !room || elevationBox(p, room).bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
