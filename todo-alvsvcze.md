@@ -1917,5 +1917,7 @@
 - [x] Retry the approved deployment after confirming no project-side upload blocker remains
 - [x] Suppress crown molding on a lower wall cabinet when a glass wall cabinet is stacked directly above it
 - [x] Retain crown molding only on the top exposed cabinet of a glass-wall-cabinet stack and add rendering regression coverage
+- [x] Add an Island cabinets only action to the cabinet-color application popup
+- [x] Verify non-island-only, include-island, and island-only color application paths preserve their intended cabinet scopes
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

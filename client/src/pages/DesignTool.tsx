@@ -12196,7 +12196,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		          <AlertDialogHeader>
 		            <AlertDialogTitle>Where should this cabinet color be applied?</AlertDialogTitle>
 		            <AlertDialogDescription>
-		              Keep the island as a contrasting color, or include it with the outside wall cabinet runs. This changes cabinet finishes only; placement, quantities, and cabinet selections stay the same.
+		              Apply this color to the non-island cabinets, include the island with the outside runs, or change the island cabinets only. This changes cabinet finishes only; placement, quantities, and cabinet selections stay the same.
 		            </AlertDialogDescription>
 		          </AlertDialogHeader>
 		          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
@@ -12218,6 +12218,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		              }}
 		            >
 		              Include island cabinets
+		            </AlertDialogAction>
+		            <AlertDialogAction
+		              data-testid="apply-finish-island-only"
+		              onClick={() => {
+		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "island");
+		                setFinishApplyScopePrompt(null);
+		              }}
+		            >
+		              Island cabinets only
 		            </AlertDialogAction>
 		          </AlertDialogFooter>
 		        </AlertDialogContent>

@@ -11,11 +11,14 @@ describe("DesignTool island finish routing", () => {
     expect(source).toContain("if (islandForPlacement.cabinetStyleId != null) newCab.styleId = islandForPlacement.cabinetStyleId");
   });
 
-  it("asks perimeter Apply to all users whether to preserve or include the island", () => {
+  it("offers three explicit color scopes when perimeter Apply to all has an island", () => {
     expect(source).toContain("Where should this cabinet color be applied?");
     expect(source).toContain('data-testid="apply-finish-non-island-only"');
     expect(source).toContain('commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "non-island")');
     expect(source).toContain('data-testid="apply-finish-include-island"');
     expect(source).toContain('commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "all")');
+    expect(source).toContain('data-testid="apply-finish-island-only"');
+    expect(source).toContain('commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "island")');
+    expect(source).toContain("Island cabinets only");
   });
 });
