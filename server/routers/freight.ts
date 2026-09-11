@@ -471,6 +471,12 @@ type StyleFreightGroup = {
   originZip: string;
   flatFreightFeeCents: number | null;
   usedOperationsOriginFallback: boolean;
+  missingOriginStyle: {
+    id: number;
+    name: string;
+    distributorId: number;
+    distributorName: string;
+  } | null;
   items: FreightItemInput[];
 };
 
@@ -486,6 +492,12 @@ type FreightSimulationGroup = {
   baseAmountCents: number | null;
   liveError: string | null;
   usedOperationsOriginFallback: boolean;
+  missingOriginStyle: {
+    id: number;
+    name: string;
+    distributorId: number;
+    distributorName: string;
+  } | null;
   palletCount: number;
   totalWeightLbs: number;
   totalContentsWeightLbs: number;
@@ -527,6 +539,7 @@ async function resolveStyleFreightGroups(input: {
   type StyleMeta = {
     id: number;
     distributorId: number;
+    distributorName: string;
     ourName: string;
     aliasName: string | null;
     warehouseZip: string | null;
@@ -541,6 +554,7 @@ async function resolveStyleFreightGroups(input: {
       .select({
         id: doorStyles.id,
         distributorId: doorStyles.distributorId,
+        distributorName: distributors.name,
         ourName: doorStyles.ourName,
         aliasName: doorStyles.aliasName,
         warehouseZip: doorStyles.warehouseZip,
@@ -548,6 +562,7 @@ async function resolveStyleFreightGroups(input: {
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
       })
       .from(doorStyles)
+      .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(inArray(doorStyles.id, requestedStyleIds));
     for (const row of rows) styleById.set(row.id, row);
   }
@@ -558,6 +573,7 @@ async function resolveStyleFreightGroups(input: {
         cabinetId: distributorSkus.cabinetId,
         id: doorStyles.id,
         distributorId: doorStyles.distributorId,
+        distributorName: distributors.name,
         ourName: doorStyles.ourName,
         aliasName: doorStyles.aliasName,
         warehouseZip: doorStyles.warehouseZip,
@@ -566,6 +582,7 @@ async function resolveStyleFreightGroups(input: {
       })
       .from(distributorSkus)
       .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(inArray(distributorSkus.cabinetId, cabinetIds));
     for (const row of rows) {
       const candidate: StyleMeta = row;
@@ -626,6 +643,14 @@ async function resolveStyleFreightGroups(input: {
       originZip,
       flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
       usedOperationsOriginFallback,
+      missingOriginStyle: usedOperationsOriginFallback && matchedStyle
+        ? {
+            id: matchedStyle.id,
+            name: matchedStyle.aliasName || matchedStyle.ourName,
+            distributorId: matchedStyle.distributorId,
+            distributorName: matchedStyle.distributorName,
+          }
+        : null,
       items: [item],
     });
   }
@@ -855,6 +880,7 @@ async function simulateFreight(input: {
       totalCubicFt: plan.totalCubicFt,
       pallets: plan.pallets,
       usedOperationsOriginFallback: group.usedOperationsOriginFallback,
+      missingOriginStyle: group.missingOriginStyle,
     };
 
     if (input.mode === "plan_b") {

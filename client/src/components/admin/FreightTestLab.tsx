@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
@@ -33,6 +34,8 @@ export default function FreightTestLab() {
   const [limitedAccess, setLimitedAccess] = useState(false);
   const [mode, setMode] = useState<SimulationMode>("pallet_preview");
   const [resultsByMode, setResultsByMode] = useState<Partial<Record<SimulationMode, SavedDesignSimulationResult>>>({});
+  const [missingOriginGroup, setMissingOriginGroup] = useState<SavedDesignSimulationResult["groups"][number] | null>(null);
+  const [originZipDraft, setOriginZipDraft] = useState("");
 
   const designsQuery = trpc.freight.adminListSimulationDesigns.useQuery(undefined, { staleTime: 30_000 });
   const simulate = trpc.freight.adminSimulateSavedDesignFreight.useMutation({
@@ -42,9 +45,34 @@ export default function FreightTestLab() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const updateDoorStyle = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
+    onSuccess: () => {
+      toast.success(`Shipping Origin ZIP saved for ${missingOriginGroup?.missingOriginStyle?.distributorName ?? "the distributor"}. Run the test again to use it.`);
+      setResultsByMode({});
+      setMissingOriginGroup(null);
+      setOriginZipDraft("");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   function invalidateResults() {
     setResultsByMode({});
+  }
+
+  function openMissingOriginDialog(group: SavedDesignSimulationResult["groups"][number]) {
+    setMissingOriginGroup(group);
+    setOriginZipDraft("");
+  }
+
+  function saveMissingOriginZip() {
+    const affectedStyle = missingOriginGroup?.missingOriginStyle;
+    const normalizedZip = originZipDraft.trim();
+    if (!affectedStyle) return;
+    if (!/^\d{5}$/.test(normalizedZip)) {
+      toast.error("Enter a valid 5-digit Shipping Origin ZIP.");
+      return;
+    }
+    updateDoorStyle.mutate({ id: affectedStyle.id, warehouseZips: [normalizedZip] });
   }
 
   function runSimulation() {
@@ -248,7 +276,16 @@ export default function FreightTestLab() {
                   {group.usedOperationsOriginFallback && (
                     <div className="mt-3 flex items-start gap-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>This style has no Shipping Origin ZIP. This test uses the Operations origin only; customer quotes still require the style’s own origin ZIP.</span>
+                      <div className="min-w-0 space-y-2">
+                        <p>
+                          <strong>{group.missingOriginStyle?.distributorName ?? "This distributor"}</strong> — {group.missingOriginStyle?.name ?? "this style"} has no Shipping Origin ZIP. This test uses the Operations origin only; customer quotes still require the style’s own origin ZIP.
+                        </p>
+                        {group.missingOriginStyle && (
+                          <Button type="button" size="sm" variant="outline" className="border-amber-400 bg-white" onClick={() => openMissingOriginDialog(group)}>
+                            Add {group.missingOriginStyle.distributorName} Shipping Origin ZIP
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                   <div className="mt-3 overflow-x-auto">
@@ -298,6 +335,31 @@ export default function FreightTestLab() {
             )}
           </section>
         )}
+      <Dialog open={Boolean(missingOriginGroup)} onOpenChange={(open) => { if (!open && !updateDoorStyle.isPending) setMissingOriginGroup(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Shipping Origin ZIP</DialogTitle>
+            <DialogDescription>
+              {missingOriginGroup?.missingOriginStyle ? (
+                <>
+                  Save the warehouse ZIP for <strong>{missingOriginGroup.missingOriginStyle.distributorName}</strong> — {missingOriginGroup.missingOriginStyle.name}. The next Shipping Test and customer quote will use this style-specific origin.
+                </>
+              ) : "Save the warehouse ZIP for this door style."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="missing-origin-zip">Shipping Origin ZIP</Label>
+            <Input id="missing-origin-zip" value={originZipDraft} onChange={(event) => setOriginZipDraft(event.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder="e.g. 30303" />
+            <p className="text-xs text-muted-foreground">This saves the selected door style’s first Shipping Origin ZIP. Add additional origin ZIPs later in Featured Door Styles if needed.</p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMissingOriginGroup(null)} disabled={updateDoorStyle.isPending}>Cancel</Button>
+            <Button type="button" onClick={saveMissingOriginZip} disabled={updateDoorStyle.isPending || !/^\d{5}$/.test(originZipDraft)}>
+              {updateDoorStyle.isPending ? "Saving…" : "Save Shipping Origin ZIP"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </CardContent>
     </Card>
   );

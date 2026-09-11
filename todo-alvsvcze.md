@@ -1892,5 +1892,6 @@
 - [x] Diagnose and repair the reported Shipping Test workflow failure without changing saved shipping settings, credentials, or booking a shipment
 - [x] Simplify Shipping Test by selecting a saved design and entering its delivery ZIP in place, without adding manual cabinet lines or creating an order
 - [x] Let saved-design Shipping Test previews use the Operations origin only when a selected style has no Shipping Origin ZIP, while preserving the stricter customer-quote rule
+- [x] Show a distributor-named missing Shipping Origin ZIP popup in Shipping Test and let administrators save the affected door style’s ZIP directly
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

@@ -91,6 +91,8 @@ describe("Operations Freight Test Lab", () => {
     expect(source).toContain("savedDesignFreightInput(input.designId)");
     expect(source).toContain("allowMissingStyleOriginFallback: true");
     expect(source).toContain("customer quotes still require a style ZIP");
+    expect(source).toContain("missingOriginStyle");
+    expect(source).toContain("distributorName: matchedStyle.distributorName");
     expect(source).toContain("None of this saved design’s cabinet selections are currently available");
     expect(source).not.toContain("orders.create");
   });

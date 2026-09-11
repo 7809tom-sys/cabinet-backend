@@ -32,7 +32,11 @@ describe("Operations Freight Test Lab UI", () => {
     expect(source).toContain("Enter the delivery ZIP here.");
     expect(source).toContain("Saved design:");
     expect(source).toContain("no longer match the current catalog and were not tested");
-    expect(source).toContain("This style has no Shipping Origin ZIP. This test uses the Operations origin only");
+    expect(source).toContain("has no Shipping Origin ZIP. This test uses the Operations origin only");
+    expect(source).toContain("Add Shipping Origin ZIP");
+    expect(source).toContain("Add {group.missingOriginStyle.distributorName} Shipping Origin ZIP");
+    expect(source).toContain("adminUpdateDoorStyle.useMutation");
+    expect(source).toContain("Save Shipping Origin ZIP");
   });
 
   it("shows Business/Residential accessorials and final pallet dimensions and loaded weights", () => {
