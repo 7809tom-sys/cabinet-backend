@@ -22,6 +22,8 @@ export interface LiveQuoteAddress {
   locality: string;
   region: string;
   countryCode: "US";
+  /** Optional verified lines used only by carriers that require a street envelope. */
+  addressLineList?: string[];
 }
 
 export interface LiveQuoteRequest {

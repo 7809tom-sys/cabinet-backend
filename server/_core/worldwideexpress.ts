@@ -19,6 +19,12 @@ interface WWEXCreds {
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 const SPEEDSHIP_STAGING_AUDIENCE = "staging-wwex-apig";
+const SPEEDSHIP_LTL_FREIGHT_CLASSES = new Set([
+  "50", "55", "60", "65", "70", "77.5", "85", "92.5", "100", "110", "125", "150", "175", "200", "250", "300", "400", "500",
+]);
+// Official production OpenID discovery publishes this token endpoint. The rate
+// endpoint remains account-specific and is never guessed from a hostname.
+const WWEX_PRODUCTION_TOKEN_URL = "https://auth.wwex.com/oauth/token";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -31,21 +37,38 @@ function finiteMoney(value: unknown): number | null {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
-function speedshipAddress(address: LiveQuoteAddress | undefined, postalCode: string, locationType: "COMMERCIAL" | "RESIDENTIAL" | "LIMITED_ACCESS") {
+export function normalizeSpeedshipFreightClass(value: string | null | undefined): string | null {
+  const normalized = value?.trim() ?? "";
+  return SPEEDSHIP_LTL_FREIGHT_CLASSES.has(normalized) ? normalized : null;
+}
+
+function speedshipAddress(
+  address: LiveQuoteAddress | undefined,
+  postalCode: string,
+  locationType: "COMMERCIAL" | "RESIDENTIAL" | "LIMITED_ACCESS",
+  contactType: "SENDER" | "RECEIVER",
+) {
   if (!address) {
     throw new Error("Worldwide Express requires a verified city and state for the origin and destination ZIP codes.");
   }
   return {
     address: {
-      // Speedship documents the array itself as required. A city/state/ZIP quote
-      // does not invent a customer's street address before checkout collects one.
-      addressLineList: [],
+      // Speedship requires a non-empty address-line array even when an Operations
+      // test is intentionally ZIP-based. This is an inquiry marker, not a claimed
+      // customer street address; final customer quotes still validate their address.
+      addressLineList: address.addressLineList?.filter((line) => line.trim().length > 0).slice(0, 3)
+        ?? ["ZIP-based carrier rate inquiry"],
       locality: address.locality,
       region: address.region,
       postalCode,
       countryCode: address.countryCode,
       companyName: "CabinetDealz freight quote",
-      contactList: [],
+      contactList: [{
+        firstName: "CabinetDealz",
+        lastName: "Shipping",
+        phone: contactType === "SENDER" ? "2148888888" : "9728888888",
+        contactType,
+      }],
     },
     locationType,
   };
@@ -55,19 +78,23 @@ function speedshipHandlingUnit(pallet: LivePallet, freightClass: string) {
   const weight = Math.max(1, Math.round(pallet.weightLbs));
   return {
     billedDimension: {
-      length: { value: Math.max(1, Math.round(pallet.lengthIn)), unit: "in" },
-      width: { value: Math.max(1, Math.round(pallet.widthIn)), unit: "in" },
-      height: { value: Math.max(1, Math.round(pallet.heightIn)), unit: "in" },
+      length: { value: String(Math.max(1, Math.round(pallet.lengthIn))), unit: "in" },
+      width: { value: String(Math.max(1, Math.round(pallet.widthIn))), unit: "in" },
+      height: { value: String(Math.max(1, Math.round(pallet.heightIn))), unit: "in" },
       dimensionType: "NET",
     },
+    isMixedClass: false,
+    isStackable: false,
     packagingType: "PLT",
     quantity: 1,
     weight: { value: weight, unit: "LB" },
+    totalWeight: { value: weight, unit: "LB" },
     shippedItemList: [{
       commodityClass: freightClass,
       commodityDescription: "Cabinets",
+      commodityType: "BOX",
       isHazMat: false,
-      quantity: 1,
+      quantity: "1",
       weight: { value: weight, unit: "LB" },
     }],
   };
@@ -87,6 +114,18 @@ function speedshipTimestamp(date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
+/** Speedship rate tests use a future pickup timestamp and do not create a booking. */
+function nextPickupTimestamp(date = new Date()): string {
+  const candidate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(candidate).reduce<Record<string, string>>((output, part) => ({ ...output, [part.type]: part.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day} 11:00:00`;
+}
+
 /** Build the documented Speedship V4 LTL shopFlow request from a real pallet plan. */
 export function buildSpeedshipShopFlowPayload(req: LiveQuoteRequest, date = new Date()) {
   const destinationLocationType = req.residential
@@ -104,18 +143,34 @@ export function buildSpeedshipShopFlowPayload(req: LiveQuoteRequest, date = new 
       preferredVendorList: [],
       shipment: {
         appointmentDeliveryFlag: false,
+        carrierTerminalPickupFlag: false,
+        handlingCharge: { value: "0", unit: "AMOUNT" },
         handlingUnitList,
-        originAddress: speedshipAddress(req.fromAddress, req.fromZip, "COMMERCIAL"),
-        destinationAddress: speedshipAddress(req.toAddress, req.toZip, destinationLocationType),
-        shipmentDate: speedshipTimestamp(date),
+        holdAtTerminalFlag: false,
+        insuranceRequestFlag: false,
+        isGuaranteed: false,
+        marksNumbers: "",
+        originAddress: speedshipAddress(req.fromAddress, req.fromZip, "COMMERCIAL", "SENDER"),
+        protectionFromColdFlag: false,
+        destinationAddress: speedshipAddress(req.toAddress, req.toZip, destinationLocationType, "RECEIVER"),
+        shipmentDate: nextPickupTimestamp(date),
+        shipmentReferenceList: [],
+        sortAndSegregateFlag: false,
         totalHandlingUnitCount: handlingUnitList.length,
         totalWeight: { value: totalWeight, unit: "LB" },
+        liftgatePickupFlag: false,
+        insidePickupFlag: false,
+        constructionSitePickupFlag: false,
         residentialPickupFlag: false,
         liftgateDeliveryFlag: Boolean(req.liftgate),
         insideDeliveryFlag: false,
         constructionSiteDeliveryFlag: false,
         notifyBeforeDeliveryFlag: false,
         skipAddressVerification: true,
+        tradeshowDeliveryFlag: false,
+        tradeshowDeliveryName: "",
+        tradeshowPickupFlag: false,
+        tradeshowPickupName: "",
       },
     },
   };
@@ -127,6 +182,42 @@ export function buildSpeedshipShopFlowPayload(req: LiveQuoteRequest, date = new 
  */
 export function parseSpeedshipRates(payload: unknown): Array<{ amountCents: number; carrier?: string; service?: string }> {
   const found: Array<{ amountCents: number; carrier?: string; service?: string }> = [];
+  const collectOfferRates = (value: unknown): boolean => {
+    const record = asRecord(value);
+    if (!record) return false;
+    const offers = Array.isArray(record.offerList) ? record.offerList : null;
+    if (offers) {
+      for (const offer of offers) {
+        const offerRecord = asRecord(offer);
+        if (!offerRecord) continue;
+        const vendor = asRecord(offerRecord.primaryVendor);
+        const carrier = typeof vendor?.preferredName === "string" ? vendor.preferredName
+          : typeof vendor?.legalName === "string" ? vendor.legalName
+            : typeof vendor?.vendorId === "string" ? vendor.vendorId
+              : undefined;
+        const products = Array.isArray(offerRecord.offeredProductList) ? offerRecord.offeredProductList : [];
+        for (const product of products) {
+          const productRecord = asRecord(product);
+          if (!productRecord) continue;
+          const offerPrice = finiteMoney(productRecord.offerPrice)
+            ?? finiteMoney(asRecord(productRecord.offerPrice)?.value);
+          if (offerPrice == null) continue;
+          const service = typeof productRecord.serviceName === "string" ? productRecord.serviceName
+            : typeof productRecord.serviceType === "string" ? productRecord.serviceType
+              : undefined;
+          found.push({ amountCents: Math.round(offerPrice * 100), carrier, service });
+        }
+      }
+      return true;
+    }
+    for (const nested of Object.values(record)) {
+      if (collectOfferRates(nested)) return true;
+    }
+    return false;
+  };
+  // A Speedship offer list is authoritative. Do not fall through to the generic
+  // parser and mistake one freight or fuel charge for the carrier's full offer.
+  if (collectOfferRates(payload)) return found;
   const visit = (value: unknown) => {
     if (Array.isArray(value)) {
       value.forEach(visit);
@@ -183,7 +274,10 @@ export function requireWwexHttpsEndpoint(value: string | null | undefined, label
 }
 
 async function getAccessToken(creds: WWEXCreds): Promise<string> {
-  const tokenUrl = requireWwexHttpsEndpoint(creds.tokenUrl, `${creds.environment} token`);
+  const tokenUrl = requireWwexHttpsEndpoint(
+    creds.tokenUrl ?? (creds.environment === "production" ? WWEX_PRODUCTION_TOKEN_URL : null),
+    `${creds.environment} token`,
+  );
   const cacheKey = `${creds.clientId}:${creds.environment}:${tokenUrl}`;
   const cached = tokenCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt - 30_000) return cached.token;

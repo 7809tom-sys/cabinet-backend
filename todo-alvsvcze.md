@@ -1893,5 +1893,19 @@
 - [x] Simplify Shipping Test by selecting a saved design and entering its delivery ZIP in place, without adding manual cabinet lines or creating an order
 - [x] Let saved-design Shipping Test previews use the Operations origin only when a selected style has no Shipping Origin ZIP, while preserving the stricter customer-quote rule
 - [x] Show a distributor-named missing Shipping Origin ZIP popup in Shipping Test and let administrators save the affected door style’s ZIP directly
+- [x] Make Shipping Test display a test-only freight cost for a selected saved design and entered destination ZIP without creating an order, payment, or shipment
+- [x] Make test shipping cost the default Shipping Test action while retaining a separate pallets-only preview option
+- [x] Return a clearly labeled test-only estimator cost when the configured live freight provider cannot produce a rate, without changing customer quote behavior
+- [x] Apply the configured kitchen freight minimum to test-only estimator fallback costs so a kitchen design never displays an under-floor amount
+- [ ] Make the saved-design Shipping Test request a live carrier quote only, with a clear Operations setup path when the provider endpoint is missing
+- [x] Verify whether saved Worldwide Express Client ID and Client Secret support an automatic live endpoint, without requiring the user to provide additional URLs (official production token endpoint verified; live rate endpoint remains explicitly required)
+- [x] Use the official Worldwide Express production OAuth discovery token endpoint when the saved production token URL is blank, without guessing the separate rate endpoint
+- [ ] Verify the saved WWEX staging credentials and rate path separately from production so Shipping Test never labels a staging response as a live carrier quote
+- [ ] Complete the documented Speedship LTL payload fields required by the staging shopFlow endpoint after the authenticated rate request returned HTTP 422
+- [ ] Align Shipping Test with the verified complete WWEX staging quote envelope and label any staging result as non-production
+- [x] Route Operations Shipping Test through the configured Speedship staging connection while leaving customer quote provider settings unchanged
+- [x] Ensure every system freight quote invokes the configured carrier rate path and returns explicit unavailability rather than an estimator, planning amount, or zero-price fallback
+- [x] Supply the documented non-empty, ZIP-based Speedship address envelope for Operations rate tests without collecting or inventing a customer street address
+- [x] Use a documented valid cabinet freight class for the Operations-only WWEX staging test when the saved carrier class is unsupported, without changing stored shipping settings
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

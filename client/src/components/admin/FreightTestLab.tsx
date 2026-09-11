@@ -20,8 +20,8 @@ const money = (cents: number | null | undefined) =>
   cents == null ? "Not configured" : `$${(cents / 100).toFixed(2)}`;
 
 const modeLabel: Record<SimulationMode, string> = {
-  pallet_preview: "Pallet preview",
-  saved_configuration: "Saved Plan A / automatic fallback",
+  pallet_preview: "Pallets only",
+  saved_configuration: "Carrier shipping quote",
   plan_b: "Plan B only",
 };
 
@@ -32,7 +32,7 @@ export default function FreightTestLab() {
   const [liftgate, setLiftgate] = useState(false);
   const [insideDelivery, setInsideDelivery] = useState(false);
   const [limitedAccess, setLimitedAccess] = useState(false);
-  const [mode, setMode] = useState<SimulationMode>("pallet_preview");
+  const [mode, setMode] = useState<SimulationMode>("saved_configuration");
   const [resultsByMode, setResultsByMode] = useState<Partial<Record<SimulationMode, SavedDesignSimulationResult>>>({});
   const [missingOriginGroup, setMissingOriginGroup] = useState<SavedDesignSimulationResult["groups"][number] | null>(null);
   const [originZipDraft, setOriginZipDraft] = useState("");
@@ -148,7 +148,7 @@ export default function FreightTestLab() {
         <section className="space-y-3" aria-labelledby="freight-test-settings-heading">
           <div>
             <h3 id="freight-test-settings-heading" className="font-semibold">2. Delivery ZIP and test path</h3>
-            <p className="text-xs text-muted-foreground">Enter the delivery ZIP here. Pallet preview makes no carrier call. Saved setup uses the currently saved estimator or live provider. Plan B uses only style fallback fees.</p>
+            <p className="text-xs text-muted-foreground">Enter the delivery ZIP here, then request a WWEX staging carrier quote for the saved design. The test never creates an order, payment, shipment, or customer quote. Use Pallets only when you need dimensions and weight without a carrier request.</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
@@ -178,9 +178,9 @@ export default function FreightTestLab() {
               <Select value={mode} onValueChange={(value) => { setMode(value as SimulationMode); invalidateResults(); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pallet_preview">Pallet preview only</SelectItem>
-                  <SelectItem value="saved_configuration">Saved Plan A / automatic fallback</SelectItem>
-                  <SelectItem value="plan_b">Plan B fees only</SelectItem>
+                  <SelectItem value="saved_configuration">WWEX staging carrier quote</SelectItem>
+                  <SelectItem value="pallet_preview">Pallets only — no shipping cost</SelectItem>
+                  <SelectItem value="plan_b">Plan B shipping cost only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -196,13 +196,13 @@ export default function FreightTestLab() {
               <Switch checked={limitedAccess} onCheckedChange={(checked) => { setLimitedAccess(checked); invalidateResults(); }} /> Limited access
             </label>
           </div>
-          <Button type="button" onClick={runSimulation} disabled={simulate.isPending || selectedDesignId === "none" || selectedDesign?.readyForFreight === false}>
-            {simulate.isPending ? "Running test…" : `Run ${modeLabel[mode]}`}
+            <Button type="button" onClick={runSimulation} disabled={simulate.isPending || selectedDesignId === "none" || selectedDesign?.readyForFreight === false}>
+              {simulate.isPending ? "Requesting carrier quote…" : mode === "pallet_preview" ? "Build pallet preview" : mode === "plan_b" ? "Test Plan B fee" : "Get carrier shipping quote"}
           </Button>
           {(planAResult || planBResult) && (
             <div className="grid grid-cols-1 gap-3 border-t pt-4 sm:grid-cols-2" aria-label="Plan A and Plan B comparison">
               <div className="border p-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saved Plan A / automatic fallback</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier shipping quote</div>
                 <div className="mt-1 text-xl font-semibold">
                   {planAResult?.quote?.available ? money(planAResult.quote.totalCents) : "Not run or unavailable"}
                 </div>
@@ -232,7 +232,25 @@ export default function FreightTestLab() {
               <div className="text-right text-xs text-muted-foreground">
                 <div>{modeLabel[result.mode]}</div>
                 <div>{result.provider} {result.providerEnvironment ? `· ${result.providerEnvironment}` : ""}</div>
+                {result.freightClassDefaultedForStaging && <div>Staging class 175 used · saved setting unchanged</div>}
               </div>
+            </div>
+
+            <div className={`border p-4 ${result.quote?.available ? "border-emerald-300 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-amber-300 bg-amber-50/40 dark:bg-amber-950/10"}`} aria-label="Carrier shipping quote summary">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier shipping quote</div>
+              {result.quote?.available ? (
+                <div className="mt-1 text-2xl font-semibold text-foreground">{money(result.quote.totalCents)}</div>
+              ) : result.mode === "pallet_preview" ? (
+                <p className="mt-1 text-sm text-muted-foreground">Pallets only does not request a carrier price. Select Carrier shipping quote to price this saved design and ZIP.</p>
+              ) : (
+                <div className="mt-1 space-y-2">
+                  <p className="text-sm text-destructive">{result.quote?.reason ?? "Carrier shipping cost is unavailable for this test."}</p>
+                  <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="#worldwide-express-settings">Configure carrier quote settings</a>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Test only — no order, payment, quote commitment, or shipment was created.
+              </p>
             </div>
 
             {(result.savedDesign.excludedPlacementUnits > 0 || result.savedDesign.unmatchedCatalogUnits > 0 || result.savedDesign.unpricedCatalogUnits > 0) && (
@@ -318,7 +336,7 @@ export default function FreightTestLab() {
               <div className={`border p-4 ${result.quote.available ? "border-emerald-300 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-destructive/40 bg-destructive/5"}`}>
                 <div className="flex items-center gap-2 font-semibold">
                   {result.quote.available ? <ShieldCheck className="h-4 w-4 text-emerald-700" /> : <AlertTriangle className="h-4 w-4 text-destructive" />}
-                  {result.quote.available ? "Simulated freight total" : "Simulation could not produce a price"}
+                  {result.quote.available ? "Carrier shipping quote details" : "Simulation could not produce a price"}
                 </div>
                 {!result.quote.available && <p className="mt-2 text-sm text-destructive">{result.quote.reason}</p>}
                 {result.quote.available && (

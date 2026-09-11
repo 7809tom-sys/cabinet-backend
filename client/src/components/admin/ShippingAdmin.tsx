@@ -456,7 +456,7 @@ export default function ShippingAdmin() {
 
           {/* ── Worldwide Express credentials ─────────────────────────────── */}
           {liveMode && form.liveProvider === "worldwideexpress" && (
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+            <div id="worldwide-express-settings" className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worldwide Express (WWEX) — OAuth2 Credentials</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">

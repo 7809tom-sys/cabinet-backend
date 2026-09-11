@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildSpeedshipShopFlowPayload,
   clearWorldwideExpressTokenCache,
+  normalizeSpeedshipFreightClass,
   parseSpeedshipRates,
   requireWwexHttpsEndpoint,
   worldwideexpressQuote,
@@ -19,6 +20,14 @@ describe("requireWwexHttpsEndpoint", () => {
     expect(() => requireWwexHttpsEndpoint("", "sandbox token")).toThrow(/not configured/i);
     expect(() => requireWwexHttpsEndpoint("http://sandbox.example.test/token", "sandbox token")).toThrow(/HTTPS/i);
     expect(() => requireWwexHttpsEndpoint("https://user:pass@sandbox.example.test/token", "sandbox token")).toThrow(/credential-free/i);
+  });
+});
+
+describe("normalizeSpeedshipFreightClass", () => {
+  it("accepts only documented Speedship LTL freight classes", () => {
+    expect(normalizeSpeedshipFreightClass("175")).toBe("175");
+    expect(normalizeSpeedshipFreightClass("77.5")).toBe("77.5");
+    expect(normalizeSpeedshipFreightClass("75")).toBeNull();
   });
 });
 
@@ -80,18 +89,66 @@ describe("worldwideexpressQuote", () => {
     ]));
     expect(rateBody.request.shipment.handlingUnitList[0]).toMatchObject({
       billedDimension: {
-        length: { value: 48, unit: "in" },
-        width: { value: 40, unit: "in" },
-        height: { value: 60, unit: "in" },
+        length: { value: "48", unit: "in" },
+        width: { value: "40", unit: "in" },
+        height: { value: "60", unit: "in" },
         dimensionType: "NET",
       },
+      isMixedClass: false,
+      isStackable: false,
+      totalWeight: { value: 742, unit: "LB" },
+      shippedItemList: [expect.objectContaining({ commodityType: "BOX", isHazMat: false, quantity: "1" })],
     });
     expect(rateBody.request.shipment.handlingUnitList[0]).not.toHaveProperty("dimensions");
     expect(rateBody.request.shipment.destinationAddress).toMatchObject({ locationType: "RESIDENTIAL" });
+    expect(rateBody.request.shipment.originAddress.address.contactList).toEqual([
+      expect.objectContaining({ contactType: "SENDER", phone: "2148888888" }),
+    ]);
+    expect(rateBody.request.shipment.destinationAddress.address.contactList).toEqual([
+      expect.objectContaining({ contactType: "RECEIVER", phone: "9728888888" }),
+    ]);
     expect(rateBody.request.shipment.liftgateDeliveryFlag).toBe(true);
+    expect(rateBody.request.shipment).toMatchObject({
+      insuranceRequestFlag: false,
+      carrierTerminalPickupFlag: false,
+      constructionSitePickupFlag: false,
+      liftgatePickupFlag: false,
+      insidePickupFlag: false,
+      handlingCharge: { value: "0", unit: "AMOUNT" },
+    });
   });
 
-  it("builds a Speedship request from verified ZIP-derived location data without inventing a street address", () => {
+  it("uses the official production OAuth discovery token endpoint when the saved production token URL is blank", async () => {
+    clearWorldwideExpressTokenCache();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "production-token", expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rates: [{ carrier: "Test Carrier", totalCharge: 901.23 }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await worldwideexpressQuote(
+      {
+        clientId: "production-client",
+        clientSecret: "secret",
+        accountNumber: "account",
+        environment: "production",
+        tokenUrl: null,
+        rateUrl: "https://rates.example.test/svc/shopFlow",
+      },
+      {
+        fromZip: "30303",
+        toZip: "32801",
+        ...addresses,
+        freightClass: "175",
+        pallets: [{ lengthIn: 96, widthIn: 40, heightIn: 60, weightLbs: 900 }],
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, amountCents: 90123 });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://auth.wwex.com/oauth/token");
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).not.toContain("audience=");
+  });
+
+  it("builds a ZIP-based Speedship request without claiming a customer street address", () => {
     const payload = buildSpeedshipShopFlowPayload({
       fromZip: "34229",
       toZip: "30303",
@@ -103,9 +160,40 @@ describe("worldwideexpressQuote", () => {
       locality: "Osprey",
       region: "FL",
       postalCode: "34229",
-      addressLineList: [],
+      addressLineList: ["ZIP-based carrier rate inquiry"],
     });
+    expect(payload.request.shipment.shipmentDate).toBe("2026-09-11 11:00:00");
     expect(payload.request.shipment.skipAddressVerification).toBe(true);
+    expect(payload.request.shipment.originAddress.address.contactList[0]).toMatchObject({
+      firstName: "CabinetDealz",
+      contactType: "SENDER",
+    });
+  });
+
+  it("uses the next-day pickup time instead of a past same-day time", () => {
+    const payload = buildSpeedshipShopFlowPayload({
+      fromZip: "30303",
+      toZip: "32801",
+      ...addresses,
+      freightClass: "175",
+      pallets: [{ lengthIn: 96, widthIn: 40, heightIn: 60, weightLbs: 900 }],
+    }, new Date("2026-09-11T16:00:00Z"));
+
+    expect(payload.request.shipment.shipmentDate).toBe("2026-09-12 11:00:00");
+  });
+
+  it("preserves a supplied verified address line when a carrier request requires one", () => {
+    const payload = buildSpeedshipShopFlowPayload({
+      fromZip: "90277",
+      toZip: "75219",
+      fromAddress: { locality: "REDONDO BEACH", region: "CA", countryCode: "US", addressLineList: ["620 CAMINO REAL"] },
+      toAddress: { locality: "HIGHLAND PARK", region: "TX", countryCode: "US", addressLineList: ["3838 Oak Lawn Ave"] },
+      freightClass: "175",
+      pallets: [{ lengthIn: 48, widthIn: 48, heightIn: 48, weightLbs: 500 }],
+    });
+
+    expect(payload.request.shipment.originAddress.address.addressLineList).toEqual(["620 CAMINO REAL"]);
+    expect(payload.request.shipment.destinationAddress.address.addressLineList).toEqual(["3838 Oak Lawn Ave"]);
   });
 
   it("recognizes documented direct and nested Speedship rate amount shapes", () => {
@@ -116,6 +204,36 @@ describe("worldwideexpressQuote", () => {
       { amountCents: 94525, carrier: "Carrier A", service: "Standard" },
       { amountCents: 90110, carrier: "Carrier B", service: "Economy" },
     ]);
+  });
+
+  it("uses each Speedship offer's complete offerPrice instead of an individual freight or fuel line", () => {
+    expect(parseSpeedshipRates({
+      response: {
+        offerList: [{
+          primaryVendor: { preferredName: "Central Transport" },
+          offeredProductList: [{
+            offerPrice: 585.32,
+            chargeItemList: [
+              { customerChargeCode: "FREIGHT", customerPrice: { value: 376.08 } },
+              { customerChargeCode: "FSC", customerPrice: { value: 172.24 } },
+              { customerChargeCode: "CARBFEE", customerPrice: { value: 37 } },
+            ],
+          }],
+        }],
+      },
+    })).toEqual([{ amountCents: 58532, carrier: "Central Transport", service: undefined }]);
+  });
+
+  it("does not treat a partial charge line as a carrier offer when Speedship omits the full offerPrice", () => {
+    expect(parseSpeedshipRates({
+      response: {
+        offerList: [{
+          offeredProductList: [{
+            chargeItemList: [{ customerPrice: { value: 376.08 } }],
+          }],
+        }],
+      },
+    })).toEqual([]);
   });
 
   it("fails before network access when a verified environment endpoint is missing", async () => {

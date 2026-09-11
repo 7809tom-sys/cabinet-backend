@@ -21,10 +21,7 @@ import {
 } from "../../shared/availability";
 import { makeRequest, type GeocodingResult, type LatLng } from "../_core/map";
 import {
-  estimateFreight,
-  totalCartWeight,
   type FreightSettings,
-  type FreightZoneRate,
   type FreightQuote,
   type FreightQuoteLine,
   combineStyleFreightGroups,
@@ -44,7 +41,7 @@ import { easypostQuote, type LiveQuoteAddress } from "../_core/easypost";
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 import { freightquoteQuote } from "../_core/freightquote";
 import { globaltranzQuote } from "../_core/globaltranz";
-import { worldwideexpressQuote } from "../_core/worldwideexpress";
+import { normalizeSpeedshipFreightClass, worldwideexpressQuote } from "../_core/worldwideexpress";
 import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { getPricingSettings } from "../db";
@@ -100,20 +97,6 @@ async function loadSettingsRow(): Promise<ShippingSettings | null> {
   if (!db) return null;
   const rows = await db.select().from(shippingSettings).limit(1);
   return rows[0] ?? null;
-}
-
-async function loadZones(): Promise<FreightZoneRate[]> {
-  const db = await getDb();
-  if (!db) return [];
-  const rows = await db
-    .select()
-    .from(freightZones)
-    .orderBy(asc(freightZones.sortOrder));
-  return rows.map((r) => ({
-    zoneName: r.zoneName,
-    zipPrefixes: r.zipPrefixes,
-    rateCents: r.rateCents,
-  }));
 }
 
 const accessorialsSchema = z
@@ -826,6 +809,8 @@ async function simulateFreight(input: {
   };
   mode: FreightSimulationMode;
   allowMissingStyleOriginFallback?: boolean;
+  forceCarrierQuote?: boolean;
+  useWwexStagingConnection?: boolean;
 }) {
   const settingsRow = await loadSettingsRow();
   if (!settingsRow) {
@@ -856,6 +841,14 @@ async function simulateFreight(input: {
   const rateGroups: FreightRateGroup[] = [];
   const unavailable: string[] = [];
   let totalBillableWeightLbs = 0;
+  const shouldRequestCarrier = input.mode === "saved_configuration";
+  const shouldUseWwexStaging = input.useWwexStagingConnection === true;
+  const carrierSettings = shouldUseWwexStaging
+    ? { ...settingsRow, liveProvider: "worldwideexpress" as const, wwexEnvironment: "sandbox" as const }
+    : settingsRow;
+  const savedSpeedshipClass = normalizeSpeedshipFreightClass(settingsRow.freightClass);
+  const freightClass = shouldUseWwexStaging ? savedSpeedshipClass ?? "175" : settingsRow.freightClass;
+  const freightClassDefaultedForStaging = shouldUseWwexStaging && savedSpeedshipClass == null;
 
   for (const group of styleGroups) {
     const resolvedGroup = await resolvePackages(
@@ -900,15 +893,11 @@ async function simulateFreight(input: {
           palletCount: plan.palletCount,
         });
       }
-    } else if (
-      input.mode === "saved_configuration" &&
-      settingsRow.quoteMode === "live" &&
-      settingsRow.liveProvider !== "estimator"
-    ) {
+    } else if (shouldRequestCarrier && carrierSettings.liveProvider !== "estimator") {
       const live = await requestLiveRate({
-        provider: settingsRow.liveProvider,
-        settings: settingsRow,
-        liveApiKey: settingsRow.liveApiKey ?? "",
+        provider: carrierSettings.liveProvider,
+        settings: carrierSettings,
+        liveApiKey: carrierSettings.liveApiKey ?? "",
         request: {
           fromZip: group.originZip,
           toZip: destinationZip,
@@ -918,7 +907,7 @@ async function simulateFreight(input: {
             heightIn: pallet.heightIn,
             weightLbs: pallet.weightLbs,
           })),
-          freightClass: settingsRow.freightClass,
+          freightClass,
           residential: input.accessorials?.residential,
           liftgate: input.accessorials?.liftgate,
           limitedAccess: input.accessorials?.limitedAccess,
@@ -941,7 +930,7 @@ async function simulateFreight(input: {
           carrier,
           palletCount: plan.palletCount,
         });
-      } else if (group.flatFreightFeeCents != null) {
+      } else if (!input.forceCarrierQuote && group.flatFreightFeeCents != null) {
         detail.source = "plan_b";
         detail.baseAmountCents = group.flatFreightFeeCents;
         rateGroups.push({
@@ -956,29 +945,17 @@ async function simulateFreight(input: {
         detail.source = "unavailable";
         unavailable.push(`${group.label}: ${detail.liveError}`);
       }
-    } else if (input.mode === "saved_configuration") {
-      detail.source = "estimator";
+    } else if (shouldRequestCarrier) {
+      detail.source = "unavailable";
+      detail.liveError = "Select a configured carrier connection before requesting a shipping quote.";
+      unavailable.push(`${group.label}: ${detail.liveError}`);
     }
 
     groups.push(detail);
   }
 
   let quote: FreightQuote | null = null;
-  if (
-    input.mode === "saved_configuration" &&
-    (settingsRow.quoteMode !== "live" || settingsRow.liveProvider === "estimator")
-  ) {
-    quote = estimateFreight(
-      {
-        destinationZip,
-        totalWeightLbs: totalCartWeight(overall.weighted, settings.defaultCabinetWeightLbs),
-        merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-        accessorials: input.accessorials,
-      },
-      settings,
-      await loadZones(),
-    );
-  } else if (input.mode !== "pallet_preview" && unavailable.length === 0) {
+  if (input.mode !== "pallet_preview" && unavailable.length === 0) {
     quote = combineStyleFreightGroups({
       groups: rateGroups,
       settings,
@@ -1013,8 +990,10 @@ async function simulateFreight(input: {
     deliveryType: input.accessorials?.residential ? "residential" as const : "business" as const,
     liftgate: input.accessorials?.liftgate === true,
     quoteMode: settingsRow.quoteMode,
-    provider: settingsRow.liveProvider,
-    providerEnvironment: liveProviderEnvironment(settingsRow),
+    provider: carrierSettings.liveProvider,
+    providerEnvironment: liveProviderEnvironment(carrierSettings),
+    freightClass,
+    freightClassDefaultedForStaging,
     merchandiseSubtotalCents: input.merchandiseSubtotalCents,
     totalUnits: overallLoad.units,
     isKitchen,
@@ -1173,18 +1152,20 @@ export const freightRouter = router({
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
 
-      const { packages, weighted } = await resolvePackages(
+      const { packages } = await resolvePackages(
         input.items,
         settingsRow,
         settings.defaultCabinetWeightLbs
       );
 
-      const quoteMode = settingsRow?.quoteMode ?? "estimator";
       const liveProvider = settingsRow?.liveProvider ?? "estimator";
       const liveKey = settingsRow?.liveApiKey ?? "";
+      const liveFreightClass = liveProvider === "worldwideexpress"
+        ? normalizeSpeedshipFreightClass(settingsRow?.freightClass) ?? "175"
+        : settingsRow?.freightClass ?? "175";
 
-      // ── LIVE MODE: one carrier shipment per authoritative style origin ─────
-      if (quoteMode === "live" && liveProvider !== "estimator" && settingsRow) {
+      // ── CARRIER QUOTE: one shipment per authoritative style origin ──────────
+      if (liveProvider !== "estimator" && settingsRow) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
         const isKitchen = isKitchenOrder(load.units, settingsRow.kitchenMinCabinets);
@@ -1230,7 +1211,7 @@ export const freightRouter = router({
               heightIn: pallet.heightIn,
               weightLbs: pallet.weightLbs,
             })),
-            freightClass: settingsRow.freightClass,
+            freightClass: liveFreightClass,
             residential: input.accessorials?.residential,
             liftgate: input.accessorials?.liftgate,
             limitedAccess: input.accessorials?.limitedAccess,
@@ -1255,15 +1236,6 @@ export const freightRouter = router({
               carrier: carrierLabel,
               palletCount: plan.palletCount,
             });
-          } else if (group.flatFreightFeeCents != null) {
-            rateGroups.push({
-              key: group.key,
-              label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
-              originZip: group.originZip,
-              source: "plan_b",
-              baseAmountCents: group.flatFreightFeeCents,
-              palletCount: plan.palletCount,
-            });
           } else {
             failedGroups.push(`${group.label}: ${live.error ?? "carrier unavailable"}`);
           }
@@ -1280,7 +1252,7 @@ export const freightRouter = router({
             damageFeeCents: 0,
             totalCents: 0,
             freeFreightApplied: false,
-            reason: `Live shipping is unavailable for ${failedGroups.join("; ")}. No Plan B fee is configured for the affected style group.`,
+            reason: `Carrier shipping is unavailable for ${failedGroups.join("; ")}.`,
           };
         }
 
@@ -1295,19 +1267,20 @@ export const freightRouter = router({
         }), input);
       }
 
-      // ── ESTIMATOR MODE (legacy, table-driven) ──────────────────────────────
-      const zones = await loadZones();
-      const totalWeightLbs = totalCartWeight(weighted, settings.defaultCabinetWeightLbs);
-      return attachFreightQuoteToken(estimateFreight(
-        {
-          destinationZip: input.destinationZip,
-          totalWeightLbs,
-          merchandiseSubtotalCents: input.merchandiseSubtotalCents,
-          accessorials: input.accessorials,
-        },
-        settings,
-        zones
-      ), input);
+      // Quote requests never substitute table estimates or Plan B fees for a
+      // carrier response. An unconfigured carrier is visibly unavailable.
+      return {
+        available: false,
+        zoneName: null,
+        billableWeightLbs: 0,
+        lines: [],
+        freightBeforeMarkupCents: 0,
+        markupCents: 0,
+        damageFeeCents: 0,
+        totalCents: 0,
+        freeFreightApplied: false,
+        reason: "Carrier shipping is unavailable because a carrier connection has not been configured.",
+      };
     }),
 
   // ─── Admin: read current settings + zones ───────────────────────────────────
@@ -1467,6 +1440,8 @@ export const freightRouter = router({
         accessorials: input.accessorials,
         mode: input.mode,
         allowMissingStyleOriginFallback: true,
+        forceCarrierQuote: true,
+        useWwexStagingConnection: true,
       });
       return { ...simulation, savedDesign: plan.savedDesign };
     }),

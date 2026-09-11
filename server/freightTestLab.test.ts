@@ -90,10 +90,30 @@ describe("Operations Freight Test Lab", () => {
     expect(source).toContain("adminSimulateSavedDesignFreight: adminProcedure");
     expect(source).toContain("savedDesignFreightInput(input.designId)");
     expect(source).toContain("allowMissingStyleOriginFallback: true");
+    expect(source).toContain("forceCarrierQuote: true");
+    expect(source).toContain("useWwexStagingConnection: true");
+    expect(source).toContain('liveProvider: "worldwideexpress" as const');
+    expect(source).toContain('wwexEnvironment: "sandbox" as const');
+    expect(source).toContain('savedSpeedshipClass ?? "175"');
     expect(source).toContain("customer quotes still require a style ZIP");
     expect(source).toContain("missingOriginStyle");
     expect(source).toContain("distributorName: matchedStyle.distributorName");
     expect(source).toContain("None of this saved design’s cabinet selections are currently available");
     expect(source).not.toContain("orders.create");
   });
+
+  it("keeps a missing live provider rate visible as a configuration error instead of inventing an estimate", () => {
+    const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
+    expect(source).toContain('input.mode !== "pallet_preview" && unavailable.length > 0');
+    expect(source).toContain("Simulation unavailable for");
+    expect(source).not.toContain("usedEstimatorFallback");
+  });
+
+  it("does not let a carrier quote silently become a Plan B or estimator amount", () => {
+    const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
+    expect(source).toContain("!input.forceCarrierQuote && group.flatFreightFeeCents != null");
+    expect(source).toContain("Quote requests never substitute table estimates or Plan B fees for a");
+    expect(source).not.toContain("estimateFreight(");
+  });
+
 });
