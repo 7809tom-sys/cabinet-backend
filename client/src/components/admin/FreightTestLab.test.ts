@@ -28,6 +28,7 @@ describe("Operations Freight Test Lab UI", () => {
     expect(source).toContain("Carrier shipping quote summary");
     expect(source).toContain("Get carrier shipping quote");
     expect(source).toContain("Configure carrier quote settings");
+    expect(source).toContain("WWEX is temporarily busy. Wait, then try again; your saved credentials do not need to be replaced.");
     expect(source).toContain("Pallets only — no shipping cost");
     expect(source).toContain("Staging class 175 used · saved setting unchanged");
     expect(source).not.toContain("orders.create");

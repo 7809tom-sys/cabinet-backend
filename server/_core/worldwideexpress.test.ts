@@ -291,4 +291,35 @@ describe("worldwideexpressQuote", () => {
     expect(result.error).toMatch(/rate request failed \(500\)/i);
     expect(result.error).not.toContain("private provider diagnostic");
   });
+
+  it("labels a temporary authentication throttle without blaming credentials or retrying OAuth", async () => {
+    clearWorldwideExpressTokenCache();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 429, headers: { "retry-after": "120" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const creds = {
+      clientId: "client-rate-limited",
+      clientSecret: "secret",
+      accountNumber: "account",
+      environment: "sandbox" as const,
+      tokenUrl: "https://sandbox.example.test/oauth/token",
+      rateUrl: "https://sandbox.example.test/rates",
+    };
+    const request = {
+      fromZip: "30303",
+      toZip: "32801",
+      ...addresses,
+      freightClass: "175",
+      pallets: [{ lengthIn: 48, widthIn: 40, heightIn: 60, weightLbs: 742 }],
+    };
+
+    const first = await worldwideexpressQuote(creds, request);
+    const second = await worldwideexpressQuote(creds, request);
+
+    expect(first).toMatchObject({ ok: false, amountCents: 0 });
+    expect(first.error).toMatch(/temporarily rate-limited/i);
+    expect(first.error).toMatch(/do not need to be replaced/i);
+    expect(first.error).not.toMatch(/verify.*credentials/i);
+    expect(second.error).toMatch(/temporarily rate-limited/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

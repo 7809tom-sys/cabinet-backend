@@ -1907,5 +1907,7 @@
 - [x] Ensure every system freight quote invokes the configured carrier rate path and returns explicit unavailability rather than an estimator, planning amount, or zero-price fallback
 - [x] Supply the documented non-empty, ZIP-based Speedship address envelope for Operations rate tests without collecting or inventing a customer street address
 - [x] Use a documented valid cabinet freight class for the Operations-only WWEX staging test when the saved carrier class is unsupported, without changing stored shipping settings
+- [x] Identify temporary WWEX staging rate-limit responses without incorrectly telling the administrator to replace valid saved credentials
+- [x] Prevent repeated Operations carrier-test clicks from repeatedly requesting WWEX OAuth tokens during a temporary throttle
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

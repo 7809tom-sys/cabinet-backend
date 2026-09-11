@@ -17,6 +17,7 @@ interface WWEXCreds {
 }
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const throttleCache = new Map<string, number>();
 
 const SPEEDSHIP_STAGING_AUDIENCE = "staging-wwex-apig";
 const SPEEDSHIP_LTL_FREIGHT_CLASSES = new Set([
@@ -35,6 +36,23 @@ function asRecord(value: unknown): JsonRecord | null {
 function finiteMoney(value: unknown): number | null {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function providerCacheKey(creds: WWEXCreds, tokenUrl: string): string {
+  return `${creds.clientId}:${creds.environment}:${tokenUrl}`;
+}
+
+function throttleDelayMs(response: Response): number {
+  const requestedSeconds = Number(response.headers.get("retry-after"));
+  const requestedMs = Number.isFinite(requestedSeconds) && requestedSeconds > 0
+    ? requestedSeconds * 1000
+    : 2 * 60 * 1000;
+  return Math.min(Math.max(requestedMs, 30_000), 15 * 60 * 1000);
+}
+
+function throttleError(environment: WWEXCreds["environment"], delayMs: number): Error {
+  const minutes = Math.max(1, Math.ceil(delayMs / 60_000));
+  return new Error(`Worldwide Express ${environment} is temporarily rate-limited. Wait about ${minutes} minute${minutes === 1 ? "" : "s"} before trying again; saved credentials do not need to be replaced.`);
 }
 
 export function normalizeSpeedshipFreightClass(value: string | null | undefined): string | null {
@@ -254,6 +272,7 @@ export function parseSpeedshipRates(payload: unknown): Array<{ amountCents: numb
 
 export function clearWorldwideExpressTokenCache(): void {
   tokenCache.clear();
+  throttleCache.clear();
 }
 
 export function requireWwexHttpsEndpoint(value: string | null | undefined, label: string): string {
@@ -278,7 +297,11 @@ async function getAccessToken(creds: WWEXCreds): Promise<string> {
     creds.tokenUrl ?? (creds.environment === "production" ? WWEX_PRODUCTION_TOKEN_URL : null),
     `${creds.environment} token`,
   );
-  const cacheKey = `${creds.clientId}:${creds.environment}:${tokenUrl}`;
+  const cacheKey = providerCacheKey(creds, tokenUrl);
+  const retryAt = throttleCache.get(cacheKey);
+  if (retryAt && retryAt > Date.now()) {
+    throw throttleError(creds.environment, retryAt - Date.now());
+  }
   const cached = tokenCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt - 30_000) return cached.token;
 
@@ -293,6 +316,11 @@ async function getAccessToken(creds: WWEXCreds): Promise<string> {
     }),
     signal: AbortSignal.timeout(15_000),
   });
+  if (res.status === 429) {
+    const delayMs = throttleDelayMs(res);
+    throttleCache.set(cacheKey, Date.now() + delayMs);
+    throw throttleError(creds.environment, delayMs);
+  }
   if (!res.ok) {
     throw new Error(`Worldwide Express authentication failed (${res.status}). Verify the ${creds.environment} credentials and token URL.`);
   }
@@ -317,6 +345,15 @@ export async function worldwideexpressQuote(
       return { ok: false, amountCents: 0, error: "Worldwide Express Client ID and Client Secret are required." };
     }
     const rateUrl = requireWwexHttpsEndpoint(creds.rateUrl, `${creds.environment} rate`);
+    const tokenUrl = requireWwexHttpsEndpoint(
+      creds.tokenUrl ?? (creds.environment === "production" ? WWEX_PRODUCTION_TOKEN_URL : null),
+      `${creds.environment} token`,
+    );
+    const cacheKey = providerCacheKey(creds, tokenUrl);
+    const retryAt = throttleCache.get(cacheKey);
+    if (retryAt && retryAt > Date.now()) {
+      return { ok: false, amountCents: 0, error: throttleError(creds.environment, retryAt - Date.now()).message };
+    }
     const token = await getAccessToken(creds);
 
     const payload = buildSpeedshipShopFlowPayload(req);
@@ -330,6 +367,11 @@ export async function worldwideexpressQuote(
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15_000),
     });
+    if (res.status === 429) {
+      const delayMs = throttleDelayMs(res);
+      throttleCache.set(cacheKey, Date.now() + delayMs);
+      return { ok: false, amountCents: 0, error: throttleError(creds.environment, delayMs).message };
+    }
     if (!res.ok) {
       return {
         ok: false,

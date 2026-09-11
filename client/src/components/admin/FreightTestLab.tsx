@@ -102,6 +102,7 @@ export default function FreightTestLab() {
   const planAResult = resultsByMode.saved_configuration;
   const planBResult = resultsByMode.plan_b;
   const selectedDesign = designsQuery.data?.find((design) => String(design.id) === selectedDesignId);
+  const carrierRateLimited = /temporarily rate-limited/i.test(result?.quote?.reason ?? "");
 
   return (
     <Card className="border-amber-300/70 bg-amber-50/30 dark:bg-amber-950/10">
@@ -245,7 +246,11 @@ export default function FreightTestLab() {
               ) : (
                 <div className="mt-1 space-y-2">
                   <p className="text-sm text-destructive">{result.quote?.reason ?? "Carrier shipping cost is unavailable for this test."}</p>
-                  <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="#worldwide-express-settings">Configure carrier quote settings</a>
+                  {carrierRateLimited ? (
+                    <p className="text-sm font-medium text-foreground">WWEX is temporarily busy. Wait, then try again; your saved credentials do not need to be replaced.</p>
+                  ) : (
+                    <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="#worldwide-express-settings">Configure carrier quote settings</a>
+                  )}
                 </div>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
