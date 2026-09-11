@@ -3776,9 +3776,38 @@ export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boole
   return bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
 }
 
+/**
+ * Crown belongs only on exposed cabinet tops. A short glass wall cabinet that
+ * is physically stacked on a wall cabinet replaces the lower cabinet's exposed
+ * top, so crown moves to the glass stacker's top rather than running between
+ * the two boxes. This resolves the same parent with the existing glass-stacker
+ * placement contract, avoiding false suppression for nearby or mismatched runs.
+ */
+export function crownEligibleCabinets(placed: readonly PlacedCabinet[], room?: RoomData): PlacedCabinet[] {
+  const eligible = placed.filter((cabinet) => isCrownEligibleCabinet(cabinet, room));
+  if (!room) return eligible;
+
+  const coveredLowerCabinetUids = new Set<string>();
+  for (const stacker of placed) {
+    if (stacker.placement !== "wall" || !isStacker(stacker) || !isGlassDoorCabinet(stacker)) continue;
+    const parentPlacement = glassStackerParentPlacement(stacker, placed, room, stacker.stackedOnCabinetUid);
+    if (!parentPlacement.ok) continue;
+    const parent = eligible.find((cabinet) => cabinet.uid === parentPlacement.parentUid);
+    if (!parent) continue;
+    const parentBox = elevationBox(parent, room);
+    const stackerBox = elevationBox(stacker, room);
+    const parentTop = parentBox.bottom + parentBox.height;
+    if (Math.abs(stackerBox.bottom - parentTop) <= COLLISION_EPSILON_IN) {
+      coveredLowerCabinetUids.add(parent.uid);
+    }
+  }
+
+  return eligible.filter((cabinet) => !coveredLowerCabinetUids.has(cabinet.uid));
+}
+
 export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
   // Crown caps the top of upper (wall) cabinets and tall pantry/oven cabinets.
-  const wallCabs = placed.filter((p) => isCrownEligibleCabinet(p, room));
+  const wallCabs = crownEligibleCabinets(placed, room);
   if (wallCabs.length === 0) return 0;
   if (!room) {
     // No room context: fall back to a single continuous run + one allowance.

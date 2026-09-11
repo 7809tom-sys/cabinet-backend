@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isCrownEligibleCabinet, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount,
 } from "@/lib/design";
@@ -338,8 +338,7 @@ export function ElevationView({
     const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
     return (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
   });
-  const crownRuns = mergedElevationTrimRuns(sorted
-    .filter((p) => isCrownEligibleCabinet(p, room))
+  const crownRuns = mergedElevationTrimRuns(crownEligibleCabinets(sorted, room)
     .map((p) => {
       const footprint = placedFootprint(p);
       const start = horizontal ? p.x : p.y;
