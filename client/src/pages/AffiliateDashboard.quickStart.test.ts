@@ -33,6 +33,13 @@ describe("affiliate quick storefront setup", () => {
     expect(source).toContain("storefrontPayload(true)");
   });
 
+  it("keeps the affiliate Domain Setup page reachable from a direct settings link", () => {
+    expect(source).toContain('"settings",');
+    expect(source).toContain('case "settings":');
+    expect(source).toContain("<CustomDomainGuide");
+    expect(source).toContain('defaultDomain={`${affiliate.slug}.cabinetdealz.com`}');
+  });
+
   it("offers an explicit website import draft with review-first testimonial publishing and mini-preview guidance", () => {
     expect(source).toContain('data-testid="affiliate-website-import"');
     expect(source).toContain("Import from your website");

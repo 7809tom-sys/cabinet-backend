@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -10,6 +10,7 @@ import {
   distributors,
   distributorSkus,
   doorStyles,
+  kitchenDesigns,
   type ShippingSettings,
 } from "../../drizzle/schema";
 import {
@@ -46,6 +47,8 @@ import { globaltranzQuote } from "../_core/globaltranz";
 import { worldwideexpressQuote } from "../_core/worldwideexpress";
 import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
+import { getPricingSettings } from "../db";
+import { sellPriceForTier } from "@shared/margins";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -467,6 +470,7 @@ type StyleFreightGroup = {
   label: string;
   originZip: string;
   flatFreightFeeCents: number | null;
+  usedOperationsOriginFallback: boolean;
   items: FreightItemInput[];
 };
 
@@ -481,6 +485,7 @@ type FreightSimulationGroup = {
   carrier: string | null;
   baseAmountCents: number | null;
   liveError: string | null;
+  usedOperationsOriginFallback: boolean;
   palletCount: number;
   totalWeightLbs: number;
   totalContentsWeightLbs: number;
@@ -500,6 +505,8 @@ async function resolveStyleFreightGroups(input: {
   items: FreightItemInput[];
   explicitDistributorId?: number | null;
   fallbackOriginZip: string;
+  /** Operations-only test escape hatch; customer quotes still require a style ZIP. */
+  allowMissingStyleOriginFallback?: boolean;
 }): Promise<StyleFreightGroup[]> {
   const db = await getDb();
   const requestedStyleIds = Array.from(
@@ -594,7 +601,8 @@ async function resolveStyleFreightGroups(input: {
       matchedStyle?.warehouseZips,
       matchedStyle?.warehouseZip,
     );
-    if (matchedStyle && styleOriginZips.length === 0) {
+    const usedOperationsOriginFallback = Boolean(matchedStyle && styleOriginZips.length === 0);
+    if (matchedStyle && styleOriginZips.length === 0 && !input.allowMissingStyleOriginFallback) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
@@ -614,9 +622,10 @@ async function resolveStyleFreightGroups(input: {
     const styleLabel = matchedStyle?.aliasName || matchedStyle?.ourName;
     groups.set(key, {
       key,
-      label: `${styleLabel || "Configured supply line"} · origin ${originZip}`,
+      label: `${styleLabel || "Configured supply line"} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
       originZip,
       flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
+      usedOperationsOriginFallback,
       items: [item],
     });
   }
@@ -791,6 +800,7 @@ async function simulateFreight(input: {
     limitedAccess?: boolean;
   };
   mode: FreightSimulationMode;
+  allowMissingStyleOriginFallback?: boolean;
 }) {
   const settingsRow = await loadSettingsRow();
   if (!settingsRow) {
@@ -814,6 +824,7 @@ async function simulateFreight(input: {
     destinationZip,
     items: input.items,
     fallbackOriginZip: settings.originZip,
+    allowMissingStyleOriginFallback: input.allowMissingStyleOriginFallback,
   });
 
   const groups: FreightSimulationGroup[] = [];
@@ -843,6 +854,7 @@ async function simulateFreight(input: {
       totalContentsWeightLbs: plan.totalContentsWeightLbs,
       totalCubicFt: plan.totalCubicFt,
       pallets: plan.pallets,
+      usedOperationsOriginFallback: group.usedOperationsOriginFallback,
     };
 
     if (input.mode === "plan_b") {
@@ -986,6 +998,134 @@ async function simulateFreight(input: {
     note: input.mode === "pallet_preview"
       ? "Pallet preview only. No carrier request, order, checkout, or payment was created."
       : "Administrator simulation only. No order, checkout, payment, or signed customer quote was created.",
+  };
+}
+
+type SavedDesignPlacement = {
+  cabinetId?: unknown;
+  styleId?: unknown;
+  distributorId?: unknown;
+  qty?: unknown;
+};
+
+function positiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+/**
+ * Convert a saved Designer plan into the same verified catalog lines used by
+ * customer freight. Appliances and stale/missing catalog selections are kept
+ * out of the carrier request instead of being assigned an invented package.
+ */
+async function savedDesignFreightInput(designId: number) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+  const designs = await db
+    .select({
+      id: kitchenDesigns.id,
+      name: kitchenDesigns.name,
+      placedCabinets: kitchenDesigns.placedCabinets,
+      selectedStyleId: kitchenDesigns.selectedStyleId,
+      selectedDistributorId: kitchenDesigns.selectedDistributorId,
+      updatedAt: kitchenDesigns.updatedAt,
+    })
+    .from(kitchenDesigns)
+    .where(eq(kitchenDesigns.id, designId))
+    .limit(1);
+  const design = designs[0];
+  if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
+
+  const defaultStyleId = positiveInteger(design.selectedStyleId);
+  const defaultDistributorId = positiveInteger(design.selectedDistributorId);
+  const placements = Array.isArray(design.placedCabinets)
+    ? design.placedCabinets as SavedDesignPlacement[]
+    : [];
+  const requested = new Map<string, { cabinetId: number; styleId: number; distributorId: number; qty: number }>();
+  let excludedPlacementUnits = 0;
+
+  for (const placement of placements) {
+    const cabinetId = positiveInteger(placement.cabinetId);
+    const styleId = positiveInteger(placement.styleId) ?? defaultStyleId;
+    const distributorId = positiveInteger(placement.distributorId) ?? defaultDistributorId;
+    const qty = Math.max(1, Math.min(999, positiveInteger(placement.qty) ?? 1));
+    if (!cabinetId || !styleId || !distributorId) {
+      excludedPlacementUnits += qty;
+      continue;
+    }
+    const key = `${cabinetId}:${styleId}:${distributorId}`;
+    const existing = requested.get(key);
+    requested.set(key, existing ? { ...existing, qty: existing.qty + qty } : { cabinetId, styleId, distributorId, qty });
+  }
+
+  if (requested.size === 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This saved design has no cabinet selections with a door style and distributor. Select a priced cabinet line in the Designer first.",
+    });
+  }
+
+  const requestedLines = Array.from(requested.values());
+  const skuRows = await db
+    .select({
+      cabinetId: distributorSkus.cabinetId,
+      styleId: distributorSkus.styleId,
+      distributorId: distributorSkus.distributorId,
+      yourCost: distributorSkus.yourCost,
+      wholesalePrice: distributorSkus.wholesalePrice,
+      adjustedListPrice: distributorSkus.adjustedListPrice,
+      listPrice: distributorSkus.listPrice,
+    })
+    .from(distributorSkus)
+    .where(and(
+      inArray(distributorSkus.cabinetId, Array.from(new Set(requestedLines.map((line) => line.cabinetId)))),
+      inArray(distributorSkus.styleId, Array.from(new Set(requestedLines.map((line) => line.styleId)))),
+      inArray(distributorSkus.distributorId, Array.from(new Set(requestedLines.map((line) => line.distributorId)))),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.status, "approved"),
+    ));
+  const skuByIdentity = new Map(skuRows.map((row) => [`${row.cabinetId}:${row.styleId}:${row.distributorId}`, row]));
+  const pricingSettings = await getPricingSettings();
+  const items: FreightItemInput[] = [];
+  let unmatchedCatalogUnits = 0;
+  let unpricedCatalogUnits = 0;
+  let merchandiseSubtotalCents = 0;
+
+  for (const line of requestedLines) {
+    const sku = skuByIdentity.get(`${line.cabinetId}:${line.styleId}:${line.distributorId}`);
+    if (!sku) {
+      unmatchedCatalogUnits += line.qty;
+      continue;
+    }
+    items.push(line);
+    const sellPrice = sellPriceForTier(sku, pricingSettings, "homeowner");
+    if (sellPrice == null || sellPrice <= 0) {
+      unpricedCatalogUnits += line.qty;
+      continue;
+    }
+    merchandiseSubtotalCents += Math.round(sellPrice * 100) * line.qty;
+  }
+
+  if (items.length === 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "None of this saved design’s cabinet selections are currently available in the selected vendor catalog.",
+    });
+  }
+
+  return {
+    items,
+    merchandiseSubtotalCents,
+    savedDesign: {
+      id: design.id,
+      name: design.name,
+      updatedAt: design.updatedAt,
+      placedCabinetUnits: placements.reduce((total, placement) => total + (positiveInteger(placement.qty) ?? 1), 0),
+      quotedCabinetUnits: items.reduce((total, item) => total + item.qty, 0),
+      excludedPlacementUnits,
+      unmatchedCatalogUnits,
+      unpricedCatalogUnits,
+    },
   };
 }
 
@@ -1242,6 +1382,37 @@ export const freightRouter = router({
       }));
     }),
 
+  // ─── Admin: choose a saved design for a test-only freight simulation ─────────
+  adminListSimulationDesigns: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select({
+        id: kitchenDesigns.id,
+        name: kitchenDesigns.name,
+        placedCabinets: kitchenDesigns.placedCabinets,
+        selectedStyleId: kitchenDesigns.selectedStyleId,
+        selectedDistributorId: kitchenDesigns.selectedDistributorId,
+        updatedAt: kitchenDesigns.updatedAt,
+      })
+      .from(kitchenDesigns)
+      .orderBy(desc(kitchenDesigns.updatedAt))
+      .limit(100);
+    return rows
+      .map((row) => {
+        const placements = Array.isArray(row.placedCabinets) ? row.placedCabinets as SavedDesignPlacement[] : [];
+        const cabinetUnits = placements.reduce((total, placement) => total + (positiveInteger(placement.cabinetId) ? positiveInteger(placement.qty) ?? 1 : 0), 0);
+        return {
+          id: row.id,
+          name: row.name,
+          updatedAt: row.updatedAt,
+          cabinetUnits,
+          readyForFreight: cabinetUnits > 0 && positiveInteger(row.selectedStyleId) != null && positiveInteger(row.selectedDistributorId) != null,
+        };
+      })
+      .filter((row) => row.cabinetUnits > 0);
+  }),
+
   // ─── Admin: simulate a complete order without creating checkout state ────────
   adminSimulateFreight: adminProcedure
     .input(z.object({
@@ -1252,6 +1423,27 @@ export const freightRouter = router({
       mode: z.enum(["pallet_preview", "saved_configuration", "plan_b"]),
     }))
     .mutation(({ input }) => simulateFreight(input)),
+
+  // ─── Admin: simulate one saved design without creating order state ──────────
+  adminSimulateSavedDesignFreight: adminProcedure
+    .input(z.object({
+      designId: z.number().int().positive(),
+      destinationZip: z.string().min(3).max(16),
+      accessorials: accessorialsSchema,
+      mode: z.enum(["pallet_preview", "saved_configuration", "plan_b"]),
+    }))
+    .mutation(async ({ input }) => {
+      const plan = await savedDesignFreightInput(input.designId);
+      const simulation = await simulateFreight({
+        destinationZip: input.destinationZip,
+        items: plan.items,
+        merchandiseSubtotalCents: plan.merchandiseSubtotalCents,
+        accessorials: input.accessorials,
+        mode: input.mode,
+        allowMissingStyleOriginFallback: true,
+      });
+      return { ...simulation, savedDesign: plan.savedDesign };
+    }),
 
   // ─── Admin: update settings (upserts the single row) ────────────────────────
   adminUpdateSettings: adminProcedure

@@ -21,6 +21,11 @@ describe("AdminStickyNotes workspace", () => {
     expect(source).toContain("Green — Rich");
     expect(source).toContain("Purple — Selena");
     expect(source).toContain("authorNoteColor(note.authorName, note.color)");
+    expect(source).toContain("Affiliate wildcard DNS — Hostinger setup");
+    expect(source).toContain("Hostinger hPanel → Domains → DNS Zone → cabinetdealz.com");
+    expect(source).toContain("Name: *</span>");
+    expect(source).toContain("cabinetz-dq7pucbp.manus.space");
+    expect(source).toContain("each affiliate retains separate branding and storefront settings");
   });
 
   it("registers Team Notes only in the administrator Operations workspace", () => {

@@ -113,6 +113,19 @@ export default function AdminStickyNotes() {
         </div>
       </div>
 
+      <Card className="border-violet-200 bg-violet-50 shadow-sm" aria-label="Affiliate wildcard DNS setup note">
+        <CardContent className="space-y-2 pt-4 text-sm text-violet-950">
+          <p className="font-semibold">Affiliate wildcard DNS — Hostinger setup</p>
+          <p>
+            In <strong>Hostinger hPanel → Domains → DNS Zone → cabinetdealz.com</strong>, add one wildcard CNAME so every affiliate subdomain can resolve automatically.
+          </p>
+          <div className="grid gap-1 rounded-md border border-violet-200 bg-white p-2 font-mono text-xs sm:grid-cols-4">
+            <span>Type: CNAME</span><span>Name: *</span><span className="sm:col-span-2 break-all">Points to: cabinetz-dq7pucbp.manus.space</span><span>TTL: 3600 or default</span>
+          </div>
+          <p className="text-xs text-violet-900/80">Do not replace existing <code>@</code>, <code>www</code>, or working affiliate DNS records. The wildcard only routes the web address; each affiliate retains separate branding and storefront settings.</p>
+        </CardContent>
+      </Card>
+
       <Card className="border-amber-200 bg-amber-50/70 shadow-sm">
         <CardContent className="space-y-3 pt-5">
           <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-amber-950">Post a shared sticky note</p><label className="flex items-center gap-2 text-xs font-medium text-amber-900">Color<select aria-label="New note color" value={color} onChange={(event) => setColor(event.target.value as typeof color)} className="rounded border border-amber-300 bg-white px-2 py-1 text-amber-950">{NOTE_COLORS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>

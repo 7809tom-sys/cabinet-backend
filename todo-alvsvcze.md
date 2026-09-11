@@ -1885,6 +1885,12 @@
 - [x] Test the pending Vendor saved-plan demand forecast against a real saved plan and report matched SKU, style, quantity, and timing results
 - [x] Investigate and repair the newly reported pricing issue once the affected product, cart, package, or forecast value is identified
 - [x] Prevent catalog items without a current calculable price from displaying a stale amount or entering a customer cart
-- [ ] Deliver a PDF summary of the verified storefront pricing safeguard without publishing the staged website update
+- [x] Deliver a PDF summary of the verified storefront pricing safeguard without publishing the staged website update
+- [x] Add Hostinger wildcard-DNS setup instructions to the affiliate Admin settings page and duplicate the guidance in Sticky Notes (superseded: final guidance is retained in Team Notes only)
+- [x] Restore direct affiliate settings-route access so the DNS instructions can be opened from a shared link
+- [x] Keep Hostinger wildcard-DNS setup guidance in Admin Team Notes only and remove its duplicate affiliate settings-page placement
+- [x] Diagnose and repair the reported Shipping Test workflow failure without changing saved shipping settings, credentials, or booking a shipment
+- [x] Simplify Shipping Test by selecting a saved design and entering its delivery ZIP in place, without adding manual cabinet lines or creating an order
+- [x] Let saved-design Shipping Test previews use the Operations origin only when a selected style has no Shipping Origin ZIP, while preserving the stricter customer-quote rule
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

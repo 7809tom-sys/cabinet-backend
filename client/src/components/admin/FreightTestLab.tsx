@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Calculator, PackageCheck, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Calculator, PackageCheck, ShieldCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,23 +13,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 
 type SimulationMode = "pallet_preview" | "saved_configuration" | "plan_b";
-type SimulationResult = inferRouterOutputs<AppRouter>["freight"]["adminSimulateFreight"];
-
-type SampleLine = {
-  key: string;
-  cabinetId: number;
-  masterCode: string;
-  description: string;
-  styleId: number;
-  styleName: string;
-  distributorId: number;
-  distributorName: string;
-  originZip: string | null;
-  planBFeeCents: number | null;
-  packageWeightLbs: number | null;
-  packageDimensionsIn: { length: number; width: number; height: number } | null;
-  qty: number;
-};
+type SavedDesignSimulationResult = inferRouterOutputs<AppRouter>["freight"]["adminSimulateSavedDesignFreight"];
 
 const money = (cents: number | null | undefined) =>
   cents == null ? "Not configured" : `$${(cents / 100).toFixed(2)}`;
@@ -41,23 +25,17 @@ const modeLabel: Record<SimulationMode, string> = {
 };
 
 export default function FreightTestLab() {
-  const [search, setSearch] = useState("");
-  const [lines, setLines] = useState<SampleLine[]>([]);
+  const [selectedDesignId, setSelectedDesignId] = useState("none");
   const [destinationZip, setDestinationZip] = useState("30303");
-  const [subtotal, setSubtotal] = useState("5000.00");
   const [deliveryType, setDeliveryType] = useState<"business" | "residential">("business");
   const [liftgate, setLiftgate] = useState(false);
   const [insideDelivery, setInsideDelivery] = useState(false);
   const [limitedAccess, setLimitedAccess] = useState(false);
   const [mode, setMode] = useState<SimulationMode>("pallet_preview");
-  const [resultsByMode, setResultsByMode] = useState<Partial<Record<SimulationMode, SimulationResult>>>({});
+  const [resultsByMode, setResultsByMode] = useState<Partial<Record<SimulationMode, SavedDesignSimulationResult>>>({});
 
-  const normalizedSearch = search.trim();
-  const searchQuery = trpc.freight.adminSearchSimulationItems.useQuery(
-    { query: normalizedSearch },
-    { enabled: normalizedSearch.length >= 2, staleTime: 30_000 },
-  );
-  const simulate = trpc.freight.adminSimulateFreight.useMutation({
+  const designsQuery = trpc.freight.adminListSimulationDesigns.useQuery(undefined, { staleTime: 30_000 });
+  const simulate = trpc.freight.adminSimulateSavedDesignFreight.useMutation({
     onSuccess: (result) => {
       setResultsByMode((current) => ({ ...current, [result.mode]: result }));
       toast.success(`${modeLabel[result.mode]} complete. No order or payment was created.`);
@@ -69,36 +47,10 @@ export default function FreightTestLab() {
     setResultsByMode({});
   }
 
-  function addLine(result: NonNullable<typeof searchQuery.data>[number]) {
-    const key = `${result.cabinetId}:${result.styleId}:${result.distributorId}`;
-    setLines((current) => {
-      const existing = current.find((line) => line.key === key);
-      if (existing) {
-        return current.map((line) => line.key === key ? { ...line, qty: line.qty + 1 } : line);
-      }
-      return [...current, {
-        key,
-        cabinetId: result.cabinetId,
-        masterCode: result.masterCode,
-        description: result.description,
-        styleId: result.styleId,
-        styleName: result.styleName,
-        distributorId: result.distributorId,
-        distributorName: result.distributorName,
-        originZip: result.originZip,
-        planBFeeCents: result.planBFeeCents,
-        packageWeightLbs: result.packageWeightLbs,
-        packageDimensionsIn: result.packageDimensionsIn,
-        qty: 1,
-      }];
-    });
-    invalidateResults();
-    setSearch("");
-  }
-
   function runSimulation() {
-    if (lines.length === 0) {
-      toast.error("Add at least one real catalog item to the sample order.");
+    const designId = Number(selectedDesignId);
+    if (!Number.isInteger(designId) || designId <= 0) {
+      toast.error("Choose a saved design before running the freight test.");
       return;
     }
     if (!/^\d{5}$/.test(destinationZip.trim())) {
@@ -106,8 +58,8 @@ export default function FreightTestLab() {
       return;
     }
     simulate.mutate({
+      designId,
       destinationZip: destinationZip.trim(),
-      merchandiseSubtotalCents: Math.max(0, Math.round((Number(subtotal) || 0) * 100)),
       mode,
       accessorials: {
         residential: deliveryType === "residential",
@@ -115,19 +67,13 @@ export default function FreightTestLab() {
         insideDelivery,
         limitedAccess,
       },
-      items: lines.map((line) => ({
-        cabinetId: line.cabinetId,
-        masterCode: line.masterCode,
-        styleId: line.styleId,
-        distributorId: line.distributorId,
-        qty: line.qty,
-      })),
     });
   }
 
   const result = resultsByMode[mode];
   const planAResult = resultsByMode.saved_configuration;
   const planBResult = resultsByMode.plan_b;
+  const selectedDesign = designsQuery.data?.find((design) => String(design.id) === selectedDesignId);
 
   return (
     <Card className="border-amber-300/70 bg-amber-50/30 dark:bg-amber-950/10">
@@ -139,132 +85,47 @@ export default function FreightTestLab() {
           </span>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Build a sample order from real catalog items, inspect each style-origin pallet, and test saved Plan A or Plan B pricing before going live. This tool never creates an order, checkout, signed customer quote, or payment.
+          Choose a saved kitchen design, enter the delivery ZIP, and inspect each style-origin pallet before going live. This test never creates an order, checkout, signed customer quote, or payment.
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-3" aria-labelledby="freight-test-items-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h3 id="freight-test-items-heading" className="font-semibold">1. Sample order items</h3>
-              <p className="text-xs text-muted-foreground">Search by cabinet code, description, distributor SKU, platform SKU, or door style.</p>
+              <h3 id="freight-test-items-heading" className="font-semibold">1. Saved design</h3>
+              <p className="text-xs text-muted-foreground">Use the cabinet selections already saved in a design. Appliances and unresolved catalog selections are never assigned an invented package.</p>
             </div>
-            <span className="text-sm font-medium">{lines.reduce((sum, line) => sum + line.qty, 0)} unit(s)</span>
+            {selectedDesign && <span className="text-sm font-medium">{selectedDesign.cabinetUnits} cabinet unit(s)</span>}
           </div>
 
-          <div className="relative max-w-2xl">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search real catalog items, for example B24 or W3030"
-              className="pl-9"
-              aria-label="Search real catalog items for freight simulation"
-            />
-            {normalizedSearch.length >= 2 && (
-              <div className="mt-2 max-h-72 overflow-y-auto border bg-popover text-popover-foreground">
-                {searchQuery.isLoading && <p className="p-3 text-sm text-muted-foreground">Searching catalog…</p>}
-                {!searchQuery.isLoading && searchQuery.data?.length === 0 && (
-                  <p className="p-3 text-sm text-muted-foreground">No active style/SKU combinations match that search.</p>
-                )}
-                {searchQuery.data?.map((item) => (
-                  <button
-                    key={`${item.cabinetId}:${item.styleId}:${item.distributorId}`}
-                    type="button"
-                    onClick={() => addLine(item)}
-                    className="flex w-full items-start justify-between gap-4 border-t px-3 py-2 text-left first:border-t-0 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="min-w-0">
-                      <span className="block font-medium">{item.masterCode} · {item.styleName}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
-                      <span className="block text-xs text-muted-foreground">{item.distributorName} · origin {item.originZip ?? "missing"}</span>
-                    </span>
-                    <Plus className="mt-1 h-4 w-4 shrink-0" />
-                  </button>
+          <div className="max-w-2xl space-y-2">
+            <Label htmlFor="freight-test-saved-design">Saved design</Label>
+            <Select value={selectedDesignId} onValueChange={(value) => { setSelectedDesignId(value); invalidateResults(); }}>
+              <SelectTrigger id="freight-test-saved-design" aria-label="Saved design for freight simulation"><SelectValue placeholder="Choose a saved design" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Choose a saved design</SelectItem>
+                {designsQuery.data?.map((design) => (
+                  <SelectItem key={design.id} value={String(design.id)} disabled={!design.readyForFreight}>
+                    {design.name} · {design.cabinetUnits} cabinet unit{design.cabinetUnits === 1 ? "" : "s"}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
+              </SelectContent>
+            </Select>
+            {designsQuery.isLoading && <p className="text-xs text-muted-foreground">Loading saved designs…</p>}
+            {designsQuery.data?.length === 0 && <p className="border border-dashed p-3 text-sm text-muted-foreground">No saved designs with cabinet selections are available yet.</p>}
+            {selectedDesign && !selectedDesign.readyForFreight && <p className="text-xs text-destructive">This saved design needs a selected door style and distributor before it can be tested.</p>}
           </div>
-
-          {lines.length === 0 ? (
-            <div className="border border-dashed p-5 text-sm text-muted-foreground">
-              No sample items yet. Add real catalog/style combinations above; the lab does not use invented products or weights.
-            </div>
-          ) : (
-            <div className="overflow-x-auto border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cabinet / style</TableHead>
-                    <TableHead>Origin</TableHead>
-                    <TableHead>Package</TableHead>
-                    <TableHead className="w-28">Qty</TableHead>
-                    <TableHead className="w-12"><span className="sr-only">Remove</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.map((line) => (
-                    <TableRow key={line.key}>
-                      <TableCell className="min-w-64">
-                        <div className="font-medium">{line.masterCode} · {line.styleName}</div>
-                        <div className="text-xs text-muted-foreground">{line.distributorName}</div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{line.originZip ?? <span className="text-destructive">Missing ZIP</span>}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">
-                        {line.packageDimensionsIn
-                          ? `${line.packageDimensionsIn.length} × ${line.packageDimensionsIn.width} × ${line.packageDimensionsIn.height} in`
-                          : "Configured fallback cube"}
-                        <div className="text-muted-foreground">{line.packageWeightLbs != null ? `${line.packageWeightLbs} lbs` : "Configured fallback weight"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={999}
-                          value={line.qty}
-                          onChange={(event) => {
-                            const qty = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 1)));
-                            setLines((current) => current.map((item) => item.key === line.key ? { ...item, qty } : item));
-                            invalidateResults();
-                          }}
-                          aria-label={`Quantity for ${line.masterCode} ${line.styleName}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setLines((current) => current.filter((item) => item.key !== line.key));
-                            invalidateResults();
-                          }}
-                          aria-label={`Remove ${line.masterCode} ${line.styleName}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
         </section>
 
         <section className="space-y-3" aria-labelledby="freight-test-settings-heading">
           <div>
-            <h3 id="freight-test-settings-heading" className="font-semibold">2. Destination and test path</h3>
-            <p className="text-xs text-muted-foreground">Pallet preview makes no carrier call. Saved setup uses the currently saved estimator or live provider. Plan B uses only style fallback fees.</p>
+            <h3 id="freight-test-settings-heading" className="font-semibold">2. Delivery ZIP and test path</h3>
+            <p className="text-xs text-muted-foreground">Enter the delivery ZIP here. Pallet preview makes no carrier call. Saved setup uses the currently saved estimator or live provider. Plan B uses only style fallback fees.</p>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Destination ZIP</Label>
               <Input value={destinationZip} onChange={(event) => { setDestinationZip(event.target.value); invalidateResults(); }} inputMode="numeric" maxLength={5} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Sample merchandise subtotal ($)</Label>
-              <Input value={subtotal} onChange={(event) => { setSubtotal(event.target.value); invalidateResults(); }} inputMode="decimal" />
             </div>
             <div className="space-y-1.5">
               <Label>Delivery type</Label>
@@ -286,7 +147,7 @@ export default function FreightTestLab() {
             </div>
             <div className="space-y-1.5">
               <Label>Simulation path</Label>
-              <Select value={mode} onValueChange={(value) => setMode(value as SimulationMode)}>
+              <Select value={mode} onValueChange={(value) => { setMode(value as SimulationMode); invalidateResults(); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pallet_preview">Pallet preview only</SelectItem>
@@ -307,7 +168,7 @@ export default function FreightTestLab() {
               <Switch checked={limitedAccess} onCheckedChange={(checked) => { setLimitedAccess(checked); invalidateResults(); }} /> Limited access
             </label>
           </div>
-          <Button type="button" onClick={runSimulation} disabled={simulate.isPending || lines.length === 0}>
+          <Button type="button" onClick={runSimulation} disabled={simulate.isPending || selectedDesignId === "none" || selectedDesign?.readyForFreight === false}>
             {simulate.isPending ? "Running test…" : `Run ${modeLabel[mode]}`}
           </Button>
           {(planAResult || planBResult) && (
@@ -338,12 +199,24 @@ export default function FreightTestLab() {
                   <PackageCheck className="h-4 w-4 text-emerald-700" /> Test result
                 </h3>
                 <p className="text-xs text-muted-foreground">{result.note}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Saved design: <span className="font-medium text-foreground">{result.savedDesign.name}</span> · {result.savedDesign.quotedCabinetUnits} catalog cabinet unit(s) tested</p>
               </div>
               <div className="text-right text-xs text-muted-foreground">
                 <div>{modeLabel[result.mode]}</div>
                 <div>{result.provider} {result.providerEnvironment ? `· ${result.providerEnvironment}` : ""}</div>
               </div>
             </div>
+
+            {(result.savedDesign.excludedPlacementUnits > 0 || result.savedDesign.unmatchedCatalogUnits > 0 || result.savedDesign.unpricedCatalogUnits > 0) && (
+              <div className="flex items-start gap-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {result.savedDesign.excludedPlacementUnits > 0 && `${result.savedDesign.excludedPlacementUnits} non-cabinet or unconfigured design unit(s) skipped. `}
+                  {result.savedDesign.unmatchedCatalogUnits > 0 && `${result.savedDesign.unmatchedCatalogUnits} cabinet unit(s) no longer match the current catalog and were not tested. `}
+                  {result.savedDesign.unpricedCatalogUnits > 0 && `${result.savedDesign.unpricedCatalogUnits} tested cabinet unit(s) have no current price, so they are excluded from the merchandise subtotal.`}
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="border p-3"><div className="text-xs text-muted-foreground">Units</div><div className="text-xl font-semibold">{result.totalUnits}</div></div>
@@ -370,6 +243,12 @@ export default function FreightTestLab() {
                     <div className="mt-3 flex items-start gap-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>{group.liveError}</span>
+                    </div>
+                  )}
+                  {group.usedOperationsOriginFallback && (
+                    <div className="mt-3 flex items-start gap-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>This style has no Shipping Origin ZIP. This test uses the Operations origin only; customer quotes still require the style’s own origin ZIP.</span>
                     </div>
                   )}
                   <div className="mt-3 overflow-x-auto">

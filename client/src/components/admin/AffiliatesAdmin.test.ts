@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const affiliates = [
@@ -42,4 +43,5 @@ describe("AffiliatesAdmin portal actions", () => {
     expect(html).not.toMatch(/href="\/affiliate"(?!\?viewAs=)/);
     expect(html).toContain("Invite to Sales Demo");
   });
+
 });

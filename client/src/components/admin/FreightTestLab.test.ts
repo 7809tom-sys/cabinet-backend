@@ -6,12 +6,13 @@ const source = readFileSync(resolve(process.cwd(), "client/src/components/admin/
 const shippingAdminSource = readFileSync(resolve(process.cwd(), "client/src/components/admin/ShippingAdmin.tsx"), "utf8");
 
 describe("Operations Freight Test Lab UI", () => {
-  it("replaces the narrow live test with a real catalog-backed sample-order lab", () => {
+  it("uses a saved design instead of manual catalog-item entry", () => {
     expect(shippingAdminSource).toContain("<FreightTestLab />");
-    expect(source).toContain("adminSearchSimulationItems");
-    expect(source).toContain("adminSimulateFreight");
-    expect(source).toContain("Search real catalog items");
-    expect(source).toContain("Sample order items");
+    expect(source).toContain("adminListSimulationDesigns");
+    expect(source).toContain("adminSimulateSavedDesignFreight");
+    expect(source).toContain("Saved design");
+    expect(source).toContain("Choose a saved design");
+    expect(source).not.toContain("adminSearchSimulationItems");
   });
 
   it("supports pallet preview, saved Plan A, and Plan B without order or payment creation", () => {
@@ -24,6 +25,14 @@ describe("Operations Freight Test Lab UI", () => {
     expect(source).toContain("function invalidateResults()");
     expect(source).not.toContain("orders.create");
     expect(source).not.toContain("payments.");
+  });
+
+  it("lets an administrator enter the delivery ZIP alongside the selected saved design", () => {
+    expect(source).toContain("Destination ZIP");
+    expect(source).toContain("Enter the delivery ZIP here.");
+    expect(source).toContain("Saved design:");
+    expect(source).toContain("no longer match the current catalog and were not tested");
+    expect(source).toContain("This style has no Shipping Origin ZIP. This test uses the Operations origin only");
   });
 
   it("shows Business/Residential accessorials and final pallet dimensions and loaded weights", () => {

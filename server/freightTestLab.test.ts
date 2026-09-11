@@ -83,4 +83,15 @@ describe("Operations Freight Test Lab", () => {
     expect(result.quote?.reason).toContain("no Plan B fee configured");
     expect(JSON.stringify(result)).not.toContain("quoteToken");
   });
+
+  it("exposes saved-design selection and a test-only saved-design simulation to administrators", () => {
+    const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
+    expect(source).toContain("adminListSimulationDesigns: adminProcedure");
+    expect(source).toContain("adminSimulateSavedDesignFreight: adminProcedure");
+    expect(source).toContain("savedDesignFreightInput(input.designId)");
+    expect(source).toContain("allowMissingStyleOriginFallback: true");
+    expect(source).toContain("customer quotes still require a style ZIP");
+    expect(source).toContain("None of this saved design’s cabinet selections are currently available");
+    expect(source).not.toContain("orders.create");
+  });
 });

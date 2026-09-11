@@ -331,6 +331,7 @@ export default function AffiliateDashboard() {
     "plugins",
     "tax",
     "team",
+    "settings",
   ] as const;
   const sectionParam = params.get("section");
   const initialSection = (
