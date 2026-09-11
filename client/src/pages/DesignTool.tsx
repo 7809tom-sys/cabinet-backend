@@ -12199,35 +12199,55 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		              Apply this color to the non-island cabinets, include the island with the outside runs, or change the island cabinets only. This changes cabinet finishes only; placement, quantities, and cabinet selections stay the same.
 		            </AlertDialogDescription>
 		          </AlertDialogHeader>
-		          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-		            <AlertDialogCancel>Cancel</AlertDialogCancel>
-		            <AlertDialogAction
-		              data-testid="apply-finish-non-island-only"
-		              onClick={() => {
-		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "non-island");
-		                setFinishApplyScopePrompt(null);
-		              }}
-		            >
-		              Non-island cabinets only
-		            </AlertDialogAction>
-		            <AlertDialogAction
-		              data-testid="apply-finish-include-island"
-		              onClick={() => {
-		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "all");
-		                setFinishApplyScopePrompt(null);
-		              }}
-		            >
-		              Include island cabinets
-		            </AlertDialogAction>
-		            <AlertDialogAction
-		              data-testid="apply-finish-island-only"
-		              onClick={() => {
-		                if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "island");
-		                setFinishApplyScopePrompt(null);
-		              }}
-		            >
-		              Island cabinets only
-		            </AlertDialogAction>
+		          <AlertDialogFooter className="flex flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">
+		            <div className="grid gap-2 sm:grid-cols-3">
+		              <Tooltip>
+		                <TooltipTrigger asChild>
+		                  <AlertDialogAction
+		                    data-testid="apply-finish-non-island-only"
+		                    aria-label="Non-island cabinets only: change every cabinet outside the island; island cabinet color stays unchanged"
+		                    onClick={() => {
+		                      if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "non-island");
+		                      setFinishApplyScopePrompt(null);
+		                    }}
+		                  >
+		                    Non-island cabinets only
+		                  </AlertDialogAction>
+		                </TooltipTrigger>
+		                <TooltipContent side="bottom">Changes only cabinets outside the island. Island cabinet color stays unchanged.</TooltipContent>
+		              </Tooltip>
+		              <Tooltip>
+		                <TooltipTrigger asChild>
+		                  <AlertDialogAction
+		                    data-testid="apply-finish-include-island"
+		                    aria-label="Include island cabinets: change every cabinet in the design, including the island"
+		                    onClick={() => {
+		                      if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "all");
+		                      setFinishApplyScopePrompt(null);
+		                    }}
+		                  >
+		                    Include island cabinets
+		                  </AlertDialogAction>
+		                </TooltipTrigger>
+		                <TooltipContent side="bottom">Changes every cabinet in the design, including all island cabinets.</TooltipContent>
+		              </Tooltip>
+		              <Tooltip>
+		                <TooltipTrigger asChild>
+		                  <AlertDialogAction
+		                    data-testid="apply-finish-island-only"
+		                    aria-label="Island cabinets only: change island cabinet color; all non-island cabinet color stays unchanged"
+		                    onClick={() => {
+		                      if (finishApplyScopePrompt) commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "island");
+		                      setFinishApplyScopePrompt(null);
+		                    }}
+		                  >
+		                    Island cabinets only
+		                  </AlertDialogAction>
+		                </TooltipTrigger>
+		                <TooltipContent side="bottom">Changes only island cabinets. All cabinets outside the island keep their current color.</TooltipContent>
+		              </Tooltip>
+		            </div>
+		            <AlertDialogCancel data-testid="cancel-finish-apply-scope" className="w-full">Cancel</AlertDialogCancel>
 		          </AlertDialogFooter>
 		        </AlertDialogContent>
 		      </AlertDialog>

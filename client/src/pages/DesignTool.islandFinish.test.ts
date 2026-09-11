@@ -21,4 +21,15 @@ describe("DesignTool island finish routing", () => {
     expect(source).toContain('commitSelectedFinishScope(finishApplyScopePrompt.targetStyleId, "island")');
     expect(source).toContain("Island cabinets only");
   });
+
+  it("keeps a dedicated bottom cancel action and explains every color scope with an accessible tooltip", () => {
+    expect(source).toContain('data-testid="cancel-finish-apply-scope"');
+    expect(source).toContain('className="w-full">Cancel</AlertDialogCancel>');
+    expect(source).toContain("Changes only cabinets outside the island. Island cabinet color stays unchanged.");
+    expect(source).toContain("Changes every cabinet in the design, including all island cabinets.");
+    expect(source).toContain("Changes only island cabinets. All cabinets outside the island keep their current color.");
+    expect(source).toContain('aria-label="Non-island cabinets only: change every cabinet outside the island; island cabinet color stays unchanged"');
+    expect(source).toContain('aria-label="Include island cabinets: change every cabinet in the design, including the island"');
+    expect(source).toContain('aria-label="Island cabinets only: change island cabinet color; all non-island cabinet color stays unchanged"');
+  });
 });
