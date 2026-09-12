@@ -200,12 +200,13 @@ export default function App() {
     // so users (and customers) never get stuck on a stale cached version.
     setVersionNotifier(({ onReload }) => {
       toast("A new version is available", {
-        description: "Refresh to get the latest cabinets and fixes.",
-        // A deployment notice must never become a permanent overlay that
-        // prevents someone from reaching navigation or a primary action.
-        duration: 10_000,
+        id: "cabinet-dealz-version-update",
+        description: "Refresh to apply the latest cabinets and fixes. Your open panel will not hide this notice.",
+        // The prompt does not reload automatically, so it can remain visible
+        // over an open Designer panel until the user chooses Refresh now or Later.
+        duration: Infinity,
         action: { label: "Refresh now", onClick: onReload },
-        cancel: { label: "Dismiss", onClick: () => undefined },
+        cancel: { label: "Later", onClick: () => undefined },
       });
     });
     startVersionWatcher();

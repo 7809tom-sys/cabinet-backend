@@ -6,7 +6,8 @@
 // (e.g. { "version": "9f2b7673", "timestamp": 1782513477461 }).
 //
 // Design goals:
-// - Never interrupt an in-progress action (typing, dragging, an open dialog).
+// - Make a new build visible immediately, including while a Designer panel or
+//   dialog is open; the user remains in control of when to refresh.
 // - Be resilient: if the endpoint returns HTML (some hosts serve the SPA shell
 //   for unknown paths) or fails, do nothing.
 // - Cheap: a tiny no-store fetch on an interval + when the tab regains focus.
@@ -52,27 +53,6 @@ export async function fetchDeployedVersion(): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-/**
- * True when it is safe to interrupt the user with a refresh prompt. We avoid
- * prompting mid-interaction: an open dialog, a focused text input, or an
- * in-progress pointer drag.
- */
-function isSafeToPrompt(): boolean {
-  if (typeof document === "undefined") return false;
-  // An open modal/dialog/sheet — don't interrupt.
-  if (document.querySelector('[role="dialog"],[data-state="open"][aria-modal="true"]')) {
-    return false;
-  }
-  const el = document.activeElement as HTMLElement | null;
-  if (el) {
-    const tag = el.tagName.toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable) {
-      return false;
-    }
-  }
-  return true;
 }
 
 type NotifyFn = (opts: { onReload: () => void }) => void;
@@ -178,10 +158,10 @@ async function check() {
     return;
   }
   if (current !== bootVersion) {
-    // A newer build is live. Prompt when safe; otherwise retry on next tick.
-    if (isSafeToPrompt()) {
-      notifyNewVersion();
-    }
+    // This is a non-blocking prompt, not an automatic reload. It must appear
+    // even above an open Designer attribute panel or dialog so the user knows
+    // exactly when the latest update is ready to apply.
+    notifyNewVersion();
   }
 }
 

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fetchDeployedVersion } from "./versionWatcher";
+
+const watcherSource = readFileSync(resolve(process.cwd(), "client/src/lib/versionWatcher.ts"), "utf8");
+const appSource = readFileSync(resolve(process.cwd(), "client/src/App.tsx"), "utf8");
+const toasterSource = readFileSync(resolve(process.cwd(), "client/src/components/ui/sonner.tsx"), "utf8");
 
 function mockFetch(body: string, contentType: string, ok = true) {
   return vi.fn().mockResolvedValue({
@@ -43,5 +49,18 @@ describe("fetchDeployedVersion", () => {
   it("parses JSON even when content-type is generic but body is JSON", async () => {
     vi.stubGlobal("fetch", mockFetch('{"version":"x9"}', "text/plain"));
     await expect(fetchDeployedVersion()).resolves.toBe("x9");
+  });
+
+  it("does not defer a refresh notice behind an open dialog or focused field", () => {
+    expect(watcherSource).not.toContain("isSafeToPrompt");
+    expect(watcherSource).toContain("notifyNewVersion();");
+    expect(watcherSource).not.toContain("[role=\"dialog\"]");
+  });
+
+  it("keeps the user-controlled refresh notice visible above Designer overlays", () => {
+    expect(appSource).toContain('id: "cabinet-dealz-version-update"');
+    expect(appSource).toContain("duration: Infinity");
+    expect(appSource).toContain('cancel: { label: "Later"');
+    expect(toasterSource).toContain("zIndex: 2147483647");
   });
 });

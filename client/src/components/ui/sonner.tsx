@@ -13,6 +13,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
+          // Deployment notices must stay visible above every Dialog, Sheet,
+          // and Designer attribute panel. They remain non-blocking and reload
+          // only after the user selects the explicit action.
+          zIndex: 2147483647,
         } as React.CSSProperties
       }
       {...props}

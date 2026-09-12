@@ -1921,7 +1921,8 @@
 - [x] Verify non-island-only, include-island, and island-only color application paths preserve their intended cabinet scopes
 - [x] Add a clearly separated Cancel button at the bottom of the cabinet-color scope popup
 - [x] Add descriptive accessible tooltips explaining the cabinet scope of every color-application button
-- [ ] Ensure the Designer refresh prompt remains visible and actionable over any open attributes panel, dialog, or popup
-- [ ] Verify Designer refresh prompts preserve unsaved-plan safeguards while allowing updated code to load from every active UI state
+- [x] Ensure the Designer refresh prompt remains visible and actionable over any open attributes panel, dialog, or popup
+- [x] Verify Designer refresh prompts preserve unsaved-plan safeguards while allowing updated code to load from every active UI state
+- [x] Publish validated low-risk Designer updates automatically so the owner can test them live without a separate approval message
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
