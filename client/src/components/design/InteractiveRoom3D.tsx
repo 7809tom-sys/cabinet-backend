@@ -7218,11 +7218,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       const dz = -(end.y - start.y);
       const length = Math.hypot(dx, dz);
       const side = threeDWallSideForPolygonEdge(index, polygon.length, start, end, room);
-      const sideWallHeight = wallHeights[side] * INCH;
+      const customWallHeight = roomOverride?.customWalls?.[index]?.height;
+      const sideWallHeight = (typeof customWallHeight === "number" ? customWallHeight : wallHeights[side]) * INCH;
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);
       wall.rotation.y = Math.atan2(dz, dx);
-      wall.userData = { roomWall: true, physicalWallSide: side, wallHeightIn: wallHeights[side] };
+      wall.userData = { roomWall: true, physicalWallSide: side, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side] };
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);

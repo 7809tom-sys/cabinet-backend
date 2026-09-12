@@ -1935,5 +1935,8 @@
 - [x] Preserve void acceptance when a cabinet is removed and replaced on a 45-degree run
 - [x] Verify angled base and wall cabinet placement updates the live Designer price and materials list while retaining 90-degree walls
 - [x] Preserve crown, filler, and side-cut calculation inputs for angled cabinet runs without changing existing installer controls
+- [x] Add a selected-wall Compass action that opens one editable popup for locked angle, angle-start distance, wall height, and wall length
+- [x] Apply Compass wall edits only to the selected wall and preserve existing 45-degree, 90-degree, cabinet-fit, pricing, and materials safeguards
+- [x] Flag selected-wall cabinets that become invalid after a Compass wall edit instead of silently orphaning or deleting them
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

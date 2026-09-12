@@ -24,6 +24,8 @@ export interface CustomWall {
   label?: string;
   /** Deliberate v1 diagonal direction; no free-form angle is persisted. */
   lockedAngle?: 45 | -45;
+  /** Optional finished height for this selected wall segment in inches. */
+  height?: number;
 }
 
 // ─── ID Generation ──────────────────────────────────────────────────────────────
@@ -153,6 +155,74 @@ export function snapWallEndpointNear45(
   const directionX = wall.startVertexId === movingVertexId ? anchor.x - x : x - anchor.x;
   const directionY = wall.startVertexId === movingVertexId ? anchor.y - y : y - anchor.y;
   return { x, y, lockedAngle: directionX * directionY >= 0 ? 45 : -45 };
+}
+
+export type CompassWallAngle = 90 | 45 | -45;
+
+export type CompassWallEdit = {
+  /** Distance from this wall's start corner before the selected angled run begins. */
+  angleStartIn: number;
+  /** Measured length of the selected run after its angle begins. */
+  lengthIn: number;
+  /** Limited v1 geometry: existing straight bearing, +45°, or −45°. */
+  angle: CompassWallAngle;
+  /** Finished selected-wall height in inches, retained separately from room defaults. */
+  heightIn: number;
+};
+
+/**
+ * Edits one selected wall from the Compass dialog. An angled edit splits off a
+ * straight approach segment when requested, then keeps the edited run exact at
+ * +45° or −45°. A 90° edit retains the wall's current straight bearing.
+ */
+export function applyCompassWallEdit(
+  wallId: string,
+  edit: CompassWallEdit,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+): { vertices: RoomVertex[]; customWalls: CustomWall[]; editedWallId: string } | null {
+  const index = customWalls.findIndex((wall) => wall.id === wallId);
+  const wall = customWalls[index];
+  const start = wall ? vertices.find((vertex) => vertex.id === wall.startVertexId) : null;
+  const end = wall ? vertices.find((vertex) => vertex.id === wall.endVertexId) : null;
+  if (!wall || !start || !end) return null;
+
+  const existingLength = Math.max(6, wallSegmentLength(wall, vertices));
+  const startDistance = Math.max(0, Math.min(existingLength - 6, Math.round((Number(edit.angleStartIn) || 0) * 8) / 8));
+  const length = Math.max(6, Math.round((Number(edit.lengthIn) || existingLength) * 8) / 8);
+  const currentBearing = Math.atan2(end.y - start.y, end.x - start.x);
+  const cardinalBearing = Math.round(currentBearing / (Math.PI / 2)) * (Math.PI / 2);
+  const bearing = edit.angle === 90 ? cardinalBearing : edit.angle * Math.PI / 180;
+  const prefixEnd = {
+    x: Math.round((start.x + Math.cos(currentBearing) * startDistance) * 8) / 8,
+    y: Math.round((start.y + Math.sin(currentBearing) * startDistance) * 8) / 8,
+  };
+  const coordinatePrecision = edit.angle === 90 ? 8 : 1000;
+  const nextEnd = {
+    x: Math.round((prefixEnd.x + Math.cos(bearing) * length) * coordinatePrecision) / coordinatePrecision,
+    y: Math.round((prefixEnd.y + Math.sin(bearing) * length) * coordinatePrecision) / coordinatePrecision,
+  };
+  const editedWallId = startDistance > 0.01 ? genWallId() : wall.id;
+  const pivot = startDistance > 0.01 ? { id: genVertexId(), ...prefixEnd } : null;
+  const nextVertices = vertices
+    .map((vertex) => vertex.id === end.id ? { ...vertex, ...nextEnd } : vertex)
+    .flatMap((vertex) => pivot && vertex.id === start.id ? [vertex, pivot] : [vertex]);
+  const editedWall: CustomWall = {
+    ...wall,
+    id: editedWallId,
+    startVertexId: pivot?.id ?? wall.startVertexId,
+    lockedAngle: edit.angle === 90 ? undefined : edit.angle,
+    height: Math.max(34.5, Math.min(144, Math.round((Number(edit.heightIn) || wall.height || 96) * 8) / 8)),
+  };
+  const nextWalls = customWalls.flatMap((candidate, candidateIndex) => {
+    if (candidateIndex !== index) return [candidate];
+    if (!pivot) return [editedWall];
+    return [
+      { id: wall.id, startVertexId: wall.startVertexId, endVertexId: pivot.id, label: `${wall.label ?? "Wall"} approach` },
+      { ...editedWall, label: wall.label },
+    ];
+  });
+  return { vertices: nextVertices, customWalls: nextWalls, editedWallId };
 }
 
 /** Inward normal of a wall segment (points toward the room interior).

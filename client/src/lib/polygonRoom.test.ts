@@ -15,6 +15,7 @@ import {
   isLocked45Wall,
   lockWallToAngle,
   snapWallEndpointNear45,
+  applyCompassWallEdit,
   mergeWalls,
   verticesToSvgPath,
 } from "./polygonRoom";
@@ -227,6 +228,45 @@ describe("polygonRoom", () => {
       const snapped = snapWallEndpointNear45(wall, wall.endVertexId, { x: 53, y: 58 }, vertices);
       expect(snapped).toEqual({ x: 54, y: 54, lockedAngle: 45 });
       expect(snapWallEndpointNear45(wall, wall.endVertexId, { x: 72, y: 30 }, vertices)).toBeNull();
+    });
+
+    it("splits only the selected wall at the Compass angle start and stores its exact +45° length and height", () => {
+      const { vertices, customWalls } = rectToPolygon(144, 120);
+      const result = applyCompassWallEdit(customWalls[0].id, {
+        angle: 45,
+        angleStartIn: 36,
+        lengthIn: 60,
+        heightIn: 84,
+      }, vertices, customWalls);
+      expect(result).not.toBeNull();
+      const approach = result!.customWalls.find((wall) => wall.id === customWalls[0].id)!;
+      const edited = result!.customWalls.find((wall) => wall.id === result!.editedWallId)!;
+      expect(wallSegmentLength(approach, result!.vertices)).toBeCloseTo(36, 3);
+      expect(edited.lockedAngle).toBe(45);
+      expect(edited.height).toBe(84);
+      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(60, 2);
+      const start = result!.vertices.find((vertex) => vertex.id === edited.startVertexId)!;
+      const end = result!.vertices.find((vertex) => vertex.id === edited.endVertexId)!;
+      expect(Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI).toBeCloseTo(45, 3);
+      expect(result!.customWalls).toHaveLength(5);
+    });
+
+    it("restores a Compass 90° edit to a cardinal wall direction and clears a prior diagonal lock", () => {
+      const { vertices, customWalls } = rectToPolygon(144, 120);
+      const locked = lockWallToAngle(customWalls[0].id, -45, vertices, customWalls)!;
+      const result = applyCompassWallEdit(locked.customWalls[0].id, {
+        angle: 90,
+        angleStartIn: 0,
+        lengthIn: 72,
+        heightIn: 96,
+      }, locked.vertices, locked.customWalls);
+      expect(result).not.toBeNull();
+      expect(result!.customWalls[0].lockedAngle).toBeUndefined();
+      expect(result!.customWalls[0].height).toBe(96);
+      expect(wallSegmentLength(result!.customWalls[0], result!.vertices)).toBeCloseTo(72, 3);
+      const start = result!.vertices.find((vertex) => vertex.id === result!.customWalls[0].startVertexId)!;
+      const end = result!.vertices.find((vertex) => vertex.id === result!.customWalls[0].endVertexId)!;
+      expect(Math.abs(Math.sin(Math.atan2(end.y - start.y, end.x - start.x)))).toBeLessThan(0.001);
     });
   });
 

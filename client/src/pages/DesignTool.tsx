@@ -2859,6 +2859,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     missingCornerBaseViolations(placed, room, island, openings).forEach((uid: string) => set.add(uid));
     return set;
   }, [placed, room, island, openings, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
+  const cabinetUidsByCustomWall = useMemo(() => {
+    const byWall: Record<string, string[]> = {};
+    for (const cabinet of placed) {
+      if (!cabinet.wallId) continue;
+      (byWall[cabinet.wallId] ??= []).push(cabinet.uid);
+    }
+    return byWall;
+  }, [placed]);
   const hasConflicts = conflictUids.size > 0;
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
@@ -10737,6 +10745,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 }}
                 activeWallId={activeWall}
                 onSelectWall={(wallId) => { setActiveWall(wallId as any); setPlacementTarget("wall"); }}
+                cabinetUidsByWall={cabinetUidsByCustomWall}
                 locked={layoutLocked}
               />
             </div>
