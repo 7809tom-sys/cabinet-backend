@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, freeSegmentsOnWall, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunMaxLength, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -19,6 +19,41 @@ const angledRoom: RoomData = {
     { id: "diag", startVertexId: "a", endVertexId: "b", label: "Angled wall", lockedAngle: 45 },
   ],
 };
+
+const peninsulaRoom: RoomData = {
+  width: 144,
+  depth: 144,
+  ceilingHeight: 96,
+  peninsulaRuns: [{
+    id: "peninsula-90-right",
+    parentWall: "top",
+    startOffset: 48,
+    turn: 90,
+    direction: "right",
+    length: 96,
+    height: 34.5,
+    label: "Peninsula · 90° right",
+  }],
+};
+
+function peninsulaCabinet(uid: string, offset: number): PlacedCabinet {
+  const spot = wallPlacementAt(offset, 30, 24, "peninsula-90-right" as any, peninsulaRoom);
+  return {
+    uid,
+    cabinetId: 2,
+    masterCode: "B-30",
+    description: "Peninsula base cabinet",
+    placement: "base",
+    x: spot.x,
+    y: spot.y,
+    width: 30,
+    depth: 24,
+    height: 34.5,
+    rotation: spot.rotation,
+    wallId: spot.wallId,
+    wallOffset: spot.wallOffset,
+  };
+}
 
 function angledCabinet(uid: string, offset: number, placement: "base" | "wall" = "base"): PlacedCabinet {
   const width = 36;
@@ -82,6 +117,60 @@ describe("locked 45-degree cabinet wall placement", () => {
     expect(lines).toEqual([expect.objectContaining({ masterCode: "B-36", qty: 1, unitPrice: 250 })]);
     expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([
       expect.objectContaining({ code: "B-36", qty: 1, unitPrice: 250, section: "cabinet" }),
+    ]);
+  });
+});
+
+describe("cabinet-supported peninsula runs", () => {
+  it("anchors a 90-degree continuation at the measured parent-wall split point", () => {
+    const run = peninsulaRoom.peninsulaRuns![0];
+    expect(peninsulaRunEndpoints(run, peninsulaRoom)).toMatchObject({
+      start: { x: 48, y: 0 },
+      end: { x: 48, y: 96 },
+    });
+    expect(wallLength(run.id as any, peninsulaRoom)).toBe(96);
+    expect(wallPlacementAt(0, 30, 24, run.id as any, peninsulaRoom)).toMatchObject({
+      rotation: 90,
+      wallId: run.id,
+      wallOffset: 0,
+    });
+  });
+
+  it("keeps exact 45-degree left and right continuations inside the room and bounds their pull", () => {
+    const right45 = { ...peninsulaRoom.peninsulaRuns![0], turn: 45 as const, direction: "right" as const, startOffset: 72, length: 36 };
+    const left45 = { ...right45, direction: "left" as const };
+    expect(peninsulaRunEndpoints(right45, peninsulaRoom).end).toEqual({ x: 46.5, y: 25.5 });
+    expect(peninsulaRunEndpoints(left45, peninsulaRoom).end).toEqual({ x: 97.5, y: 25.5 });
+    expect(peninsulaRunMaxLength(right45, peninsulaRoom)).toBeLessThanOrEqual(102);
+    expect(peninsulaRunMaxLength(left45, peninsulaRoom)).toBeLessThanOrEqual(102);
+  });
+
+  it("keeps a peninsula run empty until cabinets are placed, then reopens an exact removed void", () => {
+    const first = peninsulaCabinet("pen-one", 0);
+    const second = peninsulaCabinet("pen-two", 30);
+    expect(cabinetCollisionDetail(second, [first])).toBeNull();
+    const occupied = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, [first, second], [], 0.5, 0, "base");
+    expect(occupied.some((segment) => segment.start <= 30 && segment.start + segment.length >= 60)).toBe(false);
+    const released = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, [first], [], 0.5, 0, "base");
+    expect(released.some((segment) => segment.start <= 30 && segment.start + segment.length >= 60)).toBe(true);
+  });
+
+  it("keeps peninsula base cabinets in normal counter, price, and materials workflows", () => {
+    const base = peninsulaCabinet("pen-priced", 0);
+    expect(countertopSurfaces([base], peninsulaRoom)).toEqual([
+      expect.objectContaining({ kind: "base", rotation: 90 }),
+    ]);
+    const lines = buildDesignCabinetCartLines({
+      placed: [base],
+      styleId: 77,
+      distributorId: 11,
+      tier: "homeowner",
+      styleNameById: new Map([[77, "Test finish"]]),
+      unitPriceFor: () => 250,
+    });
+    expect(lines).toEqual([expect.objectContaining({ masterCode: "B-30", qty: 1, unitPrice: 250 })]);
+    expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([
+      expect.objectContaining({ code: "B-30", qty: 1, section: "cabinet" }),
     ]);
   });
 });

@@ -4,7 +4,7 @@ import {
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-  clampRoomInches, inchesToFeetInches, WallSide,
+  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
 	  wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
@@ -165,7 +165,11 @@ interface Props {
   /** The selected wall's saved 45-degree corner-start distance, in inches. */
   wallCompassStartIn?: number | null;
   /** Called after the user moves and releases the selected-wall Compass handle. */
-  onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;
+  onWallCompassDrop?: (side: WallSide, startIn: number) => void;
+  /** Inline, uncommitted peninsula continuation shown after a Compass split. */
+  peninsulaDraft?: PeninsulaRun | null;
+  /** Updates the exact pulled length of the inline peninsula draft. */
+  onPeninsulaDraftLengthChange?: (length: number) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
   // Lock state: when layoutLocked is true the whole room/walls/openings/island
@@ -254,7 +258,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -431,6 +435,7 @@ export function PlanCanvas({
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const compassDrag = useRef<{ side: WallSide; initialStartIn: number } | null>(null);
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
+  const peninsulaPull = useRef<{ startX: number; startY: number; radians: number; maxLength: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
 	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
 	  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
@@ -623,10 +628,37 @@ export function PlanCanvas({
     setCompassPreviewStart(null);
     const movement = startIn - drag.initialStartIn;
     // A press without meaningful travel only keeps the wall selected. A moved
-    // handle commits exactly one 45° turn: moving toward the run end is Right;
-    // moving toward its start is Left. No handle release opens attributes.
+    // handle establishes a real peninsula split point; angle and pull length
+    // are chosen in the follow-up inline builder, never in a popup.
     if (Math.abs(movement) < 0.5) return;
-    onWallCompassDrop?.(drag.side, startIn, movement > 0 ? "right" : "left");
+    onWallCompassDrop?.(drag.side, startIn);
+  };
+
+  const onPeninsulaPullDown = (event: React.PointerEvent, draft: PeninsulaRun) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const { start, radians } = peninsulaRunEndpoints(draft, room);
+    peninsulaPull.current = { startX: start.x, startY: start.y, radians, maxLength: peninsulaRunMaxLength(draft, room) };
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
+  };
+
+  const onPeninsulaPullMove = (event: React.PointerEvent) => {
+    const pull = peninsulaPull.current;
+    if (!pull || !onPeninsulaDraftLengthChange) return;
+    const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+    if (!roomEl) return;
+    const rect = roomEl.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / ppiRef.current;
+    const y = (event.clientY - rect.top) / ppiRef.current;
+    const projected = (x - pull.startX) * Math.cos(pull.radians) + (y - pull.startY) * Math.sin(pull.radians);
+    onPeninsulaDraftLengthChange(Math.round(Math.max(12, Math.min(pull.maxLength, projected)) * 8) / 8);
+  };
+
+  const onPeninsulaPullUp = (event: React.PointerEvent) => {
+    if (!peninsulaPull.current) return;
+    onPeninsulaPullMove(event);
+    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+    peninsulaPull.current = null;
   };
 
   // Manual double-tap detector (iOS Safari does not reliably synthesize
@@ -919,7 +951,43 @@ export function PlanCanvas({
           })(),
         }}
       >
-	        {catalogDragFit && (() => {
+        {peninsulaDraft && (() => {
+          const { start, end, radians } = peninsulaRunEndpoints(peninsulaDraft, room);
+          const degrees = (radians * 180) / Math.PI;
+          const lengthPx = Math.max(12, peninsulaDraft.length * ppi);
+          return (
+            <div
+              data-testid="peninsula-run-draft"
+              className="absolute z-[24] h-3 cursor-grab rounded-full border-2 border-dashed border-[#d4a75a] bg-[#d4a75a]/25 shadow-[0_0_0_2px_rgba(26,39,68,0.2)] active:cursor-grabbing"
+              style={{
+                left: start.x * ppi,
+                top: start.y * ppi - 6,
+                width: lengthPx,
+                transform: `rotate(${degrees}deg)`,
+                transformOrigin: "0 50%",
+              }}
+            >
+              <span className="pointer-events-none absolute left-1/2 -top-7 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                Pull peninsula · {formatEighthInches(peninsulaDraft.length)}
+              </span>
+              <button
+                type="button"
+                aria-label="Pull peninsula run to set its length"
+                title="Drag to pull the new peninsula run to its final length"
+                className="absolute -right-3 -top-3 grid h-8 w-8 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-xs font-bold text-white shadow"
+                onPointerDown={(event) => onPeninsulaPullDown(event, peninsulaDraft)}
+                onPointerMove={onPeninsulaPullMove}
+                onPointerUp={onPeninsulaPullUp}
+              >
+                ↔
+              </button>
+              <span className="pointer-events-none absolute -left-1.5 -top-1.5 h-4 w-4 rounded-full border-2 border-[#1a2744] bg-white" />
+              <span className="pointer-events-none absolute -right-px -top-0.5 h-2 w-2 rounded-full bg-[#d4a75a]" />
+              <span className="sr-only">Peninsula draft ending at {end.x}, {end.y}</span>
+            </div>
+          );
+        })()}
+        {catalogDragFit && (() => {
 	          const { gap } = catalogDragFit;
 	          const horizontal = gap.side === "top" || gap.side === "bottom";
 	          const depthIn = gap.layer === "wall" ? 12 : 24;
@@ -971,6 +1039,35 @@ export function PlanCanvas({
 	            })}
 	          </div>;
         })()}
+        {(room.peninsulaRuns ?? []).map((run) => {
+          const { start, radians } = peninsulaRunEndpoints(run, room);
+          const active = activeWall === run.id;
+          return (
+            <button
+              key={run.id}
+              type="button"
+              data-testid="peninsula-run-segment"
+              aria-label={`Select ${run.label ?? "peninsula run"}`}
+              title={`${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high`}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                onSelectWall?.(run.id as WallSide);
+              }}
+              className={`absolute z-[3] h-3 cursor-pointer rounded-full border-2 shadow-sm ${active ? "border-[#d4a75a] bg-[#1a2744]" : "border-[#1a2744] bg-[#d4a75a]/80"}`}
+              style={{
+                left: start.x * ppi,
+                top: start.y * ppi - 6,
+                width: Math.max(12, run.length * ppi),
+                transform: `rotate(${(radians * 180) / Math.PI}deg)`,
+                transformOrigin: "0 50%",
+              }}
+            >
+              <span className="pointer-events-none absolute left-1/2 -top-7 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                Peninsula · {run.turn}° {run.direction} · {run.height}"
+              </span>
+            </button>
+          );
+        })}
         {/* Wall bands: touch to select and highlight only. Rendered first so
             they sit beneath cabinets; Room Size owns explicit dimension edits. */}
         {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
@@ -1017,7 +1114,7 @@ export function PlanCanvas({
                   {!layoutLocked && onWallCompassDrop && (
                     <button
                       type="button"
-                      aria-label={`Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn`}
+                      aria-label={`Drag Compass along ${wallLabel[side]} wall to set the peninsula split point`}
                       title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
                       className="absolute z-20 grid h-10 w-10 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
@@ -1049,7 +1146,9 @@ export function PlanCanvas({
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {
 	          const perimeterSurfaces = countertopSurfaces(cabinets, room, island).filter((surface) => surface.kind !== "island");
-	          const islandSurfaces = island ? islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const })) : [];
+	          const islandSurfaces: Array<{ x: number; y: number; width: number; depth: number; kind: "island"; rotation?: number }> = island
+	            ? islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const }))
+	            : [];
 	          const surfaces = [...perimeterSurfaces, ...islandSurfaces];
           if (surfaces.length === 0) return null;
           return (
@@ -1074,6 +1173,8 @@ export function PlanCanvas({
                         : undefined,
                       backgroundSize: mat.speckle ? "6px 6px" : undefined,
                       opacity: 0.92,
+                      transform: s.rotation ? `rotate(${s.rotation}deg)` : undefined,
+                      transformOrigin: "50% 50%",
                     }}
                   />
                 );

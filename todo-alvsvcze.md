@@ -1965,5 +1965,8 @@
 - [x] Restore cabinetdealz.com public routing after the live site returned Railway Not Found instead of Cabinet Dealz
 - [x] Replace the live visible Compass popup action with direct activation of the on-wall 45-degree drag control
 - [x] Remove every Compass-triggered popup; Compass must only create an immediate exact 45-degree turn on drag release
+- [x] Replace immediate Compass corner behavior with a true wall split and a new empty sticky 45-degree-left, 45-degree-right, or 90-degree pull-to-length continuation segment
+- [x] Preserve original-segment cabinet ownership when a Compass split occurs, leaving the new continuation segment empty and keeping price/materials unchanged
+- [x] Implement a v1 peninsula run from a Compass wall split with 34.5, 42, 96, and custom height options; sticky 45-degree-left, 45-degree-right, and 90-degree directions; pull length; and normal base-cabinet void placement
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

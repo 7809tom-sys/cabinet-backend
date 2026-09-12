@@ -1113,12 +1113,90 @@ export interface RoomData {
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
   /** Polygon room: wall segments connecting vertices. */
   customWalls?: import("@/lib/polygonRoom").CustomWall[];
+  /** Free-standing cabinet-supported runs that leave a room wall as a peninsula. */
+  peninsulaRuns?: PeninsulaRun[];
   /**
    * Complete saved 2D entities that sit alongside the room shell. Persisting
    * them with the room makes a reloaded 3D scene a deterministic conversion of
    * the same source plan rather than a partial reconstruction.
    */
   persistedEntities?: PersistedDesignEntities;
+}
+
+export type PeninsulaTurn = 45 | 90;
+export type PeninsulaDirection = "left" | "right";
+
+export interface PeninsulaRun {
+  id: string;
+  /** Cardinal room wall where this run begins. */
+  parentWall: WallSide;
+  /** Exact distance in inches from the parent wall's start corner. */
+  startOffset: number;
+  /** Locked continuation turn relative to the parent wall. */
+  turn: PeninsulaTurn;
+  direction: PeninsulaDirection;
+  /** Measured pulled length in inches. */
+  length: number;
+  /** Finished peninsula wall/rail height; base cabinets remain floor-supported. */
+  height: number;
+  label?: string;
+}
+
+/** Exact room-space line geometry for a persisted peninsula run. */
+export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "width" | "depth">): {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  radians: number;
+} {
+  const span = run.parentWall === "top" || run.parentWall === "bottom" ? room.width : room.depth;
+  const offset = Math.max(0, Math.min(span, Number(run.startOffset) || 0));
+  const start = run.parentWall === "top"
+    ? { x: offset, y: 0 }
+    : run.parentWall === "bottom"
+      ? { x: offset, y: room.depth }
+      : run.parentWall === "left"
+        ? { x: 0, y: offset }
+        : { x: room.width, y: offset };
+  const parentRadians: Record<WallSide, number> = {
+    top: 0,
+    right: Math.PI / 2,
+    bottom: Math.PI,
+    left: -Math.PI / 2,
+  };
+  // A peninsula leaves its parent wall through the interior. A 90° run follows
+  // that inward normal; 45° choices fan left/right around it inside the room.
+  const inwardRadians = parentRadians[run.parentWall] + Math.PI / 2;
+  const radians = run.turn === 90
+    ? inwardRadians
+    : inwardRadians + (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4);
+  const length = Math.max(6, Number(run.length) || 6);
+  return {
+    start,
+    end: {
+      x: Math.round((start.x + Math.cos(radians) * length) * 8) / 8,
+      y: Math.round((start.y + Math.sin(radians) * length) * 8) / 8,
+    },
+    radians,
+  };
+}
+
+/** Maximum interior pull length before a peninsula continuation reaches a room boundary. */
+export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { length?: number }, room: Pick<RoomData, "width" | "depth">): number {
+  const { start, radians } = peninsulaRunEndpoints({ ...run, length: 6 }, room);
+  const dx = Math.cos(radians);
+  const dy = Math.sin(radians);
+  const candidates: number[] = [];
+  if (dx > 1e-9) candidates.push((room.width - start.x) / dx);
+  if (dx < -1e-9) candidates.push(-start.x / dx);
+  if (dy > 1e-9) candidates.push((room.depth - start.y) / dy);
+  if (dy < -1e-9) candidates.push(-start.y / dy);
+  const maximum = Math.min(...candidates.filter((candidate) => Number.isFinite(candidate) && candidate >= 0));
+  return Math.max(6, Math.floor(maximum * 8) / 8);
+}
+
+export function peninsulaRunById(room: RoomData, wallId?: string | null): PeninsulaRun | null {
+  if (!wallId) return null;
+  return room.peninsulaRuns?.find((run) => run.id === wallId) ?? null;
 }
 
 export interface PersistedDesignEntities {
@@ -1786,13 +1864,11 @@ export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabi
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     if (!sharesPlanCollisionZone(moving, o)) continue;
-    const sameLockedAngledRun = Boolean(
+    const sameExplicitRun = Boolean(
       moving.wallId && moving.wallId === o.wallId &&
-      moving.wallOffset != null && o.wallOffset != null &&
-      [45, 315].includes(((Math.round(moving.rotation) % 360) + 360) % 360) &&
-      [45, 315].includes(((Math.round(o.rotation) % 360) + 360) % 360),
+      moving.wallOffset != null && o.wallOffset != null,
     );
-    if (sameLockedAngledRun) {
+    if (sameExplicitRun) {
       const start = Number(moving.wallOffset);
       const end = start + Math.max(0, Number(moving.width) || 0);
       const otherStart = Number(o.wallOffset);
@@ -3436,6 +3512,8 @@ export interface WallOpening {
 }
 
 export function wallLength(side: WallSide, room: RoomData): number {
+  const peninsula = peninsulaRunById(room, side);
+  if (peninsula) return Math.max(6, peninsula.length);
   // If the side is actually a custom wall ID in a polygon room, compute from vertices.
   if (room.vertices && room.customWalls) {
     const wall = room.customWalls.find((w) => w.id === side);
@@ -3690,7 +3768,7 @@ export const LIGHT_RAIL_INSTALLATION_ALLOWANCE_IN = 4;
 // oriented pair.
 export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
   // Polygon room: if the cabinet has an explicit wallId, return it directly.
-  if (p.wallId && room.customWalls) {
+  if (p.wallId && (room.customWalls?.some((wall) => wall.id === p.wallId) || peninsulaRunById(room, p.wallId))) {
     return p.wallId as WallSide;
   }
   const horizontal = ((Math.round(p.rotation) % 180) + 180) % 180 === 0;
@@ -5315,8 +5393,10 @@ export function freeSegmentsOnWall(
   candidate?: PlacedCabinet,
 ): WallSegment[] {
   const angledCustomWall = isLockedAngledCustomWall(room, side);
+  const peninsulaRun = peninsulaRunById(room, side);
+  const explicitRun = angledCustomWall || Boolean(peninsulaRun);
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = angledCustomWall
+  const wallLen = explicitRun
     ? wallLength(side, room)
     : horizontal ? room.width : room.depth;
 
@@ -5350,7 +5430,7 @@ export function freeSegmentsOnWall(
     // the adjoining wall so a catalog click/drop starts at the corner's actual
     // edge instead of being created inside it and rejected as a full overlap.
     const assignedWall = cabinetWall(p, room);
-    if (angledCustomWall && assignedWall !== side) continue;
+    if (explicitRun && assignedWall !== side) continue;
     const cornerKind = placedCornerGeometryKind(p);
     const reservesAdjoiningWall = (
       cornerKind === "l-shape" ||
@@ -5370,8 +5450,8 @@ export function freeSegmentsOnWall(
       if (verticallySeparate) continue;
     }
     const s = assignedWall !== side && reservesAdjoiningWall ? placedFootprint(p) : rotatedSize(p);
-    const start = angledCustomWall ? wallRunOffset(p, side, room) : horizontal ? p.x : p.y;
-    const span = angledCustomWall ? wallRunSpan(p, side, room) : horizontal ? s.w : s.d;
+    const start = explicitRun ? wallRunOffset(p, side, room) : horizontal ? p.x : p.y;
+    const span = explicitRun ? wallRunSpan(p, side, room) : horizontal ? s.w : s.d;
     blocked.push({ s: start, e: start + span });
   }
 
@@ -5690,6 +5770,27 @@ export function wallPlacementAt(
   side: WallSide,
   room: RoomData
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } {
+  const peninsula = peninsulaRunById(room, side);
+  if (peninsula) {
+    const { start, radians } = peninsulaRunEndpoints(peninsula, room);
+    const length = Math.max(6, peninsula.length);
+    const offset = Math.max(0, Math.min(Math.max(0, length - width), along));
+    const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+    const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
+    const center = {
+      x: start.x + tangent.x * (offset + width / 2) + inward.x * (depth / 2),
+      y: start.y + tangent.y * (offset + width / 2) + inward.y * (depth / 2),
+    };
+    const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * inward.x);
+    const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * inward.y);
+    return {
+      x: center.x - boundWidth / 2,
+      y: center.y - boundDepth / 2,
+      rotation: Math.round((radians * 180) / Math.PI),
+      wallId: peninsula.id,
+      wallOffset: offset,
+    };
+  }
   const customWall = room.customWalls?.find((wall) => wall.id === side && (wall.lockedAngle === 45 || wall.lockedAngle === -45));
   if (customWall && room.vertices) {
     const lockedAngle: 45 | -45 = customWall.lockedAngle === 45 ? 45 : -45;
@@ -5728,13 +5829,13 @@ export function isLockedAngledCustomWall(room: RoomData, wallId?: string | null)
 
 /** Exact run offset, retaining a released cabinet void on a locked diagonal. */
 export function wallRunOffset(p: PlacedCabinet, side: string, room: RoomData): number {
-  if (isLockedAngledCustomWall(room, side) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
+  if ((isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
   return side === "top" || side === "bottom" ? p.x : p.y;
 }
 
 /** Along-run cabinet span. Diagonal runs use the true catalog width, not a screen bounding box. */
 export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): number {
-  if (isLockedAngledCustomWall(room, side) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
+  if ((isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
   const size = rotatedSize(p);
   return side === "top" || side === "bottom" ? size.w : size.d;
 }
@@ -6288,6 +6389,8 @@ export interface CountertopSurface {
   width: number;
   depth: number;
   kind: "base" | "island";
+  /** Optional locked plan rotation for a cabinet-supported peninsula slab. */
+  rotation?: number;
 }
 
 /**
@@ -6418,6 +6521,14 @@ export function countertopSurfaces(
     if (island && isOnIsland(p, island)) continue;
     const side = cabinetWall(p, room);
     const footprint = placedFootprint(p);
+    const peninsula = peninsulaRunById(room, side);
+    if (peninsula) {
+      // wallPlacementAt already seats this cabinet on its exact peninsula line.
+      // Keep the counter directly supported by the box and rotate it together
+      // with the locked 45°/90° run instead of projecting it onto a room edge.
+      out.push({ x: p.x, y: p.y, width: footprint.w, depth: footprint.d, kind: "base", rotation: p.rotation });
+      continue;
+    }
     const horizontalWall = side === "top" || side === "bottom";
     const runSpan = horizontalWall ? footprint.w : footprint.d;
     const rearExtension = blindCornerRearCountertopExtensionIn(p, room);

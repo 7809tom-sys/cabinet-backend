@@ -89,7 +89,7 @@ import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-	  PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure,
+          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun,
 	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
@@ -150,7 +150,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { applyCompassWallEdit, closestWall, normalizeVertices, polygonBounds, positionAlongWall, rectToPolygon, wallSegmentLength } from "@/lib/polygonRoom";
+import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -873,6 +873,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // its on-wall Compass handle can create one exact 45° turn on release.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
+  const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
   // plan can't be nudged while placing cabinets. lockedWalls freezes individual
   // walls. Cabinets can always still be added/moved.
@@ -2880,50 +2881,46 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return byWall;
   }, [placed]);
   /**
-   * The direct on-wall Compass gesture is intentionally separate from the
-   * attributes popup. Moving the handle and releasing it forms one bounded,
-   * exact 45° turn immediately. A stationary press remains only a selection.
+   * Compass establishes the exact parent-wall split point. It never mutates
+   * the closed room shell: a new empty peninsula run is drafted from that point
+   * so cabinets on the original wall stay exactly where they are.
    */
-  const applyCompassTurnOnDrop = useCallback((wall: WallSide, startIn: number, turn: "right" | "left") => {
+  const beginPeninsulaFromCompass = useCallback((wall: WallSide, startIn: number) => {
     if (layoutLocked) return;
-    const converted = !isPolygonRoom ? rectToPolygon(room.width, room.depth) : null;
-    const vertices = converted?.vertices ?? room.vertices ?? [];
-    const customWalls = converted?.customWalls ?? room.customWalls ?? [];
-    const cardinalWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(wall);
-    const selectedWallId = isPolygonRoom
-      ? customWalls.find((candidate) => candidate.id === wall)?.id
-        ?? customWalls[Math.max(0, cardinalWallIndex)]?.id
-      : customWalls[Math.max(0, cardinalWallIndex)]?.id;
-    const selectedWall = selectedWallId ? customWalls.find((candidate) => candidate.id === selectedWallId) : null;
-    if (!selectedWall) {
-      toast.error("Select a valid wall before making a 45° turn.");
-      return;
-    }
-    const attachedCabinets = isPolygonRoom
-      ? cabinetUidsByCustomWall[selectedWall.id] ?? []
-      : placed.filter((cabinet) => cabinetWall(cabinet, room) === wall).map((cabinet) => cabinet.uid);
-    if (attachedCabinets.length > 0) {
-      toast.error(`Move or remove the ${attachedCabinets.length} cabinet${attachedCabinets.length === 1 ? "" : "s"} attached to this wall before changing its geometry. The wall was not changed.`);
-      return;
-    }
-    const result = applyCompassWallEdit(selectedWall.id, {
-      angle: turn === "right" ? 45 : -45,
-      angleStartIn: startIn,
-      lengthIn: wallSegmentLength(selectedWall, vertices),
-      heightIn: selectedWall.height ?? 96,
-    }, vertices, customWalls);
-    if (!result) {
-      toast.error("The 45° turn could not be applied to this wall.");
-      return;
-    }
-    const normalized = normalizeVertices(result.vertices);
-    const bounds = polygonBounds(normalized);
-    setRoom((current) => ({ ...current, vertices: normalized, customWalls: result.customWalls, width: bounds.width, depth: bounds.height }));
-    setActiveWall(result.editedWallId as WallSide);
+    const parentLength = wall === "top" || wall === "bottom" ? room.width : room.depth;
+    const exactStart = Math.max(6, Math.min(Math.max(6, parentLength - 6), Math.round(startIn * 8) / 8));
+    setPeninsulaDraft({
+      id: `peninsula_draft_${Date.now().toString(36)}`,
+      parentWall: wall,
+      startOffset: exactStart,
+      turn: 90,
+      direction: "right",
+      length: 36,
+      height: 34.5,
+      label: "Peninsula run",
+    });
+    setActiveWall(wall);
     setPlacementTarget("wall");
-    setCompassWallStartIn(startIn);
-    toast.success(`45° ${turn} turn added at ${Math.round(startIn * 8) / 8}\".`);
-  }, [cabinetUidsByCustomWall, isPolygonRoom, layoutLocked, placed, room]);
+    setCompassWallStartIn(exactStart);
+    toast.success(`Peninsula split set at ${exactStart}\". Choose its angle, height, and pull length.`);
+  }, [layoutLocked, room.depth, room.width]);
+
+  const commitPeninsulaDraft = useCallback(() => {
+    if (!peninsulaDraft || layoutLocked) return;
+    const run: PeninsulaRun = {
+      ...peninsulaDraft,
+      id: `peninsula_${Date.now().toString(36)}`,
+      startOffset: Math.round(Math.max(6, peninsulaDraft.startOffset) * 8) / 8,
+      length: Math.round(Math.max(12, peninsulaDraft.length) * 8) / 8,
+      height: Math.round(Math.min(144, Math.max(34.5, peninsulaDraft.height)) * 8) / 8,
+      label: `Peninsula · ${peninsulaDraft.turn}° ${peninsulaDraft.direction}`,
+    };
+    setRoom((current) => ({ ...current, peninsulaRuns: [...(current.peninsulaRuns ?? []), run] }));
+    setActiveWall(run.id as WallSide);
+    setPlacementTarget("wall");
+    setPeninsulaDraft(null);
+    toast.success(`New ${run.turn}° peninsula run created at ${run.height}\" high and ${run.length}\" long.`);
+  }, [layoutLocked, peninsulaDraft]);
   const hasConflicts = conflictUids.size > 0;
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
@@ -8347,11 +8344,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 }}
                 className="max-w-20 bg-transparent text-xs font-semibold outline-none"
 	              >
-	                {isPolygonRoom && room.customWalls ? room.customWalls.map((wall) => (
-	                  <option key={wall.id} value={wall.id}>{wall.label || wall.id.slice(0, 6)}{wall.lockedAngle === 45 ? " · +45°" : wall.lockedAngle === -45 ? " · −45°" : ""}</option>
-	                )) : (["top", "right", "bottom", "left"] as WallSide[]).map((wall) => (
-	                  <option key={wall} value={wall}>{wallLabel[wall]}</option>
-	                ))}
+		                {isPolygonRoom && room.customWalls ? room.customWalls.map((wall) => (
+		                  <option key={wall.id} value={wall.id}>{wall.label || wall.id.slice(0, 6)}{wall.lockedAngle === 45 ? " · +45°" : wall.lockedAngle === -45 ? " · −45°" : ""}</option>
+		                )) : (["top", "right", "bottom", "left"] as WallSide[]).map((wall) => (
+		                  <option key={wall} value={wall}>{wallLabel[wall]}</option>
+		                ))}
+		                {(room.peninsulaRuns ?? []).map((run) => (
+		                  <option key={run.id} value={run.id}>Peninsula · {run.turn}° {run.direction}</option>
+		                ))}
               </select>
             </label>
             <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
@@ -8445,9 +8445,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </div>
                 );
               })
-            )}
-          </div>
-          <button
+	            )}
+	          </div>
+	          {(room.peninsulaRuns ?? []).map((run) => (
+	            <button
+	              key={run.id}
+	              type="button"
+	              onClick={() => { setActiveWall(run.id as WallSide); setPlacementTarget("wall"); setDrawMode(false); }}
+	              className={`rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${activeWall === run.id ? "bg-[#d4a75a] text-[#1a2744]" : "border border-[#d4a75a] text-[#1a2744] hover:bg-[#fff4d8]"}`}
+	              title="Select this peninsula run for cabinet placement"
+	            >
+	              Peninsula · {run.turn}° {run.direction}
+	            </button>
+	          ))}
+	          <button
             onClick={() => {
               setLayoutLocked((v) => !v);
               setDrawMode(false);
@@ -8695,10 +8706,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         </button>
                       );
                     })
-                  )}
-                </div>
+	                  )}
+	                </div>
+	                {(room.peninsulaRuns ?? []).length > 0 && (
+	                  <div className="flex flex-wrap gap-1 px-3 pb-2">
+	                    {(room.peninsulaRuns ?? []).map((run) => (
+	                      <button key={run.id} type="button" onClick={() => { setActiveWall(run.id as WallSide); setPlacementTarget("wall"); setDrawMode(false); }} className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors ${activeWall === run.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"}`}>
+	                        Peninsula · {run.turn}° {run.direction}
+	                      </button>
+	                    ))}
+	                  </div>
+	                )}
 
-                {/* Wall cabinet height selector (mobile) */}
+	                {/* Wall cabinet height selector (mobile) */}
                 <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_wall_height_label")}</p>
                 <div className="grid grid-cols-3 gap-1 px-3 pb-2">
                   {([30, 36, 42] as const).map((h) => (
@@ -10834,7 +10854,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               activeWall={activeWall}
               onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               wallCompassStartIn={compassWallStartIn}
-              onWallCompassDrop={applyCompassTurnOnDrop}
+              onWallCompassDrop={beginPeninsulaFromCompass}
+              peninsulaDraft={peninsulaDraft}
+              onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
@@ -10871,6 +10893,70 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
 	              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
 	            />
+	          )}
+	          {viewMode === "plan" && peninsulaDraft && (
+	            <section
+	              data-testid="peninsula-inline-builder"
+	              className="absolute right-3 top-3 z-40 w-[min(19rem,calc(100%-1.5rem))] border border-[#d4a75a] bg-white/95 p-3 shadow-lg backdrop-blur"
+	              aria-label="New peninsula run"
+	            >
+	              <div className="flex items-start justify-between gap-2">
+	                <div>
+	                  <p className="text-sm font-bold text-[#1a2744]">New peninsula run</p>
+	                  <p className="mt-0.5 text-[11px] text-muted-foreground">Split at {formatEighthInches(peninsulaDraft.startOffset)}. Choose the turn, height, and pull length.</p>
+	                </div>
+	                <button type="button" onClick={() => setPeninsulaDraft(null)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
+	              </div>
+	              <div className="mt-3">
+	                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Turn</p>
+	                <div className="mt-1 grid grid-cols-3 gap-1">
+	                  {([45, 90] as const).flatMap((turn) => (["left", "right"] as const).map((direction) => ({ turn, direction }))).map(({ turn, direction }) => (
+	                    <button
+	                      key={`${turn}-${direction}`}
+	                      type="button"
+	                      onClick={() => setPeninsulaDraft((draft) => draft ? { ...draft, turn, direction } : draft)}
+	                      className={`rounded border px-1.5 py-1.5 text-[10px] font-bold ${peninsulaDraft.turn === turn && peninsulaDraft.direction === direction ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-foreground hover:bg-muted"}`}
+	                    >
+	                      {turn}° {direction}
+	                    </button>
+	                  ))}
+	                </div>
+	              </div>
+	              <div className="mt-3">
+	                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Peninsula height</p>
+	                <div className="mt-1 grid grid-cols-4 gap-1">
+	                  {([34.5, 42, 96] as const).map((height) => (
+	                    <button key={height} type="button" onClick={() => setPeninsulaDraft((draft) => draft ? { ...draft, height } : draft)} className={`rounded border py-1 text-[10px] font-bold ${Math.abs(peninsulaDraft.height - height) < 0.01 ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border hover:bg-muted"}`}>{height}"</button>
+	                  ))}
+	                  <input
+	                    aria-label="Custom peninsula height in inches"
+	                    type="number"
+	                    min="34.5"
+	                    max="144"
+	                    step="0.125"
+	                    value={peninsulaDraft.height}
+	                    onChange={(event) => setPeninsulaDraft((draft) => draft ? { ...draft, height: Number(event.target.value) || 34.5 } : draft)}
+	                    className="h-7 min-w-0 rounded border border-border px-1 text-[10px] font-bold"
+	                    title="Custom height in inches"
+	                  />
+	                </div>
+	              </div>
+	              <label className="mt-3 grid gap-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+	                Pull length (inches)
+	                <input
+	                  aria-label="Peninsula pull length in inches"
+	                  type="number"
+	                  min="12"
+	                  max="240"
+	                  step="0.125"
+	                  value={peninsulaDraft.length}
+	                  onChange={(event) => setPeninsulaDraft((draft) => draft ? { ...draft, length: Number(event.target.value) || 12 } : draft)}
+	                  className="h-8 rounded border border-border px-2 text-sm font-bold text-foreground"
+	                />
+	              </label>
+	              <p className="mt-1 text-[10px] text-muted-foreground">Or drag the gold pull handle at the end of the draft line.</p>
+	              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create peninsula run</button>
+	            </section>
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
 	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
@@ -11003,7 +11089,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  activeWall={activeWall}
 	                  onSelectWall={setActiveWall}
 	                  wallCompassStartIn={compassWallStartIn}
-	                  onWallCompassDrop={applyCompassTurnOnDrop}
+	                  onWallCompassDrop={beginPeninsulaFromCompass}
+	                  peninsulaDraft={peninsulaDraft}
+	                  onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
 	                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}

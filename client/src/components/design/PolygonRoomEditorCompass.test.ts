@@ -17,8 +17,8 @@ describe("selected-wall Compass editor", () => {
   });
 
   it("uses one draggable Compass on the selected normal-plan wall and direct mobile entry", () => {
-    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn");
-    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;');
+    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set the peninsula split point");
+    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number) => void;');
     expect(planCanvasSource).toContain("onCompassPointerUp");
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Drag 45° on selected wall");
@@ -33,12 +33,12 @@ describe("selected-wall Compass editor", () => {
 
   it("wires the draggable Compass drop into both full and compact split-plan canvases", () => {
     expect((designToolSource.match(/wallCompassStartIn=\{compassWallStartIn\}/g) ?? []).length).toBe(2);
-    expect((designToolSource.match(/onWallCompassDrop=\{applyCompassTurnOnDrop\}/g) ?? []).length).toBe(2);
-    expect(designToolSource).toContain("const applyCompassTurnOnDrop = useCallback");
-    expect(designToolSource).toContain("applyCompassWallEdit(selectedWall.id");
-    expect(designToolSource).toContain('angle: turn === "right" ? 45 : -45');
-    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;');
-    expect(planCanvasSource).toContain('movement > 0 ? "right" : "left"');
+    expect((designToolSource.match(/onWallCompassDrop=\{beginPeninsulaFromCompass\}/g) ?? []).length).toBe(2);
+    expect(designToolSource).toContain("const beginPeninsulaFromCompass = useCallback");
+    expect(designToolSource).toContain("setPeninsulaDraft({");
+    expect(designToolSource).toContain("const commitPeninsulaDraft = useCallback");
+    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number) => void;');
+    expect(planCanvasSource).toContain("handle establishes a real peninsula split point");
   });
 
   it("keeps a normal-plan wall touch select-only and reserves room changes for explicit controls", () => {
@@ -63,9 +63,17 @@ describe("selected-wall Compass editor", () => {
   it("keeps wall-measurement logic separate from the direct Compass gesture", () => {
     expect(editorSource).toContain("Wall height (inches)");
     expect(editorSource).toContain("Wall length (inches)");
-    expect(designToolSource).toContain("setCompassWallStartIn(startIn);");
-    expect(designToolSource).toContain("45° ${turn} turn added");
+    expect(designToolSource).toContain("setCompassWallStartIn(exactStart);");
+    expect(designToolSource).toContain("Choose its angle, height, and pull length.");
     expect(planCanvasSource).toContain("Math.abs(movement) < 0.5");
+  });
+
+  it("keeps the new peninsula continuation inline, popup-free, and pull-to-length", () => {
+    expect(designToolSource).toContain('data-testid="peninsula-inline-builder"');
+    expect(designToolSource).toContain("Create peninsula run");
+    expect(planCanvasSource).toContain('data-testid="peninsula-run-draft"');
+    expect(planCanvasSource).toContain('data-testid="peninsula-run-segment"');
+    expect(planCanvasSource).toContain("onPeninsulaDraftLengthChange");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {
