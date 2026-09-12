@@ -164,8 +164,8 @@ interface Props {
   onSelectWall?: (side: WallSide) => void;
   /** The selected wall's saved 45-degree corner-start distance, in inches. */
   wallCompassStartIn?: number | null;
-  /** Called when the user releases the selected-wall Compass handle. */
-  onWallCompassDrop?: (side: WallSide, startIn: number) => void;
+  /** Called after the user moves and releases the selected-wall Compass handle. */
+  onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
   // Lock state: when layoutLocked is true the whole room/walls/openings/island
@@ -429,7 +429,7 @@ export function PlanCanvas({
   // dragging; converted to inches on release via the same fit-PPI scale.
   const drawStart = useRef<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const compassDrag = useRef<{ side: WallSide } | null>(null);
+  const compassDrag = useRef<{ side: WallSide; initialStartIn: number } | null>(null);
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
 	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
@@ -598,9 +598,11 @@ export function PlanCanvas({
 
   const onCompassPointerDown = (event: React.PointerEvent, side: WallSide) => {
     event.stopPropagation();
+    event.preventDefault();
     onSelectWall?.(side);
-    compassDrag.current = { side };
-    setCompassPreviewStart(compassPositionFromPointer(event, side));
+    const initialStartIn = compassPositionFromPointer(event, side);
+    compassDrag.current = { side, initialStartIn };
+    setCompassPreviewStart(initialStartIn);
     try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
   };
 
@@ -614,10 +616,17 @@ export function PlanCanvas({
     const drag = compassDrag.current;
     compassDrag.current = null;
     if (!drag) return;
+    event.preventDefault();
+    event.stopPropagation();
     try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
     const startIn = compassPositionFromPointer(event, drag.side);
     setCompassPreviewStart(null);
-    onWallCompassDrop?.(drag.side, startIn);
+    const movement = startIn - drag.initialStartIn;
+    // A press without meaningful travel only keeps the wall selected. A moved
+    // handle commits exactly one 45° turn: moving toward the run end is Right;
+    // moving toward its start is Left. No handle release opens attributes.
+    if (Math.abs(movement) < 0.5) return;
+    onWallCompassDrop?.(drag.side, startIn, movement > 0 ? "right" : "left");
   };
 
   // Manual double-tap detector (iOS Safari does not reliably synthesize
@@ -1008,8 +1017,8 @@ export function PlanCanvas({
                   {!layoutLocked && onWallCompassDrop && (
                     <button
                       type="button"
-                      aria-label={`Drag Compass along ${wallLabel[side]} wall to set 45 degree corner start`}
-                      title="Drag to set where the 45° corner starts"
+                      aria-label={`Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn`}
+                      title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
                       className="absolute z-20 grid h-7 w-7 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
                         ? { left: compassStart * ppi - 14, top: -7 }

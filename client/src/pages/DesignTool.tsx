@@ -150,7 +150,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { closestWall, positionAlongWall, rectToPolygon } from "@/lib/polygonRoom";
+import { applyCompassWallEdit, closestWall, normalizeVertices, polygonBounds, positionAlongWall, rectToPolygon, wallSegmentLength } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -2897,6 +2897,51 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     return byWall;
   }, [placed]);
+  /**
+   * The direct on-wall Compass gesture is intentionally separate from the
+   * attributes popup. Moving the handle and releasing it forms one bounded,
+   * exact 45° turn immediately. A stationary press remains only a selection.
+   */
+  const applyCompassTurnOnDrop = useCallback((wall: WallSide, startIn: number, turn: "right" | "left") => {
+    if (layoutLocked) return;
+    const converted = !isPolygonRoom ? rectToPolygon(room.width, room.depth) : null;
+    const vertices = converted?.vertices ?? room.vertices ?? [];
+    const customWalls = converted?.customWalls ?? room.customWalls ?? [];
+    const cardinalWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(wall);
+    const selectedWallId = isPolygonRoom
+      ? customWalls.find((candidate) => candidate.id === wall)?.id
+        ?? customWalls[Math.max(0, cardinalWallIndex)]?.id
+      : customWalls[Math.max(0, cardinalWallIndex)]?.id;
+    const selectedWall = selectedWallId ? customWalls.find((candidate) => candidate.id === selectedWallId) : null;
+    if (!selectedWall) {
+      toast.error("Select a valid wall before making a 45° turn.");
+      return;
+    }
+    const attachedCabinets = isPolygonRoom
+      ? cabinetUidsByCustomWall[selectedWall.id] ?? []
+      : placed.filter((cabinet) => cabinetWall(cabinet, room) === wall).map((cabinet) => cabinet.uid);
+    if (attachedCabinets.length > 0) {
+      toast.error(`Move or remove the ${attachedCabinets.length} cabinet${attachedCabinets.length === 1 ? "" : "s"} attached to this wall before changing its geometry. The wall was not changed.`);
+      return;
+    }
+    const result = applyCompassWallEdit(selectedWall.id, {
+      angle: turn === "right" ? 45 : -45,
+      angleStartIn: startIn,
+      lengthIn: wallSegmentLength(selectedWall, vertices),
+      heightIn: selectedWall.height ?? 96,
+    }, vertices, customWalls);
+    if (!result) {
+      toast.error("The 45° turn could not be applied to this wall.");
+      return;
+    }
+    const normalized = normalizeVertices(result.vertices);
+    const bounds = polygonBounds(normalized);
+    setRoom((current) => ({ ...current, vertices: normalized, customWalls: result.customWalls, width: bounds.width, depth: bounds.height }));
+    setActiveWall(result.editedWallId as WallSide);
+    setPlacementTarget("wall");
+    setCompassWallStartIn(startIn);
+    toast.success(`45° ${turn} turn added at ${Math.round(startIn * 8) / 8}\".`);
+  }, [cabinetUidsByCustomWall, isPolygonRoom, layoutLocked, placed, room]);
   const hasConflicts = conflictUids.size > 0;
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
@@ -10808,12 +10853,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               activeWall={activeWall}
               onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               wallCompassStartIn={compassWallStartIn}
-              onWallCompassDrop={(wall, startIn) => {
-                setActiveWall(wall);
-                setPlacementTarget("wall");
-                setCompassWallStartIn(startIn);
-                toast.info("45° corner start set. Use Compass to adjust wall attributes.");
-              }}
+              onWallCompassDrop={applyCompassTurnOnDrop}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
@@ -10982,12 +11022,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  activeWall={activeWall}
 	                  onSelectWall={setActiveWall}
 	                  wallCompassStartIn={compassWallStartIn}
-	                  onWallCompassDrop={(wall, startIn) => {
-	                    setActiveWall(wall);
-	                    setPlacementTarget("wall");
-	                    setCompassWallStartIn(startIn);
-	                    toast.info("45° corner start set. Use Compass to adjust wall attributes.");
-	                  }}
+	                  onWallCompassDrop={applyCompassTurnOnDrop}
 	                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}

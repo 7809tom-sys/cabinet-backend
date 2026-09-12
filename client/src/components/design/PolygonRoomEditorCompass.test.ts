@@ -17,8 +17,8 @@ describe("selected-wall Compass editor", () => {
   });
 
   it("uses one draggable Compass on the selected normal-plan wall and retains the mobile entry", () => {
-    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set 45 degree corner start");
-    expect(planCanvasSource).toContain("onWallCompassDrop?: (side: WallSide, startIn: number) => void;");
+    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn");
+    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;');
     expect(planCanvasSource).toContain("onCompassPointerUp");
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Edit selected wall with Compass");
@@ -32,8 +32,12 @@ describe("selected-wall Compass editor", () => {
 
   it("wires the draggable Compass drop into both full and compact split-plan canvases", () => {
     expect((designToolSource.match(/wallCompassStartIn=\{compassWallStartIn\}/g) ?? []).length).toBe(2);
-    expect((designToolSource.match(/onWallCompassDrop=\{\(wall, startIn\) => \{/g) ?? []).length).toBe(2);
-    expect((designToolSource.match(/setCompassWallStartIn\(startIn\);/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((designToolSource.match(/onWallCompassDrop=\{applyCompassTurnOnDrop\}/g) ?? []).length).toBe(2);
+    expect(designToolSource).toContain("const applyCompassTurnOnDrop = useCallback");
+    expect(designToolSource).toContain("applyCompassWallEdit(selectedWall.id");
+    expect(designToolSource).toContain('angle: turn === "right" ? 45 : -45');
+    expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;');
+    expect(planCanvasSource).toContain('movement > 0 ? "right" : "left"');
   });
 
   it("keeps a normal-plan wall touch select-only and reserves room changes for explicit controls", () => {
@@ -48,7 +52,10 @@ describe("selected-wall Compass editor", () => {
   });
 
   it("resolves a concrete selected wall and increments a request counter before opening Compass", () => {
-    expect(designToolSource).toContain('import { closestWall, positionAlongWall, rectToPolygon } from "@/lib/polygonRoom";');
+    expect(designToolSource).toContain('from "@/lib/polygonRoom";');
+    expect(designToolSource).toContain("closestWall");
+    expect(designToolSource).toContain("positionAlongWall");
+    expect(designToolSource).toContain("rectToPolygon");
     expect(designToolSource).toContain("const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id");
     expect(designToolSource).toContain("setCompassWallRequestId((current) => current + 1);");
     expect(designToolSource).not.toContain('import("@/lib/polygonRoom").then(({ rectToPolygon }) =>');
@@ -68,9 +75,8 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("[34.5, 42, 84, 96]");
     expect(editorSource).toContain("Save wall");
     expect(editorSource).toContain("Cancel");
-    expect(designToolSource).toContain("onWallCompassDrop={(wall, startIn) => {");
     expect(designToolSource).toContain("setCompassWallStartIn(startIn);");
-    expect(designToolSource).toContain("45° corner start set. Use Compass to adjust wall attributes.");
+    expect(designToolSource).toContain("45° ${turn} turn added");
     expect(designToolSource).not.toContain("openSelectedWallCompass(startIn);");
   });
 
