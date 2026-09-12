@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const editorSource = readFileSync(resolve(root, "client/src/components/design/PolygonRoomEditor.tsx"), "utf8");
 const designToolSource = readFileSync(resolve(root, "client/src/pages/DesignTool.tsx"), "utf8");
+const planCanvasSource = readFileSync(resolve(root, "client/src/components/design/PlanCanvas.tsx"), "utf8");
 const threeDSource = readFileSync(resolve(root, "client/src/components/design/InteractiveRoom3D.tsx"), "utf8");
 const roomSizeSource = readFileSync(resolve(root, "client/src/components/design/RoomSizeControl.tsx"), "utf8");
 
@@ -15,8 +16,10 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("Edit ${wall.label ?? \"selected wall\"} with Compass");
   });
 
-  it("exposes the Compass workflow from the ordinary desktop toolbar and mobile room sheet", () => {
-    expect(roomSizeSource).toContain('data-testid="wall-compass-entry"');
+  it("uses one draggable Compass on the selected normal-plan wall and retains the mobile entry", () => {
+    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set 45 degree corner start");
+    expect(planCanvasSource).toContain("onWallCompassDrop?: (side: WallSide, startIn: number) => void;");
+    expect(planCanvasSource).toContain("onCompassPointerUp");
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Edit selected wall with Compass");
     expect(designToolSource).toContain('data-testid="compact-workspace-wall-compass"');
@@ -36,8 +39,10 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("activeWallId === ([\"top\", \"right\", \"bottom\", \"left\"] as const)[index]");
   });
 
-  it("provides the one popup with only supported angle, start, height, and length inputs", () => {
-    expect(editorSource).toContain("Distance from corner where angle starts (inches)");
+  it("provides one popup with supported angle, drag-set corner start, height, and length inputs", () => {
+    expect(editorSource).toContain("45° corner start:");
+    expect(editorSource).toContain("Drag the Compass along the selected wall in the plan to move this point.");
+    expect(editorSource).not.toContain("Distance from corner where angle starts (inches)");
     expect(editorSource).toContain("Wall height (inches)");
     expect(editorSource).toContain("Wall length (inches)");
     expect(editorSource).toContain("90° straight wall");
@@ -46,6 +51,8 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("[34.5, 42, 84, 96]");
     expect(editorSource).toContain("Save wall");
     expect(editorSource).toContain("Cancel");
+    expect(designToolSource).toContain("onWallCompassDrop={(wall, startIn) => {");
+    expect(designToolSource).toContain("openSelectedWallCompass(startIn);");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {

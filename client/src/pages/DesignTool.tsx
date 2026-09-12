@@ -873,13 +873,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // it can be dragged on the canvas to resize the room on that side.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
   const [compassWallRequestId, setCompassWallRequestId] = useState(0);
+  const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
   // plan can't be nudged while placing cabinets. lockedWalls freezes individual
   // walls. Cabinets can always still be added/moved.
   const [layoutLocked, setLayoutLocked] = useState(false);
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
-  const openSelectedWallCompass = useCallback(() => {
+  const openSelectedWallCompass = useCallback((startIn: number | null = null) => {
     if (layoutLocked) return;
+    setCompassWallStartIn(startIn);
     if (!isPolygonRoom) {
       const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
       const selectedWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
@@ -8195,15 +8197,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               setSelectedUid(null);
               setMeasureMode(false);
             }}
-            isPolygon={isPolygonRoom}
-            onTogglePolygon={openSelectedWallCompass}
           />
         </div>
         <Button
           variant="outline"
           size="sm"
           className={`${isCompactWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
-          onClick={openSelectedWallCompass}
+          onClick={() => openSelectedWallCompass()}
           disabled={layoutLocked}
           title="Edit selected wall with Compass"
           aria-label="Edit selected wall with Compass"
@@ -10772,6 +10772,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onSelectWall={(wallId) => { setActiveWall(wallId as any); setPlacementTarget("wall"); }}
                 cabinetUidsByWall={cabinetUidsByCustomWall}
                 compassRequestId={compassWallRequestId}
+                compassStartIn={compassWallStartIn}
                 showCanvasEditor={polygonEditMode}
                 onDone={() => setPolygonEditMode(false)}
                 locked={layoutLocked}
@@ -10815,6 +10816,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               activeWall={activeWall}
               onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               onResizeWall={resizeWall}
+              wallCompassStartIn={compassWallStartIn}
+              onWallCompassDrop={(wall, startIn) => {
+                setActiveWall(wall);
+                setPlacementTarget("wall");
+                openSelectedWallCompass(startIn);
+              }}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}

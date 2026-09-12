@@ -50,6 +50,8 @@ interface Props {
   cabinetUidsByWall?: Record<string, string[]>;
   /** A changed request token opens the selected wall’s Compass popup directly. */
   compassRequestId?: number;
+  /** Exact corner-start distance set by dragging the Compass on the normal plan. */
+  compassStartIn?: number | null;
   /** Shows the large shape-edit canvas only when that dedicated mode is requested. */
   showCanvasEditor?: boolean;
   /** Returns from wall editing to the normal cabinet-placement plan. */
@@ -69,6 +71,7 @@ export function PolygonRoomEditor({
   onSelectWall,
   cabinetUidsByWall = {},
   compassRequestId,
+  compassStartIn = null,
   showCanvasEditor = true,
   onDone,
   locked = false,
@@ -108,21 +111,24 @@ export function PolygonRoomEditor({
   const selectedWallSpan = selectedWall ? Math.max(6, wallSegmentLength(selectedWall, vertices)) : 0;
   const requestedWallLength = Math.max(6, Math.min(selectedWallSpan, Number(compassLength) || selectedWallSpan));
   const maxAngleStart = Math.max(0, requestedWallLength - 6);
-  const openCompass = useCallback(() => {
+  const openCompass = useCallback((requestedStartIn: number | null = compassStartIn) => {
     if (!selectedWall) {
       toast.info("Tap the wall you want to edit first.");
       return;
     }
     setCompassAngle(selectedWall.lockedAngle ?? 90);
-    setCompassAngleStart("0");
+    const initialStart = requestedStartIn == null
+      ? 0
+      : Math.max(0, Math.min(Math.max(0, selectedWallSpan - 6), Math.round(requestedStartIn * 8) / 8));
+    setCompassAngleStart(String(initialStart));
     setCompassHeight(String(selectedWall.height ?? 96));
     setCompassLength(String(Math.round(wallSegmentLength(selectedWall, vertices) * 8) / 8));
     setCompassOpen(true);
-  }, [selectedWall, vertices]);
+  }, [compassStartIn, selectedWall, selectedWallSpan, vertices]);
 
   useEffect(() => {
-    if (compassRequestId && selectedWall) openCompass();
-  }, [compassRequestId, openCompass, selectedWall]);
+    if (compassRequestId && selectedWall) openCompass(compassStartIn);
+  }, [compassRequestId, compassStartIn, openCompass, selectedWall]);
 
   const saveCompass = useCallback(() => {
     if (!selectedWall) return;
@@ -342,7 +348,7 @@ export function PolygonRoomEditor({
           <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Lock selected wall to −45 degrees" onClick={() => setSelectedWallAngle(-45)}>
             <CornerDownLeft className="h-4 w-4" /> −45°
           </Button>
-          <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Edit selected wall with Compass" onClick={openCompass}>
+          <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Edit selected wall with Compass" onClick={() => openCompass()}>
             <Compass className="h-4 w-4" /> Compass
           </Button>
           {onDone && <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-semibold" onClick={onDone}>Done</Button>}
@@ -605,9 +611,10 @@ export function PolygonRoomEditor({
                 <option value={-45}>−45° diagonal wall</option>
               </select>
             </label>
-            <label className="grid gap-1.5 font-medium">Distance from corner where angle starts (inches)
-              <Input type="number" min="0" max={maxAngleStart} step="0.125" value={compassAngleStart} onChange={(event) => setCompassAngleStart(event.target.value)} />
-            </label>
+            <div className="rounded-md border border-[#d8c7a1] bg-[#fff8e8] px-3 py-2 text-sm text-[#5e451d]">
+              <span className="font-semibold">45° corner start: {Math.round(Number(compassAngleStart) * 8) / 8}&quot;</span>
+              <p className="mt-0.5 text-xs">Drag the Compass along the selected wall in the plan to move this point.</p>
+            </div>
             <label className="grid gap-1.5 font-medium">Wall height (inches)
               <Input type="number" min="34.5" max="144" step="0.125" value={compassHeight} onChange={(event) => setCompassHeight(event.target.value)} />
               <span className="flex flex-wrap gap-1.5">{[34.5, 42, 84, 96].map((height) => <button key={height} type="button" onClick={() => setCompassHeight(String(height))} className={`rounded border px-2 py-1 text-xs font-semibold ${Number(compassHeight) === height ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-[#d8c7a1] text-[#6d5221] hover:bg-[#fff8e8]"}`}>{height}"</button>)}</span>

@@ -1949,6 +1949,11 @@
 - [x] Make Compass create one 45-degree end-corner transition from the selected straight wall into its adjoining 90-degree wall, rather than reshaping the full room outline
 - [x] Keep the room boundary closed by shortening only the selected wall and its adjoining wall when inserting a single 45-degree corner transition
 - [x] Make both existing visible tablet/full-workspace Compass controls open the selected wall’s edit popup reliably
+- [x] Replace duplicate Compass controls with one clear selected-wall action in the active Designer toolbar
+- [x] Replace whole-wall diagonal edits with a single 45-degree end-corner chamfer that preserves the selected straight run
+- [x] Let users drag the Compass along the selected wall and use the release point as the exact 45-degree corner start
+- [x] Let users select a wall and edit its measurements through the same attributes pattern used for cabinets
+- [x] Mirror cabinet selection highlights, validation, cancel, and undo-safe behavior when editing walls
 - [ ] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

@@ -315,7 +315,7 @@ function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormB
 
 // ─── Desktop variant (Popover wrapper) ───────────────────────────────────────
 
-export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPolygon, onTogglePolygon }: Props) {
+export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
@@ -323,11 +323,6 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
   const dDisp = inchesToFeetInches(room.depth);
   const fmt = (v: { feet: number; inches: number }) =>
     v.inches === 0 ? `${v.feet}'` : `${v.feet}'${v.inches}"`;
-
-  const openWallCompass = () => {
-    onTogglePolygon?.();
-    setOpen(false);
-  };
 
   return (
     <div className="flex items-center gap-1.5">
@@ -353,20 +348,6 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
           />
         </PopoverContent>
       </Popover>
-      {onTogglePolygon && (
-        <Button
-          type="button"
-          variant={isPolygon ? "default" : "outline"}
-          size="sm"
-          className={`h-8 gap-1.5 px-2 text-xs ${isPolygon ? "bg-[#1a2744] text-white hover:bg-[#283c63]" : ""}`}
-          onClick={openWallCompass}
-          title={isPolygon ? "Edit the selected wall with Compass" : "Edit the selected wall with Compass"}
-          aria-label="Edit selected wall with Compass"
-          data-testid="wall-compass-entry"
-        >
-          <Compass className="h-3.5 w-3.5" /> Compass
-        </Button>
-      )}
     </div>
   );
 }

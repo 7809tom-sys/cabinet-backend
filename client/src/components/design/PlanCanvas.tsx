@@ -16,7 +16,7 @@ import {
 	  type PonyWall, clampPonyWall,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
-import { X, RotateCw } from "lucide-react";
+import { Compass, X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -163,6 +163,10 @@ interface Props {
   activeWall?: WallSide;
   onSelectWall?: (side: WallSide) => void;
   onResizeWall?: (side: WallSide, deltaIn: number) => void;
+  /** The selected wall's saved 45-degree corner-start distance, in inches. */
+  wallCompassStartIn?: number | null;
+  /** Called when the user releases the selected-wall Compass handle. */
+  onWallCompassDrop?: (side: WallSide, startIn: number) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
   // Lock state: when layoutLocked is true the whole room/walls/openings/island
@@ -251,7 +255,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, onResizeWall, conflictUids,
+  activeWall, onSelectWall, onResizeWall, wallCompassStartIn = null, onWallCompassDrop, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -430,6 +434,8 @@ export function PlanCanvas({
   // plus a live preview of the resulting room size (inches) for the readout.
   const wallDrag = useRef<{ side: WallSide; startX: number; startY: number } | null>(null);
   const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
+  const compassDrag = useRef<{ side: WallSide } | null>(null);
+  const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
 	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
 	  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
@@ -606,6 +612,47 @@ export function PlanCanvas({
     const deltaIn = deltaPx / ppiRef.current;
     if (Math.abs(deltaIn) < 0.5) return; // treat as a plain click (select only)
     onResizeWall(d.side, deltaIn);
+  };
+
+  const compassStartForWall = useCallback((side: WallSide) => {
+    const span = side === "top" || side === "bottom" ? room.width : room.depth;
+    const requested = compassPreviewStart ?? wallCompassStartIn ?? span / 2;
+    return Math.max(6, Math.min(Math.max(6, span - 6), requested));
+  }, [compassPreviewStart, room.depth, room.width, wallCompassStartIn]);
+
+  const compassPositionFromPointer = useCallback((event: React.PointerEvent, side: WallSide) => {
+    const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+    if (!roomEl) return compassStartForWall(side);
+    const rect = roomEl.getBoundingClientRect();
+    const raw = side === "top" || side === "bottom"
+      ? (event.clientX - rect.left) / ppiRef.current
+      : (event.clientY - rect.top) / ppiRef.current;
+    const span = side === "top" || side === "bottom" ? room.width : room.depth;
+    return Math.max(6, Math.min(Math.max(6, span - 6), Math.round(raw * 8) / 8));
+  }, [compassStartForWall, room.depth, room.width]);
+
+  const onCompassPointerDown = (event: React.PointerEvent, side: WallSide) => {
+    event.stopPropagation();
+    onSelectWall?.(side);
+    compassDrag.current = { side };
+    setCompassPreviewStart(compassPositionFromPointer(event, side));
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
+  };
+
+  const onCompassPointerMove = (event: React.PointerEvent) => {
+    const drag = compassDrag.current;
+    if (!drag) return;
+    setCompassPreviewStart(compassPositionFromPointer(event, drag.side));
+  };
+
+  const onCompassPointerUp = (event: React.PointerEvent) => {
+    const drag = compassDrag.current;
+    compassDrag.current = null;
+    if (!drag) return;
+    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+    const startIn = compassPositionFromPointer(event, drag.side);
+    setCompassPreviewStart(null);
+    onWallCompassDrop?.(drag.side, startIn);
   };
 
   // Manual double-tap detector (iOS Safari does not reliably synthesize
@@ -956,6 +1003,7 @@ export function PlanCanvas({
           const horizontal = side === "top" || side === "bottom";
           const isActive = activeWall === side;
           const wallLocked = isWallLocked(side);
+          const compassStart = compassStartForWall(side);
           const band = 14;
           const wstyle: React.CSSProperties = horizontal
             ? {
@@ -987,12 +1035,30 @@ export function PlanCanvas({
               title={t("dt_pc_wall_target", { wall: wallLabel[side] })}
             >
               {isActive && (
-                <span
-                  className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
-                  style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
-                >
-                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
-                </span>
+                <>
+                  <span
+                    className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
+                    style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
+                  >
+                    {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
+                  </span>
+                  {!layoutLocked && onWallCompassDrop && (
+                    <button
+                      type="button"
+                      aria-label={`Drag Compass along ${wallLabel[side]} wall to set 45 degree corner start`}
+                      title="Drag to set where the 45° corner starts"
+                      className="absolute z-20 grid h-7 w-7 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
+                      style={horizontal
+                        ? { left: compassStart * ppi - 14, top: -7 }
+                        : { top: compassStart * ppi - 14, left: -7 }}
+                      onPointerDown={(event) => onCompassPointerDown(event, side)}
+                      onPointerMove={onCompassPointerMove}
+                      onPointerUp={onCompassPointerUp}
+                    >
+                      <Compass className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </>
               )}
               {wallLocked && !isActive && (
                 <span
