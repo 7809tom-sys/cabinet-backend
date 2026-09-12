@@ -230,28 +230,30 @@ describe("polygonRoom", () => {
       expect(snapWallEndpointNear45(wall, wall.endVertexId, { x: 72, y: 30 }, vertices)).toBeNull();
     });
 
-    it("splits only the selected wall at the Compass angle start and stores its exact +45° length and height", () => {
+    it("inserts one +45° end-corner transition while retaining the selected wall envelope and adjoining wall", () => {
       const { vertices, customWalls } = rectToPolygon(144, 120);
       const result = applyCompassWallEdit(customWalls[0].id, {
         angle: 45,
-        angleStartIn: 36,
-        lengthIn: 60,
+        angleStartIn: 120,
+        lengthIn: 144,
         heightIn: 84,
       }, vertices, customWalls);
       expect(result).not.toBeNull();
       const approach = result!.customWalls.find((wall) => wall.id === customWalls[0].id)!;
       const edited = result!.customWalls.find((wall) => wall.id === result!.editedWallId)!;
-      expect(wallSegmentLength(approach, result!.vertices)).toBeCloseTo(36, 3);
+      expect(wallSegmentLength(approach, result!.vertices)).toBeCloseTo(120, 3);
       expect(edited.lockedAngle).toBe(45);
       expect(edited.height).toBe(84);
-      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(60, 2);
+      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(Math.sqrt(24 ** 2 + 24 ** 2), 2);
       const start = result!.vertices.find((vertex) => vertex.id === edited.startVertexId)!;
       const end = result!.vertices.find((vertex) => vertex.id === edited.endVertexId)!;
       expect(Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI).toBeCloseTo(45, 3);
       expect(result!.customWalls).toHaveLength(5);
+      const adjoining = result!.customWalls.find((wall) => wall.id === customWalls[1].id)!;
+      expect(wallSegmentLength(adjoining, result!.vertices)).toBeCloseTo(96, 2);
     });
 
-    it("limits an angled Compass run to the selected wall’s original span", () => {
+    it("limits an angled Compass corner to the selected wall’s original span", () => {
       const { vertices, customWalls } = rectToPolygon(144, 120);
       const result = applyCompassWallEdit(customWalls[0].id, {
         angle: 45,
@@ -261,9 +263,9 @@ describe("polygonRoom", () => {
       }, vertices, customWalls);
       expect(result).not.toBeNull();
       const edited = result!.customWalls.find((wall) => wall.id === result!.editedWallId)!;
-      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(108, 1);
+      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(Math.sqrt(108 ** 2 + 108 ** 2), 1);
       const approach = result!.customWalls.find((wall) => wall.id === customWalls[0].id)!;
-      expect(wallSegmentLength(approach, result!.vertices) + wallSegmentLength(edited, result!.vertices)).toBeCloseTo(144, 1);
+      expect(wallSegmentLength(approach, result!.vertices)).toBeCloseTo(36, 1);
     });
 
     it("restores a Compass 90° edit to a cardinal wall direction and clears a prior diagonal lock", () => {

@@ -171,9 +171,11 @@ export type CompassWallEdit = {
 };
 
 /**
- * Edits one selected wall from the Compass dialog. An angled edit splits off a
- * straight approach segment when requested, then keeps the edited run exact at
- * +45° or −45°. A 90° edit retains the wall's current straight bearing.
+ * Edits one selected wall from the Compass dialog. A 45° edit preserves the
+ * chosen wall's original maximum span, keeps its straight approach, and inserts
+ * one diagonal transition into the adjoining wall. The shared corner moves with
+ * that adjoining wall, so the room stays a closed shape instead of stretching
+ * one endpoint across the plan.
  */
 export function applyCompassWallEdit(
   wallId: string,
@@ -188,29 +190,47 @@ export function applyCompassWallEdit(
   if (!wall || !start || !end) return null;
 
   const existingLength = Math.max(6, wallSegmentLength(wall, vertices));
-  const startDistance = Math.max(0, Math.min(existingLength - 6, Math.round((Number(edit.angleStartIn) || 0) * 8) / 8));
-  // The new run is constrained to this exact existing wall. A 144-inch wall
-  // therefore cannot become longer than 144 inches, and any straight approach
-  // segment consumes part of that measured span.
-  const availableRunLength = Math.max(6, existingLength - startDistance);
-  const requestedLength = Math.round((Number(edit.lengthIn) || availableRunLength) * 8) / 8;
-  const length = Math.max(6, Math.min(availableRunLength, requestedLength));
+  // The Wall length field is the selected wall's measured envelope, never an
+  // extension. A 144-inch wall can be shortened, but cannot become longer.
+  const requestedLength = Math.round((Number(edit.lengthIn) || existingLength) * 8) / 8;
+  const wallLength = Math.max(6, Math.min(existingLength, requestedLength));
+  const startDistance = Math.max(0, Math.min(wallLength - 6, Math.round((Number(edit.angleStartIn) || 0) * 8) / 8));
+  const cornerLeg = Math.max(6, wallLength - startDistance);
   const currentBearing = Math.atan2(end.y - start.y, end.x - start.x);
-  const cardinalBearing = Math.round(currentBearing / (Math.PI / 2)) * (Math.PI / 2);
-  const bearing = edit.angle === 90 ? cardinalBearing : edit.angle * Math.PI / 180;
+  const namedCardinalBearing: Record<string, number> = {
+    Back: 0,
+    Right: Math.PI / 2,
+    Front: Math.PI,
+    Left: -Math.PI / 2,
+  };
+  const matchingNamedBearing = Object.entries(namedCardinalBearing).find(([label]) => wall.label === label)?.[1];
+  const cardinalBearing = matchingNamedBearing ?? Math.round(currentBearing / (Math.PI / 2)) * (Math.PI / 2);
+  const straightBearing = edit.angle === 90 ? cardinalBearing : currentBearing;
+  const nextWall = customWalls[(index + 1) % customWalls.length];
+  const nextEnd = nextWall ? vertices.find((vertex) => vertex.id === nextWall.endVertexId) : null;
+  if (!nextWall || !nextEnd) return null;
+  const adjoiningBearing = Math.atan2(nextEnd.y - end.y, nextEnd.x - end.x);
   const prefixEnd = {
-    x: Math.round((start.x + Math.cos(currentBearing) * startDistance) * 8) / 8,
-    y: Math.round((start.y + Math.sin(currentBearing) * startDistance) * 8) / 8,
+    x: Math.round((start.x + Math.cos(straightBearing) * startDistance) * 8) / 8,
+    y: Math.round((start.y + Math.sin(straightBearing) * startDistance) * 8) / 8,
   };
-  const coordinatePrecision = edit.angle === 90 ? 8 : 1000;
-  const nextEnd = {
-    x: Math.round((prefixEnd.x + Math.cos(bearing) * length) * coordinatePrecision) / coordinatePrecision,
-    y: Math.round((prefixEnd.y + Math.sin(bearing) * length) * coordinatePrecision) / coordinatePrecision,
+  const virtualCorner = {
+    x: Math.round((start.x + Math.cos(straightBearing) * wallLength) * 8) / 8,
+    y: Math.round((start.y + Math.sin(straightBearing) * wallLength) * 8) / 8,
   };
-  const editedWallId = startDistance > 0.01 ? genWallId() : wall.id;
-  const pivot = startDistance > 0.01 ? { id: genVertexId(), ...prefixEnd } : null;
+  const expectedTurn = Math.sign(Math.sin(adjoiningBearing - straightBearing)) || 1;
+  const requestedTurn = edit.angle === 45 ? 1 : -1;
+  const followsInteriorCorner = requestedTurn === expectedTurn;
+  const movedSharedCorner = edit.angle === 90
+    ? virtualCorner
+    : {
+        x: Math.round((virtualCorner.x + Math.cos(adjoiningBearing) * cornerLeg * (followsInteriorCorner ? 1 : -1)) * 1000) / 1000,
+        y: Math.round((virtualCorner.y + Math.sin(adjoiningBearing) * cornerLeg * (followsInteriorCorner ? 1 : -1)) * 1000) / 1000,
+      };
+  const editedWallId = edit.angle !== 90 && startDistance > 0.01 ? genWallId() : wall.id;
+  const pivot = edit.angle !== 90 && startDistance > 0.01 ? { id: genVertexId(), ...prefixEnd } : null;
   const nextVertices = vertices
-    .map((vertex) => vertex.id === end.id ? { ...vertex, ...nextEnd } : vertex)
+    .map((vertex) => vertex.id === end.id ? { ...vertex, ...movedSharedCorner } : vertex)
     .flatMap((vertex) => pivot && vertex.id === start.id ? [vertex, pivot] : [vertex]);
   const editedWall: CustomWall = {
     ...wall,
