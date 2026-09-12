@@ -1959,5 +1959,6 @@
 - [ ] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
 - [x] Prevent wall selection or a simple touch from changing wall size, angle, or corner geometry; reserve all wall mutations for an explicit saved edit
 - [x] Prevent a wall touch from opening the Edit selected wall dialog; open it only with the explicit Compass action
+- [x] Fix the on-wall gold Compass handle so press-and-drag updates the corner-start marker instead of opening the attributes popup
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

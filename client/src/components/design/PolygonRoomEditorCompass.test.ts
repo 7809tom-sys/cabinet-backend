@@ -30,6 +30,12 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
 
+  it("wires the draggable Compass drop into both full and compact split-plan canvases", () => {
+    expect((designToolSource.match(/wallCompassStartIn=\{compassWallStartIn\}/g) ?? []).length).toBe(2);
+    expect((designToolSource.match(/onWallCompassDrop=\{\(wall, startIn\) => \{/g) ?? []).length).toBe(2);
+    expect((designToolSource.match(/setCompassWallStartIn\(startIn\);/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+
   it("keeps a normal-plan wall touch select-only and reserves room changes for explicit controls", () => {
     expect(planCanvasSource).toContain("const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {");
     expect(planCanvasSource).toContain("onSelectWall?.(side);");

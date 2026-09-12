@@ -10979,8 +10979,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   finish={activeFinish}
                   drawMode={drawMode}
                   onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
-                  activeWall={activeWall}
-                  onSelectWall={setActiveWall}
+	                  activeWall={activeWall}
+	                  onSelectWall={setActiveWall}
+	                  wallCompassStartIn={compassWallStartIn}
+	                  onWallCompassDrop={(wall, startIn) => {
+	                    setActiveWall(wall);
+	                    setPlacementTarget("wall");
+	                    setCompassWallStartIn(startIn);
+	                    toast.info("45° corner start set. Use Compass to adjust wall attributes.");
+	                  }}
 	                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}
