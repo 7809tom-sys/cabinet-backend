@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Maximize, Ruler, Check, ChevronDown } from "lucide-react";
+import { Maximize, Ruler, Check, ChevronDown, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ interface Props {
   onToggleDraw: () => void;
   /** Whether the room is currently in polygon (custom shape) mode. */
   isPolygon?: boolean;
-  /** Toggle polygon editing mode. */
+  /** Enter selected-wall Compass editing mode. */
   onTogglePolygon?: () => void;
 }
 
@@ -324,6 +324,11 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
   const fmt = (v: { feet: number; inches: number }) =>
     v.inches === 0 ? `${v.feet}'` : `${v.feet}'${v.inches}"`;
 
+  const openWallCompass = () => {
+    onTogglePolygon?.();
+    setOpen(false);
+  };
+
   return (
     <div className="flex items-center gap-1.5">
       <Popover open={open} onOpenChange={setOpen}>
@@ -348,6 +353,20 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
           />
         </PopoverContent>
       </Popover>
+      {onTogglePolygon && (
+        <Button
+          type="button"
+          variant={isPolygon ? "default" : "outline"}
+          size="sm"
+          className={`h-8 gap-1.5 px-2 text-xs ${isPolygon ? "bg-[#1a2744] text-white hover:bg-[#283c63]" : ""}`}
+          onClick={openWallCompass}
+          title={isPolygon ? "Edit the selected wall with Compass" : "Edit the selected wall with Compass"}
+          aria-label="Edit selected wall with Compass"
+          data-testid="wall-compass-entry"
+        >
+          <Compass className="h-3.5 w-3.5" /> Compass
+        </Button>
+      )}
     </div>
   );
 }
@@ -359,16 +378,26 @@ interface InlineProps {
   onChange: (room: RoomData) => void;
   /** Called after the user taps Apply so the parent can close the sheet. */
   onApplied?: () => void;
+  /** Opens the same selected-wall Compass workflow used by the desktop toolbar. */
+  onOpenWallCompass?: () => void;
+  isPolygon?: boolean;
 }
 
-export function RoomSizeInline({ room, onChange, onApplied }: InlineProps) {
+export function RoomSizeInline({ room, onChange, onApplied, onOpenWallCompass, isPolygon }: InlineProps) {
   return (
-    <RoomSizeFormBody
-      room={room}
-      onChange={onChange}
-      onApplied={onApplied}
-      showApply
-    />
+    <div className="space-y-3">
+      <RoomSizeFormBody
+        room={room}
+        onChange={onChange}
+        onApplied={onApplied}
+        showApply
+      />
+      {onOpenWallCompass && (
+        <Button type="button" variant={isPolygon ? "default" : "outline"} className={`w-full gap-2 ${isPolygon ? "bg-[#1a2744] text-white hover:bg-[#283c63]" : ""}`} onClick={onOpenWallCompass} data-testid="mobile-wall-compass-entry">
+          <Compass className="h-4 w-4" /> Edit selected wall with Compass
+        </Button>
+      )}
+    </div>
   );
 }
 

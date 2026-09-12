@@ -1938,5 +1938,9 @@
 - [x] Add a selected-wall Compass action that opens one editable popup for locked angle, angle-start distance, wall height, and wall length
 - [x] Apply Compass wall edits only to the selected wall and preserve existing 45-degree, 90-degree, cabinet-fit, pricing, and materials safeguards
 - [x] Flag selected-wall cabinets that become invalid after a Compass wall edit instead of silently orphaning or deleting them
+- [x] Make the selected-wall Compass control visible in the live Room Layout path without requiring the user to enter a separate hidden polygon editor
+- [x] Verify the live Room Layout Compass entry point on desktop and mobile before publishing the discoverability correction
+- [x] Make the Room Layout dashboard Compass icon act only on the wall selected by the user’s prior wall tap
+- [x] Open the selected wall’s Compass popup directly from the Room Layout dashboard without requiring a second wall tap
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

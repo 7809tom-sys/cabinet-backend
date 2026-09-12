@@ -48,6 +48,10 @@ interface Props {
   onSelectWall?: (wallId: string) => void;
   /** Current cabinet UIDs by custom wall, used to block unsafe geometry edits. */
   cabinetUidsByWall?: Record<string, string[]>;
+  /** A changed request token opens the selected wall’s Compass popup directly. */
+  compassRequestId?: number;
+  /** Returns from wall editing to the normal cabinet-placement plan. */
+  onDone?: () => void;
   /** When true, editing is disabled (view only). */
   locked?: boolean;
 }
@@ -62,6 +66,8 @@ export function PolygonRoomEditor({
   activeWallId,
   onSelectWall,
   cabinetUidsByWall = {},
+  compassRequestId,
+  onDone,
   locked = false,
 }: Props) {
   const { t } = useLanguage();
@@ -101,6 +107,10 @@ export function PolygonRoomEditor({
     setCompassLength(String(Math.round(wallSegmentLength(selectedWall, vertices) * 8) / 8));
     setCompassOpen(true);
   }, [selectedWall, vertices]);
+
+  useEffect(() => {
+    if (compassRequestId && selectedWall) openCompass();
+  }, [compassRequestId, openCompass, selectedWall]);
 
   const saveCompass = useCallback(() => {
     if (!selectedWall) return;
@@ -314,6 +324,7 @@ export function PolygonRoomEditor({
           <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Edit selected wall with Compass" onClick={openCompass}>
             <Compass className="h-4 w-4" /> Compass
           </Button>
+          {onDone && <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-semibold" onClick={onDone}>Done</Button>}
         </div>
       )}
 

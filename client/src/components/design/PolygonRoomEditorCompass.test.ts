@@ -6,12 +6,22 @@ const root = process.cwd();
 const editorSource = readFileSync(resolve(root, "client/src/components/design/PolygonRoomEditor.tsx"), "utf8");
 const designToolSource = readFileSync(resolve(root, "client/src/pages/DesignTool.tsx"), "utf8");
 const threeDSource = readFileSync(resolve(root, "client/src/components/design/InteractiveRoom3D.tsx"), "utf8");
+const roomSizeSource = readFileSync(resolve(root, "client/src/components/design/RoomSizeControl.tsx"), "utf8");
 
 describe("selected-wall Compass editor", () => {
   it("uses tap-to-select as the default and presents a Compass on the selected wall", () => {
     expect(editorSource).toContain('useState<Mode>("select")');
     expect(editorSource).toContain("Edit selected wall with Compass");
     expect(editorSource).toContain("Edit ${wall.label ?? \"selected wall\"} with Compass");
+  });
+
+  it("exposes the Compass workflow from the ordinary desktop toolbar and mobile room sheet", () => {
+    expect(roomSizeSource).toContain('data-testid="wall-compass-entry"');
+    expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
+    expect(roomSizeSource).toContain("Edit selected wall with Compass");
+    expect(designToolSource).toContain("onOpenWallCompass={() => {");
+    expect(designToolSource).toContain("setPolygonEditMode(true);");
+    expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
 
   it("provides the one popup with only supported angle, start, height, and length inputs", () => {
