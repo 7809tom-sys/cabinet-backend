@@ -478,9 +478,9 @@ describe("bulk cabinet door hardware", () => {
 });
 
 describe("universal cooking-surface geometry", () => {
-  it("keeps every range and cooktop burner surface at the 34½-inch finished-floor line", () => {
-    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(34.5);
-    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(STD.BASE_HEIGHT);
+  it("keeps every range and cooktop burner surface at the 36-inch finished countertop line", () => {
+    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(36);
+    expect(STD.RANGE_COOKING_SURFACE_HEIGHT).toBe(STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS);
   });
 });
 

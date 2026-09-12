@@ -3,8 +3,11 @@
 
 export const STD = {
   BASE_HEIGHT: 34.5,
-  // All range and cooktop burner surfaces align to this finished-floor height.
-  RANGE_COOKING_SURFACE_HEIGHT: 34.5,
+  // A freestanding range replaces the 1½-inch countertop slab in its opening,
+  // so its burner surface must align with the finished counter top—not the
+  // lower 34½-inch base-box top. This keeps a neighboring slab from visually
+  // crossing over the stove in every Designer view.
+  RANGE_COOKING_SURFACE_HEIGHT: 36,
   // Freestanding range backguards rise above the cooktop to this finished-floor top line.
   RANGE_BACKGUARD_TOP: 47,
   BASE_DEPTH: 24,
