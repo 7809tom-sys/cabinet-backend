@@ -1,5 +1,6 @@
 // ─── Kitchen Design geometry & snapping engine ──────────────────────────────
 // All real-world units are INCHES. The canvas converts inches → pixels via PPI.
+import { wallAngle as polygonWallAngle, wallSegmentLength as polygonWallSegmentLength } from "./polygonRoom";
 
 export const STD = {
   BASE_HEIGHT: 34.5,
@@ -553,6 +554,8 @@ export interface PlacedCabinet {
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;
+  /** Inches from the selected custom-wall start vertex. Preserves exact angled-run gaps. */
+  wallOffset?: number | null;
   // Visual layout spec JSON: {baseType, sections:[{type,count,height}]}
   // When present, the elevation renderer uses this exact spec instead of the
   // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
@@ -1421,6 +1424,12 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
   if (rot === 90 || rot === 270) {
     return { w: depth, d: width };
   }
+  // Locked 45° cabinets retain their nominal body but reserve the smallest
+  // axis-aligned screen envelope for general room bounds/cross-run checks.
+  if (rot === 45 || rot === 315) {
+    const diagonal = Math.SQRT1_2;
+    return { w: Math.abs(width * diagonal) + Math.abs(depth * diagonal), d: Math.abs(width * diagonal) + Math.abs(depth * diagonal) };
+  }
   return { w: width, d: depth };
 }
 
@@ -1777,6 +1786,25 @@ export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabi
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     if (!sharesPlanCollisionZone(moving, o)) continue;
+    const sameLockedAngledRun = Boolean(
+      moving.wallId && moving.wallId === o.wallId &&
+      moving.wallOffset != null && o.wallOffset != null &&
+      [45, 315].includes(((Math.round(moving.rotation) % 360) + 360) % 360) &&
+      [45, 315].includes(((Math.round(o.rotation) % 360) + 360) % 360),
+    );
+    if (sameLockedAngledRun) {
+      const start = Number(moving.wallOffset);
+      const end = start + Math.max(0, Number(moving.width) || 0);
+      const otherStart = Number(o.wallOffset);
+      const otherEnd = otherStart + Math.max(0, Number(o.width) || 0);
+      const overlap = Math.min(end, otherEnd) - Math.max(start, otherStart);
+      if (overlap > COLLISION_EPSILON_IN) {
+        return { cabinet: o, overlapX: overlap, overlapY: Math.min(moving.depth, o.depth), penetration: overlap };
+      }
+      // Their axis-aligned visual boxes may overlap even when two angled cabinets
+      // are correctly butted along their shared 45° run.
+      continue;
+    }
     const os = placedFootprint(o);
     const overlapX = Math.min(moving.x + w, o.x + os.w) - Math.max(moving.x, o.x);
     const overlapY = Math.min(moving.y + d, o.y + os.d) - Math.max(moving.y, o.y);
@@ -3412,8 +3440,7 @@ export function wallLength(side: WallSide, room: RoomData): number {
   if (room.vertices && room.customWalls) {
     const wall = room.customWalls.find((w) => w.id === side);
     if (wall) {
-      const { wallSegmentLength } = require("@/lib/polygonRoom");
-      return wallSegmentLength(wall, room.vertices);
+      return polygonWallSegmentLength(wall, room.vertices);
     }
   }
   return side === "top" || side === "bottom" ? room.width : room.depth;
@@ -4400,6 +4427,7 @@ export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { 
 export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.placement !== "wall" || p.islandFace) return p;
   const side = cabinetWall(p, room);
+  if (isLockedAngledCustomWall(room, side)) return p;
   const { x, y } = snapToWall(p, side, room);
   return { ...p, x, y, depthPositionAdjusted: false };
 }
@@ -5286,8 +5314,11 @@ export function freeSegmentsOnWall(
   // clears the opening vertically.
   candidate?: PlacedCabinet,
 ): WallSegment[] {
+  const angledCustomWall = isLockedAngledCustomWall(room, side);
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = horizontal ? room.width : room.depth;
+  const wallLen = angledCustomWall
+    ? wallLength(side, room)
+    : horizontal ? room.width : room.depth;
 
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
@@ -5319,6 +5350,7 @@ export function freeSegmentsOnWall(
     // the adjoining wall so a catalog click/drop starts at the corner's actual
     // edge instead of being created inside it and rejected as a full overlap.
     const assignedWall = cabinetWall(p, room);
+    if (angledCustomWall && assignedWall !== side) continue;
     const cornerKind = placedCornerGeometryKind(p);
     const reservesAdjoiningWall = (
       cornerKind === "l-shape" ||
@@ -5338,8 +5370,8 @@ export function freeSegmentsOnWall(
       if (verticallySeparate) continue;
     }
     const s = assignedWall !== side && reservesAdjoiningWall ? placedFootprint(p) : rotatedSize(p);
-    const start = horizontal ? p.x : p.y;
-    const span = horizontal ? s.w : s.d;
+    const start = angledCustomWall ? wallRunOffset(p, side, room) : horizontal ? p.x : p.y;
+    const span = angledCustomWall ? wallRunSpan(p, side, room) : horizontal ? s.w : s.d;
     blocked.push({ s: start, e: start + span });
   }
 
@@ -5398,7 +5430,7 @@ export function paletteActiveWallPlacement(
   depth: number,
   placement: Placement,
   reserveFullHeightAppliances = false,
-): { x: number; y: number; rotation: number } | null {
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
   const segments = freeSegmentsOnWall(
     side,
     room,
@@ -5657,7 +5689,26 @@ export function wallPlacementAt(
   depth: number,
   side: WallSide,
   room: RoomData
-): { x: number; y: number; rotation: number } {
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } {
+  const customWall = room.customWalls?.find((wall) => wall.id === side && (wall.lockedAngle === 45 || wall.lockedAngle === -45));
+  if (customWall && room.vertices) {
+    const lockedAngle: 45 | -45 = customWall.lockedAngle === 45 ? 45 : -45;
+    const start = room.vertices.find((vertex) => vertex.id === customWall.startVertexId);
+    if (start) {
+      const length = polygonWallSegmentLength(customWall, room.vertices);
+      const offset = Math.max(0, Math.min(Math.max(0, length - width), along));
+      const radians = polygonWallAngle(customWall, room.vertices);
+      const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+      const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
+      const center = {
+        x: start.x + tangent.x * (offset + width / 2) + inward.x * (depth / 2),
+        y: start.y + tangent.y * (offset + width / 2) + inward.y * (depth / 2),
+      };
+      const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * inward.x);
+      const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * inward.y);
+      return { x: center.x - boundWidth / 2, y: center.y - boundDepth / 2, rotation: lockedAngle, wallId: customWall.id, wallOffset: offset };
+    }
+  }
   const horizontal = side === "top" || side === "bottom";
   const rotation = horizontal ? 0 : 90;
   // depth runs into the room from the wall.
@@ -5668,6 +5719,24 @@ export function wallPlacementAt(
   else if (side === "left") { x = 0; y = along; }
   else { x = Math.max(0, room.width - depth); y = along; }
   return { x, y, rotation };
+}
+
+/** True when a custom wall has been explicitly locked to one of the v1 diagonals. */
+export function isLockedAngledCustomWall(room: RoomData, wallId?: string | null): boolean {
+  return Boolean(wallId && room.customWalls?.some((wall) => wall.id === wallId && (wall.lockedAngle === 45 || wall.lockedAngle === -45)));
+}
+
+/** Exact run offset, retaining a released cabinet void on a locked diagonal. */
+export function wallRunOffset(p: PlacedCabinet, side: string, room: RoomData): number {
+  if (isLockedAngledCustomWall(room, side) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
+  return side === "top" || side === "bottom" ? p.x : p.y;
+}
+
+/** Along-run cabinet span. Diagonal runs use the true catalog width, not a screen bounding box. */
+export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): number {
+  if (isLockedAngledCustomWall(room, side) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
+  const size = rotatedSize(p);
+  return side === "top" || side === "bottom" ? size.w : size.d;
 }
 
 // ─── In-bounds clamping after a room resize ─────────────────────────────────

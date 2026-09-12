@@ -22,6 +22,8 @@ export interface CustomWall {
   endVertexId: string;
   /** User-facing label, e.g. "Back wall 1" */
   label?: string;
+  /** Deliberate v1 diagonal direction; no free-form angle is persisted. */
+  lockedAngle?: 45 | -45;
 }
 
 // ─── ID Generation ──────────────────────────────────────────────────────────────
@@ -98,6 +100,59 @@ export function wallAngle(wall: CustomWall, vertices: RoomVertex[]): number {
   const end = vertices.find((v) => v.id === wall.endVertexId);
   if (!start || !end) return 0;
   return Math.atan2(end.y - start.y, end.x - start.x);
+}
+
+/** True only for the explicit v1 45-degree controls. */
+export function isLocked45Wall(wall: CustomWall | null | undefined): wall is CustomWall & { lockedAngle: 45 | -45 } {
+  return wall?.lockedAngle === 45 || wall?.lockedAngle === -45;
+}
+
+/**
+ * Rotate one selected polygon segment to an exact, persisted 45-degree direction
+ * while preserving its measured length. This changes only the segment end vertex.
+ */
+export function lockWallToAngle(
+  wallId: string,
+  angle: 45 | -45,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
+  const wall = customWalls.find((candidate) => candidate.id === wallId);
+  const start = wall ? vertices.find((vertex) => vertex.id === wall.startVertexId) : null;
+  const end = wall ? vertices.find((vertex) => vertex.id === wall.endVertexId) : null;
+  if (!wall || !start || !end) return null;
+  const length = Math.max(6, wallSegmentLength(wall, vertices));
+  const radians = angle * Math.PI / 180;
+  const nextVertices = vertices.map((vertex) => vertex.id === end.id
+    ? { ...vertex, x: Math.round((start.x + Math.cos(radians) * length) * 8) / 8, y: Math.round((start.y + Math.sin(radians) * length) * 8) / 8 }
+    : vertex,
+  );
+  const nextWalls = customWalls.map((candidate) => candidate.id === wallId ? { ...candidate, lockedAngle: angle } : candidate);
+  return { vertices: nextVertices, customWalls: nextWalls };
+}
+
+/**
+ * Snaps one endpoint near a diagonal to an exact supported 45-degree direction.
+ * Returning null preserves the editor's regular 6-inch grid move for all other angles.
+ */
+export function snapWallEndpointNear45(
+  wall: CustomWall,
+  movingVertexId: string,
+  target: { x: number; y: number },
+  vertices: RoomVertex[],
+): { x: number; y: number; lockedAngle: 45 | -45 } | null {
+  const anchorId = wall.startVertexId === movingVertexId ? wall.endVertexId : wall.endVertexId === movingVertexId ? wall.startVertexId : null;
+  const anchor = anchorId ? vertices.find((vertex) => vertex.id === anchorId) : null;
+  if (!anchor) return null;
+  const deltaX = target.x - anchor.x;
+  const deltaY = target.y - anchor.y;
+  if (Math.abs(Math.abs(deltaX) - Math.abs(deltaY)) > 8 || Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 6) return null;
+  const run = Math.max(6, Math.round(((Math.abs(deltaX) + Math.abs(deltaY)) / 2) / 6) * 6);
+  const x = anchor.x + (deltaX < 0 ? -run : run);
+  const y = anchor.y + (deltaY < 0 ? -run : run);
+  const directionX = wall.startVertexId === movingVertexId ? anchor.x - x : x - anchor.x;
+  const directionY = wall.startVertexId === movingVertexId ? anchor.y - y : y - anchor.y;
+  return { x, y, lockedAngle: directionX * directionY >= 0 ? 45 : -45 };
 }
 
 /** Inward normal of a wall segment (points toward the room interior).

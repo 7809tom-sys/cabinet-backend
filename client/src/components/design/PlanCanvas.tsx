@@ -1359,6 +1359,11 @@ export function PlanCanvas({
           .filter((c) => (showWallLayer ? true : c.placement !== "wall"))
           .map((p) => {
             const { w, d } = placedFootprint(p);
+            const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 315].includes(((Math.round(p.rotation) % 360) + 360) % 360));
+            const bodyW = lockedAngledRun ? p.width : w;
+            const bodyD = lockedAngledRun ? p.depth : d;
+            const bodyLeft = lockedAngledRun ? p.x + (w - bodyW) / 2 : p.x;
+            const bodyTop = lockedAngledRun ? p.y + (d - bodyD) / 2 : p.y;
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isAttributesTarget = p.uid === attributesTargetUid;
@@ -1399,10 +1404,10 @@ export function PlanCanvas({
                   measureMode ? "cursor-crosshair" : "cursor-move"
                 } ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
-                  left: p.x * ppi,
-                  top: p.y * ppi,
-                  width: w * ppi,
-                  height: d * ppi,
+                  left: bodyLeft * ppi,
+                  top: bodyTop * ppi,
+                  width: bodyW * ppi,
+                  height: bodyD * ppi,
                   background: isWall
                     ? `repeating-linear-gradient(45deg, ${edgeColor}33, ${edgeColor}33 6px, ${edgeColor}55 6px, ${edgeColor}55 12px), ${faceFill}`
                     : faceFill,
@@ -1426,6 +1431,8 @@ export function PlanCanvas({
                     : undefined,
                   borderRadius: (isCorner && !isBlind) ? 0 : 2,
                   clipPath: planCabinetClipPath(p, room),
+                  transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
+                  transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
                 title={`${p.masterCode} — ${p.description}`}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}

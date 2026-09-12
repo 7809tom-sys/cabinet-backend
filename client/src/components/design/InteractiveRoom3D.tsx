@@ -4727,6 +4727,10 @@ export function threeDRoomFacingRotation(
 	    } as const;
 	    return islandFacing[cabinet.islandFace];
 	  }
+	  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
+	  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
+	  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
+	  if (explicitAngle === 45 || explicitAngle === 315) return fallbackRotation;
 	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();

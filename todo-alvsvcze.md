@@ -1928,5 +1928,12 @@
 - [x] Verify the Cabinet Attributes selection highlight in plan, elevation, 3D, desktop, and mobile Designer states
 - [x] Remove countertop slabs over every stove, range, cooktop, and oven footprint in the Designer
 - [x] Verify countertop cutouts for stoves in wall runs and islands across plan, elevation, 3D, desktop, and mobile views
+- [ ] Inspect the active affiliate Designer stove price and whether it is included in the displayed design total
+- [ ] Correct and validate the stove price source in the Designer and cart without changing cabinet prices
+- [x] Add locked 45-degree and mirrored -45-degree wall-run controls to the Designer without allowing free-form angles
+- [x] Snap base and wall cabinets to 45-degree runs with a visible angle guide and straight-wall-equivalent collision protection
+- [x] Preserve void acceptance when a cabinet is removed and replaced on a 45-degree run
+- [x] Verify angled base and wall cabinet placement updates the live Designer price and materials list while retaining 90-degree walls
+- [x] Preserve crown, filler, and side-cut calculation inputs for angled cabinet runs without changing existing installer controls
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

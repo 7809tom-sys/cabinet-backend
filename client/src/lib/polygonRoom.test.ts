@@ -12,6 +12,9 @@ import {
   pointInPolygon,
   closestWall,
   positionAlongWall,
+  isLocked45Wall,
+  lockWallToAngle,
+  snapWallEndpointNear45,
   mergeWalls,
   verticesToSvgPath,
 } from "./polygonRoom";
@@ -191,6 +194,39 @@ describe("polygonRoom", () => {
       const { vertices, customWalls } = rectToPolygon(120, 96);
       const pos = positionAlongWall(60, 0, customWalls[0], vertices);
       expect(pos).toBeCloseTo(60);
+    });
+  });
+
+  describe("locked 45-degree wall segments", () => {
+    it("sets a selected wall to an exact persisted +45° direction while preserving its length", () => {
+      const { vertices, customWalls } = rectToPolygon(120, 96);
+      const result = lockWallToAngle(customWalls[0].id, 45, vertices, customWalls);
+      expect(result).not.toBeNull();
+      const wall = result!.customWalls[0];
+      const start = result!.vertices.find((vertex) => vertex.id === wall.startVertexId)!;
+      const end = result!.vertices.find((vertex) => vertex.id === wall.endVertexId)!;
+      expect(isLocked45Wall(wall)).toBe(true);
+      expect(Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI).toBeCloseTo(45, 3);
+      expect(wallSegmentLength(wall, result!.vertices)).toBeCloseTo(120, 1);
+    });
+
+    it("supports the mirrored -45° direction without introducing a free-form angle", () => {
+      const { vertices, customWalls } = rectToPolygon(120, 96);
+      const result = lockWallToAngle(customWalls[0].id, -45, vertices, customWalls);
+      expect(result).not.toBeNull();
+      const wall = result!.customWalls[0];
+      const start = result!.vertices.find((vertex) => vertex.id === wall.startVertexId)!;
+      const end = result!.vertices.find((vertex) => vertex.id === wall.endVertexId)!;
+      expect(wall.lockedAngle).toBe(-45);
+      expect(Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI).toBeCloseTo(-45, 3);
+    });
+
+    it("snaps a near-diagonal endpoint to the exact supported 45-degree direction", () => {
+      const { vertices, customWalls } = rectToPolygon(120, 96);
+      const wall = customWalls[0];
+      const snapped = snapWallEndpointNear45(wall, wall.endVertexId, { x: 53, y: 58 }, vertices);
+      expect(snapped).toEqual({ x: 54, y: 54, lockedAngle: 45 });
+      expect(snapWallEndpointNear45(wall, wall.endVertexId, { x: 72, y: 30 }, vertices)).toBeNull();
     });
   });
 

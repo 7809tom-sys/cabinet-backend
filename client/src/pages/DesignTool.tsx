@@ -110,7 +110,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall, isLockedAngledCustomWall,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -150,6 +150,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
+import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -3218,7 +3219,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Explicit drag-and-drop coordinates win. A normal catalog selection uses
       // the active wall's deterministic left-to-right sequence: floor cabinets
       // advance the floor run and wall cabinets advance the upper run.
-	      let spot: { x: number; y: number; rotation: number };
+	      let spot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
       // The controlled mode is what the customer sees in the Placement panel.
@@ -3522,10 +3523,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         height,
         nominalHeight: height,
         rotation: spot.rotation,
-        numberOfDoors: c.numberOfDoors,
-        numberOfDrawers: c.numberOfDrawers,
-        catalogImageUrl: c.catalogImageUrl ?? null,
-        customProfile: (c as any).graphicType ?? null,
+	        numberOfDoors: c.numberOfDoors,
+	        numberOfDrawers: c.numberOfDrawers,
+	        catalogImageUrl: c.catalogImageUrl ?? null,
+	        ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+	        customProfile: (c as any).graphicType ?? null,
         genericDrawingUrl: (c as any).specImageUrl ?? null,
 	        fixedShelfCount: (c as any).numberOfFixedShelves ?? null,
 	        adjustableShelfCount: (c as any).numberOfAdjShelves ?? null,
@@ -5730,13 +5732,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const data = dragDataRef.current;
       if (!data) return;
       const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
-      const dropWall = nearestRectRoomWallAtPoint(room, center);
+      const polygonWall = room.vertices && room.customWalls
+        ? closestWall(center.x, center.y, room.vertices, room.customWalls)
+        : null;
+      const dropWall = (polygonWall?.id ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
       const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
       const dimensions = resolvedDesignCabinetDimensions(data);
       const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
-      const targetAlong = dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+      const targetAlong = polygonWall && isLockedAngledCustomWall(room, dropWall)
+        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
+        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
         : null;
@@ -5795,8 +5802,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
 		        : []);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
-		      const requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
-	      const peers = workingPrev.filter((p) => p.uid !== uid);
+      let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
+      const peers = workingPrev.filter((p) => p.uid !== uid);
+      if (isLockedAngledCustomWall(room, cabinet.wallId)) {
+        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
+        if (wall && room.vertices) {
+          const requestedAlong = positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall, room.vertices);
+          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+          const nextStart = nearestAvailableWallStart(segments, requestedAlong, cabinet.width);
+          if (nextStart == null) {
+            const message = `${cabinet.masterCode} was not moved because this 45° wall has no clear ${formatEighthInches(cabinet.width)} opening.`;
+            setPlacementWarning(message);
+            toast.error(message);
+            return prev;
+          }
+          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, cabinet.wallId as WallSide, room);
+          requestedCabinet = { ...cabinet, ...angledSpot, wallId: cabinet.wallId, wallOffset: nextStart };
+        }
+      }
 	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag;
 	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
 	      const alignedCabinet: PlacedCabinet = snappedPosition
@@ -8271,10 +8294,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   setDrawMode(false);
                 }}
                 className="max-w-20 bg-transparent text-xs font-semibold outline-none"
-              >
-                {(["top", "right", "bottom", "left"] as WallSide[]).map((wall) => (
-                  <option key={wall} value={wall}>{wallLabel[wall]}</option>
-                ))}
+	              >
+	                {isPolygonRoom && room.customWalls ? room.customWalls.map((wall) => (
+	                  <option key={wall.id} value={wall.id}>{wall.label || wall.id.slice(0, 6)}{wall.lockedAngle === 45 ? " · +45°" : wall.lockedAngle === -45 ? " · −45°" : ""}</option>
+	                )) : (["top", "right", "bottom", "left"] as WallSide[]).map((wall) => (
+	                  <option key={wall} value={wall}>{wallLabel[wall]}</option>
+	                ))}
               </select>
             </label>
             <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
@@ -8323,13 +8348,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               room.customWalls.map((cw) => (
                 <button
                   key={cw.id}
-                  onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
-                    activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {cw.label || cw.id.slice(0, 6)}
-                </button>
+	                  onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
+	                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
+	                    activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+	                  }`}
+	                >
+	                  {cw.label || cw.id.slice(0, 6)}{cw.lockedAngle === 45 ? " · +45°" : cw.lockedAngle === -45 ? " · −45°" : ""}
+	                </button>
               ))
             ) : (
               // Classic rectangle mode: 4 fixed walls
@@ -8590,15 +8615,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 <div className={`grid gap-1 px-3 pb-2 ${isPolygonRoom && room.customWalls ? "grid-cols-3" : "grid-cols-4"}`}>
                   {isPolygonRoom && room.customWalls ? (
                     room.customWalls.map((cw) => (
-                      <button
-                        key={cw.id}
-                        onClick={() => { setActiveWall(cw.id as any); setPlacementTarget("wall"); setDrawMode(false); }}
-                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
-                          activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {cw.label || cw.id.slice(0, 6)}
-                      </button>
+	                      <button
+	                        key={cw.id}
+	                        onClick={() => { setActiveWall(cw.id as any); setPlacementTarget("wall"); setDrawMode(false); }}
+	                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+	                          activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+	                        }`}
+	                      >
+	                        {cw.label || cw.id.slice(0, 6)}{cw.lockedAngle === 45 ? " · +45°" : cw.lockedAngle === -45 ? " · −45°" : ""}
+	                      </button>
                     ))
                   ) : (
                     (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {

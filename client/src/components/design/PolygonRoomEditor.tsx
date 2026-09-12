@@ -13,7 +13,7 @@
  * - Haptic-style visual feedback on interactions.
  */
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Scissors, Move, Info } from "lucide-react";
+import { Scissors, Move, Info, CornerDownLeft, CornerDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -25,6 +25,9 @@ import {
   polygonBounds,
   wallSegmentLength,
   wallMidpoint,
+  isLocked45Wall,
+  lockWallToAngle,
+  snapWallEndpointNear45,
   mergeWalls,
   verticesToPoints,
 } from "@/lib/polygonRoom";
@@ -74,12 +77,32 @@ export function PolygonRoomEditor({
     if (showHelp) setShowHelp(false);
   }, [showHelp]);
 
+  const setSelectedWallAngle = useCallback((angle: 45 | -45) => {
+    if (locked || !activeWallId) {
+      toast.info("Select a wall segment first, then choose its 45° direction.");
+      return;
+    }
+    const result = lockWallToAngle(activeWallId, angle, vertices, customWalls);
+    if (!result) return;
+    const normalized = normalizeVertices(result.vertices);
+    const nextBounds = polygonBounds(normalized);
+    onChange(normalized, result.customWalls, nextBounds.width, nextBounds.height);
+    onSelectWall?.(activeWallId);
+    setMode("select");
+    dismissHelp();
+    toast.success(`Wall locked to ${angle === 45 ? "+45°" : "−45°"}. Cabinets will snap exactly to this run.`);
+  }, [activeWallId, customWalls, dismissHelp, locked, onChange, onSelectWall, vertices]);
+
   // ─── Vertex Drag ────────────────────────────────────────────────────────────
   const dragStart = useRef<{ x: number; y: number; origX: number; origY: number } | null>(null);
 
   const handleVertexPointerDown = useCallback(
     (e: React.PointerEvent, vertex: RoomVertex) => {
       if (locked || mode !== "select") return;
+      if (customWalls.some((wall) => isLocked45Wall(wall) && (wall.startVertexId === vertex.id || wall.endVertexId === vertex.id))) {
+        toast.info("This 45° wall is locked. Use the 45° controls to preserve its exact angle.");
+        return;
+      }
       e.stopPropagation();
       e.preventDefault();
       dismissHelp();
@@ -87,7 +110,7 @@ export function PolygonRoomEditor({
       dragStart.current = { x: e.clientX, y: e.clientY, origX: vertex.x, origY: vertex.y };
       (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
     },
-    [locked, mode, dismissHelp],
+    [locked, mode, dismissHelp, customWalls],
   );
 
   const handleVertexPointerMove = useCallback(
@@ -102,10 +125,24 @@ export function PolygonRoomEditor({
       const snappedX = Math.round(newX / 6) * 6;
       const snappedY = Math.round(newY / 6) * 6;
 
-      const result = moveVertex(dragVertexId, snappedX, snappedY, vertices);
+      // v1 deliberately snaps only close diagonal gestures to an exact 45°;
+      // all other walls retain the existing 6-inch grid behavior. Once snapped,
+      // the segment is locked so it cannot drift to 44°/46° on later edits.
+      let targetX = snappedX;
+      let targetY = snappedY;
+      let nextWalls = customWalls;
+      const adjacentWall = customWalls.find((wall) => wall.startVertexId === dragVertexId || wall.endVertexId === dragVertexId);
+      const diagonalSnap = adjacentWall ? snapWallEndpointNear45(adjacentWall, dragVertexId, { x: targetX, y: targetY }, vertices) : null;
+      if (adjacentWall && diagonalSnap) {
+        targetX = diagonalSnap.x;
+        targetY = diagonalSnap.y;
+        nextWalls = customWalls.map((wall) => wall.id === adjacentWall.id ? { ...wall, lockedAngle: diagonalSnap.lockedAngle } : wall);
+      }
+
+      const result = moveVertex(dragVertexId, targetX, targetY, vertices);
       const normalized = normalizeVertices(result.vertices);
       const newBounds = polygonBounds(normalized);
-      onChange(normalized, customWalls, newBounds.width, newBounds.height);
+      onChange(normalized, nextWalls, newBounds.width, newBounds.height);
     },
     [dragVertexId, ppi, vertices, customWalls, onChange],
   );
@@ -218,6 +255,13 @@ export function PolygonRoomEditor({
           >
             <Scissors className="h-4 w-4" /> Split Wall
           </Button>
+          <span className="mx-0.5 h-5 w-px bg-border" />
+          <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Lock selected wall to +45 degrees" onClick={() => setSelectedWallAngle(45)}>
+            <CornerDownRight className="h-4 w-4" /> +45°
+          </Button>
+          <Button variant="ghost" size="sm" disabled={!activeWallId} className="h-8 gap-1 text-xs font-semibold" title="Lock selected wall to −45 degrees" onClick={() => setSelectedWallAngle(-45)}>
+            <CornerDownLeft className="h-4 w-4" /> −45°
+          </Button>
         </div>
       )}
 
@@ -300,9 +344,10 @@ export function PolygonRoomEditor({
             const end = vertices.find((v) => v.id === wall.endVertexId);
             if (!start || !end) return null;
 
-            const isActive = wall.id === activeWallId;
-            const isHovered = wall.id === hoveredWallId;
-            const len = wallSegmentLength(wall, vertices);
+	            const isActive = wall.id === activeWallId;
+	            const isHovered = wall.id === hoveredWallId;
+	            const isLockedAngle = isLocked45Wall(wall);
+	            const len = wallSegmentLength(wall, vertices);
             const mid = wallMidpoint(wall, vertices);
 
             return (
@@ -342,13 +387,31 @@ export function PolygonRoomEditor({
                   y1={start.y * ppi}
                   x2={end.x * ppi}
                   y2={end.y * ppi}
-                  stroke={isActive ? "#d4a75a" : isHovered ? "#4b5563" : "#1a2744"}
-                  strokeWidth={isActive ? 5 : isHovered ? 4 : 3}
-                  strokeLinecap="round"
-                  pointerEvents="none"
-                />
+	                  stroke={isActive ? "#d4a75a" : isHovered ? "#4b5563" : "#1a2744"}
+	                  strokeWidth={isActive ? 5 : isHovered ? 4 : 3}
+	                  strokeLinecap="round"
+	                  pointerEvents="none"
+	                />
 
-                {/* Wall length label */}
+	                {isLockedAngle && (
+	                  <>
+	                    <line
+	                      x1={start.x * ppi}
+	                      y1={start.y * ppi}
+	                      x2={end.x * ppi}
+	                      y2={end.y * ppi}
+	                      stroke="#22c55e"
+	                      strokeWidth={2}
+	                      strokeDasharray="7 5"
+	                      pointerEvents="none"
+	                    />
+	                    <text x={mid.x * ppi} y={mid.y * ppi + 30} textAnchor="middle" fontSize={10} fontWeight={800} fill="#15803d" pointerEvents="none">
+	                      {wall.lockedAngle === 45 ? "+45° LOCKED" : "−45° LOCKED"}
+	                    </text>
+	                  </>
+	                )}
+
+	                {/* Wall length label */}
                 <text
                   x={mid.x * ppi}
                   y={mid.y * ppi - 12}
