@@ -158,11 +158,10 @@ interface Props {
   finishFor?: (cab: PlacedCabinet) => FinishColors;
   drawMode?: boolean;
   onDrawRoom?: (room: RoomData) => void;
-  // Active-wall: the highlighted wall. Click a wall to select it; drag it to
-  // resize the room on that side.
+  // Active-wall: the highlighted wall. A normal touch only selects the wall;
+  // room dimensions are changed through the explicit Room Size controls.
   activeWall?: WallSide;
   onSelectWall?: (side: WallSide) => void;
-  onResizeWall?: (side: WallSide, deltaIn: number) => void;
   /** The selected wall's saved 45-degree corner-start distance, in inches. */
   wallCompassStartIn?: number | null;
   /** Called when the user releases the selected-wall Compass handle. */
@@ -255,7 +254,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, onResizeWall, wallCompassStartIn = null, onWallCompassDrop, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -430,10 +429,6 @@ export function PlanCanvas({
   // dragging; converted to inches on release via the same fit-PPI scale.
   const drawStart = useRef<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  // Wall-drag-to-resize gesture: tracks the wall being dragged + start point,
-  // plus a live preview of the resulting room size (inches) for the readout.
-  const wallDrag = useRef<{ side: WallSide; startX: number; startY: number } | null>(null);
-  const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
   const compassDrag = useRef<{ side: WallSide } | null>(null);
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
@@ -575,43 +570,13 @@ export function PlanCanvas({
     addMeasurePoint(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
   };
 
-  // ─── Wall drag-to-resize gesture ───────────────────────────────────────────
+  // ─── Wall selection ────────────────────────────────────────────────────────
+  // A wall is a first-class selectable object. Moving a pointer while selecting
+  // it must never resize the room, change its angle, or open its attributes.
+  // Those edits are intentionally limited to their explicit controls.
   const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {
     e.stopPropagation();
     onSelectWall?.(side);
-    if (!onResizeWall || isWallLocked(side)) return;
-    wallDrag.current = { side, startX: e.clientX, startY: e.clientY };
-    setWallPreview({ side, w: room.width, h: room.depth });
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
-  };
-
-  const onWallPointerMove = (e: React.PointerEvent) => {
-    const d = wallDrag.current;
-    if (!d || !onResizeWall) return;
-    const horizontal = d.side === "left" || d.side === "right";
-    const deltaPx = horizontal ? e.clientX - d.startX : e.clientY - d.startY;
-    const deltaIn = deltaPx / ppiRef.current;
-    // Mirror the resize math for the live preview readout.
-    const grow = d.side === "right" ? deltaIn
-      : d.side === "left" ? -deltaIn
-      : d.side === "bottom" ? deltaIn
-      : -deltaIn;
-    const w = horizontal ? clampRoomInches(room.width + grow) : room.width;
-    const h = horizontal ? room.depth : clampRoomInches(room.depth + grow);
-    setWallPreview({ side: d.side, w, h });
-  };
-
-  const onWallPointerUp = (e: React.PointerEvent) => {
-    const d = wallDrag.current;
-    wallDrag.current = null;
-    setWallPreview(null);
-    if (!d || !onResizeWall) return;
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-    const horizontal = d.side === "left" || d.side === "right";
-    const deltaPx = horizontal ? e.clientX - d.startX : e.clientY - d.startY;
-    const deltaIn = deltaPx / ppiRef.current;
-    if (Math.abs(deltaIn) < 0.5) return; // treat as a plain click (select only)
-    onResizeWall(d.side, deltaIn);
   };
 
   const compassStartForWall = useCallback((side: WallSide) => {
@@ -997,8 +962,8 @@ export function PlanCanvas({
 	            })}
 	          </div>;
         })()}
-        {/* Draggable wall bands: click to highlight, drag to resize the room on
-            that side. Rendered first so they sit beneath cabinets. */}
+        {/* Wall bands: touch to select and highlight only. Rendered first so
+            they sit beneath cabinets; Room Size owns explicit dimension edits. */}
         {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
           const horizontal = side === "top" || side === "bottom";
           const isActive = activeWall === side;
@@ -1011,21 +976,19 @@ export function PlanCanvas({
                 width: roomPxW,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ns-resize" : "pointer",
+                cursor: "pointer",
               }
             : {
                 top: 0,
                 height: roomPxH,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ew-resize" : "pointer",
+                cursor: "pointer",
               };
           return (
             <div
               key={`wall-${side}`}
               onPointerDown={(e) => onWallPointerDown(e, side)}
-              onPointerMove={onWallPointerMove}
-              onPointerUp={onWallPointerUp}
               className="absolute z-[5] flex items-center justify-center transition-colors"
               style={{
                 ...wstyle,
@@ -1040,7 +1003,7 @@ export function PlanCanvas({
                     className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
                     style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                   >
-                    {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
+                    {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : " SELECTED"}
                   </span>
                   {!layoutLocked && onWallCompassDrop && (
                     <button
@@ -1072,19 +1035,6 @@ export function PlanCanvas({
             </div>
           );
         })}
-
-        {/* Live wall-resize readout */}
-        {wallPreview && (
-          <div className="pointer-events-none absolute left-1/2 top-2 z-[60] -translate-x-1/2 rounded bg-[#1a2744] px-2 py-1 text-[11px] font-semibold text-white shadow">
-            {(() => {
-              const w = inchesToFeetInches(wallPreview.w);
-              const h = inchesToFeetInches(wallPreview.h);
-              const f = (v: { feet: number; inches: number }) => (v.inches ? `${v.feet}'${v.inches}\"` : `${v.feet}'`);
-              return `${f(w)} × ${f(h)}`;
-            })()}
-          </div>
-        )}
-
         {/* Countertop slab layer — visible material over base cabinets + island.
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {

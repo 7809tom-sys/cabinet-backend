@@ -109,7 +109,7 @@ import {
   makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
-  resizeRoomByWall, WALL_LABELS, doorPanelKind,
+  WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall, isLockedAngledCustomWall,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
@@ -5757,14 +5757,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     toast.success("Measured room size applied", { description: `${Math.round(next.width)}\" × ${Math.round(next.depth)}\"` });
   }, [applyRoom, consumePhoneMeasureSession, phoneMeasureToken, physicalMeasureDepthIndex, physicalMeasureWidthIndex, physicalWallSpans, room]);
 
-  // Drag a highlighted wall in/out to resize the room on that side.
-  const resizeWall = useCallback(
-    (side: WallSide, deltaIn: number) => {
-      applyRoom(resizeRoomByWall(room, side, deltaIn));
-    },
-    [room, applyRoom]
-  );
-
 	  const handleDropNew = useCallback(
 	    (clientX: number, clientY: number, roomRect: DOMRect, ppi: number, freehand = false) => {
       const data = dragDataRef.current;
@@ -10815,7 +10807,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
               activeWall={activeWall}
               onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
-              onResizeWall={resizeWall}
               wallCompassStartIn={compassWallStartIn}
               onWallCompassDrop={(wall, startIn) => {
                 setActiveWall(wall);
@@ -10990,7 +10981,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
-                  onResizeWall={resizeWall}
 	                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}

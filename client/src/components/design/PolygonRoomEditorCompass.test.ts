@@ -30,6 +30,17 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
 
+  it("keeps a normal-plan wall touch select-only and reserves room changes for explicit controls", () => {
+    expect(planCanvasSource).toContain("const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {");
+    expect(planCanvasSource).toContain("onSelectWall?.(side);");
+    expect(planCanvasSource).toContain("Moving a pointer while selecting");
+    expect(planCanvasSource).not.toContain("onResizeWall");
+    expect(planCanvasSource).not.toContain("wallDrag");
+    expect(planCanvasSource).not.toContain("wallPreview");
+    expect(designToolSource).not.toContain("resizeRoomByWall");
+    expect(designToolSource).not.toContain("onResizeWall={resizeWall}");
+  });
+
   it("resolves a concrete selected wall and increments a request counter before opening Compass", () => {
     expect(designToolSource).toContain('import { closestWall, positionAlongWall, rectToPolygon } from "@/lib/polygonRoom";');
     expect(designToolSource).toContain("const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id");
