@@ -16,16 +16,17 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("Edit ${wall.label ?? \"selected wall\"} with Compass");
   });
 
-  it("uses one draggable Compass on the selected normal-plan wall and retains the mobile entry", () => {
+  it("uses one draggable Compass on the selected normal-plan wall and direct mobile entry", () => {
     expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn");
     expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number, turn: "right" | "left") => void;');
     expect(planCanvasSource).toContain("onCompassPointerUp");
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
-    expect(roomSizeSource).toContain("Edit selected wall with Compass");
+    expect(roomSizeSource).toContain("Drag 45° on selected wall");
     expect(designToolSource).toContain('data-testid="compact-workspace-wall-compass"');
-    expect(designToolSource).toContain("const openSelectedWallCompass = useCallback");
+    expect(designToolSource).toContain("const activateSelectedWallCompassDrag = useCallback");
     expect(designToolSource).toContain("onOpenWallCompass={() => {");
-    expect(designToolSource).toContain("setPolygonEditMode(false);");
+    expect(designToolSource).toContain("activateSelectedWallCompassDrag();");
+    expect(designToolSource).not.toContain("openSelectedWallCompass");
     expect(editorSource).toContain("showCanvasEditor = true");
     expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
@@ -51,33 +52,20 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).not.toContain("onResizeWall={resizeWall}");
   });
 
-  it("resolves a concrete selected wall and increments a request counter before opening Compass", () => {
-    expect(designToolSource).toContain('from "@/lib/polygonRoom";');
-    expect(designToolSource).toContain("closestWall");
-    expect(designToolSource).toContain("positionAlongWall");
-    expect(designToolSource).toContain("rectToPolygon");
-    expect(designToolSource).toContain("const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id");
-    expect(designToolSource).toContain("setCompassWallRequestId((current) => current + 1);");
-    expect(designToolSource).not.toContain('import("@/lib/polygonRoom").then(({ rectToPolygon }) =>');
-    expect(editorSource).toContain("customWalls.find((wall, index) => {");
-    expect(editorSource).toContain("activeWallId === ([\"top\", \"right\", \"bottom\", \"left\"] as const)[index]");
+  it("keeps the direct Compass activation popup-free", () => {
+    expect(designToolSource).toContain("const activateSelectedWallCompassDrag = useCallback");
+    expect(designToolSource).toContain("Drag the gold 45° Compass");
+    expect(designToolSource).toContain('onClick={activateSelectedWallCompassDrag}');
+    expect(designToolSource).not.toContain("openSelectedWallCompass");
+    expect(designToolSource).not.toContain("setCompassWallRequestId((current) => current + 1);");
   });
 
-  it("provides one explicit attributes popup with supported angle, drag-set corner start, height, and length inputs", () => {
-    expect(editorSource).toContain("45° corner start:");
-    expect(editorSource).toContain("Drag the Compass along the selected wall in the plan to move this point.");
-    expect(editorSource).not.toContain("Distance from corner where angle starts (inches)");
+  it("keeps wall-measurement logic separate from the direct Compass gesture", () => {
     expect(editorSource).toContain("Wall height (inches)");
     expect(editorSource).toContain("Wall length (inches)");
-    expect(editorSource).toContain("90° straight wall");
-    expect(editorSource).toContain("+45° diagonal wall");
-    expect(editorSource).toContain("−45° diagonal wall");
-    expect(editorSource).toContain("[34.5, 42, 84, 96]");
-    expect(editorSource).toContain("Save wall");
-    expect(editorSource).toContain("Cancel");
     expect(designToolSource).toContain("setCompassWallStartIn(startIn);");
     expect(designToolSource).toContain("45° ${turn} turn added");
-    expect(designToolSource).not.toContain("openSelectedWallCompass(startIn);");
+    expect(planCanvasSource).toContain("Math.abs(movement) < 0.5");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {

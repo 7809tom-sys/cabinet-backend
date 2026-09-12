@@ -359,7 +359,7 @@ interface InlineProps {
   onChange: (room: RoomData) => void;
   /** Called after the user taps Apply so the parent can close the sheet. */
   onApplied?: () => void;
-  /** Opens the same selected-wall Compass workflow used by the desktop toolbar. */
+  /** Activates the selected wall's direct 45° drag handle. */
   onOpenWallCompass?: () => void;
   isPolygon?: boolean;
 }
@@ -375,7 +375,7 @@ export function RoomSizeInline({ room, onChange, onApplied, onOpenWallCompass, i
       />
       {onOpenWallCompass && (
         <Button type="button" variant={isPolygon ? "default" : "outline"} className={`w-full gap-2 ${isPolygon ? "bg-[#1a2744] text-white hover:bg-[#283c63]" : ""}`} onClick={onOpenWallCompass} data-testid="mobile-wall-compass-entry">
-          <Compass className="h-4 w-4" /> Edit selected wall with Compass
+          <Compass className="h-4 w-4" /> Drag 45° on selected wall
         </Button>
       )}
     </div>

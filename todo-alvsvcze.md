@@ -1962,5 +1962,8 @@
 - [x] Fix the on-wall gold Compass handle so press-and-drag updates the corner-start marker instead of opening the attributes popup
 - [ ] Replace the still-unusable live Compass gesture with one verified on-wall drag target in the active Designer workspace
 - [x] Make Compass release immediately form one bounded exact 45-degree right or left wall turn at the release point
+- [x] Restore cabinetdealz.com public routing after the live site returned Railway Not Found instead of Cabinet Dealz
+- [x] Replace the live visible Compass popup action with direct activation of the on-wall 45-degree drag control
+- [x] Remove every Compass-triggered popup; Compass must only create an immediate exact 45-degree turn on drag release
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

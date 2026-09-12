@@ -870,43 +870,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
-  // it can be dragged on the canvas to resize the room on that side.
+  // its on-wall Compass handle can create one exact 45° turn on release.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
-  const [compassWallRequestId, setCompassWallRequestId] = useState(0);
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
   // plan can't be nudged while placing cabinets. lockedWalls freezes individual
   // walls. Cabinets can always still be added/moved.
   const [layoutLocked, setLayoutLocked] = useState(false);
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
-  const openSelectedWallCompass = useCallback((startIn: number | null = null) => {
+  const activateSelectedWallCompassDrag = useCallback(() => {
     if (layoutLocked) return;
-    setCompassWallStartIn(startIn);
-    if (!isPolygonRoom) {
-      const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-      const selectedWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
-      const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
-      setRoom((prev) => ({ ...prev, vertices, customWalls }));
-      if (selectedWallId) setActiveWall(selectedWallId as WallSide);
-      setCompassWallRequestId((current) => current + 1);
-    } else {
-      const cardinalWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
-      const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id
-        ?? room.customWalls?.[Math.max(0, cardinalWallIndex)]?.id
-        ?? room.customWalls?.[0]?.id;
-      if (!selectedWallId) {
-        toast.info("Tap the wall you want to edit first.");
-        return;
-      }
-      setActiveWall(selectedWallId as WallSide);
-      setCompassWallRequestId((current) => current + 1);
-    }
-    setPolygonEditMode(false);
+    setSelectedUid(null);
+    setSelectedOpeningUid(null);
+    setPlacementTarget("wall");
+    setCompassWallStartIn(null);
     setViewMode("plan");
     setDrawMode(false);
     setMeasureMode(false);
-    toast.info("Opening Compass for the selected wall.");
-  }, [activeWall, isPolygonRoom, layoutLocked, room.customWalls, room.depth, room.width]);
+    toast.info(`Drag the gold 45° Compass on the selected ${WALL_LABELS[activeWall]} wall. No popup is needed.`);
+  }, [activeWall, layoutLocked]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -8240,13 +8222,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           variant="outline"
           size="sm"
           className={`${isCompactWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
-          onClick={() => openSelectedWallCompass()}
+          onClick={activateSelectedWallCompassDrag}
           disabled={layoutLocked}
-          title="Edit selected wall with Compass"
-          aria-label="Edit selected wall with Compass"
+          title="Show the selected wall’s direct 45° drag handle"
+          aria-label="Show the selected wall’s direct 45 degree drag handle"
           data-testid="compact-workspace-wall-compass"
         >
-          <Compass className="h-3.5 w-3.5" /> Compass
+          <Compass className="h-3.5 w-3.5" /> Drag 45°
         </Button>
 
         <Button variant="outline" size="sm" className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
@@ -10808,7 +10790,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 activeWallId={activeWall}
                 onSelectWall={(wallId) => { setActiveWall(wallId as any); setPlacementTarget("wall"); }}
                 cabinetUidsByWall={cabinetUidsByCustomWall}
-                compassRequestId={compassWallRequestId}
                 compassStartIn={compassWallStartIn}
                 showCanvasEditor={polygonEditMode}
                 onDone={() => setPolygonEditMode(false)}
@@ -12938,7 +12919,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   isPolygon={isPolygonRoom}
                   onOpenWallCompass={() => {
                     setMobilePanel(null);
-                    openSelectedWallCompass();
+                    activateSelectedWallCompassDrag();
                   }}
                 />
                 <div className="mt-5 border-t pt-4">

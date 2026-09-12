@@ -1019,15 +1019,16 @@ export function PlanCanvas({
                       type="button"
                       aria-label={`Drag Compass along ${wallLabel[side]} wall to make a 45 degree right or left turn`}
                       title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
-                      className="absolute z-20 grid h-7 w-7 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
+                      className="absolute z-20 grid h-10 w-10 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
-                        ? { left: compassStart * ppi - 14, top: -7 }
-                        : { top: compassStart * ppi - 14, left: -7 }}
+                        ? { left: compassStart * ppi - 20, top: -12 }
+                        : { top: compassStart * ppi - 20, left: -12 }}
                       onPointerDown={(event) => onCompassPointerDown(event, side)}
                       onPointerMove={onCompassPointerMove}
                       onPointerUp={onCompassPointerUp}
                     >
-                      <Compass className="h-3.5 w-3.5" />
+                      <Compass className="h-4 w-4" />
+                      <span className="absolute bottom-1 text-[8px] font-bold leading-none">45°</span>
                     </button>
                   )}
                 </>
