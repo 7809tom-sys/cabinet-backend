@@ -19,8 +19,11 @@ describe("selected-wall Compass editor", () => {
     expect(roomSizeSource).toContain('data-testid="wall-compass-entry"');
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Edit selected wall with Compass");
+    expect(designToolSource).toContain('data-testid="compact-workspace-wall-compass"');
+    expect(designToolSource).toContain("const openSelectedWallCompass = useCallback");
     expect(designToolSource).toContain("onOpenWallCompass={() => {");
-    expect(designToolSource).toContain("setPolygonEditMode(true);");
+    expect(designToolSource).toContain("setPolygonEditMode(false);");
+    expect(editorSource).toContain("showCanvasEditor = true");
     expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
 

@@ -251,6 +251,21 @@ describe("polygonRoom", () => {
       expect(result!.customWalls).toHaveLength(5);
     });
 
+    it("limits an angled Compass run to the selected wall’s original span", () => {
+      const { vertices, customWalls } = rectToPolygon(144, 120);
+      const result = applyCompassWallEdit(customWalls[0].id, {
+        angle: 45,
+        angleStartIn: 36,
+        lengthIn: 144,
+        heightIn: 96,
+      }, vertices, customWalls);
+      expect(result).not.toBeNull();
+      const edited = result!.customWalls.find((wall) => wall.id === result!.editedWallId)!;
+      expect(wallSegmentLength(edited, result!.vertices)).toBeCloseTo(108, 1);
+      const approach = result!.customWalls.find((wall) => wall.id === customWalls[0].id)!;
+      expect(wallSegmentLength(approach, result!.vertices) + wallSegmentLength(edited, result!.vertices)).toBeCloseTo(144, 1);
+    });
+
     it("restores a Compass 90° edit to a cardinal wall direction and clears a prior diagonal lock", () => {
       const { vertices, customWalls } = rectToPolygon(144, 120);
       const locked = lockWallToAngle(customWalls[0].id, -45, vertices, customWalls)!;

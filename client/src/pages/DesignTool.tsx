@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-	  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Share2 } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Share2, Compass } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -878,6 +878,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // walls. Cabinets can always still be added/moved.
   const [layoutLocked, setLayoutLocked] = useState(false);
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
+  const openSelectedWallCompass = useCallback(() => {
+    if (layoutLocked) return;
+    if (!isPolygonRoom) {
+      import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
+        const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
+        const selectedWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
+        const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
+        setRoom((prev) => ({ ...prev, vertices, customWalls }));
+        if (selectedWallId) setActiveWall(selectedWallId as WallSide);
+        setCompassWallRequestId(Date.now());
+      });
+    } else {
+      setCompassWallRequestId(Date.now());
+    }
+    setPolygonEditMode(false);
+    setViewMode("plan");
+    setDrawMode(false);
+    setMeasureMode(false);
+    toast.info("Opening Compass for the selected wall.");
+  }, [activeWall, isPolygonRoom, layoutLocked, room.depth, room.width]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -8169,29 +8189,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               setMeasureMode(false);
             }}
             isPolygon={isPolygonRoom}
-            onTogglePolygon={() => {
-              if (layoutLocked) return;
-              if (!isPolygonRoom) {
-                // Convert current rectangle to polygon
-                import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
-                  const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-                  const selectedWallIndex = (['top', 'right', 'bottom', 'left'] as WallSide[]).indexOf(activeWall);
-                  const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
-                  setRoom((prev) => ({ ...prev, vertices, customWalls }));
-                  if (selectedWallId) setActiveWall(selectedWallId as WallSide);
-                  setCompassWallRequestId(Date.now());
-                });
-                setPolygonEditMode(true);
-                setDrawMode(false);
-                setMeasureMode(false);
-                toast.info("Opening Compass for the selected wall.");
-              } else {
-                setPolygonEditMode(true);
-                setCompassWallRequestId(Date.now());
-              }
-            }}
+            onTogglePolygon={openSelectedWallCompass}
           />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`${isCompactWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
+          onClick={openSelectedWallCompass}
+          disabled={layoutLocked}
+          title="Edit selected wall with Compass"
+          aria-label="Edit selected wall with Compass"
+          data-testid="compact-workspace-wall-compass"
+        >
+          <Compass className="h-3.5 w-3.5" /> Compass
+        </Button>
 
         <Button variant="outline" size="sm" className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
@@ -10740,8 +10752,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               </button>
             </div>
           )}
-          {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
-            <div className="absolute inset-0 z-20">
+          {viewMode === "plan" && isPolygonRoom && (
+            <div className={polygonEditMode ? "absolute inset-0 z-20" : "contents"}>
               <PolygonRoomEditor
                 vertices={room.vertices!}
                 customWalls={room.customWalls!}
@@ -10753,6 +10765,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 onSelectWall={(wallId) => { setActiveWall(wallId as any); setPlacementTarget("wall"); }}
                 cabinetUidsByWall={cabinetUidsByCustomWall}
                 compassRequestId={compassWallRequestId}
+                showCanvasEditor={polygonEditMode}
                 onDone={() => setPolygonEditMode(false)}
                 locked={layoutLocked}
               />
@@ -12877,24 +12890,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   onApplied={() => setMobilePanel(null)}
                   isPolygon={isPolygonRoom}
                   onOpenWallCompass={() => {
-                    if (!isPolygonRoom) {
-                      import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
-                        const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-                        const selectedWallIndex = (['top', 'right', 'bottom', 'left'] as WallSide[]).indexOf(activeWall);
-                        const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
-                        setRoom((prev) => ({ ...prev, vertices, customWalls }));
-                        if (selectedWallId) setActiveWall(selectedWallId as WallSide);
-                        setCompassWallRequestId(Date.now());
-                      });
-                    } else {
-                      setCompassWallRequestId(Date.now());
-                    }
-                    setPolygonEditMode(true);
-                    setViewMode("plan");
-                    setDrawMode(false);
-                    setMeasureMode(false);
                     setMobilePanel(null);
-                    toast.info("Opening Compass for the selected wall.");
+                    openSelectedWallCompass();
                   }}
                 />
                 <div className="mt-5 border-t pt-4">

@@ -50,6 +50,8 @@ interface Props {
   cabinetUidsByWall?: Record<string, string[]>;
   /** A changed request token opens the selected wall’s Compass popup directly. */
   compassRequestId?: number;
+  /** Shows the large shape-edit canvas only when that dedicated mode is requested. */
+  showCanvasEditor?: boolean;
   /** Returns from wall editing to the normal cabinet-placement plan. */
   onDone?: () => void;
   /** When true, editing is disabled (view only). */
@@ -67,6 +69,7 @@ export function PolygonRoomEditor({
   onSelectWall,
   cabinetUidsByWall = {},
   compassRequestId,
+  showCanvasEditor = true,
   onDone,
   locked = false,
 }: Props) {
@@ -96,6 +99,9 @@ export function PolygonRoomEditor({
   }, [showHelp]);
 
   const selectedWall = activeWallId ? customWalls.find((wall) => wall.id === activeWallId) ?? null : null;
+  const selectedWallSpan = selectedWall ? Math.max(6, wallSegmentLength(selectedWall, vertices)) : 0;
+  const angleStartValue = Math.max(0, Number(compassAngleStart) || 0);
+  const availableRunLength = Math.max(6, selectedWallSpan - Math.min(Math.max(0, selectedWallSpan - 6), angleStartValue));
   const openCompass = useCallback(() => {
     if (!selectedWall) {
       toast.info("Tap the wall you want to edit first.");
@@ -119,6 +125,10 @@ export function PolygonRoomEditor({
       toast.error(`Move or remove the ${attachedCabinets.length} cabinet${attachedCabinets.length === 1 ? "" : "s"} attached to this wall before changing its geometry. The wall was not changed.`);
       return;
     }
+    if (Number(compassLength) > availableRunLength + 0.01) {
+      toast.error(`This wall is ${Math.round(selectedWallSpan * 8) / 8}" long. The angle start plus angled run must stay within that existing wall.`);
+      return;
+    }
     const result = applyCompassWallEdit(selectedWall.id, {
       angle: compassAngle,
       angleStartIn: Number(compassAngleStart),
@@ -134,7 +144,7 @@ export function PolygonRoomEditor({
     setMode("select");
     dismissHelp();
     toast.success(`Wall updated to ${compassAngle === 90 ? "90°" : compassAngle === 45 ? "+45°" : "−45°"}.`);
-  }, [cabinetUidsByWall, compassAngle, compassAngleStart, compassHeight, compassLength, customWalls, dismissHelp, onChange, onSelectWall, selectedWall, vertices]);
+  }, [availableRunLength, cabinetUidsByWall, compassAngle, compassAngleStart, compassHeight, compassLength, customWalls, dismissHelp, onChange, onSelectWall, selectedWall, selectedWallSpan, vertices]);
 
   const setSelectedWallAngle = useCallback((angle: 45 | -45) => {
     if (locked || !activeWallId) {
@@ -269,7 +279,8 @@ export function PolygonRoomEditor({
   const hasSplits = vertices.length > 4;
 
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <>
+      {showCanvasEditor && <div className="relative w-full h-full flex flex-col">
       {/* ─── Instruction Banner ─────────────────────────────────────────── */}
       {showHelp && (
         <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-[#1a2744] to-[#1a2744]/95 text-white px-4 py-3 shadow-lg">
@@ -569,6 +580,7 @@ export function PolygonRoomEditor({
           })}
         </g>
       </svg>
+      </div>}
       <Dialog open={compassOpen} onOpenChange={setCompassOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -584,14 +596,15 @@ export function PolygonRoomEditor({
               </select>
             </label>
             <label className="grid gap-1.5 font-medium">Distance from corner where angle starts (inches)
-              <Input type="number" min="0" step="0.125" value={compassAngleStart} onChange={(event) => setCompassAngleStart(event.target.value)} />
+              <Input type="number" min="0" max={Math.max(0, selectedWallSpan - 6)} step="0.125" value={compassAngleStart} onChange={(event) => setCompassAngleStart(event.target.value)} />
             </label>
             <label className="grid gap-1.5 font-medium">Wall height (inches)
               <Input type="number" min="34.5" max="144" step="0.125" value={compassHeight} onChange={(event) => setCompassHeight(event.target.value)} />
               <span className="flex flex-wrap gap-1.5">{[34.5, 42, 84, 96].map((height) => <button key={height} type="button" onClick={() => setCompassHeight(String(height))} className={`rounded border px-2 py-1 text-xs font-semibold ${Number(compassHeight) === height ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-[#d8c7a1] text-[#6d5221] hover:bg-[#fff8e8]"}`}>{height}"</button>)}</span>
             </label>
             <label className="grid gap-1.5 font-medium">Wall length (inches)
-              <Input type="number" min="6" step="0.125" value={compassLength} onChange={(event) => setCompassLength(event.target.value)} />
+              <Input type="number" min="6" max={availableRunLength} step="0.125" value={compassLength} onChange={(event) => setCompassLength(event.target.value)} />
+              <span className="text-xs text-muted-foreground">Available within this {Math.round(selectedWallSpan * 8) / 8}&quot; wall: up to {Math.round(availableRunLength * 8) / 8}&quot; after the angle start.</span>
             </label>
             {(cabinetUidsByWall[selectedWall?.id ?? ""]?.length ?? 0) > 0 && <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">Move or remove the cabinets attached to this wall before saving. This prevents orphaned cabinet placements.</p>}
           </div>
@@ -601,6 +614,6 @@ export function PolygonRoomEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

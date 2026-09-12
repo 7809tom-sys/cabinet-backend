@@ -1942,5 +1942,9 @@
 - [x] Verify the live Room Layout Compass entry point on desktop and mobile before publishing the discoverability correction
 - [x] Make the Room Layout dashboard Compass icon act only on the wall selected by the user’s prior wall tap
 - [x] Open the selected wall’s Compass popup directly from the Room Layout dashboard without requiring a second wall tap
+- [x] Place the Compass control beside the visible Floor plan control in every desktop workspace mode, including Full workspace
+- [x] Keep the normal kitchen plan interactive while editing a wall, with no forced full-canvas polygon-editor takeover
+- [x] Reduce wall editing to one compact dashboard Compass entry and its on-demand selected-wall popup
+- [x] Constrain Compass angle-start plus angled-run length to the selected wall’s original measured span, including the 144-inch-wall maximum
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

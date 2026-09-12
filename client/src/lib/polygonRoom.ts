@@ -189,7 +189,12 @@ export function applyCompassWallEdit(
 
   const existingLength = Math.max(6, wallSegmentLength(wall, vertices));
   const startDistance = Math.max(0, Math.min(existingLength - 6, Math.round((Number(edit.angleStartIn) || 0) * 8) / 8));
-  const length = Math.max(6, Math.round((Number(edit.lengthIn) || existingLength) * 8) / 8);
+  // The new run is constrained to this exact existing wall. A 144-inch wall
+  // therefore cannot become longer than 144 inches, and any straight approach
+  // segment consumes part of that measured span.
+  const availableRunLength = Math.max(6, existingLength - startDistance);
+  const requestedLength = Math.round((Number(edit.lengthIn) || availableRunLength) * 8) / 8;
+  const length = Math.max(6, Math.min(availableRunLength, requestedLength));
   const currentBearing = Math.atan2(end.y - start.y, end.x - start.x);
   const cardinalBearing = Math.round(currentBearing / (Math.PI / 2)) * (Math.PI / 2);
   const bearing = edit.angle === 90 ? cardinalBearing : edit.angle * Math.PI / 180;
