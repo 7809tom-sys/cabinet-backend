@@ -39,7 +39,7 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("activeWallId === ([\"top\", \"right\", \"bottom\", \"left\"] as const)[index]");
   });
 
-  it("provides one popup with supported angle, drag-set corner start, height, and length inputs", () => {
+  it("provides one explicit attributes popup with supported angle, drag-set corner start, height, and length inputs", () => {
     expect(editorSource).toContain("45° corner start:");
     expect(editorSource).toContain("Drag the Compass along the selected wall in the plan to move this point.");
     expect(editorSource).not.toContain("Distance from corner where angle starts (inches)");
@@ -52,7 +52,9 @@ describe("selected-wall Compass editor", () => {
     expect(editorSource).toContain("Save wall");
     expect(editorSource).toContain("Cancel");
     expect(designToolSource).toContain("onWallCompassDrop={(wall, startIn) => {");
-    expect(designToolSource).toContain("openSelectedWallCompass(startIn);");
+    expect(designToolSource).toContain("setCompassWallStartIn(startIn);");
+    expect(designToolSource).toContain("45° corner start set. Use Compass to adjust wall attributes.");
+    expect(designToolSource).not.toContain("openSelectedWallCompass(startIn);");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {

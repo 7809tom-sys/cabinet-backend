@@ -10820,7 +10820,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onWallCompassDrop={(wall, startIn) => {
                 setActiveWall(wall);
                 setPlacementTarget("wall");
-                openSelectedWallCompass(startIn);
+                setCompassWallStartIn(startIn);
+                toast.info("45° corner start set. Use Compass to adjust wall attributes.");
               }}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}

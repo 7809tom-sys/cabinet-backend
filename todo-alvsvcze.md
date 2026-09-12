@@ -1954,6 +1954,8 @@
 - [x] Let users drag the Compass along the selected wall and use the release point as the exact 45-degree corner start
 - [x] Let users select a wall and edit its measurements through the same attributes pattern used for cabinets
 - [x] Mirror cabinet selection highlights, validation, cancel, and undo-safe behavior when editing walls
+- [x] Fix the selected-wall Compass handle so it recognizes a true drag rather than opening wall attributes immediately on pointer press
+- [x] Keep wall attributes available through an explicit action while confirming drag release stores the intended corner start
 - [ ] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
