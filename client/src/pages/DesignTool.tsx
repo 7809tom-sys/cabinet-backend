@@ -150,7 +150,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
+import { closestWall, positionAlongWall, rectToPolygon } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -881,23 +881,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const openSelectedWallCompass = useCallback(() => {
     if (layoutLocked) return;
     if (!isPolygonRoom) {
-      import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
-        const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-        const selectedWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
-        const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
-        setRoom((prev) => ({ ...prev, vertices, customWalls }));
-        if (selectedWallId) setActiveWall(selectedWallId as WallSide);
-        setCompassWallRequestId(Date.now());
-      });
+      const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
+      const selectedWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
+      const selectedWallId = customWalls[Math.max(0, selectedWallIndex)]?.id ?? customWalls[0]?.id;
+      setRoom((prev) => ({ ...prev, vertices, customWalls }));
+      if (selectedWallId) setActiveWall(selectedWallId as WallSide);
+      setCompassWallRequestId((current) => current + 1);
     } else {
-      setCompassWallRequestId(Date.now());
+      const cardinalWallIndex = (["top", "right", "bottom", "left"] as WallSide[]).indexOf(activeWall);
+      const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id
+        ?? room.customWalls?.[Math.max(0, cardinalWallIndex)]?.id
+        ?? room.customWalls?.[0]?.id;
+      if (!selectedWallId) {
+        toast.info("Tap the wall you want to edit first.");
+        return;
+      }
+      setActiveWall(selectedWallId as WallSide);
+      setCompassWallRequestId((current) => current + 1);
     }
     setPolygonEditMode(false);
     setViewMode("plan");
     setDrawMode(false);
     setMeasureMode(false);
     toast.info("Opening Compass for the selected wall.");
-  }, [activeWall, isPolygonRoom, layoutLocked, room.depth, room.width]);
+  }, [activeWall, isPolygonRoom, layoutLocked, room.customWalls, room.depth, room.width]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");

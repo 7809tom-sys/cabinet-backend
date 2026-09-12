@@ -1948,6 +1948,7 @@
 - [x] Constrain Compass angle-start plus angled-run length to the selected wall’s original measured span, including the 144-inch-wall maximum
 - [x] Make Compass create one 45-degree end-corner transition from the selected straight wall into its adjoining 90-degree wall, rather than reshaping the full room outline
 - [x] Keep the room boundary closed by shortening only the selected wall and its adjoining wall when inserting a single 45-degree corner transition
+- [x] Make both existing visible tablet/full-workspace Compass controls open the selected wall’s edit popup reliably
 - [ ] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments

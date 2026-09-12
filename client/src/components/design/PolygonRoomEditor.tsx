@@ -98,7 +98,13 @@ export function PolygonRoomEditor({
     if (showHelp) setShowHelp(false);
   }, [showHelp]);
 
-  const selectedWall = activeWallId ? customWalls.find((wall) => wall.id === activeWallId) ?? null : null;
+  const selectedWall = activeWallId ? customWalls.find((wall) => wall.id === activeWallId)
+    ?? customWalls.find((wall, index) => {
+      const expectedLabel = (["back", "right", "front", "left"] as const)[index];
+      return activeWallId === (["top", "right", "bottom", "left"] as const)[index]
+        && (wall.label ?? "").toLowerCase() === expectedLabel;
+    })
+    ?? null : null;
   const selectedWallSpan = selectedWall ? Math.max(6, wallSegmentLength(selectedWall, vertices)) : 0;
   const requestedWallLength = Math.max(6, Math.min(selectedWallSpan, Number(compassLength) || selectedWallSpan));
   const maxAngleStart = Math.max(0, requestedWallLength - 6);

@@ -27,6 +27,15 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("onDone={() => setPolygonEditMode(false)}");
   });
 
+  it("resolves a concrete selected wall and increments a request counter before opening Compass", () => {
+    expect(designToolSource).toContain('import { closestWall, positionAlongWall, rectToPolygon } from "@/lib/polygonRoom";');
+    expect(designToolSource).toContain("const selectedWallId = room.customWalls?.find((wall) => wall.id === activeWall)?.id");
+    expect(designToolSource).toContain("setCompassWallRequestId((current) => current + 1);");
+    expect(designToolSource).not.toContain('import("@/lib/polygonRoom").then(({ rectToPolygon }) =>');
+    expect(editorSource).toContain("customWalls.find((wall, index) => {");
+    expect(editorSource).toContain("activeWallId === ([\"top\", \"right\", \"bottom\", \"left\"] as const)[index]");
+  });
+
   it("provides the one popup with only supported angle, start, height, and length inputs", () => {
     expect(editorSource).toContain("Distance from corner where angle starts (inches)");
     expect(editorSource).toContain("Wall height (inches)");
