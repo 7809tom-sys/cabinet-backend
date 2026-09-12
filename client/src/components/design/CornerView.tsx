@@ -29,6 +29,7 @@ interface Props {
   room: RoomData;
   cabinets: PlacedCabinet[];
   selectedUid: string | null;
+  attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
   corner: CornerId;
   onCornerChange: (c: CornerId) => void;
@@ -48,7 +49,7 @@ interface Props {
 }
 
 export function CornerView({
-  room, cabinets, selectedUid, onSelect, corner, onCornerChange,
+  room, cabinets, selectedUid, attributesTargetUid = null, onSelect, corner, onCornerChange,
   countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", hardwareStyleId = null,
@@ -80,7 +81,7 @@ export function CornerView({
   const seamForRight = cornerCabsHere.filter((c) => cabinetWall(c, room) !== right);
 
   const sharedProps = {
-    room, cabinets, selectedUid, onSelect,
+    room, cabinets, selectedUid, attributesTargetUid, onSelect,
     countertopMaterialId, openings, finish, crown, toeKick, batten, lightRail, panelKind, hardwareStyleId,
     finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor,
   };

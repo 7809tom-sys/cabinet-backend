@@ -298,8 +298,10 @@ interface Props {
   cabinets: PlacedCabinet[];
 	  island: IslandZone;
   /** Which face of the island to show. Defaults to "front" (the side closest to the room top wall). */
-	  face?: IslandFace;
+  face?: IslandFace;
   selectedUid: string | null;
+  /** Island cabinet currently controlled by an open Attributes panel. */
+  attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
   countertopMaterialId?: string | null;
   finish?: FinishColors;
@@ -327,7 +329,7 @@ const TOL = 2;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function IslandElevationView({
-  room, cabinets, island, face = "front", selectedUid, onSelect,
+  room, cabinets, island, face = "front", selectedUid, attributesTargetUid = null, onSelect,
   countertopMaterialId = null,
   finish = DEFAULT_FINISH_COLORS,
   crown = false, toeKick = false, batten = false, lightRail = false,
@@ -407,6 +409,7 @@ export function IslandElevationView({
     const isWall = p.placement === "wall";
     const isAppliance = p.placement === "appliance";
     const isSelected = p.uid === selectedUid;
+    const isAttributesTarget = p.uid === attributesTargetUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
@@ -432,24 +435,28 @@ export function IslandElevationView({
       <div
         key={p.uid}
         onClick={(e) => { e.stopPropagation(); onSelect(p.uid); }}
-        className="absolute cursor-pointer"
+        className={`absolute cursor-pointer ${isAttributesTarget ? "z-20" : ""}`}
         style={{
           left: cabPosAlong * ppi,
           width: cabSizeAlong * ppi,
           bottom: bottom * ppi,
           height: height * ppi,
           background: faceFill,
-          border: isSelected ? "2px solid #1a2744" : `1px solid ${edgeColor}`,
+          border: isAttributesTarget ? "3px solid #a87f33" : isSelected ? "2px solid #1a2744" : `1px solid ${edgeColor}`,
           borderRadius: 2,
-          boxShadow: isSelected
+          boxShadow: isAttributesTarget
+            ? "0 0 0 5px rgba(212,167,90,0.62), 0 0 18px rgba(212,167,90,0.48), 0 6px 14px rgba(15,23,42,0.28), inset 0 0 0 2px rgba(255,255,255,0.75)"
+            : isSelected
             ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
             : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           transition: "left 80ms ease-out",
           zIndex: 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
+        data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
       >
         <div className="w-full h-full relative">
+          {isAttributesTarget && <span data-testid="island-cabinet-attributes-target" className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full border border-amber-200 bg-[#1a2744] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse">Editing</span>}
           {!isAppliance && (
             <DoorFront
               kind={cabPanelKind}

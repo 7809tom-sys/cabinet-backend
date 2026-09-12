@@ -337,6 +337,10 @@ export function CabinetAttributesDialog({
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>
+          <div data-testid="cabinet-attributes-active-target" className="mt-1 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm ring-2 ring-amber-200/70 motion-safe:animate-pulse">
+            <span className="shrink-0 rounded bg-[#1a2744] px-1.5 py-0.5 font-mono font-bold text-white">{cabinet.masterCode}</span>
+            <span><strong>Editing this cabinet</strong> — it is highlighted in the active Designer view.</span>
+          </div>
           {editConfigLink && (
             <a
               href={editConfigLink.href}

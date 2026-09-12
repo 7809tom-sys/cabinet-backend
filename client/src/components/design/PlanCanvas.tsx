@@ -120,6 +120,8 @@ interface Props {
   catalogDragCabinet?: DesignCabinet | null;
   cabinets: PlacedCabinet[];
   selectedUid: string | null;
+  /** Cabinet currently controlled by an open Attributes panel. This receives a stronger, non-destructive visual cue than ordinary selection. */
+  attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
   onMove: (uid: string, x: number, y: number, rotation?: number) => void;
   onDelete?: (uid: string) => void;
@@ -242,7 +244,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 }
 
 export function PlanCanvas({
-  room, catalogDragCabinet = null, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
+  room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
 	  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
 	  islandDepthTransition = null,
 	  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
@@ -1359,6 +1361,7 @@ export function PlanCanvas({
             const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
+            const isAttributesTarget = p.uid === attributesTargetUid;
             const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
@@ -1394,7 +1397,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-shadow ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-                } ${isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+                } ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: p.x * ppi,
                   top: p.y * ppi,
@@ -1405,6 +1408,8 @@ export function PlanCanvas({
                     : faceFill,
                   border: inConflict
                     ? "2.5px solid #dc2626"
+                    : isAttributesTarget
+                    ? "3px solid #a87f33"
                     : isSelected
                     ? "2px solid #1a2744"
                     : collides
@@ -1414,6 +1419,8 @@ export function PlanCanvas({
                     : `1.5px solid ${edgeColor}`,
                   boxShadow: inConflict
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
+                    : isAttributesTarget
+                    ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
@@ -1421,8 +1428,12 @@ export function PlanCanvas({
                   clipPath: planCabinetClipPath(p, room),
                 }}
                 title={`${p.masterCode} — ${p.description}`}
+                data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+                  {isAttributesTarget && (
+                    <span data-testid="plan-cabinet-attributes-target" className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full border border-amber-200 bg-[#1a2744] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse">Editing</span>
+                  )}
                   {/* BEC-24 is a 24x24 two-face end return. Keep the enclosing
                       square for collision/snapping, then show the paired 12-inch
                       faces with a 90-degree fold mark — never a clipped corner. */}

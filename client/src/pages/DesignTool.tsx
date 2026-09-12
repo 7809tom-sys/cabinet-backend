@@ -6234,6 +6234,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // so the existing selected-based size/swing handlers operate on it.
   const [attrUid, setAttrUid] = useState<string | null>(null);
   const [attrOpen, setAttrOpen] = useState(false);
+  const attributesTargetUid = attrOpen ? attrUid : null;
 	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
 	  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
 	  const [floatingShelfAttrUid, setFloatingShelfAttrUid] = useState<string | null>(null);
@@ -8017,11 +8018,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       ponyWalls={ponyWalls}
       orderSummary={interactive3dOrderSummary}
       orderLines={interactive3dOrderLines}
-      catalogItems={interactive3dCatalogItems}
-      onAddCatalogItem={addFromInteractive3d}
-      onAddRangeHood={addRangeHoodFromInteractive3d}
-      selectedCabinetUid={selectedUid}
-      onSelectCabinet={selectCabinet}
+	      catalogItems={interactive3dCatalogItems}
+	      onAddCatalogItem={addFromInteractive3d}
+	      onAddRangeHood={addRangeHoodFromInteractive3d}
+	      selectedCabinetUid={selectedUid}
+	      attributesTargetUid={attributesTargetUid}
+	      onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
       onSelectOpening={selectOpening}
       onOpenWindowEditor={openWindowAttributes}
@@ -10721,9 +10723,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              automaticSnapping={automaticSnapping}
 	              smartGapCandidates={smartGapCatalogCandidates}
 	              smartGapCandidatePrices={smartGapCandidatePrices}
-              cabinets={placed}
-              selectedUid={selectedUid}
-              onSelect={selectCabinet}
+	              cabinets={placed}
+	              selectedUid={selectedUid}
+	              attributesTargetUid={attributesTargetUid}
+	              onSelect={selectCabinet}
               onMove={moveCabinet}
               onDelete={deleteCabinet}
               onRotate={rotateCabinet}
@@ -10790,13 +10793,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
 	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
           {viewMode === "elevation" && (
-            <ElevationView
-              room={room}
-              cabinets={placed}
-              selectedUid={selectedUid}
-              onSelect={selectCabinet}
-              wall={activeWall}
-              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
+	            <ElevationView
+	              room={room}
+	              cabinets={placed}
+	              selectedUid={selectedUid}
+	              attributesTargetUid={attributesTargetUid}
+	              onSelect={selectCabinet}
+	              wall={activeWall}
+	              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               countertopMaterialId={countertop ? countertopMaterialId : null}
               backsplashMaterialId={backsplashMaterialId}
               flooringMaterialId={flooringMaterialId}
@@ -10831,12 +10835,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                ))}
 	                <button onClick={() => setIslandAttributesOpen(true)} className="px-3 py-1 text-xs font-semibold text-[#a87f33] hover:text-[#1a2744]">Edit</button>
 	              </div>
-              <IslandElevationView
-                room={room}
-                cabinets={placed}
-                island={island}
+	              <IslandElevationView
+	                room={room}
+	                cabinets={placed}
+	                island={island}
 	                face={islandFace}
 	                selectedUid={selectedUid}
+	                attributesTargetUid={attributesTargetUid}
 	                onSelect={selectCabinet}
 	                countertopMaterialId={countertop ? island.countertopMaterialId ?? countertopMaterialId : null}
 	                finish={activeFinish}
@@ -10854,11 +10859,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </div>
           )}
           {viewMode === "corner" && (
-            <CornerView
-              room={room}
-              cabinets={placed}
-              selectedUid={selectedUid}
-              onSelect={selectCabinet}
+	            <CornerView
+	              room={room}
+	              cabinets={placed}
+	              selectedUid={selectedUid}
+	              attributesTargetUid={attributesTargetUid}
+	              onSelect={selectCabinet}
               corner={corner}
               onCornerChange={setCorner}
               countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -10885,9 +10891,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  automaticSnapping={automaticSnapping}
 	                  smartGapCandidates={smartGapCatalogCandidates}
 	                  smartGapCandidatePrices={smartGapCandidatePrices}
-                  cabinets={placed}
-                  selectedUid={selectedUid}
-                  onSelect={selectCabinet}
+	                  cabinets={placed}
+	                  selectedUid={selectedUid}
+	                  attributesTargetUid={attributesTargetUid}
+	                  onSelect={selectCabinet}
                   onMove={moveCabinet}
                   onDelete={deleteCabinet}
                   onRotate={rotateCabinet}
@@ -10952,11 +10959,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                />
 	              </div>
 	              <div className="flex-1 min-h-0">
-                <ElevationView
-                  room={room}
-                  cabinets={placed}
-                  selectedUid={selectedUid}
-                  onSelect={selectCabinet}
+	                <ElevationView
+	                  room={room}
+	                  cabinets={placed}
+	                  selectedUid={selectedUid}
+	                  attributesTargetUid={attributesTargetUid}
+	                  onSelect={selectCabinet}
                   wall={activeWall}
                   onSelectWall={setActiveWall}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -12314,9 +12322,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 		      {/* Right-click per-cabinet attributes editor */}
       <CabinetAttributesDialog
-        cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
-        open={attrOpen}
-        onOpenChange={setAttrOpen}
+	        cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
+	        open={attrOpen}
+	        onOpenChange={(open) => {
+	          setAttrOpen(open);
+	          if (!open) setAttrUid(null);
+	        }}
         customFee={CUSTOM_SIZE_FEE}
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}

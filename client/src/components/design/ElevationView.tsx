@@ -31,6 +31,8 @@ interface Props {
   room: RoomData;
   cabinets: PlacedCabinet[];
   selectedUid: string | null;
+  /** Cabinet currently controlled by an open Attributes panel. */
+  attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
   // Which physical wall to view, in plan terms (top/bottom/left/right).
   // Back-compat: "front" maps to bottom, "back" maps to top.
@@ -243,7 +245,7 @@ export function farmhouseSinkElevationGeometry(cabinetWidthIn: number) {
 }
 
 export function ElevationView({
-  room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, backsplashMaterialId = null, openings = [],
+  room, cabinets, selectedUid, attributesTargetUid = null, onSelect, wall, onSelectWall, countertopMaterialId = null, backsplashMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
@@ -398,6 +400,7 @@ export function ElevationView({
       ? applianceAppearanceImage(p.masterCode, p.catalogImageUrl)
       : null;
     const isSelected = p.uid === selectedUid;
+    const isAttributesTarget = p.uid === attributesTargetUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
@@ -503,7 +506,7 @@ export function ElevationView({
           e.stopPropagation();
           onSelect(p.uid);
         }}
-        className={`absolute overflow-hidden ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+        className={`absolute overflow-hidden ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${isAttributesTarget ? "z-20" : ""}`}
         style={{
           left: posAlong * ppi,
           width: sizeAlong * ppi,
@@ -521,6 +524,8 @@ export function ElevationView({
           // When selected, the gold inner glow is added on top of the shadow.
           boxShadow: refrigeratorEndPanel
             ? refrigeratorEndPanelRenderStyle().boxShadow
+            : isAttributesTarget
+              ? "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10), inset 0 0 0 3px rgba(212,167,90,1), inset 0 0 14px rgba(212,167,90,0.48), 0 0 0 4px rgba(212,167,90,0.50)"
             : isSelected
               ? "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10), inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)"
               : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
@@ -532,8 +537,10 @@ export function ElevationView({
           zIndex: isDragging ? 10 : refrigeratorEndPanel ? refrigeratorEndPanelRenderStyle().zIndex : 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
+        data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
       >
         <div className="w-full h-full relative">
+          {isAttributesTarget && <span data-testid="elevation-cabinet-attributes-target" className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full border border-amber-200 bg-[#1a2744] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse">Editing</span>}
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}

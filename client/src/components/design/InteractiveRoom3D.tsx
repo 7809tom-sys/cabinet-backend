@@ -562,6 +562,8 @@ interface Props {
   onMoveCabinetTo?: (uid: string, x: number, y: number, preview: NonNullable<ReturnType<typeof cabinetWallDragPreview>>) => void;
   /** Host selection synchronized into the 3D action card so a second scene click is unnecessary. */
   selectedCabinetUid?: string | null;
+  /** Cabinet currently controlled by the host Cabinet Attributes panel. */
+  attributesTargetUid?: string | null;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
   onSelectCabinet?: (uid: string) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
@@ -6660,7 +6662,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -6668,6 +6670,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
+  const attributesOutlineRef = useRef<THREE.BoxHelper | null>(null);
   const cameraViewRef = useRef<ThreeDCameraViewSnapshot | null>(null);
   const sharedCameraViewRef = useRef<ThreeDCameraShareView | null>(typeof window === "undefined" ? null : parseThreeDCameraShareView(new URLSearchParams(window.location.search).get(THREE_D_CAMERA_VIEW_QUERY_PARAM)));
   const pointerStartRef = useRef<{ x: number; y: number; button: number } | null>(null);
@@ -7374,6 +7377,37 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
 	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+
+  useEffect(() => {
+    const root = catalogRootRef.current;
+    const removeOutline = () => {
+      const current = attributesOutlineRef.current;
+      if (!current) return;
+      current.parent?.remove(current);
+      current.geometry.dispose();
+      const materials = Array.isArray(current.material) ? current.material : [current.material];
+      materials.forEach((material) => material.dispose());
+      attributesOutlineRef.current = null;
+    };
+    removeOutline();
+    if (!root || !attributesTargetUid) return undefined;
+    const target = root.children.find((node) => node.userData.placedUid === attributesTargetUid);
+    if (!target) return undefined;
+    const outline = new THREE.BoxHelper(target, new THREE.Color("#d4a75a"));
+    outline.name = "cabinet-attributes-target-outline";
+    outline.userData = { cabinetAttributesTarget: true, placedUid: attributesTargetUid };
+    outline.renderOrder = 1000;
+    const materials = Array.isArray(outline.material) ? outline.material : [outline.material];
+    materials.forEach((material) => {
+      material.depthTest = false;
+      material.transparent = true;
+      material.opacity = 0.98;
+    });
+    outline.update();
+    root.add(outline);
+    attributesOutlineRef.current = outline;
+    return removeOutline;
+  }, [attributesTargetUid, cameraReadyKey]);
 
   const downloadImage = () => {
     const renderer = rendererRef.current;

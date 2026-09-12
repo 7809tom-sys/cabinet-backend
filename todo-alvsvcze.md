@@ -1924,5 +1924,7 @@
 - [x] Ensure the Designer refresh prompt remains visible and actionable over any open attributes panel, dialog, or popup
 - [x] Verify Designer refresh prompts preserve unsaved-plan safeguards while allowing updated code to load from every active UI state
 - [x] Publish validated low-risk Designer updates automatically so the owner can test them live without a separate approval message
+- [x] Add an unmistakable visual highlight to the cabinet or cabinet group currently controlled by the open Cabinet Attributes panel
+- [x] Verify the Cabinet Attributes selection highlight in plan, elevation, 3D, desktop, and mobile Designer states
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
