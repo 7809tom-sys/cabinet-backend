@@ -244,8 +244,11 @@ function priceOf(
     listPrice?: string | null;
   },
   tier: PricingTier,
-): number {
-  return resolveTierPrice(DESIGN_TIER_TO_SHARED[tier], row) ?? 0;
+): number | null {
+  // A price that cannot be resolved from an authorized catalog row is pending,
+  // not a $0 sale. Returning null lets every downstream quote/cart flow show
+  // the existing pending-price state instead of inventing a free item.
+  return resolveTierPrice(DESIGN_TIER_TO_SHARED[tier], row);
 }
 
 // Compact inch stepper for one cabinet dimension (W/H/D). Shows the dimension
@@ -1923,7 +1926,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // different price under a different finish.
   const priceMap = useMemo(() => {
     const m = new Map<string, number>();
-    priceRows?.forEach((r) => m.set(`${r.cabinetId}:${r.styleId}`, priceOf(r, tier)));
+    priceRows?.forEach((r) => {
+      const price = priceOf(r, tier);
+      if (price != null) m.set(`${r.cabinetId}:${r.styleId}`, price);
+    });
     return m;
   }, [priceRows, tier]);
 
@@ -2106,11 +2112,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const m = new Map<string, TrimPrice>();
     trimSkuRows?.forEach((r) => {
       if (styleId != null && r.styleId !== styleId) return;
+      const unitPrice = priceOf(r, tier);
+      if (unitPrice == null) return;
       m.set(r.masterCode, {
         cabinetId: r.cabinetId,
         masterCode: r.masterCode,
         description: r.description,
-        unitPrice: priceOf(r, tier),
+        unitPrice,
       });
     });
     return m;
@@ -4458,7 +4466,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { enabled: smartGapPricePairs.length > 0 && !!styleId },
   );
   const smartGapCandidatePrices = useMemo(
-    () => new Map((smartGapPriceRows ?? []).map((row) => [row.cabinetId, priceOf(row, tier)])),
+    () => new Map((smartGapPriceRows ?? []).flatMap((row) => {
+      const price = priceOf(row, tier);
+      return price == null ? [] : [[row.cabinetId, price] as const];
+    })),
     [smartGapPriceRows, tier],
   );
   const gapFillCandidates = useMemo<Map<number, DesignCabinet>>(

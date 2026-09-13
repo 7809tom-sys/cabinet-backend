@@ -1972,3 +1972,4 @@
 - [x] Make every standard and peninsula wall directly selectable and editable for permitted length, height, and locked 45-degree or 90-degree direction
 - [x] Review the provided Speedship API V4 Staging package against the shipping integration without running untrusted package contents or changing live shipping behavior
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
+- [x] Diagnose and correct the reported Designer cabinet price or cart-total mismatch using only verified catalog pricing sources
