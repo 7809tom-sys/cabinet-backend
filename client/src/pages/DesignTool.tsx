@@ -89,7 +89,7 @@ import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun,
+          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaDirection,
 	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
@@ -110,7 +110,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, cabinetWall, isLockedAngledCustomWall,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -150,7 +150,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
+import { applyCompassWallEdit, closestWall, positionAlongWall, type CompassWallAngle } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -874,6 +874,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [activeWall, setActiveWall] = useState<WallSide>("top");
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
+  const [wallSettingsOpen, setWallSettingsOpen] = useState(false);
+  const [wallSettingsDraft, setWallSettingsDraft] = useState<null | {
+    wallId: WallSide;
+    kind: "standard" | "custom" | "peninsula";
+    label: string;
+    length: number;
+    height: number;
+    angle: CompassWallAngle;
+    direction: PeninsulaDirection;
+    startOffset: number;
+  }>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
   // plan can't be nudged while placing cabinets. lockedWalls freezes individual
   // walls. Cabinets can always still be added/moved.
@@ -890,6 +901,89 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setMeasureMode(false);
     toast.info(`Drag the gold 45° Compass on the selected ${WALL_LABELS[activeWall]} wall. No popup is needed.`);
   }, [activeWall, layoutLocked]);
+  const openWallSettings = useCallback(() => {
+    const peninsula = peninsulaRunById(room, activeWall);
+    const custom = room.customWalls?.find((wall) => wall.id === activeWall);
+    const standard = !peninsula && !custom;
+    setWallSettingsDraft({
+      wallId: activeWall,
+      kind: peninsula ? "peninsula" : custom ? "custom" : "standard",
+      label: peninsula?.label ?? custom?.label ?? wallLabel[activeWall] ?? "Selected wall",
+      length: wallLength(activeWall, room),
+      height: peninsula?.height ?? custom?.height ?? room.wallCeilings?.[activeWall]?.high ?? room.ceilingHeight ?? 96,
+      angle: peninsula?.turn === 45 ? (peninsula.direction === "right" ? 45 : -45) : custom?.lockedAngle === 45 ? 45 : custom?.lockedAngle === -45 ? -45 : 90,
+      direction: peninsula?.direction ?? "right",
+      startOffset: peninsula?.startOffset ?? 0,
+    });
+    setWallSettingsOpen(true);
+    if (standard) setPlacementTarget("wall");
+  }, [activeWall, room]);
+  const saveWallSettings = useCallback(() => {
+    const draft = wallSettingsDraft;
+    if (!draft) return;
+    const length = Math.max(6, Math.round((Number(draft.length) || 6) * 8) / 8);
+    const height = Math.max(34.5, Math.min(144, Math.round((Number(draft.height) || 96) * 8) / 8));
+    const wallCabinets = placed.filter((cabinet) => cabinetWall(cabinet, room) === draft.wallId);
+    const mountedCabinetAboveHeight = wallCabinets.find((cabinet) => cabinet.placement === "wall" && (Number(cabinet.mountBottom) || STD.WALL_MOUNT_BOTTOM) + placedHeight(cabinet) > height + 0.01);
+    if (mountedCabinetAboveHeight) {
+      toast.error(`Raise this wall height or move ${mountedCabinetAboveHeight.masterCode} before saving. The wall cannot become shorter than its mounted cabinet.`);
+      return;
+    }
+    if (draft.kind === "peninsula") {
+      const current = peninsulaRunById(room, draft.wallId);
+      if (!current) return;
+      const parentLength = wallLength(current.parentWall, room);
+      const startOffset = Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
+      const turn = draft.angle === 90 ? 90 : 45;
+      const direction: PeninsulaDirection = draft.angle === -45 ? "left" : draft.angle === 45 ? "right" : draft.direction;
+      const proposed = { ...current, startOffset, length, height, turn, direction } as PeninsulaRun;
+      const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
+      if (geometryChanged && wallCabinets.length > 0) {
+        toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
+        return;
+      }
+      const cappedLength = Math.min(length, peninsulaRunMaxLength(proposed, room));
+      setRoom((previous) => ({
+        ...previous,
+        peninsulaRuns: (previous.peninsulaRuns ?? []).map((run) => run.id === current.id ? { ...proposed, length: cappedLength } : run),
+      }));
+      setWallSettingsOpen(false);
+      toast.success(`Updated ${current.label ?? "peninsula run"}.`);
+      return;
+    }
+    if (draft.kind === "custom") {
+      const custom = room.customWalls?.find((wall) => wall.id === draft.wallId);
+      if (!custom || !room.vertices || !room.customWalls) return;
+      const geometryChanged = Math.abs(wallLength(custom.id as WallSide, room) - length) > 0.01 || (custom.lockedAngle ?? 90) !== draft.angle;
+      if (geometryChanged && wallCabinets.length > 0) {
+        toast.error("Move or remove cabinets on this wall before changing its locked angle or length. Height may be edited without moving cabinets.");
+        return;
+      }
+      const updated = applyCompassWallEdit(custom.id, { angleStartIn: 0, lengthIn: length, angle: draft.angle, heightIn: height }, room.vertices, room.customWalls);
+      if (!updated) {
+        toast.error("This wall could not be updated while preserving the closed room boundary.");
+        return;
+      }
+      setRoom((previous) => ({ ...previous, vertices: updated.vertices, customWalls: updated.customWalls }));
+      setActiveWall(updated.editedWallId as WallSide);
+      setWallSettingsOpen(false);
+      toast.success(`Updated ${draft.label}.`);
+      return;
+    }
+    const axis = draft.wallId === "top" || draft.wallId === "bottom" ? "width" : "depth";
+    const hasRoomContents = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null;
+    if (Math.abs(room[axis] - length) > 0.01 && hasRoomContents) {
+      toast.error("Move or remove room contents before resizing a perimeter wall span. This protects existing cabinets, openings, and fixtures from being silently moved.");
+      return;
+    }
+    setRoom((previous) => ({
+      ...previous,
+      [axis]: length,
+      wallCeilings: { ...previous.wallCeilings, [draft.wallId]: { high: height, low: height } },
+    }));
+    setWallSettingsOpen(false);
+    toast.success(`Updated ${draft.label}.`);
+  }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -3235,7 +3329,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [openings, room]);
 
   const addCabinet = useCallback(
-	    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number }) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
 	      if (isAddingRef.current) return;
@@ -3390,8 +3484,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      } else if (refrigeratorAdjacentSpot) {
 	        spot = refrigeratorAdjacentSpot;
 	        preserveResolvedPlacement = true;
-	      } else if (x != null && y != null) {
-        spot = { x, y, rotation };
+      } else if (x != null && y != null) {
+        spot = { x, y, rotation, ...(resolvedWallTarget ?? {}) };
 	      } else {
 	        const requiresRoomCorner = !isAccessory
 	          && !isBlindCorner(c.masterCode, c.description)
@@ -5786,18 +5880,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const data = dragDataRef.current;
       if (!data) return;
       const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
-      const polygonWall = room.vertices && room.customWalls
-        ? closestWall(center.x, center.y, room.vertices, room.customWalls)
-        : null;
-      const dropWall = (polygonWall?.id ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
+	      const activePeninsulaRun = peninsulaRunById(room, activeWall);
+	      const polygonWall = !activePeninsulaRun && room.vertices && room.customWalls
+	        ? closestWall(center.x, center.y, room.vertices, room.customWalls)
+	        : null;
+	      // A selected peninsula is an explicit placement choice. Preserve it for
+	      // touch catalog drops instead of allowing the pointer's nearest room edge
+	      // to redirect the cabinet back onto an outside wall.
+	      const dropWall = (activePeninsulaRun?.id ?? polygonWall?.id ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
       const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
       const dimensions = resolvedDesignCabinetDimensions(data);
       const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
-      const targetAlong = polygonWall && isLockedAngledCustomWall(room, dropWall)
-        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
-        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+	      const targetAlong = activePeninsulaRun
+	        ? peninsulaRunOffsetAtPoint(activePeninsulaRun, room, center)
+	        : polygonWall && isLockedAngledCustomWall(room, dropWall)
+	        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
+	        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
         : null;
@@ -5839,12 +5939,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
         setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
       }
-      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room);
-      addCabinet(data, spot.x, spot.y, forceAccessory, spot.rotation, true);
+	      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room);
+	      addCabinet(
+	        data,
+	        spot.x,
+	        spot.y,
+	        forceAccessory,
+	        spot.rotation,
+	        true,
+	        undefined,
+	        undefined,
+	        false,
+	        { wallId: dropWall, wallOffset: measured.snapStart },
+	      );
       dragDataRef.current = null;
       setCatalogDragPreview(null);
     },
-	    [addCabinet, automaticSnapping, openings, paletteType, placed, room]
+	    [activeWall, addCabinet, automaticSnapping, openings, paletteType, placed, room]
   );
 
 			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
@@ -8717,6 +8828,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                    ))}
 	                  </div>
 	                )}
+	                <div className="px-3 pb-2">
+	                  <Button type="button" variant="outline" size="sm" className="w-full justify-start" onClick={openWallSettings}>
+	                    <Pencil className="mr-2 h-3.5 w-3.5" /> Edit selected wall
+	                  </Button>
+	                </div>
 
 	                {/* Wall cabinet height selector (mobile) */}
                 <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_wall_height_label")}</p>
@@ -11225,16 +11341,72 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             </div>
           )}
 
-          {/* Wall layer toggle (plan only) */}
-          {viewMode !== "threeD" && viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
-            <button
-              onClick={() => setShowWallLayer((s) => !s)}
-              className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/90 border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
-            >
-              <PanelTop className="h-3.5 w-3.5" />
-              {showWallLayer ? t("dt_hide_wall_cabs") : t("dt_show_wall_cabs")}
-            </button>
-          )}
+	          {/* Wall layer toggle and explicit per-wall settings (plan only) */}
+	          {viewMode !== "threeD" && viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
+	            <div className="absolute top-3 right-3 z-30 flex flex-col items-end gap-2">
+	              <button
+	                type="button"
+	                data-testid="edit-selected-wall-trigger"
+	                onClick={openWallSettings}
+	                className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] shadow-sm hover:bg-[#fff9ed]"
+	              >
+	                <Pencil className="h-3.5 w-3.5" /> Edit wall
+	              </button>
+	              <button
+	                onClick={() => setShowWallLayer((s) => !s)}
+	                className="flex items-center gap-1.5 rounded-lg border border-border bg-white/90 px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
+	              >
+	                <PanelTop className="h-3.5 w-3.5" />
+	                {showWallLayer ? t("dt_hide_wall_cabs") : t("dt_show_wall_cabs")}
+	              </button>
+	            </div>
+	          )}
+	          <Dialog open={wallSettingsOpen} onOpenChange={setWallSettingsOpen}>
+	            <DialogContent className="max-w-md gap-0 p-0">
+	              <DialogHeader className="border-b px-4 py-3">
+	                <DialogTitle>Edit {wallSettingsDraft?.label ?? "wall"}</DialogTitle>
+	                <DialogDescription>Compass creates a peninsula split. These settings edit the selected wall itself.</DialogDescription>
+	              </DialogHeader>
+	              {wallSettingsDraft && (
+	                <div className="grid gap-3 px-4 py-4">
+	                  {wallSettingsDraft.kind === "peninsula" && (
+	                    <>
+	                      <div className="grid grid-cols-2 gap-2">
+	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Turn
+	                          <select value={wallSettingsDraft.angle} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, angle: Number(event.target.value) as CompassWallAngle } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                            <option value={45}>45° right</option><option value={-45}>45° left</option><option value={90}>90°</option>
+	                          </select>
+	                        </label>
+	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Split from corner (in)
+	                          <Input type="number" min="0" step="0.125" value={wallSettingsDraft.startOffset} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, startOffset: Number(event.target.value) || 0 } : draft)} />
+	                        </label>
+	                      </div>
+	                    </>
+	                  )}
+	                  {wallSettingsDraft.kind === "custom" && (
+	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Locked direction
+	                      <select value={wallSettingsDraft.angle} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, angle: Number(event.target.value) as CompassWallAngle } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                        <option value={90}>90° straight</option><option value={45}>45° right</option><option value={-45}>45° left</option>
+	                      </select>
+	                    </label>
+	                  )}
+	                  <div className="grid grid-cols-2 gap-2">
+	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Length (in)
+	                      <Input type="number" min="6" step="0.125" value={wallSettingsDraft.length} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, length: Number(event.target.value) || 6 } : draft)} />
+	                    </label>
+	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Height (in)
+	                      <Input type="number" min="34.5" max="144" step="0.125" value={wallSettingsDraft.height} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, height: Number(event.target.value) || 34.5 } : draft)} />
+	                    </label>
+	                  </div>
+	                  <p className="text-xs leading-5 text-muted-foreground">Changing a wall’s geometry is blocked while it has cabinets, and a wall cannot be shortened below a mounted cabinet. This keeps every placed cabinet supported and in its existing run.</p>
+	                </div>
+	              )}
+	              <DialogFooter className="border-t px-4 py-3">
+	                <Button type="button" variant="outline" onClick={() => setWallSettingsOpen(false)}>Cancel</Button>
+	                <Button type="button" onClick={saveWallSettings}>Save wall</Button>
+	              </DialogFooter>
+	            </DialogContent>
+	          </Dialog>
         </div>
 
         {/* Right: pricing + BOM — inline column on desktop; bottom drawer on mobile */}

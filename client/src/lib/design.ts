@@ -1194,6 +1194,13 @@ export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { leng
   return Math.max(6, Math.floor(maximum * 8) / 8);
 }
 
+/** Measures a room point along a locked peninsula run, clamped to its usable length. */
+export function peninsulaRunOffsetAtPoint(run: PeninsulaRun, room: Pick<RoomData, "width" | "depth">, point: { x: number; y: number }): number {
+  const { start, radians } = peninsulaRunEndpoints(run, room);
+  const projected = (point.x - start.x) * Math.cos(radians) + (point.y - start.y) * Math.sin(radians);
+  return Math.max(0, Math.min(run.length, Math.round(projected * 8) / 8));
+}
+
 export function peninsulaRunById(room: RoomData, wallId?: string | null): PeninsulaRun | null {
   if (!wallId) return null;
   return room.peninsulaRuns?.find((run) => run.id === wallId) ?? null;
