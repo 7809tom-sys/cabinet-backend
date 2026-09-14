@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -149,6 +149,28 @@ describe("cabinet-supported peninsula runs", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     expect(peninsulaRunOffsetAtPoint(run, peninsulaRoom, { x: 48, y: 63 })).toBe(63);
     expect(peninsulaRunOffsetAtPoint(run, peninsulaRoom, { x: 48, y: 220 })).toBe(96);
+  });
+
+  it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
+    const hit = peninsulaRunHitAtPoint(peninsulaRoom, { x: 49, y: 60 }, 12);
+    expect(hit).toMatchObject({ run: { id: "peninsula-90-right" }, offset: 60 });
+    const spot = wallPlacementAt(hit!.offset, 30, 12, hit!.run.id as any, peninsulaRoom);
+    const upper: PlacedCabinet = {
+      uid: "peninsula-upper",
+      cabinetId: 3,
+      masterCode: "W-30-30",
+      description: "Peninsula upper",
+      placement: "wall",
+      x: spot.x,
+      y: spot.y,
+      width: 30,
+      depth: 12,
+      height: 30,
+      rotation: spot.rotation,
+      wallId: spot.wallId,
+      wallOffset: spot.wallOffset,
+    };
+    expect(snapWallCabinetToOwningWall(upper, peninsulaRoom)).toEqual(upper);
   });
 
   it("keeps a peninsula run empty until cabinets are placed, then reopens an exact removed void", () => {

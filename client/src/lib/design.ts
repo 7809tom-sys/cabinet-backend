@@ -1201,6 +1201,34 @@ export function peninsulaRunOffsetAtPoint(run: PeninsulaRun, room: Pick<RoomData
   return Math.max(0, Math.min(run.length, Math.round(projected * 8) / 8));
 }
 
+/**
+ * Resolves the closest committed peninsula segment at a plan point. This keeps
+ * catalog drag/drop independent of the rectangle-wall fallback: a cabinet that
+ * is dropped on the visible peninsula must belong to that exact run.
+ */
+export function peninsulaRunHitAtPoint(
+  room: RoomData,
+  point: { x: number; y: number },
+  maximumDistance = Number.POSITIVE_INFINITY,
+): { run: PeninsulaRun; offset: number; distance: number } | null {
+  let nearest: { run: PeninsulaRun; offset: number; distance: number } | null = null;
+  for (const run of room.peninsulaRuns ?? []) {
+    const { start, radians } = peninsulaRunEndpoints(run, room);
+    const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+    const rawOffset = (point.x - start.x) * tangent.x + (point.y - start.y) * tangent.y;
+    const offset = Math.max(0, Math.min(run.length, Math.round(rawOffset * 8) / 8));
+    const nearestPoint = {
+      x: start.x + tangent.x * offset,
+      y: start.y + tangent.y * offset,
+    };
+    const distance = Math.hypot(point.x - nearestPoint.x, point.y - nearestPoint.y);
+    if (distance <= maximumDistance && (!nearest || distance < nearest.distance)) {
+      nearest = { run, offset, distance };
+    }
+  }
+  return nearest;
+}
+
 export function peninsulaRunById(room: RoomData, wallId?: string | null): PeninsulaRun | null {
   if (!wallId) return null;
   return room.peninsulaRuns?.find((run) => run.id === wallId) ?? null;
@@ -4512,7 +4540,7 @@ export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { 
 export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.placement !== "wall" || p.islandFace) return p;
   const side = cabinetWall(p, room);
-  if (isLockedAngledCustomWall(room, side)) return p;
+  if (isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) return p;
   const { x, y } = snapToWall(p, side, room);
   return { ...p, x, y, depthPositionAdjusted: false };
 }

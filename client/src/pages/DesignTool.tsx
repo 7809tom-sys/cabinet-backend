@@ -5887,11 +5887,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [applyRoom, consumePhoneMeasureSession, phoneMeasureToken, physicalMeasureDepthIndex, physicalMeasureWidthIndex, physicalWallSpans, room]);
 
 	  const handleDropNew = useCallback(
-	    (clientX: number, clientY: number, roomRect: DOMRect, ppi: number, freehand = false) => {
+	    (clientX: number, clientY: number, roomRect: DOMRect, ppi: number, freehand = false, targetWall?: WallSide) => {
       const data = dragDataRef.current;
       if (!data) return;
       const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
-	      const activePeninsulaRun = peninsulaRunById(room, activeWall);
+	      const activePeninsulaRun = peninsulaRunById(room, targetWall ?? activeWall);
 	      const polygonWall = !activePeninsulaRun && room.vertices && room.customWalls
 	        ? closestWall(center.x, center.y, room.vertices, room.customWalls)
 	        : null;
@@ -5967,7 +5967,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       setCatalogDragPreview(null);
     },
 	    [activeWall, addCabinet, automaticSnapping, openings, paletteType, placed, room]
-  );
+	  );
 
 			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
 		    setPlaced((prev) => {
@@ -5980,14 +5980,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
       let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
       const peers = workingPrev.filter((p) => p.uid !== uid);
-      if (isLockedAngledCustomWall(room, cabinet.wallId)) {
-        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
-        if (wall && room.vertices) {
-          const requestedAlong = positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall, room.vertices);
-          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
-          const nextStart = nearestAvailableWallStart(segments, requestedAlong, cabinet.width);
-          if (nextStart == null) {
-            const message = `${cabinet.masterCode} was not moved because this 45° wall has no clear ${formatEighthInches(cabinet.width)} opening.`;
+	      if (isLockedAngledCustomWall(room, cabinet.wallId) || peninsulaRunById(room, cabinet.wallId)) {
+	        const peninsula = peninsulaRunById(room, cabinet.wallId);
+	        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
+	        if (peninsula || (wall && room.vertices)) {
+	          const requestedAlong = peninsula
+	            ? peninsulaRunOffsetAtPoint(peninsula, room, { x: x + placedFootprint(cabinet).w / 2, y: y + placedFootprint(cabinet).d / 2 })
+	            : positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall!, room.vertices!);
+	          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+	          const nextStart = nearestAvailableWallStart(segments, requestedAlong, cabinet.width);
+	          if (nextStart == null) {
+	            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "45° wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
             setPlacementWarning(message);
             toast.error(message);
             return prev;

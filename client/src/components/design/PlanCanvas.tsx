@@ -4,10 +4,10 @@ import {
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength,
+  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
-	  wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -129,7 +129,7 @@ interface Props {
   onRotate?: (uid: string) => void;
   // Right-click a cabinet to open its per-cabinet attributes dialog.
   onOpenAttributes?: (uid: string) => void;
-	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean) => void;
+	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean, targetWall?: WallSide) => void;
 	  /** Toolbar-controlled choice between nearest-valid placement and exact manual placement. */
 	  automaticSnapping?: boolean;
   showWallLayer: boolean;
@@ -798,27 +798,41 @@ export function PlanCanvas({
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (!catalogDragCabinet) return;
-        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
-        if (!roomEl) return;
-        const rect = roomEl.getBoundingClientRect();
-        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
-        const side = nearestRectRoomWallAtPoint(room, point);
-        const placement = catalogDragCabinet.placement === "wall" ? "wall" : "base";
-        const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
-	        const targetAlong = side === "top" || side === "bottom" ? point.x : point.y;
-	        const gaps = wallGaps(room, cabinets, openings, 0.5).filter((gap) => gap.side === side && gap.layer === placement);
+	      onDragOver={(e) => {
+	        e.preventDefault();
+	        if (!catalogDragCabinet) return;
+	        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+	        if (!roomEl) return;
+	        const rect = roomEl.getBoundingClientRect();
+	        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
+	        const peninsulaHit = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi));
+	        const side = (peninsulaHit?.run.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
+	        const placement: "wall" | "base" = catalogDragCabinet.placement === "wall" ? "wall" : "base";
+	        const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
+	        const targetAlong = peninsulaHit?.offset ?? (side === "top" || side === "bottom" ? point.x : point.y);
+	        const gaps = peninsulaHit
+	          ? freeSegmentsOnWall(side, room, cabinets, openings, 0.5, 0, placement).map((segment) => ({
+	              side,
+	              layer: placement,
+	              start: segment.start,
+	              length: segment.length,
+	              center: segment.start + segment.length / 2,
+	              isStandardSize: false,
+	              isFillerSize: segment.length <= 6,
+	            }))
+	          : wallGaps(room, cabinets, openings, 0.5).filter((gap) => gap.side === side && gap.layer === placement);
 	        setCatalogDragFreehand(!automaticSnapping);
 	        setCatalogDragFit(automaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width));
 	      }}
 	      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setCatalogDragFit(null); setCatalogDragFreehand(false); } }}
-      onDrop={(e) => {
-        e.preventDefault();
-        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
-        if (roomEl && onDropNew) {
-	          onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, !automaticSnapping);
+	      onDrop={(e) => {
+	        e.preventDefault();
+	        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
+	        if (roomEl && onDropNew) {
+	          const rect = roomEl.getBoundingClientRect();
+	          const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
+	          const targetWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id as WallSide | undefined;
+	          onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall);
 	        }
 	        setCatalogDragFit(null);
 	        setCatalogDragFreehand(false);
