@@ -19,4 +19,9 @@ describe("Designer verified price fallback", () => {
     expect(source).toContain("if (unitPrice == null) return;");
     expect(source).toContain("return price == null ? [] : [[row.cabinetId, price] as const];");
   });
+
+  it("normalizes saved foreign cabinet finish overrides after the independent door-style list resolves", () => {
+    expect(source).toContain("clearForeignSavedStyleOverrides(current, lockedDistributorId, styleDistributorIdById)");
+    expect(source).toContain("if (lockedDistributorId == null || styleDistributorIdById.size === 0) return;");
+  });
 });

@@ -1211,6 +1211,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => new Map((doorStyles ?? []).map((style) => [style.id, style.distributorId] as const)),
     [doorStyles],
   );
+  // A saved plan and the door-style list load independently. Run the same
+  // normalization once both its supplier lock and the style-to-distributor map
+  // are available, so a stale foreign finish never keeps a cabinet unpriced.
+  useEffect(() => {
+    if (lockedDistributorId == null || styleDistributorIdById.size === 0) return;
+    setPlaced((current) => {
+      const normalized = clearForeignSavedStyleOverrides(current, lockedDistributorId, styleDistributorIdById);
+      return normalized.some((cabinet, index) => cabinet !== current[index]) ? normalized : current;
+    });
+  }, [lockedDistributorId, styleDistributorIdById]);
   // Neutral, customer-safe distributor labels (white-label safe) used to group the
   // door-style picker by supply line. Never carries the hidden supplier brand.
   const { data: distributorLabels } = trpc.distributors.list.useQuery();
