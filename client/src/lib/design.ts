@@ -79,6 +79,9 @@ export function isPlaceableAccessory(c: {
   if (isPanelItem(c)) return true; // end panels / skins / decorative panels
   // Appliance garages sit on the counter as a real box.
   if (/appliance garage|\bag-?\d/.test(hay)) return true;
+  // A knee drawer is a real shallow cabinet box that fits in a seated work
+  // area. It must appear in the plan rather than becoming a loose BOM line.
+  if (isKneeDrawerItem(c)) return true;
   return false;
 }
 
@@ -91,6 +94,22 @@ export function isFloatingShelfItem(c: {
 }): boolean {
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   return /floating shelf|\bopen shelf\b/.test(hay);
+}
+
+export const KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN = 24;
+export const KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN = 30;
+export const KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN = 30;
+
+/** A shallow pull-out drawer mounted in a seated knee-space opening. */
+export function isKneeDrawerItem(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+  category?: string | null;
+}): boolean {
+  const code = (c.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const hay = `${c.category ?? ""} ${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  return /\bknee\s*drawer\b|\bknee\b/.test(hay) || /^VKD\d/.test(code) || /^KD\d/.test(code);
 }
 
 /**
@@ -156,6 +175,7 @@ export function accessoryPlacement(c: {
   subCategory?: string | null;
 }): Placement {
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  if (isKneeDrawerItem(c)) return "baseTop";
   if (/appliance garage|\bag-?\d/.test(hay)) return "wall";
   if (/floating shelf|\bopen shelf\b/.test(hay)) return "wall";
   if (/wall ?skin|\bws\b|wall panel|refrigerator panel/.test(hay)) return "wall";
@@ -3280,10 +3300,15 @@ export function elevationBox(
     //    different position set an explicit mountBottom (branch #1), which wins.
     return { bottom: WALL_MOUNT_BOTTOM, height: h };
   }
-  // baseTop: specialty items (knee drawers, spice racks) that sit on top of base cabinets
-  // at 24.5" height (STD.BASE_HEIGHT - STD.TOE_KICK = 34.5 - 10 = 24.5)
+  // baseTop: specialty items (knee drawers, spice racks) that sit in the
+  // counter-height zone. A knee drawer may be installed from 24–30 inches off
+  // the finished floor; 30 inches is the default just below the countertop.
   if (p.placement === "baseTop") {
-    return { bottom: STD.BASE_HEIGHT - STD.TOE_KICK, height: placedHeight(p) };
+    const requested = typeof p.mountBottom === "number" ? p.mountBottom : KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN;
+    const bottom = isKneeDrawerItem(p)
+      ? Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, requested))
+      : requested;
+    return { bottom, height: placedHeight(p) };
   }
   // underCabinet: specialty items (stem glass holders) that hang under wall cabinets
   // They mount at the wall cabinet's bottom line (54") and hang down
@@ -5654,6 +5679,24 @@ export function paletteActiveWallPlacement(
   const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
   if (segment) return wallPlacementAt(segment.start, width, depth, side, room);
   return null;
+}
+
+/**
+ * Resolves a seated-work knee drawer only into a real clear base-cabinet void.
+ * Its shallow box is wall-flush, but it must never be auto-placed over a base
+ * cabinet that occupies the same physical knee-space elevation.
+ */
+export function kneeDrawerWallPlacement(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  width: number,
+  depth: number,
+): { x: number; y: number; rotation: number } | null {
+  const segments = freeSegmentsOnWall(side, room, placed, openings, Math.min(width, 9), 0, "base");
+  const segment = segments.find((candidate) => candidate.length + COLLISION_EPSILON_IN >= width);
+  return segment ? wallPlacementAt(segment.start, width, depth, side, room) : null;
 }
 
 export type AlternateWallPlacementRecommendation = {

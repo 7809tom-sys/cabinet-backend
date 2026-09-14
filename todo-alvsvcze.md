@@ -1984,3 +1984,5 @@
 - [x] Complete connected U-, L-, and angled-peninsula kitchen runs with attached 45-degree or 90-degree returns, cabinet placement on every editable face, and continuous supported countertop behavior
 - [x] When a glass stacker is placed on a wall cabinet, ask whether to stack compatible glass cabinets above all eligible wall cabinets
 - [x] Repair the reported live glass-stacker workflow when the expected bulk-stacker confirmation does not appear after placement
+- [x] Add a configurable 24-to-30-inch knee-drawer mounting-height rule for seated work areas, with clearance validation and Designer view coverage
+- [x] Add a Placement controls action that offers only the selected vendor’s available 12-to-24-inch glass stacker heights and applies the chosen height to eligible wall cabinets

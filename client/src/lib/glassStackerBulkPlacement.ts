@@ -14,6 +14,11 @@ export type GlassStackerBulkPlacementCandidate = {
   stacker: PlacedCabinet;
 };
 
+export type GlassStackerBulkHeightOption = {
+  height: number;
+  candidates: GlassStackerBulkPlacementCandidate[];
+};
+
 function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: PlacedCabinet): PlacedCabinet {
   const dimensions = resolvedDesignCabinetDimensions(catalog);
   const { mountBottom: _mountBottom, mountBottomAdjusted: _mountBottomAdjusted, stackedOnCabinetUid: _stackedOnCabinetUid, ...base } = source;
@@ -132,6 +137,67 @@ export function glassStackerBulkPlacementCandidates(
       }
     }
     return [];
+  });
+}
+
+/**
+ * Lists only real selected-vendor glass-stacker heights that can be added now.
+ * Unlike the post-placement flow, this deliberately does not fall back to an
+ * arbitrary source stacker: every offered height must exist in the active
+ * vendor/style catalog and match the eligible parent cabinet width.
+ */
+export function glassStackerBulkHeightOptions(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  stackerCatalog: DesignCabinet[],
+): GlassStackerBulkHeightOption[] {
+  const occupiedParentUids = new Set(
+    placed.flatMap((cabinet) => cabinet.stackedOnCabinetUid ? [cabinet.stackedOnCabinetUid] : []),
+  );
+  const vendorStackers = stackerCatalog.filter((catalog) => {
+    const dimensions = resolvedDesignCabinetDimensions(catalog);
+    return catalog.placement === "wall" &&
+      isStacker({ ...catalog, height: dimensions.height }) &&
+      isGlassDoorCabinet(catalog) &&
+      dimensions.height >= 12 && dimensions.height <= 24;
+  });
+  const heights = Array.from(new Set(vendorStackers.map((catalog) => resolvedDesignCabinetDimensions(catalog).height)))
+    .sort((left, right) => left - right);
+
+  return heights.flatMap((height) => {
+    const candidates = placed.flatMap((parent) => {
+      if (
+        parent.placement !== "wall" ||
+        parent.islandFace ||
+        parent.noDoor === true ||
+        isStacker(parent) ||
+        occupiedParentUids.has(parent.uid)
+      ) return [];
+      const catalogChoices = vendorStackers.filter((catalog) => {
+        const dimensions = resolvedDesignCabinetDimensions(catalog);
+        return Math.abs(dimensions.height - height) <= 0.5 && Math.abs(dimensions.width - Number(parent.width)) <= 0.5;
+      });
+      for (const catalog of catalogChoices) {
+        const draft = stackerDraft(parent, catalog, parent);
+        const placement = glassStackerParentPlacement(draft, placed, room, parent.uid);
+        if (placement.ok && placement.parentUid === parent.uid) {
+          return [{
+            parentUid: parent.uid,
+            parentCode: parent.masterCode,
+            stacker: {
+              ...draft,
+              x: placement.x,
+              y: placement.y,
+              rotation: placement.rotation,
+              mountBottom: placement.mountBottom,
+              stackedOnCabinetUid: placement.parentUid,
+            },
+          }];
+        }
+      }
+      return [];
+    });
+    return candidates.length > 0 ? [{ height, candidates }] : [];
   });
 }
 

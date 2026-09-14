@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesignCabinet, PlacedCabinet, RoomData } from "./design";
-import { applyGlassStackerBulkPlacement, glassStackerBulkPlacementCandidates } from "./glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates } from "./glassStackerBulkPlacement";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 
@@ -21,7 +21,7 @@ function wall(uid: string, masterCode: string, width: number, extra: Partial<Pla
   };
 }
 
-function catalog(masterCode: string, width: number): DesignCabinet {
+function catalog(masterCode: string, width: number, height = 12): DesignCabinet {
   return {
     id: width,
     masterCode,
@@ -29,7 +29,7 @@ function catalog(masterCode: string, width: number): DesignCabinet {
     placement: "wall",
     width,
     depth: 12,
-    height: 12,
+    height,
   } as DesignCabinet;
 }
 
@@ -89,6 +89,27 @@ describe("glass stacker bulk placement", () => {
           stackedOnCabinetUid: secondParent.uid,
         }),
       }),
+    ]);
+  });
+
+  it("offers only the selected vendor's 12-to-24-inch stacker heights that fit eligible wall cabinets", () => {
+    const firstParent = wall("parent-30", "W3030", 30, { x: 0 });
+    const secondParent = wall("parent-24", "W2430", 24, { x: 30 });
+    const options = glassStackerBulkHeightOptions(
+      [firstParent, secondParent],
+      { ...room, ceilingHeight: 108 },
+      [
+        catalog("W3012GD", 30, 12),
+        catalog("W2412GD", 24, 12),
+        catalog("W3018GD", 30, 18),
+        catalog("W2418GD", 24, 18),
+        catalog("W3030GD", 30, 30),
+      ],
+    );
+    expect(options.map((option) => option.height)).toEqual([12, 18]);
+    expect(options.map((option) => option.candidates)).toEqual([
+      [expect.objectContaining({ parentUid: firstParent.uid }), expect.objectContaining({ parentUid: secondParent.uid })],
+      [expect.objectContaining({ parentUid: firstParent.uid }), expect.objectContaining({ parentUid: secondParent.uid })],
     ]);
   });
 

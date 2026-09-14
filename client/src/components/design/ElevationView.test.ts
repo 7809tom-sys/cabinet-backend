@@ -103,7 +103,9 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
     expect(markup).toContain('data-range-control-position="front"');
     expect(markup).toContain('data-range-front-control-panel="true"');
     expect(markup).not.toContain('data-range-rear-backguard="true"');
-    expect(markup).toContain("height:138px");
+    // A 36-inch range chassis renders at 4 px/in. The countertop top aligns
+    // at 36 inches, so its visual chassis height is 144 px.
+    expect(markup).toContain("height:144px");
   });
 });
 

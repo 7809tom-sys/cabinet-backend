@@ -86,7 +86,7 @@ import {
 } from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
-import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkPlacementCandidates, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -96,7 +96,7 @@ import {
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
           isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
-		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
+  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, removePeninsulaRun,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -1595,6 +1595,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       ? { ...cabinet, glassDoorAddonCode }
       : cabinet;
   }), [glassDoorAddonCodeFor, placed]);
+	  const vendorGlassStackerHeightOptions = useMemo(() => glassStackerBulkHeightOptions(
+	    placed,
+	    room,
+	    (wallCabPool as DesignCabinet[] | undefined) ?? [],
+	  ), [placed, room, wallCabPool]);
 
   // Keep every tall cabinet available when matching a reviewed imported plan,
   // regardless of the palette tab the customer currently has open.
@@ -3612,6 +3617,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         spot = wallPlacementAt(start, width, depth, activeWall, room);
         floatingShelfMountBottom = Math.round(mountBottom * 8) / 8;
         preserveResolvedPlacement = true;
+      } else if (accPlacement === "baseTop" && isKneeDrawerItem(c)) {
+        const kneeSpaceSpot = kneeDrawerWallPlacement(activeWall, room, prev, openings, width, depth);
+        if (!kneeSpaceSpot) {
+          const message = `${c.masterCode} needs a clear ${formatInches(width)} knee-space opening between base cabinets on the selected ${WALL_LABELS[activeWall]} wall. It was not placed over an existing cabinet.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        spot = kneeSpaceSpot;
+        preserveResolvedPlacement = true;
       } else if (requestedIslandFace && island) {
         spot = { x: island.x, y: island.y, rotation: 0 };
         preserveResolvedPlacement = true;
@@ -3831,7 +3846,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        catalogImageUrl: c.catalogImageUrl ?? null,
         ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
         ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
-	        customProfile: (c as any).graphicType ?? null,
+        customProfile: isKneeDrawerItem(c) ? "knee-drawer" : (c as any).graphicType ?? null,
         genericDrawingUrl: (c as any).specImageUrl ?? null,
 	        fixedShelfCount: (c as any).numberOfFixedShelves ?? null,
 	        adjustableShelfCount: (c as any).numberOfAdjShelves ?? null,
@@ -6422,9 +6437,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
 	    setPlaced((prev) => {
 	      const current = prev.find((p) => p.uid === uid);
-	      if (!current || current.placement !== "wall") return prev;
-	      const limit = wallCabinetVerticalMoveLimit(current, room);
-	      const bounded = Math.max(0, Math.min(limit.maxBottom, Math.round(mountBottom * 8) / 8));
+	      const isKneeDrawer = current?.placement === "baseTop" && isKneeDrawerItem(current);
+	      if (!current || (current.placement !== "wall" && !isKneeDrawer)) return prev;
+	      const limit = current.placement === "wall" ? wallCabinetVerticalMoveLimit(current, room) : null;
+	      const bounded = isKneeDrawer
+	        ? Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.round(mountBottom * 8) / 8))
+	        : Math.max(0, Math.min(limit!.maxBottom, Math.round(mountBottom * 8) / 8));
 	      const candidate = { ...current, mountBottom: bounded, mountBottomAdjusted: true };
       const peers = prev.filter((p) => p.uid !== uid);
       if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
@@ -6435,7 +6453,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       return prev.map((p) => (p.uid === uid ? candidate : p));
     });
-  }, [room, customPlacementMode]);
+	  }, [room, customPlacementMode]);
 
   // The 3D attributes panel delegates every move to this authoritative 2D
   // placement path. Relative directions are resolved from the cabinet's wall,
@@ -6848,8 +6866,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    setGlassStackerBulkPrompt(null);
 	    toast.success(`Added ${prompt.candidates.length} matching glass stacker${prompt.candidates.length === 1 ? "" : "s"} above compatible wall cabinets.`);
 	  }, [glassStackerBulkPrompt]);
+	  const addVendorGlassStackersAtHeight = useCallback((height: number) => {
+	    const option = glassStackerBulkHeightOptions(
+	      placedRef.current,
+	      room,
+	      wallCabPoolRef.current,
+	    ).find((candidate) => Math.abs(candidate.height - height) <= 0.5);
+	    if (!option || option.candidates.length === 0) {
+	      toast.info(`No eligible ${formatInches(height)} glass stackers are available for the current wall cabinets.`);
+	      return;
+	    }
+	    const next = applyBulkGlassStackerPlacements(placedRef.current, option.candidates, makeUid);
+	    placedRef.current = next;
+	    setPlaced(() => next);
+	    setPlacementTarget("wall");
+	    toast.success(`Added ${option.candidates.length} vendor-matched ${formatInches(height)} glass stacker${option.candidates.length === 1 ? "" : "s"} above eligible wall cabinets.`);
+	  }, [room]);
 
-  // A wall cabinet can use either a same-line replacement glass door or a
+	  // A wall cabinet can use either a same-line replacement glass door or a
   // complete same-line GD cabinet variant.
   const glassDoorAvailableForAttr = useMemo(() => {
     if (!attrUid) return false;
@@ -11125,6 +11159,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                      ))}
 	                    </div>
 	                  </div>}
+	                  {vendorGlassStackerHeightOptions.length > 0 && <section className="mt-2 border-t border-[#dfcfae] pt-2" data-testid="vendor-glass-stacker-controls">
+	                    <span className="block text-[11px] text-muted-foreground">Add vendor-matched glass stackers</span>
+	                    <p className="mt-0.5 text-[10px] font-normal text-muted-foreground">Choose a listed height to stack every compatible wall cabinet. Only available catalog heights are shown.</p>
+	                    <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+	                      {vendorGlassStackerHeightOptions.map((option) => (
+	                        <button
+	                          key={option.height}
+	                          type="button"
+	                          data-testid={`add-vendor-glass-stacker-${option.height}`}
+	                          onClick={() => addVendorGlassStackersAtHeight(option.height)}
+	                          className="rounded border border-[#b98d3e] px-2 py-1.5 text-[11px] text-[#7b5a20] hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]"
+	                        >{formatInches(option.height)} · {option.candidates.length}</button>
+	                      ))}
+	                    </div>
+	                  </section>}
 	                  <button type="button" onClick={() => setIslandAttributesOpen(true)} className="mt-2 w-full rounded border border-[#b98d3e] px-2 py-1.5 text-[#7b5a20] hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]">Island setup</button>
 	                </div>
 	              )}
@@ -12969,8 +13018,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}
         onSetDepth={(_uid, v) => setCustomDepth(v)}
-        mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? elevationBox(cabinet, room).bottom : null; })() : null}
-	        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet ? wallCabinetVerticalMoveLimit(cabinet, room).maxBottom : 0; })() : 0}
+	        mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet && (cabinet.placement === "wall" || (cabinet.placement === "baseTop" && isKneeDrawerItem(cabinet))) ? elevationBox(cabinet, room).bottom : null; })() : null}
+	        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet?.placement === "baseTop" && isKneeDrawerItem(cabinet) ? KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN : cabinet ? wallCabinetVerticalMoveLimit(cabinet, room).maxBottom : 0; })() : 0}
         onSetMountBottom={setMountBottomFor}
 	        onMoveInOut={(uid, direction, distanceIn) => moveCabinetFrom3D(uid, direction, distanceIn)}
         onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}

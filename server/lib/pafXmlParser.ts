@@ -310,6 +310,9 @@ function parsePafOptionValue(elem: Record<string, unknown>): PafOptionValue | nu
 export function mapCategory(pafCategory: string): string {
   const cat = (pafCategory || "").toLowerCase().trim();
 
+	  // Preserve seated-work accessories before the generic drawer-base matcher.
+	  // Their baseTop placement rule needs the specialty identity at runtime.
+	  if (cat.includes("knee")) return "Knee Drawer";
   if (cat.includes("wall")) return "Wall";
   if (cat.includes("tall") || cat.includes("pantry") || cat.includes("utility") || cat.includes("oven")) return "Tall";
   if (cat.includes("base") || cat.includes("sink") || cat.includes("drawer")) return "Base";
@@ -343,8 +346,8 @@ export function mapPlacementType(code: string, category: string): string {
   const codeUpper = (code || "").toUpperCase();
   const catLower = (category || "").toLowerCase();
 
-  // Specialty items that sit on top of base cabinets (knee drawers, spice racks, etc.)
-  // These are marked as 'baseTop' so the designer knows to position them at 24.5" height
+  // Specialty items in the counter-height zone (knee drawers, spice racks, etc.)
+  // Knee drawers are marked as baseTop and use the Designer's 24–30 inch mount rule.
   if (codeUpper.includes("KNEE") || catLower.includes("knee")) return "baseTop";
   if (codeUpper.includes("SPICE") || catLower.includes("spice")) return "baseTop";
   if (codeUpper.includes("SGH") || codeUpper.includes("SG") || catLower.includes("stem glass")) return "underCabinet";

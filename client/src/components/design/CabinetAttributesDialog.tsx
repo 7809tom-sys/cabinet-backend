@@ -48,6 +48,10 @@ import {
   isBlindCorner,
   blindPullRange,
   fillerWidthRange,
+  isKneeDrawerItem,
+  KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN,
+  KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN,
+  KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN,
 } from "@/lib/design";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
@@ -327,7 +331,8 @@ export function CabinetAttributesDialog({
   const isIslandWallCabinet = isCounterHeightIslandWallCabinet(cabinet);
   const islandBaseTreatment = islandWallCabinetBaseTreatment(cabinet);
   const isBase = cabinet.placement === "base";
-  const canMoveMount = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
+	  const isKneeDrawer = cabinet.placement === "baseTop" && isKneeDrawerItem(cabinet);
+  const canMoveMount = (cabinet.placement === "wall" || isKneeDrawer) && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
@@ -531,38 +536,47 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {canMoveMount && (
-            <section className="space-y-2 border-t border-border pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-semibold">Elevation position</h4>
-                  <p className="text-[11px] text-muted-foreground">Move this wall cabinet up or down from the floor.</p>
-                </div>
-                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onSetMountBottom?.(uid, 54)}>
-                  Reset 54″
-                </Button>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move down one inch" onClick={() => onSetMountBottom?.(uid, Math.max(0, (mountBottom ?? 0) - 1))}>
-                  <Minus className="h-3.5 w-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  min={0}
-                  max={maxMountBottom ?? 120}
-                  step={1}
-                  value={Math.round(mountBottom ?? 0)}
-                  className="h-8 w-20 text-center text-sm"
-                  aria-label="Cabinet mounting height from floor"
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    if (Number.isFinite(next)) onSetMountBottom?.(uid, Math.max(0, Math.min(maxMountBottom ?? 120, next)));
-                  }}
-                />
-                <span className="text-xs text-muted-foreground">in. from floor</span>
-                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title="Move up one inch" onClick={() => onSetMountBottom?.(uid, Math.min(maxMountBottom ?? 120, (mountBottom ?? 0) + 1))}>
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+	          {canMoveMount && (
+	            <section className="space-y-2 border-t border-border pt-4">
+	              <div className="flex items-center justify-between gap-3">
+	                <div>
+	                  <h4 className="text-sm font-semibold">{isKneeDrawer ? "Knee-drawer position" : "Elevation position"}</h4>
+	                  <p className="text-[11px] text-muted-foreground">{isKneeDrawer ? "Set the drawer bottom 24–30 inches from the finished floor for a seated work area." : "Move this wall cabinet up or down from the floor."}</p>
+	                </div>
+	                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onSetMountBottom?.(uid, isKneeDrawer ? KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN : 54)}>
+	                  {isKneeDrawer ? "Reset 30″" : "Reset 54″"}
+	                </Button>
+	              </div>
+	              {isKneeDrawer && (
+	                <div className="flex flex-wrap gap-1.5" data-testid="knee-drawer-height-presets" aria-label="Knee drawer mounting-height presets">
+	                  {[24, 27, 30].map((height) => (
+	                    <Button key={height} type="button" size="sm" variant={Math.round(mountBottom ?? 0) === height ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => onSetMountBottom?.(uid, height)}>{height}″</Button>
+	                  ))}
+	                </div>
+	              )}
+	              <div className="flex items-center gap-1">
+	                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title={isKneeDrawer ? "Lower knee drawer one inch" : "Move down one inch"} onClick={() => onSetMountBottom?.(uid, Math.max(isKneeDrawer ? KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN : 0, (mountBottom ?? 0) - 1))}>
+	                  <Minus className="h-3.5 w-3.5" />
+	                </Button>
+	                <Input
+	                  type="number"
+	                  min={isKneeDrawer ? KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN : 0}
+	                  max={isKneeDrawer ? KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN : maxMountBottom ?? 120}
+	                  step={1}
+	                  value={Math.round(mountBottom ?? 0)}
+	                  className="h-8 w-20 text-center text-sm"
+	                  aria-label={isKneeDrawer ? "Knee drawer mounting height from floor" : "Cabinet mounting height from floor"}
+	                  onChange={(event) => {
+	                    const next = Number(event.target.value);
+	                    const min = isKneeDrawer ? KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN : 0;
+	                    const max = isKneeDrawer ? KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN : maxMountBottom ?? 120;
+	                    if (Number.isFinite(next)) onSetMountBottom?.(uid, Math.max(min, Math.min(max, next)));
+	                  }}
+	                />
+	                <span className="text-xs text-muted-foreground">in. from floor</span>
+	                <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" title={isKneeDrawer ? "Raise knee drawer one inch" : "Move up one inch"} onClick={() => onSetMountBottom?.(uid, Math.min(isKneeDrawer ? KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN : maxMountBottom ?? 120, (mountBottom ?? 0) + 1))}>
+	                  <Plus className="h-3.5 w-3.5" />
+	                </Button>
               </div>
             </section>
           )}

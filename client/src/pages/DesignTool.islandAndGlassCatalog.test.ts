@@ -4,6 +4,22 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
+	  it("exposes vendor-available 12-to-24-inch glass-stacker bulk actions inside Placement controls", () => {
+	    expect(source).toContain("glassStackerBulkHeightOptions(");
+	    expect(source).toContain("vendorGlassStackerHeightOptions");
+	    expect(source).toContain('data-testid="vendor-glass-stacker-controls"');
+	    expect(source).toContain('data-testid={`add-vendor-glass-stacker-${option.height}`}');
+	    expect(source).toContain("addVendorGlassStackersAtHeight(option.height)");
+	    expect(source).toContain("vendor-matched ${formatInches(height)} glass stacker");
+	  });
+
+	  it("routes a catalog knee drawer only into a measured base-cabinet knee-space opening and preserves its dedicated elevation profile", () => {
+	    expect(source).toContain("isKneeDrawerItem(c) ? \"knee-drawer\"");
+	    expect(source).toContain("accPlacement === \"baseTop\" && isKneeDrawerItem(c)");
+	    expect(source).toContain("kneeDrawerWallPlacement(activeWall, room, prev, openings, width, depth)");
+	    expect(source).toContain("needs a clear ${formatInches(width)} knee-space opening between base cabinets");
+	  });
+
 	it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {
 		expect(source).toContain("const selectedIslandFace = targetIslandFace");
 		expect(source).toContain("islandPlacementMode || islandPlacementModeRef.current");

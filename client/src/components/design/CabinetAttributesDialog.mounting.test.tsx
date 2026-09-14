@@ -116,7 +116,32 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
 	    fireEvent.click(screen.getByTitle("Move out 1 inches toward the wall"));
 	    fireEvent.click(screen.getByTitle("Move in 1 inches into the room"));
 	    expect(onMoveInOut).toHaveBeenNthCalledWith(1, "w3024", "out", 1);
-	    expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in", 1);
+    expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in", 1);
+  });
+
+  it("offers only the 24–30 inch knee-drawer mounting presets for a placed knee drawer", () => {
+    const onSetMountBottom = vi.fn();
+    const kneeDrawer = {
+      ...wallCabinet,
+      uid: "knee-drawer",
+      masterCode: "SW-VKD36",
+      description: "Knee Drawer - 36 inch wide",
+      category: "Accessory",
+      subCategory: "Drawer",
+      placement: "baseTop",
+      height: 7,
+      depth: 21,
+      numberOfDoors: 0,
+      numberOfDrawers: 1,
+    } as never;
+    renderDialog(onSetMountBottom, vi.fn(), undefined, 0, kneeDrawer);
+    fireEvent.click(screen.getByText("More cabinet options"));
+    expect(screen.getByText("Knee-drawer position")).toBeTruthy();
+    expect(screen.getByTestId("knee-drawer-height-presets")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "24″" }));
+    fireEvent.click(screen.getByRole("button", { name: "30″" }));
+    expect(onSetMountBottom).toHaveBeenNthCalledWith(1, "knee-drawer", 24);
+    expect(onSetMountBottom).toHaveBeenNthCalledWith(2, "knee-drawer", 30);
   });
 
   it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {

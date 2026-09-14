@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -30,7 +30,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement,
+  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -65,6 +65,35 @@ describe("floating-shelf legacy dimension repair", () => {
     };
     const normalized = normalizeFloatingShelfPlacement(staleFs48);
     expect(normalized).toMatchObject({ placement: "wall", width: 48, depth: 12, height: 2.06, numberOfDoors: 0, numberOfDrawers: 0 });
+  });
+});
+
+describe("knee drawer mounting", () => {
+  const kneeDrawer: PlacedCabinet = {
+    uid: "knee-drawer", cabinetId: 36, masterCode: "SW-VKD36", description: "Knee Drawer - 36 inch wide", category: "Accessory", subCategory: "Drawer",
+    placement: "baseTop", x: 36, y: 0, width: 36, depth: 21, height: 7, rotation: 0, numberOfDoors: 0, numberOfDrawers: 1,
+  };
+
+  it("recognizes a catalog knee drawer as a placeable base-top item", () => {
+    expect(isKneeDrawerItem(kneeDrawer)).toBe(true);
+    expect(isPlaceableAccessory(kneeDrawer)).toBe(true);
+    expect(accessoryPlacement(kneeDrawer)).toBe("baseTop");
+  });
+
+  it("defaults to 30 inches and constrains custom knee-drawer mounting height to 24–30 inches", () => {
+    expect(elevationBox(kneeDrawer, ROOM_12x10)).toEqual({ bottom: 30, height: 7 });
+    expect(elevationBox({ ...kneeDrawer, mountBottom: 24 }, ROOM_12x10)).toEqual({ bottom: 24, height: 7 });
+    expect(elevationBox({ ...kneeDrawer, mountBottom: 20 }, ROOM_12x10)).toEqual({ bottom: 24, height: 7 });
+    expect(elevationBox({ ...kneeDrawer, mountBottom: 36 }, ROOM_12x10)).toEqual({ bottom: 30, height: 7 });
+  });
+
+  it("targets the first measured base-cabinet knee-space void rather than placing above a base cabinet", () => {
+    const bases: PlacedCabinet[] = [
+      { uid: "left-base", cabinetId: 1, masterCode: "B36", description: "Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
+      { uid: "right-base", cabinetId: 2, masterCode: "B36", description: "Base", placement: "base", x: 72, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
+    ];
+    expect(kneeDrawerWallPlacement("top", ROOM_12x10, bases, [], 36, 21)).toEqual({ x: 36, y: 0, rotation: 0 });
+    expect(kneeDrawerWallPlacement("top", ROOM_12x10, bases, [], 42, 21)).toBeNull();
   });
 });
 
