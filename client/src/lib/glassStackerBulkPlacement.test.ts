@@ -66,6 +66,32 @@ describe("glass stacker bulk placement", () => {
     expect(glassStackerBulkPlacementCandidates([firstParent, existingStacker, openUnit], existingStacker.uid, room, [catalog("W3012GD", 30)])).toEqual([]);
   });
 
+  it("uses the placed stacker as a same-width catalog-safe fallback while the matching wall-cabinet pool is unavailable", () => {
+    const firstParent = wall("first", "W2430", 24, { x: 0 });
+    const secondParent = wall("second", "W2430", 24, { x: 24 });
+    const source = wall("source", "W2412GD", 24, {
+      description: "Glass door wall cabinet",
+      x: 0,
+      height: 12,
+      glassDoor: true,
+      mountBottom: 84,
+      stackedOnCabinetUid: firstParent.uid,
+    });
+    const candidates = glassStackerBulkPlacementCandidates([firstParent, secondParent, source], source.uid, room, []);
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        parentUid: secondParent.uid,
+        stacker: expect.objectContaining({
+          cabinetId: source.cabinetId,
+          masterCode: source.masterCode,
+          x: secondParent.x,
+          mountBottom: 84,
+          stackedOnCabinetUid: secondParent.uid,
+        }),
+      }),
+    ]);
+  });
+
   it("adds one new stacker per still-unoccupied parent and gives each a fresh uid", () => {
     const parent = wall("parent", "W2430", 24, { x: 30 });
     const candidate = {

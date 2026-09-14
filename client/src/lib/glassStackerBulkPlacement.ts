@@ -50,6 +50,26 @@ function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: Pla
 }
 
 /**
+ * The selected stacker is already a purchasable, placed catalog product. It is
+ * therefore a safe fallback for another same-width compatible parent while the
+ * full wall-cabinet pool is still loading or lacks a separately listed variant.
+ */
+function sourceStackerDraft(source: PlacedCabinet, parent: PlacedCabinet): PlacedCabinet {
+  const { mountBottom: _mountBottom, mountBottomAdjusted: _mountBottomAdjusted, stackedOnCabinetUid: _stackedOnCabinetUid, ...base } = source;
+  return {
+    ...base,
+    uid: `glass-stacker-bulk-${parent.uid}`,
+    x: parent.x,
+    y: parent.y,
+    rotation: parent.rotation,
+    wallId: parent.wallId,
+    wallOffset: parent.wallOffset,
+    peninsulaSide: parent.peninsulaSide,
+    glassDoor: true,
+  };
+}
+
+/**
  * Finds the exact same-height glass stacker catalog item that can sit above
  * every compatible wall cabinet. The original selected stacker remains in the
  * plan; candidates represent only the additional matching upper stacks.
@@ -85,10 +105,16 @@ export function glassStackerBulkPlacementCandidates(
       occupiedParentUids.has(parent.uid)
     ) return [];
 
-    for (const catalog of glassStackerCatalog) {
+    const matchingCatalog = glassStackerCatalog.filter((catalog) => {
       const dimensions = resolvedDesignCabinetDimensions(catalog);
-      if (Math.abs(dimensions.width - Number(parent.width)) > 0.5) continue;
-      const draft = stackerDraft(source, catalog, parent);
+      return Math.abs(dimensions.width - Number(parent.width)) <= 0.5;
+    });
+    const drafts = matchingCatalog.map((catalog) => stackerDraft(source, catalog, parent));
+    if (drafts.length === 0 && Math.abs(Number(source.width) - Number(parent.width)) <= 0.5) {
+      drafts.push(sourceStackerDraft(source, parent));
+    }
+
+    for (const draft of drafts) {
       const placement = glassStackerParentPlacement(draft, placed, room, parent.uid);
       if (placement.ok && placement.parentUid === parent.uid) {
         return [{

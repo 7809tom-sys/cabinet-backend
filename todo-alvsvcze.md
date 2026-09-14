@@ -1983,3 +1983,4 @@
 - [x] Fix the selected-cabinet Snap to wall action so a free cabinet beside a committed peninsula seats back-to-wall on that exact run rather than remaining free or snapping to an outside wall
 - [x] Complete connected U-, L-, and angled-peninsula kitchen runs with attached 45-degree or 90-degree returns, cabinet placement on every editable face, and continuous supported countertop behavior
 - [x] When a glass stacker is placed on a wall cabinet, ask whether to stack compatible glass cabinets above all eligible wall cabinets
+- [x] Repair the reported live glass-stacker workflow when the expected bulk-stacker confirmation does not appear after placement
