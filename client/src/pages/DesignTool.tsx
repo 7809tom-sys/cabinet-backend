@@ -1003,6 +1003,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       peninsulaRuns: (room.peninsulaRuns ?? []).map((candidate) => candidate.id === run.id ? { ...proposed, length: cappedLength } : candidate),
     };
     const assigned = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id);
+    const requiredLength = assigned.reduce((furthest, cabinet) => Math.max(furthest, (Number(cabinet.wallOffset) || 0) + cabinet.width), 0);
+    if (cappedLength + 0.01 < requiredLength) {
+      toast.error(`This attachment point would shorten the peninsula below its occupied ${formatEighthInches(requiredLength)} cabinet run.`);
+      return;
+    }
     const movedByUid = new Map(assigned.map((cabinet) => {
       const spot = wallPlacementAt(Number(cabinet.wallOffset) || 0, cabinet.width, cabinet.depth, run.id as WallSide, proposedRoom, cabinet.peninsulaSide);
       return [cabinet.uid, { ...cabinet, ...spot, wallId: run.id, wallOffset: Number(cabinet.wallOffset) || 0, peninsulaSide: cabinet.peninsulaSide ?? spot.peninsulaSide }];
