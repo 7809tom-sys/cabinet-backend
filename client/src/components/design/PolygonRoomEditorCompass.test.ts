@@ -82,6 +82,15 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length.");
   });
 
+  it("lets the selected-cabinet Snap to wall action target the selected peninsula run", () => {
+    expect(designToolSource).toContain("const snapSelectedToWall = useCallback");
+    expect(designToolSource).toContain("const peninsula = peninsulaRunById(room, side);");
+    expect(designToolSource).toContain("const segments = freeSegmentsOnWall(");
+    expect(designToolSource).toContain("const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);");
+    expect(designToolSource).toContain("wallId: peninsula.id");
+    expect(designToolSource).toContain("onPickPeninsula={snapSelectedToWall}");
+  });
+
   it("provides direct joined-end dragging, far-end resizing, and right-click settings for committed peninsula walls", () => {
     expect(planCanvasSource).toContain('onPeninsulaAttachmentChange?: (runId: string, startOffset: number) => void;');
     expect(planCanvasSource).toContain('onPeninsulaRunLengthChange?: (runId: string, length: number) => void;');

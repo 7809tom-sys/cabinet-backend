@@ -5,6 +5,8 @@ import type { SiteStringKey } from "@/lib/i18n/site";
 
 interface Props {
   onPick: (side: WallSide) => void;
+  onPickPeninsula?: (runId: string) => void;
+  peninsulaTarget?: { id: string; label: string } | null;
   disabled?: boolean;
 }
 
@@ -18,7 +20,7 @@ const BUTTONS: { side: WallSide; labelKey: SiteStringKey; Icon: typeof ArrowUp }
 // A compact wall selector shown when a cabinet is selected. Clicking a side
 // snaps the cabinet flush to that wall, so users can place a cabinet on the
 // wall they actually want instead of dragging and hoping it snaps.
-export function WallPicker({ onPick, disabled }: Props) {
+export function WallPicker({ onPick, onPickPeninsula, peninsulaTarget = null, disabled }: Props) {
   const { t } = useLanguage();
   return (
     <div className="flex items-center gap-1.5">
@@ -39,6 +41,17 @@ export function WallPicker({ onPick, disabled }: Props) {
             </button>
           );
         })}
+        {peninsulaTarget && onPickPeninsula && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onPickPeninsula(peninsulaTarget.id)}
+            title={`Snap this cabinet to ${peninsulaTarget.label}`}
+            className="rounded-md border border-[#b78932] bg-[#fff7e7] px-2 py-1 text-[11px] font-bold text-[#704b0a] transition-colors hover:bg-[#d4a75a] hover:text-[#1a2744] disabled:opacity-40"
+          >
+            {peninsulaTarget.label}
+          </button>
+        )}
       </div>
     </div>
   );

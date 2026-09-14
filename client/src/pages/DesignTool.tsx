@@ -7181,19 +7181,73 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     commitPlanStyleSwitch(slot, newStyleId, requiresDistributorOverride);
   }, [doorStyles, lockedDistributorId, styleA, placed, commitPlanStyleSwitch]);
 
-  // Snap the currently-selected cabinet flush to the chosen wall.
+  // Snap the currently-selected cabinet flush to the chosen outer wall or a
+  // selected peninsula run. A peninsula must retain its own wall ID, offset,
+  // and face; otherwise the generic cardinal snap leaves the cabinet free or
+  // silently pulls it back to an outside room wall.
   const snapSelectedToWall = useCallback(
-    (side: WallSide) => {
+    (side: WallSide | string) => {
       if (!selectedUid) return;
-      setPlaced((prev) =>
-        prev.map((p) => {
-          if (p.uid !== selectedUid) return p;
-          const { x, y } = snapToWall(p, side, room);
-          return { ...p, x, y };
-        })
-      );
+      setPlaced((prev) => {
+        const selected = prev.find((cabinet) => cabinet.uid === selectedUid);
+        if (!selected) return prev;
+        const peninsula = peninsulaRunById(room, side);
+        if (!peninsula) {
+          return prev.map((p) => {
+            if (p.uid !== selectedUid) return p;
+            const { x, y } = snapToWall(p, side as WallSide, room);
+            return { ...p, x, y };
+          });
+        }
+
+        const peers = prev.filter((cabinet) => cabinet.uid !== selectedUid);
+        const footprint = placedFootprint(selected);
+        const requestedAlong = peninsulaRunOffsetAtPoint(peninsula, room, {
+          x: selected.x + footprint.w / 2,
+          y: selected.y + footprint.d / 2,
+        });
+        const segments = freeSegmentsOnWall(
+          peninsula.id as WallSide,
+          room,
+          peers,
+          openings,
+          selected.width,
+          0,
+          selected.placement,
+        );
+        const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);
+        if (along == null) {
+          const message = `${selected.masterCode} does not fit in an open span on this peninsula.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        const spot = wallPlacementAt(
+          along,
+          selected.width,
+          selected.depth,
+          peninsula.id as WallSide,
+          room,
+          selected.peninsulaSide ?? peninsula.cabinetSide,
+        );
+        const candidate: PlacedCabinet = {
+          ...selected,
+          ...spot,
+          wallId: peninsula.id,
+          wallOffset: along,
+          peninsulaSide: spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide,
+        };
+        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+          const message = collisionReason(candidate, peers) ?? `${selected.masterCode} cannot snap to this peninsula without overlapping another item.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return prev;
+        }
+        setPlacementWarning(null);
+        return prev.map((cabinet) => cabinet.uid === selectedUid ? candidate : cabinet);
+      });
     },
-    [selectedUid, room]
+    [selectedUid, room, openings, customPlacementMode]
   );
 
   // Delete any cabinet by uid (used by the on-canvas delete control), so a
@@ -10146,7 +10200,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     {t("dt_snap_to_wall")}
                   </div>
-                  <WallPicker onPick={snapSelectedToWall} />
+                  <WallPicker
+                    onPick={snapSelectedToWall}
+                    onPickPeninsula={snapSelectedToWall}
+                    peninsulaTarget={(() => {
+                      const run = peninsulaRunById(room, activeWall);
+                      return run ? { id: run.id, label: "Peninsula" } : null;
+                    })()}
+                  />
                 </div>
 
                 <div className="rounded-xl border border-border bg-muted/30 p-3">
