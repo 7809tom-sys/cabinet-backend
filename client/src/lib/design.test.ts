@@ -29,7 +29,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement,
 } from "./design";
 
@@ -505,6 +505,14 @@ describe("saved design style restoration", () => {
   it("restores database-style field names when legacy client aliases are absent", () => {
     expect(restoredSavedDesignStyle({ selectedStyleId: 330001, selectedDistributorId: 210001 }))
       .toEqual({ styleId: 330001, distributorId: 210001 });
+  });
+
+  it("clears a stale cabinet finish from another distributor so it inherits the selected plan style and price source", () => {
+    const cabinet = { uid: "foreign-style", styleId: 330003 };
+    const distributors = new Map([[330003, 210001], [390019, 180001]]);
+    expect(clearForeignSavedStyleOverrides([cabinet], 180001, distributors)).toEqual([{ uid: "foreign-style", styleId: null }]);
+    expect(clearForeignSavedStyleOverrides([{ uid: "two-tone", styleId: 390019 }], 180001, distributors))
+      .toEqual([{ uid: "two-tone", styleId: 390019 }]);
   });
 });
 

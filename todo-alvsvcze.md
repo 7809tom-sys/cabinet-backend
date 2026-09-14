@@ -1978,3 +1978,4 @@
 - [x] Add a right-click peninsula wall settings entry for left/right cabinet face selection and permitted wall measurements
 - [x] Add a bounded endpoint drag handle that lengthens or shortens a peninsula wall without orphaning or overlapping cabinets
 - [x] Let users tap a peninsula, then hold-and-drag its joined endpoint along the parent wall to move the attachment point while retaining the locked 45-degree or 90-degree direction
+- [x] Trace the recurring saved-design price complaint to the specific cabinet line or total calculation and correct it only against a verified price source

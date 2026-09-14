@@ -94,7 +94,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, fillerWidthRange, alternateWallPlacementRecommendation,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -1207,6 +1207,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         : (doorStylesRaw ?? []),
     [doorStylesRaw, persistedSelectedStyle],
   );
+  const styleDistributorIdById = useMemo(
+    () => new Map((doorStyles ?? []).map((style) => [style.id, style.distributorId] as const)),
+    [doorStyles],
+  );
   // Neutral, customer-safe distributor labels (white-label safe) used to group the
   // door-style picker by supply line. Never carries the hidden supplier brand.
   const { data: distributorLabels } = trpc.distributors.list.useQuery();
@@ -2262,12 +2266,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
 	          ? { ...shelf, placement: "appliance" as const }
 	          : shelf;
-	      });
-	      const restoredRoom = d.room ?? DEFAULT_ROOM;
-	      const restoredIsland = persisted?.island ?? null;
-	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), restoredRoom)).placed;
-	      setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, repairedPlaced, restoredRoom) : repairedPlaced);
+      });
+      const restoredRoom = d.room ?? DEFAULT_ROOM;
+      const restoredIsland = persisted?.island ?? null;
       const restoredStyle = restoredSavedDesignStyle(d);
+      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), restoredRoom)).placed;
+      const pricedPlaced = clearForeignSavedStyleOverrides(repairedPlaced, restoredStyle.distributorId, styleDistributorIdById);
+      setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, pricedPlaced, restoredRoom) : pricedPlaced);
       setStyleId(restoredStyle.styleId);
       const restoredIslandStyleId = typeof restoredIsland?.cabinetStyleId === "number"
         && restoredIsland.cabinetStyleId !== restoredStyle.styleId
@@ -2288,7 +2293,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       applySurfaceRenderMaterials(surfaces);
       setSelectedUid(null);
     },
-    []
+    [styleDistributorIdById]
   );
 
   // Map of door-style id -> display name. Defined here (before buildRows) so the

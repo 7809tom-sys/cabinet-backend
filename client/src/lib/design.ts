@@ -908,6 +908,26 @@ export function rebaseFormerDefaultStyleOverrides<T extends { styleId?: number |
 }
 
 /**
+ * Saved plans may contain an obsolete per-cabinet finish from a different
+ * supplier line. It cannot be priced against the plan's locked distributor, so
+ * clear only that foreign override and let the cabinet inherit the plan finish.
+ * Same-distributor two-tone overrides remain untouched.
+ */
+export function clearForeignSavedStyleOverrides<T extends { styleId?: number | null }>(
+  cabinets: T[],
+  selectedDistributorId: number | null | undefined,
+  distributorByStyleId: ReadonlyMap<number, number>,
+): T[] {
+  if (selectedDistributorId == null) return cabinets;
+  return cabinets.map((cabinet) => {
+    const overrideDistributorId = cabinet.styleId == null ? undefined : distributorByStyleId.get(cabinet.styleId);
+    return overrideDistributorId != null && overrideDistributorId !== selectedDistributorId
+      ? { ...cabinet, styleId: null } as T
+      : cabinet;
+  });
+}
+
+/**
  * Rendering follows the active selected sample for a normal one-finish design.
  * Per-cabinet style IDs are honored only after the user has explicitly selected
  * a distinct second two-tone style; this prevents stale placement metadata from
