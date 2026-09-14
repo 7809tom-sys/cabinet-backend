@@ -86,6 +86,7 @@ import {
 } from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
+import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkPlacementCandidates, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -571,10 +572,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  } | null>(null);
 	  const [islandDepthTransition, setIslandDepthTransition] = useState<{ fromDepth: number; toDepth: number; key: number } | null>(null);
 	  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
-    hood: PlacedCabinet;
-    conflictingUpper: PlacedCabinet;
-  } | null>(null);
-  const [materialsListOpen, setMaterialsListOpen] = useState(false);
+	    hood: PlacedCabinet;
+	    conflictingUpper: PlacedCabinet;
+	  } | null>(null);
+	  const [glassStackerBulkPrompt, setGlassStackerBulkPrompt] = useState<{
+	    sourceCode: string;
+	    candidates: GlassStackerBulkPlacementCandidate[];
+	  } | null>(null);
+	  const [materialsListOpen, setMaterialsListOpen] = useState(false);
 
   // Last line of defense for legacy designs and any future placement path that
   // bypasses an explicit add/move helper. Saved order remains authoritative, so
@@ -1577,13 +1582,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ?? catalogFillers.find((cabinet) => cabinet.masterCode === masterCode)
     ?? null
   ), [catalogFillers, wallCabPool]);
-  const glassDoorAddonCodeFor = useCallback((cabinet: Pick<PlacedCabinet, "cabinetId" | "masterCode" | "glassDoorAddonCode">) => (
-    cabinet.glassDoorAddonCode
-    ?? ((wallCabPool as DesignCabinet[] | undefined) ?? []).find((candidate) =>
-      candidate.id === cabinet.cabinetId || candidate.masterCode === cabinet.masterCode
-    )?.glassDoorAddonCode
-    ?? null
-  ), [wallCabPool]);
+	  const glassDoorAddonCodeFor = useCallback((cabinet: Pick<PlacedCabinet, "cabinetId" | "masterCode" | "glassDoorAddonCode">) => (
+	    cabinet.glassDoorAddonCode
+	    ?? ((wallCabPool as DesignCabinet[] | undefined) ?? []).find((candidate) =>
+	      candidate.id === cabinet.cabinetId || candidate.masterCode === cabinet.masterCode
+	    )?.glassDoorAddonCode
+	    ?? null
+	  ), [wallCabPool]);
   const placedWithGlassDoorLinks = useMemo(() => placed.map((cabinet) => {
     const glassDoorAddonCode = glassDoorAddonCodeFor(cabinet);
     return glassDoorAddonCode && !cabinet.glassDoorAddonCode
@@ -4188,10 +4193,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // ── Now do all state updates and side effects exactly once ──────────
 	      setPlacementWarning(null);
 	      setFailedWallFit(null);
-      justPlacedRef.current = true;
+	      justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
 		      placedRef.current = committedRun;
 		      setPlaced(() => committedRun);
+		      const glassStackerCandidates = glassStackerBulkPlacementCandidates(
+		        committedRun,
+		        finalCab.uid,
+		        room,
+		        wallCabPoolRef.current,
+		      );
+		      if (glassStackerCandidates.length > 0) {
+		        setGlassStackerBulkPrompt({ sourceCode: finalCab.masterCode, candidates: glassStackerCandidates });
+		        setMobilePanel(null);
+		      }
 		      const islandBeforePlacement = autoAdjustedIsland ?? island;
 		      const synchronizedIsland = requestedIslandFace && islandBeforePlacement
 		        ? synchronizeIslandCountertopFootprint(islandBeforePlacement, islandPlacementPrevious, committedRun)
@@ -6817,13 +6832,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
   // Toggle glass door upgrade for a wall cabinet.
   // Auto-clear noDoor when enabling glassDoor (glass door = has a door).
-  const setGlassDoorFor = useCallback((uid: string, glassDoor: boolean) => {
-    const cabinet = placed.find((candidate) => candidate.uid === uid);
-    const glassDoorAddonCode = cabinet ? glassDoorAddonCodeFor(cabinet) : null;
-    setCabAttr(uid, glassDoor
-      ? { glassDoor, noDoor: false, ...(glassDoorAddonCode ? { glassDoorAddonCode } : {}) }
-      : { glassDoor });
-  }, [glassDoorAddonCodeFor, placed, setCabAttr]);
+	  const setGlassDoorFor = useCallback((uid: string, glassDoor: boolean) => {
+	    const cabinet = placed.find((candidate) => candidate.uid === uid);
+	    const glassDoorAddonCode = cabinet ? glassDoorAddonCodeFor(cabinet) : null;
+	    setCabAttr(uid, glassDoor
+	      ? { glassDoor, noDoor: false, ...(glassDoorAddonCode ? { glassDoorAddonCode } : {}) }
+	      : { glassDoor });
+	  }, [glassDoorAddonCodeFor, placed, setCabAttr]);
+	  const applyGlassStackerBulkPlacement = useCallback(() => {
+	    const prompt = glassStackerBulkPrompt;
+	    if (!prompt) return;
+	    const next = applyBulkGlassStackerPlacements(placedRef.current, prompt.candidates, makeUid);
+	    placedRef.current = next;
+	    setPlaced(() => next);
+	    setGlassStackerBulkPrompt(null);
+	    toast.success(`Added ${prompt.candidates.length} matching glass stacker${prompt.candidates.length === 1 ? "" : "s"} above compatible wall cabinets.`);
+	  }, [glassStackerBulkPrompt]);
 
   // A wall cabinet can use either a same-line replacement glass door or a
   // complete same-line GD cabinet variant.
@@ -13584,6 +13608,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <AlertDialogFooter>
 	            <AlertDialogCancel>Keep upper cabinet</AlertDialogCancel>
 	            <AlertDialogAction onClick={replaceUpperWithRangeHood}>Replace with range hood</AlertDialogAction>
+	          </AlertDialogFooter>
+	        </AlertDialogContent>
+	      </AlertDialog>
+
+	      <AlertDialog open={glassStackerBulkPrompt != null} onOpenChange={(open) => { if (!open) setGlassStackerBulkPrompt(null); }}>
+	        <AlertDialogContent className="max-w-md">
+	          <AlertDialogHeader>
+	            <AlertDialogTitle>Add glass stackers above all compatible wall cabinets?</AlertDialogTitle>
+	            <AlertDialogDescription>
+	              {glassStackerBulkPrompt
+	                ? `${glassStackerBulkPrompt.sourceCode} is stacked above a wall cabinet. Add a matching priced glass stacker above ${glassStackerBulkPrompt.candidates.length} other compatible wall cabinet${glassStackerBulkPrompt.candidates.length === 1 ? "" : "s"}? Existing stackers, open units, island cabinets, and walls without a matching catalog glass stacker will not change.`
+	                : ""}
+	            </AlertDialogDescription>
+	          </AlertDialogHeader>
+	          <AlertDialogFooter>
+	            <AlertDialogCancel>Keep this one stacker only</AlertDialogCancel>
+	            <AlertDialogAction onClick={applyGlassStackerBulkPlacement}>
+	              Add {glassStackerBulkPrompt?.candidates.length ?? 0} matching glass stacker{glassStackerBulkPrompt?.candidates.length === 1 ? "" : "s"}
+	            </AlertDialogAction>
 	          </AlertDialogFooter>
 	        </AlertDialogContent>
 	      </AlertDialog>

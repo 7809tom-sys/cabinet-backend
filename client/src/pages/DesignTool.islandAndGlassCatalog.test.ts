@@ -27,7 +27,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  });
 
 	it("keeps the back-to-back island seam authoritative after the island placement helper resolves it", () => {
-	  expect(source).toContain("} else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement) {");
+	  expect(source).toContain("} else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement && !peninsulaRunById(room, finalCab.wallId)) {");
 	  expect(source).toMatch(/if \(\s*!requestedIslandFace &&\s*finalCab\.placement === "wall"/);
 	  expect(source).toContain("Object.assign(newCab, islandCandidate)");
 	});
@@ -89,8 +89,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("setAlternateIslandFaceRecommendation({");
 	  expect(source).toContain('setPlacementTarget("island", recommendation.face)');
 	  expect(source).toContain("Choose the next cabinet to add there.");
-	  expect(source).toContain("toe-kick, base-molding, waterfall");
-	  expect(source).toContain('if (requestedIslandFace === "front" && island)');
+	  expect(source).toContain("The current run and all treatments remain unchanged.");
+	  expect(source).toContain('if (requestedIslandFace === "front" && islandBeforePlacement)');
 	  expect(source).toContain("The Front island run has reached its chosen");
 	  expect(source).toContain('face: "back"');
 	  expect(source).toContain("Math.abs(backDepthAdjustment.island.depth - islandForPlacement.depth) > COLLISION_EPSILON_IN");
@@ -143,7 +143,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 
 	it("keeps a verified normal wall opening and redirects a shallow island wall cabinet only when Back needs depth", () => {
 	  expect(source).toContain('requestedIslandFace === "back" && island.depth + COLLISION_EPSILON_IN < minimumOpposingIslandDepth');
-	  expect(source).toContain('!requestedIslandFace && !strictDropTarget) finalCab = snapCabinetSeamOverlap');
+	  expect(source).toContain('!requestedIslandFace && !strictDropTarget && !peninsulaRunById(room, finalCab.wallId)) finalCab = snapCabinetSeamOverlap');
 	  expect(source).toContain('const dropWall = strictPointerPlacement ? (dropTarget.wall ?? activeWall) : activeWall');
 	});
 
@@ -191,12 +191,21 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain("sourceCabinetId: Number(item.id)");
 	  });
 
-	  it("places every supported-height glass stacker on its respective matching wall cabinet without changing its width", () => {
-	    expect(source).toContain("glassStackerParentPlacement({");
-	    expect(source).toContain("}, prev, room, selectedUid)");
-	    expect(source).toContain("stackerParentUid = stackerPlacement.parentUid");
-	    expect(source).toContain("stackedOnCabinetUid: stackerParentUid");
-	    expect(source).toContain("width,");
-	    expect(source).not.toContain("stackWidth = bw");
-	  });
+		  it("places every supported-height glass stacker on its respective matching wall cabinet without changing its width", () => {
+		    expect(source).toContain("glassStackerParentPlacement({");
+		    expect(source).toContain("}, prev, room, selectedUid)");
+		    expect(source).toContain("stackerParentUid = stackerPlacement.parentUid");
+		    expect(source).toContain("stackedOnCabinetUid: stackerParentUid");
+		    expect(source).toContain("width,");
+		    expect(source).not.toContain("stackWidth = bw");
+		  });
+
+		  it("asks whether matching catalog glass stackers should be added above the remaining compatible wall cabinets", () => {
+		    expect(source).toContain("glassStackerBulkPlacementCandidates(");
+		    expect(source).toContain("wallCabPoolRef.current");
+		    expect(source).toContain("setGlassStackerBulkPrompt({ sourceCode: finalCab.masterCode, candidates: glassStackerCandidates })");
+		    expect(source).toContain("Add glass stackers above all compatible wall cabinets?");
+		    expect(source).toContain("Keep this one stacker only");
+		    expect(source).toContain("applyBulkGlassStackerPlacements(placedRef.current, prompt.candidates, makeUid)");
+		  });
 });
