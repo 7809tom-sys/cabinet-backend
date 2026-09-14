@@ -1130,16 +1130,20 @@ export function PlanCanvas({
               data-testid="peninsula-run-segment"
               role="button"
               tabIndex={0}
-              aria-label={`Select ${run.label ?? "peninsula run"}; hold and drag it along the adjoining ${wallLabel[run.parentWall]} wall to move the attachment point`}
-              title={`${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Hold and drag the line to move its attachment along the adjoining wall.`}
+              aria-label={run.parentRunId
+                ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint`
+                : `Select ${run.label ?? "peninsula run"}; hold and drag it along the adjoining ${wallLabel[run.parentWall ?? "top"]} wall to move the attachment point`}
+              title={run.parentRunId
+                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high. Its far end can be resized.`
+                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Hold and drag the line to move its attachment along the adjoining wall.`}
               onPointerDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 onSelectWall?.(run.id as WallSide);
-                onPeninsulaAttachmentPointerDown(event, run);
+                if (!run.parentRunId) onPeninsulaAttachmentPointerDown(event, run);
               }}
-              onPointerMove={onPeninsulaAttachmentPointerMove}
-              onPointerUp={onPeninsulaAttachmentPointerUp}
+              onPointerMove={run.parentRunId ? undefined : onPeninsulaAttachmentPointerMove}
+              onPointerUp={run.parentRunId ? undefined : onPeninsulaAttachmentPointerUp}
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1159,7 +1163,7 @@ export function PlanCanvas({
                 Peninsula · {run.turn}° {run.direction} · {run.height}"
               </span>
               {active && <>
-                <button
+                {!run.parentRunId && <button
                   type="button"
                   aria-label="Drag joined peninsula end along adjoining wall"
                   title="Hold and drag along the adjoining wall to move this peninsula attachment"
@@ -1167,7 +1171,7 @@ export function PlanCanvas({
                   onPointerMove={onPeninsulaAttachmentPointerMove}
                   onPointerUp={onPeninsulaAttachmentPointerUp}
                   className="absolute -left-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#1a2744] text-xs font-bold text-white shadow"
-                >↔</button>
+                >↔</button>}
                 <button
                   type="button"
                   aria-label="Drag far peninsula end to change length"
@@ -1177,7 +1181,7 @@ export function PlanCanvas({
                   onPointerUp={onPeninsulaLengthPointerUp}
                   className="absolute -right-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#d4a75a] text-xs font-bold text-[#1a2744] shadow"
                 >↔</button>
-                <span className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow">Hold line to move · gold end resizes</span>
+                <span className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow">{run.parentRunId ? "Connected return · gold end resizes" : "Hold line to move · gold end resizes"}</span>
               </>}
             </div>
           );

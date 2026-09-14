@@ -89,7 +89,7 @@ import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaDirection, type PeninsulaCabinetSide,
+          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
@@ -886,6 +886,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [wallSettingsDraft, setWallSettingsDraft] = useState<null | {
     wallId: WallSide;
     kind: "standard" | "custom" | "peninsula";
+    isReturn: boolean;
     label: string;
     length: number;
     height: number;
@@ -917,6 +918,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setWallSettingsDraft({
       wallId: requestedWallId,
       kind: peninsula ? "peninsula" : custom ? "custom" : "standard",
+      isReturn: Boolean(peninsula?.parentRunId),
       label: peninsula?.label ?? custom?.label ?? wallLabel[requestedWallId] ?? "Selected wall",
       length: wallLength(requestedWallId, room),
       height: peninsula?.height ?? custom?.height ?? room.wallCeilings?.[requestedWallId]?.high ?? room.ceilingHeight ?? 96,
@@ -943,8 +945,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (draft.kind === "peninsula") {
       const current = peninsulaRunById(room, draft.wallId);
       if (!current) return;
-      const parentLength = wallLength(current.parentWall, room);
-      const startOffset = Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
+      const parentLength = current.parentWall ? wallLength(current.parentWall, room) : 0;
+      const startOffset = current.parentRunId
+        ? 0
+        : Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
       const turn = draft.angle === 90 ? 90 : 45;
       const direction: PeninsulaDirection = draft.angle === -45 ? "left" : draft.angle === 45 ? "right" : draft.direction;
       const proposed = { ...current, startOffset, length, height, turn, direction, cabinetSide: draft.cabinetSide } as PeninsulaRun;
@@ -1018,7 +1022,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const removed = removePeninsulaRun(room, placed, run.id);
     setRoom(removed.room);
     setPlaced(removed.placed);
-    setActiveWall(run.parentWall);
+    setActiveWall((run.parentRunId ?? run.parentWall ?? "top") as WallSide);
     setPlacementTarget("wall");
     setCompassWallStartIn(null);
     setSelectedUid(null);
@@ -1032,7 +1036,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [peninsulaDeletePrompt, placed, room]);
   const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
     const run = peninsulaRunById(room, runId);
-    if (!run || layoutLocked) return;
+    if (!run || layoutLocked || run.parentRunId || !run.parentWall) return;
     const parentLength = wallLength(run.parentWall, room);
     const startOffset = Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(requestedStartOffset * 8) / 8));
     if (Math.abs(run.startOffset - startOffset) < 0.01) return;
@@ -3130,6 +3134,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPeninsulaDraft(null);
     toast.success(`New ${run.turn}° peninsula run created at ${run.height}\" high and ${run.length}\" long.`);
   }, [layoutLocked, peninsulaDraft]);
+  /** Creates a new empty run attached to the selected peninsula's far endpoint. */
+  const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
+    if (layoutLocked) return;
+    const parent = peninsulaRunById(room, parentRunId);
+    if (!parent) return;
+    const candidate: PeninsulaRun = {
+      id: `peninsula_return_${Date.now().toString(36)}`,
+      parentRunId: parent.id,
+      startOffset: 0,
+      turn,
+      direction,
+      length: 36,
+      height: parent.height,
+      cabinetSide: parent.cabinetSide ?? "left",
+      label: `Return · ${turn}° ${direction}`,
+    };
+    const run = { ...candidate, length: Math.max(6, Math.min(36, peninsulaRunMaxLength(candidate, room))) };
+    setRoom((current) => ({ ...current, peninsulaRuns: [...(current.peninsulaRuns ?? []), run] }));
+    setActiveWall(run.id as WallSide);
+    setPlacementTarget("wall");
+    setWallSettingsOpen(false);
+    toast.success(`Attached ${turn}° ${direction} return created. Select it to place cabinets or edit its length.`);
+  }, [layoutLocked, room]);
   const hasConflicts = conflictUids.size > 0;
   const preSavePlanReview = useMemo(
     () => buildPreSavePlanReview({ room, placed, openings, island, catalogFillers, conflictUids }),
@@ -11566,9 +11593,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                            <option value={45}>45° right</option><option value={-45}>45° left</option><option value={90}>90°</option>
 	                          </select>
 	                        </label>
-	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Split from corner (in)
-	                          <Input type="number" min="0" step="0.125" value={wallSettingsDraft.startOffset} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, startOffset: Number(event.target.value) || 0 } : draft)} />
-	                        </label>
+	                        {wallSettingsDraft.isReturn ? (
+	                          <div className="grid content-end gap-1 text-xs font-semibold text-muted-foreground"><span>Attachment</span><div className="h-9 rounded-md border border-input bg-muted px-2 py-2 text-sm font-normal text-foreground">Parent run endpoint</div></div>
+	                        ) : (
+	                          <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Split from corner (in)
+	                            <Input type="number" min="0" step="0.125" value={wallSettingsDraft.startOffset} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, startOffset: Number(event.target.value) || 0 } : draft)} />
+	                          </label>
+	                        )}
 	                      </div>
 	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
 	                        <select value={wallSettingsDraft.cabinetSide} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
@@ -11577,6 +11608,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        </select>
 	                      </label>
 	                      <p className="text-[11px] leading-4 text-muted-foreground">This sets the face used by new cabinets. Existing peninsula cabinets retain their selected face.</p>
+	                      <div className="grid gap-1.5 border-t pt-3">
+	                        <p className="text-xs font-semibold text-foreground">Attach a return to this end</p>
+	                        <p className="text-[11px] leading-4 text-muted-foreground">Creates an empty connected run. Select it next to set its length, height, cabinet face, or another return.</p>
+	                        <div className="grid grid-cols-2 gap-1.5">
+	                          {([
+	                            [90, "left", "90° left"],
+	                            [90, "right", "90° right"],
+	                            [45, "left", "45° left"],
+	                            [45, "right", "45° right"],
+	                          ] as const).map(([turn, direction, label]) => (
+	                            <Button key={`${turn}-${direction}`} type="button" variant="outline" size="sm" onClick={() => addPeninsulaReturn(wallSettingsDraft.wallId, turn, direction)}>{label}</Button>
+	                          ))}
+	                        </div>
+	                      </div>
 	                    </>
 	                  )}
 	                  {wallSettingsDraft.kind === "custom" && (

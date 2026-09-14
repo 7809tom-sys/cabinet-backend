@@ -1152,9 +1152,11 @@ export type PeninsulaCabinetSide = "left" | "right";
 
 export interface PeninsulaRun {
   id: string;
-  /** Cardinal room wall where this run begins. */
-  parentWall: WallSide;
-  /** Exact distance in inches from the parent wall's start corner. */
+  /** Cardinal room wall where a primary peninsula begins. */
+  parentWall?: WallSide;
+  /** Optional connected peninsula run whose far endpoint anchors this return. */
+  parentRunId?: string;
+  /** Exact distance in inches from a primary parent wall's start corner. */
   startOffset: number;
   /** Locked continuation turn relative to the parent wall. */
   turn: PeninsulaTurn;
@@ -1174,13 +1176,17 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
   end: { x: number; y: number };
   radians: number;
 } {
-  const span = run.parentWall === "top" || run.parentWall === "bottom" ? room.width : room.depth;
+  const parentRun = run.parentRunId
+    ? (room as RoomData).peninsulaRuns?.find((candidate) => candidate.id === run.parentRunId)
+    : undefined;
+  const parentWall = run.parentWall ?? "top";
+  const span = parentWall === "top" || parentWall === "bottom" ? room.width : room.depth;
   const offset = Math.max(0, Math.min(span, Number(run.startOffset) || 0));
-  const start = run.parentWall === "top"
+  const rootStart = parentWall === "top"
     ? { x: offset, y: 0 }
-    : run.parentWall === "bottom"
+    : parentWall === "bottom"
       ? { x: offset, y: room.depth }
-      : run.parentWall === "left"
+      : parentWall === "left"
         ? { x: 0, y: offset }
         : { x: room.width, y: offset };
   const parentRadians: Record<WallSide, number> = {
@@ -1191,10 +1197,18 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
   };
   // A peninsula leaves its parent wall through the interior. A 90° run follows
   // that inward normal; 45° choices fan left/right around it inside the room.
-  const inwardRadians = parentRadians[run.parentWall] + Math.PI / 2;
-  const radians = run.turn === 90
-    ? inwardRadians
-    : inwardRadians + (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4);
+  const parentGeometry = parentRun ? peninsulaRunEndpoints(parentRun, room) : null;
+  const start = parentGeometry?.end ?? rootStart;
+  const parentHeading = parentGeometry?.radians ?? parentRadians[parentWall];
+  // A primary run leaves its room wall through the room interior. A connected
+  // return leaves the prior run's far endpoint and turns relative to that run.
+  const radians = parentGeometry
+    ? parentHeading + (run.turn === 90
+      ? (run.direction === "right" ? Math.PI / 2 : -Math.PI / 2)
+      : (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4))
+    : run.turn === 90
+      ? parentHeading + Math.PI / 2
+      : parentHeading + Math.PI / 2 + (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4);
   const length = Math.max(6, Number(run.length) || 6);
   return {
     start,
@@ -1226,6 +1240,9 @@ export function peninsulaRunStartOffsetAtPoint(
   room: Pick<RoomData, "width" | "depth">,
   point: { x: number; y: number },
 ): number {
+  // Returns are anchored to their parent run's far endpoint; only a primary
+  // run may slide its joined attachment along a cardinal room wall.
+  if (run.parentRunId || !run.parentWall) return 0;
   const parentLength = run.parentWall === "top" || run.parentWall === "bottom" ? room.width : room.depth;
   const rawOffset = run.parentWall === "top" || run.parentWall === "bottom" ? point.x : point.y;
   return Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(rawOffset * 8) / 8));
@@ -1284,15 +1301,26 @@ export function removePeninsulaRun(room: RoomData, placed: PlacedCabinet[], runI
 } {
   const run = peninsulaRunById(room, runId);
   if (!run) return { room, placed, removedCabinetUids: [] };
+  const removedRunIds = new Set<string>([run.id]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const candidate of room.peninsulaRuns ?? []) {
+      if (candidate.parentRunId && removedRunIds.has(candidate.parentRunId) && !removedRunIds.has(candidate.id)) {
+        removedRunIds.add(candidate.id);
+        changed = true;
+      }
+    }
+  }
   const removedCabinetUids = placed
-    .filter((cabinet) => cabinetWall(cabinet, room) === runId)
+    .filter((cabinet) => removedRunIds.has(cabinetWall(cabinet, room)))
     .map((cabinet) => cabinet.uid);
   return {
     room: {
       ...room,
-      peninsulaRuns: (room.peninsulaRuns ?? []).filter((candidate) => candidate.id !== runId),
+      peninsulaRuns: (room.peninsulaRuns ?? []).filter((candidate) => !removedRunIds.has(candidate.id)),
     },
-    placed: placed.filter((cabinet) => cabinetWall(cabinet, room) !== runId),
+    placed: placed.filter((cabinet) => !removedRunIds.has(cabinetWall(cabinet, room))),
     removedCabinetUids,
   };
 }
@@ -5891,7 +5919,7 @@ export function wallPlacementAt(
       y: center.y - boundDepth / 2,
       // A cabinet's back must meet the selected face of the line. Flipping the
       // right face by 180° keeps its front facing away from the peninsula wall.
-      rotation: Math.round(((radians + (peninsulaSide === "right" ? Math.PI : 0)) * 180) / Math.PI),
+      rotation: ((Math.round(((radians + (peninsulaSide === "right" ? Math.PI : 0)) * 180) / Math.PI) % 360) + 360) % 360,
       wallId: peninsula.id,
       wallOffset: offset,
       peninsulaSide,
@@ -6672,6 +6700,34 @@ export function countertopSurfaces(
       const y = nearTop ? p.y - cornerGap : p.y;
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
+  }
+  // A return and its parent form one connected kitchen run. When both sides of
+  // that exact joint have a counter-bearing base cabinet at the connection, add
+  // a compact shared joint slab. This keeps the visible counter continuous
+  // without inventing an unsupported bridge on an empty run.
+  for (const child of room.peninsulaRuns ?? []) {
+    if (!child.parentRunId) continue;
+    const parent = peninsulaRunById(room, child.parentRunId);
+    if (!parent) continue;
+    const parentSupportedAtEnd = placed.some((cabinet) =>
+      bearsCountertop(cabinet) &&
+      cabinetWall(cabinet, room) === parent.id &&
+      (Number(cabinet.wallOffset) || 0) + Number(cabinet.width) >= parent.length - COLLISION_EPSILON_IN,
+    );
+    const childSupportedAtStart = placed.some((cabinet) =>
+      bearsCountertop(cabinet) &&
+      cabinetWall(cabinet, room) === child.id &&
+      (Number(cabinet.wallOffset) || 0) <= COLLISION_EPSILON_IN,
+    );
+    if (!parentSupportedAtEnd || !childSupportedAtStart) continue;
+    const joint = peninsulaRunEndpoints(parent, room).end;
+    out.push({
+      x: joint.x - D / 2,
+      y: joint.y - D / 2,
+      width: D,
+      depth: D,
+      kind: "base",
+    });
   }
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));

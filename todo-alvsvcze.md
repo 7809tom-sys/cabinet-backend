@@ -1981,4 +1981,4 @@
 - [x] Trace the recurring saved-design price complaint to the specific cabinet line or total calculation and correct it only against a verified price source
 - [x] Add a visible Delete peninsula action for the selected peninsula wall that removes its attached cabinets, counter surfaces, price lines, and materials entries without changing adjoining room walls
 - [x] Fix the selected-cabinet Snap to wall action so a free cabinet beside a committed peninsula seats back-to-wall on that exact run rather than remaining free or snapping to an outside wall
-- [ ] Complete connected U-, L-, and angled-peninsula kitchen runs with attached 45-degree or 90-degree returns, cabinet placement on every editable face, and continuous supported countertop behavior
+- [x] Complete connected U-, L-, and angled-peninsula kitchen runs with attached 45-degree or 90-degree returns, cabinet placement on every editable face, and continuous supported countertop behavior

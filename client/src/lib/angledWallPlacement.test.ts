@@ -166,6 +166,36 @@ describe("cabinet-supported peninsula runs", () => {
     expect(peninsulaRunMaxLength(left45, peninsulaRoom)).toBeLessThanOrEqual(102);
   });
 
+  it("anchors a connected return at its parent peninsula endpoint with a locked turn", () => {
+    const parent = peninsulaRoom.peninsulaRuns![0];
+    const returnRun = {
+      id: "peninsula-return",
+      parentRunId: parent.id,
+      startOffset: 0,
+      turn: 90 as const,
+      direction: "right" as const,
+      length: 42,
+      height: 34.5,
+      label: "Peninsula return",
+    };
+    const connectedRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, returnRun] };
+    expect(peninsulaRunEndpoints(returnRun, connectedRoom)).toMatchObject({
+      start: { x: 48, y: 96 },
+      end: { x: 6, y: 96 },
+    });
+    expect(wallPlacementAt(0, 30, 24, returnRun.id as any, connectedRoom)).toMatchObject({
+      wallId: returnRun.id,
+      wallOffset: 0,
+      rotation: 180,
+    });
+    expect(wallPlacementAt(0, 30, 24, returnRun.id as any, connectedRoom, "right")).toMatchObject({
+      wallId: returnRun.id,
+      peninsulaSide: "right",
+      rotation: 0,
+    });
+    expect(peninsulaRunHitAtPoint(connectedRoom, { x: 20, y: 96 }, 8)).toMatchObject({ run: { id: returnRun.id } });
+  });
+
   it("projects a catalog drop onto the active peninsula run rather than an outside room wall", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     expect(peninsulaRunOffsetAtPoint(run, peninsulaRoom, { x: 48, y: 63 })).toBe(63);
@@ -223,6 +253,29 @@ describe("cabinet-supported peninsula runs", () => {
     ]);
   });
 
+  it("bridges a connected counter joint only when both joined runs are cabinet-supported", () => {
+    const parent = peninsulaRoom.peninsulaRuns![0];
+    const child = { id: "return-with-counter", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 42, height: 34.5 };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+    const parentSpot = wallPlacementAt(66, 30, 24, parent.id as any, room);
+    const childSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
+    const parentCabinet = { ...peninsulaCabinet("parent-joint", 66), ...parentSpot, wallOffset: 66, wallId: parent.id };
+    const childCabinet = { ...peninsulaCabinet("child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
+    expect(countertopSurfaces([parentCabinet], room).some((surface) => surface.x === 35.25 && surface.y === 83.25 && surface.width === 25.5)).toBe(false);
+    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toContainEqual(expect.objectContaining({ x: 35.25, y: 83.25, width: 25.5, depth: 25.5, kind: "base" }));
+  });
+
+  it("adds the same supported counter joint at a locked 45-degree connected corner", () => {
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "angled-parent", turn: 45 as const, direction: "right" as const, startOffset: 72, length: 36 };
+    const child = { id: "angled-return", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 30, height: 34.5 };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+    const parentSpot = wallPlacementAt(6, 30, 24, parent.id as any, room);
+    const childSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
+    const parentCabinet = { ...peninsulaCabinet("angled-parent-joint", 6), ...parentSpot, wallOffset: 6, wallId: parent.id };
+    const childCabinet = { ...peninsulaCabinet("angled-child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
+    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toContainEqual(expect.objectContaining({ x: 33.75, y: 12.75, width: 25.5, depth: 25.5, kind: "base" }));
+  });
+
   it("deletes only the selected peninsula and its owned cabinets, clearing derived counter, price, and materials entries", () => {
     const owned = peninsulaCabinet("delete-peninsula", 0);
     const removed = removePeninsulaRun(peninsulaRoom, [owned], "peninsula-90-right");
@@ -240,5 +293,18 @@ describe("cabinet-supported peninsula runs", () => {
     });
     expect(lines).toEqual([]);
     expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([]);
+  });
+
+  it("removes a selected return and its descendants without touching its parent run", () => {
+    const parent = peninsulaRoom.peninsulaRuns![0];
+    const child = { id: "return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "left" as const, length: 24, height: 34.5 };
+    const grandchild = { id: "return-two", parentRunId: child.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 24, height: 34.5 };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child, grandchild] };
+    const parentCabinet = peninsulaCabinet("parent-cabinet", 0);
+    const childCabinet = { ...peninsulaCabinet("return-cabinet", 0), wallId: child.id };
+    const grandchildCabinet = { ...peninsulaCabinet("return-two-cabinet", 0), wallId: grandchild.id };
+    const removed = removePeninsulaRun(room, [parentCabinet, childCabinet, grandchildCabinet], child.id);
+    expect(removed.room.peninsulaRuns).toEqual([parent]);
+    expect(removed.placed.map((cabinet) => cabinet.uid)).toEqual(["parent-cabinet"]);
   });
 });

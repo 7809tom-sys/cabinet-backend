@@ -8,7 +8,8 @@ describe("PlanCanvas automatic replacement placement", () => {
   it("uses the explicit toolbar snapping choice rather than an incidental Shift key for catalog drops", () => {
     expect(source).toContain("automaticSnapping = true");
     expect(source).toContain("setCatalogDragFreehand(!automaticSnapping)");
-    expect(source).toContain("onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi, !automaticSnapping)");
+    expect(source).toContain("const targetWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id as WallSide | undefined");
+    expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
   });
 
   it("labels the entire highlighted opening with its clear measured span", () => {
