@@ -1979,3 +1979,4 @@
 - [x] Add a bounded endpoint drag handle that lengthens or shortens a peninsula wall without orphaning or overlapping cabinets
 - [x] Let users tap a peninsula, then hold-and-drag its joined endpoint along the parent wall to move the attachment point while retaining the locked 45-degree or 90-degree direction
 - [x] Trace the recurring saved-design price complaint to the specific cabinet line or total calculation and correct it only against a verified price source
+- [x] Add a visible Delete peninsula action for the selected peninsula wall that removes its attached cabinets, counter surfaces, price lines, and materials entries without changing adjoining room walls

@@ -110,7 +110,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -878,6 +878,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
   const [wallSettingsOpen, setWallSettingsOpen] = useState(false);
+  const [peninsulaDeletePrompt, setPeninsulaDeletePrompt] = useState<null | {
+    runId: string;
+    label: string;
+    cabinetCount: number;
+  }>(null);
   const [wallSettingsDraft, setWallSettingsDraft] = useState<null | {
     wallId: WallSide;
     kind: "standard" | "custom" | "peninsula";
@@ -990,6 +995,41 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setWallSettingsOpen(false);
     toast.success(`Updated ${draft.label}.`);
   }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
+  const requestPeninsulaDeletion = useCallback(() => {
+    const draft = wallSettingsDraft;
+    if (!draft || draft.kind !== "peninsula") return;
+    const run = peninsulaRunById(room, draft.wallId);
+    if (!run) return;
+    const cabinetCount = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id).length;
+    setPeninsulaDeletePrompt({
+      runId: run.id,
+      label: run.label ?? draft.label ?? "peninsula",
+      cabinetCount,
+    });
+  }, [placed, room, wallSettingsDraft]);
+  const confirmPeninsulaDeletion = useCallback(() => {
+    const prompt = peninsulaDeletePrompt;
+    if (!prompt) return;
+    const run = peninsulaRunById(room, prompt.runId);
+    if (!run) {
+      setPeninsulaDeletePrompt(null);
+      return;
+    }
+    const removed = removePeninsulaRun(room, placed, run.id);
+    setRoom(removed.room);
+    setPlaced(removed.placed);
+    setActiveWall(run.parentWall);
+    setPlacementTarget("wall");
+    setCompassWallStartIn(null);
+    setSelectedUid(null);
+    setWallSettingsOpen(false);
+    setPeninsulaDeletePrompt(null);
+    toast.success(
+      removed.removedCabinetUids.length > 0
+        ? `Deleted ${run.label ?? "peninsula"} and ${removed.removedCabinetUids.length} attached cabinet${removed.removedCabinetUids.length === 1 ? "" : "s"}.`
+        : `Deleted ${run.label ?? "peninsula"}.`,
+    );
+  }, [peninsulaDeletePrompt, placed, room]);
   const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
     const run = peninsulaRunById(room, runId);
     if (!run || layoutLocked) return;
@@ -11497,11 +11537,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                </div>
 	              )}
 	              <DialogFooter className="border-t px-4 py-3">
+	                {wallSettingsDraft?.kind === "peninsula" && (
+	                  <Button
+	                    type="button"
+	                    variant="destructive"
+	                    className="mr-auto"
+	                    data-testid="delete-selected-peninsula"
+	                    onClick={requestPeninsulaDeletion}
+	                  >
+	                    <Trash2 className="mr-1.5 h-4 w-4" /> Delete peninsula
+	                  </Button>
+	                )}
 	                <Button type="button" variant="outline" onClick={() => setWallSettingsOpen(false)}>Cancel</Button>
 	                <Button type="button" onClick={saveWallSettings}>Save wall</Button>
 	              </DialogFooter>
 	            </DialogContent>
 	          </Dialog>
+	          <AlertDialog open={peninsulaDeletePrompt != null} onOpenChange={(open) => { if (!open) setPeninsulaDeletePrompt(null); }}>
+	            <AlertDialogContent className="max-w-md">
+	              <AlertDialogHeader>
+	                <AlertDialogTitle>Delete {peninsulaDeletePrompt?.label ?? "peninsula"}?</AlertDialogTitle>
+	                <AlertDialogDescription>
+	                  {peninsulaDeletePrompt?.cabinetCount
+	                    ? `This removes the peninsula and its ${peninsulaDeletePrompt.cabinetCount} attached cabinet${peninsulaDeletePrompt.cabinetCount === 1 ? "" : "s"}. Its countertop, price, and materials entries update with those cabinets. Adjoining room walls stay unchanged.`
+	                    : "This removes only the empty peninsula. Adjoining room walls stay unchanged."}
+	                </AlertDialogDescription>
+	              </AlertDialogHeader>
+	              <AlertDialogFooter>
+	                <AlertDialogCancel>Keep peninsula</AlertDialogCancel>
+	                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmPeninsulaDeletion}>
+	                  <Trash2 className="mr-1.5 h-4 w-4" /> Delete peninsula
+	                </AlertDialogAction>
+	              </AlertDialogFooter>
+	            </AlertDialogContent>
+	          </AlertDialog>
         </div>
 
         {/* Right: pricing + BOM — inline column on desktop; bottom drawer on mobile */}

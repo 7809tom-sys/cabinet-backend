@@ -1271,6 +1271,32 @@ export function peninsulaRunById(room: RoomData, wallId?: string | null): Penins
   return room.peninsulaRuns?.find((run) => run.id === wallId) ?? null;
 }
 
+/**
+ * Removes one free-standing peninsula run and only the cabinets that explicitly
+ * belong to it. Perimeter/custom room walls and cabinets on every other wall
+ * are intentionally preserved. Countertop, price, and materials collections are
+ * derived from placed cabinets, so callers receive the matching retained list.
+ */
+export function removePeninsulaRun(room: RoomData, placed: PlacedCabinet[], runId: string): {
+  room: RoomData;
+  placed: PlacedCabinet[];
+  removedCabinetUids: string[];
+} {
+  const run = peninsulaRunById(room, runId);
+  if (!run) return { room, placed, removedCabinetUids: [] };
+  const removedCabinetUids = placed
+    .filter((cabinet) => cabinetWall(cabinet, room) === runId)
+    .map((cabinet) => cabinet.uid);
+  return {
+    room: {
+      ...room,
+      peninsulaRuns: (room.peninsulaRuns ?? []).filter((candidate) => candidate.id !== runId),
+    },
+    placed: placed.filter((cabinet) => cabinetWall(cabinet, room) !== runId),
+    removedCabinetUids,
+  };
+}
+
 export interface PersistedDesignEntities {
   openings: WallOpening[];
   sinks: SinkFixture[];

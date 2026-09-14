@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -221,5 +221,24 @@ describe("cabinet-supported peninsula runs", () => {
     expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([
       expect.objectContaining({ code: "B-30", qty: 1, section: "cabinet" }),
     ]);
+  });
+
+  it("deletes only the selected peninsula and its owned cabinets, clearing derived counter, price, and materials entries", () => {
+    const owned = peninsulaCabinet("delete-peninsula", 0);
+    const removed = removePeninsulaRun(peninsulaRoom, [owned], "peninsula-90-right");
+    expect(removed.room.peninsulaRuns).toEqual([]);
+    expect(removed.placed).toEqual([]);
+    expect(removed.removedCabinetUids).toEqual(["delete-peninsula"]);
+    expect(countertopSurfaces(removed.placed, removed.room)).toEqual([]);
+    const lines = buildDesignCabinetCartLines({
+      placed: removed.placed,
+      styleId: 77,
+      distributorId: 11,
+      tier: "homeowner",
+      styleNameById: new Map([[77, "Test finish"]]),
+      unitPriceFor: () => 250,
+    });
+    expect(lines).toEqual([]);
+    expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([]);
   });
 });
