@@ -89,7 +89,7 @@ import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaDirection,
+          PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
@@ -886,6 +886,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     height: number;
     angle: CompassWallAngle;
     direction: PeninsulaDirection;
+    cabinetSide: PeninsulaCabinetSide;
     startOffset: number;
   }>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
@@ -904,22 +905,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setMeasureMode(false);
     toast.info(`Drag the gold 45° Compass on the selected ${WALL_LABELS[activeWall]} wall. No popup is needed.`);
   }, [activeWall, layoutLocked]);
-  const openWallSettings = useCallback(() => {
-    const peninsula = peninsulaRunById(room, activeWall);
-    const custom = room.customWalls?.find((wall) => wall.id === activeWall);
+  const openWallSettings = useCallback((requestedWallId: WallSide = activeWall) => {
+    const peninsula = peninsulaRunById(room, requestedWallId);
+    const custom = room.customWalls?.find((wall) => wall.id === requestedWallId);
     const standard = !peninsula && !custom;
     setWallSettingsDraft({
-      wallId: activeWall,
+      wallId: requestedWallId,
       kind: peninsula ? "peninsula" : custom ? "custom" : "standard",
-      label: peninsula?.label ?? custom?.label ?? wallLabel[activeWall] ?? "Selected wall",
-      length: wallLength(activeWall, room),
-      height: peninsula?.height ?? custom?.height ?? room.wallCeilings?.[activeWall]?.high ?? room.ceilingHeight ?? 96,
+      label: peninsula?.label ?? custom?.label ?? wallLabel[requestedWallId] ?? "Selected wall",
+      length: wallLength(requestedWallId, room),
+      height: peninsula?.height ?? custom?.height ?? room.wallCeilings?.[requestedWallId]?.high ?? room.ceilingHeight ?? 96,
       angle: peninsula?.turn === 45 ? (peninsula.direction === "right" ? 45 : -45) : custom?.lockedAngle === 45 ? 45 : custom?.lockedAngle === -45 ? -45 : 90,
       direction: peninsula?.direction ?? "right",
+      cabinetSide: peninsula?.cabinetSide ?? "left",
       startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
-    if (standard) setPlacementTarget("wall");
+    setActiveWall(requestedWallId);
+    setPlacementTarget("wall");
   }, [activeWall, room]);
   const saveWallSettings = useCallback(() => {
     const draft = wallSettingsDraft;
@@ -939,7 +942,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const startOffset = Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
       const turn = draft.angle === 90 ? 90 : 45;
       const direction: PeninsulaDirection = draft.angle === -45 ? "left" : draft.angle === 45 ? "right" : draft.direction;
-      const proposed = { ...current, startOffset, length, height, turn, direction } as PeninsulaRun;
+      const proposed = { ...current, startOffset, length, height, turn, direction, cabinetSide: draft.cabinetSide } as PeninsulaRun;
       const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
       if (geometryChanged && wallCabinets.length > 0) {
         toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
@@ -987,6 +990,50 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setWallSettingsOpen(false);
     toast.success(`Updated ${draft.label}.`);
   }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
+  const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
+    const run = peninsulaRunById(room, runId);
+    if (!run || layoutLocked) return;
+    const parentLength = wallLength(run.parentWall, room);
+    const startOffset = Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(requestedStartOffset * 8) / 8));
+    if (Math.abs(run.startOffset - startOffset) < 0.01) return;
+    const proposed = { ...run, startOffset };
+    const cappedLength = Math.min(run.length, peninsulaRunMaxLength(proposed, room));
+    const proposedRoom: RoomData = {
+      ...room,
+      peninsulaRuns: (room.peninsulaRuns ?? []).map((candidate) => candidate.id === run.id ? { ...proposed, length: cappedLength } : candidate),
+    };
+    const assigned = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id);
+    const movedByUid = new Map(assigned.map((cabinet) => {
+      const spot = wallPlacementAt(Number(cabinet.wallOffset) || 0, cabinet.width, cabinet.depth, run.id as WallSide, proposedRoom, cabinet.peninsulaSide);
+      return [cabinet.uid, { ...cabinet, ...spot, wallId: run.id, wallOffset: Number(cabinet.wallOffset) || 0, peninsulaSide: cabinet.peninsulaSide ?? spot.peninsulaSide }];
+    }));
+    const moved = Array.from(movedByUid.values());
+    const stationary = placed.filter((cabinet) => !movedByUid.has(cabinet.uid));
+    const collision = moved.some((cabinet, index) => hasCollision(cabinet, [...stationary, ...moved.filter((_, candidateIndex) => candidateIndex !== index)]));
+    if (collision) {
+      toast.error("This attachment position would overlap another cabinet. Choose a clear point along the adjoining wall.");
+      return;
+    }
+    setRoom(proposedRoom);
+    if (movedByUid.size > 0) setPlaced((previous) => previous.map((cabinet) => movedByUid.get(cabinet.uid) ?? cabinet));
+  }, [layoutLocked, placed, room]);
+  const resizePeninsulaRun = useCallback((runId: string, requestedLength: number) => {
+    const run = peninsulaRunById(room, runId);
+    if (!run || layoutLocked) return;
+    const proposed = { ...run, length: Math.max(6, Math.round(requestedLength * 8) / 8) };
+    const cappedLength = Math.min(proposed.length, peninsulaRunMaxLength(proposed, room));
+    const assigned = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id);
+    const requiredLength = assigned.reduce((furthest, cabinet) => Math.max(furthest, (Number(cabinet.wallOffset) || 0) + cabinet.width), 0);
+    if (cappedLength + 0.01 < requiredLength) {
+      toast.error(`This peninsula cannot be shorter than ${formatEighthInches(requiredLength)} while its cabinets remain on the run.`);
+      return;
+    }
+    if (Math.abs(run.length - cappedLength) < 0.01) return;
+    setRoom((previous) => ({
+      ...previous,
+      peninsulaRuns: (previous.peninsulaRuns ?? []).map((candidate) => candidate.id === run.id ? { ...candidate, length: cappedLength } : candidate),
+    }));
+  }, [layoutLocked, placed, room]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -3383,7 +3430,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Explicit drag-and-drop coordinates win. A normal catalog selection uses
       // the active wall's deterministic left-to-right sequence: floor cabinets
       // advance the floor run and wall cabinets advance the upper run.
-	      let spot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
+      let spot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide };
 	      let preserveResolvedPlacement = false;
 	      let explicitSelectedSinkTarget = false;
       // The controlled mode is what the customer sees in the Placement panel.
@@ -3690,7 +3737,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        numberOfDoors: c.numberOfDoors,
 	        numberOfDrawers: c.numberOfDrawers,
 	        catalogImageUrl: c.catalogImageUrl ?? null,
-	        ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+        ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+        ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
 	        customProfile: (c as any).graphicType ?? null,
         genericDrawingUrl: (c as any).specImageUrl ?? null,
 	        fixedShelfCount: (c as any).numberOfFixedShelves ?? null,
@@ -3932,7 +3980,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (mountedRange) {
         const mountedSpot = mountedMicrowaveOverRangeSpot(finalCab, mountedRange, room);
         finalCab = { ...finalCab, ...mountedSpot, mountBottom: otrMountBottom ?? finalCab.mountBottom };
-      } else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement) {
+	      } else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement && !peninsulaRunById(room, finalCab.wallId)) {
         const edgeSnap = snapPosition(finalCab, room, normalizedPrevious, island);
         finalCab = { ...finalCab, x: edgeSnap.x, y: edgeSnap.y };
       }
@@ -3941,7 +3989,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // A 2D or 3D resolver may already have seated this cabinet in a verified
 	      // full wall opening. Do not run the generic seam snap again: it can pull
 	      // the cabinet from that opening into a neighboring narrow sub-gap.
-	      if (automaticSnapping && !requestedIslandFace && !strictDropTarget) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !peninsulaRunById(room, finalCab.wallId)) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
 	      normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
@@ -5950,7 +5998,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
         setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
       }
-	      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room);
+	      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room, activePeninsulaRun?.cabinetSide);
 	      addCabinet(
 	        data,
 	        spot.x,
@@ -5961,7 +6009,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        undefined,
 	        undefined,
 	        false,
-	        { wallId: dropWall, wallOffset: measured.snapStart },
+	        { wallId: dropWall, wallOffset: measured.snapStart, ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}) },
 	      );
       dragDataRef.current = null;
       setCatalogDragPreview(null);
@@ -5995,11 +6043,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             toast.error(message);
             return prev;
           }
-          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, cabinet.wallId as WallSide, room);
+	          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, cabinet.wallId as WallSide, room, cabinet.peninsulaSide);
           requestedCabinet = { ...cabinet, ...angledSpot, wallId: cabinet.wallId, wallOffset: nextStart };
         }
       }
-	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag;
+	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag && !peninsulaRunById(room, cabinet.wallId);
 	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
 	      const alignedCabinet: PlacedCabinet = snappedPosition
 	        ? snapCabinetSeamOverlap({ ...requestedCabinet, x: snappedPosition.x, y: snappedPosition.y }, peers)
@@ -8843,7 +8891,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  </div>
 	                )}
 	                <div className="px-3 pb-2">
-	                  <Button type="button" variant="outline" size="sm" className="w-full justify-start" onClick={openWallSettings}>
+                    <Button type="button" variant="outline" size="sm" className="w-full justify-start" onClick={() => openWallSettings()}>
 	                    <Pencil className="mr-2 h-3.5 w-3.5" /> Edit selected wall
 	                  </Button>
 	                </div>
@@ -10987,6 +11035,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onWallCompassDrop={beginPeninsulaFromCompass}
               peninsulaDraft={peninsulaDraft}
               onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
+              onPeninsulaAttachmentChange={movePeninsulaAttachment}
+              onPeninsulaRunLengthChange={resizePeninsulaRun}
+              onOpenWallSettings={openWallSettings}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
@@ -11219,10 +11270,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  activeWall={activeWall}
 	                  onSelectWall={setActiveWall}
 	                  wallCompassStartIn={compassWallStartIn}
-	                  onWallCompassDrop={beginPeninsulaFromCompass}
-	                  peninsulaDraft={peninsulaDraft}
-	                  onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
-	                  conflictUids={conflictUids}
+		                  onWallCompassDrop={beginPeninsulaFromCompass}
+		                  peninsulaDraft={peninsulaDraft}
+		                  onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
+		                  onPeninsulaAttachmentChange={movePeninsulaAttachment}
+		                  onPeninsulaRunLengthChange={resizePeninsulaRun}
+		                  onOpenWallSettings={openWallSettings}
+		                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}
 	                  countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -11361,7 +11415,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              <button
 	                type="button"
 	                data-testid="edit-selected-wall-trigger"
-	                onClick={openWallSettings}
+                  onClick={() => openWallSettings()}
 	                className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] shadow-sm hover:bg-[#fff9ed]"
 	              >
 	                <Pencil className="h-3.5 w-3.5" /> Edit wall
@@ -11395,6 +11449,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          <Input type="number" min="0" step="0.125" value={wallSettingsDraft.startOffset} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, startOffset: Number(event.target.value) || 0 } : draft)} />
 	                        </label>
 	                      </div>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
+	                        <select value={wallSettingsDraft.cabinetSide} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                          <option value="left">Left side — cabinet backs meet this face</option>
+	                          <option value="right">Right side — cabinet backs meet this face</option>
+	                        </select>
+	                      </label>
+	                      <p className="text-[11px] leading-4 text-muted-foreground">This sets the face used by new cabinets. Existing peninsula cabinets retain their selected face.</p>
 	                    </>
 	                  )}
 	                  {wallSettingsDraft.kind === "custom" && (

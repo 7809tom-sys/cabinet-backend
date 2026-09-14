@@ -556,6 +556,8 @@ export interface PlacedCabinet {
   wallId?: string | null;
   /** Inches from the selected custom-wall start vertex. Preserves exact angled-run gaps. */
   wallOffset?: number | null;
+  /** Which face of a two-sided peninsula run owns this cabinet. */
+  peninsulaSide?: PeninsulaCabinetSide | null;
   // Visual layout spec JSON: {baseType, sections:[{type,count,height}]}
   // When present, the elevation renderer uses this exact spec instead of the
   // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
@@ -1125,6 +1127,8 @@ export interface RoomData {
 
 export type PeninsulaTurn = 45 | 90;
 export type PeninsulaDirection = "left" | "right";
+/** The side of a peninsula center line where a cabinet is seated. */
+export type PeninsulaCabinetSide = "left" | "right";
 
 export interface PeninsulaRun {
   id: string;
@@ -1139,6 +1143,8 @@ export interface PeninsulaRun {
   length: number;
   /** Finished peninsula wall/rail height; base cabinets remain floor-supported. */
   height: number;
+  /** Default face for new cabinets placed on this two-sided peninsula run. */
+  cabinetSide?: PeninsulaCabinetSide;
   label?: string;
 }
 
@@ -1192,6 +1198,17 @@ export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { leng
   if (dy < -1e-9) candidates.push(-start.y / dy);
   const maximum = Math.min(...candidates.filter((candidate) => Number.isFinite(candidate) && candidate >= 0));
   return Math.max(6, Math.floor(maximum * 8) / 8);
+}
+
+/** Projects a room point to the parent wall and clamps a moved peninsula attachment to that adjoining wall. */
+export function peninsulaRunStartOffsetAtPoint(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "width" | "depth">,
+  point: { x: number; y: number },
+): number {
+  const parentLength = run.parentWall === "top" || run.parentWall === "bottom" ? room.width : room.depth;
+  const rawOffset = run.parentWall === "top" || run.parentWall === "bottom" ? point.x : point.y;
+  return Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(rawOffset * 8) / 8));
 }
 
 /** Measures a room point along a locked peninsula run, clamped to its usable length. */
@@ -5803,27 +5820,35 @@ export function wallPlacementAt(
   width: number,
   depth: number,
   side: WallSide,
-  room: RoomData
-): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } {
+  room: RoomData,
+  requestedPeninsulaSide?: PeninsulaCabinetSide | null,
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } {
   const peninsula = peninsulaRunById(room, side);
   if (peninsula) {
     const { start, radians } = peninsulaRunEndpoints(peninsula, room);
     const length = Math.max(6, peninsula.length);
     const offset = Math.max(0, Math.min(Math.max(0, length - width), along));
     const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
-    const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
+    const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
+    const peninsulaSide = requestedPeninsulaSide ?? peninsula.cabinetSide ?? "left";
+    const faceNormal = peninsulaSide === "left"
+      ? leftNormal
+      : { x: -leftNormal.x, y: -leftNormal.y };
     const center = {
-      x: start.x + tangent.x * (offset + width / 2) + inward.x * (depth / 2),
-      y: start.y + tangent.y * (offset + width / 2) + inward.y * (depth / 2),
+      x: start.x + tangent.x * (offset + width / 2) + faceNormal.x * (depth / 2),
+      y: start.y + tangent.y * (offset + width / 2) + faceNormal.y * (depth / 2),
     };
-    const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * inward.x);
-    const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * inward.y);
+    const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * faceNormal.x);
+    const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * faceNormal.y);
     return {
       x: center.x - boundWidth / 2,
       y: center.y - boundDepth / 2,
-      rotation: Math.round((radians * 180) / Math.PI),
+      // A cabinet's back must meet the selected face of the line. Flipping the
+      // right face by 180° keeps its front facing away from the peninsula wall.
+      rotation: Math.round(((radians + (peninsulaSide === "right" ? Math.PI : 0)) * 180) / Math.PI),
       wallId: peninsula.id,
       wallOffset: offset,
+      peninsulaSide,
     };
   }
   const customWall = room.customWalls?.find((wall) => wall.id === side && (wall.lockedAngle === 45 || wall.lockedAngle === -45));

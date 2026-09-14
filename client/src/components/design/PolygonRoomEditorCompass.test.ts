@@ -76,10 +76,22 @@ describe("selected-wall Compass editor", () => {
     expect(planCanvasSource).toContain("onPeninsulaDraftLengthChange");
     expect(designToolSource).toContain("const activePeninsulaRun = peninsulaRunById(room, targetWall ?? activeWall);");
     expect(planCanvasSource).toContain("peninsulaRunHitAtPoint(room, point");
-    expect(designToolSource).toContain("{ wallId: dropWall, wallOffset: measured.snapStart }");
+    expect(designToolSource).toContain("peninsulaSide: spot.peninsulaSide");
     expect(designToolSource).toContain('data-testid="edit-selected-wall-trigger"');
     expect(designToolSource).toContain("Edit selected wall");
     expect(designToolSource).toContain("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length.");
+  });
+
+  it("provides direct joined-end dragging, far-end resizing, and right-click settings for committed peninsula walls", () => {
+    expect(planCanvasSource).toContain('onPeninsulaAttachmentChange?: (runId: string, startOffset: number) => void;');
+    expect(planCanvasSource).toContain('onPeninsulaRunLengthChange?: (runId: string, length: number) => void;');
+    expect(planCanvasSource).toContain("const onPeninsulaAttachmentPointerDown");
+    expect(planCanvasSource).toContain("const onPeninsulaLengthPointerDown");
+    expect(planCanvasSource).toContain('aria-label="Drag joined peninsula end along adjoining wall"');
+    expect(planCanvasSource).toContain("onOpenWallSettings?.(run.id as WallSide);");
+    expect(designToolSource).toContain("const movePeninsulaAttachment = useCallback");
+    expect(designToolSource).toContain("const resizePeninsulaRun = useCallback");
+    expect(designToolSource).toContain('cabinetSide: peninsula?.cabinetSide ?? "left"');
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {

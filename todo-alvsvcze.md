@@ -1974,3 +1974,7 @@
 - [x] Correct the Speedship V4 staging pallet field from dimensions to billedDimension and validate the request builder without booking shipments
 - [x] Diagnose and correct the reported Designer cabinet price or cart-total mismatch using only verified catalog pricing sources
 - [x] Fix committed peninsula segments so users can select the run and place, remove, and replace compatible base cabinets with normal snap and void-reuse behavior
+- [x] Correct peninsula cabinet orientation so cabinet backs seat against the selected left or right face of the peninsula run
+- [x] Add a right-click peninsula wall settings entry for left/right cabinet face selection and permitted wall measurements
+- [x] Add a bounded endpoint drag handle that lengthens or shortens a peninsula wall without orphaning or overlapping cabinets
+- [x] Let users tap a peninsula, then hold-and-drag its joined endpoint along the parent wall to move the attachment point while retaining the locked 45-degree or 90-degree direction

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -134,6 +134,27 @@ describe("cabinet-supported peninsula runs", () => {
       wallId: run.id,
       wallOffset: 0,
     });
+  });
+
+  it("moves a joined peninsula endpoint only along its adjoining parent wall", () => {
+    const run = peninsulaRoom.peninsulaRuns![0];
+    expect(peninsulaRunStartOffsetAtPoint(run, peninsulaRoom, { x: 84.125, y: 36 })).toBe(84.125);
+    expect(peninsulaRunStartOffsetAtPoint(run, peninsulaRoom, { x: -20, y: 36 })).toBe(0);
+    expect(peninsulaRunStartOffsetAtPoint(run, peninsulaRoom, { x: 200, y: 36 })).toBe(138);
+  });
+
+  it("seats a cabinet back against either selected face of a two-sided peninsula", () => {
+    const run = peninsulaRoom.peninsulaRuns![0];
+    const left = wallPlacementAt(0, 30, 24, run.id as any, peninsulaRoom, "left");
+    const right = wallPlacementAt(0, 30, 24, run.id as any, peninsulaRoom, "right");
+    expect(left).toMatchObject({ x: 24, y: 0, rotation: 90, wallId: run.id, peninsulaSide: "left" });
+    expect(right).toMatchObject({ x: 48, y: 0, rotation: 270, wallId: run.id, peninsulaSide: "right" });
+
+    const rightDefaultRoom: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{ ...run, cabinetSide: "right" }],
+    };
+    expect(wallPlacementAt(0, 30, 24, run.id as any, rightDefaultRoom)).toMatchObject({ rotation: 270, peninsulaSide: "right" });
   });
 
   it("keeps exact 45-degree left and right continuations inside the room and bounds their pull", () => {

@@ -4,7 +4,7 @@ import {
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint,
+  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
   wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
@@ -170,6 +170,12 @@ interface Props {
   peninsulaDraft?: PeninsulaRun | null;
   /** Updates the exact pulled length of the inline peninsula draft. */
   onPeninsulaDraftLengthChange?: (length: number) => void;
+  /** Moves a committed peninsula's joined endpoint along its parent wall. */
+  onPeninsulaAttachmentChange?: (runId: string, startOffset: number) => void;
+  /** Changes a committed peninsula run length from its far endpoint. */
+  onPeninsulaRunLengthChange?: (runId: string, length: number) => void;
+  /** Opens the explicit Wall settings editor for the chosen wall. */
+  onOpenWallSettings?: (side: WallSide) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
   // Lock state: when layoutLocked is true the whole room/walls/openings/island
@@ -258,7 +264,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onPeninsulaRunLengthChange, onOpenWallSettings, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -436,6 +442,8 @@ export function PlanCanvas({
   const compassDrag = useRef<{ side: WallSide; initialStartIn: number } | null>(null);
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
   const peninsulaPull = useRef<{ startX: number; startY: number; radians: number; maxLength: number } | null>(null);
+  const peninsulaAttachmentDrag = useRef<{ run: PeninsulaRun } | null>(null);
+  const peninsulaLengthDrag = useRef<{ run: PeninsulaRun; startX: number; startY: number; radians: number; maxLength: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
 	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
 	  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
@@ -659,6 +667,66 @@ export function PlanCanvas({
     onPeninsulaPullMove(event);
     try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
     peninsulaPull.current = null;
+  };
+
+  const peninsulaPointFromPointer = useCallback((event: React.PointerEvent) => {
+    const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+    if (!roomEl) return null;
+    const rect = roomEl.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) / ppiRef.current,
+      y: (event.clientY - rect.top) / ppiRef.current,
+    };
+  }, []);
+
+  const onPeninsulaAttachmentPointerDown = (event: React.PointerEvent, run: PeninsulaRun) => {
+    if (layoutLocked || !onPeninsulaAttachmentChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectWall?.(run.id as WallSide);
+    peninsulaAttachmentDrag.current = { run };
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
+  };
+
+  const onPeninsulaAttachmentPointerMove = (event: React.PointerEvent) => {
+    const drag = peninsulaAttachmentDrag.current;
+    if (!drag || !onPeninsulaAttachmentChange) return;
+    const point = peninsulaPointFromPointer(event);
+    if (!point) return;
+    onPeninsulaAttachmentChange(drag.run.id, peninsulaRunStartOffsetAtPoint(drag.run, room, point));
+  };
+
+  const onPeninsulaAttachmentPointerUp = (event: React.PointerEvent) => {
+    if (!peninsulaAttachmentDrag.current) return;
+    onPeninsulaAttachmentPointerMove(event);
+    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+    peninsulaAttachmentDrag.current = null;
+  };
+
+  const onPeninsulaLengthPointerDown = (event: React.PointerEvent, run: PeninsulaRun) => {
+    if (layoutLocked || !onPeninsulaRunLengthChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectWall?.(run.id as WallSide);
+    const { start, radians } = peninsulaRunEndpoints(run, room);
+    peninsulaLengthDrag.current = { run, startX: start.x, startY: start.y, radians, maxLength: peninsulaRunMaxLength(run, room) };
+    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
+  };
+
+  const onPeninsulaLengthPointerMove = (event: React.PointerEvent) => {
+    const drag = peninsulaLengthDrag.current;
+    if (!drag || !onPeninsulaRunLengthChange) return;
+    const point = peninsulaPointFromPointer(event);
+    if (!point) return;
+    const projected = (point.x - drag.startX) * Math.cos(drag.radians) + (point.y - drag.startY) * Math.sin(drag.radians);
+    onPeninsulaRunLengthChange(drag.run.id, Math.round(Math.max(6, Math.min(drag.maxLength, projected)) * 8) / 8);
+  };
+
+  const onPeninsulaLengthPointerUp = (event: React.PointerEvent) => {
+    if (!peninsulaLengthDrag.current) return;
+    onPeninsulaLengthPointerMove(event);
+    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+    peninsulaLengthDrag.current = null;
   };
 
   // Manual double-tap detector (iOS Safari does not reliably synthesize
@@ -1057,15 +1125,26 @@ export function PlanCanvas({
           const { start, radians } = peninsulaRunEndpoints(run, room);
           const active = activeWall === run.id;
           return (
-            <button
+            <div
               key={run.id}
-              type="button"
               data-testid="peninsula-run-segment"
-              aria-label={`Select ${run.label ?? "peninsula run"}`}
-              title={`${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high`}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select ${run.label ?? "peninsula run"}; hold and drag it along the adjoining ${wallLabel[run.parentWall]} wall to move the attachment point`}
+              title={`${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Hold and drag the line to move its attachment along the adjoining wall.`}
               onPointerDown={(event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 onSelectWall?.(run.id as WallSide);
+                onPeninsulaAttachmentPointerDown(event, run);
+              }}
+              onPointerMove={onPeninsulaAttachmentPointerMove}
+              onPointerUp={onPeninsulaAttachmentPointerUp}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onSelectWall?.(run.id as WallSide);
+                onOpenWallSettings?.(run.id as WallSide);
               }}
               className={`absolute z-[3] h-3 cursor-pointer rounded-full border-2 shadow-sm ${active ? "border-[#d4a75a] bg-[#1a2744]" : "border-[#1a2744] bg-[#d4a75a]/80"}`}
               style={{
@@ -1079,7 +1158,28 @@ export function PlanCanvas({
               <span className="pointer-events-none absolute left-1/2 -top-7 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
                 Peninsula · {run.turn}° {run.direction} · {run.height}"
               </span>
-            </button>
+              {active && <>
+                <button
+                  type="button"
+                  aria-label="Drag joined peninsula end along adjoining wall"
+                  title="Hold and drag along the adjoining wall to move this peninsula attachment"
+                  onPointerDown={(event) => onPeninsulaAttachmentPointerDown(event, run)}
+                  onPointerMove={onPeninsulaAttachmentPointerMove}
+                  onPointerUp={onPeninsulaAttachmentPointerUp}
+                  className="absolute -left-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#1a2744] text-xs font-bold text-white shadow"
+                >↔</button>
+                <button
+                  type="button"
+                  aria-label="Drag far peninsula end to change length"
+                  title="Drag to make this peninsula longer or shorter"
+                  onPointerDown={(event) => onPeninsulaLengthPointerDown(event, run)}
+                  onPointerMove={onPeninsulaLengthPointerMove}
+                  onPointerUp={onPeninsulaLengthPointerUp}
+                  className="absolute -right-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#d4a75a] text-xs font-bold text-[#1a2744] shadow"
+                >↔</button>
+                <span className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow">Hold line to move · gold end resizes</span>
+              </>}
+            </div>
           );
         })}
         {/* Wall bands: touch to select and highlight only. Rendered first so
@@ -1500,7 +1600,7 @@ export function PlanCanvas({
           .filter((c) => (showWallLayer ? true : c.placement !== "wall"))
           .map((p) => {
             const { w, d } = placedFootprint(p);
-            const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 315].includes(((Math.round(p.rotation) % 360) + 360) % 360));
+            const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 135, 225, 315].includes(((Math.round(p.rotation) % 360) + 360) % 360));
             const bodyW = lockedAngledRun ? p.width : w;
             const bodyD = lockedAngledRun ? p.depth : d;
             const bodyLeft = lockedAngledRun ? p.x + (w - bodyW) / 2 : p.x;
