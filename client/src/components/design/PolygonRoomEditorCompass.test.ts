@@ -113,6 +113,14 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain('cabinetSide: peninsula?.cabinetSide ?? "left"');
   });
 
+  it("keeps peninsula overlays compact by removing rotated run text while keeping upright endpoint controls", () => {
+    expect(planCanvasSource).toContain("const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };");
+    expect(planCanvasSource).not.toContain('Peninsula · {run.turn}° {run.direction} · {run.height}"');
+    expect(planCanvasSource).not.toContain('Connected return · gold end resizes');
+    expect(planCanvasSource).not.toContain('Hold line to move · gold end resizes');
+    expect(planCanvasSource).toContain('className="absolute -right-2 top-[18px] z-20 flex h-5 w-5');
+  });
+
   it("applies the cabinet magnet to peninsula and connected-return runs while retaining collision protection", () => {
     expect(designToolSource).toContain("const desiredStart = requestedAlong - cabinet.width / 2;");
     expect(designToolSource).toContain("const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;");

@@ -2001,3 +2001,4 @@
 - [x] Reset all geometry and placed-design state, including angled walls and connected runs, when a new Designer project begins
 - [x] Add a direct free-end peninsula control to create a connected 45-degree or 90-degree return wall/run
 - [x] Apply the existing magnetic cabinet snap behavior consistently to peninsula and connected return runs
+- [x] Refine peninsula run labels and endpoint controls so angled and straight runs remain readable without overlapping cabinets or controls

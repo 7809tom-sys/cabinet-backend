@@ -1123,6 +1123,8 @@ export function PlanCanvas({
         })()}
         {(room.peninsulaRuns ?? []).map((run) => {
           const { start, radians } = peninsulaRunEndpoints(run, room);
+          const runDegrees = (radians * 180) / Math.PI;
+          const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
           const active = activeWall === run.id;
           return (
             <div
@@ -1155,13 +1157,10 @@ export function PlanCanvas({
                 left: start.x * ppi,
                 top: start.y * ppi - 6,
                 width: Math.max(12, run.length * ppi),
-                transform: `rotate(${(radians * 180) / Math.PI}deg)`,
+                transform: `rotate(${runDegrees}deg)`,
                 transformOrigin: "0 50%",
               }}
             >
-              <span className="pointer-events-none absolute left-1/2 -top-7 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
-                Peninsula · {run.turn}° {run.direction} · {run.height}"
-              </span>
               {active && <>
                 {!run.parentRunId && <button
                   type="button"
@@ -1170,7 +1169,8 @@ export function PlanCanvas({
                   onPointerDown={(event) => onPeninsulaAttachmentPointerDown(event, run)}
                   onPointerMove={onPeninsulaAttachmentPointerMove}
                   onPointerUp={onPeninsulaAttachmentPointerUp}
-                  className="absolute -left-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#1a2744] text-xs font-bold text-white shadow"
+                  style={counterRotate}
+                  className="absolute -left-2 -top-[4px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#1a2744] text-[10px] font-bold text-white shadow"
                 >↔</button>}
                 <button
                   type="button"
@@ -1179,7 +1179,8 @@ export function PlanCanvas({
                   onPointerDown={(event) => onPeninsulaLengthPointerDown(event, run)}
                   onPointerMove={onPeninsulaLengthPointerMove}
                   onPointerUp={onPeninsulaLengthPointerUp}
-                  className="absolute -right-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#d4a75a] text-xs font-bold text-[#1a2744] shadow"
+                  style={counterRotate}
+                  className="absolute -right-2 -top-[4px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#d4a75a] text-[10px] font-bold text-[#1a2744] shadow"
                 >↔</button>
                 <button
                   type="button"
@@ -1195,11 +1196,11 @@ export function PlanCanvas({
                     onSelectWall?.(run.id as WallSide);
                     onOpenWallSettings?.(run.id as WallSide);
                   }}
-                  className="absolute -right-10 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#1a2744] text-white shadow"
+                  style={counterRotate}
+                  className="absolute -right-2 top-[18px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#1a2744] text-white shadow"
                 >
-                  <Compass className="h-3.5 w-3.5" />
+                  <Compass className="h-3 w-3" />
                 </button>
-                <span className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow">{run.parentRunId ? "Connected return · gold end resizes" : "Hold line to move · gold end resizes"}</span>
               </>}
             </div>
           );
