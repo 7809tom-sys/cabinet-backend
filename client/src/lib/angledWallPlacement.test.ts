@@ -334,9 +334,57 @@ describe("cabinet-supported peninsula runs", () => {
       30,
       24,
       "base",
-      { start: 0, end: 0 },
+      { start: 12, end: 12 },
     );
-    expect(spot).toMatchObject({ wallId: run.id, wallOffset: 0 });
+    expect(spot).toMatchObject({ wallId: run.id, wallOffset: 12 });
+  });
+
+  it("keeps the first cabinet 12 inches from the inside corner on both primary and connected peninsula runs", () => {
+    const primary = peninsulaRoom.peninsulaRuns![0];
+    const child: PeninsulaRun = {
+      id: "peninsula-next-wall",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+      cabinetSide: "left",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, child] };
+    expect(firstCollisionFreePeninsulaPlacement(primary.id as any, room, [], 18, 24, "base")).toMatchObject({
+      wallId: primary.id,
+      wallOffset: 12,
+    });
+    expect(firstCollisionFreePeninsulaPlacement(child.id as any, room, [], 18, 24, "base")).toMatchObject({
+      wallId: child.id,
+      wallOffset: 12,
+    });
+    expect(freeSegmentsOnWall(primary.id as any, room, [], [], 1, 0, "base")).toEqual([
+      { start: 12, length: primary.length - 12 },
+    ]);
+    expect(freeSegmentsOnWall(child.id as any, room, [], [], 1, 0, "base")).toEqual([
+      { start: 12, length: child.length - 12 },
+    ]);
+  });
+
+  it("does not move a selected peninsula cabinet onto another connected segment when its selected run lacks 12-inch clearance", () => {
+    const primary = { ...peninsulaRoom.peninsulaRuns![0], length: 24 };
+    const child: PeninsulaRun = {
+      id: "long-adjoining-run",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 72,
+      height: 34.5,
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, child] };
+    expect(firstCollisionFreePeninsulaPlacement(primary.id as any, room, [], 18, 24, "base")).toBeNull();
+    expect(firstCollisionFreePeninsulaPlacement(child.id as any, room, [], 18, 24, "base")).toMatchObject({
+      wallId: child.id,
+      wallOffset: 12,
+    });
   });
 
   it("projects a catalog drop onto the active peninsula run rather than an outside room wall", () => {
@@ -352,7 +400,7 @@ describe("cabinet-supported peninsula runs", () => {
     const next = wallPlacementAt(0, 30, 24, "peninsula-90-right" as any, peninsulaRoom);
     const candidate = { ...peninsulaCabinet("new-b12", 0), ...next, wallId: next.wallId, wallOffset: next.wallOffset };
     expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
-    expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 0, length: 30 });
+    expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 12, length: 18 });
   });
 
   it("recovers a legacy peninsula cabinet that still carries its original parent-wall owner", () => {
@@ -360,7 +408,7 @@ describe("cabinet-supported peninsula runs", () => {
     const normalized = normalizeLegacyPeninsulaCabinets([staleParentWallOwner], peninsulaRoom);
     expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
     const opening = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base");
-    expect(opening).toContainEqual({ start: 0, length: 30 });
+    expect(opening).toContainEqual({ start: 12, length: 18 });
   });
 
   it("repairs a parent-wall peninsula cabinet whose saved rotation is still the old perimeter-wall rotation", () => {
@@ -372,7 +420,7 @@ describe("cabinet-supported peninsula runs", () => {
     expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
     expect(paletteActiveWallPlacement("peninsula-90-right" as any, peninsulaRoom, normalized, [], 30, 24, "base")).toMatchObject({
       wallId: "peninsula-90-right",
-      wallOffset: 0,
+      wallOffset: 60,
       rotation: 90,
     });
   });

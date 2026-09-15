@@ -2044,3 +2044,5 @@
 - [x] Make the Peninsula Wizard automatically fill its remaining valid cabinet voids with compatible selected-line cabinets and truthful fillers
 - [x] Eliminate the diamond-shaped false corner footprint so Wizard cabinets and countertops render only on the intended straight and optional 45-degree peninsula segments
 - [x] Seat peninsula cabinets entirely on their selected side so cabinet bodies never pass through the peninsula wall centerline
+- [x] Place a newly added peninsula cabinet only on the explicitly selected connected run instead of another nearby segment
+- [x] Keep the first cabinet on every peninsula run at least 12 inches from that run's inside connected corner

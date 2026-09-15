@@ -2372,9 +2372,15 @@ export function firstCollisionFreePeninsulaPlacement(
   const maximumOffset = Math.max(0, Number(run.length) - width);
   const requestedMinimum = Number(bounds?.start);
   const requestedMaximum = Number(bounds?.end);
-  const minimumOffset = Number.isFinite(requestedMinimum)
-    ? Math.max(0, Math.min(maximumOffset, requestedMinimum))
-    : 0;
+  // Every floor-supported peninsula segment begins with an installer clearance
+  // at its joined inside corner. This applies independently to the straight
+  // primary run and each connected continuation, so selecting the next wall
+  // still starts its first cabinet 12 inches after that wall's own corner.
+  const insideCornerClearance = ["base", "tall", "appliance"].includes(placement) ? 12 : 0;
+  const minimumOffset = Math.max(
+    insideCornerClearance,
+    Number.isFinite(requestedMinimum) ? Math.max(0, requestedMinimum) : 0,
+  );
   const boundedMaximum = Number.isFinite(requestedMaximum)
     ? Math.max(0, Math.min(maximumOffset, requestedMaximum))
     : maximumOffset;
@@ -5960,6 +5966,9 @@ export function freeSegmentsOnWall(
 
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
+  if (peninsulaRun && ["base", "tall", "appliance"].includes(layer)) {
+    blocked.push({ s: 0, e: Math.min(12, wallLen) });
+  }
 
   // Only items on the SAME layer (wall vs floor) block this run. Tall cabinets
   // span floor-to-ceiling, so they block BOTH the base and wall layers.
