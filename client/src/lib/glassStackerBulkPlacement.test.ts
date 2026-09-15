@@ -160,6 +160,35 @@ describe("glass stacker bulk placement", () => {
     }]);
   });
 
+  it("includes ceiling-safe diagonal and refrigerator-top wall cabinets when their selected-vendor stackers are available", () => {
+    const diagonalParent = wall("diagonal-42", "DCW2442", 24, {
+      x: 36,
+      depth: 24,
+      height: 42,
+      mountBottom: 54,
+      cornerType: "diagonal",
+    });
+    const refrigeratorTop = wall("refrigerator-top", "WR3624", 36, {
+      x: 72,
+      height: 24,
+      mountBottom: 72,
+    });
+    const options = glassStackerBulkHeightOptions(
+      [diagonalParent, refrigeratorTop],
+      { ...room, ceilingHeight: 120 },
+      [catalog("DCW2412GD", 24, 12), catalog("W3612GD", 36, 12)],
+    );
+    expect(options).toEqual([
+      expect.objectContaining({
+        height: 12,
+        candidates: expect.arrayContaining([
+          expect.objectContaining({ parentUid: diagonalParent.uid, stacker: expect.objectContaining({ masterCode: "DCW2412GD", stackedOnCabinetUid: diagonalParent.uid, mountBottom: 96 }) }),
+          expect.objectContaining({ parentUid: refrigeratorTop.uid, stacker: expect.objectContaining({ masterCode: "W3612GD", stackedOnCabinetUid: refrigeratorTop.uid, mountBottom: 96 }) }),
+        ]),
+      }),
+    ]);
+  });
+
   it("adds one new stacker per still-unoccupied parent and gives each a fresh uid", () => {
     const parent = wall("parent", "W2430", 24, { x: 30 });
     const candidate = {

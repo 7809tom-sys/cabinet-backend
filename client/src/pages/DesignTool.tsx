@@ -1589,25 +1589,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    )?.glassDoorAddonCode
 	    ?? null
 	  ), [wallCabPool]);
-  const placedWithGlassDoorLinks = useMemo(() => placed.map((cabinet) => {
+	  const placedWithGlassDoorLinks = useMemo(() => placed.map((cabinet) => {
     const glassDoorAddonCode = glassDoorAddonCodeFor(cabinet);
     return glassDoorAddonCode && !cabinet.glassDoorAddonCode
       ? { ...cabinet, glassDoorAddonCode }
       : cabinet;
-  }), [glassDoorAddonCodeFor, placed]);
+	  }), [glassDoorAddonCodeFor, placed]);
+	  // The regular Wall pool intentionally excludes items routed to the Corner
+	  // tab. Bulk stacking must nevertheless see every selected-vendor wall
+	  // product, including DCW diagonal stackers, even when the user is not
+	  // viewing that tab. The comprehensive live pool also keeps refrigerator
+	  // widths such as W3612GD available to the same action.
+	  const bulkGlassStackerCatalog = useMemo<DesignCabinet[]>(() => Array.from(
+	    new Map([
+	      ...((wallCabPool as DesignCabinet[] | undefined) ?? []),
+	      ...((liveMasterCabinets as DesignCabinet[] | undefined) ?? []),
+	    ].map((cabinet) => [Number(cabinet.id), cabinet] as const)).values(),
+	  ), [liveMasterCabinets, wallCabPool]);
+	  const bulkGlassStackerCatalogRef = useRef<DesignCabinet[]>([]);
+	  useEffect(() => { bulkGlassStackerCatalogRef.current = bulkGlassStackerCatalog; }, [bulkGlassStackerCatalog]);
 	  const vendorGlassStackerHeightOptions = useMemo(() => glassStackerBulkHeightOptions(
 	    placed,
 	    room,
-	    (wallCabPool as DesignCabinet[] | undefined) ?? [],
-	  ), [placed, room, wallCabPool]);
+	    bulkGlassStackerCatalog,
+	  ), [bulkGlassStackerCatalog, placed, room]);
 	  const vendorGlassStackerCeilingBlocks = useMemo(() => vendorGlassStackerHeightOptions.flatMap((option) => (
 	    glassStackerBulkCeilingBlocksAtHeight(
 	      placed,
 	      room,
-	      (wallCabPool as DesignCabinet[] | undefined) ?? [],
+	      bulkGlassStackerCatalog,
 	      option.height,
 	    ).map((block) => ({ ...block, stackerHeight: option.height }))
-	  )), [placed, room, vendorGlassStackerHeightOptions, wallCabPool]);
+	  )), [bulkGlassStackerCatalog, placed, room, vendorGlassStackerHeightOptions]);
 	  const removableGlassStackerCount = useMemo(
 	    () => glassStackerUidsForRemoval(placed).length,
 	    [placed],
@@ -6882,7 +6895,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    const option = glassStackerBulkHeightOptions(
 	      placedRef.current,
 	      room,
-	      wallCabPoolRef.current,
+	      bulkGlassStackerCatalogRef.current,
 	    ).find((candidate) => Math.abs(candidate.height - height) <= 0.5);
 	    if (!option || option.candidates.length === 0) {
 	      toast.info(`No eligible ${formatInches(height)} glass stackers are available for the current wall cabinets.`);

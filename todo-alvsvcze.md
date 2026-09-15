@@ -1991,3 +1991,5 @@
 - [x] Repair the live saved-design path when a selected diagonal WDC corner cabinet still receives no visible matching glass stacker
 - [x] Diagnose the confirmed center diagonal WDC stacker exclusion and retain the ceiling-safety rule when that cabinet already reaches the configured room ceiling
 - [x] Explain in Placement controls when a diagonal WDC cabinet is skipped because it already reaches the configured room ceiling
+- [x] Repair bulk stacker placement when compatible ceiling-safe refrigerator-top and diagonal-corner wall cabinets are skipped
+- [x] Verify active room ceiling use and restore complete selected-vendor catalog coverage so a 120-inch room can stack both diagonal and refrigerator-top wall cabinets
