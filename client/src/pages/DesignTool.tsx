@@ -3190,16 +3190,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       id: `peninsula_draft_${Date.now().toString(36)}`,
       parentWall: wall,
       startOffset: exactStart,
-      turn: 45,
+      turn: 90,
       direction: "right",
       length: 36,
       height: 34.5,
-      label: "Attached 45° wall",
+      label: "Attached straight peninsula",
     });
     setActiveWall(wall);
     setPlacementTarget("wall");
     setCompassWallStartIn(exactStart);
-    toast.success(`New attached 45° wall starts at ${exactStart}\". Choose left or right, then set its height and length.`);
+    toast.success(`New straight peninsula starts at ${exactStart}\". Set its height and length; add a 45° continuation from its free end after creation.`);
   }, [layoutLocked, room.depth, room.width]);
 
   const commitPeninsulaDraft = useCallback(() => {
@@ -3210,13 +3210,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       startOffset: Math.round(Math.max(6, peninsulaDraft.startOffset) * 8) / 8,
       length: Math.round(Math.max(12, peninsulaDraft.length) * 8) / 8,
       height: Math.round(Math.min(144, Math.max(34.5, peninsulaDraft.height)) * 8) / 8,
-      label: `Peninsula · ${peninsulaDraft.turn}° ${peninsulaDraft.direction}`,
+      turn: 90,
+      direction: "right",
+      label: "Peninsula · straight",
     };
     setRoom((current) => ({ ...current, peninsulaRuns: [...(current.peninsulaRuns ?? []), run] }));
     setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaDraft(null);
-    toast.success(`New ${run.turn}° attached wall created at ${run.height}\" high and ${run.length}\" long.`);
+    toast.success(`New straight peninsula created at ${run.height}\" high and ${run.length}\" long. Use its free-end Compass to add an optional 45° continuation.`);
   }, [layoutLocked, peninsulaDraft]);
   const buildPeninsulaWizardLayout = useCallback(() => {
     const draft = peninsulaWizardDraft;
@@ -11694,26 +11696,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            >
 	              <div className="flex items-start justify-between gap-2">
 	                <div>
-                  <p className="text-sm font-bold text-[#1a2744]">New attached 45° wall</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the selected wall unchanged and starts a new connected wall at {formatEighthInches(peninsulaDraft.startOffset)}.</p>
+                  <p className="text-sm font-bold text-[#1a2744]">New straight peninsula</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the selected wall unchanged and starts a straight cabinet-ready peninsula at {formatEighthInches(peninsulaDraft.startOffset)}. Add a 45° continuation only from its free end after creation.</p>
 	                </div>
 	                <button type="button" onClick={() => setPeninsulaDraft(null)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
 	              </div>
-	              <div className="mt-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">New wall angle</p>
-                <div className="mt-1 grid grid-cols-2 gap-1">
-                  {([45, 90] as const).flatMap((turn) => (["left", "right"] as const).map((direction) => ({ turn, direction }))).map(({ turn, direction }) => (
-	                    <button
-	                      key={`${turn}-${direction}`}
-	                      type="button"
-	                      onClick={() => setPeninsulaDraft((draft) => draft ? { ...draft, turn, direction } : draft)}
-	                      className={`rounded border px-1.5 py-1.5 text-[10px] font-bold ${peninsulaDraft.turn === turn && peninsulaDraft.direction === direction ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border text-foreground hover:bg-muted"}`}
-	                    >
-	                      {turn}° {direction}
-	                    </button>
-	                  ))}
-	                </div>
-	              </div>
+              <div className="mt-3 rounded border border-[#d4a75a]/50 bg-[#fff8ea] px-2 py-1.5 text-[11px] leading-4 text-[#765416]">
+                Primary peninsulas start straight from the selected wall. After it is created, select its free-end Compass to add one exact 45° left or right continuation.
+              </div>
 	              <div className="mt-3">
 	                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Peninsula height</p>
 	                <div className="mt-1 grid grid-cols-4 gap-1">
@@ -11747,7 +11737,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                />
 	              </label>
 	              <p className="mt-1 text-[10px] text-muted-foreground">Or drag the gold pull handle at the end of the draft line.</p>
-              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create {peninsulaDraft.turn}° {peninsulaDraft.direction} wall</button>
+              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create straight peninsula</button>
 	            </section>
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}

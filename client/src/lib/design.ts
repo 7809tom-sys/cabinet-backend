@@ -1255,8 +1255,11 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
     bottom: Math.PI,
     left: -Math.PI / 2,
   };
-  // A peninsula leaves its parent wall through the interior. A 90° run follows
-  // that inward normal; 45° choices fan left/right around it inside the room.
+  // A primary peninsula always leaves its parent wall through the interior on
+  // one straight cabinet-ready axis. 45° is valid only for a child run from
+  // that primary's free end. Treating an old primary 45° record as straight
+  // preserves saved layouts while preventing its cabinet footprint from
+  // becoming the diamond-shaped pseudo-corner shown in older plans.
   const parentGeometry = parentRun ? peninsulaRunEndpoints(parentRun, room) : null;
   const start = parentGeometry?.end ?? rootStart;
   const parentHeading = parentGeometry?.radians ?? parentRadians[parentWall];
@@ -1266,9 +1269,7 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
     ? parentHeading + (run.turn === 90
       ? (run.direction === "right" ? Math.PI / 2 : -Math.PI / 2)
       : (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4))
-    : run.turn === 90
-      ? parentHeading + Math.PI / 2
-      : parentHeading + Math.PI / 2 + (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4);
+    : parentHeading + Math.PI / 2;
   const length = Math.max(6, Number(run.length) || 6);
   return {
     start,

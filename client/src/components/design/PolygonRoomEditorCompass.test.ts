@@ -74,14 +74,16 @@ describe("selected-wall Compass editor", () => {
 	  expect(editorSource).toContain("Wall height (inches)");
 	  expect(editorSource).toContain("Wall length (inches)");
 	  expect(designToolSource).toContain("setCompassWallStartIn(exactStart);");
-	  expect(designToolSource).toContain("Choose left or right, then set its height and length.");
+	  expect(designToolSource).toContain("Set its height and length; add a 45° continuation from its free end after creation.");
 	  expect(planCanvasSource).toContain("Math.abs(movement) < 0.5");
 	});
 
-	it("keeps the new peninsula continuation inline, popup-free, and pull-to-length", () => {
+  it("keeps the new straight peninsula inline, popup-free, and pull-to-length before an optional free-end turn", () => {
 	  expect(designToolSource).toContain('data-testid="peninsula-inline-builder"');
-	  expect(designToolSource).toContain("Create {peninsulaDraft.turn}° {peninsulaDraft.direction} wall");
-	  expect(designToolSource).toContain("New attached 45° wall");
+    expect(designToolSource).toContain("Create straight peninsula");
+    expect(designToolSource).toContain("New straight peninsula");
+    expect(designToolSource).toContain("turn: 90,");
+    expect(designToolSource).toContain("add a 45° continuation from its free end");
     expect(planCanvasSource).toContain('data-testid="peninsula-run-draft"');
     expect(planCanvasSource).toContain('data-testid="peninsula-run-segment"');
     expect(planCanvasSource).toContain("onPeninsulaDraftLengthChange");

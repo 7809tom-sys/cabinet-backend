@@ -179,12 +179,15 @@ describe("cabinet-supported peninsula runs", () => {
   });
 
   it("keeps exact 45-degree left and right continuations inside the room and bounds their pull", () => {
-    const right45 = { ...peninsulaRoom.peninsulaRuns![0], turn: 45 as const, direction: "right" as const, startOffset: 72, length: 36 };
-    const left45 = { ...right45, direction: "left" as const };
-    expect(peninsulaRunEndpoints(right45, peninsulaRoom).end).toEqual({ x: 46.5, y: 25.5 });
-    expect(peninsulaRunEndpoints(left45, peninsulaRoom).end).toEqual({ x: 97.5, y: 25.5 });
-    expect(peninsulaRunMaxLength(right45, peninsulaRoom)).toBeLessThanOrEqual(102);
-    expect(peninsulaRunMaxLength(left45, peninsulaRoom)).toBeLessThanOrEqual(102);
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], startOffset: 72, length: 36 };
+    const right45 = { id: "right-45-end", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "right" as const, length: 36, height: 34.5 };
+    const left45 = { ...right45, id: "left-45-end", direction: "left" as const };
+    const rightRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, right45] };
+    const leftRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, left45] };
+    expect(peninsulaRunEndpoints(right45, rightRoom).end).toEqual({ x: 46.5, y: 61.5 });
+    expect(peninsulaRunEndpoints(left45, leftRoom).end).toEqual({ x: 97.5, y: 61.5 });
+    expect(peninsulaRunMaxLength(right45, rightRoom)).toBeLessThanOrEqual(102);
+    expect(peninsulaRunMaxLength(left45, leftRoom)).toBeLessThanOrEqual(102);
   });
 
   it("anchors a connected return at its parent peninsula endpoint with a locked turn", () => {
@@ -259,6 +262,29 @@ describe("cabinet-supported peninsula runs", () => {
       expect.objectContaining({ peninsulaRunId: primary.id, linearInches: 72, rotation: 90 }),
       expect.objectContaining({ peninsulaRunId: angledEnd.id, linearInches: 36, rotation: 135 }),
     ]));
+  });
+
+  it("treats a legacy direct-45 primary peninsula as a straight first leg instead of a diamond cabinet path", () => {
+    const legacyPrimary: PeninsulaRun = {
+      id: "legacy-direct-45",
+      parentWall: "left",
+      startOffset: 48,
+      turn: 45,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+      label: "Peninsula · 45° right",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [legacyPrimary] };
+    expect(peninsulaRunEndpoints(legacyPrimary, room)).toMatchObject({
+      start: { x: 0, y: 48 },
+      end: { x: 48, y: 48 },
+    });
+    expect(wallPlacementAt(0, 18, 24, legacyPrimary.id as any, room, "left")).toMatchObject({
+      wallId: legacyPrimary.id,
+      wallOffset: 0,
+      rotation: 0,
+    });
   });
 
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {
@@ -538,8 +564,8 @@ describe("cabinet-supported peninsula runs", () => {
     ]));
   });
 
-  it("retains continuous countertop coverage on a locked 45-degree peninsula run", () => {
-    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "angled-parent", turn: 45 as const, direction: "right" as const, startOffset: 72, length: 36 };
+  it("retains continuous countertop coverage on a straight peninsula with a locked 45-degree end", () => {
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "angled-parent", startOffset: 72, length: 36 };
     const child = { id: "angled-return", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 30, height: 34.5 };
     const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
     const parentSpot = wallPlacementAt(6, 30, 24, parent.id as any, room);
@@ -547,8 +573,8 @@ describe("cabinet-supported peninsula runs", () => {
     const parentCabinet = { ...peninsulaCabinet("angled-parent-joint", 6), ...parentSpot, wallOffset: 6, wallId: parent.id };
     const childCabinet = { ...peninsulaCabinet("angled-child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
     expect(countertopSurfaces([parentCabinet, childCabinet], room)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ peninsulaRunId: parent.id, linearInches: 36, rotation: 135 }),
-      expect.objectContaining({ peninsulaRunId: child.id, linearInches: 30 }),
+      expect.objectContaining({ peninsulaRunId: parent.id, linearInches: 36, rotation: 90 }),
+      expect.objectContaining({ peninsulaRunId: child.id, linearInches: 30, rotation: 45 }),
     ]));
   });
 
