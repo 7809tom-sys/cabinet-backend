@@ -211,6 +211,7 @@ export default function FabricatorSheet() {
       draft.placed,
       draft.island,
       draft.island ? islandCountertopVisibleRects(draft.island, draft.placed) : null,
+      draft.room,
     );
   }, [draft]);
 

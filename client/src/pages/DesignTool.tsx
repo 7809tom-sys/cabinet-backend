@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, removePeninsulaRun,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -668,6 +668,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [placementWarning, setPlacementWarning] = useState<string | null>(null);
 	  const [failedWallFit, setFailedWallFit] = useState<{ requested: PlacedCabinet; gap: WallGap; measurement: WallCabinetFitMeasure; blockers: string[] } | null>(null);
+  const [peninsulaFitRecommendation, setPeninsulaFitRecommendation] = useState<null | {
+    cabinet: DesignCabinet;
+    gap: WallGap;
+    wallId: WallSide;
+    cabinetSide: PeninsulaCabinetSide;
+  }>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return initialDesignWorkspaceView(window.location.search);
   });
@@ -898,6 +904,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     angle: CompassWallAngle;
     direction: PeninsulaDirection;
     cabinetSide: PeninsulaCabinetSide;
+    countertopSeatingOverhang: 0 | 10 | 12;
+    countertopWaterfallEnd: boolean;
     startOffset: number;
   }>(null);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
@@ -930,6 +938,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       angle: peninsula?.turn === 45 ? (peninsula.direction === "right" ? 45 : -45) : custom?.lockedAngle === 45 ? 45 : custom?.lockedAngle === -45 ? -45 : 90,
       direction: peninsula?.direction ?? "right",
       cabinetSide: peninsula?.cabinetSide ?? "left",
+      countertopSeatingOverhang: peninsula?.countertopSeatingOverhang === 10 || peninsula?.countertopSeatingOverhang === 12 ? peninsula.countertopSeatingOverhang : 0,
+      countertopWaterfallEnd: peninsula?.countertopWaterfallEnd === true,
       startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
@@ -956,7 +966,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         : Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
       const turn = draft.angle === 90 ? 90 : 45;
       const direction: PeninsulaDirection = draft.angle === -45 ? "left" : draft.angle === 45 ? "right" : draft.direction;
-      const proposed = { ...current, startOffset, length, height, turn, direction, cabinetSide: draft.cabinetSide } as PeninsulaRun;
+      const proposed = {
+        ...current,
+        startOffset,
+        length,
+        height,
+        turn,
+        direction,
+        cabinetSide: draft.cabinetSide,
+        countertopSeatingOverhang: draft.countertopSeatingOverhang,
+        countertopWaterfallEnd: draft.countertopWaterfallEnd,
+      } as PeninsulaRun;
       const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
       if (geometryChanged && wallCabinets.length > 0) {
         toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
@@ -2884,7 +2904,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     ).reduce((total, segment) => total + ((segment.end - segment.start) * (segment.top - segment.bottom)) / 144, 0)) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
     const countertopMeasurement = countertop
-	      ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null)
+	      ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null, room)
       : null;
     const areas = {
       backsplashSqFt,
@@ -3080,7 +3100,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [hasBaseRun]);
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
-	    () => (countertop ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null) : null),
+	    () => (countertop ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null, room) : null),
     [countertop, placed, island]
   );
 
@@ -3519,7 +3539,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [openings, room]);
 
   const addCabinet = useCallback(
-    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number }) => {
+    (c: DesignCabinet, x?: number, y?: number, forceAccessory = false, rotation = 0, strictDropTarget = false, targetCabinetUid?: string | null, targetIslandFace?: IslandFace | null, forceBackDepthAdjustment = false, resolvedWallTarget?: { wallId: WallSide; wallOffset: number; peninsulaSide?: PeninsulaCabinetSide }) => {
       // Debounce guard: block re-entry within 500 ms to prevent double-placement
       // caused by mobile touch events firing both touchend and click.
 	      if (isAddingRef.current) return;
@@ -3556,9 +3576,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // setPlaced updaters can be called multiple times by React in concurrent
       // mode — any side effects inside them fire twice, causing double placement.
       // The palette can be tapped again before React has recreated this callback.
-	      // Read the committed ref so every island addition sees the preceding cabinet
-	      // and extends the same face flush rather than rebuilding from a stale run.
-	      const prev = placedRef.current;
+      // Read the committed ref so every island addition sees the preceding cabinet
+      // and extends the same face flush rather than rebuilding from a stale run.
+      // Legacy plans can have visibly seated peninsula cabinets without their
+      // explicit run ownership. Repair those records before the free-span and
+      // collision checks so an adjoining cabinet can use the real open segment.
+      const currentPlaced = placedRef.current;
+      const prev = normalizeLegacyPeninsulaCabinets(currentPlaced, room);
+      if (prev !== currentPlaced) {
+        placedRef.current = prev;
+        setPlaced(() => prev);
+      }
 	      let islandPlacementPrevious = prev;
 	      let autoAdjustedIsland: IslandZone | null = null;
 
@@ -4455,6 +4483,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // Its cabinets must never turn a verified Back-wall opening into a
 	      // pointer-local sliver in the 3D placement path.
 	      const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
+	      const currentPlaced = normalizeLegacyPeninsulaCabinets(placedRef.current, room);
+	      if (currentPlaced !== placedRef.current) {
+	        placedRef.current = currentPlaced;
+	        setPlaced(() => currentPlaced);
+	      }
 	      const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
 	      const targetAlong = dropWall === "top" || dropWall === "bottom" ? dropTarget.x : dropTarget.y;
 	      const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
@@ -6146,13 +6179,32 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        const automaticGapFailure = useAutomaticSnapping && largestClearGap
 	          ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it requires ${formatEighthInches(width)}, but the largest clear opening is ${formatEighthInches(largestClearGap.length)} at ${formatEighthInches(largestClearGap.start)}–${formatEighthInches(largestClearGap.start + largestClearGap.length)} and is ${formatEighthInches(Math.max(0, width - largestClearGap.length))} too small.`
 	          : null;
+	        const fittingPool = placement === "base"
+	          ? ((autoFillCabinets as DesignCabinet[] | undefined) ?? [])
+	          : placement === "wall"
+	            ? ((wallCabPool as DesignCabinet[] | undefined) ?? [])
+	            : placement === "tall"
+	              ? ((tallCabPool as DesignCabinet[] | undefined) ?? [])
+	              : [];
+	        const recommendation = activePeninsulaRun && largestClearGap
+	          ? bestFitCatalogOption(largestClearGap, fittingPool.filter((candidate) => candidate.placement === placement))
+	          : null;
 	        const message = measured
 	          ? automaticGapFailure ?? (!measured.containsTarget
 	            ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
 	            : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`)
 	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
-        setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
-      }
+	        if (recommendation && activePeninsulaRun) {
+	          setPeninsulaFitRecommendation({
+	            cabinet: recommendation.cabinet,
+	            gap: largestClearGap!,
+	            wallId: activePeninsulaRun.id as WallSide,
+	            cabinetSide: activePeninsulaRun.cabinetSide ?? "left",
+	          });
+	        } else setPeninsulaFitRecommendation(null);
+	        setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
+	      }
+	      setPeninsulaFitRecommendation(null);
 	      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room, activePeninsulaRun?.cabinetSide);
 	      addCabinet(
 	        data,
@@ -6169,8 +6221,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       dragDataRef.current = null;
       setCatalogDragPreview(null);
     },
-	    [activeWall, addCabinet, automaticSnapping, openings, paletteType, placed, room]
+	    [activeWall, addCabinet, autoFillCabinets, automaticSnapping, openings, paletteType, placed, room, tallCabPool, wallCabPool]
 	  );
+
+  const placePeninsulaFitRecommendation = useCallback(() => {
+    const recommendation = peninsulaFitRecommendation;
+    if (!recommendation) return;
+    const dimensions = resolvedDesignCabinetDimensions(recommendation.cabinet);
+    const spot = wallPlacementAt(
+      recommendation.gap.start,
+      dimensions.width,
+      dimensions.depth,
+      recommendation.wallId,
+      room,
+      recommendation.cabinetSide,
+    );
+    addCabinet(
+      recommendation.cabinet,
+      spot.x,
+      spot.y,
+      false,
+      spot.rotation,
+      true,
+      undefined,
+      undefined,
+      false,
+      { wallId: recommendation.wallId, wallOffset: recommendation.gap.start, peninsulaSide: recommendation.cabinetSide },
+    );
+    setPeninsulaFitRecommendation(null);
+    setPlacementWarning(null);
+  }, [addCabinet, peninsulaFitRecommendation, room]);
 
 			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
 		    setPlaced((prev) => {
@@ -11180,8 +11260,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                    </div>
 		                  </TooltipContent>
 		                </Tooltip>}
-		                <button type="button" onClick={() => { setPlacementWarning(null); setFailedWallFit(null); }} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
+		                <button type="button" onClick={() => { setPlacementWarning(null); setFailedWallFit(null); setPeninsulaFitRecommendation(null); }} className="rounded p-0.5 text-amber-800 hover:bg-amber-100" aria-label="Dismiss placement warning"><X className="h-4 w-4" /></button>
 	              </div>
+	              {peninsulaFitRecommendation && <div data-testid="peninsula-fit-recommendation" className="mt-2 rounded-md border border-[#d9c196] bg-white/90 p-2">
+	                <p className="font-semibold text-[#634b20]">Recommended cabinet for this {peninsulaFitRecommendation.cabinetSide} peninsula face</p>
+	                <p className="mt-0.5 text-xs text-[#765416]">{peninsulaFitRecommendation.cabinet.masterCode} is an available selected-line cabinet that fits the measured {formatEighthInches(peninsulaFitRecommendation.gap.length)} opening.</p>
+	                <Button type="button" size="sm" className="mt-2 h-8 text-xs" onClick={placePeninsulaFitRecommendation}>
+	                  Place {peninsulaFitRecommendation.cabinet.masterCode} on {peninsulaFitRecommendation.cabinetSide} side
+	                </Button>
+	              </div>}
 	              {failedWallFit && <div data-testid="failed-wall-smart-fit" className="mt-2 rounded-md border border-[#d9c196] bg-white/90 p-2">
 	                <p className="font-semibold text-[#634b20]">Smaller matching wall-cabinet options for the {formatEighthInches(failedWallFit.gap.length)} opening</p>
 	                <p className="mt-0.5 text-xs text-[#765416]">Select a suggested cabinet row to place it immediately in this measured opening. Preview remains temporary.</p>
@@ -11781,7 +11868,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          <option value="right">Right side — cabinet backs meet this face</option>
 	                        </select>
 	                      </label>
-	                      <p className="text-[11px] leading-4 text-muted-foreground">This sets the face used by new cabinets. Existing peninsula cabinets retain their selected face.</p>
+	                      <p className="text-[11px] leading-4 text-muted-foreground">This is the authoritative peninsula face for new cabinets, measured openings, fit recommendations, seating, and waterfall direction. Existing cabinets keep their saved face.</p>
+	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
+	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Seating overhang
+	                          <select value={wallSettingsDraft.countertopSeatingOverhang} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopSeatingOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
+	                            <option value={0}>Standard edge</option>
+	                            <option value={10}>10 in. seating</option>
+	                            <option value={12}>12 in. seating</option>
+	                          </select>
+	                        </label>
+	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Exposed far end
+	                          <select value={wallSettingsDraft.countertopWaterfallEnd ? "waterfall" : "standard"} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopWaterfallEnd: event.target.value === "waterfall" } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
+	                            <option value="standard">Standard edge</option>
+	                            <option value="waterfall">Waterfall to floor</option>
+	                          </select>
+	                        </label>
+	                      </div>
 	                      <div className="grid gap-1.5 border-t pt-3">
 	                        <p className="text-xs font-semibold text-foreground">Attach a return to this end</p>
 	                        <p className="text-[11px] leading-4 text-muted-foreground">Creates an empty connected run. Select it next to set its length, height, cabinet face, or another return.</p>

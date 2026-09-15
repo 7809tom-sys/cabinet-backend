@@ -1223,6 +1223,10 @@ export interface PeninsulaRun {
   height: number;
   /** Default face for new cabinets placed on this two-sided peninsula run. */
   cabinetSide?: PeninsulaCabinetSide;
+  /** Extra seating projection past the cabinet front on the selected cabinet side. */
+  countertopSeatingOverhang?: 0 | 10 | 12;
+  /** A full-height counter panel at this run's exposed far end. */
+  countertopWaterfallEnd?: boolean;
   label?: string;
 }
 
@@ -1342,6 +1346,45 @@ export function peninsulaRunHitAtPoint(
 export function peninsulaRunById(room: RoomData, wallId?: string | null): PeninsulaRun | null {
   if (!wallId) return null;
   return room.peninsulaRuns?.find((run) => run.id === wallId) ?? null;
+}
+
+/**
+ * Older saved plans can contain cabinets visibly seated on a peninsula without
+ * the explicit `wallId` / `wallOffset` metadata added for connected runs. Those
+ * legacy records otherwise look like perimeter cabinets to the free-span and
+ * collision routines: a new cabinet is placed into their occupied space and is
+ * then rejected as an overlap. Recover the unambiguous run ownership from the
+ * existing saved geometry, preserving its actual width, face side, and position.
+ * Cabinets already assigned to a room wall, island, custom wall, or peninsula
+ * are deliberately left untouched.
+ */
+export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  if (!room.peninsulaRuns?.length) return placed;
+  let changed = false;
+  const normalized = placed.map((cabinet) => {
+    if (cabinet.wallId || cabinet.islandFace || !["base", "wall", "tall", "appliance"].includes(cabinet.placement)) return cabinet;
+    const footprint = placedFootprint(cabinet);
+    const width = Math.max(0, Number(cabinet.width) || 0);
+    const depth = Math.max(0, Number(cabinet.depth) || 0);
+    if (width <= 0 || depth <= 0) return cabinet;
+    const center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
+    const hit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
+    if (!hit) return cabinet;
+    const { radians } = peninsulaRunEndpoints(hit.run, room);
+    const tangentRotation = ((radians * 180) / Math.PI + 360) % 360;
+    const rotationDistance = (left: number, right: number) => Math.abs((((left - right + 540) % 360) - 180));
+    const matchesRunAxis = rotationDistance(cabinet.rotation, tangentRotation) <= 0.51
+      || rotationDistance(cabinet.rotation, tangentRotation + 180) <= 0.51;
+    if (!matchesRunAxis) return cabinet;
+    const start = peninsulaRunEndpoints(hit.run, room).start;
+    const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
+    const lateral = (center.x - start.x) * leftNormal.x + (center.y - start.y) * leftNormal.y;
+    const peninsulaSide: PeninsulaCabinetSide = lateral >= 0 ? "left" : "right";
+    const spot = wallPlacementAt(hit.offset - width / 2, width, depth, hit.run.id as WallSide, room, peninsulaSide);
+    changed = true;
+    return { ...cabinet, ...spot, wallId: hit.run.id, wallOffset: spot.wallOffset ?? 0, peninsulaSide: spot.peninsulaSide ?? peninsulaSide };
+  });
+  return changed ? normalized : placed;
 }
 
 /**
@@ -4407,16 +4450,26 @@ export function countertopArea(
   placed: PlacedCabinet[],
   island?: IslandZone | null,
   islandSlabs?: readonly CountertopSlabMeasurement[] | null,
+  room?: RoomData | null,
 ): CountertopMeasurement {
   const hasExplicitIslandFaces = island ? placed.some((item) => item.islandFace != null) : false;
   const isIslandMember = (item: PlacedCabinet) => island != null && (
     hasExplicitIslandFaces ? item.islandFace != null : isOnIsland(item, island)
   );
   const perimeterPlaced = island ? placed.filter((item) => !isIslandMember(item)) : placed;
-  const runInches = perimeterPlaced
-    .filter((p) => p.placement === "base")
+  const peninsulaRunIds = new Set((room?.peninsulaRuns ?? []).map((run) => run.id));
+  const straightRunInches = perimeterPlaced
+    .filter((p) => p.placement === "base" && !peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM)))
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
-  let squareIn = runInches * COUNTERTOP_DEPTH_IN;
+  const peninsulaSurfaces = room
+    ? (room.peninsulaRuns ?? []).flatMap((run) => perimeterPlaced.some((cabinet) =>
+        bearsCountertop(cabinet) && cabinetWall(cabinet, room) === run.id && Number(cabinet.width) > 0,
+      ) ? [peninsulaCountertopSurface(run, room)] : [])
+    : [];
+  const peninsulaRunInches = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.linearInches ?? 0), 0);
+  const peninsulaSquareIn = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.areaInches ?? 0), 0);
+  const runInches = straightRunInches + peninsulaRunInches;
+  let squareIn = straightRunInches * COUNTERTOP_DEPTH_IN + peninsulaSquareIn;
   let islandSquareIn = 0;
   const islandSupports = island ? placed.filter((item) => isIslandMember(item) && bearsIslandCountertop(item)) : [];
   const measuredIslandSquareIn = island && islandSlabs != null
@@ -4451,16 +4504,20 @@ export function countertopArea(
   // the countertop height from floor and as deep as the cabinet depth).
   let waterfallSqIn = 0;
   for (const p of perimeterPlaced) {
-    if (p.placement !== "base") continue;
+    if (p.placement !== "base" || peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM))) continue;
     const sides = (p.waterfallLeft ? 1 : 0) + (p.waterfallRight ? 1 : 0);
     if (sides === 0) continue;
     const h = placedHeight(p); // cabinet box height (typically 34.5")
     const d = p.depth;         // cabinet depth (typically 24")
     waterfallSqIn += sides * h * d;
   }
+  for (const surface of peninsulaSurfaces) {
+    const run = room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
+    if (run?.countertopWaterfallEnd) waterfallSqIn += STD.BASE_HEIGHT * (COUNTERTOP_DEPTH_IN + (run.countertopSeatingOverhang ?? 0));
+  }
   squareIn += waterfallSqIn;
   const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
-  const perimeterSquareFeet = Math.ceil((((runInches * COUNTERTOP_DEPTH_IN) + waterfallSqIn) / 144) * 10) / 10;
+  const perimeterSquareFeet = Math.ceil(((straightRunInches * COUNTERTOP_DEPTH_IN + peninsulaSquareIn + waterfallSqIn) / 144) * 10) / 10;
   const islandSquareFeet = Math.ceil((islandSquareIn / 144) * 10) / 10;
   return {
     runInches,
@@ -6631,6 +6688,12 @@ export interface CountertopSurface {
   kind: "base" | "island";
   /** Optional locked plan rotation for a cabinet-supported peninsula slab. */
   rotation?: number;
+  /** Explicit-run identity for a continuous cabinet-supported peninsula slab. */
+  peninsulaRunId?: string;
+  /** Physical slab length used for takeoff when the plan rectangle is rotated. */
+  linearInches?: number;
+  /** Physical slab area used for takeoff when the plan rectangle is rotated. */
+  areaInches?: number;
 }
 
 /**
@@ -6685,6 +6748,45 @@ export function bearsCountertop(p: {
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (/\bfiller\b|\bscribe\b/.test(hay)) return false;
   return true;
+}
+
+/**
+ * A peninsula slab is one continuous, cabinet-supported run. It deliberately
+ * spans released cabinet voids on that run, but an entirely empty peninsula
+ * receives no invented countertop. The seating projection follows the selected
+ * cabinet face so it always extends beyond cabinet fronts rather than through
+ * the peninsula wall.
+ */
+export function peninsulaCountertopSurface(run: PeninsulaRun, room: RoomData): CountertopSurface {
+  const seating = run.countertopSeatingOverhang === 10 || run.countertopSeatingOverhang === 12
+    ? run.countertopSeatingOverhang
+    : 0;
+  const slabDepth = COUNTERTOP_DEPTH_IN + seating;
+  const spot = wallPlacementAt(0, run.length, slabDepth, run.id as WallSide, room, run.cabinetSide ?? "left");
+  const footprint = placedFootprint({
+    uid: `peninsula-countertop-${run.id}`,
+    cabinetId: 0,
+    masterCode: "PENINSULA-COUNTERTOP",
+    description: "Peninsula countertop",
+    placement: "base",
+    x: spot.x,
+    y: spot.y,
+    width: run.length,
+    depth: slabDepth,
+    height: STD.COUNTERTOP_THICKNESS,
+    rotation: spot.rotation,
+  });
+  return {
+    x: spot.x,
+    y: spot.y,
+    width: footprint.w,
+    depth: footprint.d,
+    kind: "base",
+    rotation: spot.rotation,
+    peninsulaRunId: run.id,
+    linearInches: run.length,
+    areaInches: run.length * slabDepth,
+  };
 }
 
 /**
@@ -6762,13 +6864,10 @@ export function countertopSurfaces(
     const side = cabinetWall(p, room);
     const footprint = placedFootprint(p);
     const peninsula = peninsulaRunById(room, side);
-    if (peninsula) {
-      // wallPlacementAt already seats this cabinet on its exact peninsula line.
-      // Keep the counter directly supported by the box and rotate it together
-      // with the locked 45°/90° run instead of projecting it onto a room edge.
-      out.push({ x: p.x, y: p.y, width: footprint.w, depth: footprint.d, kind: "base", rotation: p.rotation });
-      continue;
-    }
+    // Explicit peninsula runs are collected below into a single continuous
+    // cabinet-supported slab. That avoids seams and maintains coverage over an
+    // intentional void between two cabinets.
+    if (peninsula) continue;
     const horizontalWall = side === "top" || side === "bottom";
     const runSpan = horizontalWall ? footprint.w : footprint.d;
     const rearExtension = blindCornerRearCountertopExtensionIn(p, room);
@@ -6807,64 +6906,18 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
-  // A primary peninsula leaves an ordinary room wall. When a counter-bearing
-  // wall base covers its attachment point and a counter-bearing base begins the
-  // peninsula, add only the supported joint pad between them. The individual
-  // peninsula cabinet slabs extend the remainder of the run; an empty run never
-  // receives invented countertop.
+  // Every cabinet-supported peninsula receives one continuous countertop from
+  // its wall attachment to its exposed end. It deliberately bridges an
+  // intentional void in that run, while a peninsula with no base support
+  // remains bare. This also avoids double-counting separate cabinet slabs and
+  // attachment pads in plan, price, and materials takeoff.
   for (const run of room.peninsulaRuns ?? []) {
-    if (!run.parentWall) continue;
-    const peninsulaSupportedAtStart = placed.some((cabinet) =>
+    const hasCountertopSupport = placed.some((cabinet) =>
       bearsCountertop(cabinet) &&
       cabinetWall(cabinet, room) === run.id &&
-      (Number(cabinet.wallOffset) || 0) <= COLLISION_EPSILON_IN,
+      Number(cabinet.width) > 0,
     );
-    const parentWallSupportsAttachment = placed.some((cabinet) => {
-      if (!bearsCountertop(cabinet) || cabinetWall(cabinet, room) !== run.parentWall) return false;
-      const footprint = placedFootprint(cabinet);
-      const horizontalParent = run.parentWall === "top" || run.parentWall === "bottom";
-      const alongStart = horizontalParent ? cabinet.x : cabinet.y;
-      const alongSpan = horizontalParent ? footprint.w : footprint.d;
-      return alongStart <= run.startOffset + COLLISION_EPSILON_IN &&
-        alongStart + alongSpan >= run.startOffset - COLLISION_EPSILON_IN;
-    });
-    if (!peninsulaSupportedAtStart || !parentWallSupportsAttachment) continue;
-    const joint = peninsulaRunEndpoints(run, room).start;
-    out.push({
-      x: Math.max(0, Math.min(room.width - D, joint.x - D / 2)),
-      y: Math.max(0, Math.min(room.depth - D, joint.y - D / 2)),
-      width: D,
-      depth: D,
-      kind: "base",
-    });
-  }
-  // A return and its parent form one connected kitchen run. When both sides of
-  // that exact joint have a counter-bearing base cabinet at the connection, add
-  // a compact shared joint slab. This keeps the visible counter continuous
-  // without inventing an unsupported bridge on an empty run.
-  for (const child of room.peninsulaRuns ?? []) {
-    if (!child.parentRunId) continue;
-    const parent = peninsulaRunById(room, child.parentRunId);
-    if (!parent) continue;
-    const parentSupportedAtEnd = placed.some((cabinet) =>
-      bearsCountertop(cabinet) &&
-      cabinetWall(cabinet, room) === parent.id &&
-      (Number(cabinet.wallOffset) || 0) + Number(cabinet.width) >= parent.length - COLLISION_EPSILON_IN,
-    );
-    const childSupportedAtStart = placed.some((cabinet) =>
-      bearsCountertop(cabinet) &&
-      cabinetWall(cabinet, room) === child.id &&
-      (Number(cabinet.wallOffset) || 0) <= COLLISION_EPSILON_IN,
-    );
-    if (!parentSupportedAtEnd || !childSupportedAtStart) continue;
-    const joint = peninsulaRunEndpoints(parent, room).end;
-    out.push({
-      x: joint.x - D / 2,
-      y: joint.y - D / 2,
-      width: D,
-      depth: D,
-      kind: "base",
-    });
+    if (hasCountertopSupport) out.push(peninsulaCountertopSurface(run, room));
   }
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));

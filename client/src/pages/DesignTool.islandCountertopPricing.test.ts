@@ -5,7 +5,7 @@ const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8"
 
 describe("Designer island countertop pricing", () => {
   it("measures the same visible island countertop fragments used by the 2D and 3D renderers", () => {
-    expect(source).toContain("countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null)");
+    expect(source).toContain("countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null, room)");
   });
 
   it("passes measured countertop square footage into priced surface quantities and totals", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -223,6 +223,16 @@ describe("cabinet-supported peninsula runs", () => {
     expect(peninsulaRunOffsetAtPoint(run, peninsulaRoom, { x: 48, y: 220 })).toBe(96);
   });
 
+  it("recovers unambiguous legacy peninsula ownership before measuring the next edge-to-edge opening", () => {
+    const legacy = { ...peninsulaCabinet("legacy-ber33", 30), wallId: undefined, wallOffset: undefined };
+    const normalized = normalizeLegacyPeninsulaCabinets([legacy], peninsulaRoom);
+    expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
+    const next = wallPlacementAt(0, 30, 24, "peninsula-90-right" as any, peninsulaRoom);
+    const candidate = { ...peninsulaCabinet("new-b12", 0), ...next, wallId: next.wallId, wallOffset: next.wallOffset };
+    expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
+    expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 0, length: 30 });
+  });
+
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
     const hit = peninsulaRunHitAtPoint(peninsulaRoom, { x: 49, y: 60 }, 12);
     expect(hit).toMatchObject({ run: { id: "peninsula-90-right" }, offset: 60 });
@@ -258,7 +268,7 @@ describe("cabinet-supported peninsula runs", () => {
   it("keeps peninsula base cabinets in normal counter, price, and materials workflows", () => {
     const base = peninsulaCabinet("pen-priced", 0);
     expect(countertopSurfaces([base], peninsulaRoom)).toEqual([
-      expect.objectContaining({ kind: "base", rotation: 90 }),
+      expect.objectContaining({ kind: "base", rotation: 90, peninsulaRunId: "peninsula-90-right", linearInches: 96 }),
     ]);
     const lines = buildDesignCabinetCartLines({
       placed: [base],
@@ -274,25 +284,20 @@ describe("cabinet-supported peninsula runs", () => {
     ]);
   });
 
-  it("joins the perimeter counter to a peninsula only where both cabinet runs support the attachment", () => {
-    const wallSpot = wallPlacementAt(24, 30, 24, "top", peninsulaRoom);
-    const wallCabinet: PlacedCabinet = {
-      ...peninsulaCabinet("wall-support", 0),
-      ...wallSpot,
-      wallId: "top",
-      wallOffset: 24,
+  it("bridges a supported peninsula void and extends the selected cabinet face for seating", () => {
+    const start = peninsulaCabinet("peninsula-start", 0);
+    const end = peninsulaCabinet("peninsula-end", 66);
+    const withSeating: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], countertopSeatingOverhang: 12, countertopWaterfallEnd: true }],
     };
-    const peninsulaStart = peninsulaCabinet("peninsula-start", 0);
-    const supported = countertopSurfaces([wallCabinet, peninsulaStart], peninsulaRoom);
-    expect(countertopSurfaces([peninsulaStart], peninsulaRoom)).not.toContainEqual(
-      expect.objectContaining({ x: 35.25, y: 0, width: 25.5, depth: 25.5, kind: "base" }),
-    );
-    expect(supported).toContainEqual(
-      expect.objectContaining({ x: 35.25, y: 0, width: 25.5, depth: 25.5, kind: "base" }),
-    );
+    const surface = countertopSurfaces([start, end], withSeating).find((item) => item.peninsulaRunId === "peninsula-90-right");
+    expect(surface).toMatchObject({ linearInches: 96, areaInches: 96 * 37.5, rotation: 90 });
+    expect(surface).toEqual(peninsulaCountertopSurface(withSeating.peninsulaRuns![0], withSeating));
+    expect(countertopSurfaces([], withSeating)).toEqual([]);
   });
 
-  it("bridges a connected counter joint only when both joined runs are cabinet-supported", () => {
+  it("gives each cabinet-supported connected run its own continuous countertop without inventing one for an empty return", () => {
     const parent = peninsulaRoom.peninsulaRuns![0];
     const child = { id: "return-with-counter", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 42, height: 34.5 };
     const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
@@ -300,11 +305,14 @@ describe("cabinet-supported peninsula runs", () => {
     const childSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
     const parentCabinet = { ...peninsulaCabinet("parent-joint", 66), ...parentSpot, wallOffset: 66, wallId: parent.id };
     const childCabinet = { ...peninsulaCabinet("child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
-    expect(countertopSurfaces([parentCabinet], room).some((surface) => surface.x === 35.25 && surface.y === 83.25 && surface.width === 25.5)).toBe(false);
-    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toContainEqual(expect.objectContaining({ x: 35.25, y: 83.25, width: 25.5, depth: 25.5, kind: "base" }));
+    expect(countertopSurfaces([parentCabinet], room)).toEqual([expect.objectContaining({ peninsulaRunId: parent.id })]);
+    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ peninsulaRunId: parent.id }),
+      expect.objectContaining({ peninsulaRunId: child.id }),
+    ]));
   });
 
-  it("adds the same supported counter joint at a locked 45-degree connected corner", () => {
+  it("retains continuous countertop coverage on a locked 45-degree peninsula run", () => {
     const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "angled-parent", turn: 45 as const, direction: "right" as const, startOffset: 72, length: 36 };
     const child = { id: "angled-return", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 30, height: 34.5 };
     const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
@@ -312,7 +320,10 @@ describe("cabinet-supported peninsula runs", () => {
     const childSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
     const parentCabinet = { ...peninsulaCabinet("angled-parent-joint", 6), ...parentSpot, wallOffset: 6, wallId: parent.id };
     const childCabinet = { ...peninsulaCabinet("angled-child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
-    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toContainEqual(expect.objectContaining({ x: 33.75, y: 12.75, width: 25.5, depth: 25.5, kind: "base" }));
+    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ peninsulaRunId: parent.id, linearInches: 36, rotation: 135 }),
+      expect.objectContaining({ peninsulaRunId: child.id, linearInches: 30 }),
+    ]));
   });
 
   it("deletes only the selected peninsula and its owned cabinets, clearing derived counter, price, and materials entries", () => {

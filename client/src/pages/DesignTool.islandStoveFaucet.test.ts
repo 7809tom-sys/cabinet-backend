@@ -9,7 +9,7 @@ const fabricatorSource = fs.readFileSync(path.resolve(__dirname, "FabricatorShee
 
 describe("island stove and faucet rendering routes", () => {
   it("uses visible island countertop fragments for cart quantities instead of the pre-cutout slab", () => {
-    expect(designerSource).toContain("countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null)");
+    expect(designerSource).toContain("countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null, room)");
   });
 
   it("uses the same visible fragments in the plan and native 3D island slab renderers", () => {

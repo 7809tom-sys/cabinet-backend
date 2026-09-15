@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSurface, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -2752,7 +2752,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressCountertop?: boolean; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -4522,7 +4522,7 @@ export function addCabinet(
   applyThreeDPlacementIdentity(cabinet, placementIdentity);
   root.add(cabinet);
 
-  if (shouldRenderCountertopOverSceneItem({
+  if (!surfaceTextures?.suppressCountertop && shouldRenderCountertopOverSceneItem({
     placement: placement as PlacedCabinet["placement"],
     masterCode: sku.masterCode,
     description: sku.description ?? "",
@@ -4875,6 +4875,43 @@ export function existingCabinetTransform(
   if (legacyWall === "back") z = depth / 2;
   if (legacyWall === "front") z = (room as Pick<RoomData, "depth">).depth - depth / 2;
   return { x, z, rotation, bottom };
+}
+
+/** One physical top per occupied peninsula: voids remain covered, and only the exposed far end may waterfall. */
+export function addThreeDPeninsulaCountertops(
+  root: THREE.Group,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  counterColor: string,
+  countertopTexture?: THREE.Texture | null,
+) {
+  for (const run of room.peninsulaRuns ?? []) {
+    if (!placed.some((cabinet) => bearsCountertop(cabinet) && cabinetWall(cabinet, room) === run.id)) continue;
+    const surface = peninsulaCountertopSurface(run, room);
+    const length = Math.max(0.1, surface.linearInches ?? run.length);
+    const depth = Math.max(0.1, (surface.areaInches ?? length * 25.5) / length);
+    const rotation = (surface.rotation ?? 0) * Math.PI / 180;
+    const centerX = surface.x + surface.width / 2;
+    const centerZ = surface.y + surface.depth / 2;
+    const mappedTexture = countertopTexture ? threeDTextureForCountertopMesh(countertopTexture, {
+      centerXIn: centerX, centerZIn: centerZ, localWidthIn: length, localDepthIn: depth, rotation,
+      slabWidthIn: Number(countertopTexture.userData?.physicalWidthIn) || 138,
+      slabDepthIn: Number(countertopTexture.userData?.physicalDepthIn) || 79,
+    }) : null;
+    const material = new THREE.MeshPhysicalMaterial({ color: mappedTexture ? "#ffffff" : counterColor, map: mappedTexture, ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)) });
+    material.userData = { selectedSurfaceRole: "countertop", peninsulaContinuousSlab: true, materialOnlyNoGeometryChange: true };
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(length * INCH, STD.COUNTERTOP_THICKNESS * INCH, depth * INCH), material);
+    slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    slab.rotation.y = rotation;
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, seatingOverhangIn: run.countertopSeatingOverhang ?? 0, bridgesCabinetVoids: true };
+    root.add(slab);
+    if (!run.countertopWaterfallEnd) continue;
+    const waterfall = new THREE.Mesh(new THREE.BoxGeometry(STD.COUNTERTOP_THICKNESS * INCH, STD.COUNTERTOP_HEIGHT * INCH, depth * INCH), material.clone());
+    waterfall.position.set((centerX + Math.cos(rotation) * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH, STD.COUNTERTOP_HEIGHT * INCH / 2, (centerZ + Math.sin(rotation) * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH);
+    waterfall.rotation.y = rotation;
+    waterfall.userData = { peninsulaWaterfall: true, peninsulaRunId: run.id, exposedFarEnd: true };
+    root.add(waterfall);
+  }
 }
 
 type CrownPoint = { x: number; z: number };
@@ -7321,13 +7358,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          && sink.type === "farmhouse"
 	          && Boolean(sink.pelicanProfileId)
 	        ));
+	        const sharedPeninsulaCounter = Boolean(roomOverride?.peninsulaRuns?.some((run) => cabinetWall(cabinet, roomOverride) === run.id && bearsCountertop(cabinet)));
 	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
 	          countertop: countertopTexture,
+	          suppressCountertop: sharedPeninsulaCounter,
 	          selectedToeKick: toeKick,
 	          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
 	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 	        });
 	      }
+	      if (roomOverride) addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
